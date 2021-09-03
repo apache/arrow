@@ -426,6 +426,7 @@ class TestListArray : public TestBuilder {
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    array_data->null_count += 3;
     auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
     ASSERT_OK(list_array->ValidateFull());
     ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
@@ -1036,7 +1037,7 @@ void ValidateBasicFixedSizeListArray(const FixedSizeListArray* result,
     ASSERT_EQ(is_valid[i] == 0, result->IsNull(i));
   }
 
-  ASSERT_EQ(result->length() * result->value_length(), result->values()->length());
+  ASSERT_LE(result->length() * result->value_length(), result->values()->length());
   auto varr = std::dynamic_pointer_cast<Int32Array>(result->values());
 
   for (size_t i = 0; i < values.size(); ++i) {
@@ -1084,7 +1085,7 @@ TEST_F(TestFixedSizeListArray, BulkAppend) {
   ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
 }
 
-TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
+TEST_F(TestFixedSizeListArray, BulkAppendExcess) {
   std::vector<int32_t> values = {0, 1, 2, 3, 4, 5};
   std::vector<uint8_t> is_valid = {1, 0, 1};
 
@@ -1099,7 +1100,8 @@ TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
   }
 
   Done();
-  ASSERT_RAISES(Invalid, result_->ValidateFull());
+  // We appended too many values to the child array, but that's OK
+  ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
 }
 
 TEST_F(TestFixedSizeListArray, TestZeroLength) {
@@ -1129,6 +1131,18 @@ TEST_F(TestFixedSizeListArray, NegativeLength) {
   auto values = ArrayFromJSON(value_type_, "[]");
   result_ = std::make_shared<FixedSizeListArray>(type_, 0, values);
   ASSERT_RAISES(Invalid, result_->ValidateFull());
+}
+
+TEST_F(TestFixedSizeListArray, NotEnoughValues) {
+  type_ = fixed_size_list(value_type_, 2);
+  auto values = ArrayFromJSON(value_type_, "[]");
+  result_ = std::make_shared<FixedSizeListArray>(type_, 1, values);
+  ASSERT_RAISES(Invalid, result_->ValidateFull());
+
+  // ARROW-13437: too many values is OK though
+  values = ArrayFromJSON(value_type_, "[1, 2, 3, 4]");
+  result_ = std::make_shared<FixedSizeListArray>(type_, 1, values);
+  ASSERT_OK(result_->ValidateFull());
 }
 
 }  // namespace arrow

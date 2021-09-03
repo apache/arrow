@@ -19,8 +19,9 @@
 
 set -ex
 
-source_dir=${1}
-build_dir=${2}
+arch=${1}
+source_dir=${2}
+build_dir=${3}
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -31,11 +32,32 @@ rm -rf ${source_dir}/python/repaired_wheels
 rm -rf ${source_dir}/python/pyarrow/*.so
 rm -rf ${source_dir}/python/pyarrow/*.so.*
 
-echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
-# Arrow is 64-bit-only at the moment
-export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//-arch i386/}"
-export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//-arch i386} -std=c++11"
-export SDKROOT="$(xcrun --show-sdk-path)"
+echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
+export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-${arch}"
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
+export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
+
+if [ $arch = "arm64" ]; then
+  export CMAKE_OSX_ARCHITECTURES="arm64"
+elif [ $arch = "x86_64" ]; then
+  export CMAKE_OSX_ARCHITECTURES="x86_64"
+elif [ $arch = "universal2" ]; then
+  export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+else
+  echo "Unexpected architecture: $arch"
+  exit 1
+fi
+
+echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
+export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
+export PIP_TARGET_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_${arch}"
+
+pip install \
+  --only-binary=:all: \
+  --target $PIP_SITE_PACKAGES \
+  --platform $PIP_TARGET_PLATFORM \
+  -r ${source_dir}/python/requirements-wheel-build.txt
+pip install "delocate>=0.9"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -48,6 +70,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=ON}
+: ${ARROW_SIMD_LEVEL:="SSE4_2"}
 : ${ARROW_TENSORFLOW:=ON}
 : ${ARROW_WITH_BROTLI:=ON}
 : ${ARROW_WITH_BZ2:=ON}
@@ -57,19 +80,23 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_ZSTD:=ON}
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_GENERATOR:=Ninja}
+: ${CMAKE_UNITY_BUILD:=ON}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
 
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
+
 cmake \
     -DARROW_BUILD_SHARED=ON \
+    -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
+    -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_DATASET=${ARROW_DATASET} \
     -DARROW_DEPENDENCY_SOURCE="VCPKG" \
     -DARROW_DEPENDENCY_USE_SHARED=OFF \
-    -DARROW_FLIGHT==${ARROW_FLIGHT} \
+    -DARROW_FLIGHT=${ARROW_FLIGHT} \
     -DARROW_GANDIVA=${ARROW_GANDIVA} \
     -DARROW_HDFS=${ARROW_HDFS} \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
@@ -81,6 +108,7 @@ cmake \
     -DARROW_PYTHON=ON \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_S3=${ARROW_S3} \
+    -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
     -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
     -DARROW_USE_CCACHE=ON \
     -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
@@ -92,7 +120,7 @@ cmake \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
-    -DCMAKE_UNITY_BUILD=ON \
+    -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
@@ -100,9 +128,6 @@ cmake \
     ${source_dir}/cpp
 cmake --build . --target install
 popd
-
-# Check that we don't expose any unwanted symbols
-# check_arrow_visibility
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -117,8 +142,11 @@ export PYARROW_WITH_ORC=${ARROW_ORC}
 export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
 export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
 export PYARROW_WITH_S3=${ARROW_S3}
+export PYARROW_CMAKE_OPTIONS="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 # PyArrow build configuration
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
+# Set PyArrow version explicitly
+export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
 python setup.py bdist_wheel
@@ -127,7 +155,11 @@ popd
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
 deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
-if echo $deps | grep -v "^@rpath/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
+if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
+
+# Move the verified wheels
+mkdir -p ${source_dir}/python/repaired_wheels
+mv ${source_dir}/python/dist/*.whl ${source_dir}/python/repaired_wheels/

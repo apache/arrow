@@ -47,6 +47,15 @@
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
 
+namespace arrow {
+namespace compute {
+
+class ExecPlan;
+class ExecNode;
+
+}  // namespace compute
+}  // namespace arrow
+
 #if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/type_fwd.h>
 #endif
@@ -58,10 +67,9 @@ namespace ds = ::arrow::dataset;
 namespace compute = ::arrow::compute;
 namespace fs = ::arrow::fs;
 
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 arrow::MemoryPool* gc_memory_pool();
+arrow::compute::ExecContext* gc_context();
 
 #if (R_VERSION < R_Version(3, 5, 0))
 #define LOGICAL_RO(x) ((const int*)LOGICAL(x))
@@ -164,6 +172,12 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
 
 arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
+
+#if defined(HAS_ALTREP)
+void Init_Altrep_classes(DllInfo* dll);
+SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array);
+SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array);
+#endif
 
 }  // namespace r
 }  // namespace arrow

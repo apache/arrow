@@ -31,7 +31,7 @@ import {
     RecordBatchReader,
     RecordBatchFileReader,
     AsyncRecordBatchFileReader
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 

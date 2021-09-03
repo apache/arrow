@@ -19,7 +19,8 @@
 
 # Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
-ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
+ArrowDatum <- R6Class("ArrowDatum",
+  inherit = ArrowObject,
   public = list(
     cast = function(target_type, safe = TRUE, ...) {
       opts <- cast_options(safe, ...)
@@ -47,10 +48,20 @@ is.infinite.ArrowDatum <- function(x) {
 }
 
 #' @export
-is.na.ArrowDatum <- function(x) call_function("is_null", x)
+is.na.ArrowDatum <- function(x) {
+  call_function("is_null", x, options = list(nan_is_null = TRUE))
+}
 
 #' @export
-is.nan.ArrowDatum <- function(x) call_function("is_nan", x)
+is.nan.ArrowDatum <- function(x) {
+  if (x$type_id() %in% TYPES_WITH_NAN) {
+    # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
+    # use that to simplify the code here (ARROW-13366)
+    call_function("is_nan", x) & call_function("is_valid", x)
+  } else {
+    Scalar$create(FALSE)$as_array(length(x))
+  }
+}
 
 #' @export
 as.vector.ArrowDatum <- function(x, mode) {
@@ -91,15 +102,14 @@ eval_array_expression <- function(FUN,
   # integer inputs and floating-point division on floats
   if (FUN == "/") {
     # TODO: omg so many ways it's wrong to assume these types
-    args <- map(args, ~.$cast(float64()))
+    args <- map(args, ~ .$cast(float64()))
   } else if (FUN == "%/%") {
     # In R, integer division works like floor(float division)
     out <- eval_array_expression("/", args = args, options = options)
     return(out$cast(int32(), allow_float_truncate = TRUE))
   } else if (FUN == "%%") {
-    # {e1 - e2 * ( e1 %/% e2 )}
-    # ^^^ form doesn't work because Ops.Array evaluates eagerly,
-    # but we can build that up
+    # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
+    # eagerly, but we can build that up
     quotient <- eval_array_expression("%/%", args = args)
     base <- eval_array_expression("*", quotient, args[[2]])
     # this cast is to ensure that the result of this and e1 are the same
@@ -177,7 +187,7 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
     if (is.Array(i)) {
       stop("Cannot extract rows with an Array of type ", i$type$ToString(), call. = FALSE)
     }
-    stop("Cannot extract rows with an object of class ", class(i), call.=FALSE)
+    stop("Cannot extract rows with an object of class ", class(i), call. = FALSE)
   }
 }
 

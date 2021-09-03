@@ -31,6 +31,7 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
       std::make_shared<arrow::csv::WriteOptions>(arrow::csv::WriteOptions::Defaults());
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
+  res->io_context = arrow::io::IOContext(gc_memory_pool());
   return res;
 }
 
@@ -111,7 +112,7 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   if (!Rf_isNull(op_timestamp_parsers)) {
     std::vector<std::shared_ptr<arrow::TimestampParser>> timestamp_parsers;
 
-    // if we have a character vector, convert to arrow::TimestampParser
+    // if we have a character vector, convert to arrow::StrptimeTimestampParser
     if (TYPEOF(op_timestamp_parsers) == STRSXP) {
       cpp11::strings s_timestamp_parsers(op_timestamp_parsers);
       for (cpp11::r_string s : s_timestamp_parsers) {
@@ -190,8 +191,7 @@ std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
 void csv___WriteCSV__Table(const std::shared_ptr<arrow::Table>& table,
                            const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
                            const std::shared_ptr<arrow::io::OutputStream>& stream) {
-  StopIfNotOk(
-      arrow::csv::WriteCSV(*table, *write_options, gc_memory_pool(), stream.get()));
+  StopIfNotOk(arrow::csv::WriteCSV(*table, *write_options, stream.get()));
 }
 
 // [[arrow::export]]
@@ -199,8 +199,7 @@ void csv___WriteCSV__RecordBatch(
     const std::shared_ptr<arrow::RecordBatch>& record_batch,
     const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
     const std::shared_ptr<arrow::io::OutputStream>& stream) {
-  StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, gc_memory_pool(),
-                                   stream.get()));
+  StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, stream.get()));
 }
 
 #endif

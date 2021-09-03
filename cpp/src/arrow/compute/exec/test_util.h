@@ -17,16 +17,18 @@
 
 #pragma once
 
+#include <arrow/testing/gtest_util.h>
+#include <arrow/util/vector.h>
+
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/record_batch.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/type_fwd.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace compute {
@@ -36,35 +38,60 @@ using StopProducingFunc = std::function<void(ExecNode*)>;
 
 // Make a dummy node that has no execution behaviour
 ARROW_TESTING_EXPORT
-ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, int num_inputs,
+ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
 
-using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
-
-// Make a source node (no inputs) that produces record batches by reading in the
-// background from a RecordBatchReader.
 ARROW_TESTING_EXPORT
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    std::shared_ptr<RecordBatchReader> reader,
-                                    ::arrow::internal::Executor* io_executor);
+ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
+                            util::string_view json);
 
-ARROW_TESTING_EXPORT
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    std::shared_ptr<Schema> schema,
-                                    RecordBatchGenerator generator,
-                                    ::arrow::internal::Executor* io_executor);
+struct BatchesWithSchema {
+  std::vector<ExecBatch> batches;
+  std::shared_ptr<Schema> schema;
 
-class RecordBatchCollectNode : public ExecNode {
- public:
-  virtual RecordBatchGenerator generator() = 0;
+  AsyncGenerator<util::optional<ExecBatch>> gen(bool parallel, bool slow) const {
+    DCHECK_GT(batches.size(), 0);
 
- protected:
-  using ExecNode::ExecNode;
+    auto opt_batches = ::arrow::internal::MapVector(
+        [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
+
+    AsyncGenerator<util::optional<ExecBatch>> gen;
+
+    if (parallel) {
+      // emulate batches completing initial decode-after-scan on a cpu thread
+      gen = MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
+                                    ::arrow::internal::GetCpuThreadPool())
+                .ValueOrDie();
+
+      // ensure that callbacks are not executed immediately on a background thread
+      gen =
+          MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
+    } else {
+      gen = MakeVectorGenerator(std::move(opt_batches));
+    }
+
+    if (slow) {
+      gen =
+          MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
+            SleepABit();
+            return batch;
+          });
+    }
+
+    return gen;
+  }
 };
 
 ARROW_TESTING_EXPORT
-RecordBatchCollectNode* MakeRecordBatchCollectNode(ExecPlan* plan, std::string label,
-                                                   const std::shared_ptr<Schema>& schema);
+Future<std::vector<ExecBatch>> StartAndCollect(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen);
+
+ARROW_TESTING_EXPORT
+BatchesWithSchema MakeBasicBatches();
+
+ARROW_TESTING_EXPORT
+BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
+                                    int num_batches = 10, int batch_size = 4);
 
 }  // namespace compute
 }  // namespace arrow

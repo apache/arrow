@@ -19,6 +19,7 @@
 #include "arrow/array.h"
 #include "arrow/compute/cast.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/result_internal.h"
@@ -282,65 +283,76 @@ Result<std::unique_ptr<ColumnPopulator>> MakePopulator(const Field& field, char 
   return std::unique_ptr<ColumnPopulator>(factory.populator);
 }
 
-class CSVConverter {
+class CSVWriterImpl : public ipc::RecordBatchWriter {
  public:
-  static Result<std::unique_ptr<CSVConverter>> Make(std::shared_ptr<Schema> schema,
-                                                    MemoryPool* pool) {
+  static Result<std::shared_ptr<CSVWriterImpl>> Make(
+      io::OutputStream* sink, std::shared_ptr<io::OutputStream> owned_sink,
+      std::shared_ptr<Schema> schema, const WriteOptions& options) {
+    RETURN_NOT_OK(options.Validate());
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
       char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
-      ASSIGN_OR_RAISE(populators[col],
-                      MakePopulator(*schema->field(col), end_char, pool));
+      ASSIGN_OR_RAISE(populators[col], MakePopulator(*schema->field(col), end_char,
+                                                     options.io_context.pool()));
     }
-    return std::unique_ptr<CSVConverter>(
-        new CSVConverter(std::move(schema), std::move(populators), pool));
+    auto writer = std::make_shared<CSVWriterImpl>(
+        sink, std::move(owned_sink), std::move(schema), std::move(populators), options);
+    RETURN_NOT_OK(writer->PrepareForContentsWrite());
+    if (options.include_header) {
+      RETURN_NOT_OK(writer->WriteHeader());
+    }
+    return writer;
   }
 
-  Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
-                  io::OutputStream* out) {
-    RETURN_NOT_OK(PrepareForContentsWrite(options, out));
-    RecordBatchIterator iterator = RecordBatchSliceIterator(batch, options.batch_size);
+  Status WriteRecordBatch(const RecordBatch& batch) override {
+    RecordBatchIterator iterator = RecordBatchSliceIterator(batch, options_.batch_size);
     for (auto maybe_slice : iterator) {
       ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> slice, maybe_slice);
       RETURN_NOT_OK(TranslateMinimalBatch(*slice));
-      RETURN_NOT_OK(out->Write(data_buffer_));
+      RETURN_NOT_OK(sink_->Write(data_buffer_));
+      stats_.num_record_batches++;
     }
     return Status::OK();
   }
 
-  Status WriteCSV(const Table& table, const WriteOptions& options,
-                  io::OutputStream* out) {
+  Status WriteTable(const Table& table, int64_t max_chunksize) override {
     TableBatchReader reader(table);
-    reader.set_chunksize(options.batch_size);
-    RETURN_NOT_OK(PrepareForContentsWrite(options, out));
+    reader.set_chunksize(max_chunksize > 0 ? max_chunksize : options_.batch_size);
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader.ReadNext(&batch));
     while (batch != nullptr) {
       RETURN_NOT_OK(TranslateMinimalBatch(*batch));
-      RETURN_NOT_OK(out->Write(data_buffer_));
+      RETURN_NOT_OK(sink_->Write(data_buffer_));
       RETURN_NOT_OK(reader.ReadNext(&batch));
+      stats_.num_record_batches++;
     }
 
     return Status::OK();
   }
 
- private:
-  CSVConverter(std::shared_ptr<Schema> schema,
-               std::vector<std::unique_ptr<ColumnPopulator>> populators, MemoryPool* pool)
-      : column_populators_(std::move(populators)),
-        offsets_(0, 0, ::arrow::stl::allocator<char*>(pool)),
-        schema_(std::move(schema)),
-        pool_(pool) {}
+  Status Close() override { return Status::OK(); }
 
-  Status PrepareForContentsWrite(const WriteOptions& options, io::OutputStream* out) {
+  ipc::WriteStats stats() const override { return stats_; }
+
+  CSVWriterImpl(io::OutputStream* sink, std::shared_ptr<io::OutputStream> owned_sink,
+                std::shared_ptr<Schema> schema,
+                std::vector<std::unique_ptr<ColumnPopulator>> populators,
+                const WriteOptions& options)
+      : sink_(sink),
+        owned_sink_(std::move(owned_sink)),
+        column_populators_(std::move(populators)),
+        offsets_(0, 0, ::arrow::stl::allocator<char*>(options.io_context.pool())),
+        schema_(std::move(schema)),
+        options_(options) {}
+
+ private:
+  Status PrepareForContentsWrite() {
+    // Only called once, as part of initialization
     if (data_buffer_ == nullptr) {
-      ASSIGN_OR_RAISE(
-          data_buffer_,
-          AllocateResizableBuffer(
-              options.batch_size * schema_->num_fields() * kColumnSizeGuess, pool_));
-    }
-    if (options.include_header) {
-      RETURN_NOT_OK(WriteHeader(out));
+      ASSIGN_OR_RAISE(data_buffer_,
+                      AllocateResizableBuffer(
+                          options_.batch_size * schema_->num_fields() * kColumnSizeGuess,
+                          options_.io_context.pool()));
     }
     return Status::OK();
   }
@@ -355,7 +367,8 @@ class CSVConverter {
     return header_length + (kQuoteDelimiterCount * schema_->num_fields());
   }
 
-  Status WriteHeader(io::OutputStream* out) {
+  Status WriteHeader() {
+    // Only called once, as part of initialization
     RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(), /*shrink_to_fit=*/false));
     char* next =
         reinterpret_cast<char*>(data_buffer_->mutable_data() + data_buffer_->size() - 1);
@@ -367,7 +380,7 @@ class CSVConverter {
     }
     *(data_buffer_->mutable_data() + data_buffer_->size() - 1) = '\n';
     DCHECK_EQ(reinterpret_cast<uint8_t*>(next + 1), data_buffer_->data());
-    return out->Write(data_buffer_);
+    return sink_->Write(data_buffer_);
   }
 
   Status TranslateMinimalBatch(const RecordBatch& batch) {
@@ -403,36 +416,44 @@ class CSVConverter {
   }
 
   static constexpr int64_t kColumnSizeGuess = 8;
+  io::OutputStream* sink_;
+  std::shared_ptr<io::OutputStream> owned_sink_;
   std::vector<std::unique_ptr<ColumnPopulator>> column_populators_;
   std::vector<int32_t, arrow::stl::allocator<int32_t>> offsets_;
   std::shared_ptr<ResizableBuffer> data_buffer_;
   const std::shared_ptr<Schema> schema_;
-  MemoryPool* pool_;
+  const WriteOptions options_;
+  ipc::WriteStats stats_;
 };
 
 }  // namespace
 
-Status WriteCSV(const Table& table, const WriteOptions& options, MemoryPool* pool,
+Status WriteCSV(const Table& table, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
-  RETURN_NOT_OK(options.Validate());
-  if (pool == nullptr) {
-    pool = default_memory_pool();
-  }
-  ASSIGN_OR_RAISE(std::unique_ptr<CSVConverter> converter,
-                  CSVConverter::Make(table.schema(), pool));
-  return converter->WriteCSV(table, options, output);
+  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, table.schema(), options));
+  RETURN_NOT_OK(writer->WriteTable(table));
+  return writer->Close();
 }
 
-Status WriteCSV(const RecordBatch& batch, const WriteOptions& options, MemoryPool* pool,
+Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
-  RETURN_NOT_OK(options.Validate());
-  if (pool == nullptr) {
-    pool = default_memory_pool();
-  }
+  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, batch.schema(), options));
+  RETURN_NOT_OK(writer->WriteRecordBatch(batch));
+  return writer->Close();
+}
 
-  ASSIGN_OR_RAISE(std::unique_ptr<CSVConverter> converter,
-                  CSVConverter::Make(batch.schema(), pool));
-  return converter->WriteCSV(batch, options, output);
+ARROW_EXPORT
+Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
+    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const WriteOptions& options) {
+  return CSVWriterImpl::Make(sink.get(), sink, schema, options);
+}
+
+ARROW_EXPORT
+Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const WriteOptions& options) {
+  return CSVWriterImpl::Make(sink, nullptr, schema, options);
 }
 
 }  // namespace csv

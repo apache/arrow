@@ -17,19 +17,30 @@
 
 class TestClient < Test::Unit::TestCase
   def setup
+    @server = nil
+    omit("Unstable on Windows") if Gem.win_platform?
     @server = Helper::Server.new
     @server.listen("grpc://127.0.0.1:0")
     @location = "grpc://127.0.0.1:#{@server.port}"
   end
 
-  def shutdown
-    @server.shutdow
+  def teardown
+    return if @server.nil?
+    @server.shutdown
   end
 
-  def test_connect
-    # TODO: Add tests that use other methods and remove this.
-    assert_nothing_raised do
-      ArrowFlight::Client.new(@location)
-    end
+  def test_list_flights
+    client = ArrowFlight::Client.new(@location)
+    generator = Helper::InfoGenerator.new
+    assert_equal([generator.page_view],
+                 client.list_flights)
+  end
+
+  def test_do_get
+    client = ArrowFlight::Client.new(@location)
+    generator = Helper::InfoGenerator.new
+    reader = client.do_get(generator.page_view_ticket)
+    assert_equal(generator.page_view_table,
+                 reader.read_all)
   end
 end

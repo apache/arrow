@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -50,9 +50,9 @@ function setup_miniconda() {
   conda config --add channels conda-forge
 
   conda create -y -n pyarrow-$PYTHON -c conda-forge \
-        --file arrow/ci/conda_env_unix.yml \
-        --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_python.yml \
+        --file arrow/ci/conda_env_unix.txt \
+        --file arrow/ci/conda_env_cpp.txt \
+        --file arrow/ci/conda_env_python.txt \
         compilers \
         python=3.7 \
         pandas

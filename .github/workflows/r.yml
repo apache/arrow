@@ -89,7 +89,9 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run ubuntu-r
+          # Setting a non-default and non-probable Marquesas French Polynesia time
+          # it has both with a .45 offset and very very few people who live there.
+          archery docker run -e TZ=MART ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
@@ -147,7 +149,10 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run r
+          # Don't set a TZ here to test that case. These builds will have the following warning in them:
+          #   System has not been booted with systemd as init system (PID 1). Can't operate.
+          #   Failed to connect to bus: Host is down
+          archery docker run -e TZ="" r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
@@ -173,9 +178,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rtools: [40]
+        rtools: [35, 40]
     env:
-      TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
@@ -209,10 +213,18 @@ jobs:
           path: ccache
           key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
+      # We use the makepkg-mingw setup that is included in rtools40 even when
+      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: 40
           r-version: "4.1"
+          Ncpus: 2
+      - uses: r-lib/actions/setup-r@master
+        if: ${{ matrix.rtools == 35 }}
+        with:
+          rtools-version: 35
+          r-version: "3.6"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
@@ -234,7 +246,8 @@ jobs:
         run: |
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
-            MAKEFLAGS = paste0("-j", parallel::detectCores())
+            MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
           )
           rcmdcheck::rcmdcheck("r",
             build_args = '--no-build-vignettes',
@@ -247,3 +260,8 @@ jobs:
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
         if: always()
+      # We can remove this when we drop support for Rtools 3.5.
+      - name: Ensure using system tar in actions/cache
+        run: |
+          Write-Output "${Env:windir}\System32" | `
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append

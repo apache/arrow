@@ -209,7 +209,7 @@ test_that("write_parquet() handles version argument", {
 })
 
 test_that("ParquetFileWriter raises an error for non-OutputStream sink", {
-  sch = schema(a = float32())
+  sch <- schema(a = float32())
   # ARROW-9946
   expect_error(
     ParquetFileWriter$create(schema = sch, sink = tempfile()),
@@ -219,7 +219,8 @@ test_that("ParquetFileWriter raises an error for non-OutputStream sink", {
 
 test_that("ParquetFileReader $ReadRowGroup(s) methods", {
   tab <- Table$create(x = 1:100)
-  tf <- tempfile(); on.exit(unlink(tf))
+  tf <- tempfile()
+  on.exit(unlink(tf))
   write_parquet(tab, tf, chunk_size = 10)
 
   reader <- ParquetFileReader$create(tf)
@@ -244,7 +245,13 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 })
 
 test_that("Error messages are shown when the compression algorithm snappy is not found", {
-  msg <- "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, you will need to reinstall arrow with additional features enabled.\nSet one of these environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional features, including 'snappy')\n * ARROW_WITH_SNAPPY=ON (for just 'snappy')\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+  msg <- paste0(
+    "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, ",
+    "you will need to reinstall arrow with additional features enabled.\nSet one of these ",
+    "environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional ",
+    "features, including 'snappy')\n * ARROW_WITH_SNAPPY=ON (for just 'snappy')\n\n",
+    "See https://arrow.apache.org/docs/r/articles/install.html for details"
+  )
 
   if (codec_is_available("snappy")) {
     d <- read_parquet(pq_file)

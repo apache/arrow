@@ -28,11 +28,13 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -44,7 +46,7 @@ class CpuInfo;
 
 namespace compute {
 
-struct FunctionOptions;
+class FunctionOptions;
 class FunctionRegistry;
 
 // It seems like 64K might be a good default chunksize to use for execution
@@ -59,6 +61,7 @@ class ARROW_EXPORT ExecContext {
  public:
   // If no function registry passed, the default is used.
   explicit ExecContext(MemoryPool* pool = default_memory_pool(),
+                       ::arrow::internal::Executor* executor = NULLPTR,
                        FunctionRegistry* func_registry = NULLPTR);
 
   /// \brief The MemoryPool used for allocations, default is
@@ -66,6 +69,9 @@ class ARROW_EXPORT ExecContext {
   MemoryPool* memory_pool() const { return pool_; }
 
   ::arrow::internal::CpuInfo* cpu_info() const;
+
+  /// \brief An Executor which may be used to parallelize execution.
+  ::arrow::internal::Executor* executor() const { return executor_; }
 
   /// \brief The FunctionRegistry for looking up functions by name and
   /// selecting kernels for execution. Defaults to the library-global function
@@ -113,6 +119,7 @@ class ARROW_EXPORT ExecContext {
 
  private:
   MemoryPool* pool_;
+  ::arrow::internal::Executor* executor_;
   FunctionRegistry* func_registry_;
   int64_t exec_chunksize_ = std::numeric_limits<int64_t>::max();
   bool preallocate_contiguous_ = true;
@@ -175,6 +182,9 @@ struct ARROW_EXPORT ExecBatch {
 
   static Result<ExecBatch> Make(std::vector<Datum> values);
 
+  Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
+      std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool()) const;
+
   /// The values representing positional arguments to be passed to a kernel's
   /// exec function for processing.
   std::vector<Datum> values;
@@ -185,6 +195,9 @@ struct ARROW_EXPORT ExecBatch {
   /// the selection vector [0, 1, 3]. When the selection vector is set,
   /// ExecBatch::length is equal to the length of this array.
   std::shared_ptr<SelectionVector> selection_vector;
+
+  /// A predicate Expression guaranteed to evaluate to true for all rows in this batch.
+  Expression guarantee = literal(true);
 
   /// The semantic length of the ExecBatch. When the values are all scalars,
   /// the length should be set to 1, otherwise the length is taken from the
@@ -203,8 +216,12 @@ struct ARROW_EXPORT ExecBatch {
     return values[i];
   }
 
+  bool Equals(const ExecBatch& other) const;
+
   /// \brief A convenience for the number of values / arguments.
   int num_values() const { return static_cast<int>(values.size()); }
+
+  ExecBatch Slice(int64_t offset, int64_t length) const;
 
   /// \brief A convenience for returning the ValueDescr objects (types and
   /// shapes) from the batch.
@@ -215,7 +232,14 @@ struct ARROW_EXPORT ExecBatch {
     }
     return result;
   }
+
+  std::string ToString() const;
+
+  ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
+
+inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
+inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///

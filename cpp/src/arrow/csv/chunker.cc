@@ -63,12 +63,18 @@ class Lexer {
       case IN_FIELD:
         goto InField;
       case AT_ESCAPE:
+        // will never reach here if escaping = false
+        // just to hint the compiler to remove dead code
+        if (!escaping) return nullptr;
         goto AtEscape;
       case IN_QUOTED_FIELD:
+        if (!quoting) return nullptr;
         goto InQuotedField;
       case AT_QUOTED_QUOTE:
+        if (!quoting) return nullptr;
         goto AtQuotedQuote;
       case AT_QUOTED_ESCAPE:
+        if (!quoting) return nullptr;
         goto AtQuotedEscape;
     }
 

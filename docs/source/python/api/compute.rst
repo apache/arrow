@@ -32,6 +32,7 @@ Aggregations
    mean
    min_max
    mode
+   product
    stddev
    sum
    variance
@@ -39,7 +40,7 @@ Aggregations
 Arithmetic Functions
 --------------------
 
-By default these functions do not detect overflow. Each function is also
+By default these functions do not detect overflow. Most functions are also
 available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
@@ -54,10 +55,80 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    divide_checked
    multiply
    multiply_checked
-   subtract
-   subtract_checked
    power
    power_checked
+   shift_left
+   shift_left_checked
+   shift_right
+   shift_right_checked
+   sign
+   subtract
+   subtract_checked
+
+Bit-wise operations do not offer (or need) a checked variant.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   bit_wise_and
+   bit_wise_not
+   bit_wise_or
+   bit_wise_xor
+
+Rounding Functions
+------------------
+
+Rounding functions convert a numeric input into an approximate value with a
+simpler representation based on the rounding strategy.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ceil
+   floor
+   trunc
+
+Logarithmic Functions
+---------------------
+
+Logarithmic functions are also supported, and also offer ``_checked``
+variants which detect domain errors.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ln
+   ln_checked
+   log10
+   log10_checked
+   log1p
+   log1p_checked
+   log2
+   log2_checked
+   logb
+   logb_checked
+
+Trigonometric Functions
+-----------------------
+
+Trigonometric functions are also supported, and also offer ``_checked``
+variants which detect domain errors where appropriate.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   acos
+   acos_checked
+   asin
+   asin_checked
+   atan
+   atan2
+   cos
+   cos_checked
+   sin
+   sin_checked
+   tan
+   tan_checked
 
 Comparisons
 -----------
@@ -182,17 +253,37 @@ String Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_capitalize
+   ascii_center
+   ascii_lpad
+   ascii_ltrim
+   ascii_ltrim_whitespace
    ascii_lower
    ascii_reverse
+   ascii_rpad
+   ascii_rtrim
+   ascii_rtrim_whitespace
+   ascii_swapcase
+   ascii_trim
    ascii_upper
    binary_length
    binary_replace_slice
    replace_substring
    replace_substring_regex
+   utf8_capitalize
+   utf8_center
    utf8_length
    utf8_lower
+   utf8_lpad
+   utf8_ltrim
+   utf8_ltrim_whitespace
    utf8_replace_slice
    utf8_reverse
+   utf8_rpad
+   utf8_rtrim
+   utf8_rtrim_whitespace
+   utf8_swapcase
+   utf8_trim
    utf8_upper
 
 Containment tests
@@ -205,6 +296,7 @@ Containment tests
    count_substring_regex
    ends_with
    find_substring
+   find_substring_regex
    index_in
    is_in
    match_like
@@ -220,6 +312,14 @@ Conversions
 
    cast
    strptime
+
+Replacements
+------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   replace_with_mask
 
 Selections
 ----------
@@ -256,6 +356,9 @@ Structural Transforms
    :toctree: ../generated/
 
    binary_length
+   case_when
+   choose
+   coalesce
    fill_null
    if_else
    is_finite

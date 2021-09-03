@@ -24,7 +24,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/dataset/api.h"
-#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
@@ -35,10 +34,12 @@
 #include "arrow/util/io_util.h"
 
 namespace arrow {
+
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using fs::internal::GetAbstractPathExtension;
-using internal::TemporaryDir;
 using testing::ContainerEq;
 
 TEST(FileSource, PathBased) {
@@ -87,22 +88,23 @@ constexpr int kNumScanTasks = 2;
 constexpr int kBatchesPerScanTask = 2;
 constexpr int kRowsPerBatch = 1024;
 class MockFileFormat : public FileFormat {
-  virtual std::string type_name() const { return "mock"; }
-  virtual bool Equals(const FileFormat& other) const { return false; }
-  virtual Result<bool> IsSupported(const FileSource& source) const { return true; }
-  virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const {
+  std::string type_name() const override { return "mock"; }
+  bool Equals(const FileFormat& other) const override { return false; }
+  Result<bool> IsSupported(const FileSource& source) const override { return true; }
+  Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
     return Status::NotImplemented("Not needed for test");
   }
-  virtual Result<std::shared_ptr<FileWriter>> MakeWriter(
+  Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const {
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override {
     return Status::NotImplemented("Not needed for test");
   }
-  virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() { return nullptr; }
+  std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return nullptr; }
 
-  virtual Result<ScanTaskIterator> ScanFile(
+  Result<ScanTaskIterator> ScanFile(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const {
+      const std::shared_ptr<FileFragment>& file) const override {
     auto sch = schema({field("i32", int32())});
     ScanTaskVector scan_tasks;
     for (int i = 0; i < kNumScanTasks; i++) {
@@ -168,7 +170,8 @@ TEST_F(TestFileSystemDataset, ReplaceSchema) {
 
 TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   auto root_partition = equal(field_ref("i32"), literal(5));
-  MakeDataset({fs::File("a"), fs::File("b")}, root_partition);
+  MakeDataset({fs::File("a"), fs::File("b")}, root_partition, {},
+              schema({field("i32", int32()), field("f32", float32())}));
 
   auto GetFragments = [&](compute::Expression filter) {
     return *dataset_->GetFragments(*filter.Bind(*dataset_->schema()));
@@ -190,8 +193,9 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   AssertFragmentsAreFromPath(GetFragments(equal(field_ref("f32"), literal(3.F))),
                              {"a", "b"});
 
-  // No partition should match
-  MakeDataset({fs::File("a"), fs::File("b")});
+  // No root partition: don't prune any fragments
+  MakeDataset({fs::File("a"), fs::File("b")}, literal(true), {},
+              schema({field("i32", int32()), field("f32", float32())}));
   AssertFragmentsAreFromPath(GetFragments(equal(field_ref("f32"), literal(3.F))),
                              {"a", "b"});
 }
@@ -337,294 +341,5 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
     }
   }
 }
-
-// Tests of subtree pruning
-
-struct TestPathTree {
-  fs::FileInfo info;
-  std::vector<TestPathTree> subtrees;
-
-  explicit TestPathTree(std::string file_path) : info(fs::File(std::move(file_path))) {}
-
-  TestPathTree(std::string dir_path, std::vector<TestPathTree> subtrees)
-      : info(fs::Dir(std::move(dir_path))), subtrees(std::move(subtrees)) {}
-
-  TestPathTree(Forest::Ref ref, const std::vector<fs::FileInfo>& infos)
-      : info(infos[ref.i]) {
-    const Forest& forest = *ref.forest;
-
-    int begin = ref.i + 1;
-    int end = begin + ref.num_descendants();
-
-    for (int i = begin; i < end; ++i) {
-      subtrees.emplace_back(forest[i], infos);
-      i += forest[i].num_descendants();
-    }
-  }
-
-  bool operator==(const TestPathTree& other) const {
-    return info == other.info && subtrees == other.subtrees;
-  }
-
-  std::string ToString() const {
-    auto out = "\n" + info.path();
-    if (info.IsDirectory()) out += "/";
-
-    for (const auto& subtree : subtrees) {
-      out += subtree.ToString();
-    }
-    return out;
-  }
-
-  friend std::ostream& operator<<(std::ostream& os, const TestPathTree& tree) {
-    return os << tree.ToString();
-  }
-};
-
-using PT = TestPathTree;
-
-Forest MakeForest(std::vector<fs::FileInfo>* infos) {
-  std::sort(infos->begin(), infos->end(), fs::FileInfo::ByPath{});
-
-  return Forest(static_cast<int>(infos->size()), [&](int i, int j) {
-    return fs::internal::IsAncestorOf(infos->at(i).path(), infos->at(j).path());
-  });
-}
-
-void ExpectForestIs(std::vector<fs::FileInfo> infos, std::vector<PT> expected_roots) {
-  auto forest = MakeForest(&infos);
-
-  std::vector<PT> actual_roots;
-  ASSERT_OK(forest.Visit(
-      [&](Forest::Ref ref) -> Result<bool> {
-        actual_roots.emplace_back(ref, infos);
-        return false;  // only vist roots
-      },
-      [](Forest::Ref) {}));
-
-  // visit expected and assert equality
-  EXPECT_THAT(actual_roots, ContainerEq(expected_roots));
-}
-
-TEST(Forest, Basic) {
-  ExpectForestIs({}, {});
-
-  ExpectForestIs({fs::File("aa")}, {PT("aa")});
-  ExpectForestIs({fs::Dir("AA")}, {PT("AA", {})});
-  ExpectForestIs({fs::Dir("AA"), fs::File("AA/aa")}, {PT("AA", {PT("AA/aa")})});
-  ExpectForestIs({fs::Dir("AA"), fs::Dir("AA/BB"), fs::File("AA/BB/0")},
-                 {PT("AA", {PT("AA/BB", {PT("AA/BB/0")})})});
-
-  // Missing parent can still find ancestor.
-  ExpectForestIs({fs::Dir("AA"), fs::File("AA/BB/bb")}, {PT("AA", {PT("AA/BB/bb")})});
-
-  // Ancestors should link to parent regardless of ordering.
-  ExpectForestIs({fs::File("AA/aa"), fs::Dir("AA")}, {PT("AA", {PT("AA/aa")})});
-
-  // Multiple roots are supported.
-  ExpectForestIs({fs::File("aa"), fs::File("bb")}, {PT("aa"), PT("bb")});
-  ExpectForestIs({fs::File("00"), fs::Dir("AA"), fs::File("AA/aa"), fs::File("BB/bb")},
-                 {PT("00"), PT("AA", {PT("AA/aa")}), PT("BB/bb")});
-  ExpectForestIs({fs::Dir("AA"), fs::Dir("AA/BB"), fs::File("AA/BB/0"), fs::Dir("CC"),
-                  fs::Dir("CC/BB"), fs::File("CC/BB/0")},
-                 {PT("AA", {PT("AA/BB", {PT("AA/BB/0")})}),
-                  PT("CC", {PT("CC/BB", {PT("CC/BB/0")})})});
-}
-
-TEST(Forest, HourlyETL) {
-  // This test mimics a scenario where an ETL dumps hourly files in a structure
-  // `$year/$month/$day/$hour/*.parquet`.
-  constexpr int64_t kYears = 3;
-  constexpr int64_t kMonthsPerYear = 12;
-  constexpr int64_t kDaysPerMonth = 31;
-  constexpr int64_t kHoursPerDay = 24;
-  constexpr int64_t kFilesPerHour = 2;
-
-  // Avoid constructing strings
-  std::vector<std::string> numbers{kDaysPerMonth + 1};
-  for (size_t i = 0; i < numbers.size(); i++) {
-    numbers[i] = std::to_string(i);
-    if (numbers[i].size() == 1) {
-      numbers[i] = "0" + numbers[i];
-    }
-  }
-
-  auto join = [](const std::vector<std::string>& path) {
-    return fs::internal::JoinAbstractPath(path);
-  };
-
-  std::vector<fs::FileInfo> infos;
-
-  std::vector<PT> forest;
-  for (int64_t year = 0; year < kYears; year++) {
-    auto year_str = std::to_string(year + 2000);
-    auto year_dir = fs::Dir(year_str);
-    infos.push_back(year_dir);
-
-    std::vector<PT> months;
-    for (int64_t month = 0; month < kMonthsPerYear; month++) {
-      auto month_str = join({year_str, numbers[month + 1]});
-      auto month_dir = fs::Dir(month_str);
-      infos.push_back(month_dir);
-
-      std::vector<PT> days;
-      for (int64_t day = 0; day < kDaysPerMonth; day++) {
-        auto day_str = join({month_str, numbers[day + 1]});
-        auto day_dir = fs::Dir(day_str);
-        infos.push_back(day_dir);
-
-        std::vector<PT> hours;
-        for (int64_t hour = 0; hour < kHoursPerDay; hour++) {
-          auto hour_str = join({day_str, numbers[hour]});
-          auto hour_dir = fs::Dir(hour_str);
-          infos.push_back(hour_dir);
-
-          std::vector<PT> files;
-          for (int64_t file = 0; file < kFilesPerHour; file++) {
-            auto file_str = join({hour_str, numbers[file] + ".parquet"});
-            auto file_fd = fs::File(file_str);
-            infos.push_back(file_fd);
-            files.emplace_back(file_str);
-          }
-
-          auto hour_pt = PT(hour_str, std::move(files));
-          hours.push_back(hour_pt);
-        }
-
-        auto day_pt = PT(day_str, std::move(hours));
-        days.push_back(day_pt);
-      }
-
-      auto month_pt = PT(month_str, std::move(days));
-      months.push_back(month_pt);
-    }
-
-    auto year_pt = PT(year_str, std::move(months));
-    forest.push_back(year_pt);
-  }
-
-  ExpectForestIs(infos, forest);
-}
-
-TEST(Forest, Visit) {
-  using Infos = std::vector<fs::FileInfo>;
-
-  for (auto infos : {Infos{}, Infos{fs::Dir("A"), fs::File("A/a")},
-                     Infos{fs::Dir("AA"), fs::Dir("AA/BB"), fs::File("AA/BB/0"),
-                           fs::Dir("CC"), fs::Dir("CC/BB"), fs::File("CC/BB/0")}}) {
-    ASSERT_TRUE(std::is_sorted(infos.begin(), infos.end(), fs::FileInfo::ByPath{}));
-
-    auto forest = MakeForest(&infos);
-
-    auto ignore_post = [](Forest::Ref) {};
-
-    // noop is fine
-    ASSERT_OK(
-        forest.Visit([](Forest::Ref) -> Result<bool> { return false; }, ignore_post));
-
-    // Should propagate failure
-    if (forest.size() != 0) {
-      ASSERT_RAISES(
-          Invalid,
-          forest.Visit([](Forest::Ref) -> Result<bool> { return Status::Invalid(""); },
-                       ignore_post));
-    }
-
-    // Ensure basic visit of all nodes
-    int i = 0;
-    ASSERT_OK(forest.Visit(
-        [&](Forest::Ref ref) -> Result<bool> {
-          EXPECT_EQ(ref.i, i);
-          ++i;
-          return true;
-        },
-        ignore_post));
-
-    // Visit only directories
-    Infos actual_dirs;
-    ASSERT_OK(forest.Visit(
-        [&](Forest::Ref ref) -> Result<bool> {
-          if (!infos[ref.i].IsDirectory()) {
-            return false;
-          }
-          actual_dirs.push_back(infos[ref.i]);
-          return true;
-        },
-        ignore_post));
-
-    Infos expected_dirs;
-    for (const auto& info : infos) {
-      if (info.IsDirectory()) {
-        expected_dirs.push_back(info);
-      }
-    }
-    EXPECT_THAT(actual_dirs, ContainerEq(expected_dirs));
-  }
-}
-
-TEST(Subtree, EncodeExpression) {
-  SubtreeImpl tree;
-  ASSERT_EQ(0, tree.GetOrInsert(equal(field_ref("a"), literal("1"))));
-  // Should be idempotent
-  ASSERT_EQ(0, tree.GetOrInsert(equal(field_ref("a"), literal("1"))));
-  ASSERT_EQ(equal(field_ref("a"), literal("1")), tree.code_to_expr_[0]);
-
-  SubtreeImpl::expression_codes codes;
-  auto conj =
-      and_(equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")));
-  tree.EncodeConjunctionMembers(conj, &codes);
-  ASSERT_EQ(SubtreeImpl::expression_codes({0, 1}), codes);
-
-  codes.clear();
-  conj = or_(equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")));
-  tree.EncodeConjunctionMembers(conj, &codes);
-  ASSERT_EQ(SubtreeImpl::expression_codes({2}), codes);
-}
-
-TEST(Subtree, GetSubtreeExpression) {
-  SubtreeImpl tree;
-  const auto expr_a = equal(field_ref("a"), literal("1"));
-  const auto expr_b = equal(field_ref("b"), literal("2"));
-  const auto code_a = tree.GetOrInsert(expr_a);
-  const auto code_b = tree.GetOrInsert(expr_b);
-  ASSERT_EQ(expr_a,
-            tree.GetSubtreeExpression(SubtreeImpl::Encoded{util::nullopt, {code_a}}));
-  ASSERT_EQ(expr_b, tree.GetSubtreeExpression(
-                        SubtreeImpl::Encoded{util::nullopt, {code_a, code_b}}));
-}
-
-TEST(Subtree, EncodeFragments) {
-  auto fragment_schema = schema({});
-  const auto expr_a =
-      and_(equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")));
-  const auto expr_b =
-      and_(equal(field_ref("a"), literal("2")), equal(field_ref("b"), literal("3")));
-  std::vector<std::shared_ptr<InMemoryFragment>> fragments;
-  fragments.push_back(std::make_shared<InMemoryFragment>(
-      fragment_schema, arrow::RecordBatchVector(), expr_a));
-  fragments.push_back(std::make_shared<InMemoryFragment>(
-      fragment_schema, arrow::RecordBatchVector(), expr_b));
-
-  SubtreeImpl tree;
-  auto encoded = tree.EncodeFragments(fragments);
-  EXPECT_THAT(
-      tree.code_to_expr_,
-      ContainerEq(std::vector<compute::Expression>{
-          equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")),
-          equal(field_ref("a"), literal("2")), equal(field_ref("b"), literal("3"))}));
-  EXPECT_THAT(
-      encoded,
-      testing::UnorderedElementsAreArray({
-          SubtreeImpl::Encoded{util::make_optional<int>(0),
-                               SubtreeImpl::expression_codes({0, 1})},
-          SubtreeImpl::Encoded{util::make_optional<int>(1),
-                               SubtreeImpl::expression_codes({2, 3})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({0})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({2})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({0, 1})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({2, 3})},
-      }));
-}
-
 }  // namespace dataset
 }  // namespace arrow

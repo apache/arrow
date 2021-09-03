@@ -25,7 +25,7 @@ User Guide
 
    overview
    conventions
-   cmake
+   build_system
    memory
    arrays
    datatypes

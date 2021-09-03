@@ -106,25 +106,24 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
       LLVMGenerator::GetCache();
 
-  FilterCacheKey filter_key(schema, configuration, *(condition.get()));
-  BaseCacheKey cache_key(filter_key, "filter", condition);
+  Condition conditionToKey = *(condition.get());
+
+  FilterCacheKey filter_key(schema, configuration, conditionToKey);
+  BaseCacheKey cache_key(filter_key, "filter");
   std::unique_ptr<BaseCacheKey> base_cache_key =
       std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
 
-  // LLVM ObjectCache flag;
   bool llvm_flag = false;
 
   std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
   prev_cached_obj = shared_cache->GetObjectCode(*shared_base_cache_key);
 
-  // to use when caching only the obj code
   // Verify if previous filter obj code was cached
   if (prev_cached_obj != nullptr) {
-    // ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS already cached!";
+    ARROW_LOG(DEBUG)
+        << "[DEBUG][CACHE-LOG][INFO]: Filter object code WAS already cached!";
     llvm_flag = true;
-  } else {
-    // ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS NOT already cached!";
   }
 
   GandivaObjectCache<BaseCacheKey> obj_cache(shared_cache, shared_base_cache_key);
@@ -137,20 +136,30 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Return if the expression is invalid since we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
+
+  // Start measuring build time
+  //  auto begin = std::chrono::high_resolution_clock::now();
+  //  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
+  // Stop measuring time and calculate the elapsed time
+  //  auto end = std::chrono::high_resolution_clock::now();
+  //  auto elapsed =
+  //      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
   ARROW_RETURN_NOT_OK(
       llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE,
                       obj_cache));  // to use when caching only the obj code
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-
+  //  ValueCacheObject<std::shared_ptr<Filter>> value_cache(*filter, elapsed);
+  //  cache.PutModule(cache_key, value_cache);
+  //
   filter->get()->SetCompiledFromCache(
       llvm_flag);  // to use when caching only the obj code
-  used_cache_size_ = shared_cache->getCacheSize();  // track filter cache memory use
-
+  //  used_cache_size_ = shared_cache->getCacheSize(); // track filter cache memory use
+  //
   ARROW_LOG(DEBUG)
-      << "[DEBUG][FILTER-CACHE-LOG] " +
-             shared_cache->toString();  // to use when caching only the obj code
+      << "[DEBUG][CACHE-LOG][INFO]: " +
+             shared_cache->ToString();  // to use when caching only the obj code
 
   return Status::OK();
 }

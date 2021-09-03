@@ -1,9 +1,10 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 4.0.1.9000
+Version: 5.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
+    person("Nic", "Crane", email = "thisisnic@gmail.com", role = c("aut")),
     person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut")),
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
@@ -39,20 +40,23 @@ Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
 RoxygenNote: 7.1.1.9001
 VignetteBuilder: knitr
 Suggests:
+    DBI,
+    dbplyr,
     decor,
     distro,
     dplyr,
+    duckdb (>= 0.2.8),
     hms,
     knitr,
     lubridate,
     pkgload,
     reticulate,
     rmarkdown,
+    stringi,
     stringr,
     testthat,
     tibble,
     withr
-LinkingTo: cpp11 (>= 0.2.0)
 Collate:
     'arrowExports.R'
     'enums.R'
@@ -91,6 +95,7 @@ Collate:
     'record-batch.R'
     'table.R'
     'dplyr.R'
+    'duckdb.R'
     'feather.R'
     'field.R'
     'filesystem.R'
@@ -103,6 +108,7 @@ Collate:
     'metadata.R'
     'parquet.R'
     'python.R'
+    'query-engine.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
     'reexports-bit64.R'

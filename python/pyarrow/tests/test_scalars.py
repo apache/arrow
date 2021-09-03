@@ -500,6 +500,7 @@ def test_struct():
     assert 'x' in s
     assert 'y' in s
     assert 'z' not in s
+    assert 0 not in s
 
     assert s.as_py() == v
     assert repr(s) != repr(v)
@@ -514,7 +515,7 @@ def test_struct():
         s['non-existent']
 
     s = pa.scalar(None, type=ty)
-    assert list(s) == []
+    assert list(s) == list(s.keys()) == ['x', 'y']
     assert s.as_py() is None
     assert 'x' in s
     assert 'y' in s
@@ -524,6 +525,49 @@ def test_struct():
     assert s['y'].is_valid is False
     assert s['x'].as_py() is None
     assert s['y'].as_py() is None
+
+
+def test_struct_duplicate_fields():
+    ty = pa.struct([
+        pa.field('x', pa.int16()),
+        pa.field('y', pa.float32()),
+        pa.field('x', pa.int64()),
+    ])
+    s = pa.scalar([('x', 1), ('y', 2.0), ('x', 3)], type=ty)
+
+    assert list(s) == list(s.keys()) == ['x', 'y', 'x']
+    assert len(s) == 3
+    assert s == s
+    assert list(s.items()) == [
+        ('x', pa.scalar(1, pa.int16())),
+        ('y', pa.scalar(2.0, pa.float32())),
+        ('x', pa.scalar(3, pa.int64()))
+    ]
+
+    assert 'x' in s
+    assert 'y' in s
+    assert 'z' not in s
+    assert 0 not in s
+
+    # getitem with field names fails for duplicate fields, works for others
+    with pytest.raises(KeyError):
+        s['x']
+
+    assert isinstance(s['y'], pa.FloatScalar)
+    assert s['y'].as_py() == 2.0
+
+    # getitem with integer index works for all fields
+    assert isinstance(s[0], pa.Int16Scalar)
+    assert s[0].as_py() == 1
+    assert isinstance(s[1], pa.FloatScalar)
+    assert s[1].as_py() == 2.0
+    assert isinstance(s[2], pa.Int64Scalar)
+    assert s[2].as_py() == 3
+
+    assert "pyarrow.StructScalar" in repr(s)
+
+    with pytest.raises(ValueError, match="duplicate field names"):
+        s.as_py()
 
 
 def test_map():
@@ -601,9 +645,13 @@ def test_union():
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle.loads(pickle.dumps(s))
 
+    assert arr[0].type_code == 0
     assert arr[0].as_py() == "a"
+    assert arr[1].type_code == 0
     assert arr[1].as_py() == "b"
+    assert arr[2].type_code == 1
     assert arr[2].as_py() == 3
+    assert arr[3].type_code == 1
     assert arr[3].as_py() == 4
 
     # dense
@@ -622,5 +670,7 @@ def test_union():
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle.loads(pickle.dumps(s))
 
+    assert arr[0].type_code == 0
     assert arr[0].as_py() == b'a'
+    assert arr[5].type_code == 1
     assert arr[5].as_py() == 3

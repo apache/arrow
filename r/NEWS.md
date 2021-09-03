@@ -17,14 +17,44 @@
   under the License.
 -->
 
-# arrow 4.0.1.9000
+# arrow 5.0.0.9000
 
-* `write_csv_arrow()` to write Arrow data to CSV
-* Bindings and support for more Arrow C++ Compute functions: `strsplit()` and `str_split()`, `na.omit()` et al., `any()`/`all()`,
-* `arrow_info()` now includes details on the C++ build, such as compiler version
-* `dplyr` queries on `Table` and `RecordBatch` now use the same expression internals as `Dataset` (via `InMemoryDataset`). Among other (mostly internal) benefits that come with this, the print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
+# arrow 5.0.0
+
+## More dplyr
+
+* There are now more than 250 compute functions available for use in `dplyr::filter()`, `mutate()`, etc. Additions in this release include:
+
+  * String operations: `strsplit()` and `str_split()`; `strptime()`; `paste()`, `paste0()`, and `str_c()`; `substr()` and `str_sub()`; `str_like()`; `str_pad()`; `stri_reverse()`
+  * Date/time operations: `lubridate` methods such as `year()`, `month()`, `wday()`, and so on
+  * Math: logarithms (`log()` et al.); trigonometry (`sin()`, `cos()`, et al.); `abs()`; `sign()`; `pmin()` and `pmax()`; `ceiling()`, `floor()`, and `trunc()`
+  * Conditional functions, with some limitations on input type in this release: `ifelse()` and `if_else()` for all but `Decimal` types; `case_when()` for logical, numeric, and temporal types only; `coalesce()` for all but lists/structs. Note also that in this release, factors/dictionaries are converted to strings in these functions.
+  * `is.*` functions are supported and can be used inside `relocate()`
+
+* The print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
+* `transmute()` now errors if passed arguments `.keep`, `.before`, or `.after`, for consistency with the behavior of `dplyr` on `data.frame`s.
+
+## CSV writing
+
+* `write_csv_arrow()` to use Arrow to write a data.frame to a single CSV file
+* `write_dataset(format = "csv", ...)` to write a Dataset to CSVs, including with partitioning
+
+## C interface
+
 * Added bindings for the remainder of C data interface: Type, Field, and RecordBatchReader (from the experimental C stream interface). These also have `reticulate::py_to_r()` and `r_to_py()` methods. Along with the addition of the `Scanner$ToRecordBatchReader()` method, you can now build up a Dataset query in R and pass the resulting stream of batches to another tool in process.
-* `match_arrow` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
+* C interface methods are exposed on Arrow objects (e.g. `Array$export_to_c()`, `RecordBatch$import_from_c()`), similar to how they are in `pyarrow`. This facilitates their use in other packages. See the `py_to_r()` and `r_to_py()` methods for usage examples.
+
+## Other enhancements
+
+* Converting an R `data.frame` to an Arrow `Table` uses multithreading across columns
+* Some Arrow array types now use ALTREP when converting to R. To disable this, set `options(arrow.use_altrep = FALSE)`
+* `is.na()` now evaluates to `TRUE` on `NaN` values in floating point number fields, for consistency with base R.
+* `is.nan()` now evaluates to `FALSE` on `NA` values in floating point number fields and `FALSE` on all values in non-floating point fields, for consistency with base R.
+* Additional methods for `Array`, `ChunkedArray`, `RecordBatch`, and `Table`: `na.omit()` and friends, `any()`/`all()`
+* Scalar inputs to `RecordBatch$create()` and `Table$create()` are recycled
+* `arrow_info()` includes details on the C++ build, such as compiler version
+* `match_arrow()` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
+* Row-level metadata is now restricted to reading/writing single parquet or feather files. Row-level metadata with datasets is ignored (with a warning) if the dataset contains row-level metadata. Writing a dataset with row-level metadata will also be ignored (with a warning). We are working on a more robust implementation to support row-level metadata (and other complex types) --- stay tuned. For working with {sf} objects, [{sfarrow}](https://CRAN.R-project.org/package=sfarrow) is helpful for serializing sf columns and sharing them with geopandas.
 
 # arrow 4.0.1
 

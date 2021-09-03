@@ -16,7 +16,6 @@
 # under the License.
 
 # cython: language_level = 3
-# cython: embedsignature = True
 
 import collections
 import contextlib
@@ -950,7 +949,43 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         # individual batches to have control.
         with nogil:
             check_flight_status(
-                self.writer.get().WriteRecordBatch(deref(batch.batch)))
+                self._writer().WriteRecordBatch(deref(batch.batch)))
+
+    def write_table(self, Table table, max_chunksize=None, **kwargs):
+        """
+        Write Table to stream in (contiguous) RecordBatch objects.
+
+        Parameters
+        ----------
+        table : Table
+        max_chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns.
+        """
+        cdef:
+            # max_chunksize must be > 0 to have any impact
+            int64_t c_max_chunksize = -1
+
+        if 'chunksize' in kwargs:
+            max_chunksize = kwargs['chunksize']
+            msg = ('The parameter chunksize is deprecated for the write_table '
+                   'methods as of 0.15, please use parameter '
+                   'max_chunksize instead')
+            warnings.warn(msg, FutureWarning)
+
+        if max_chunksize is not None:
+            c_max_chunksize = max_chunksize
+
+        with nogil:
+            check_flight_status(
+                self._writer().WriteTable(table.table[0], c_max_chunksize))
+
+    def close(self):
+        """
+        Close stream and write end-of-stream 0 marker.
+        """
+        with nogil:
+            check_flight_status(self._writer().Close())
 
     def write_with_metadata(self, RecordBatch batch, buf):
         """Write a RecordBatch along with Flight metadata.

@@ -233,6 +233,7 @@ struct TypeTraits<MonthIntervalType> {
   using ArrayType = MonthIntervalArray;
   using BuilderType = MonthIntervalBuilder;
   using ScalarType = MonthIntervalScalar;
+  using CType = MonthIntervalType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int32_t));
@@ -286,6 +287,7 @@ struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
   using ScalarType = Decimal128Scalar;
+  using CType = Decimal128;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -294,6 +296,7 @@ struct TypeTraits<Decimal256Type> {
   using ArrayType = Decimal256Array;
   using BuilderType = Decimal256Builder;
   using ScalarType = Decimal256Scalar;
+  using CType = Decimal256;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -993,6 +996,17 @@ static inline bool is_nested(Type::type type_id) {
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
     case Type::STRUCT:
+    case Type::SPARSE_UNION:
+    case Type::DENSE_UNION:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_union(Type::type type_id) {
+  switch (type_id) {
     case Type::SPARSE_UNION:
     case Type::DENSE_UNION:
       return true;

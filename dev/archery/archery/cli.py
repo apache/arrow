@@ -28,33 +28,16 @@ import sys
 from .benchmark.codec import JsonEncoder
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import CppBenchmarkRunner, JavaBenchmarkRunner
+from .compat import _import_pandas
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
+from .utils.cli import ArrowBool, validate_arrow_sources, add_optional_command
 from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
-from .utils.source import ArrowSources, InvalidArrowSource
+from .utils.source import ArrowSources
 from .utils.tmpdir import tmpdir
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
-
-
-class ArrowBool(click.types.BoolParamType):
-    """
-    ArrowBool supports the 'ON' and 'OFF' values on top of the values
-    supported by BoolParamType. This is convenient to port script which exports
-    CMake options variables.
-    """
-    name = "boolean"
-
-    def convert(self, value, param, ctx):
-        if isinstance(value, str):
-            lowered = value.lower()
-            if lowered == "on":
-                return True
-            elif lowered == "off":
-                return False
-
-        return super().convert(value, param, ctx)
 
 
 BOOL = ArrowBool()
@@ -86,14 +69,6 @@ def archery(ctx, debug, pdb, quiet):
     if pdb:
         import pdb
         sys.excepthook = lambda t, v, e: pdb.pm()
-
-
-def validate_arrow_sources(ctx, param, src):
-    """ Ensure a directory contains Arrow cpp sources. """
-    try:
-        return ArrowSources.find(src)
-    except InvalidArrowSource as e:
-        raise click.BadParameter(str(e))
 
 
 build_dir_type = click.Path(dir_okay=True, file_okay=False, resolve_path=True)
@@ -141,7 +116,6 @@ def _apply_options(cmd, options):
               help="Specify Arrow source directory")
 # toolchain
 @cpp_toolchain_options
-@java_toolchain_options
 @click.option("--build-type", default=None, type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
 @click.option("--warn-level", default="production", type=warn_level_type,
@@ -674,7 +648,7 @@ def _get_comparisons_as_json(comparisons):
 
 def _format_comparisons_with_pandas(comparisons_json, no_counters,
                                     ren_counters):
-    import pandas as pd
+    pd = _import_pandas()
     df = pd.read_json(StringIO(comparisons_json), lines=True)
     # parse change % so we can sort by it
     df['change %'] = df.pop('change').str[:-1].map(float)
@@ -795,228 +769,6 @@ def trigger_bot(event_name, event_payload, arrow_token):
 
     bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
     bot.handle(event_name, event_payload)
-
-
-def _mock_compose_calls(compose):
-    from types import MethodType
-    from subprocess import CompletedProcess
-
-    def _mock(compose, executable):
-        def _execute(self, *args, **kwargs):
-            params = ['{}={}'.format(k, v)
-                      for k, v in self.config.params.items()]
-            command = ' '.join(params + [executable] + list(args))
-            click.echo(command)
-            return CompletedProcess([], 0)
-        return MethodType(_execute, compose)
-
-    compose._execute_docker = _mock(compose, executable='docker')
-    compose._execute_compose = _mock(compose, executable='docker-compose')
-
-
-@archery.group('docker')
-@click.option("--src", metavar="<arrow_src>", default=None,
-              callback=validate_arrow_sources,
-              help="Specify Arrow source directory.")
-@click.option('--dry-run/--execute', default=False,
-              help="Display the docker-compose commands instead of executing "
-                   "them.")
-@click.pass_obj
-def docker_compose(obj, src, dry_run):
-    """Interact with docker-compose based builds."""
-    from .docker import DockerCompose
-
-    config_path = src.path / 'docker-compose.yml'
-    if not config_path.exists():
-        raise click.ClickException(
-            "Docker compose configuration cannot be found in directory {}, "
-            "try to pass the arrow source directory explicitly.".format(src)
-        )
-
-    # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
-    # environment variables to keep the usage similar to docker-compose
-    compose = DockerCompose(config_path, params=os.environ)
-    if dry_run:
-        _mock_compose_calls(compose)
-    obj['compose'] = compose
-
-
-@docker_compose.command('build')
-@click.argument('image')
-@click.option('--force-pull/--no-pull', default=True,
-              help="Whether to force pull the image and its ancestor images")
-@click.option('--using-docker-cli', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_CLI',
-              help="Use docker CLI directly for building instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
-@click.option('--using-docker-buildx', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_BUILDX',
-              help="Use buildx with docker CLI directly for building instead "
-                   "of calling docker-compose or the plain docker build "
-                   "command. This option makes the build cache reusable "
-                   "across hosts.")
-@click.option('--use-cache/--no-cache', default=True,
-              help="Whether to use cache when building the image and its "
-                   "ancestor images")
-@click.option('--use-leaf-cache/--no-leaf-cache', default=True,
-              help="Whether to use cache when building only the (leaf) image "
-                   "passed as the argument. To disable caching for both the "
-                   "image and its ancestors use --no-cache option.")
-@click.pass_obj
-def docker_compose_build(obj, image, *, force_pull, using_docker_cli,
-                         using_docker_buildx, use_cache, use_leaf_cache):
-    """
-    Execute docker-compose builds.
-    """
-    from .docker import UndefinedImage
-
-    compose = obj['compose']
-
-    using_docker_cli |= using_docker_buildx
-    try:
-        if force_pull:
-            compose.pull(image, pull_leaf=use_leaf_cache,
-                         using_docker=using_docker_cli)
-        compose.build(image, use_cache=use_cache,
-                      use_leaf_cache=use_leaf_cache,
-                      using_docker=using_docker_cli,
-                      using_buildx=using_docker_buildx)
-    except UndefinedImage as e:
-        raise click.ClickException(
-            "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
-        )
-    except RuntimeError as e:
-        raise click.ClickException(str(e))
-
-
-@docker_compose.command('run')
-@click.argument('image')
-@click.argument('command', required=False, default=None)
-@click.option('--env', '-e', multiple=True,
-              help="Set environment variable within the container")
-@click.option('--user', '-u', default=None,
-              help="Username or UID to run the container with")
-@click.option('--force-pull/--no-pull', default=True,
-              help="Whether to force pull the image and its ancestor images")
-@click.option('--force-build/--no-build', default=True,
-              help="Whether to force build the image and its ancestor images")
-@click.option('--build-only', default=False, is_flag=True,
-              help="Pull and/or build the image, but do not run it")
-@click.option('--using-docker-cli', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_CLI',
-              help="Use docker CLI directly for building instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
-@click.option('--using-docker-buildx', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_BUILDX',
-              help="Use buildx with docker CLI directly for building instead "
-                   "of calling docker-compose or the plain docker build "
-                   "command. This option makes the build cache reusable "
-                   "across hosts.")
-@click.option('--use-cache/--no-cache', default=True,
-              help="Whether to use cache when building the image and its "
-                   "ancestor images")
-@click.option('--use-leaf-cache/--no-leaf-cache', default=True,
-              help="Whether to use cache when building only the (leaf) image "
-                   "passed as the argument. To disable caching for both the "
-                   "image and its ancestors use --no-cache option.")
-@click.option('--volume', '-v', multiple=True,
-              help="Set volume within the container")
-@click.pass_obj
-def docker_compose_run(obj, image, command, *, env, user, force_pull,
-                       force_build, build_only, using_docker_cli,
-                       using_docker_buildx, use_cache,
-                       use_leaf_cache, volume):
-    """Execute docker-compose builds.
-
-    To see the available builds run `archery docker images`.
-
-    Examples:
-
-    # execute a single build
-    archery docker run conda-python
-
-    # execute the builds but disable the image pulling
-    archery docker run --no-cache conda-python
-
-    # pass a docker-compose parameter, like the python version
-    PYTHON=3.8 archery docker run conda-python
-
-    # disable the cache only for the leaf image
-    PANDAS=master archery docker run --no-leaf-cache conda-python-pandas
-
-    # entirely skip building the image
-    archery docker run --no-pull --no-build conda-python
-
-    # pass runtime parameters via docker environment variables
-    archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
-
-    # set a volume
-    archery docker run -v $PWD/build:/build ubuntu-cpp
-
-    # starting an interactive bash session for debugging
-    archery docker run ubuntu-cpp bash
-    """
-    from .docker import UndefinedImage
-
-    compose = obj['compose']
-    using_docker_cli |= using_docker_buildx
-
-    env = dict(kv.split('=', 1) for kv in env)
-    try:
-        if force_pull:
-            compose.pull(image, pull_leaf=use_leaf_cache,
-                         using_docker=using_docker_cli)
-        if force_build:
-            compose.build(image, use_cache=use_cache,
-                          use_leaf_cache=use_leaf_cache,
-                          using_docker=using_docker_cli,
-                          using_buildx=using_docker_buildx)
-        if build_only:
-            return
-        compose.run(
-            image,
-            command=command,
-            env=env,
-            user=user,
-            using_docker=using_docker_cli,
-            volumes=volume
-        )
-    except UndefinedImage as e:
-        raise click.ClickException(
-            "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(str(e))
-        )
-    except RuntimeError as e:
-        raise click.ClickException(str(e))
-
-
-@docker_compose.command('push')
-@click.argument('image')
-@click.option('--user', '-u', required=False, envvar='ARCHERY_DOCKER_USER',
-              help='Docker repository username')
-@click.option('--password', '-p', required=False,
-              envvar='ARCHERY_DOCKER_PASSWORD',
-              help='Docker repository password')
-@click.option('--using-docker-cli', default=False, is_flag=True,
-              help="Use docker CLI directly for building instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
-@click.pass_obj
-def docker_compose_push(obj, image, user, password, using_docker_cli):
-    """Push the generated docker-compose image."""
-    compose = obj['compose']
-    compose.push(image, user=user, password=password,
-                 using_docker=using_docker_cli)
-
-
-@docker_compose.command('images')
-@click.pass_obj
-def docker_compose_images(obj):
-    """List the available docker-compose images."""
-    compose = obj['compose']
-    click.echo('Available images:')
-    for image in compose.images():
-        click.echo(' - {}'.format(image))
 
 
 @archery.group('release')
@@ -1179,25 +931,10 @@ def linking_check_dependencies(obj, allowed, disallowed, paths):
         raise click.ClickException(str(e))
 
 
-try:
-    from .crossbow.cli import crossbow  # noqa
-except ImportError as exc:
-    missing_package = exc.name
-
-    @archery.command(
-        'crossbow',
-        context_settings={
-            "allow_extra_args": True,
-            "ignore_unknown_options": True,
-        }
-    )
-    def crossbow():
-        raise click.ClickException(
-            "Couldn't import crossbow because of missing dependency: {}"
-            .format(missing_package)
-        )
-else:
-    archery.add_command(crossbow)
+add_optional_command("docker", module=".docker.cli", function="docker",
+                     parent=archery)
+add_optional_command("crossbow", module=".crossbow.cli", function="crossbow",
+                     parent=archery)
 
 
 if __name__ == "__main__":

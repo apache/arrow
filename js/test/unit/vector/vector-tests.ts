@@ -18,7 +18,7 @@
 import {
     Int32, Dictionary, DateUnit, util,
     Data, Vector, Utf8Vector, DateVector, DictionaryVector,
-} from '../../Arrow';
+} from 'apache-arrow';
 
 describe(`DateVector`, () => {
     const extras = [

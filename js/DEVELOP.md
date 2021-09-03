@@ -50,7 +50,7 @@ We use [yarn](https://yarnpkg.com/) to install dependencies and run scrips.
 
 These scripts accept argument lists of targets × modules:
 
-* Available `targets` are `es5`, `es2015`, `esnext`, and `all` (default: `all`)
+* Available `targets` are `es5`, `es2015`, `esnext`, `ts`, and `all` (default: `all`)
 * Available `modules` are `cjs`, `esm`, `umd`, and `all` (default: `all`)
 
 Examples:

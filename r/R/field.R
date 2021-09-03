@@ -31,7 +31,8 @@
 #' @rdname Field
 #' @name Field
 #' @export
-Field <- R6Class("Field", inherit = ArrowObject,
+Field <- R6Class("Field",
+  inherit = ArrowObject,
   public = list(
     ToString = function() {
       prettier_dictionary_type(Field__ToString(self))
@@ -41,7 +42,6 @@ Field <- R6Class("Field", inherit = ArrowObject,
     },
     export_to_c = function(ptr) ExportField(self, ptr)
   ),
-
   active = list(
     name = function() {
       Field__name(self)

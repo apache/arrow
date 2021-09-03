@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
@@ -32,7 +33,8 @@ class ExecContext;
 /// \addtogroup compute-concrete-options
 /// @{
 
-struct FilterOptions : public FunctionOptions {
+class ARROW_EXPORT FilterOptions : public FunctionOptions {
+ public:
   /// Configure the action taken when a slot of the selection mask is null
   enum NullSelectionBehavior {
     /// the corresponding filtered value will be removed in the output
@@ -41,30 +43,27 @@ struct FilterOptions : public FunctionOptions {
     EMIT_NULL,
   };
 
-  explicit FilterOptions(NullSelectionBehavior null_selection = DROP)
-      : null_selection_behavior(null_selection) {}
-
+  explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
+  constexpr static char const kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
 };
 
-struct ARROW_EXPORT TakeOptions : public FunctionOptions {
-  explicit TakeOptions(bool boundscheck = true) : boundscheck(boundscheck) {}
-
-  bool boundscheck = true;
+class ARROW_EXPORT TakeOptions : public FunctionOptions {
+ public:
+  explicit TakeOptions(bool boundscheck = true);
+  constexpr static char const kTypeName[] = "TakeOptions";
   static TakeOptions BoundsCheck() { return TakeOptions(true); }
   static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
   static TakeOptions Defaults() { return BoundsCheck(); }
-};
 
-enum class SortOrder {
-  Ascending,
-  Descending,
+  bool boundscheck = true;
 };
 
 /// \brief Options for the dictionary encode function
-struct DictionaryEncodeOptions : public FunctionOptions {
+class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
+ public:
   /// Configure how null values will be encoded
   enum NullEncodingBehavior {
     /// the null value will be added to the dictionary with a proper index
@@ -73,18 +72,29 @@ struct DictionaryEncodeOptions : public FunctionOptions {
     MASK
   };
 
-  explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK)
-      : null_encoding_behavior(null_encoding) {}
-
+  explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
+  constexpr static char const kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
 };
 
+enum class SortOrder {
+  Ascending,
+  Descending,
+};
+
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
-struct ARROW_EXPORT SortKey {
+class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
+ public:
   explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
-      : name(name), order(order) {}
+      : name(std::move(name)), order(order) {}
+
+  using util::EqualityComparable<SortKey>::Equals;
+  using util::EqualityComparable<SortKey>::operator==;
+  using util::EqualityComparable<SortKey>::operator!=;
+  bool Equals(const SortKey& other) const;
+  std::string ToString() const;
 
   /// The name of the sort column.
   std::string name;
@@ -92,25 +102,30 @@ struct ARROW_EXPORT SortKey {
   SortOrder order;
 };
 
-struct ARROW_EXPORT ArraySortOptions : public FunctionOptions {
-  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending) : order(order) {}
-
+class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
+ public:
+  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending);
+  constexpr static char const kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions{}; }
 
   SortOrder order;
 };
 
-struct ARROW_EXPORT SortOptions : public FunctionOptions {
-  explicit SortOptions(std::vector<SortKey> sort_keys = {}) : sort_keys(sort_keys) {}
-
+class ARROW_EXPORT SortOptions : public FunctionOptions {
+ public:
+  explicit SortOptions(std::vector<SortKey> sort_keys = {});
+  constexpr static char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions{}; }
 
   std::vector<SortKey> sort_keys;
 };
 
 /// \brief Partitioning options for NthToIndices
-struct ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
-  explicit PartitionNthOptions(int64_t pivot) : pivot(pivot) {}
+class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
+ public:
+  explicit PartitionNthOptions(int64_t pivot);
+  PartitionNthOptions() : PartitionNthOptions(0) {}
+  constexpr static char const kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
@@ -157,6 +172,23 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndices(
 
 }  // namespace internal
 
+/// \brief ReplaceWithMask replaces each value in the array corresponding
+/// to a true value in the mask with the next element from `replacements`.
+///
+/// \param[in] values Array input to replace
+/// \param[in] mask Array or Scalar of Boolean mask values
+/// \param[in] replacements The replacement values to draw from. There must
+/// be as many replacement values as true values in the mask.
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
+                              const Datum& replacements, ExecContext* ctx = NULLPTR);
+
 /// \brief Take from an array of values at indices in another array
 ///
 /// The output array will be of the same type as the input values
@@ -183,6 +215,24 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* ctx = NULLPTR);
+
+/// \brief Drop Null from an array of values
+///
+/// The output array will be of the same type as the input values
+/// array, with elements taken from the values array without nulls.
+///
+/// For example given values = ["a", "b", "c", null, "e", "f"],
+/// the output will be = ["a", "b", "c", "e", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> DropNull(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DropNull with Array inputs and output
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Returns indices that partition an array around n-th
 /// sorted element.
@@ -333,42 +383,6 @@ Result<Datum> DictionaryEncode(
 
 // ----------------------------------------------------------------------
 // Deprecated functions
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const ChunkedArray& values, const Array& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const ChunkedArray& values, const ChunkedArray& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const Array& values, const ChunkedArray& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<RecordBatch>> Take(
-    const RecordBatch& batch, const Array& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
-                                    const TakeOptions& options = TakeOptions::Defaults(),
-                                    ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
-                                    const TakeOptions& options = TakeOptions::Defaults(),
-                                    ExecContext* context = NULLPTR);
 
 ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
 ARROW_EXPORT

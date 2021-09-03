@@ -15,15 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_GANDIVA_OBJECT_CACHE_H
-#define ARROW_GANDIVA_OBJECT_CACHE_H
+#pragma once
 
 #include <llvm/Support/MemoryBuffer.h>
+
 #include "gandiva/cache.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/IR/Module.h"
 
 namespace gandiva {
+/// Class that enables the LLVM to use a custom rule to deal with the object code.
 template <class CacheKey>
 class GandivaObjectCache : public llvm::ObjectCache {
  public:
@@ -32,7 +33,7 @@ class GandivaObjectCache : public llvm::ObjectCache {
       std::shared_ptr<CacheKey>& key) {
     cache_ = cache;
     cache_key_ = key;
-  };
+  }
 
   ~GandivaObjectCache() {}
 
@@ -40,24 +41,28 @@ class GandivaObjectCache : public llvm::ObjectCache {
     std::unique_ptr<llvm::MemoryBuffer> obj_buffer =
         llvm::MemoryBuffer::getMemBufferCopy(Obj.getBuffer(), Obj.getBufferIdentifier());
     std::shared_ptr<llvm::MemoryBuffer> obj_code = std::move(obj_buffer);
-    cache_->PutObjectCode(*cache_key_.get(), obj_code, obj_code->getBufferSize());
-  };
+    ValueCacheObject<std::shared_ptr<llvm::MemoryBuffer>> value_cache(
+        obj_code, elapsed_, obj_code->getBufferSize());
+    cache_->PutObjectCode(*cache_key_.get(), value_cache);
+  }
 
   std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
     std::shared_ptr<llvm::MemoryBuffer> cached_obj =
         cache_->GetObjectCode(*cache_key_.get());
-    if (cached_obj == nullptr) {
-      return nullptr;
+    auto null = std::nullptr_t();
+    if (cached_obj != null) {
+      std::unique_ptr<llvm::MemoryBuffer> cached_buffer = cached_obj->getMemBufferCopy(
+          cached_obj->getBuffer(), cached_obj->getBufferIdentifier());
+      return cached_buffer;
     }
-    std::unique_ptr<llvm::MemoryBuffer> cached_buffer = cached_obj->getMemBufferCopy(
-        cached_obj->getBuffer(), cached_obj->getBufferIdentifier());
-    return cached_buffer;
-  };
+    return null;
+  }
+
+  void AddElapsedTime(size_t elapsed) { elapsed_ = elapsed; }
 
  private:
   std::shared_ptr<CacheKey> cache_key_;
   std::shared_ptr<Cache<CacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_;
+  size_t elapsed_;
 };
 }  // namespace gandiva
-
-#endif  // ARROW_GANDIVA_OBJECT_CACHE_H

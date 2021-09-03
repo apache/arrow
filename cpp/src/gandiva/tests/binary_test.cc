@@ -16,9 +16,10 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
+#include "gandiva/node.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -76,6 +77,52 @@ TEST_F(TestBinary, TestSimple) {
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestBinary, TestIfElse) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::binary());
+  auto field1 = field("f1", arrow::binary());
+
+  auto schema = arrow::schema({field0, field1});
+
+  auto f0 = TreeExprBuilder::MakeField(field0);
+  auto f1 = TreeExprBuilder::MakeField(field1);
+
+  // output fields
+  auto field_result = field("out", arrow::binary());
+
+  // Build expression
+  auto cond = TreeExprBuilder::MakeFunction("isnotnull", {f0}, arrow::boolean());
+  auto ifexpr = TreeExprBuilder::MakeIf(cond, f0, f1, arrow::binary());
+  auto expr = TreeExprBuilder::MakeExpression(ifexpr, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_f0 =
+      MakeArrowArrayBinary({"foo", "hello", "hi", "bye"}, {true, true, true, false});
+  auto array_f1 =
+      MakeArrowArrayBinary({"fe", "fi", "fo", "fum"}, {true, true, true, true});
+
+  // expected output
+  auto exp =
+      MakeArrowArrayBinary({"foo", "hello", "hi", "fum"}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_f0, array_f1});
 
   // Evaluate expression
   arrow::ArrayVector outputs;

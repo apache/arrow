@@ -71,6 +71,13 @@ class BaseBinaryArray : public FlatArray {
                              raw_value_offsets_[i + 1] - pos);
   }
 
+  /// \brief Get binary value as a string_view
+  /// Provided for consistency with other arrays.
+  ///
+  /// \param i the value index
+  /// \return the view over the selected value
+  util::string_view Value(int64_t i) const { return GetView(i); }
+
   /// \brief Get binary value as a std::string
   ///
   /// \param i the value index

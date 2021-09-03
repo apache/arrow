@@ -17,8 +17,14 @@
 
 arrow_install_all_headers("arrow/compute/exec")
 
-add_arrow_compute_test(expression_test PREFIX "arrow-compute")
+add_arrow_compute_test(expression_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       expression_test.cc
+                       subtree_test.cc)
 
 add_arrow_compute_test(plan_test PREFIX "arrow-compute")
+add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")

@@ -16,10 +16,11 @@
 // under the License.
 
 import '../../jest-extensions';
-import { AsyncIterable } from 'ix';
+import { from, fromDOMStream, toArray } from 'ix/asynciterable';
+import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
 import { validateVector } from './utils';
 import * as generate from '../../generate-test-data';
-import { Type, DataType, Chunked, util, Builder, UnionVector } from '../../Arrow';
+import { Type, DataType, Chunked, util, Builder, UnionVector } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
@@ -227,9 +228,9 @@ function fillNADefault(values: any[], nulls: any[]): any[] {
     });
 }
 
-type BuilderOptions<T extends DataType = any, TNull = any> = import('../../../src/builder').BuilderOptions<T, TNull>;
-type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('../../../src/io/node/builder').BuilderDuplexOptions<T, TNull>;
-type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('../../../src/io/whatwg/builder').BuilderTransformOptions<T, TNull>;
+type BuilderOptions<T extends DataType = any, TNull = any> = import('apache-arrow/builder').BuilderOptions<T, TNull>;
+type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/node/builder').BuilderDuplexOptions<T, TNull>;
+type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/whatwg/builder').BuilderTransformOptions<T, TNull>;
 
 async function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
     const builder = Builder.new(options);
@@ -243,11 +244,10 @@ async function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'
 
 async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderTransformOptions<T, TNull>) {
 
-    const stream = AsyncIterable
-        .from(values).toDOMStream()
+    const stream = from(values).toDOMStream()
         .pipeThrough(Builder.throughDOM(options));
 
-    const chunks = await AsyncIterable.fromDOMStream(stream).toArray();
+    const chunks = await fromDOMStream(stream).pipe(toArray);
 
     return Chunked.concat(...chunks);
 }
@@ -258,12 +258,11 @@ async function encodeChunksNode<T extends DataType, TNull = any>(values: (T['TVa
         options.nullValues =  [...options.nullValues, undefined] as TNull[];
     }
 
-    const stream = AsyncIterable
-        .from(fillNA(values, [undefined]))
+    const stream = from(fillNA(values, [undefined]))
         .toNodeStream({ objectMode: true })
         .pipe(Builder.throughNode(options));
 
-    const chunks: any[] = await AsyncIterable.fromNodeStream(stream, options.highWaterMark).toArray();
+    const chunks: any[] = await fromNodeStream(stream, options.highWaterMark).pipe(toArray);
 
     return Chunked.concat(...chunks);
 }

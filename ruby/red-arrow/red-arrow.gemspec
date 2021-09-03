@@ -48,13 +48,14 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency("bigdecimal", ">= 2.0.3")
   spec.add_runtime_dependency("extpp", ">= 0.0.7")
-  spec.add_runtime_dependency("gio2", ">= 3.3.6")
+  spec.add_runtime_dependency("gio2", ">= 3.4.9")
   spec.add_runtime_dependency("native-package-installer")
   spec.add_runtime_dependency("pkg-config")
 
   spec.add_development_dependency("benchmark-driver")
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("faker")
+  spec.add_development_dependency("fiddle", ">= 1.0.9")
   spec.add_development_dependency("rake")
   spec.add_development_dependency("redcarpet")
   spec.add_development_dependency("test-unit")

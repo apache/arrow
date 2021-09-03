@@ -20,15 +20,15 @@
 
 .. cpp:namespace:: arrow::csv
 
-=================
-Reading CSV files
-=================
+=============================
+Reading and Writing CSV files
+=============================
 
 Arrow provides a fast CSV reader allowing ingestion of external data
 as Arrow tables.
 
 .. seealso::
-   :ref:`CSV reader API reference <cpp-api-csv>`.
+   :ref:`CSV reader/writer API reference <cpp-api-csv>`.
 
 Basic usage
 ===========
@@ -68,6 +68,46 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
       }
       std::shared_ptr<arrow::Table> table = *maybe_table;
    }
+
+A CSV file is written to a :class:`~arrow::io::OutputStream`.
+
+.. code-block:: cpp
+
+   #include <arrow/csv/api.h>
+   {
+       // Oneshot write
+       // ...
+       std::shared_ptr<arrow::io::OutputStream> output = ...;
+       auto write_options = arrow::csv::WriteOptions::Defaults();
+       if (WriteCSV(table, options, output.get()).ok()) {
+           // Handle writer error...
+       }
+   }
+   {
+       // Write incrementally
+       // ...
+       std::shared_ptr<arrow::io::OutputStream> output = ...;
+       auto write_options = arrow::csv::WriteOptions::Defaults();
+       auto maybe_writer = arrow::csv::MakeCSVWriter(output, schema, options);
+       if (!maybe_writer.ok()) {
+           // Handle writer instantiation error...
+       }
+       std::shared_ptr<arrow::ipc::RecordBatchWriter> writer = *maybe_writer;
+
+       // Write batches...
+       if (!writer->WriteRecordBatch(*batch).ok()) {
+           // Handle write error...
+       }
+
+       if (!writer->Close().ok()) {
+           // Handle close error...
+       }
+       if (!output->Close().ok()) {
+           // Handle file close error...
+       }
+   }
+
+.. note:: The writer does not yet support all Arrow types.
 
 Column names
 ============
@@ -111,6 +151,7 @@ column.  Type inference considers the following data types, in order:
 * Int64
 * Boolean
 * Date32
+* Time32 (with seconds unit)
 * Timestamp (with seconds unit)
 * Timestamp (with nanoseconds unit)
 * Float64
@@ -129,6 +170,7 @@ can be chosen from the following list:
 * Decimal128
 * Boolean
 * Date32 and Date64
+* Time32 and Time64
 * Timestamp
 * Binary and Large Binary
 * String and Large String (with optional UTF8 input validation)
@@ -161,6 +203,12 @@ Character encoding
 
 CSV files are expected to be encoded in UTF8.  However, non-UTF8 data
 is accepted for Binary columns.
+
+Write Options
+=============
+
+The format of written CSV files can be customized via :class:`~arrow::csv::WriteOptions`.
+Currently few options are available; more will be added in future releases.
 
 Performance
 ===========

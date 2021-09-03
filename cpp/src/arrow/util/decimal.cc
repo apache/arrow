@@ -504,17 +504,16 @@ inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
   return Status::OK();
 }
 
-}  // namespace
-
-Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
-                              int32_t* precision, int32_t* scale) {
+template <typename Decimal>
+Status DecimalFromString(const char* type_name, const util::string_view& s, Decimal* out,
+                         int32_t* precision, int32_t* scale) {
   if (s.empty()) {
-    return Status::Invalid("Empty string cannot be converted to decimal");
+    return Status::Invalid("Empty string cannot be converted to ", type_name);
   }
 
   DecimalComponents dec;
   if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
-    return Status::Invalid("The string '", s, "' is not a valid decimal number");
+    return Status::Invalid("The string '", s, "' is not a valid ", type_name, " number");
   }
 
   // Count number of significant digits (without leading zeros)
@@ -528,29 +527,33 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
     auto adjusted_exponent = dec.exponent;
-    auto len = static_cast<int32_t>(significant_digits);
-    parsed_scale = -adjusted_exponent + len - 1;
+    parsed_scale =
+        -adjusted_exponent + static_cast<int32_t>(dec.fractional_digits.size());
   } else {
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
   if (out != nullptr) {
-    std::array<uint64_t, 2> little_endian_array = {0, 0};
+    static_assert(Decimal::kBitWidth % 64 == 0, "decimal bit-width not a multiple of 64");
+    std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array{};
     ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
     ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
                 little_endian_array.size());
-    *out =
-        Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
-    if (parsed_scale < 0) {
-      *out *= GetScaleMultiplier(-parsed_scale);
-    }
-
+    *out = Decimal(BitUtil::LittleEndianArray::ToNative(little_endian_array));
     if (dec.sign == '-') {
       out->Negate();
     }
   }
 
   if (parsed_scale < 0) {
+    // Force the scale to zero, to avoid negative scales (due to compatibility issues
+    // with external systems such as databases)
+    if (-parsed_scale > Decimal::kMaxScale) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
+    if (out != nullptr) {
+      *out *= Decimal::GetScaleMultiplier(-parsed_scale);
+    }
     parsed_precision -= parsed_scale;
     parsed_scale = 0;
   }
@@ -563,6 +566,13 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   }
 
   return Status::OK();
+}
+
+}  // namespace
+
+Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
+                              int32_t* precision, int32_t* scale) {
+  return DecimalFromString("decimal128", s, out, precision, scale);
 }
 
 Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
@@ -671,13 +681,15 @@ Decimal256::Decimal256(const std::string& str) : Decimal256() {
 
 std::string Decimal256::ToIntegerString() const {
   std::string result;
-  if (static_cast<int64_t>(little_endian_array()[3]) < 0) {
+  if (IsNegative()) {
     result.push_back('-');
     Decimal256 abs = *this;
     abs.Negate();
-    AppendLittleEndianArrayToString(abs.little_endian_array(), &result);
+    AppendLittleEndianArrayToString(
+        BitUtil::LittleEndianArray::FromNative(abs.native_endian_array()), &result);
   } else {
-    AppendLittleEndianArrayToString(little_endian_array(), &result);
+    AppendLittleEndianArrayToString(
+        BitUtil::LittleEndianArray::FromNative(native_endian_array()), &result);
   }
   return result;
 }
@@ -690,49 +702,7 @@ std::string Decimal256::ToString(int32_t scale) const {
 
 Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
                               int32_t* precision, int32_t* scale) {
-  if (s.empty()) {
-    return Status::Invalid("Empty string cannot be converted to decimal");
-  }
-
-  DecimalComponents dec;
-  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
-    return Status::Invalid("The string '", s, "' is not a valid decimal number");
-  }
-
-  // Count number of significant digits (without leading zeros)
-  size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
-  size_t significant_digits = dec.fractional_digits.size();
-  if (first_non_zero != std::string::npos) {
-    significant_digits += dec.whole_digits.size() - first_non_zero;
-  }
-
-  if (precision != nullptr) {
-    *precision = static_cast<int32_t>(significant_digits);
-  }
-
-  if (scale != nullptr) {
-    if (dec.has_exponent) {
-      auto adjusted_exponent = dec.exponent;
-      auto len = static_cast<int32_t>(significant_digits);
-      *scale = -adjusted_exponent + len - 1;
-    } else {
-      *scale = static_cast<int32_t>(dec.fractional_digits.size());
-    }
-  }
-
-  if (out != nullptr) {
-    std::array<uint64_t, 4> little_endian_array = {0, 0, 0, 0};
-    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
-    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
-                little_endian_array.size());
-    *out = Decimal256(little_endian_array);
-
-    if (dec.sign == '-') {
-      out->Negate();
-    }
-  }
-
-  return Status::OK();
+  return DecimalFromString("decimal256", s, out, precision, scale);
 }
 
 Status Decimal256::FromString(const std::string& s, Decimal256* out, int32_t* precision,
@@ -798,7 +768,7 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
     length -= word_length;
   }
 
-  return Decimal256(little_endian_array);
+  return Decimal256(BitUtil::LittleEndianArray::ToNative(little_endian_array));
 }
 
 Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
@@ -841,9 +811,9 @@ struct Decimal256RealConversion {
     DCHECK_LT(part1, 1.8446744073709552e+19);  // 2**64
     DCHECK_GE(part0, 0);
     DCHECK_LT(part0, 1.8446744073709552e+19);  // 2**64
-    return Decimal256(std::array<uint64_t, 4>{
-        static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
-        static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)});
+    return Decimal256(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(
+        {static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
+         static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)}));
   }
 
   static Result<Decimal256> FromReal(Real x, int32_t precision, int32_t scale) {
@@ -865,11 +835,11 @@ struct Decimal256RealConversion {
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
     DCHECK_GE(decimal, 0);
     Real x = 0;
-    const auto& parts = decimal.little_endian_array();
-    x += Derived::two_to_192(static_cast<Real>(parts[3]));
-    x += Derived::two_to_128(static_cast<Real>(parts[2]));
-    x += Derived::two_to_64(static_cast<Real>(parts[1]));
-    x += static_cast<Real>(parts[0]);
+    const auto parts_le = BitUtil::LittleEndianArray::Make(decimal.native_endian_array());
+    x += Derived::two_to_192(static_cast<Real>(parts_le[3]));
+    x += Derived::two_to_128(static_cast<Real>(parts_le[2]));
+    x += Derived::two_to_64(static_cast<Real>(parts_le[1]));
+    x += static_cast<Real>(parts_le[0]);
     if (scale >= -76 && scale <= 76) {
       x *= Derived::powers_of_ten()[-scale + 76];
     } else {
@@ -879,7 +849,7 @@ struct Decimal256RealConversion {
   }
 
   static Real ToReal(Decimal256 decimal, int32_t scale) {
-    if (decimal.little_endian_array()[3] & (1ULL << 63)) {
+    if (decimal.IsNegative()) {
       // Convert the absolute value to avoid precision loss
       decimal.Negate();
       return -ToRealPositive(decimal, scale);

@@ -36,18 +36,22 @@ public class TestErrorMetadata {
   private static final Metadata.BinaryMarshaller<Status> marshaller =
           ProtoUtils.metadataMarshaller(Status.getDefaultInstance());
 
+  /** Ensure metadata attached to a gRPC error is propagated. */
   @Test
-  public void testMetadata() throws Exception {
+  public void testGrpcMetadata() throws Exception {
     PerfOuterClass.Perf perf = PerfOuterClass.Perf.newBuilder()
                 .setStreamCount(12)
                 .setRecordsPerBatch(1000)
                 .setRecordsPerStream(1000000L)
                 .build();
+    StatusRuntimeExceptionProducer producer = new StatusRuntimeExceptionProducer(perf);
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        final FlightServer s =
+         final FlightServer s =
              FlightTestUtil.getStartedServer(
-               (location) -> FlightServer.builder(allocator, location, new TestFlightProducer(perf)).build());
-          final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+               (location) -> {
+                 return FlightServer.builder(allocator, location, producer).build();
+               });
+         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       final CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.CANCELLED, () -> {
         FlightStream stream = client.getStream(new Ticket("abs".getBytes()));
         stream.next();
@@ -72,10 +76,37 @@ public class TestErrorMetadata {
     }
   }
 
-  private static class TestFlightProducer extends NoOpFlightProducer {
+  /** Ensure metadata attached to a Flight error is propagated. */
+  @Test
+  public void testFlightMetadata() throws Exception {
+    try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         final FlightServer s =
+                 FlightTestUtil.getStartedServer(
+                   (location) -> FlightServer.builder(allocator, location, new CallStatusProducer()).build());
+         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+      CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.INVALID_ARGUMENT, () -> {
+        FlightStream stream = client.getStream(new Ticket(new byte[0]));
+        stream.next();
+      });
+      ErrorFlightMetadata metadata = flightStatus.metadata();
+      Assert.assertNotNull(metadata);
+      Assert.assertEquals("foo", metadata.get("x-foo"));
+      Assert.assertArrayEquals(new byte[]{1}, metadata.getByte("x-bar-bin"));
+
+      flightStatus = FlightTestUtil.assertCode(FlightStatusCode.INVALID_ARGUMENT, () -> {
+        client.getInfo(FlightDescriptor.command(new byte[0]));
+      });
+      metadata = flightStatus.metadata();
+      Assert.assertNotNull(metadata);
+      Assert.assertEquals("foo", metadata.get("x-foo"));
+      Assert.assertArrayEquals(new byte[]{1}, metadata.getByte("x-bar-bin"));
+    }
+  }
+
+  private static class StatusRuntimeExceptionProducer extends NoOpFlightProducer {
     private final PerfOuterClass.Perf perf;
 
-    private TestFlightProducer(PerfOuterClass.Perf perf) {
+    private StatusRuntimeExceptionProducer(PerfOuterClass.Perf perf) {
       this.perf = perf;
     }
 
@@ -87,6 +118,26 @@ public class TestErrorMetadata {
               .addDetails(Any.pack(perf, "arrow/meta/types"))
               .build());
       listener.error(sre);
+    }
+  }
+
+  private static class CallStatusProducer extends NoOpFlightProducer {
+    ErrorFlightMetadata metadata;
+
+    CallStatusProducer() {
+      this.metadata = new ErrorFlightMetadata();
+      metadata.insert("x-foo", "foo");
+      metadata.insert("x-bar-bin", new byte[]{1});
+    }
+
+    @Override
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+      listener.error(CallStatus.INVALID_ARGUMENT.withDescription("Failed").withMetadata(metadata).toRuntimeException());
+    }
+
+    @Override
+    public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
+      throw CallStatus.INVALID_ARGUMENT.withDescription("Failed").withMetadata(metadata).toRuntimeException();
     }
   }
 }

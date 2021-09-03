@@ -81,6 +81,8 @@ Type <- enum("Type::type",
   LARGE_LIST = 36L
 )
 
+TYPES_WITH_NAN <- Type[c("HALF_FLOAT", "FLOAT", "DOUBLE")]
+
 #' @rdname enums
 #' @export
 StatusCode <- enum("StatusCode",
@@ -139,4 +141,10 @@ QuantileInterpolation <- enum("QuantileInterpolation",
 #' @rdname enums
 NullEncodingBehavior <- enum("NullEncodingBehavior",
   ENCODE = 0L, MASK = 1L
+)
+
+#' @export
+#' @rdname enums
+NullHandlingBehavior <- enum("NullHandlingBehavior",
+  EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L
 )

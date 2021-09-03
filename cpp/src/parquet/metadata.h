@@ -84,7 +84,7 @@ class PARQUET_EXPORT ApplicationVersion {
   // Returns true if version is strictly less than other_version
   bool VersionLt(const ApplicationVersion& other_version) const;
 
-  // Returns true if version is strictly less than other_version
+  // Returns true if version is strictly equal with other_version
   bool VersionEq(const ApplicationVersion& other_version) const;
 
   // Checks if the Version has the correct statistics for a given column

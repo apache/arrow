@@ -21,7 +21,7 @@
 #include <memory>
 #include <mutex>
 
-#include "gandiva/lru_cache.h"
+#include "gandiva/greedy_dual_size_cache.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -56,47 +56,65 @@ class Cache {
 
   Cache() : Cache(GetCapacity(), GetDiskCapacity(), GetReserved()) {}
 
+  ::std::shared_ptr<Cache> create(size_t capacity) {
+    return ::std::make_shared<Cache>(cache_(capacity));
+  }
+
   ValueType GetModule(KeyType cache_key) {
-    arrow::util::optional<ValueType> result;
+    arrow::util::optional<ValueCacheObject<ValueType>> result;
     mtx_.lock();
     result = cache_.get(cache_key);
     mtx_.unlock();
-    return result != arrow::util::nullopt ? *result : nullptr;
+    return result != arrow::util::nullopt ? (*result).module : nullptr;
   }
 
   ValueType GetObjectCode(KeyType cache_key) {
-    arrow::util::optional<ValueType> result;
+    arrow::util::optional<ValueCacheObject<ValueType>> result;
     mtx_.lock();
-    result = cache_.getObject(cache_key);
+    result = cache_.GetObjectCode(cache_key);
     mtx_.unlock();
-    if (result != arrow::util::nullopt) {
-      return *result;
-    } else {
-      return nullptr;
-    }
+    return result != arrow::util::nullopt ? (*result).module : nullptr;
   }
 
-  void PutModule(KeyType cache_key, ValueType module) {
+  void PutModule(KeyType cache_key, ValueCacheObject<ValueType> valueCacheObject) {
     mtx_.lock();
-    cache_.insert(cache_key, module);
+    cache_.insert(cache_key, valueCacheObject);
     mtx_.unlock();
   }
 
-  void PutObjectCode(KeyType& cache_key, ValueType object_code,
-                     size_t object_cache_size) {
+  void PutObjectCode(KeyType& cache_key, ValueCacheObject<ValueType> object_code) {
     mtx_.lock();
-    cache_.insertObject(cache_key, object_code, object_cache_size);
+    cache_.InsertObjectCode(cache_key, object_code);
     mtx_.unlock();
   }
 
-  std::string toString() { return cache_.toString(); }
+//  ValueType GetObjectCode(KeyType cache_key) {
+//    arrow::util::optional<ValueType> result;
+//    mtx_.lock();
+//    result = cache_.getObject(cache_key);
+//    mtx_.unlock();
+//    if (result != arrow::util::nullopt) {
+//      return *result;
+//    } else {
+//      return nullptr;
+//    }
+//  }
 
-  size_t getCacheSize() { return cache_.getLruCacheSize(); }
+//  void PutObjectCode(KeyType& cache_key, ValueType object_code,
+//                     size_t object_cache_size) {
+//    mtx_.lock();
+//    cache_.insertObject(cache_key, object_code, object_cache_size);
+//    mtx_.unlock();
+//  }
 
-  std::pair<size_t, size_t> GetCapacitySafely();
+  ::std::shared_ptr<Cache> CreateSharedCachePtr() { return Cache::create(); }
+
+  std::string ToString() { return cache_.ToString(); }
+
+  size_t GetCacheSize() { return cache_.GetCacheSize(); }
 
  private:
-  LruCache<KeyType, ValueType> cache_;
+  GreedyDualSizeCache<KeyType, ValueType> cache_;
   std::mutex mtx_;
   llvm::SmallString<128> cache_dir_;
 };

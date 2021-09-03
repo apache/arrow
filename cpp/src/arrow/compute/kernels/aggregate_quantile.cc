@@ -389,6 +389,36 @@ struct ExactQuantiler<InType, enable_if_t<is_floating_type<InType>::value>> {
   SortQuantiler<InType> impl;
 };
 
+template <typename T>
+Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
+                      const Scalar& scalar, Datum* out) {
+  using CType = typename T::c_type;
+  ArrayData* output = out->mutable_array();
+  if (!scalar.is_valid) {
+    output->length = 0;
+    output->null_count = 0;
+    return Status::OK();
+  }
+  auto out_type = IsDataPoint(options) ? scalar.type : float64();
+  output->length = options.q.size();
+  output->null_count = 0;
+  ARROW_ASSIGN_OR_RAISE(
+      output->buffers[1],
+      ctx->Allocate(output->length * BitUtil::BytesForBits(GetBitWidth(*out_type))));
+  if (IsDataPoint(options)) {
+    CType* out_buffer = output->template GetMutableValues<CType>(1);
+    for (int64_t i = 0; i < output->length; i++) {
+      out_buffer[i] = UnboxScalar<T>::Unbox(scalar);
+    }
+  } else {
+    double* out_buffer = output->template GetMutableValues<double>(1);
+    for (int64_t i = 0; i < output->length; i++) {
+      out_buffer[i] = static_cast<double>(UnboxScalar<T>::Unbox(scalar));
+    }
+  }
+  return Status::OK();
+}
+
 template <typename _, typename InType>
 struct QuantileExecutor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -404,6 +434,10 @@ struct QuantileExecutor {
       if (q < 0 || q > 1) {
         return Status::Invalid("Quantile must be between 0 and 1");
       }
+    }
+
+    if (batch[0].is_scalar()) {
+      return ScalarQuantile<InType>(ctx, options, *batch[0].scalar(), out);
     }
 
     return ExactQuantiler<InType>().impl.Exec(ctx, batch, out);
@@ -427,8 +461,7 @@ void AddQuantileKernels(VectorFunction* func) {
   base.output_chunked = false;
 
   for (const auto& ty : NumericTypes()) {
-    base.signature =
-        KernelSignature::Make({InputType::Array(ty)}, OutputType(ResolveOutput));
+    base.signature = KernelSignature::Make({InputType(ty)}, OutputType(ResolveOutput));
     // output type is determined at runtime, set template argument to nulltype
     base.exec = GenerateNumeric<QuantileExecutor, NullType>(*ty);
     DCHECK_OK(func->AddKernel(base));

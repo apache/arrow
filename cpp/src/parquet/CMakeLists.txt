@@ -127,19 +127,15 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift
 
 #
 # Generated Thrift sources
-set_source_files_properties(src/generated/parquet_types.cpp
-                            src/generated/parquet_types.h
+set_source_files_properties(src/generated/parquet_types.cpp src/generated/parquet_types.h
                             src/generated/parquet_constants.cpp
                             src/generated/parquet_constants.h
-                            PROPERTIES
-                            SKIP_PRECOMPILE_HEADERS
-                            ON
-                            SKIP_UNITY_BUILD_INCLUSION
-                            ON)
+                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                       SKIP_UNITY_BUILD_INCLUSION ON)
 
 if(NOT MSVC)
-  set_source_files_properties(src/parquet/parquet_types.cpp PROPERTIES COMPILE_FLAGS
-                              -Wno-unused-variable)
+  set_source_files_properties(src/parquet/parquet_types.cpp
+                              PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
 endif()
 
 #
@@ -182,21 +178,16 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
   set_source_files_properties(level_comparison_avx2.cc
-                              PROPERTIES
-                              SKIP_PRECOMPILE_HEADERS
-                              ON
-                              COMPILE_FLAGS
-                              "${ARROW_AVX2_FLAG}")
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+                                                                    "${ARROW_AVX2_FLAG}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
   # imply BMI2.
   set_source_files_properties(level_conversion_bmi2.cc
-                              PROPERTIES
-                              SKIP_PRECOMPILE_HEADERS
-                              ON
-                              COMPILE_FLAGS
-                              "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2")
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                         COMPILE_FLAGS
+                                         "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2")
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
@@ -241,10 +232,7 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
 endif(NOT PARQUET_MINIMAL_DEPENDENCY)
 
-if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
-  # Localize thirdparty symbols using a linker version script. This hides them
-  # from the client application. The OS X linker does not support the
-  # version-script option.
+if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(PARQUET_SHARED_LINK_FLAGS
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
@@ -297,12 +285,9 @@ add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
-                             PRIVATE
-                             PARQUET_EXPORTING
-                             PRIVATE
-                             HAVE_INTTYPES_H
-                             PRIVATE
-                             HAVE_NETDB_H)
+                             PRIVATE PARQUET_EXPORTING
+                             PRIVATE HAVE_INTTYPES_H
+                             PRIVATE HAVE_NETDB_H)
   if(WIN32)
     target_compile_definitions(${LIB_TARGET} PRIVATE NOMINMAX)
   else()
@@ -336,14 +321,10 @@ add_parquet_test(internals-test
                  types_test.cc
                  test_util.cc)
 
-set_source_files_properties(public_api_test.cc
-                            PROPERTIES
-                            SKIP_PRECOMPILE_HEADERS
-                            ON
-                            SKIP_UNITY_BUILD_INCLUSION
-                            ON)
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                                          SKIP_UNITY_BUILD_INCLUSION ON)
 
-add_parquet_test(reader_test
+add_parquet_test(reader-test
                  SOURCES
                  column_reader_test.cc
                  level_conversion_test.cc
@@ -422,4 +403,8 @@ endif()
 
 if(ARROW_WITH_ZSTD)
   add_definitions(-DARROW_WITH_ZSTD)
+endif()
+
+if(ARROW_CSV)
+  add_definitions(-DARROW_CSV)
 endif()

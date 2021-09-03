@@ -100,7 +100,7 @@ new_array <- na_array$Slice(5)
 new_array$offset
 
 # Compare 2 arrays
-na_array2 = na_array
+na_array2 <- na_array
 na_array2 == na_array # element-wise comparison
 na_array2$Equals(na_array) # overall comparison
 \dontshow{\}) # examplesIf}

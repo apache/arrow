@@ -38,7 +38,7 @@ test_that("table round trip", {
   chunks_int <- chunked_array_int$chunks
   expect_equal(length(chunks_int), chunked_array_int$num_chunks)
   for (i in seq_along(chunks_int)) {
-    expect_equal(chunked_array_int$chunk(i-1L), chunks_int[[i]])
+    expect_equal(chunked_array_int$chunk(i - 1L), chunks_int[[i]])
   }
 
   # ChunkedArray
@@ -51,7 +51,7 @@ test_that("table round trip", {
   chunks_dbl <- chunked_array_dbl$chunks
   expect_equal(length(chunks_dbl), chunked_array_dbl$num_chunks)
   for (i in seq_along(chunks_dbl)) {
-    expect_equal(chunked_array_dbl$chunk(i-1L), chunks_dbl[[i]])
+    expect_equal(chunked_array_dbl$chunk(i - 1L), chunks_dbl[[i]])
   }
 
   # ChunkedArray
@@ -64,7 +64,7 @@ test_that("table round trip", {
   chunks_raw <- chunked_array_raw$chunks
   expect_equal(length(chunks_raw), chunked_array_raw$num_chunks)
   for (i in seq_along(chunks_raw)) {
-    expect_equal(chunked_array_raw$chunk(i-1L), chunks_raw[[i]])
+    expect_equal(chunked_array_raw$chunk(i - 1L), chunks_raw[[i]])
   }
   tf <- tempfile()
   write_feather(tbl, tf)

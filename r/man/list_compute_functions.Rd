@@ -39,8 +39,7 @@ available inside \code{dplyr} verbs.
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-list_compute_functions() 
-list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
-list_compute_functions(pattern = "^is", invert = TRUE)
+available_funcs <- list_compute_functions()
+utf8_funcs <- list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 \dontshow{\}) # examplesIf}
 }

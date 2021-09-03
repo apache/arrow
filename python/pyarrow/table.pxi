@@ -170,15 +170,25 @@ cdef class ChunkedArray(_PandasConvertible):
             else:
                 index -= self.chunked_array.chunk(j).get().length()
 
-    def is_null(self):
+    def is_null(self, *, nan_is_null=False):
         """
-        Return BooleanArray indicating the null values.
+        Return boolean array indicating the null values.
+
+        Parameters
+        ----------
+        nan_is_null : bool (optional, default False)
+            Whether floating-point NaN values should also be considered null.
+
+        Returns
+        -------
+        array : boolean Array or ChunkedArray
         """
-        return _pc().is_null(self)
+        options = _pc().NullOptions(nan_is_null)
+        return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
         """
-        Return BooleanArray indicating the non-null values.
+        Return boolean array indicating the non-null values.
         """
         return _pc().is_valid(self)
 
@@ -396,6 +406,13 @@ cdef class ChunkedArray(_PandasConvertible):
         usage.
         """
         return _pc().take(self, indices)
+
+    def drop_null(self):
+        """
+        Remove missing values from a chunked array.
+        See pyarrow.compute.drop_null for full description.
+        """
+        return _pc().drop_null(self)
 
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
@@ -616,6 +633,30 @@ cdef class RecordBatch(_PandasConvertible):
         self.sp_batch = batch
         self.batch = batch.get()
 
+    @staticmethod
+    def from_pydict(mapping, schema=None, metadata=None):
+        """
+        Construct a RecordBatch from Arrow arrays or columns.
+
+        Parameters
+        ----------
+        mapping : dict or Mapping
+            A mapping of strings to Arrays or Python lists.
+        schema : Schema, default None
+            If not passed, will be inferred from the Mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        RecordBatch
+        """
+
+        return _from_pydict(cls=RecordBatch,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
     def __reduce__(self):
         return _reconstruct_record_batch, (self.columns, self.schema)
 
@@ -664,7 +705,7 @@ cdef class RecordBatch(_PandasConvertible):
 
     def replace_schema_metadata(self, metadata=None):
         """
-        EXPERIMENTAL: Create shallow copy of record batch by replacing schema
+        Create shallow copy of record batch by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
         which deletes any existing metadata
 
@@ -927,10 +968,17 @@ cdef class RecordBatch(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select records from an RecordBatch. See pyarrow.compute.take for full
+        Select records from a RecordBatch. See pyarrow.compute.take for full
         usage.
         """
         return _pc().take(self, indices)
+
+    def drop_null(self):
+        """
+        Remove missing values from a RecordBatch.
+        See pyarrow.compute.drop_null for full usage.
+        """
+        return _pc().drop_null(self)
 
     def to_pydict(self):
         """
@@ -1294,10 +1342,17 @@ cdef class Table(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select records from an Table. See :func:`pyarrow.compute.take` for full
+        Select records from a Table. See :func:`pyarrow.compute.take` for full
         usage.
         """
         return _pc().take(self, indices)
+
+    def drop_null(self):
+        """
+        Remove missing values from a Table.
+        See :func:`pyarrow.compute.drop_null` for full usage.
+        """
+        return _pc().drop_null(self)
 
     def select(self, object columns):
         """
@@ -1331,7 +1386,7 @@ cdef class Table(_PandasConvertible):
 
     def replace_schema_metadata(self, metadata=None):
         """
-        EXPERIMENTAL: Create shallow copy of table by replacing schema
+        Create shallow copy of table by replacing schema
         key-value metadata with the indicated new metadata (which may be None),
         which deletes any existing metadata.
 
@@ -1631,33 +1686,11 @@ cdef class Table(_PandasConvertible):
         -------
         Table
         """
-        arrays = []
-        if schema is None:
-            names = []
-            for k, v in mapping.items():
-                names.append(k)
-                arrays.append(asarray(v))
-            return Table.from_arrays(arrays, names, metadata=metadata)
-        elif isinstance(schema, Schema):
-            for field in schema:
-                try:
-                    v = mapping[field.name]
-                except KeyError:
-                    try:
-                        v = mapping[tobytes(field.name)]
-                    except KeyError:
-                        present = mapping.keys()
-                        missing = [n for n in schema.names if n not in present]
-                        raise KeyError(
-                            "The passed mapping doesn't contain the "
-                            "following field(s) of the schema: {}".
-                            format(', '.join(missing))
-                        )
-                arrays.append(asarray(v, type=field.type))
-            # Will raise if metadata is not None
-            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
-        else:
-            raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+        return _from_pydict(cls=Table,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
@@ -2272,3 +2305,51 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
             ConcatenateTables(c_tables, options, pool))
 
     return pyarrow_wrap_table(c_result_table)
+
+
+def _from_pydict(cls, mapping, schema, metadata):
+    """
+    Construct a Table/RecordBatch from Arrow arrays or columns.
+
+    Parameters
+    ----------
+    cls : Class Table/RecordBatch
+    mapping : dict or Mapping
+        A mapping of strings to Arrays or Python lists.
+    schema : Schema, default None
+        If not passed, will be inferred from the Mapping values.
+    metadata : dict or Mapping, default None
+        Optional metadata for the schema (if inferred).
+
+    Returns
+    -------
+    Table/RecordBatch
+    """
+
+    arrays = []
+    if schema is None:
+        names = []
+        for k, v in mapping.items():
+            names.append(k)
+            arrays.append(asarray(v))
+        return cls.from_arrays(arrays, names, metadata=metadata)
+    elif isinstance(schema, Schema):
+        for field in schema:
+            try:
+                v = mapping[field.name]
+            except KeyError:
+                try:
+                    v = mapping[tobytes(field.name)]
+                except KeyError:
+                    present = mapping.keys()
+                    missing = [n for n in schema.names if n not in present]
+                    raise KeyError(
+                        "The passed mapping doesn't contain the "
+                        "following field(s) of the schema: {}".
+                        format(', '.join(missing))
+                    )
+            arrays.append(asarray(v, type=field.type))
+        # Will raise if metadata is not None
+        return cls.from_arrays(arrays, schema=schema, metadata=metadata)
+    else:
+        raise TypeError('Schema must be an instance of pyarrow.Schema')

@@ -226,8 +226,14 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
   int fragments = options.fragments;
   for (const auto& info : files_) {
     if (has_fragments_limit && fragments-- == 0) break;
-    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect({info, fs_}));
-    schemas.push_back(schema);
+    auto result = format_->Inspect({info, fs_});
+    if (ARROW_PREDICT_FALSE(!result.ok())) {
+      return result.status().WithMessage(
+          "Error creating dataset. Could not read schema from '", info.path(),
+          "': ", result.status().message(), ". Is this a '", format_->type_name(),
+          "' file?");
+    }
+    schemas.push_back(result.MoveValueUnsafe());
   }
 
   ARROW_ASSIGN_OR_RAISE(auto partition_schema,
@@ -268,7 +274,8 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
     fragments.push_back(fragment);
   }
 
-  return FileSystemDataset::Make(schema, root_partition_, format_, fs_, fragments);
+  return FileSystemDataset::Make(std::move(schema), root_partition_, format_, fs_,
+                                 std::move(fragments), std::move(partitioning));
 }
 
 }  // namespace dataset

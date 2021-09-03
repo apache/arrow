@@ -209,6 +209,10 @@ class EchoFlightServer(FlightServerBase):
             assert self.expected_schema == reader.schema
         self.last_message = reader.read_all()
 
+    def do_exchange(self, context, descriptor, reader, writer):
+        for chunk in reader:
+            pass
+
 
 class EchoStreamFlightServer(EchoFlightServer):
     """An echo server that streams individual record batches."""
@@ -373,6 +377,21 @@ class ErrorFlightServer(FlightServerBase):
             -1, -1
         )
         raise flight.FlightInternalError("foo")
+
+    def do_put(self, context, descriptor, reader, writer):
+        if descriptor.command == b"internal":
+            raise flight.FlightInternalError("foo")
+        elif descriptor.command == b"timedout":
+            raise flight.FlightTimedOutError("foo")
+        elif descriptor.command == b"cancel":
+            raise flight.FlightCancelledError("foo")
+        elif descriptor.command == b"unauthenticated":
+            raise flight.FlightUnauthenticatedError("foo")
+        elif descriptor.command == b"unauthorized":
+            raise flight.FlightUnauthorizedError("foo")
+        elif descriptor.command == b"protobuf":
+            err_msg = b'this is an error message'
+            raise flight.FlightUnauthorizedError("foo", err_msg)
 
 
 class ExchangeFlightServer(FlightServerBase):
@@ -814,6 +833,23 @@ class MultiHeaderServerMiddleware(ServerMiddleware):
 
     def sending_headers(self):
         return MultiHeaderClientMiddleware.EXPECTED
+
+
+class LargeMetadataFlightServer(FlightServerBase):
+    """Regression test for ARROW-13253."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._metadata = b' ' * (2 ** 31 + 1)
+
+    def do_get(self, context, ticket):
+        schema = pa.schema([('a', pa.int64())])
+        return flight.GeneratorStream(schema, [
+            (pa.record_batch([[1]], schema=schema), self._metadata),
+        ])
+
+    def do_exchange(self, context, descriptor, reader, writer):
+        writer.write_metadata(self._metadata)
 
 
 def test_flight_server_location_argument():
@@ -1511,6 +1547,7 @@ def test_roundtrip_errors():
     """Ensure that Flight errors propagate from server to client."""
     with ErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
+
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.do_action(flight.Action("internal", b"")))
         with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
@@ -1523,6 +1560,32 @@ def test_roundtrip_errors():
             list(client.do_action(flight.Action("unauthorized", b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
+
+        data = [pa.array([-10, -5, 0, 5, 10])]
+        table = pa.Table.from_arrays(data, names=['a'])
+
+        exceptions = {
+            'internal': flight.FlightInternalError,
+            'timedout': flight.FlightTimedOutError,
+            'cancel': flight.FlightCancelledError,
+            'unauthenticated': flight.FlightUnauthenticatedError,
+            'unauthorized': flight.FlightUnauthorizedError,
+        }
+
+        for command, exception in exceptions.items():
+
+            with pytest.raises(exception, match=".*foo.*"):
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(command),
+                    table.schema)
+                writer.write_table(table)
+                writer.close()
+
+            with pytest.raises(exception, match=".*foo.*"):
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(command),
+                    table.schema)
+                writer.close()
 
 
 def test_do_put_independent_read_write():
@@ -1903,3 +1966,55 @@ def test_never_sends_data():
         # up to a certain extent
         table = client.do_get(flight.Ticket(b'yield_data')).read_all()
         assert table.num_rows == 5
+
+
+@pytest.mark.large_memory
+@pytest.mark.slow
+def test_large_descriptor():
+    # Regression test for ARROW-13253. Placed here with appropriate marks
+    # since some CI pipelines can't run the C++ equivalent
+    large_descriptor = flight.FlightDescriptor.for_command(
+        b' ' * (2 ** 31 + 1))
+    with FlightServerBase() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(OSError,
+                           match="Failed to serialize Flight descriptor"):
+            writer, _ = client.do_put(large_descriptor, pa.schema([]))
+            writer.close()
+        with pytest.raises(pa.ArrowException,
+                           match="Failed to serialize Flight descriptor"):
+            client.do_exchange(large_descriptor)
+
+
+@pytest.mark.large_memory
+@pytest.mark.slow
+def test_large_metadata_client():
+    # Regression test for ARROW-13253
+    descriptor = flight.FlightDescriptor.for_command(b'')
+    metadata = b' ' * (2 ** 31 + 1)
+    with EchoFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(pa.ArrowCapacityError,
+                           match="app_metadata size overflow"):
+            writer, _ = client.do_put(descriptor, pa.schema([]))
+            with writer:
+                writer.write_metadata(metadata)
+                writer.close()
+        with pytest.raises(pa.ArrowCapacityError,
+                           match="app_metadata size overflow"):
+            writer, reader = client.do_exchange(descriptor)
+            with writer:
+                writer.write_metadata(metadata)
+
+    del metadata
+    with LargeMetadataFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(flight.FlightServerError,
+                           match="app_metadata size overflow"):
+            reader = client.do_get(flight.Ticket(b''))
+            reader.read_all()
+        with pytest.raises(pa.ArrowException,
+                           match="app_metadata size overflow"):
+            writer, reader = client.do_exchange(descriptor)
+            with writer:
+                reader.read_all()

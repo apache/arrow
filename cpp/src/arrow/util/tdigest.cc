@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <queue>
 #include <tuple>
 #include <vector>
@@ -370,34 +371,40 @@ void TDigest::Reset() {
   impl_->Reset();
 }
 
-Status TDigest::Validate() {
+Status TDigest::Validate() const {
   MergeInput();
   return impl_->Validate();
 }
 
-void TDigest::Dump() {
+void TDigest::Dump() const {
   MergeInput();
   impl_->Dump();
 }
 
-void TDigest::Merge(std::vector<TDigest>* tdigests) {
+void TDigest::Merge(const std::vector<TDigest>& others) {
   MergeInput();
 
-  std::vector<const TDigestImpl*> tdigest_impls;
-  tdigest_impls.reserve(tdigests->size());
-  for (auto& td : *tdigests) {
-    td.MergeInput();
-    tdigest_impls.push_back(td.impl_.get());
+  std::vector<const TDigestImpl*> other_impls;
+  other_impls.reserve(others.size());
+  for (auto& other : others) {
+    other.MergeInput();
+    other_impls.push_back(other.impl_.get());
   }
-  impl_->Merge(tdigest_impls);
+  impl_->Merge(other_impls);
 }
 
-double TDigest::Quantile(double q) {
+void TDigest::Merge(const TDigest& other) {
+  MergeInput();
+  other.MergeInput();
+  impl_->Merge({other.impl_.get()});
+}
+
+double TDigest::Quantile(double q) const {
   MergeInput();
   return impl_->Quantile(q);
 }
 
-double TDigest::Mean() {
+double TDigest::Mean() const {
   MergeInput();
   return impl_->Mean();
 }
@@ -406,7 +413,7 @@ bool TDigest::is_empty() const {
   return input_.size() == 0 && impl_->total_weight() == 0;
 }
 
-void TDigest::MergeInput() {
+void TDigest::MergeInput() const {
   if (input_.size() > 0) {
     impl_->MergeInput(input_);  // will mutate input_
   }

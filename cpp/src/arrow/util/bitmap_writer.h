@@ -180,5 +180,106 @@ class FirstTimeBitmapWriter {
   int64_t byte_offset_;
 };
 
+template <typename Word, bool may_have_byte_offset = true>
+class BitmapWordWriter {
+ public:
+  BitmapWordWriter() = default;
+  BitmapWordWriter(uint8_t* bitmap, int64_t offset, int64_t length)
+      : offset_(static_cast<int64_t>(may_have_byte_offset) * (offset % 8)),
+        bitmap_(bitmap + offset / 8),
+        bitmap_end_(bitmap_ + BitUtil::BytesForBits(offset_ + length)),
+        mask_((1U << offset_) - 1) {
+    if (offset_) {
+      if (length >= static_cast<int>(sizeof(Word) * 8)) {
+        current_data.word_ = load<Word>(bitmap_);
+      } else if (length > 0) {
+        current_data.epi.byte_ = load<uint8_t>(bitmap_);
+      }
+    }
+  }
+
+  void PutNextWord(Word word) {
+    if (may_have_byte_offset && offset_) {
+      // split one word into two adjacent words, don't touch unused bits
+      //               |<------ word ----->|
+      //               +-----+-------------+
+      //               |  A  |      B      |
+      //               +-----+-------------+
+      //                  |         |
+      //                  v         v       offset
+      // +-------------+-----+-------------+-----+
+      // |     ---     |  A  |      B      | --- |
+      // +-------------+-----+-------------+-----+
+      // |<------ next ----->|<---- current ---->|
+      word = (word << offset_) | (word >> (sizeof(Word) * 8 - offset_));
+      Word next_word = load<Word>(bitmap_ + sizeof(Word));
+      current_data.word_ = (current_data.word_ & mask_) | (word & ~mask_);
+      next_word = (next_word & ~mask_) | (word & mask_);
+      store<Word>(bitmap_, current_data.word_);
+      store<Word>(bitmap_ + sizeof(Word), next_word);
+      current_data.word_ = next_word;
+    } else {
+      store<Word>(bitmap_, word);
+    }
+    bitmap_ += sizeof(Word);
+  }
+
+  void PutNextTrailingByte(uint8_t byte, int valid_bits) {
+    if (valid_bits == 8) {
+      if (may_have_byte_offset && offset_) {
+        byte = (byte << offset_) | (byte >> (8 - offset_));
+        uint8_t next_byte = load<uint8_t>(bitmap_ + 1);
+        current_data.epi.byte_ = (current_data.epi.byte_ & mask_) | (byte & ~mask_);
+        next_byte = (next_byte & ~mask_) | (byte & mask_);
+        store<uint8_t>(bitmap_, current_data.epi.byte_);
+        store<uint8_t>(bitmap_ + 1, next_byte);
+        current_data.epi.byte_ = next_byte;
+      } else {
+        store<uint8_t>(bitmap_, byte);
+      }
+      ++bitmap_;
+    } else {
+      assert(valid_bits > 0);
+      assert(valid_bits < 8);
+      assert(bitmap_ + BitUtil::BytesForBits(offset_ + valid_bits) <= bitmap_end_);
+      internal::BitmapWriter writer(bitmap_, offset_, valid_bits);
+      for (int i = 0; i < valid_bits; ++i) {
+        (byte & 0x01) ? writer.Set() : writer.Clear();
+        writer.Next();
+        byte >>= 1;
+      }
+      writer.Finish();
+    }
+  }
+
+ private:
+  int64_t offset_;
+  uint8_t* bitmap_;
+
+  const uint8_t* bitmap_end_;
+  uint64_t mask_;
+  union {
+    Word word_;
+    struct {
+#if ARROW_LITTLE_ENDIAN == 0
+      uint8_t padding_bytes_[sizeof(Word) - 1];
+#endif
+      uint8_t byte_;
+    } epi;
+  } current_data;
+
+  template <typename DType>
+  DType load(const uint8_t* bitmap) {
+    assert(bitmap + sizeof(DType) <= bitmap_end_);
+    return BitUtil::ToLittleEndian(util::SafeLoadAs<DType>(bitmap));
+  }
+
+  template <typename DType>
+  void store(uint8_t* bitmap, DType data) {
+    assert(bitmap + sizeof(DType) <= bitmap_end_);
+    util::SafeStore(bitmap, BitUtil::FromLittleEndian(data));
+  }
+};
+
 }  // namespace internal
 }  // namespace arrow

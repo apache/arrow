@@ -61,7 +61,6 @@ RUN \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \
-    libzstd-dev \
     lsb-release \
     ninja-build \
     pkg-config \

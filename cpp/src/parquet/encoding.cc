@@ -42,7 +42,6 @@
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
-
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -861,20 +860,31 @@ class ByteStreamSplitEncoder : public EncoderImpl, virtual public TypedEncoder<D
                  int64_t valid_bits_offset) override;
 
  protected:
-  ::arrow::TypedBufferBuilder<T> values_;
+  template <typename ArrowType>
+  void PutImpl(const ::arrow::Array& values) {
+    if (values.type_id() != ArrowType::type_id) {
+      throw ParquetException(std::string() + "direct put to " + ArrowType::type_name() +
+                             " from " + values.type()->ToString() + " not supported");
+    }
+    const auto& data = *values.data();
+    PutSpaced(data.GetValues<typename ArrowType::c_type>(1),
+              static_cast<int>(data.length), data.GetValues<uint8_t>(0, 0), data.offset);
+  }
 
- private:
-  void PutArrowArray(const ::arrow::Array& values);
+  ::arrow::BufferBuilder sink_;
+  int64_t num_values_in_buffer_;
 };
 
 template <typename DType>
 ByteStreamSplitEncoder<DType>::ByteStreamSplitEncoder(const ColumnDescriptor* descr,
                                                       ::arrow::MemoryPool* pool)
-    : EncoderImpl(descr, Encoding::BYTE_STREAM_SPLIT, pool), values_{pool} {}
+    : EncoderImpl(descr, Encoding::BYTE_STREAM_SPLIT, pool),
+      sink_{pool},
+      num_values_in_buffer_{0} {}
 
 template <typename DType>
 int64_t ByteStreamSplitEncoder<DType>::EstimatedDataEncodedSize() {
-  return values_.length() * sizeof(T);
+  return sink_.length();
 }
 
 template <typename DType>
@@ -882,34 +892,30 @@ std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
   std::shared_ptr<ResizableBuffer> output_buffer =
       AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
-  const size_t num_values = values_.length();
-  const uint8_t* raw_values = reinterpret_cast<const uint8_t*>(values_.data());
-  ::arrow::util::internal::ByteStreamSplitEncode<T>(raw_values, num_values,
+  const uint8_t* raw_values = sink_.data();
+  ::arrow::util::internal::ByteStreamSplitEncode<T>(raw_values, num_values_in_buffer_,
                                                     output_buffer_raw);
-  values_.Reset();
+  sink_.Reset();
+  num_values_in_buffer_ = 0;
   return std::move(output_buffer);
 }
 
 template <typename DType>
 void ByteStreamSplitEncoder<DType>::Put(const T* buffer, int num_values) {
-  if (num_values > 0) PARQUET_THROW_NOT_OK(values_.Append(buffer, num_values));
-}
-
-template <typename DType>
-void ByteStreamSplitEncoder<DType>::Put(const ::arrow::Array& values) {
-  PutArrowArray(values);
-}
-
-template <>
-void ByteStreamSplitEncoder<FloatType>::PutArrowArray(const ::arrow::Array& values) {
-  DirectPutImpl<::arrow::FloatArray>(values,
-                                     reinterpret_cast<::arrow::BufferBuilder*>(&values_));
+  if (num_values > 0) {
+    PARQUET_THROW_NOT_OK(sink_.Append(buffer, num_values * sizeof(T)));
+    num_values_in_buffer_ += num_values;
+  }
 }
 
 template <>
-void ByteStreamSplitEncoder<DoubleType>::PutArrowArray(const ::arrow::Array& values) {
-  DirectPutImpl<::arrow::DoubleArray>(
-      values, reinterpret_cast<::arrow::BufferBuilder*>(&values_));
+void ByteStreamSplitEncoder<FloatType>::Put(const ::arrow::Array& values) {
+  PutImpl<::arrow::FloatType>(values);
+}
+
+template <>
+void ByteStreamSplitEncoder<DoubleType>::Put(const ::arrow::Array& values) {
+  PutImpl<::arrow::DoubleType>(values);
 }
 
 template <typename DType>
@@ -2064,8 +2070,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   void SetData(int num_values, const uint8_t* data, int len) override {
     this->num_values_ = num_values;
     decoder_ = ::arrow::BitUtil::BitReader(data, len);
-    values_current_block_ = 0;
-    values_current_mini_block_ = 0;
+    InitHeader();
   }
 
   int Decode(T* buffer, int max_values) override {
@@ -2100,55 +2105,81 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
  private:
-  void InitBlock() {
-    // The number of values per block.
-    uint32_t block_size;
-    if (!decoder_.GetVlqInt(&block_size)) ParquetException::EofException();
-    if (!decoder_.GetVlqInt(&num_mini_blocks_)) ParquetException::EofException();
-    if (!decoder_.GetVlqInt(&values_current_block_)) {
+  void InitHeader() {
+    if (!decoder_.GetVlqInt(&values_per_block_)) ParquetException::EofException();
+    if (!decoder_.GetVlqInt(&mini_blocks_per_block_)) ParquetException::EofException();
+    if (!decoder_.GetVlqInt(&total_value_count_)) {
       ParquetException::EofException();
     }
     if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
 
-    delta_bit_widths_ = AllocateBuffer(pool_, num_mini_blocks_);
-    uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
+    delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
+    values_per_mini_block_ = values_per_block_ / mini_blocks_per_block_;
+    if (values_per_mini_block_ % 32 != 0) {
+      throw ParquetException(
+          "the number of values in a miniblock must be multiple of 32, but it's " +
+          std::to_string(values_per_mini_block_));
+    }
 
+    block_initialized_ = false;
+    values_current_mini_block_ = 0;
+  }
+
+  void InitBlock() {
     if (!decoder_.GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
-    for (uint32_t i = 0; i < num_mini_blocks_; ++i) {
+
+    // read the bitwidth of each miniblock
+    uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
+    for (uint32_t i = 0; i < mini_blocks_per_block_; ++i) {
       if (!decoder_.GetAligned<uint8_t>(1, bit_width_data + i)) {
         ParquetException::EofException();
       }
     }
-    values_per_mini_block_ = block_size / num_mini_blocks_;
     mini_block_idx_ = 0;
     delta_bit_width_ = bit_width_data[0];
     values_current_mini_block_ = values_per_mini_block_;
+    block_initialized_ = true;
   }
 
-  template <typename T>
   int GetInternal(T* buffer, int max_values) {
     max_values = std::min(max_values, this->num_values_);
-    const uint8_t* bit_width_data = delta_bit_widths_->data();
-    for (int i = 0; i < max_values; ++i) {
+    DCHECK_LE(static_cast<uint32_t>(max_values), total_value_count_);
+    int i = 0;
+    while (i < max_values) {
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
-        ++mini_block_idx_;
-        if (mini_block_idx_ < static_cast<size_t>(delta_bit_widths_->size())) {
-          delta_bit_width_ = bit_width_data[mini_block_idx_];
-          values_current_mini_block_ = values_per_mini_block_;
-        } else {
+        if (ARROW_PREDICT_FALSE(!block_initialized_)) {
+          buffer[i++] = last_value_;
+          --total_value_count_;
+          if (ARROW_PREDICT_FALSE(i == max_values)) break;
           InitBlock();
-          buffer[i] = last_value_;
-          continue;
+        } else {
+          ++mini_block_idx_;
+          if (mini_block_idx_ < mini_blocks_per_block_) {
+            delta_bit_width_ = delta_bit_widths_->data()[mini_block_idx_];
+            values_current_mini_block_ = values_per_mini_block_;
+          } else {
+            InitBlock();
+          }
         }
       }
 
-      // TODO: the key to this algorithm is to decode the entire miniblock at once.
-      int64_t delta;
-      if (!decoder_.GetValue(delta_bit_width_, &delta)) ParquetException::EofException();
-      delta += min_delta_;
-      last_value_ += static_cast<int32_t>(delta);
-      buffer[i] = last_value_;
-      --values_current_mini_block_;
+      int values_decode =
+          std::min(values_current_mini_block_, static_cast<uint32_t>(max_values - i));
+      if (decoder_.GetBatch(delta_bit_width_, buffer + i, values_decode) !=
+          values_decode) {
+        ParquetException::EofException();
+      }
+      for (int j = 0; j < values_decode; ++j) {
+        // Addition between min_delta, packed int and last_value should be treated as
+        // unsigned addtion. Overflow is as expected.
+        uint64_t delta =
+            static_cast<uint64_t>(min_delta_) + static_cast<uint64_t>(buffer[i + j]);
+        buffer[i + j] = static_cast<T>(delta + static_cast<uint64_t>(last_value_));
+        last_value_ = buffer[i + j];
+      }
+      values_current_mini_block_ -= values_decode;
+      total_value_count_ -= values_decode;
+      i += values_decode;
     }
     this->num_values_ -= max_values;
     return max_values;
@@ -2156,17 +2187,19 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
   MemoryPool* pool_;
   ::arrow::BitUtil::BitReader decoder_;
-  uint32_t values_current_block_;
-  uint32_t num_mini_blocks_;
-  uint64_t values_per_mini_block_;
-  uint64_t values_current_mini_block_;
+  uint32_t values_per_block_;
+  uint32_t mini_blocks_per_block_;
+  uint32_t values_per_mini_block_;
+  uint32_t values_current_mini_block_;
+  uint32_t total_value_count_;
 
-  int32_t min_delta_;
-  size_t mini_block_idx_;
+  bool block_initialized_;
+  T min_delta_;
+  uint32_t mini_block_idx_;
   std::shared_ptr<ResizableBuffer> delta_bit_widths_;
   int delta_bit_width_;
 
-  int32_t last_value_;
+  T last_value_;
 };
 
 // ----------------------------------------------------------------------
@@ -2499,6 +2532,16 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
         return std::unique_ptr<Decoder>(new ByteStreamSplitDecoder<DoubleType>(descr));
       default:
         throw ParquetException("BYTE_STREAM_SPLIT only supports FLOAT and DOUBLE");
+        break;
+    }
+  } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int32Type>(descr));
+      case Type::INT64:
+        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int64Type>(descr));
+      default:
+        throw ParquetException("DELTA_BINARY_PACKED only supports INT32 and INT64");
         break;
     }
   } else {

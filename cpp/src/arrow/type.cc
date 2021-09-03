@@ -378,7 +378,7 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
 size_t DataType::Hash() const {
   static constexpr size_t kHashSeed = 0;
   size_t result = kHashSeed;
-  internal::hash_combine(result, this->ComputeFingerprint());
+  internal::hash_combine(result, this->fingerprint());
   return result;
 }
 
@@ -1195,6 +1195,10 @@ std::string FieldRef::ToString() const {
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
+  if (auto name = this->name()) {
+    return internal::MapVector([](int i) { return FieldPath{i}; },
+                               schema.GetAllFieldIndices(*name));
+  }
   return FindAll(schema.fields());
 }
 

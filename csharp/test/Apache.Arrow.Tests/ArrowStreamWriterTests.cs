@@ -56,12 +56,13 @@ namespace Apache.Arrow.Tests
             Assert.Equal(0, stream.Position);
         }
 
-        [Fact]
-        public void CanWriteToNetworkStream()
+        [Theory]
+        [InlineData(true, 32153)]
+        [InlineData(false, 32154)]
+        public void CanWriteToNetworkStream(bool createDictionaryArray, int port)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            const int port = 32153;
             TcpListener listener = new TcpListener(IPAddress.Loopback, port);
             listener.Start();
 
@@ -90,12 +91,13 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public async Task CanWriteToNetworkStreamAsync()
+        [Theory]
+        [InlineData(true, 32155)]
+        [InlineData(false, 32156)]
+        public async Task CanWriteToNetworkStreamAsync(bool createDictionaryArray, int port)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            const int port = 32154;
             TcpListener listener = new TcpListener(IPAddress.Loopback, port);
             listener.Start();
 
@@ -124,18 +126,22 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public void WriteEmptyBatch()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void WriteEmptyBatch(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0, createDictionaryArray: createDictionaryArray);
 
             TestRoundTripRecordBatch(originalBatch);
         }
 
-        [Fact]
-        public async Task WriteEmptyBatchAsync()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task WriteEmptyBatchAsync(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0, createDictionaryArray: createDictionaryArray);
 
             await TestRoundTripRecordBatchAsync(originalBatch);
         }
@@ -196,13 +202,16 @@ namespace Apache.Arrow.Tests
             await TestRoundTripRecordBatchAsync(originalBatch);
         }
 
-        private static void TestRoundTripRecordBatch(RecordBatch originalBatch, IpcOptions options = null)
+        private static void TestRoundTripRecordBatches(List<RecordBatch> originalBatches, IpcOptions options = null)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
+                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
                 {
-                    writer.WriteRecordBatch(originalBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        writer.WriteRecordBatch(originalBatch);
+                    }
                     writer.WriteEnd();
                 }
 
@@ -210,20 +219,25 @@ namespace Apache.Arrow.Tests
 
                 using (var reader = new ArrowStreamReader(stream))
                 {
-                    RecordBatch newBatch = reader.ReadNextRecordBatch();
-                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        RecordBatch newBatch = reader.ReadNextRecordBatch();
+                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    }
                 }
             }
         }
 
-
-        private static async Task TestRoundTripRecordBatchAsync(RecordBatch originalBatch, IpcOptions options = null)
+        private static async Task TestRoundTripRecordBatchesAsync(List<RecordBatch> originalBatches, IpcOptions options = null)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
+                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
                 {
-                    await writer.WriteRecordBatchAsync(originalBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        await writer.WriteRecordBatchAsync(originalBatch);
+                    }
                     await writer.WriteEndAsync();
                 }
 
@@ -231,10 +245,23 @@ namespace Apache.Arrow.Tests
 
                 using (var reader = new ArrowStreamReader(stream))
                 {
-                    RecordBatch newBatch = reader.ReadNextRecordBatch();
-                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        RecordBatch newBatch = reader.ReadNextRecordBatch();
+                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    }
                 }
             }
+        }
+
+        private static void TestRoundTripRecordBatch(RecordBatch originalBatch, IpcOptions options = null)
+        {
+            TestRoundTripRecordBatches(new List<RecordBatch> { originalBatch }, options);
+        }
+
+        private static async Task TestRoundTripRecordBatchAsync(RecordBatch originalBatch, IpcOptions options = null)
+        {
+            await TestRoundTripRecordBatchesAsync(new List<RecordBatch> { originalBatch }, options);
         }
 
         [Fact]
@@ -369,27 +396,32 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public void LegacyIpcFormatRoundTrips()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void LegacyIpcFormatRoundTrips(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             TestRoundTripRecordBatch(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
-        }
-
-
-        [Fact]
-        public async Task LegacyIpcFormatRoundTripsAsync()
-        {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
-            await TestRoundTripRecordBatchAsync(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
         }
 
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public void WriteLegacyIpcFormat(bool writeLegacyIpcFormat)
+        public async Task LegacyIpcFormatRoundTripsAsync(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
+            await TestRoundTripRecordBatchAsync(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
+        }
+
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public void WriteLegacyIpcFormat(bool writeLegacyIpcFormat, bool createDictionaryArray)
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             var options = new IpcOptions() { WriteLegacyIpcFormat = writeLegacyIpcFormat };
 
             using (MemoryStream stream = new MemoryStream())
@@ -425,11 +457,13 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task WriteLegacyIpcFormatAsync(bool writeLegacyIpcFormat)
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public async Task WriteLegacyIpcFormatAsync(bool writeLegacyIpcFormat, bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             var options = new IpcOptions() { WriteLegacyIpcFormat = writeLegacyIpcFormat };
 
             using (MemoryStream stream = new MemoryStream())
@@ -493,6 +527,111 @@ namespace Apache.Arrow.Tests
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(schema, length: 10);
 
             TestRoundTripRecordBatch(originalBatch);
+        }
+
+        [Fact]
+        public async Task WriteMultipleDictionaryArraysAsync()
+        {
+            List<RecordBatch> originalRecordBatches = CreateMultipleDictionaryArraysTestData();
+            await TestRoundTripRecordBatchesAsync(originalRecordBatches);
+        }
+
+        [Fact]
+        public void WriteMultipleDictionaryArrays()
+        {
+            List<RecordBatch> originalRecordBatches = CreateMultipleDictionaryArraysTestData();
+            TestRoundTripRecordBatches(originalRecordBatches);
+        }
+
+        private List<RecordBatch> CreateMultipleDictionaryArraysTestData()
+        {
+            var dictionaryData = new List<string> { "a", "b", "c" };
+            int length = dictionaryData.Count;
+
+            var schemaForSimpleCase = new Schema(new List<Field> {
+                new Field("int8", Int8Type.Default, true),
+                new Field("uint8", UInt8Type.Default, true),
+                new Field("int16", Int16Type.Default, true),
+                new Field("uint16", UInt16Type.Default, true),
+                new Field("int32", Int32Type.Default, true),
+                new Field("uint32", UInt32Type.Default, true),
+                new Field("int64", Int64Type.Default, true),
+                new Field("uint64", UInt64Type.Default, true)
+            }, null);
+
+            StringArray dictionary = new StringArray.Builder().AppendRange(dictionaryData).Build();
+            IEnumerable<IArrowArray> indicesArraysForSimpleCase = TestData.CreateArrays(schemaForSimpleCase, length);
+
+            var fields = new List<Field>(capacity: length + 1);
+            var testTargetArrays = new List<IArrowArray>(capacity: length + 1);
+
+            foreach (IArrowArray indices in indicesArraysForSimpleCase)
+            {
+                var dictionaryArray = new DictionaryArray(
+                    new DictionaryType(indices.Data.DataType, StringType.Default, false),
+                    indices, dictionary);
+                testTargetArrays.Add(dictionaryArray);
+                fields.Add(new Field($"dictionaryField_{indices.Data.DataType.Name}", dictionaryArray.Data.DataType, false));
+            }
+
+            (Field dictionaryTypeListArrayField, ListArray dictionaryTypeListArray) = CreateDictionaryTypeListArrayTestData(dictionary);
+
+            fields.Add(dictionaryTypeListArrayField);
+            testTargetArrays.Add(dictionaryTypeListArray);
+
+            (Field listTypeDictionaryArrayField, DictionaryArray listTypeDictionaryArray) = CreateListTypeDictionaryArrayTestData(dictionaryData);
+
+            fields.Add(listTypeDictionaryArrayField);
+            testTargetArrays.Add(listTypeDictionaryArray);
+
+            var schema = new Schema(fields, null);
+
+            return new List<RecordBatch> {
+                new RecordBatch(schema, testTargetArrays, length),
+                new RecordBatch(schema, testTargetArrays, length),
+            };
+        }
+
+        private Tuple<Field, ListArray> CreateDictionaryTypeListArrayTestData(StringArray dictionary)
+        {
+            Int32Array indiceArray = new Int32Array.Builder().AppendRange(Enumerable.Range(0, dictionary.Length)).Build();
+
+            //DictionaryArray has no Builder for now, so creating ListArray directly.
+            var dictionaryType = new DictionaryType(Int32Type.Default, StringType.Default, false);
+            var dictionaryArray = new DictionaryArray(dictionaryType, indiceArray, dictionary);
+
+            var valueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
+            var validityBufferBuilder = new ArrowBuffer.BitmapBuilder();
+
+            foreach (int i in Enumerable.Range(0, dictionary.Length + 1))
+            {
+                valueOffsetsBufferBuilder.Append(i);
+                validityBufferBuilder.Append(true);
+            }
+
+            var dictionaryField = new Field("dictionaryField_list", dictionaryType, false);
+            var listType = new ListType(dictionaryField);
+            var listArray = new ListArray(listType, valueOffsetsBufferBuilder.Length - 1, valueOffsetsBufferBuilder.Build(), dictionaryArray, valueOffsetsBufferBuilder.Build());
+
+            return Tuple.Create(new Field($"listField_{listType.ValueDataType.Name}", listType, false), listArray);
+        }
+
+        private Tuple<Field, DictionaryArray> CreateListTypeDictionaryArrayTestData(List<string> dictionaryDataBase)
+        {
+            var listBuilder = new ListArray.Builder(StringType.Default);
+            var valueBuilder = listBuilder.ValueBuilder as StringArray.Builder;
+
+            foreach(string data in dictionaryDataBase) {
+                listBuilder.Append();
+                valueBuilder.Append(data);
+            }
+
+            ListArray dictionary = listBuilder.Build();
+            Int32Array indiceArray = new Int32Array.Builder().AppendRange(Enumerable.Range(0, dictionary.Length)).Build();
+            var dictionaryArrayType = new DictionaryType(Int32Type.Default, dictionary.Data.DataType, false);
+            var dictionaryArray = new DictionaryArray(dictionaryArrayType, indiceArray, dictionary);
+
+            return Tuple.Create(new Field($"dictionaryField_{dictionaryArray.Data.DataType.Name}", dictionaryArrayType, false), dictionaryArray);
         }
     }
 }

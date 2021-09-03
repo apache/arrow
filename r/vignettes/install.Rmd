@@ -20,8 +20,8 @@ Our goal is to make `install.packages("arrow")` "just work" for as many Linux di
 versions, and configurations as possible.
 This document describes how it works and the options for fine-tuning Linux installation.
 The intended audience for this document is `arrow` R package users on Linux, not developers.
-If you're contributing to the Arrow project,
-you'll probably want to manage your C++ installation more directly.
+If you're contributing to the Arrow project, see `vignette("developing", package = "arrow") for guidance on setting up your development environment.
+
 Note also that if you use `conda` to manage your R environment, this document does not apply.
 You can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official
 release of the R package along with any C++ dependencies.
@@ -72,13 +72,15 @@ Alternatively, you can set
 export LIBARROW_MINIMAL=false
 ```
 
-to build the Arrow libraries with optional features such as compression libraries
+to build the Arrow libraries from source with optional features such as compression libraries
 enabled. This will increase the build time but provides many useful features.
 Prebuilt binaries are built with this flag enabled, so you get the full
 functionality by using them as well.
 
 Both of these variables are also set this way if you have the `NOT_CRAN=true`
 environment variable set.
+
+## Helper function: install_arrow()
 
 If you already have `arrow` installed and want to upgrade to a different version,
 install a development build, or try to reinstall and fix issues with Linux
@@ -130,7 +132,7 @@ or, if you don't already have it, the R package will attempt to resolve it
 automatically when it installs.
 
 If you are authorized to install system packages and you're installing a CRAN release,
-you may want to use the official Apache Arrow release packages corresponding to the R package version.
+you may want to use the official Apache Arrow release packages corresponding to the R package version (though there are some drawbacks: see "Troubleshooting" below).
 See the [Arrow project installation page](https://arrow.apache.org/install/)
 to find pre-compiled binary packages for some common Linux distributions,
 including Debian, Ubuntu, and CentOS.
@@ -148,7 +150,7 @@ If no Arrow C++ libraries are found on the system,
 the R package installation script will next attempt to download
 prebuilt static Arrow C++ libraries
 that match your both your local operating system and `arrow` R package version.
-C++ libraries (source or binary) will only be retrieved if you have set the environment variable
+C++ binaries will only be retrieved if you have set the environment variable
 `LIBARROW_BINARY` or `NOT_CRAN`.
 If found, they will be downloaded and bundled when your R package compiles.
 For a list of supported distributions and versions,
@@ -158,12 +160,9 @@ If no binary is found, it will download the Arrow C++ source that matches the R 
 (CRAN release or nightly build) and attempt to build it locally.
 If no matching source bundle is found, it will also look to see if you are in
 a checkout of the `apache/arrow` git repository and thus have the C++ source there.
-Depending on your system, building Arrow C++ from source likely will be slow;
-consequently, it is designed to happen only when you
-run `install.packages("arrow")` or `R CMD INSTALL` but not when running `R CMD check`,
-unless you've set the `NOT_CRAN=true` environment variable.
+Depending on your system, building Arrow C++ from source may be slow.
 
-For the mechanics of how all this works, see the R package `configure` script,
+For the specific mechanics of how all this works, see the R package `configure` script,
 which calls `tools/nixlibs.R`.
 If the C++ library is built from source, `inst/build_arrow_static.sh` is executed.
 This build script is also what is used to generate the prebuilt binaries.
@@ -174,23 +173,26 @@ The intent is that `install.packages("arrow")` will just work and handle all C++
 dependencies, but depending on your system, you may have better results if you
 tune one of several parameters. Here are some known complications and ways to address them.
 
-## Package installed without C++ dependencies
+## Package failed to build C++ dependencies
 
-If you get an error like
+If you see a message like
 
 ```
-Cannot call io___MemoryMappedFile__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries.
+------------------------- NOTE ---------------------------
+There was an issue preparing the Arrow C++ libraries.
+See https://arrow.apache.org/docs/r/articles/install.html
+---------------------------------------------------------
 ```
 
-for every `arrow` function you call,
-that means that installing the package failed to retrieve or build C++ libraries
+in the output when the package fails to install,
+that means that installation failed to retrieve or build C++ libraries
 compatible with the current version of the R package.
 
 It is expected that C++ dependencies should be built successfully
 on all Linux distributions, so you should not see this message. If you do,
 please check the "Known installation issues" below to see if any apply.
-If none apply, retry the installation with `arrow::install_arrow(verbose = TRUE)`
-so that details on what failed are shown, then
+If none apply, set the environment variable `ARROW_R_DEV=TRUE`
+so that details on what failed are shown, and try installing again. Then,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
 and include the full verbose installation output.
 
@@ -254,12 +256,11 @@ because they're known to work.
 ## Building C++ from source
 
 If building the C++ library from source fails, check the error message.
-The install script attempts to install any necessary build dependencies,
-but it's possible that some operating systems may require additional ones.
-You may be able to install them and retry.
-Regardless, if the C++ library fails to compile,
+(If you don't see an error message, only the `----- NOTE -----`,
+set the environment variable `ARROW_R_DEV=TRUE` to increase verbosity and retry installation.)
+The install script should work everywhere, so if the C++ library fails to compile,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
-so that we can attempt to improve the script.
+so that we can improve the script.
 
 ## Known installation issues
 
@@ -288,8 +289,8 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
 Some features are optional when you build Arrow from source. With the exception of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you can set them to `OFF` to disable them.
 
-* `ARROW_S3`: If set to `ON` S3 support will be built as long as the 
-  dependencies are met; if they are not met, the build script will turn this `OFF` 
+* `ARROW_S3`: If set to `ON` S3 support will be built as long as the
+  dependencies are met; if they are not met, the build script will turn this `OFF`
 * `ARROW_JEMALLOC` for the `jemalloc` memory allocator
 * `ARROW_PARQUET`
 * `ARROW_DATASET`
@@ -331,7 +332,7 @@ By default, these are all unset. All boolean variables are case-insensitive.
 * `ARROW_R_DEV`: If set to `true`, more verbose messaging will be printed
   in the build script. `arrow::install_arrow(verbose = TRUE)` sets this.
   This variable also is needed if you're modifying C++
-  code in the package: see "Editing C++ code" in the README.
+  code in the package: see the developer guide vignette.
 * `LIBARROW_DEBUG_DIR`: If the C++ library building from source fails (`cmake`),
   there may be messages telling you to check some log file in the build directory.
   However, when the library is built during R package installation,
@@ -341,8 +342,7 @@ By default, these are all unset. All boolean variables are case-insensitive.
   The directory will be created if it does not exist.
 * `CMAKE`: When building the C++ library from source, you can specify a
   `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
-  
-  
+
 # Contributing
 
 As mentioned above, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)

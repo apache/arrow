@@ -25,8 +25,8 @@ tbl <- example_data
 tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
-tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
-tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl))
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
+tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl)) # nolint
 
 test_that("filter() on is.na()", {
   expect_dplyr_equal(
@@ -186,7 +186,7 @@ test_that("Negative scalar values", {
       filter(some_negative %in% -1) %>%
       collect(),
     tbl
-    )
+  )
   expect_dplyr_equal(
     input %>%
       filter(int == -some_negative) %>%
@@ -217,7 +217,7 @@ test_that("filter() with between()", {
       collect(),
     tbl %>%
       filter(dbl >= int, dbl <= dbl2)
-    )
+  )
 
   expect_error(
     tbl %>%
@@ -239,7 +239,6 @@ test_that("filter() with between()", {
       filter(between(chr, 1, 2)) %>%
       collect()
   )
-
 })
 
 test_that("filter() with string ops", {
@@ -315,31 +314,25 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
 })
 
 test_that("Filtering with unsupported functions", {
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        filter(int > 2, pnorm(dbl) > .99) %>%
-        collect(),
-      tbl
-    ),
-    'Expression pnorm(dbl) > 0.99 not supported in Arrow; pulling data into R',
-    fixed = TRUE
+  expect_dplyr_equal(
+    input %>%
+      filter(int > 2, pnorm(dbl) > .99) %>%
+      collect(),
+    tbl,
+    warning = "Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R"
   )
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        filter(
-          nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
-          int > 2,                                         # good
-          pnorm(dbl) > .99                                 # bad, opaque
-        ) %>%
-        collect(),
-      tbl
-    ),
-'* In nchar(chr, type = "bytes", allowNA = TRUE) == 1, allowNA = TRUE not supported by Arrow
-* Expression pnorm(dbl) > 0.99 not supported in Arrow
-pulling data into R',
-    fixed = TRUE
+  expect_dplyr_equal(
+    input %>%
+      filter(
+        nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
+        int > 2, # good
+        pnorm(dbl) > .99 # bad, opaque
+      ) %>%
+      collect(),
+    tbl,
+    warning = '\\* In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1, allowNA = TRUE not supported by Arrow
+\\* Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow
+pulling data into R'
   )
 })
 

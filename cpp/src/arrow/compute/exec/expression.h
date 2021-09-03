@@ -19,10 +19,8 @@
 
 #pragma once
 
-#include <atomic>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -44,14 +42,17 @@ class ARROW_EXPORT Expression {
   struct Call {
     std::string function_name;
     std::vector<Expression> arguments;
-    std::shared_ptr<compute::FunctionOptions> options;
-    std::shared_ptr<std::atomic<size_t>> hash;
+    std::shared_ptr<FunctionOptions> options;
+    // Cached hash value
+    size_t hash;
 
     // post-Bind properties:
-    std::shared_ptr<compute::Function> function;
-    const compute::Kernel* kernel = NULLPTR;
-    std::shared_ptr<compute::KernelState> kernel_state;
+    std::shared_ptr<Function> function;
+    const Kernel* kernel = NULLPTR;
+    std::shared_ptr<KernelState> kernel_state;
     ValueDescr descr;
+
+    void ComputeHash();
   };
 
   std::string ToString() const;
@@ -64,8 +65,8 @@ class ARROW_EXPORT Expression {
   /// Bind this expression to the given input type, looking up Kernels and field types.
   /// Some expression simplification may be performed and implicit casts will be inserted.
   /// Any state necessary for execution will be initialized and returned.
-  Result<Expression> Bind(ValueDescr in, compute::ExecContext* = NULLPTR) const;
-  Result<Expression> Bind(const Schema& in_schema, compute::ExecContext* = NULLPTR) const;
+  Result<Expression> Bind(const ValueDescr& in, ExecContext* = NULLPTR) const;
+  Result<Expression> Bind(const Schema& in_schema, ExecContext* = NULLPTR) const;
 
   // XXX someday
   // Clone all KernelState in this bound expression. If any function referenced by this
@@ -108,8 +109,12 @@ class ARROW_EXPORT Expression {
 
   struct Parameter {
     FieldRef ref;
+
+    // post-bind properties
     ValueDescr descr;
+    int index;
   };
+  const Parameter* parameter() const;
 
   Expression() = default;
   explicit Expression(Call call);
@@ -143,10 +148,10 @@ Expression field_ref(FieldRef ref);
 
 ARROW_EXPORT
 Expression call(std::string function, std::vector<Expression> arguments,
-                std::shared_ptr<compute::FunctionOptions> options = NULLPTR);
+                std::shared_ptr<FunctionOptions> options = NULLPTR);
 
-template <typename Options, typename = typename std::enable_if<std::is_base_of<
-                                compute::FunctionOptions, Options>::value>::type>
+template <typename Options, typename = typename std::enable_if<
+                                std::is_base_of<FunctionOptions, Options>::value>::type>
 Expression call(std::string function, std::vector<Expression> arguments,
                 Options options) {
   return call(std::move(function), std::move(arguments),
@@ -162,8 +167,9 @@ ARROW_EXPORT
 bool ExpressionHasFieldRefs(const Expression&);
 
 /// Assemble a mapping from field references to known values.
+struct ARROW_EXPORT KnownFieldValues;
 ARROW_EXPORT
-Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
+Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);
 
 /// \defgroup expression-passes Functions for modification of Expressions
@@ -182,7 +188,7 @@ Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldVal
 /// equivalent Expressions may result in different canonicalized expressions.
 /// TODO this could be a strong canonicalization
 ARROW_EXPORT
-Result<Expression> Canonicalize(Expression, compute::ExecContext* = NULLPTR);
+Result<Expression> Canonicalize(Expression, ExecContext* = NULLPTR);
 
 /// Simplify Expressions based on literal arguments (for example, add(null, x) will always
 /// be null so replace the call with a null literal). Includes early evaluation of all
@@ -192,8 +198,8 @@ Result<Expression> FoldConstants(Expression);
 
 /// Simplify Expressions by replacing with known values of the fields which it references.
 ARROW_EXPORT
-Result<Expression> ReplaceFieldsWithKnownValues(
-    const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values, Expression);
+Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_values,
+                                                Expression);
 
 /// Simplify an expression by replacing subexpressions based on a guarantee:
 /// a boolean expression which is guaranteed to evaluate to `true`. For example, this is
@@ -207,11 +213,22 @@ Result<Expression> SimplifyWithGuarantee(Expression,
 
 // Execution
 
-/// Execute a scalar expression against the provided state and input Datum. This
+/// Create an ExecBatch suitable for passing to ExecuteScalarExpression() from a
+/// RecordBatch which may have missing or incorrectly ordered columns.
+/// Missing fields will be replaced with null scalars.
+ARROW_EXPORT Result<ExecBatch> MakeExecBatch(const Schema& full_schema,
+                                             const Datum& partial);
+
+/// Execute a scalar expression against the provided state and input ExecBatch. This
 /// expression must be bound.
 ARROW_EXPORT
-Result<Datum> ExecuteScalarExpression(const Expression&, const Datum& input,
-                                      compute::ExecContext* = NULLPTR);
+Result<Datum> ExecuteScalarExpression(const Expression&, const ExecBatch& input,
+                                      ExecContext* = NULLPTR);
+
+/// Convenience function for invoking against a RecordBatch
+ARROW_EXPORT
+Result<Datum> ExecuteScalarExpression(const Expression&, const Schema& full_schema,
+                                      const Datum& partial_input, ExecContext* = NULLPTR);
 
 // Serialization
 
@@ -238,7 +255,7 @@ ARROW_EXPORT Expression greater(Expression lhs, Expression rhs);
 
 ARROW_EXPORT Expression greater_equal(Expression lhs, Expression rhs);
 
-ARROW_EXPORT Expression is_null(Expression lhs);
+ARROW_EXPORT Expression is_null(Expression lhs, bool nan_is_null = false);
 
 ARROW_EXPORT Expression is_valid(Expression lhs);
 

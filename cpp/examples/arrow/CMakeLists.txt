@@ -17,6 +17,10 @@
 
 ADD_ARROW_EXAMPLE(row_wise_conversion_example)
 
+if (ARROW_COMPUTE)
+  ADD_ARROW_EXAMPLE(compute_register_example)
+endif()
+
 if (ARROW_PARQUET AND ARROW_DATASET)
   if (ARROW_BUILD_SHARED)
     set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_shared)

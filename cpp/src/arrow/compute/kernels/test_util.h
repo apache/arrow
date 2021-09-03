@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
@@ -58,45 +59,18 @@ std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
   return result;
 }
 
-template <typename Type, typename Enable = void>
-struct DatumEqual {};
-
-template <typename Type>
-struct DatumEqual<Type, enable_if_floating_point<Type>> {
-  static constexpr double kArbitraryDoubleErrorBound = 1.0;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-
-  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
-    ASSERT_EQ(lhs.kind(), rhs.kind());
-    if (lhs.kind() == Datum::SCALAR) {
-      auto left = checked_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = checked_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(left->is_valid, right->is_valid);
-      ASSERT_EQ(left->type->id(), right->type->id());
-      ASSERT_NEAR(left->value, right->value, kArbitraryDoubleErrorBound);
-    }
-  }
-};
-
-template <typename Type>
-struct DatumEqual<Type, enable_if_integer<Type>> {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
-    ASSERT_EQ(lhs.kind(), rhs.kind());
-    if (lhs.kind() == Datum::SCALAR) {
-      auto left = checked_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = checked_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(*left, *right);
-    }
-  }
-};
+inline std::string CompareOperatorToFunctionName(CompareOperator op) {
+  static std::string function_names[] = {
+      "equal", "not_equal", "greater", "greater_equal", "less", "less_equal",
+  };
+  return function_names[op];
+}
 
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected,
                  const FunctionOptions* options = nullptr);
 
-void CheckScalar(std::string func_name, const DatumVector& inputs,
-                 std::shared_ptr<Array> expected,
+void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expected,
                  const FunctionOptions* options = nullptr);
 
 void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
@@ -104,42 +78,16 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                       std::string json_expected,
                       const FunctionOptions* options = nullptr);
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
-                      std::shared_ptr<Array> expected,
+void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options = nullptr);
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<Scalar> input,
-                      std::shared_ptr<Scalar> expected,
-                      const FunctionOptions* options = nullptr);
+void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
+                       Datum expected, const FunctionOptions* options = nullptr);
 
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
-                       std::shared_ptr<Scalar> right_input,
-                       std::shared_ptr<Scalar> expected,
-                       const FunctionOptions* options = nullptr);
-
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
-                       std::shared_ptr<Array> right_input,
-                       std::shared_ptr<Array> expected,
-                       const FunctionOptions* options = nullptr);
-
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
-                       std::shared_ptr<Scalar> right_input,
-                       std::shared_ptr<Array> expected,
-                       const FunctionOptions* options = nullptr);
-
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
-                       std::shared_ptr<Array> right_input,
-                       std::shared_ptr<Array> expected,
-                       const FunctionOptions* options = nullptr);
-
-void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
+void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options = nullptr);
 
 void ValidateOutput(const Datum& output);
-
-using BinaryTypes =
-    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
-using StringTypes = ::testing::Types<StringType, LargeStringType>;
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
@@ -171,6 +119,28 @@ void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> descrs,
 
 // Check that function fails to produce a Kernel for the set of ValueDescrs.
 void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> descrs);
+
+// Helper to get a default instance of a type, including parameterized types
+template <typename T>
+enable_if_parameter_free<T, std::shared_ptr<DataType>> default_type_instance() {
+  return TypeTraits<T>::type_singleton();
+}
+template <typename T>
+enable_if_time<T, std::shared_ptr<DataType>> default_type_instance() {
+  // Time32 requires second/milli, Time64 requires nano/micro
+  if (bit_width(T::type_id) == 32) {
+    return std::make_shared<T>(TimeUnit::type::SECOND);
+  }
+  return std::make_shared<T>(TimeUnit::type::NANO);
+}
+template <typename T>
+enable_if_timestamp<T, std::shared_ptr<DataType>> default_type_instance() {
+  return std::make_shared<T>(TimeUnit::type::SECOND);
+}
+template <typename T>
+enable_if_decimal<T, std::shared_ptr<DataType>> default_type_instance() {
+  return std::make_shared<T>(5, 2);
+}
 
 }  // namespace compute
 }  // namespace arrow

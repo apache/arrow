@@ -336,10 +336,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
 
  private:
   Status WritePayload(const FlightPayload& payload) {
-    if (!internal::WritePayload(payload, stream_)) {
-      // gRPC doesn't give us any way to find what the error was (if any).
-      return Status::IOError("Could not write payload to stream");
-    }
+    RETURN_NOT_OK(internal::WritePayload(payload, stream_));
     ++stats_.num_messages;
     return Status::OK();
   }
@@ -658,21 +655,24 @@ class FlightServiceImpl : public FlightService::Service {
     // Write the schema as the first message in the stream
     FlightPayload schema_payload;
     SERVICE_RETURN_NOT_OK(flight_context, data_stream->GetSchemaPayload(&schema_payload));
-    if (!internal::WritePayload(schema_payload, writer)) {
+    auto status = internal::WritePayload(schema_payload, writer);
+    if (status.IsIOError()) {
       // gRPC doesn't give any way for us to know why the message
       // could not be written.
       RETURN_WITH_MIDDLEWARE(flight_context, grpc::Status::OK);
     }
+    SERVICE_RETURN_NOT_OK(flight_context, status);
 
     // Consume data stream and write out payloads
     while (true) {
       FlightPayload payload;
       SERVICE_RETURN_NOT_OK(flight_context, data_stream->Next(&payload));
-      if (payload.ipc_message.metadata == nullptr ||
-          !internal::WritePayload(payload, writer))
-        // No more messages to write, or connection terminated for some other
-        // reason
-        break;
+      // End of stream
+      if (payload.ipc_message.metadata == nullptr) break;
+      auto status = internal::WritePayload(payload, writer);
+      // Connection terminated
+      if (status.IsIOError()) break;
+      SERVICE_RETURN_NOT_OK(flight_context, status);
     }
     RETURN_WITH_MIDDLEWARE(flight_context, grpc::Status::OK);
   }

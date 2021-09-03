@@ -79,7 +79,6 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
-        libzstd-dev \
         ninja-build \
         pkg-config \
         protobuf-compiler \
@@ -99,8 +98,8 @@ RUN apt-get update -y -q && \
 # - utf8proc is too old(v2.1.0)
 # - s3 tests would require boost-asio that is included since Boost 1.66.0
 ENV ARROW_BUILD_TESTS=ON \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=ON \
     ARROW_HDFS=ON \
@@ -123,8 +122,9 @@ ENV ARROW_BUILD_TESTS=ON \
     AWSSDK_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
+    PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
     Thrift_SOURCE=BUNDLED \
-    utf8proc_SOURCE=BUNDLED
+    utf8proc_SOURCE=BUNDLED \
+    zstd_SOURCE=BUNDLED

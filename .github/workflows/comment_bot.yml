@@ -68,6 +68,7 @@ jobs:
           }
           if changed '^r/.*\.R$'; then
             echo "R_DOCS=true" >> $GITHUB_ENV
+            echo "R_CODE=true" >> $GITHUB_ENV
           fi
           if changed 'cmake' || changed 'CMake'; then
             echo "CMAKE_FORMAT=true" >> $GITHUB_ENV
@@ -79,9 +80,9 @@ jobs:
             echo "CLANG_FORMAT_R=true" >> $GITHUB_ENV
           fi
       - name: Ensure clang-format has the appropriate versoin
-        if: env.CMAKE_FORMAT == 'true' || 
-          env.CLANG_FORMAT_CPP == 'true' || 
-          env.CLANG_FORMAT_R == 'true' || 
+        if: env.CMAKE_FORMAT == 'true' ||
+          env.CLANG_FORMAT_CPP == 'true' ||
+          env.CLANG_FORMAT_R == 'true' ||
           endsWith(github.event.comment.body, 'everything')
         run: |
           set -e
@@ -113,15 +114,30 @@ jobs:
               --exclude_glob=cpp/build-support/lint_exclusions.txt \
               --source_dir=r/src --quiet --fix
       - uses: r-lib/actions/setup-r@v1
-        if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
+        if: env.R_DOCS == 'true' || env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
       - name: Update R docs
         if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
         shell: Rscript {0}
         run: |
           source("ci/etc/rprofile")
           install.packages(c("remotes", "roxygen2"))
+          # We currently need dev roxygen2 (> 7.1.1) until they release
+          remotes::install_github("r-lib/roxygen2")
           remotes::install_deps("r")
           roxygen2::roxygenize("r")
+      - name: Style R code
+        if: env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
+        shell: Rscript {0}
+        run: |
+          changed_files <- system("git diff --name-only HEAD..upstream/master 2>&1", intern = TRUE)
+          # only grab the .R files under r/
+          changed_files <- grep('^r/.*\\.R$', changed_files, value = TRUE)
+          # remove latin1 which is unstylable due to encoding and codegen.R which is unique
+          changed_files <- changed_files[!changed_files %in% file.path("r", source("r/.styler_excludes.R")$value)]
+          source("ci/etc/rprofile")
+          install.packages(c("remotes", "styler"))
+          remotes::install_deps("r")
+          styler::style_file(changed_files)
       - name: Commit results
         run: |
           git config user.name "$(git log -1 --pretty=format:%an)"

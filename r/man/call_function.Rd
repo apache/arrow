@@ -46,5 +46,6 @@ call_function("quantile", a, options = list(q = seq(0, 1, 0.25)))
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\href{https://arrow.apache.org/docs/cpp/compute.html}{Arrow C++ documentation} for the functions and their respective options.
+\href{https://arrow.apache.org/docs/cpp/compute.html}{Arrow C++ documentation} for
+the functions and their respective options.
 }

@@ -57,7 +57,6 @@ FileInfo <- R6Class("FileInfo",
         invisible(fs___FileInfo__set_path(self))
       }
     },
-
     size = function(size) {
       if (missing(size)) {
         fs___FileInfo__size(self)
@@ -65,7 +64,6 @@ FileInfo <- R6Class("FileInfo",
         invisible(fs___FileInfo__set_size(self, size))
       }
     },
-
     mtime = function(time) {
       if (missing(time)) {
         fs___FileInfo__mtime(self)
@@ -198,7 +196,8 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' @rdname FileSystem
 #' @name FileSystem
 #' @export
-FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
+FileSystem <- R6Class("FileSystem",
+  inherit = ArrowObject,
   public = list(
     GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
@@ -209,35 +208,27 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
         abort("incompatible type for FileSystem$GetFileInfo()")
       }
     },
-
     CreateDir = function(path, recursive = TRUE) {
       fs___FileSystem__CreateDir(self, clean_path_rel(path), isTRUE(recursive))
     },
-
     DeleteDir = function(path) {
       fs___FileSystem__DeleteDir(self, clean_path_rel(path))
     },
-
     DeleteDirContents = function(path) {
       fs___FileSystem__DeleteDirContents(self, clean_path_rel(path))
     },
-
     DeleteFile = function(path) {
       fs___FileSystem__DeleteFile(self, clean_path_rel(path))
     },
-
     DeleteFiles = function(paths) {
       fs___FileSystem__DeleteFiles(self, clean_path_rel(paths))
     },
-
     Move = function(src, dest) {
       fs___FileSystem__Move(self, clean_path_rel(src), clean_path_rel(dest))
     },
-
     CopyFile = function(src, dest) {
       fs___FileSystem__CopyFile(self, clean_path_rel(src), clean_path_rel(dest))
     },
-
     OpenInputStream = function(path) {
       fs___FileSystem__OpenInputStream(self, clean_path_rel(path))
     },
@@ -257,7 +248,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     ls = function(path = "", ...) {
       selector <- FileSelector$create(path, ...) # ... for recursive = TRUE
       infos <- self$GetFileInfo(selector)
-      map_chr(infos, ~.$path)
+      map_chr(infos, ~ .$path)
       # TODO: add full.names argument like base::dir() (default right now is TRUE)
       # TODO: see fs package for glob/regexp filtering
       # TODO: verbose method that shows other attributes as df
@@ -289,14 +280,14 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
       # Stop? Can't have URL (which yields a fs) and another fs
     }
     x <- lapply(x, FileSystem$from_uri)
-    if (length(unique(map(x, ~class(.$fs)))) > 1) {
+    if (length(unique(map(x, ~ class(.$fs)))) > 1) {
       stop(
         "Vectors of URIs for different file systems are not supported",
         call. = FALSE
       )
     }
-    fs  <- x[[1]]$fs
-    path <- map_chr(x, ~.$path) # singular name "path" used for compatibility
+    fs <- x[[1]]$fs
+    path <- map_chr(x, ~ .$path) # singular name "path" used for compatibility
   } else {
     fs <- filesystem %||% LocalFileSystem$create()
     if (inherits(fs, "LocalFileSystem")) {
@@ -335,7 +326,8 @@ LocalFileSystem$create <- function() {
 #' @rdname FileSystem
 #' @importFrom utils modifyList
 #' @export
-S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem,
+S3FileSystem <- R6Class("S3FileSystem",
+  inherit = FileSystem,
   active = list(
     region = function() fs___S3FileSystem__region(self)
   )
@@ -343,7 +335,13 @@ S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem,
 S3FileSystem$create <- function(anonymous = FALSE, ...) {
   args <- list2(...)
   if (anonymous) {
-    invalid_args <- intersect(c("access_key", "secret_key", "session_token", "role_arn", "session_name", "external_id", "load_frequency"), names(args))
+    invalid_args <- intersect(
+      c(
+        "access_key", "secret_key", "session_token", "role_arn", "session_name",
+        "external_id", "load_frequency"
+      ),
+      names(args)
+    )
     if (length(invalid_args)) {
       stop("Cannot specify ", oxford_paste(invalid_args), " when anonymous = TRUE", call. = FALSE)
     }
@@ -425,7 +423,8 @@ s3_bucket <- function(bucket, ...) {
 #' @format NULL
 #' @rdname FileSystem
 #' @export
-SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
+SubTreeFileSystem <- R6Class("SubTreeFileSystem",
+  inherit = FileSystem,
   public = list(
     print = function(...) {
       if (inherits(self$base_fs, "LocalFileSystem")) {

@@ -166,6 +166,14 @@ def test_ext_array_lifetime():
         assert ref() is None
 
 
+def test_ext_array_to_pylist():
+    ty = ParamExtType(3)
+    storage = pa.array([b"foo", b"bar", None], type=pa.binary(3))
+    arr = pa.ExtensionArray.from_storage(ty, storage)
+
+    assert arr.to_pylist() == [b"foo", b"bar", None]
+
+
 def test_ext_array_errors():
     ty = ParamExtType(4)
     storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
@@ -191,6 +199,67 @@ def test_ext_array_equality():
     assert d.equals(e)
     f = pa.ExtensionArray.from_storage(ty2, storage3)
     assert not d.equals(f)
+
+
+def test_ext_scalar_from_array():
+    data = [b"0123456789abcdef", b"0123456789abcdef",
+            b"zyxwvutsrqponmlk", None]
+    storage = pa.array(data, type=pa.binary(16))
+    ty1 = UuidType()
+    ty2 = ParamExtType(16)
+
+    a = pa.ExtensionArray.from_storage(ty1, storage)
+    b = pa.ExtensionArray.from_storage(ty2, storage)
+
+    scalars_a = list(a)
+    assert len(scalars_a) == 4
+
+    for s, val in zip(scalars_a, data):
+        assert isinstance(s, pa.ExtensionScalar)
+        assert s.is_valid == (val is not None)
+        assert s.type == ty1
+        if val is not None:
+            assert s.value == pa.scalar(val, storage.type)
+        else:
+            assert s.value is None
+        assert s.as_py() == val
+
+    scalars_b = list(b)
+    assert len(scalars_b) == 4
+
+    for sa, sb in zip(scalars_a, scalars_b):
+        assert sa.is_valid == sb.is_valid
+        assert sa.as_py() == sb.as_py()
+        assert sa != sb
+
+
+def test_ext_scalar_from_storage():
+    ty = UuidType()
+
+    s = pa.ExtensionScalar.from_storage(ty, None)
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is False
+    assert s.value is None
+
+    s = pa.ExtensionScalar.from_storage(ty, b"0123456789abcdef")
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is True
+    assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
+
+    s = pa.ExtensionScalar.from_storage(ty, pa.scalar(None, ty.storage_type))
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is False
+    assert s.value is None
+
+    s = pa.ExtensionScalar.from_storage(
+        ty, pa.scalar(b"0123456789abcdef", ty.storage_type))
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is True
+    assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
 
 
 def test_ext_array_pickling():

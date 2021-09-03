@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup options, include=FALSE}
+```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 
 # Get environment variables describing what to evaluate
@@ -105,7 +105,7 @@ sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 
 You can choose to build and then install the Arrow library into a user-defined directory or into a system-level directory. You only need to do one of these two options.
 
-It is recommended that you install the arrow library to a user-level directory to be used in development. This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html). 
+It is recommended that you install the arrow library to a user-level directory to be used in development. This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html).
 
 #### Configure for installing to a user directory
 
@@ -280,11 +280,11 @@ cmake \
   ..
 ```
 </p>
-</details>  
+</details>
 
 ### Documentation
 
-The documentation for the R package uses features of `roxygen2` that haven't yet been released on CRAN, such as conditional inclusion of examples via the `@examplesIf` tag.  If you are making changes which require updating the documentation, please install the development version of `roxygen2` from GitHub. 
+The documentation for the R package uses features of `roxygen2` that haven't yet been released on CRAN, such as conditional inclusion of examples via the `@examplesIf` tag.  If you are making changes which require updating the documentation, please install the development version of `roxygen2` from GitHub.
 
 ```{r}
 remotes::install_github("r-lib/roxygen2")
@@ -420,6 +420,19 @@ There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arr
   * `*** Proceed without C++` dependencies (this is an error and the package will not work, but if you see this message you know the previous steps have not succeeded/were not enabled)
 * `inst/build_arrow_static.sh` this script builds Arrow for a bundled, static build. It is called by `tools/nixlibs.R` when the Arrow library is being built. (If you're looking at this script, and you've gotten this far, it should look _incredibly_ familiar: it's basically the contents of this guide in script form — with a few important changes)
 
+## Styling and linting of the R code in the R package
+
+The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
+
+To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run `lintr::lint_package("arrow/r")`.
+
+One can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package. There are two ways to do this:
+
+1. Use the comment bot to do this automatically with the command `@github-actions autotune` on a PR and commit it back to the branch.
+2. Locally, with the command `make style` (for only the files changed), `make style-all` (for all files), or use `styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))` note the two excluded files which should not be styled.
+
+The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we habitually do not style is in `r/.styler_excludes.R`.
+
 ## Editing C++ code in the R package
 
 The `arrow` package uses some customized tools on top of `cpp11` to prepare its
@@ -427,12 +440,12 @@ C++ code in `src/`. This is because we have some features that are only enabled
 and built conditionally during build time. If you change C++ code in the R
 package, you will need to set the `ARROW_R_DEV` environment variable to `true`
 (optionally, add it to your `~/.Renviron` file to persist across sessions) so
-that the `data-raw/codegen.R` file is used for code generation. The `Makefile` 
+that the `data-raw/codegen.R` file is used for code generation. The `Makefile`
 commands also handles this automatically.
 
 We use Google C++ style in our C++ code. The easiest way to accomplish this is
-use an editors/IDE that formats your code for you. Many popular editors/IDEs 
-have support for running `clang-format` on C++ files when you save them. 
+use an editors/IDE that formats your code for you. Many popular editors/IDEs
+have support for running `clang-format` on C++ files when you save them.
 Installing/enabling the appropriate plugin may save you much frustration.
 
 Check for style errors with
@@ -453,7 +466,7 @@ isn’t found, you can explicitly provide the path to it like
 this by installing LLVM via Homebrew and running the script as
 `CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
-_Note_ that the lint script requires Python 3 and the Python dependencies 
+_Note_ that the lint script requires Python 3 and the Python dependencies
 (note that `cmake_format is pinned to a specific version):
 
 * autopep8
@@ -467,9 +480,6 @@ features in the package build (S3 support, compression libraries, etc.).
 Others are generally skipped by default but can be enabled with environment
 variables or other settings:
 
-* All tests are skipped on Linux if the package builds without the C++ libarrow.
-  To make the build fail if libarrow is not available (as in, to test that
-  the C++ build was successful), set `TEST_R_WITH_ARROW=true`
 * Some tests are disabled unless `ARROW_R_DEV=true`
 * Tests that require allocating >2GB of memory to test Large types are disabled
   unless `ARROW_LARGE_MEMORY_TESTS=true`

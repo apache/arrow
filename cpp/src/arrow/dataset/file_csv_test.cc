@@ -31,6 +31,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
@@ -45,7 +46,7 @@ class CsvFormatHelper {
     std::shared_ptr<Table> table;
     RETURN_NOT_OK(reader->ReadAll(&table));
     auto options = csv::WriteOptions::Defaults();
-    RETURN_NOT_OK(csv::WriteCSV(*table, options, default_memory_pool(), sink.get()));
+    RETURN_NOT_OK(csv::WriteCSV(*table, options, sink.get()));
     return sink->Finish();
   }
 
@@ -65,7 +66,8 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
 
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     if (GetCompression() == Compression::UNCOMPRESSED) {
-      return internal::make_unique<FileSource>(Buffer::FromString(std::move(csv)));
+      return ::arrow::internal::make_unique<FileSource>(
+          Buffer::FromString(std::move(csv)));
     }
     std::string path = "test.csv";
     switch (GetCompression()) {
@@ -93,7 +95,7 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     ARROW_EXPECT_OK(stream->Write(csv));
     ARROW_EXPECT_OK(stream->Close());
     EXPECT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
-    return internal::make_unique<FileSource>(info, fs, GetCompression());
+    return ::arrow::internal::make_unique<FileSource>(info, fs, GetCompression());
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
@@ -204,6 +206,30 @@ bar)");
   }
 }
 
+TEST_P(TestCsvFileFormat, CustomReadOptionsColumnNames) {
+  auto source = GetFileSource("1,1\n2,3");
+  SetSchema({field("ints_1", int64()), field("ints_2", int64())});
+  auto defaults = std::make_shared<CsvFragmentScanOptions>();
+  defaults->read_options.column_names = {"ints_1", "ints_2"};
+  format_->default_fragment_scan_options = defaults;
+  auto fragment = MakeFragment(*source);
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(opts_->dataset_schema, physical_schema);
+  int64_t rows = 0;
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    rows += batch->num_rows();
+  }
+  ASSERT_EQ(rows, 2);
+
+  defaults->read_options.column_names = {"same", "same"};
+  format_->default_fragment_scan_options = defaults;
+  fragment = MakeFragment(*source);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("CSV file contained multiple columns named same"),
+      Batches(fragment.get()).Next());
+}
+
 TEST_P(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
   auto source = GetFileSource(R"(f64
 1.0
@@ -229,7 +255,7 @@ N/A
 }
 
 TEST_P(TestCsvFileFormat, InspectFailureWithRelevantError) {
-  TestInspectFailureWithRelevantError(StatusCode::Invalid);
+  TestInspectFailureWithRelevantError(StatusCode::Invalid, "CSV");
 }
 
 TEST_P(TestCsvFileFormat, Inspect) {
@@ -321,8 +347,19 @@ N/A,bar
   ASSERT_OK(batch_it.Visit([](TaggedRecordBatch) { return Status::OK(); }));
 }
 
-TEST_P(TestCsvFileFormat, WriteRecordBatchReader) {
-  GTEST_SKIP() << "Write support not implemented for CSV";
+TEST_P(TestCsvFileFormat, WriteRecordBatchReader) { TestWrite(); }
+
+TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
+  auto options =
+      checked_pointer_cast<CsvFileWriteOptions>(format_->DefaultWriteOptions());
+  options->write_options->include_header = false;
+  auto data_schema = schema({field("f64", float64())});
+  ASSERT_OK_AND_ASSIGN(auto sink, GetFileSink());
+  ASSERT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, data_schema, options, {}));
+  ASSERT_OK(writer->Write(ConstantArrayGenerator::Zeroes(5, data_schema)));
+  ASSERT_OK(writer->Finish());
+  ASSERT_OK_AND_ASSIGN(auto written, sink->Finish());
+  ASSERT_EQ("0\n0\n0\n0\n0\n", written->ToString());
 }
 
 TEST_P(TestCsvFileFormat, CountRows) { TestCountRows(); }

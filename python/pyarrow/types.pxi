@@ -277,7 +277,7 @@ cdef class ListType(DataType):
         self.list_type = <const CListType*> type.get()
 
     def __reduce__(self):
-        return list_, (self.value_type,)
+        return list_, (self.value_field,)
 
     @property
     def value_field(self):
@@ -302,7 +302,7 @@ cdef class LargeListType(DataType):
         self.list_type = <const CLargeListType*> type.get()
 
     def __reduce__(self):
-        return large_list, (self.value_type,)
+        return large_list, (self.value_field,)
 
     @property
     def value_field(self):
@@ -326,7 +326,14 @@ cdef class MapType(DataType):
         self.map_type = <const CMapType*> type.get()
 
     def __reduce__(self):
-        return map_, (self.key_type, self.item_type)
+        return map_, (self.key_field, self.item_field)
+
+    @property
+    def key_field(self):
+        """
+        The field for keys in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.key_field())
 
     @property
     def key_type(self):
@@ -334,6 +341,13 @@ cdef class MapType(DataType):
         The data type of keys in the map entries.
         """
         return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_field(self):
+        """
+        The field for items in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.item_field())
 
     @property
     def item_type(self):
@@ -1871,6 +1885,19 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
+cdef TimeUnit string_to_timeunit(unit) except *:
+    if unit == 's':
+        return TimeUnit_SECOND
+    elif unit == 'ms':
+        return TimeUnit_MILLI
+    elif unit == 'us':
+        return TimeUnit_MICRO
+    elif unit == 'ns':
+        return TimeUnit_NANO
+    else:
+        raise ValueError(f"Invalid time unit: {unit!r}")
+
+
 def tzinfo_to_string(tz):
     """
     Converts a time zone object into a string indicating the name of a time
@@ -1945,16 +1972,7 @@ def timestamp(unit, tz=None):
         TimeUnit unit_code
         c_string c_timezone
 
-    if unit == "s":
-        unit_code = TimeUnit_SECOND
-    elif unit == 'ms':
-        unit_code = TimeUnit_MILLI
-    elif unit == 'us':
-        unit_code = TimeUnit_MICRO
-    elif unit == 'ns':
-        unit_code = TimeUnit_NANO
-    else:
-        raise ValueError('Invalid TimeUnit string')
+    unit_code = string_to_timeunit(unit)
 
     cdef TimestampType out = TimestampType.__new__(TimestampType)
 
@@ -2003,7 +2021,7 @@ def time32(unit):
     elif unit == 'ms':
         unit_code = TimeUnit_MILLI
     else:
-        raise ValueError('Invalid TimeUnit for time32: {}'.format(unit))
+        raise ValueError(f"Invalid time unit for time32: {unit!r}")
 
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
@@ -2046,7 +2064,7 @@ def time64(unit):
     elif unit == 'ns':
         unit_code = TimeUnit_NANO
     else:
-        raise ValueError('Invalid TimeUnit for time64: {}'.format(unit))
+        raise ValueError(f"Invalid time unit for time64: {unit!r}")
 
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
@@ -2084,16 +2102,7 @@ def duration(unit):
     cdef:
         TimeUnit unit_code
 
-    if unit == "s":
-        unit_code = TimeUnit_SECOND
-    elif unit == 'ms':
-        unit_code = TimeUnit_MILLI
-    elif unit == 'us':
-        unit_code = TimeUnit_MICRO
-    elif unit == 'ns':
-        unit_code = TimeUnit_NANO
-    else:
-        raise ValueError('Invalid TimeUnit string')
+    unit_code = string_to_timeunit(unit)
 
     if unit_code in _duration_type_cache:
         return _duration_type_cache[unit_code]
@@ -2341,7 +2350,7 @@ cpdef LargeListType large_list(value_type):
 
 cpdef MapType map_(key_type, item_type, keys_sorted=False):
     """
-    Create MapType instance from key and item data types.
+    Create MapType instance from key and item data types or fields.
 
     Parameters
     ----------
@@ -2354,12 +2363,25 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     map_type : DataType
     """
     cdef:
-        DataType _key_type = ensure_type(key_type, allow_none=False)
-        DataType _item_type = ensure_type(item_type, allow_none=False)
+        Field _key_field
+        Field _item_field
         shared_ptr[CDataType] map_type
         MapType out = MapType.__new__(MapType)
 
-    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+    if isinstance(key_type, Field):
+        if key_type.nullable:
+            raise TypeError('Map key field should be non-nullable')
+        _key_field = key_type
+    else:
+        _key_field = field('key', ensure_type(key_type, allow_none=False),
+                           nullable=False)
+
+    if isinstance(item_type, Field):
+        _item_field = item_type
+    else:
+        _item_field = field('value', ensure_type(item_type, allow_none=False))
+
+    map_type.reset(new CMapType(_key_field.sp_field, _item_field.sp_field,
                                 keys_sorted))
     out.init(map_type)
     return out

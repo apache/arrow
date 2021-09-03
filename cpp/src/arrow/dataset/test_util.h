@@ -54,6 +54,11 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using compute::call;
@@ -74,14 +79,11 @@ using compute::or_;
 using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
-using internal::checked_cast;
-using internal::checked_pointer_cast;
-using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
-    return internal::make_unique<FileSource>(std::move(buffer));
+    return ::arrow::internal::make_unique<FileSource>(std::move(buffer));
   }
 };
 
@@ -103,7 +105,8 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+  return ::arrow::internal::make_unique<GeneratedRecordBatch<Gen>>(
+      schema, std::forward<Gen>(gen));
 }
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
@@ -121,25 +124,6 @@ void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
   ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
   EXPECT_EQ(batch, nullptr);
 }
-
-/// Test dataset that returns one or more fragments.
-class FragmentDataset : public Dataset {
- public:
-  FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
-      : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
-
-  std::string type_name() const override { return "fragment"; }
-
-  Result<std::shared_ptr<Dataset>> ReplaceSchema(std::shared_ptr<Schema>) const override {
-    return Status::NotImplemented("");
-  }
-
- protected:
-  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
-    return MakeVectorIterator(fragments_);
-  }
-  FragmentVector fragments_;
-};
 
 class DatasetFixtureMixin : public ::testing::Test {
  public:
@@ -407,19 +391,53 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
   // Shared test cases
-  void TestInspectFailureWithRelevantError(StatusCode code) {
-    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-    auto result = format_->Inspect(FileSource(buf));
-    EXPECT_EQ(code, result.status().code());
-    EXPECT_THAT(result.status().ToString(), testing::HasSubstr("<Buffer>"));
-
+  void AssertInspectFailure(const std::string& contents, StatusCode code,
+                            const std::string& format_name) {
+    SCOPED_TRACE("Format: " + format_name + " File contents: " + contents);
     constexpr auto file_name = "herp/derp";
+    auto make_error_message = [&](const std::string& filename) {
+      return "Could not open " + format_name + " input source '" + filename + "':";
+    };
+    const auto buf = std::make_shared<Buffer>(contents);
+    Status status;
+
+    status = format_->Inspect(FileSource(buf)).status();
+    EXPECT_EQ(code, status.code());
+    EXPECT_THAT(status.ToString(), ::testing::HasSubstr(make_error_message("<Buffer>")));
+
+    ASSERT_OK_AND_EQ(false, format_->IsSupported(FileSource(buf)));
+
     ASSERT_OK_AND_ASSIGN(
         auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-    result = format_->Inspect({file_name, fs});
-    EXPECT_EQ(code, result.status().code());
-    EXPECT_THAT(result.status().ToString(), testing::HasSubstr(file_name));
+    status = format_->Inspect({file_name, fs}).status();
+    EXPECT_EQ(code, status.code());
+    EXPECT_THAT(status.ToString(), testing::HasSubstr(make_error_message("herp/derp")));
+
+    fs::FileSelector s;
+    s.base_dir = "/";
+    s.recursive = true;
+    FileSystemFactoryOptions options;
+    ASSERT_OK_AND_ASSIGN(auto factory,
+                         FileSystemDatasetFactory::Make(fs, s, format_, options));
+    status = factory->Finish().status();
+    EXPECT_EQ(code, status.code());
+    EXPECT_THAT(
+        status.ToString(),
+        ::testing::AllOf(
+            ::testing::HasSubstr(make_error_message("/herp/derp")),
+            ::testing::HasSubstr(
+                "Error creating dataset. Could not read schema from '/herp/derp':"),
+            ::testing::HasSubstr("Is this a '" + format_->type_name() + "' file?")));
   }
+
+  void TestInspectFailureWithRelevantError(StatusCode code,
+                                           const std::string& format_name) {
+    const std::vector<std::string> file_contents{"", "PAR0", "ASDFPAR1", "ARROW1"};
+    for (const auto& contents : file_contents) {
+      AssertInspectFailure(contents, code, format_name);
+    }
+  }
+
   void TestInspect() {
     auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
     auto source = GetFileSource(reader.get());
@@ -452,7 +470,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
     EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
     if (!options) options = format->DefaultWriteOptions();
-    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options));
+    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options, {}));
     ARROW_EXPECT_OK(writer->Write(GetRecordBatchReader(schema).get()));
     ARROW_EXPECT_OK(writer->Finish());
     EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
@@ -513,8 +531,8 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
 
   // Scan the fragment through the scanner.
   RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
-    EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
-    auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
+    auto dataset = std::make_shared<FragmentDataset>(opts_->dataset_schema,
+                                                     FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
     ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
@@ -529,7 +547,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     opts_->use_threads = GetParam().use_threads;
     if (GetParam().use_async) {
       EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
-      EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));
+      auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
       return batch_it;
     }
     EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
@@ -688,7 +706,8 @@ class DummyFileFormat : public FileFormat {
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override {
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override {
     return Status::NotImplemented("writing fragment of DummyFileFormat");
   }
 
@@ -726,17 +745,17 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
-
-    util::string_view view{*buffer};
-
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
-    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
-    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options));
+
+    RecordBatchVector batches{RecordBatchFromJSON(schema, util::string_view{*buffer})};
+    return std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches))
+        ->Scan(std::move(options));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override {
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override {
     return Status::NotImplemented("writing fragment of JSONRecordBatchFileFormat");
   }
 
@@ -824,7 +843,7 @@ struct MakeFileSystemDatasetMixin {
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
   EXPECT_NE(fragment, nullptr);
   EXPECT_THAT(fragment->type_name(), "dummy");
-  return internal::checked_cast<const FileFragment&>(*fragment).source().path();
+  return checked_cast<const FileFragment&>(*fragment).source().path();
 }
 
 class TestFileSystemDataset : public ::testing::Test,
@@ -838,7 +857,7 @@ static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
 
 void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
                     std::vector<std::string> expected) {
-  auto fs_dataset = internal::checked_cast<FileSystemDataset*>(dataset.get());
+  auto fs_dataset = checked_cast<FileSystemDataset*>(dataset.get());
   EXPECT_THAT(fs_dataset->files(), testing::UnorderedElementsAreArray(expected));
 }
 
@@ -874,13 +893,10 @@ struct ArithmeticDatasetFixture {
   static std::shared_ptr<Schema> schema() {
     return ::arrow::schema({
         field("i64", int64()),
-        // ARROW-1644: Parquet can't write complex level
-        // field("struct", struct_({
-        //                     // ARROW-2587: Parquet can't write struct with more
-        //                     // than one field.
-        //                     // field("i32", int32()),
-        //                     field("str", utf8()),
-        //                 })),
+        field("struct", struct_({
+                            field("i32", int32()),
+                            field("str", utf8()),
+                        })),
         field("u8", uint8()),
         field("list", list(int32())),
         field("bool", boolean()),
@@ -897,12 +913,12 @@ struct ArithmeticDatasetFixture {
 
     ss << "{";
     ss << "\"i64\": " << n << ", ";
-    // ss << "\"struct\": {";
-    // {
-    //   // ss << "\"i32\": " << n_i32 << ", ";
-    //   ss << "\"str\": \"" << std::to_string(n) << "\"";
-    // }
-    // ss << "}, ";
+    ss << "\"struct\": {";
+    {
+      ss << "\"i32\": " << n_i32 << ", ";
+      ss << R"("str": ")" << std::to_string(n) << "\"";
+    }
+    ss << "}, ";
     ss << "\"u8\": " << static_cast<int32_t>(n) << ", ";
     ss << "\"list\": [" << n_i32 << ", " << n_i32 << "], ";
     ss << "\"bool\": " << (static_cast<bool>(n % 2) ? "true" : "false");
@@ -1016,15 +1032,19 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
 
     scan_options_ = std::make_shared<ScanOptions>();
-    scan_options_->dataset_schema = source_schema_;
+    scan_options_->dataset_schema = dataset_->schema();
     ASSERT_OK(SetProjection(scan_options_.get(), source_schema_->field_names()));
   }
 
   void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
     write_options_.file_write_options = file_write_options;
     write_options_.filesystem = fs_;
-    write_options_.base_dir = "new_root/";
+    write_options_.base_dir = "/new_root/";
     write_options_.basename_template = "dat_{i}";
+    write_options_.writer_pre_finish = [this](FileWriter* writer) {
+      visited_paths_.push_back(writer->destination().path);
+      return Status::OK();
+    };
   }
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
@@ -1176,10 +1196,16 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     for (const auto& file_contents : expected_files_) {
       expected_paths.insert(file_contents.first);
     }
+
+    // expect the written filesystem to contain precisely the paths we expected
     for (auto path : checked_pointer_cast<FileSystemDataset>(written_)->files()) {
       actual_paths.insert(std::move(path));
     }
     EXPECT_THAT(actual_paths, testing::UnorderedElementsAreArray(expected_paths));
+
+    // Additionally, the writer producing each written file was visited and its path
+    // collected. That should match the expected paths as well
+    EXPECT_THAT(visited_paths_, testing::UnorderedElementsAreArray(expected_paths));
 
     ASSERT_OK_AND_ASSIGN(auto written_fragments_it, written_->GetFragments());
     for (auto maybe_fragment : written_fragments_it) {
@@ -1223,6 +1249,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   PathAndContent expected_files_;
   std::shared_ptr<Schema> expected_physical_schema_;
   std::shared_ptr<Dataset> written_;
+  std::vector<std::string> visited_paths_;
   FileSystemDatasetWriteOptions write_options_;
   std::shared_ptr<ScanOptions> scan_options_;
 };

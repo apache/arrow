@@ -74,13 +74,11 @@ mark_as_advanced(ARROW_DATASET_IMPORT_LIB
                  ARROW_DATASET_VERSION
                  ARROW_DATASET_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowDataset
-                                  REQUIRED_VARS
-                                  ARROW_DATASET_INCLUDE_DIR
-                                  ARROW_DATASET_LIB_DIR
-                                  ARROW_DATASET_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_DATASET_VERSION)
+find_package_handle_standard_args(
+  ArrowDataset
+  REQUIRED_VARS ARROW_DATASET_INCLUDE_DIR ARROW_DATASET_LIB_DIR
+                ARROW_DATASET_VERSION_MATCH
+  VERSION_VAR ARROW_DATASET_VERSION)
 set(ARROW_DATASET_FOUND ${ArrowDataset_FOUND})
 
 if(ArrowDataset_FOUND AND NOT ArrowDataset_FIND_QUIETLY)

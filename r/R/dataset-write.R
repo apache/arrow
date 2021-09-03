@@ -57,7 +57,7 @@
 #' @export
 write_dataset <- function(dataset,
                           path,
-                          format = c("parquet", "feather", "arrow", "ipc"),
+                          format = c("parquet", "feather", "arrow", "ipc", "csv"),
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
@@ -86,6 +86,8 @@ write_dataset <- function(dataset,
   path_and_fs <- get_path_and_filesystem(path)
   options <- FileWriteOptions$create(format, table = scanner, ...)
 
-  dataset___Dataset__Write(options, path_and_fs$fs, path_and_fs$path,
-                           partitioning, basename_template, scanner)
+  dataset___Dataset__Write(
+    options, path_and_fs$fs, path_and_fs$path,
+    partitioning, basename_template, scanner
+  )
 }

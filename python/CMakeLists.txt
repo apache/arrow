@@ -81,7 +81,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUNDLE_ARROW_CPP "Bundle the Arrow C++ libraries" OFF)
   option(PYARROW_BUNDLE_BOOST "Bundle the Boost libraries when we bundle Arrow C++" OFF)
   option(PYARROW_GENERATE_COVERAGE "Build with Cython code coverage enabled" OFF)
-  set(PYARROW_CXXFLAGS "" CACHE STRING "Compiler flags to append when compiling Arrow")
+  set(PYARROW_CXXFLAGS
+      ""
+      CACHE STRING "Compiler flags to append when compiling Arrow")
 endif()
 
 find_program(CCACHE_FOUND ccache)
@@ -132,8 +134,8 @@ else()
   # Suppress Cython warnings
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                    "Clang")
     # Cython warnings in clang
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
@@ -172,10 +174,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if(NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-  execute_process(COMMAND ln
-                          ${MORE_ARGS}
-                          -sf
-                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
                           ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
@@ -237,20 +236,17 @@ function(bundle_arrow_lib library_path)
   # Only copy the shared library with ABI version on Linux and macOS
 
   if(MSVC)
-    configure_file(
-      ${${library_path}}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      COPYONLY)
+    configure_file(${${library_path}}
+                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+                   COPYONLY)
   elseif(APPLE)
-    configure_file(
-      ${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      COPYONLY)
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+                   COPYONLY)
   else()
-    configure_file(
-      ${${library_path}}.${ARG_SO_VERSION}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
-      COPYONLY)
+    configure_file(${${library_path}}.${ARG_SO_VERSION}
+                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
+                   COPYONLY)
   endif()
 
 endfunction(bundle_arrow_lib)
@@ -270,15 +266,13 @@ function(bundle_boost_lib library_path)
   set(Boost_SO_VERSION
       "${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
   if(APPLE)
-    configure_file(
-      ${${library_path}}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      COPYONLY)
+    configure_file(${${library_path}}
+                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}
+                   COPYONLY)
   else()
-    configure_file(
-      ${${library_path}}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}.${Boost_SO_VERSION}
-      COPYONLY)
+    configure_file(${${library_path}}
+                   ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}.${Boost_SO_VERSION}
+                   COPYONLY)
   endif()
 endfunction()
 
@@ -320,9 +314,8 @@ function(bundle_arrow_dependency library_name)
   if(SHARED_LIB_PATH)
     get_filename_component(SHARED_LIB_REALPATH ${SHARED_LIB_PATH} REALPATH)
     get_filename_component(SHARED_LIB_NAME ${SHARED_LIB_PATH} NAME)
-    message(
-      STATUS
-        "Bundle dependency ${library_name}: ${SHARED_LIB_REALPATH} as ${SHARED_LIB_NAME}")
+    message(STATUS "Bundle dependency ${library_name}: ${SHARED_LIB_REALPATH} as ${SHARED_LIB_NAME}"
+    )
     configure_file(${SHARED_LIB_REALPATH}
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${SHARED_LIB_NAME} COPYONLY)
   else()
@@ -367,7 +360,9 @@ if(PYARROW_BUNDLE_ARROW_CPP)
       # disable autolinking in boost
       add_definitions(-DBOOST_ALL_NO_LIB)
     endif()
-    find_package(Boost COMPONENTS regex REQUIRED)
+    find_package(Boost
+                 COMPONENTS regex
+                 REQUIRED)
     bundle_boost_lib(Boost_REGEX_LIBRARY)
   endif()
 
@@ -461,7 +456,9 @@ if(PYARROW_BUILD_PARQUET)
     else()
       set(Boost_USE_STATIC_LIBS ON)
     endif()
-    find_package(Boost COMPONENTS regex REQUIRED)
+    find_package(Boost
+                 COMPONENTS regex
+                 REQUIRED)
     add_thirdparty_lib(boost_regex STATIC_LIB ${Boost_REGEX_LIBRARY_RELEASE})
     add_thirdparty_lib(thrift STATIC_LIB ${THRIFT_STATIC_LIB})
     set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
@@ -556,8 +553,8 @@ foreach(module ${CYTHON_EXTENSIONS})
 
   if(directories)
     string(REPLACE ";" "/" module_output_directory ${directories})
-    set_target_properties(${module_name}
-                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${module_output_directory})
+    set_target_properties(${module_name} PROPERTIES LIBRARY_OUTPUT_DIRECTORY
+                                                    ${module_output_directory})
   endif()
 
   if(PYARROW_BUNDLE_ARROW_CPP)
@@ -585,9 +582,8 @@ foreach(module ${CYTHON_EXTENSIONS})
   endif()
 
   if(PYARROW_GENERATE_COVERAGE)
-    set_target_properties(${module_name}
-                          PROPERTIES COMPILE_DEFINITIONS
-                                     "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
+    set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS
+                                                    "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
   endif()
 
   target_link_libraries(${module_name} PRIVATE ${LINK_LIBS})

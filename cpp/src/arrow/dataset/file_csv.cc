@@ -26,12 +26,14 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/csv/reader.h"
+#include "arrow/csv/writer.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/compressed.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
@@ -39,12 +41,14 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-namespace dataset {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::Executor;
 using internal::SerialExecutor;
+
+namespace dataset {
+
 using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
 
 Result<std::unordered_set<std::string>> GetColumnNames(
@@ -138,7 +142,7 @@ static inline Result<csv::ReadOptions> GetReadOptions(
 
 static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     const FileSource& source, const CsvFileFormat& format,
-    const std::shared_ptr<ScanOptions>& scan_options, internal::Executor* cpu_executor) {
+    const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
@@ -162,8 +166,8 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
       }));
   return reader_fut.Then(
       // Adds the filename to the error
-      [](const std::shared_ptr<csv::StreamingReader>& maybe_reader)
-          -> Result<std::shared_ptr<csv::StreamingReader>> { return maybe_reader; },
+      [](const std::shared_ptr<csv::StreamingReader>& reader)
+          -> Result<std::shared_ptr<csv::StreamingReader>> { return reader; },
       [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
         return err.WithMessage("Could not open CSV input source '", source.path(),
                                "': ", err);
@@ -173,8 +177,8 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
 static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr) {
-  auto open_reader_fut =
-      OpenReaderAsync(source, format, scan_options, internal::GetCpuThreadPool());
+  auto open_reader_fut = OpenReaderAsync(source, format, scan_options,
+                                         ::arrow::internal::GetCpuThreadPool());
   return open_reader_fut.result();
 }
 
@@ -198,20 +202,20 @@ class CsvScanTask : public ScanTask {
         source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
-    auto reader_fut =
-        OpenReaderAsync(source_, *format_, options(), internal::GetCpuThreadPool());
+    auto reader_fut = OpenReaderAsync(source_, *format_, options(),
+                                      ::arrow::internal::GetCpuThreadPool());
     auto reader_gen = GeneratorFromReader(std::move(reader_fut));
     return MakeGeneratorIterator(std::move(reader_gen));
   }
 
-  Future<RecordBatchVector> SafeExecute(internal::Executor* executor) override {
+  Future<RecordBatchVector> SafeExecute(Executor* executor) override {
     auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
     auto reader_gen = GeneratorFromReader(std::move(reader_fut));
     return CollectAsyncGenerator(reader_gen);
   }
 
   Future<> SafeVisit(
-      internal::Executor* executor,
+      Executor* executor,
       std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
     auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
     auto reader_gen = GeneratorFromReader(std::move(reader_fut));
@@ -264,7 +268,7 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
   auto source = file->source();
   auto reader_fut =
-      OpenReaderAsync(source, *this, scan_options, internal::GetCpuThreadPool());
+      OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
   return GeneratorFromReader(std::move(reader_fut));
 }
 
@@ -274,14 +278,56 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
   if (ExpressionHasFieldRefs(predicate)) {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
-  auto self = internal::checked_pointer_cast<CsvFileFormat>(shared_from_this());
+  auto self = checked_pointer_cast<CsvFileFormat>(shared_from_this());
   ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
   ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
   return csv::CountRowsAsync(options->io_context, std::move(input),
-                             internal::GetCpuThreadPool(), read_options,
+                             ::arrow::internal::GetCpuThreadPool(), read_options,
                              self->parse_options)
       .Then([](int64_t count) { return util::make_optional<int64_t>(count); });
 }
+
+//
+// CsvFileWriter, CsvFileWriteOptions
+//
+
+std::shared_ptr<FileWriteOptions> CsvFileFormat::DefaultWriteOptions() {
+  std::shared_ptr<CsvFileWriteOptions> csv_options(
+      new CsvFileWriteOptions(shared_from_this()));
+  csv_options->write_options =
+      std::make_shared<csv::WriteOptions>(csv::WriteOptions::Defaults());
+  return csv_options;
+}
+
+Result<std::shared_ptr<FileWriter>> CsvFileFormat::MakeWriter(
+    std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+    std::shared_ptr<FileWriteOptions> options,
+    fs::FileLocator destination_locator) const {
+  if (!Equals(*options->format())) {
+    return Status::TypeError("Mismatching format/write options.");
+  }
+  auto csv_options = checked_pointer_cast<CsvFileWriteOptions>(options);
+  ARROW_ASSIGN_OR_RAISE(
+      auto writer, csv::MakeCSVWriter(destination, schema, *csv_options->write_options));
+  return std::shared_ptr<FileWriter>(
+      new CsvFileWriter(std::move(destination), std::move(writer), std::move(schema),
+                        std::move(csv_options), std::move(destination_locator)));
+}
+
+CsvFileWriter::CsvFileWriter(std::shared_ptr<io::OutputStream> destination,
+                             std::shared_ptr<ipc::RecordBatchWriter> writer,
+                             std::shared_ptr<Schema> schema,
+                             std::shared_ptr<CsvFileWriteOptions> options,
+                             fs::FileLocator destination_locator)
+    : FileWriter(std::move(schema), std::move(options), std::move(destination),
+                 std::move(destination_locator)),
+      batch_writer_(std::move(writer)) {}
+
+Status CsvFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
+  return batch_writer_->WriteRecordBatch(*batch);
+}
+
+Status CsvFileWriter::FinishInternal() { return batch_writer_->Close(); }
 
 }  // namespace dataset
 }  // namespace arrow

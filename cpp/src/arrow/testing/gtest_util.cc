@@ -566,6 +566,15 @@ std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
   return MakeArray(data);
 }
 
+bool LocaleExists(const char* locale) {
+  try {
+    std::locale loc(locale);
+    return true;
+  } catch (std::runtime_error&) {
+    return false;
+  }
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
@@ -907,7 +916,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   double timeout_seconds_;
   Status status_;
   bool unlocked_;
-  int num_launched_ = 0;
+  std::atomic<int> num_launched_{0};
   int num_running_ = 0;
   int num_finished_ = 0;
   std::mutex mx_;

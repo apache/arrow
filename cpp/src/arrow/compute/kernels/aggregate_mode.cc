@@ -302,6 +302,24 @@ struct Moder<InType, enable_if_t<is_floating_type<InType>::value>> {
   SortModer<InType> impl;
 };
 
+template <typename T>
+Status ScalarMode(KernelContext* ctx, const Scalar& scalar, Datum* out) {
+  using CType = typename T::c_type;
+  if (scalar.is_valid) {
+    bool called = false;
+    return Finalize<T>(ctx, out, [&]() {
+      if (!called) {
+        called = true;
+        return std::pair<CType, uint64_t>(UnboxScalar<T>::Unbox(scalar), 1);
+      }
+      return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
+    });
+  }
+  return Finalize<T>(ctx, out, []() {
+    return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
+  });
+}
+
 template <typename _, typename InType>
 struct ModeExecutor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -311,6 +329,10 @@ struct ModeExecutor {
     const ModeOptions& options = ModeState::Get(ctx);
     if (options.n <= 0) {
       return Status::Invalid("ModeOption::n must be strictly positive");
+    }
+
+    if (batch[0].is_scalar()) {
+      return ScalarMode<InType>(ctx, *batch[0].scalar(), out);
     }
 
     return Moder<InType>().impl.Exec(ctx, batch, out);
@@ -325,7 +347,7 @@ VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type) {
   auto out_type =
       struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
   kernel.signature =
-      KernelSignature::Make({InputType::Array(in_type)}, ValueDescr::Array(out_type));
+      KernelSignature::Make({InputType(in_type)}, ValueDescr::Array(out_type));
   return kernel;
 }
 

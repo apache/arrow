@@ -16,38 +16,38 @@
 // under the License.
 
 module.exports = {
-    "verbose": false,
-    "testEnvironment": "node",
-    "globals": {
-      "ts-jest": {
-        "diagnostics": false,
-        "tsconfig": "test/tsconfig.json"
-      }
+  verbose: false,
+  testEnvironment: "node",
+  globals: {
+    "ts-jest": {
+      diagnostics: false,
+      tsconfig: "test/tsconfig.json",
+      useESM: true,
     },
-    "roots": [
-      "<rootDir>/test/"
-    ],
-    "moduleFileExtensions": [
-      "js",
-      "ts",
-      "tsx"
-    ],
-    "coverageReporters": [
-      "lcov"
-    ],
-    "coveragePathIgnorePatterns": [
-      "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",
-      "test\\/.*\\.(ts|tsx|js)$",
-      "/node_modules/"
-    ],
-    "transform": {
-      "^.+\\.jsx?$": "ts-jest",
-      "^.+\\.tsx?$": "ts-jest"
-    },
-    "transformIgnorePatterns": [
-      "/node_modules/(?!web-stream-tools).+\\.js$"
-    ],
-    "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$",
-    "preset": "ts-jest",
-    "testMatch": null
+  },
+  rootDir: ".",
+  roots: ["<rootDir>/test/"],
+  preset: "ts-jest/presets/default-esm",
+  moduleFileExtensions: ["mjs", "js", "ts"],
+  coverageReporters: ["lcov", "json"],
+  coveragePathIgnorePatterns: [
+    "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",
+    "test\\/.*\\.(ts|js)$",
+    "/node_modules/",
+  ],
+  transform: {
+    "^.+\\.js$": "ts-jest",
+    "^.+\\.ts$": "ts-jest",
+  },
+  transformIgnorePatterns: [
+    "/targets/(es5|es2015|esnext|apache-arrow)/",
+    "/node_modules/(?!@openpgp/web-stream-tools)/",
+  ],
+  testRegex: "(.*(-|\\.)(test|spec)s?)\\.(ts|js)$",
+  testMatch: null,
+  moduleNameMapper: {
+    "^apache-arrow$": "<rootDir>/src/Arrow.node",
+    "^apache-arrow(.*)": "<rootDir>/src$1",
+    flatbuffers: "flatbuffers/js/flatbuffers.mjs",
+  },
 };

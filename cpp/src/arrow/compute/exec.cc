@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -36,6 +37,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
+#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -69,6 +71,54 @@ ExecBatch::ExecBatch(const RecordBatch& batch)
   std::move(columns.begin(), columns.end(), values.begin());
 }
 
+bool ExecBatch::Equals(const ExecBatch& other) const {
+  return guarantee == other.guarantee && values == other.values;
+}
+
+void PrintTo(const ExecBatch& batch, std::ostream* os) {
+  *os << "ExecBatch\n";
+
+  static const std::string indent = "    ";
+
+  *os << indent << "# Rows: " << batch.length << "\n";
+  if (batch.guarantee != literal(true)) {
+    *os << indent << "Guarantee: " << batch.guarantee.ToString() << "\n";
+  }
+
+  int i = 0;
+  for (const Datum& value : batch.values) {
+    *os << indent << "" << i++ << ": ";
+
+    if (value.is_scalar()) {
+      *os << "Scalar[" << value.scalar()->ToString() << "]\n";
+      continue;
+    }
+
+    auto array = value.make_array();
+    PrettyPrintOptions options;
+    options.skip_new_lines = true;
+    *os << "Array";
+    ARROW_CHECK_OK(PrettyPrint(*array, options, os));
+    *os << "\n";
+  }
+}
+
+std::string ExecBatch::ToString() const {
+  std::stringstream ss;
+  PrintTo(*this, &ss);
+  return ss.str();
+}
+
+ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
+  ExecBatch out = *this;
+  for (auto& value : out.values) {
+    if (value.is_scalar()) continue;
+    value = value.array()->Slice(offset, length);
+  }
+  out.length = std::min(length, this->length - offset);
+  return out;
+}
+
 Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
   if (values.empty()) {
     return Status::Invalid("Cannot infer ExecBatch length without at least one value");
@@ -77,9 +127,6 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
   int64_t length = -1;
   for (const auto& value : values) {
     if (value.is_scalar()) {
-      if (length == -1) {
-        length = 1;
-      }
       continue;
     }
 
@@ -94,8 +141,29 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
     }
   }
 
+  if (length == -1) {
+    length = 1;
+  }
+
   return ExecBatch(std::move(values), length);
 }
+
+Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
+    std::shared_ptr<Schema> schema, MemoryPool* pool) const {
+  ArrayVector columns(schema->num_fields());
+
+  for (size_t i = 0; i < columns.size(); ++i) {
+    const Datum& value = values[i];
+    if (value.is_array()) {
+      columns[i] = value.make_array();
+      continue;
+    }
+    ARROW_ASSIGN_OR_RAISE(columns[i], MakeArrayFromScalar(*value.scalar(), length, pool));
+  }
+
+  return RecordBatch::Make(std::move(schema), length, std::move(columns));
+}
+
 namespace {
 
 Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t length,
@@ -526,6 +594,16 @@ class KernelExecutorImpl : public KernelExecutor {
     return out;
   }
 
+  Status CheckResultType(const Datum& out, const char* function_name) override {
+    const auto& type = out.type();
+    if (type != nullptr && !type->Equals(output_descr_.type)) {
+      return Status::TypeError(
+          "kernel type result mismatch for function '", function_name, "': declared as ",
+          output_descr_.type->ToString(), ", actual is ", type->ToString());
+    }
+    return Status::OK();
+  }
+
   ExecContext* exec_context() { return kernel_ctx_->exec_context(); }
   KernelState* state() { return kernel_ctx_->state(); }
 
@@ -942,8 +1020,9 @@ std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalarAggregate() {
 
 }  // namespace detail
 
-ExecContext::ExecContext(MemoryPool* pool, FunctionRegistry* func_registry)
-    : pool_(pool) {
+ExecContext::ExecContext(MemoryPool* pool, ::arrow::internal::Executor* executor,
+                         FunctionRegistry* func_registry)
+    : pool_(pool), executor_(executor) {
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
 }
 

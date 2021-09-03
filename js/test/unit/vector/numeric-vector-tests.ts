@@ -25,12 +25,12 @@ import {
     FloatVector, Float16Vector, Float32Vector, Float64Vector,
     IntVector, Int8Vector, Int16Vector, Int32Vector, Int64Vector,
     Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
-} from '../../Arrow';
+} from 'apache-arrow';
 
 const { float64ToUint16, uint16ToFloat64 } = util;
-import { VectorType as V } from '../../../src/interfaces';
-import { TypedArray, TypedArrayConstructor } from '../../../src/interfaces';
-import { BigIntArray, BigIntArrayConstructor } from '../../../src/interfaces';
+import { VectorType as V } from 'apache-arrow/interfaces';
+import { TypedArray, TypedArrayConstructor } from 'apache-arrow/interfaces';
+import { BigIntArray, BigIntArrayConstructor } from 'apache-arrow/interfaces';
 
 const { joinUint8Arrays, BN } = util;
 const uint16ToFloat64Array = (b: ArrayBuffer) => new Float64Array([...new Uint16Array(b)].map(uint16ToFloat64));
@@ -361,21 +361,25 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
     combos.forEach(([chunksType, vector]) => {
         describe(chunksType, () => {
             // test base case no slicing
-            describe(`base case no slicing`, () => testAndValidateVector(vector, typed, jsArray));
+            describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
             // test slicing without args
-            describe(`slicing without args`, () => testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()));
+            describe(`slicing without args`, () => { testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()); });
             // test slicing the middle half
-            describe(`slice the middle half`, () => testAndValidateVector(
-                vector.slice(vectorBegin, vectorEnd),
-                typed.slice(typedBegin, typedEnd),
-                jsArray.slice(jsArrayBegin, jsArrayEnd)
-            ));
+            describe(`slice the middle half`, () => {
+                testAndValidateVector(
+                    vector.slice(vectorBegin, vectorEnd),
+                    typed.slice(typedBegin, typedEnd),
+                    jsArray.slice(jsArrayBegin, jsArrayEnd)
+                );
+            });
             // test splicing out the middle half
-            describe(`splicing out the middle half`, () => testAndValidateVector(
-                vector.slice(0, vectorBegin).concat(vector.slice(vectorEnd)),
-                new ArrayType([...typed.slice(0, typedBegin), ...typed.slice(typedEnd)]),
-                [...jsArray.slice(0, jsArrayBegin), ...jsArray.slice(jsArrayEnd)]
-            ));
+            describe(`splicing out the middle half`, () => {
+                testAndValidateVector(
+                    vector.slice(0, vectorBegin).concat(vector.slice(vectorEnd)),
+                    new ArrayType([...typed.slice(0, typedBegin), ...typed.slice(typedEnd)]),
+                    [...jsArray.slice(0, jsArrayBegin), ...jsArray.slice(jsArrayEnd)]
+                );
+            });
         });
     });
 }
@@ -399,21 +403,25 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
     combos.forEach(([chunksType, vector]) => {
         describe(chunksType, () => {
             // test base case no slicing
-            describe(`base case no slicing`, () => testAndValidateVector(vector, typed, jsArray));
+            describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
             // test slicing without args
-            describe(`slicing without args`, () => testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()));
+            describe(`slicing without args`, () => { testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()); });
             // test slicing the middle half
-            describe(`slice the middle half`, () => testAndValidateVector(
-                vector.slice(begin, end),
-                typed.slice(begin, end),
-                jsArray.slice(begin, end)
-            ));
+            describe(`slice the middle half`, () => {
+                    testAndValidateVector(
+                    vector.slice(begin, end),
+                    typed.slice(begin, end),
+                    jsArray.slice(begin, end)
+                );
+            });
             // test splicing out the middle half
-            describe(`splicing out the middle half`, () => testAndValidateVector(
-                vector.slice(0, begin).concat(vector.slice(end)),
-                new ArrayType([...typed.slice(0, begin), ...typed.slice(end)]),
-                [...jsArray.slice(0, begin), ...jsArray.slice(end)]
-            ));
+            describe(`splicing out the middle half`, () => {
+                testAndValidateVector(
+                    vector.slice(0, begin).concat(vector.slice(end)),
+                    new ArrayType([...typed.slice(0, begin), ...typed.slice(end)]),
+                    [...jsArray.slice(0, begin), ...jsArray.slice(end)]
+                );
+            });
         });
     });
 }

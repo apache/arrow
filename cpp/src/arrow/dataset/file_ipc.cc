@@ -139,8 +139,7 @@ class IpcScanTask : public ScanTask {
       int i_;
     };
 
-    return Impl::Make(source_,
-                      *internal::checked_pointer_cast<FileFragment>(fragment_)->format(),
+    return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),
                       *options_);
   }
 
@@ -216,10 +215,10 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     RecordBatchGenerator generator;
     if (ipc_scan_options->cache_options) {
       // Transferring helps performance when coalescing
-      ARROW_ASSIGN_OR_RAISE(
-          generator, reader->GetRecordBatchGenerator(
-                         /*coalesce=*/true, options->io_context,
-                         *ipc_scan_options->cache_options, internal::GetCpuThreadPool()));
+      ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
+                                           /*coalesce=*/true, options->io_context,
+                                           *ipc_scan_options->cache_options,
+                                           ::arrow::internal::GetCpuThreadPool()));
     } else {
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
@@ -235,7 +234,7 @@ Future<util::optional<int64_t>> IpcFileFormat::CountRows(
   if (ExpressionHasFieldRefs(predicate)) {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
-  auto self = internal::checked_pointer_cast<IpcFileFormat>(shared_from_this());
+  auto self = checked_pointer_cast<IpcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
       [self, file]() -> Result<util::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
@@ -258,7 +257,8 @@ std::shared_ptr<FileWriteOptions> IpcFileFormat::DefaultWriteOptions() {
 
 Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
     std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-    std::shared_ptr<FileWriteOptions> options) const {
+    std::shared_ptr<FileWriteOptions> options,
+    fs::FileLocator destination_locator) const {
   if (!Equals(*options->format())) {
     return Status::TypeError("Mismatching format/write options.");
   }
@@ -274,14 +274,16 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
 
   return std::shared_ptr<FileWriter>(
       new IpcFileWriter(std::move(destination), std::move(writer), std::move(schema),
-                        std::move(ipc_options)));
+                        std::move(ipc_options), std::move(destination_locator)));
 }
 
 IpcFileWriter::IpcFileWriter(std::shared_ptr<io::OutputStream> destination,
                              std::shared_ptr<ipc::RecordBatchWriter> writer,
                              std::shared_ptr<Schema> schema,
-                             std::shared_ptr<IpcFileWriteOptions> options)
-    : FileWriter(std::move(schema), std::move(options), std::move(destination)),
+                             std::shared_ptr<IpcFileWriteOptions> options,
+                             fs::FileLocator destination_locator)
+    : FileWriter(std::move(schema), std::move(options), std::move(destination),
+                 std::move(destination_locator)),
       batch_writer_(std::move(writer)) {}
 
 Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {

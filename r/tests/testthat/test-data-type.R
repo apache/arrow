@@ -17,7 +17,7 @@
 
 context("DataType")
 
-test_that("null type works as expected",{
+test_that("null type works as expected", {
   x <- null()
   expect_equal(x$id, 0L)
   expect_equal(x$name, "null")
@@ -28,7 +28,7 @@ test_that("null type works as expected",{
   expect_equal(x$fields(), list())
 })
 
-test_that("boolean type work as expected",{
+test_that("boolean type work as expected", {
   x <- boolean()
   expect_equal(x$id, Type$BOOL)
   expect_equal(x$name, "bool")
@@ -40,7 +40,7 @@ test_that("boolean type work as expected",{
   expect_equal(x$bit_width, 1L)
 })
 
-test_that("int types works as expected",{
+test_that("int types works as expected", {
   x <- uint8()
   expect_equal(x$id, Type$UINT8)
   expect_equal(x$name, "uint8")
@@ -122,7 +122,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 64L)
 })
 
-test_that("float types work as expected",{
+test_that("float types work as expected", {
   x <- float16()
   expect_equal(x$id, Type$HALF_FLOAT)
   expect_equal(x$name, "halffloat")
@@ -154,7 +154,7 @@ test_that("float types work as expected",{
   expect_equal(x$bit_width, 64L)
 })
 
-test_that("utf8 type works as expected",{
+test_that("utf8 type works as expected", {
   x <- utf8()
   expect_equal(x$id, Type$STRING)
   expect_equal(x$name, "utf8")
@@ -393,7 +393,6 @@ test_that("decimal type and validation", {
   expect_error(decimal(4, NA), '"scale" must be an integer')
 
   expect_r6_class(decimal(4, 2), "Decimal128Type")
-
 })
 
 test_that("Binary", {
@@ -413,14 +412,16 @@ test_that("FixedSizeBinary", {
 })
 
 test_that("DataType to C-interface", {
-  datatype <- timestamp("ms", timezone = "Asia/Pyongyang")
+  datatype <- timestamp("ms", timezone = "Pacific/Marquesas")
 
   # export the datatype via the C-interface
   ptr <- allocate_arrow_schema()
-  on.exit(delete_arrow_schema(ptr))
   datatype$export_to_c(ptr)
 
   # then import it and check that the roundtripped value is the same
   circle <- DataType$import_from_c(ptr)
   expect_equal(circle, datatype)
+
+  # must clean up the pointer or we leak
+  delete_arrow_schema(ptr)
 })

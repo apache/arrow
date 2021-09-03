@@ -58,6 +58,16 @@ struct BitBlockAnd<bool> {
 };
 
 template <typename T>
+struct BitBlockAndNot {
+  static T Call(T left, T right) { return left & ~right; }
+};
+
+template <>
+struct BitBlockAndNot<bool> {
+  static bool Call(bool left, bool right) { return left && !right; }
+};
+
+template <typename T>
 struct BitBlockOr {
   static T Call(T left, T right) { return left | right; }
 };
@@ -95,7 +105,7 @@ struct BitBlockCount {
 class ARROW_EXPORT BitBlockCounter {
  public:
   BitBlockCounter(const uint8_t* bitmap, int64_t start_offset, int64_t length)
-      : bitmap_(bitmap + start_offset / 8),
+      : bitmap_(util::MakeNonNull(bitmap) + start_offset / 8),
         bits_remaining_(length),
         offset_(start_offset % 8) {}
 
@@ -253,9 +263,9 @@ class ARROW_EXPORT BinaryBitBlockCounter {
  public:
   BinaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
                         const uint8_t* right_bitmap, int64_t right_offset, int64_t length)
-      : left_bitmap_(left_bitmap + left_offset / 8),
+      : left_bitmap_(util::MakeNonNull(left_bitmap) + left_offset / 8),
         left_offset_(left_offset % 8),
-        right_bitmap_(right_bitmap + right_offset / 8),
+        right_bitmap_(util::MakeNonNull(right_bitmap) + right_offset / 8),
         right_offset_(right_offset % 8),
         bits_remaining_(length) {}
 
@@ -265,6 +275,9 @@ class ARROW_EXPORT BinaryBitBlockCounter {
   /// if the bitmap length is not a multiple of 64, and will return 0-length
   /// blocks in subsequent invocations.
   BitBlockCount NextAndWord() { return NextWord<detail::BitBlockAnd>(); }
+
+  /// \brief Computes "x & ~y" block for each available run of bits.
+  BitBlockCount NextAndNotWord() { return NextWord<detail::BitBlockAndNot>(); }
 
   /// \brief Computes "x | y" block for each available run of bits.
   BitBlockCount NextOrWord() { return NextWord<detail::BitBlockOr>(); }

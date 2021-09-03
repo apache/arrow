@@ -24,6 +24,12 @@
 #include <arrow-flight-glib/client.h>
 
 
+GAFlightStreamReader *
+gaflight_stream_reader_new_raw(arrow::flight::FlightStreamReader *flight_reader);
+
+arrow::flight::FlightCallOptions *
+gaflight_call_options_get_raw(GAFlightCallOptions *options);
+
 arrow::flight::FlightClientOptions *
 gaflight_client_options_get_raw(GAFlightClientOptions *options);
 

@@ -18,7 +18,8 @@
 
 #' @title RecordBatchReader classes
 #' @description Apache Arrow defines two formats for [serializing data for interprocess
-#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' communication
+#' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather.
 #' `RecordBatchStreamReader` and `RecordBatchFileReader` are
 #' interfaces for accessing record batches from input sources in those formats,
@@ -90,7 +91,8 @@
 #' # Unlike the Writers, we don't have to close RecordBatchReaders,
 #' # but we do still need to close the file connection
 #' read_file_obj$close()
-RecordBatchReader <- R6Class("RecordBatchReader", inherit = ArrowObject,
+RecordBatchReader <- R6Class("RecordBatchReader",
+  inherit = ArrowObject,
   public = list(
     read_next_batch = function() RecordBatchReader__ReadNext(self),
     batches = function() RecordBatchReader__batches(self),
@@ -123,7 +125,8 @@ RecordBatchReader$import_from_c <- RecordBatchStreamReader$import_from_c <- Impo
 #' @usage NULL
 #' @format NULL
 #' @export
-RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = ArrowObject,
+RecordBatchFileReader <- R6Class("RecordBatchFileReader",
+  inherit = ArrowObject,
   # Why doesn't this inherit from RecordBatchReader in C++?
   # Origin: https://github.com/apache/arrow/pull/679
   public = list(

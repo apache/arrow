@@ -37,6 +37,7 @@ add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
 
@@ -47,6 +48,7 @@ add_arrow_compute_test(vector_test
                        SOURCES
                        vector_hash_test.cc
                        vector_nested_test.cc
+                       vector_replace_test.cc
                        vector_selection_test.cc
                        vector_sort_test.cc
                        test_util.cc)
@@ -54,6 +56,7 @@ add_arrow_compute_test(vector_test
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_replace_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------

@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_decimal.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -37,16 +38,6 @@ constexpr int64_t kExpectedLength = 24;
 class RandomArrayTest : public ::testing::TestWithParam<std::shared_ptr<Field>> {
  protected:
   std::shared_ptr<Field> GetField() { return GetParam(); }
-};
-
-template <typename T>
-class RandomNumericArrayTest : public ::testing::Test {
- protected:
-  std::shared_ptr<Field> GetField() { return field("field0", std::make_shared<T>()); }
-
-  std::shared_ptr<NumericArray<T>> Downcast(std::shared_ptr<Array> array) {
-    return internal::checked_pointer_cast<NumericArray<T>>(array);
-  }
 };
 
 TEST_P(RandomArrayTest, GenerateArray) {
@@ -109,7 +100,8 @@ auto values = ::testing::Values(
     field("int64", int64()), field("float16", float16()), field("float32", float32()),
     field("float64", float64()), field("string", utf8()), field("binary", binary()),
     field("fixed_size_binary", fixed_size_binary(8)),
-    field("decimal128", decimal128(8, 3)), field("decimal256", decimal256(16, 4)),
+    field("decimal128", decimal128(8, 3)), field("decimal128", decimal128(29, -5)),
+    field("decimal256", decimal256(16, 4)), field("decimal256", decimal256(57, -6)),
     field("date32", date32()), field("date64", date64()),
     field("timestampns", timestamp(TimeUnit::NANO)),
     field("timestamps", timestamp(TimeUnit::SECOND, "America/Phoenix")),
@@ -154,6 +146,16 @@ INSTANTIATE_TEST_SUITE_P(
       return std::to_string(info.index) + info.param->name();
     });
 
+template <typename T>
+class RandomNumericArrayTest : public ::testing::Test {
+ protected:
+  std::shared_ptr<Field> GetField() { return field("field0", std::make_shared<T>()); }
+
+  std::shared_ptr<NumericArray<T>> Downcast(std::shared_ptr<Array> array) {
+    return internal::checked_pointer_cast<NumericArray<T>>(array);
+  }
+};
+
 using NumericTypes =
     ::testing::Types<UInt8Type, Int8Type, UInt16Type, Int16Type, UInt32Type, Int32Type,
                      HalfFloatType, FloatType, DoubleType>;
@@ -170,6 +172,88 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
     if (!slot.has_value()) continue;
     ASSERT_GE(slot, typename TypeParam::c_type(0));
     ASSERT_LE(slot, typename TypeParam::c_type(127));
+  }
+}
+
+TYPED_TEST(RandomNumericArrayTest, EmptyRange) {
+  auto field =
+      this->GetField()->WithMetadata(key_value_metadata({{"min", "42"}, {"max", "42"}}));
+  auto batch = GenerateBatch({field}, kExpectedLength, 0xcafe);
+  ASSERT_OK(batch->ValidateFull());
+  AssertSchemaEqual(schema({field}), batch->schema());
+  auto array = this->Downcast(batch->column(0));
+  for (auto slot : *array) {
+    if (!slot.has_value()) continue;
+    ASSERT_EQ(slot, typename TypeParam::c_type(42));
+  }
+}
+
+template <typename DecimalType>
+class RandomDecimalArrayTest : public ::testing::Test {
+ protected:
+  using ArrayType = typename TypeTraits<DecimalType>::ArrayType;
+  using DecimalValue = typename TypeTraits<DecimalType>::BuilderType::ValueType;
+
+  constexpr static int32_t max_precision() { return DecimalType::kMaxPrecision; }
+
+  std::shared_ptr<DataType> type(int32_t precision, int32_t scale) {
+    return std::make_shared<DecimalType>(precision, scale);
+  }
+
+  void CheckArray(const Array& array) {
+    ASSERT_OK(array.ValidateFull());
+
+    const auto& type = checked_cast<const DecimalType&>(*array.type());
+    const auto& values = checked_cast<const ArrayType&>(array);
+
+    const DecimalValue limit = DecimalValue::GetScaleMultiplier(type.precision());
+    const DecimalValue neg_limit = DecimalValue(limit).Negate();
+    const DecimalValue half_limit = limit / DecimalValue(2);
+    const DecimalValue neg_half_limit = DecimalValue(half_limit).Negate();
+
+    // Check that random-generated values:
+    // - satisfy the requested precision
+    // - at least sometimes are close to the max allowable values for precision
+    // - sometimes are negative
+    int64_t non_nulls = 0;
+    int64_t over_half = 0;
+    int64_t negative = 0;
+
+    for (int64_t i = 0; i < values.length(); ++i) {
+      if (values.IsNull(i)) {
+        continue;
+      }
+      ++non_nulls;
+      const DecimalValue value(values.GetValue(i));
+      ASSERT_LT(value, limit);
+      ASSERT_GT(value, neg_limit);
+      if (value >= half_limit || value <= neg_half_limit) {
+        ++over_half;
+      }
+      if (value.Sign() < 0) {
+        ++negative;
+      }
+    }
+
+    ASSERT_GE(over_half, non_nulls * 0.3);
+    ASSERT_LE(over_half, non_nulls * 0.7);
+    ASSERT_GE(negative, non_nulls * 0.3);
+    ASSERT_LE(negative, non_nulls * 0.7);
+  }
+};
+
+using DecimalTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+TYPED_TEST_SUITE(RandomDecimalArrayTest, DecimalTypes);
+
+TYPED_TEST(RandomDecimalArrayTest, Basic) {
+  random::RandomArrayGenerator rng(42);
+
+  for (const int32_t precision :
+       {1, 2, 5, 9, 18, 19, 25, this->max_precision() - 1, this->max_precision()}) {
+    ARROW_SCOPED_TRACE("precision = ", precision);
+    const auto type = this->type(precision, 5);
+    auto array = rng.ArrayOf(type, /*size=*/1000, /*null_probability=*/0.2);
+    this->CheckArray(*array);
   }
 }
 

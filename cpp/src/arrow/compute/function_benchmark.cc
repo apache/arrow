@@ -19,6 +19,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
@@ -174,11 +175,44 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * N);
 }
 
+void BM_ExecBatchIterator(benchmark::State& state) {
+  // Measure overhead related to splitting ExecBatch into smaller ExecBatches
+  // for parallelism or more optimal CPU cache affinity
+  random::RandomArrayGenerator rag(kSeed);
+
+  const int64_t length = 1 << 20;
+  const int num_fields = 32;
+
+  std::vector<Datum> args(num_fields);
+  for (int i = 0; i < num_fields; ++i) {
+    args[i] = rag.Int64(length, 0, 100)->data();
+  }
+
+  const int64_t blocksize = state.range(0);
+  for (auto _ : state) {
+    std::unique_ptr<detail::ExecBatchIterator> it =
+        *detail::ExecBatchIterator::Make(args, blocksize);
+    ExecBatch batch;
+    while (it->Next(&batch)) {
+      for (int i = 0; i < num_fields; ++i) {
+        auto data = batch.values[i].array()->buffers[1]->data();
+        benchmark::DoNotOptimize(data);
+      }
+    }
+    benchmark::DoNotOptimize(batch);
+  }
+  // Provides comparability across blocksizes by looking at the iterations per
+  // second. So 1000 iterations/second means that input splitting associated
+  // with ExecBatchIterator takes up 1ms every time.
+  state.SetItemsProcessed(state.iterations());
+}
+
 BENCHMARK(BM_CastDispatch);
 BENCHMARK(BM_CastDispatchBaseline);
 BENCHMARK(BM_AddDispatch);
 BENCHMARK(BM_ExecuteScalarFunctionOnScalar);
 BENCHMARK(BM_ExecuteScalarKernelOnScalar);
+BENCHMARK(BM_ExecBatchIterator)->RangeMultiplier(4)->Range(1024, 64 * 1024);
 
 }  // namespace compute
 }  // namespace arrow

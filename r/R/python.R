@@ -171,7 +171,7 @@ py_to_r.pyarrow.lib.RecordBatchReader <- function(x, ...) {
   on.exit(delete_arrow_array_stream(stream_ptr))
 
   x$`_export_to_c`(stream_ptr)
-  RecordBatchFileReader$import_from_c(stream_ptr)
+  RecordBatchReader$import_from_c(stream_ptr)
 }
 
 r_to_py.RecordBatchReader <- function(x, convert = FALSE) {
@@ -212,7 +212,8 @@ maybe_py_to_r <- function(x) {
 #' @export
 install_pyarrow <- function(envname = NULL, nightly = FALSE, ...) {
   if (nightly) {
-    reticulate::py_install("pyarrow", envname = envname, ...,
+    reticulate::py_install("pyarrow",
+      envname = envname, ...,
       # Nightly for pip
       pip_options = "--extra-index-url https://repo.fury.io/arrow-nightlies/ --pre --upgrade",
       # Nightly for conda

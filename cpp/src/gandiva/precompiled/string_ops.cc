@@ -243,6 +243,31 @@ UTF8_LENGTH(char_length, utf8)
 UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
 
+// Returns a string of 'n' spaces.
+#define SPACE_STR(IN_TYPE)                                                              \
+  GANDIVA_EXPORT                                                                        \
+  const char* space_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE n, int32_t* out_len) {       \
+    gdv_int32 n_times = static_cast<gdv_int32>(n);                                      \
+    if (n_times <= 0) {                                                                 \
+      *out_len = 0;                                                                     \
+      return "";                                                                        \
+    }                                                                                   \
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, n_times));     \
+    if (ret == nullptr) {                                                               \
+      gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string"); \
+      *out_len = 0;                                                                     \
+      return "";                                                                        \
+    }                                                                                   \
+    for (int i = 0; i < n_times; i++) {                                                 \
+      ret[i] = ' ';                                                                     \
+    }                                                                                   \
+    *out_len = n_times;                                                                 \
+    return ret;                                                                         \
+  }
+
+SPACE_STR(int32)
+SPACE_STR(int64)
+
 // Reverse a utf8 sequence
 FORCE_INLINE
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
@@ -481,6 +506,66 @@ const char* btrim_utf8_utf8(gdv_int64 context, const char* basetext,
 }
 
 FORCE_INLINE
+gdv_boolean compare_lower_strings(const char* base_str, gdv_int32 base_str_len,
+                                  const char* str, gdv_int32 str_len) {
+  if (base_str_len != str_len) {
+    return false;
+  }
+  for (int i = 0; i < str_len; i++) {
+    // convert char to lower
+    char cur = str[i];
+    // 'A' - 'Z' : 0x41 - 0x5a
+    // 'a' - 'z' : 0x61 - 0x7a
+    if (cur >= 0x41 && cur <= 0x5a) {
+      cur = static_cast<char>(cur + 0x20);
+    }
+    // if the character does not match, break the flow
+    if (cur != base_str[i]) break;
+    // if the character matches and it is the last iteration, return true
+    if (i == str_len - 1) return true;
+  }
+  return false;
+}
+
+// Try to cast the received string ('0', '1', 'true', 'false'), ignoring leading
+// and trailing spaces, also ignoring lower and upper case.
+FORCE_INLINE
+gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len) {
+  if (data_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+    return false;
+  }
+
+  // trim leading and trailing spaces
+  int32_t trimmed_len;
+  int32_t start = 0, end = data_len - 1;
+  while (start <= end && data[start] == ' ') {
+    ++start;
+  }
+  while (end >= start && data[end] == ' ') {
+    --end;
+  }
+  trimmed_len = end - start + 1;
+  const char* trimmed_data = data + start;
+
+  // compare received string with the valid bool string values '1', '0', 'true', 'false'
+  if (trimmed_len == 1) {
+    // case for '0' and '1' value
+    if (trimmed_data[0] == '1') return true;
+    if (trimmed_data[0] == '0') return false;
+  } else if (trimmed_len == 4) {
+    // case for matching 'true'
+    if (compare_lower_strings("true", 4, trimmed_data, trimmed_len)) return true;
+  } else if (trimmed_len == 5) {
+    // case for matching 'false'
+    if (compare_lower_strings("false", 5, trimmed_data, trimmed_len)) return false;
+  }
+  // if no 'true', 'false', '0' or '1' value is found, set an error
+  gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+  return false;
+}
+
+FORCE_INLINE
 const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
                                    gdv_int64 out_len, gdv_int32* out_length) {
   gdv_int32 len = static_cast<gdv_int32>(out_len);
@@ -587,6 +672,32 @@ CAST_VARCHAR_FROM_VARLEN_TYPE(utf8)
 CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 
 #undef CAST_VARCHAR_FROM_VARLEN_TYPE
+
+// Add functions for castVARBINARY
+#define CAST_VARBINARY_FROM_STRING_AND_BINARY(TYPE)                                    \
+  GANDIVA_EXPORT                                                                       \
+  const char* castVARBINARY_##TYPE##_int64(gdv_int64 context, const char* data,        \
+                                           gdv_int32 data_len, int64_t out_len,        \
+                                           int32_t* out_length) {                      \
+    int32_t len = static_cast<int32_t>(out_len);                                       \
+    if (len < 0) {                                                                     \
+      gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative"); \
+      *out_length = 0;                                                                 \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    if (len >= data_len || len == 0) {                                                 \
+      *out_length = data_len;                                                          \
+    } else {                                                                           \
+      *out_length = len;                                                               \
+    }                                                                                  \
+    return data;                                                                       \
+  }
+
+CAST_VARBINARY_FROM_STRING_AND_BINARY(utf8)
+CAST_VARBINARY_FROM_STRING_AND_BINARY(binary)
+
+#undef CAST_VARBINARY_FROM_STRING_AND_BINARY
 
 #define IS_NULL(NAME, TYPE)                                                \
   FORCE_INLINE                                                             \
@@ -695,6 +806,33 @@ FORCE_INLINE
 const char* substr_utf8_int64(gdv_int64 context, const char* input, gdv_int32 in_len,
                               gdv_int64 offset64, gdv_int32* out_len) {
   return substr_utf8_int64_int64(context, input, in_len, offset64, in_len, out_len);
+}
+
+FORCE_INLINE
+const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
+                              gdv_int32 repeat_number, gdv_int32* out_len) {
+  // if the repeat number is zero, then return empty string
+  if (repeat_number == 0 || in_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  // if the repeat number is a negative number, an error is set on context
+  if (repeat_number < 0) {
+    gdv_fn_context_set_error_msg(context, "Repeat number can't be negative");
+    *out_len = 0;
+    return "";
+  }
+  *out_len = repeat_number * in_len;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  for (int i = 0; i < repeat_number; ++i) {
+    memcpy(ret + (i * in_len), in, in_len);
+  }
+  return ret;
 }
 
 FORCE_INLINE
@@ -1286,7 +1424,7 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
     valid_bytes_to_cpy += char_len;
   }
   // if invalid chars were not found, return the original string
-  if (out_byte_counter == 0) return text_in;
+  if (out_byte_counter == 0 && in_byte_counter == 0) return text_in;
   // if there are still valid bytes to copy, do it
   if (valid_bytes_to_cpy != 0) {
     memcpy(ret + out_byte_counter, text_in + in_byte_counter, valid_bytes_to_cpy);
@@ -1502,6 +1640,14 @@ const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len
                            int32_t* out_len) {
   *out_len = value_len;
   return value;
+}
+
+// Search for a string within another string
+// Same as "locate(substr, str)", except for the reverse order of the arguments.
+FORCE_INLINE
+gdv_int32 strpos_utf8_utf8(gdv_int64 context, const char* str, gdv_int32 str_len,
+                           const char* sub_str, gdv_int32 sub_str_len) {
+  return locate_utf8_utf8_int32(context, sub_str, sub_str_len, str, str_len, 1);
 }
 
 // Search for a string within another string
@@ -1938,6 +2084,115 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
     }
   }
   *out_len = j;
+  return ret;
+}
+
+#define CAST_INT_BIGINT_VARBINARY(OUT_TYPE, TYPE_NAME)                                 \
+  FORCE_INLINE                                                                         \
+  OUT_TYPE                                                                             \
+  cast##TYPE_NAME##_varbinary(gdv_int64 context, const char* in, int32_t in_len) {     \
+    if (in_len == 0) {                                                                 \
+      gdv_fn_context_set_error_msg(context, "Can't cast an empty string.");            \
+      return -1;                                                                       \
+    }                                                                                  \
+    char sign = in[0];                                                                 \
+                                                                                       \
+    bool negative = false;                                                             \
+    if (sign == '-') {                                                                 \
+      negative = true;                                                                 \
+      /* Ignores the sign char in the hexadecimal string */                            \
+      in++;                                                                            \
+      in_len--;                                                                        \
+    }                                                                                  \
+                                                                                       \
+    if (negative && in_len == 0) {                                                     \
+      gdv_fn_context_set_error_msg(context,                                            \
+                                   "Can't cast hexadecimal with only a minus sign.");  \
+      return -1;                                                                       \
+    }                                                                                  \
+                                                                                       \
+    OUT_TYPE result = 0;                                                               \
+    int digit;                                                                         \
+                                                                                       \
+    int read_index = 0;                                                                \
+    while (read_index < in_len) {                                                      \
+      char c1 = in[read_index];                                                        \
+      if (isxdigit(c1)) {                                                              \
+        digit = to_binary_from_hex(c1);                                                \
+                                                                                       \
+        OUT_TYPE next = result * 16 - digit;                                           \
+                                                                                       \
+        if (next > result) {                                                           \
+          gdv_fn_context_set_error_msg(context, "Integer overflow.");                  \
+          return -1;                                                                   \
+        }                                                                              \
+        result = next;                                                                 \
+        read_index++;                                                                  \
+      } else {                                                                         \
+        gdv_fn_context_set_error_msg(context,                                          \
+                                     "The hexadecimal given has invalid characters."); \
+        return -1;                                                                     \
+      }                                                                                \
+    }                                                                                  \
+    if (!negative) {                                                                   \
+      result *= -1;                                                                    \
+                                                                                       \
+      if (result < 0) {                                                                \
+        gdv_fn_context_set_error_msg(context, "Integer overflow.");                    \
+        return -1;                                                                     \
+      }                                                                                \
+    }                                                                                  \
+    return result;                                                                     \
+  }
+
+CAST_INT_BIGINT_VARBINARY(int32_t, INT)
+CAST_INT_BIGINT_VARBINARY(int64_t, BIGINT)
+
+#undef CAST_INT_BIGINT_VARBINARY
+
+// Produces the binary representation of a string y characters long derived by starting
+// at offset 'x' and considering the defined length 'y'. Notice that the offset index
+// may be a negative number (starting from the end of the string), or a positive number
+// starting on index 1. Cases:
+//     BYTE_SUBSTR("TestString", 1, 10) => "TestString"
+//     BYTE_SUBSTR("TestString", 5, 10) => "String"
+//     BYTE_SUBSTR("TestString", -6, 10) => "String"
+//     BYTE_SUBSTR("TestString", -600, 10) => "TestString"
+FORCE_INLINE
+const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
+                                           gdv_int32 text_len, gdv_int32 offset,
+                                           gdv_int32 length, gdv_int32* out_len) {
+  // the first offset position for a string is 1, so not consider offset == 0
+  // also, the length should be always a positive number
+  if (text_len == 0 || offset == 0 || length <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t startPos = 0;
+  if (offset >= 0) {
+    startPos = offset - 1;
+  } else if (text_len + offset >= 0) {
+    startPos = text_len + offset;
+  }
+
+  // calculate end position from length and truncate to upper value bounds
+  if (startPos + length > text_len) {
+    *out_len = text_len - startPos;
+  } else {
+    *out_len = length;
+  }
+
+  memcpy(ret, text + startPos, *out_len);
   return ret;
 }
 }  // extern "C"

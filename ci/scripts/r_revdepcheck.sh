@@ -30,20 +30,21 @@ apt install -y libxml2-dev \
   libfontconfig1-dev \
   libcairo2-dev \
   libglpk-dev \
-  libmariadb-dev \
+  libmysqlclient-dev \
   unixodbc-dev \
   libpq-dev \
   coinor-libsymphony-dev \
   coinor-libcgl-dev \
   coinor-symphony \
-  libzmq3-dev
+  libzmq3-dev \
+  libudunits2-dev \
+  libgdal-dev \
+  libgeos-dev \
+  libproj-dev
 
 pushd ${source_dir}
 
 printenv
-
-: ${TEST_R_WITH_ARROW:=TRUE}
-export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
 
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.

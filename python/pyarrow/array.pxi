@@ -1039,11 +1039,21 @@ cdef class Array(_PandasConvertible):
         else:
             return 0
 
-    def is_null(self):
+    def is_null(self, *, nan_is_null=False):
         """
         Return BooleanArray indicating the null values.
+
+        Parameters
+        ----------
+        nan_is_null : bool (optional, default False)
+            Whether floating-point NaN values should also be considered null.
+
+        Returns
+        -------
+        array : boolean Array
         """
-        return _pc().is_null(self)
+        options = _pc().NullOptions(nan_is_null)
+        return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
         """
@@ -1116,6 +1126,12 @@ cdef class Array(_PandasConvertible):
         Select values from an array. See pyarrow.compute.take for full usage.
         """
         return _pc().take(self, indices)
+
+    def drop_null(self):
+        """
+        Remove missing values from an array.
+        """
+        return _pc().drop_null(self)
 
     def filter(self, Array mask, null_selection_behavior='drop'):
         """
@@ -1622,7 +1638,6 @@ cdef class ListArray(BaseListArray):
             3
           ]
         ]
-
         # nulls in the offsets array become null lists
         >>> offsets = pa.array([0, None, 2, 4])
         >>> pa.ListArray.from_arrays(offsets, values)

@@ -19,16 +19,16 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++)
+set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static arrow_flight_testing_static
-                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-                                  ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_TEST_LINK_LIBS
+      arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+      ${ARROW_TEST_LINK_LIBS})
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
                                   ${ARROW_TEST_LINK_LIBS})
@@ -39,10 +39,10 @@ endif()
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
 
-set(FLIGHT_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
-                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
-                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
-                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
+set(FLIGHT_GENERATED_PROTO_FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc" "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
@@ -50,8 +50,7 @@ add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
                    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
                            "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
                    DEPENDS ${PROTO_DEPENDS} ARGS
-                   COMMAND ${ARROW_PROTOBUF_PROTOC}
-                           "-I${FLIGHT_PROTO_PATH}"
+                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
                            "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
                            "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
                            "${FLIGHT_PROTO}")
@@ -70,13 +69,13 @@ string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 # verification when using TLS.
 function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
   if(NOT DEFINED ${DST_VAR})
-    message(
-      STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})...")
+    message(STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})..."
+    )
     get_property(CURRENT_INCLUDE_DIRECTORIES
                  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                  PROPERTY INCLUDE_DIRECTORIES)
-    try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
-                "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
+    try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
+                SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
                 CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
                 LINK_LIBRARIES gRPC::grpc++
                 OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
@@ -85,10 +84,8 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
           "${DETECT_VERSION}"
           CACHE INTERNAL "The detected (approximate) gRPC version.")
     else()
-      message(
-        STATUS
-          "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
-        )
+      message(STATUS "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
+      )
       message(DEBUG "Build output:")
       list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
       message(DEBUG ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
@@ -105,10 +102,8 @@ else()
   test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
   test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
   test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
-  message(
-    STATUS
-      "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
-    )
+  message(STATUS "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
+  )
 endif()
 if(GRPC_VERSION EQUAL "1.27")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
@@ -122,18 +117,13 @@ elseif(GRPC_VERSION EQUAL "1.36")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 else()
-  message(
-    STATUS
-      "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
-    )
-  message(
-    STATUS
-      "You may need a newer version of gRPC (>= 1.27), or the gRPC API has changed and Flight must be updated to match."
-    )
+  message(STATUS "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
+  )
+  message(STATUS "You may need a newer version of gRPC (>= 1.27), or the gRPC API has changed and Flight must be updated to match."
+  )
   if(ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS)
-    message(
-      FATAL_ERROR "Halting build since ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS is set."
-      )
+    message(FATAL_ERROR "Halting build since ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS is set."
+    )
   endif()
 endif()
 
@@ -211,8 +201,9 @@ if(ARROW_TESTING)
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING
-                             ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+  target_compile_definitions(${LIB_TARGET}
+                             PRIVATE ARROW_FLIGHT_EXPORTING
+                                     ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
 endforeach()
 
 add_arrow_test(flight_test

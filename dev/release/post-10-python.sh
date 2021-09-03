@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,10 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: ${TEST_PYPI:=0}
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <rc-num>"
@@ -36,8 +37,15 @@ ${PYTHON:-python} \
   ${version} \
   ${rc} \
   --dest="${tmp}" \
-  --package_type=python
-twine upload ${tmp}/python-rc/${version}-rc${rc}/*.{whl,tar.gz}
+  --package_type=python \
+  --regex=".*\.(whl|tar\.gz)$"
+
+if [ ${TEST_PYPI} -gt 0 ]; then
+  TWINE_ARGS="--repository-url https://test.pypi.org/legacy/"
+fi
+
+twine upload ${TWINE_ARGS} ${tmp}/python-rc/${version}-rc${rc}/*.{whl,tar.gz}
+
 rm -rf "${tmp}"
 
 echo "Success! The released PyPI packages are available here:"

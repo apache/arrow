@@ -21,15 +21,116 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace compute {
+
+TEST(FunctionOptions, Equality) {
+  std::vector<std::shared_ptr<FunctionOptions>> options;
+  options.emplace_back(new ScalarAggregateOptions());
+  options.emplace_back(new ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  options.emplace_back(new CountOptions());
+  options.emplace_back(new CountOptions(CountOptions::ALL));
+  options.emplace_back(new ModeOptions());
+  options.emplace_back(new ModeOptions(/*n=*/2));
+  options.emplace_back(new VarianceOptions());
+  options.emplace_back(new VarianceOptions(/*ddof=*/2));
+  options.emplace_back(new QuantileOptions());
+  options.emplace_back(
+      new QuantileOptions(/*q=*/0.75, QuantileOptions::Interpolation::MIDPOINT));
+  options.emplace_back(new TDigestOptions());
+  options.emplace_back(
+      new TDigestOptions(/*q=*/0.75, /*delta=*/50, /*buffer_size=*/1024));
+  options.emplace_back(new IndexOptions(ScalarFromJSON(int64(), "16")));
+  options.emplace_back(new IndexOptions(ScalarFromJSON(boolean(), "true")));
+  options.emplace_back(new IndexOptions(ScalarFromJSON(boolean(), "null")));
+  options.emplace_back(new ArithmeticOptions());
+  options.emplace_back(new ArithmeticOptions(/*check_overflow=*/true));
+  options.emplace_back(new ElementWiseAggregateOptions());
+  options.emplace_back(new ElementWiseAggregateOptions(/*skip_nulls=*/false));
+  options.emplace_back(new JoinOptions());
+  options.emplace_back(new JoinOptions(JoinOptions::REPLACE, "replacement"));
+  options.emplace_back(new MatchSubstringOptions("pattern"));
+  options.emplace_back(new MatchSubstringOptions("pattern", /*ignore_case=*/true));
+  options.emplace_back(new SplitOptions());
+  options.emplace_back(new SplitOptions(/*max_splits=*/2, /*reverse=*/true));
+  options.emplace_back(new SplitPatternOptions("pattern"));
+  options.emplace_back(
+      new SplitPatternOptions("pattern", /*max_splits=*/2, /*reverse=*/true));
+  options.emplace_back(new ReplaceSubstringOptions("pattern", "replacement"));
+  options.emplace_back(
+      new ReplaceSubstringOptions("pattern", "replacement", /*max_replacements=*/2));
+  options.emplace_back(new ReplaceSliceOptions(0, 1, "foo"));
+  options.emplace_back(new ReplaceSliceOptions(1, -1, "bar"));
+  options.emplace_back(new ExtractRegexOptions("pattern"));
+  options.emplace_back(new ExtractRegexOptions("pattern2"));
+  options.emplace_back(new SetLookupOptions(ArrayFromJSON(int64(), "[1, 2, 3, 4]")));
+  options.emplace_back(new SetLookupOptions(ArrayFromJSON(boolean(), "[true, false]")));
+  options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI));
+  options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::NANO));
+  options.emplace_back(new StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C"));
+  options.emplace_back(new PadOptions(5, " "));
+  options.emplace_back(new PadOptions(10, "A"));
+  options.emplace_back(new TrimOptions(" "));
+  options.emplace_back(new TrimOptions("abc"));
+  options.emplace_back(new SliceOptions(/*start=*/1));
+  options.emplace_back(new SliceOptions(/*start=*/1, /*stop=*/-5, /*step=*/-2));
+  // N.B. we never actually use field_nullability or field_metadata in Arrow
+  options.emplace_back(new MakeStructOptions({"col1"}, {true}, {}));
+  options.emplace_back(new MakeStructOptions({"col1"}, {false}, {}));
+  options.emplace_back(
+      new MakeStructOptions({"col1"}, {false}, {key_value_metadata({{"key", "val"}})}));
+  options.emplace_back(new DayOfWeekOptions(false, 1));
+  options.emplace_back(new CastOptions(CastOptions::Safe(boolean())));
+  options.emplace_back(new CastOptions(CastOptions::Unsafe(int64())));
+  options.emplace_back(new FilterOptions());
+  options.emplace_back(
+      new FilterOptions(FilterOptions::NullSelectionBehavior::EMIT_NULL));
+  options.emplace_back(new TakeOptions());
+  options.emplace_back(new TakeOptions(/*boundscheck=*/false));
+  options.emplace_back(new DictionaryEncodeOptions());
+  options.emplace_back(
+      new DictionaryEncodeOptions(DictionaryEncodeOptions::NullEncodingBehavior::ENCODE));
+  options.emplace_back(new ArraySortOptions());
+  options.emplace_back(new ArraySortOptions(SortOrder::Descending));
+  options.emplace_back(new SortOptions());
+  options.emplace_back(new SortOptions({SortKey("key", SortOrder::Ascending)}));
+  options.emplace_back(new SortOptions(
+      {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
+  options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
+  options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
+
+  for (size_t i = 0; i < options.size(); i++) {
+    const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;
+    const FunctionOptions& cur = *options[i];
+    const FunctionOptions& prev = *options[prev_i];
+    SCOPED_TRACE(cur.type_name());
+    SCOPED_TRACE(cur.ToString());
+    ASSERT_EQ(cur, cur);
+    ASSERT_NE(cur, prev);
+    ASSERT_NE(prev, cur);
+    ASSERT_NE("", cur.ToString());
+
+    ASSERT_OK_AND_ASSIGN(auto serialized, cur.Serialize());
+    const auto* type_name = cur.type_name();
+    ASSERT_OK_AND_ASSIGN(
+        auto deserialized,
+        FunctionOptions::Deserialize(std::string(type_name, std::strlen(type_name)),
+                                     *serialized));
+    ASSERT_TRUE(cur.Equals(*deserialized));
+  }
+}
 
 struct ExecBatch;
 

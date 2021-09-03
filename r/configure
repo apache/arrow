@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -69,7 +69,7 @@ if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
 fi
 
 # Note that cflags may be empty in case of success
-if [ "$ARROW_HOME" ]; then
+if [ "$ARROW_HOME" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
   echo "*** Using ARROW_HOME as the source of libarrow"
   PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
   PKG_DIRS="-L$ARROW_HOME/lib"
@@ -78,17 +78,18 @@ elif [ "$INCLUDE_DIR" ] && [ "$LIB_DIR" ]; then
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_DIRS="-L$LIB_DIR"
 else
-  # Use pkg-config if available and allowed
+  # Use pkg-config to find libarrow if available and allowed
   pkg-config --version >/dev/null 2>&1
   if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
+    # Set the search paths and compile flags
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_LIBS=`pkg-config --libs-only-l --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
-    # TODO: what about --libs-only-other?
   fi
 
   if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
-    echo "*** Arrow C++ libraries found via pkg-config"
+    FOUND_LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
+    echo "*** Arrow C++ libraries found via pkg-config at $FOUND_LIB_DIR"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
     PKG_DIRS=${PKGCONFIG_DIRS}
@@ -155,6 +156,19 @@ else
         fi
       fi
 
+      if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
+        # TODO: BUNDLED is still default for now, but we plan to change it to AUTO
+        ARROW_DEPENDENCY_SOURCE=BUNDLED; export ARROW_DEPENDENCY_SOURCE
+      fi
+      if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
+        pkg-config --version >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+          export ARROW_DEPENDENCY_SOURCE=BUNDLED
+          echo "**** Warning: ARROW_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not installed"
+          echo "**** ARROW_DEPENDENCY_SOURCE has been set to 'BUNDLED'"
+        fi
+      fi
+
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
       PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
@@ -172,6 +186,11 @@ else
         BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
         PKG_DIRS="-L`pwd`/$LIB_DIR"
 
+        # Use pkg-config to do static linking of libarrow's dependencies
+        if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ] || [ "$ARROW_DEPENDENCY_SOURCE" = "SYSTEM" ]; then
+          PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-l --libs-only-other --static  --silence-errors ${PKG_CONFIG_NAME}`"
+        fi
+
         # When using brew's openssl it is not bundled and it is not on the system
         # search path  and so we must add the lib path to BUNDLED_LIBS if we are
         # using it. Note the order is important, this must be after the arrow
@@ -185,6 +204,12 @@ else
   fi
 fi
 
+# If on Raspberry Pi, need to manually link against latomic
+# See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
+if grep raspbian /etc/os-release >/dev/null 2>&1; then
+  PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
+fi
+
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
 if [ "$ARROW_USE_OLD_CXXABI" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
@@ -195,7 +220,7 @@ if [ "$ARROW_R_CXXFLAGS" ]; then
   PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
 fi
 
-# Test configuration
+# Test that we can find libarrow
 CXXCPP="`${R_HOME}/bin/R CMD config CXX11` -E"
 if [ $? -eq 0 ]; then
   # Great, CXX11 exists for this version of R (current);
@@ -212,8 +237,7 @@ CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
 TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
-if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
-  # Always build with arrow on macOS
+if [ $? -eq 0 ]; then
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
   # Check for features
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
@@ -248,17 +272,19 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else
-  if [ "$UNAME" = "Darwin" ]; then
-    # Just for debugging: is this possible?
-    echo "Test to load header failed. Command:"
-    echo "$TEST_CMD"
-  fi
   echo "------------------------- NOTE ---------------------------"
+  echo "There was an issue preparing the Arrow C++ libraries."
   echo "See https://arrow.apache.org/docs/r/articles/install.html"
-  echo "for help installing Arrow C++ libraries"
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
+  if [ "$UNAME" != "SunOS" ] && [ "$TEST_R_WITHOUT_LIBARROW" != "TRUE" ]; then
+    # We should build fine on Solaris, but because we don't have CI for it,
+    # allow the build to proceed with most R package features disabled.
+    # But on every other platforom stop here if libarrow was not found.
+    # (also check an env var so that we can test this build configuration)
+    exit 1
+  fi
 fi
 
 # Write to Makevars

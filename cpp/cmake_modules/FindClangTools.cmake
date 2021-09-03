@@ -69,15 +69,18 @@ function(FIND_CLANG_TOOL NAME OUTPUT VERSION_CHECK_PATTERN)
     endif()
   endif()
   if(CLANG_TOOL_BIN)
-    set(${OUTPUT} ${CLANG_TOOL_BIN} PARENT_SCOPE)
+    set(${OUTPUT}
+        ${CLANG_TOOL_BIN}
+        PARENT_SCOPE)
   else()
-    set(${OUTPUT} "${OUTPUT}-NOTFOUND" PARENT_SCOPE)
+    set(${OUTPUT}
+        "${OUTPUT}-NOTFOUND"
+        PARENT_SCOPE)
   endif()
 endfunction()
 
-string(REGEX
-       REPLACE "\\." "\\\\." ARROW_CLANG_TOOLS_VERSION_ESCAPED
-               "${ARROW_CLANG_TOOLS_VERSION}")
+string(REGEX REPLACE "\\." "\\\\." ARROW_CLANG_TOOLS_VERSION_ESCAPED
+                     "${ARROW_CLANG_TOOLS_VERSION}")
 
 find_clang_tool(clang-tidy CLANG_TIDY_BIN
                 "LLVM version ${ARROW_CLANG_TOOLS_VERSION_ESCAPED}")
@@ -100,4 +103,4 @@ else()
 endif()
 
 find_package_handle_standard_args(ClangTools REQUIRED_VARS CLANG_FORMAT_BIN
-                                  CLANG_TIDY_BIN)
+                                                           CLANG_TIDY_BIN)

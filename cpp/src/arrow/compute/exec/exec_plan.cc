@@ -17,10 +17,17 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/compute/exec.h"
+#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec_internal.h"
+#include "arrow/compute/registry.h"
 #include "arrow/datum.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -34,9 +41,15 @@ namespace compute {
 namespace {
 
 struct ExecPlanImpl : public ExecPlan {
-  ExecPlanImpl() = default;
+  explicit ExecPlanImpl(ExecContext* exec_context) : ExecPlan(exec_context) {}
 
-  ~ExecPlanImpl() override = default;
+  ~ExecPlanImpl() override {
+    if (started_ && !finished_.is_finished()) {
+      ARROW_LOG(WARNING) << "Plan was destroyed before finishing";
+      StopProducing();
+      finished().Wait();
+    }
+  }
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->num_inputs() == 0) {
@@ -60,80 +73,90 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-    ARROW_ASSIGN_OR_RAISE(auto sorted_nodes, ReverseTopoSort());
-    Status st;
-    auto it = sorted_nodes.begin();
-    while (it != sorted_nodes.end() && st.ok()) {
-      st &= (*it++)->StartProducing();
+    if (started_) {
+      return Status::Invalid("restarted ExecPlan");
     }
-    if (!st.ok()) {
-      // Stop nodes that successfully started, in reverse order
-      // (`it` now points after the node that failed starting, so need to rewind)
-      --it;
-      while (it != sorted_nodes.begin()) {
-        (*--it)->StopProducing();
+    started_ = true;
+
+    // producers precede consumers
+    sorted_nodes_ = TopoSort();
+
+    std::vector<Future<>> futures;
+
+    Status st = Status::OK();
+
+    using rev_it = std::reverse_iterator<NodeVector::iterator>;
+    for (rev_it it(sorted_nodes_.end()), end(sorted_nodes_.begin()); it != end; ++it) {
+      auto node = *it;
+
+      st = node->StartProducing();
+      if (!st.ok()) {
+        // Stop nodes that successfully started, in reverse order
+        stopped_ = true;
+        StopProducingImpl(it.base(), sorted_nodes_.end());
+        break;
       }
+
+      futures.push_back(node->finished());
     }
+
+    finished_ = AllComplete(std::move(futures));
     return st;
   }
 
-  Result<NodeVector> ReverseTopoSort() {
-    struct TopoSort {
+  void StopProducing() {
+    DCHECK(started_) << "stopped an ExecPlan which never started";
+    stopped_ = true;
+
+    StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end());
+  }
+
+  template <typename It>
+  void StopProducingImpl(It begin, It end) {
+    for (auto it = begin; it != end; ++it) {
+      auto node = *it;
+      node->StopProducing();
+    }
+  }
+
+  NodeVector TopoSort() {
+    struct Impl {
       const std::vector<std::unique_ptr<ExecNode>>& nodes;
       std::unordered_set<ExecNode*> visited;
-      std::unordered_set<ExecNode*> visiting;
       NodeVector sorted;
 
-      explicit TopoSort(const std::vector<std::unique_ptr<ExecNode>>& nodes)
-          : nodes(nodes) {
+      explicit Impl(const std::vector<std::unique_ptr<ExecNode>>& nodes) : nodes(nodes) {
         visited.reserve(nodes.size());
-        sorted.reserve(nodes.size());
-      }
+        sorted.resize(nodes.size());
 
-      Status Sort() {
         for (const auto& node : nodes) {
-          RETURN_NOT_OK(Visit(node.get()));
+          Visit(node.get());
         }
-        DCHECK_EQ(sorted.size(), nodes.size());
+
         DCHECK_EQ(visited.size(), nodes.size());
-        DCHECK_EQ(visiting.size(), 0);
-        return Status::OK();
       }
 
-      Status Visit(ExecNode* node) {
-        if (visited.count(node) != 0) {
-          return Status::OK();
-        }
-
-        auto it_success = visiting.insert(node);
-        if (!it_success.second) {
-          // Insertion failed => node is already being visited
-          return Status::Invalid("Cycle detected in execution plan");
-        }
+      void Visit(ExecNode* node) {
+        if (visited.count(node) != 0) return;
 
         for (auto input : node->inputs()) {
           // Ensure that producers are inserted before this consumer
-          RETURN_NOT_OK(Visit(input));
+          Visit(input);
         }
 
-        visiting.erase(it_success.first);
+        sorted[visited.size()] = node;
         visited.insert(node);
-        sorted.push_back(node);
-        return Status::OK();
       }
+    };
 
-      NodeVector Reverse() {
-        std::reverse(sorted.begin(), sorted.end());
-        return std::move(sorted);
-      }
-    } topo_sort(nodes_);
-
-    RETURN_NOT_OK(topo_sort.Sort());
-    return topo_sort.Reverse();
+    return std::move(Impl{nodes_}.sorted);
   }
 
+  Future<> finished_ = Future<>::MakeFinished();
+  bool started_ = false, stopped_ = false;
   std::vector<std::unique_ptr<ExecNode>> nodes_;
   NodeVector sources_, sinks_;
+  NodeVector sorted_nodes_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -152,8 +175,8 @@ util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 
 }  // namespace
 
-Result<std::shared_ptr<ExecPlan>> ExecPlan::Make() {
-  return std::make_shared<ExecPlanImpl>();
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(ExecContext* ctx) {
+  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx});
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
@@ -170,21 +193,27 @@ Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
 Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
 
-ExecNode::ExecNode(ExecPlan* plan, std::string label,
-                   std::vector<BatchDescr> input_descrs,
-                   std::vector<std::string> input_labels, BatchDescr output_descr,
-                   int num_outputs)
+void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
+
+Future<> ExecPlan::finished() { return ToDerived(this)->finished_; }
+
+ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
+                   std::vector<std::string> input_labels,
+                   std::shared_ptr<Schema> output_schema, int num_outputs)
     : plan_(plan),
-      label_(std::move(label)),
-      input_descrs_(std::move(input_descrs)),
+      inputs_(std::move(inputs)),
       input_labels_(std::move(input_labels)),
-      output_descr_(std::move(output_descr)),
-      num_outputs_(num_outputs) {}
+      output_schema_(std::move(output_schema)),
+      num_outputs_(num_outputs) {
+  for (auto input : inputs_) {
+    input->outputs_.push_back(this);
+  }
+}
 
 Status ExecNode::Validate() const {
-  if (inputs_.size() != input_descrs_.size()) {
+  if (inputs_.size() != input_labels_.size()) {
     return Status::Invalid("Invalid number of inputs for '", label(), "' (expected ",
-                           num_inputs(), ", actual ", inputs_.size(), ")");
+                           num_inputs(), ", actual ", input_labels_.size(), ")");
   }
 
   if (static_cast<int>(outputs_.size()) != num_outputs_) {
@@ -192,26 +221,141 @@ Status ExecNode::Validate() const {
                            num_outputs(), ", actual ", outputs_.size(), ")");
   }
 
-  DCHECK_EQ(input_descrs_.size(), input_labels_.size());
-
   for (auto out : outputs_) {
     auto input_index = GetNodeIndex(out->inputs(), this);
     if (!input_index) {
       return Status::Invalid("Node '", label(), "' outputs to node '", out->label(),
                              "' but is not listed as an input.");
     }
-
-    const auto& in_descr = out->input_descrs_[*input_index];
-    if (in_descr != output_descr_) {
-      return Status::Invalid(
-          "Node '", label(), "' (bound to input ", input_labels_[*input_index],
-          ") produces batches with type '", ValueDescr::ToString(output_descr_),
-          "' inconsistent with consumer '", out->label(), "' which accepts '",
-          ValueDescr::ToString(in_descr), "'");
-    }
   }
 
   return Status::OK();
+}
+
+bool ExecNode::ErrorIfNotOk(Status status) {
+  if (status.ok()) return false;
+
+  for (auto out : outputs_) {
+    out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
+  }
+  return true;
+}
+
+std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
+    std::shared_ptr<Schema> schema,
+    std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
+  struct Impl : RecordBatchReader {
+    std::shared_ptr<Schema> schema() const override { return schema_; }
+
+    Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
+      ARROW_ASSIGN_OR_RAISE(auto batch, iterator_.Next());
+      if (batch) {
+        ARROW_ASSIGN_OR_RAISE(*record_batch, batch->ToRecordBatch(schema_, pool_));
+      } else {
+        *record_batch = IterationEnd<std::shared_ptr<RecordBatch>>();
+      }
+      return Status::OK();
+    }
+
+    MemoryPool* pool_;
+    std::shared_ptr<Schema> schema_;
+    Iterator<util::optional<ExecBatch>> iterator_;
+  };
+
+  auto out = std::make_shared<Impl>();
+  out->pool_ = pool;
+  out->schema_ = std::move(schema);
+  out->iterator_ = MakeGeneratorIterator(std::move(gen));
+  return out;
+}
+
+Result<ExecNode*> Declaration::AddToPlan(ExecPlan* plan,
+                                         ExecFactoryRegistry* registry) const {
+  std::vector<ExecNode*> inputs(this->inputs.size());
+
+  size_t i = 0;
+  for (const Input& input : this->inputs) {
+    if (auto node = util::get_if<ExecNode*>(&input)) {
+      inputs[i++] = *node;
+      continue;
+    }
+    ARROW_ASSIGN_OR_RAISE(inputs[i++],
+                          util::get<Declaration>(input).AddToPlan(plan, registry));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto node, MakeExecNode(this->factory_name, plan, std::move(inputs), *this->options,
+                              registry));
+  node->SetLabel(this->label);
+  return node;
+}
+
+Declaration Declaration::Sequence(std::vector<Declaration> decls) {
+  DCHECK(!decls.empty());
+
+  Declaration out = std::move(decls.back());
+  decls.pop_back();
+  auto receiver = &out;
+  while (!decls.empty()) {
+    Declaration input = std::move(decls.back());
+    decls.pop_back();
+
+    receiver->inputs.emplace_back(std::move(input));
+    receiver = &util::get<Declaration>(receiver->inputs.front());
+  }
+  return out;
+}
+
+namespace internal {
+
+void RegisterSourceNode(ExecFactoryRegistry*);
+void RegisterFilterNode(ExecFactoryRegistry*);
+void RegisterProjectNode(ExecFactoryRegistry*);
+void RegisterUnionNode(ExecFactoryRegistry*);
+void RegisterAggregateNode(ExecFactoryRegistry*);
+void RegisterSinkNode(ExecFactoryRegistry*);
+
+}  // namespace internal
+
+ExecFactoryRegistry* default_exec_factory_registry() {
+  class DefaultRegistry : public ExecFactoryRegistry {
+   public:
+    DefaultRegistry() {
+      internal::RegisterSourceNode(this);
+      internal::RegisterFilterNode(this);
+      internal::RegisterProjectNode(this);
+      internal::RegisterUnionNode(this);
+      internal::RegisterAggregateNode(this);
+      internal::RegisterSinkNode(this);
+    }
+
+    Result<Factory> GetFactory(const std::string& factory_name) override {
+      auto it = factories_.find(factory_name);
+      if (it == factories_.end()) {
+        return Status::KeyError("ExecNode factory named ", factory_name,
+                                " not present in registry.");
+      }
+      return it->second;
+    }
+
+    Status AddFactory(std::string factory_name, Factory factory) override {
+      auto it_success = factories_.emplace(std::move(factory_name), std::move(factory));
+
+      if (!it_success.second) {
+        const auto& factory_name = it_success.first->first;
+        return Status::KeyError("ExecNode factory named ", factory_name,
+                                " already registered.");
+      }
+
+      return Status::OK();
+    }
+
+   private:
+    std::unordered_map<std::string, Factory> factories_;
+  };
+
+  static DefaultRegistry instance;
+  return &instance;
 }
 
 }  // namespace compute

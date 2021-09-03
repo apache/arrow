@@ -70,9 +70,9 @@ const char* r6_class_name<ds::FileFormat>::get(
 // [[dataset::export]]
 std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(
     const std::shared_ptr<ds::Dataset>& ds) {
-  auto options = std::make_shared<ds::ScanOptions>();
-  options->pool = gc_memory_pool();
-  return ValueOrStop(ds->NewScan(std::move(options)));
+  auto builder = ValueOrStop(ds->NewScan());
+  StopIfNotOk(builder->Pool(gc_memory_pool()));
+  return builder;
 }
 
 // [[dataset::export]]
@@ -277,6 +277,13 @@ void dataset___IpcFileWriteOptions__update1(
     arrow::ipc::MetadataVersion metadata_version) {
   ipc_options->options->write_legacy_ipc_format = use_legacy_format;
   ipc_options->options->metadata_version = metadata_version;
+}
+
+// [[dataset::export]]
+void dataset___CsvFileWriteOptions__update(
+    const std::shared_ptr<ds::CsvFileWriteOptions>& csv_options,
+    const std::shared_ptr<arrow::csv::WriteOptions>& write_options) {
+  *csv_options->write_options = *write_options;
 }
 
 // [[dataset::export]]

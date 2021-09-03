@@ -158,7 +158,7 @@ prepare_key_value_metadata <- function(metadata) {
 
 print_schema_fields <- function(s) {
   # Alternative to Schema__ToString that doesn't print metadata
-  paste(map_chr(s$fields, ~.$ToString()), collapse = "\n")
+  paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
 #' @param ... named list of [data types][data-type]
@@ -236,7 +236,7 @@ length.Schema <- function(x) x$num_fields
       i <- setdiff(seq_len(length(x)), -1 * i)
     }
   }
-  fields <- map(i, ~x[[.]])
+  fields <- map(i, ~ x[[.]])
   invalid <- map_lgl(fields, is.null)
   if (any(invalid)) {
     stop(
@@ -283,13 +283,17 @@ read_schema <- function(stream, ...) {
 #'
 #' @param ... [Schema]s to unify
 #' @param schemas Alternatively, a list of schemas
-#' @return A `Schema` with the union of fields contained in the inputs
+#' @return A `Schema` with the union of fields contained in the inputs, or
+#'   `NULL` if any of `schemas` is `NULL`
 #' @export
 #' @examplesIf arrow_available()
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
 #' unify_schemas(a, z)
 unify_schemas <- function(..., schemas = list(...)) {
+  if (any(vapply(schemas, is.null, TRUE))) {
+    return(NULL)
+  }
   arrow__UnifySchemas(schemas)
 }
 

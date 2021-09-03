@@ -24,7 +24,7 @@ r_only({
     other <- "https://cran.fiocruz.br/"
 
     opts <- list(
-      repos=c(CRAN = "@CRAN@"),  # Restore defaul
+      repos = c(CRAN = "@CRAN@"), # Restore defaul
       arrow.dev_repo = ours
     )
     withr::with_options(opts, {

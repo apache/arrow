@@ -12,7 +12,8 @@ unify_schemas(..., schemas = list(...))
 \item{schemas}{Alternatively, a list of schemas}
 }
 \value{
-A \code{Schema} with the union of fields contained in the inputs
+A \code{Schema} with the union of fields contained in the inputs, or
+\code{NULL} if any of \code{schemas} is \code{NULL}
 }
 \description{
 Combine and harmonize schemas

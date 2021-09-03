@@ -41,6 +41,7 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
+using arrow::util::SafeCopy;
 
 namespace parquet {
 namespace {
@@ -54,6 +55,9 @@ constexpr int value_length(int type_length, const FLBA& value) { return type_len
 template <typename DType, bool is_signed>
 struct CompareHelper {
   using T = typename DType::c_type;
+
+  static_assert(!std::is_unsigned<T>::value || std::is_same<T, bool>::value,
+                "T is an unsigned numeric");
 
   constexpr static T DefaultMin() { return std::numeric_limits<T>::max(); }
   constexpr static T DefaultMax() { return std::numeric_limits<T>::lowest(); }
@@ -83,12 +87,24 @@ struct UnsignedCompareHelperBase {
   using T = typename DType::c_type;
   using UCType = typename std::make_unsigned<T>::type;
 
-  constexpr static T DefaultMin() { return std::numeric_limits<UCType>::max(); }
-  constexpr static T DefaultMax() { return std::numeric_limits<UCType>::lowest(); }
+  static_assert(!std::is_same<T, UCType>::value, "T is unsigned");
+  static_assert(sizeof(T) == sizeof(UCType), "T and UCType not the same size");
+
+  // NOTE: according to the C++ spec, unsigned-to-signed conversion is
+  // implementation-defined if the original value does not fit in the signed type
+  // (i.e., two's complement cannot be assumed even on mainstream machines,
+  // because the compiler may decide otherwise).  Hence the use of `SafeCopy`
+  // below for deterministic bit-casting.
+  // (see "Integer conversions" in
+  //  https://en.cppreference.com/w/cpp/language/implicit_conversion)
+
+  static const T DefaultMin() { return SafeCopy<T>(std::numeric_limits<UCType>::max()); }
+  static const T DefaultMax() { return 0; }
+
   static T Coalesce(T val, T fallback) { return val; }
 
-  static inline bool Compare(int type_length, T a, T b) {
-    return ::arrow::util::SafeCopy<UCType>(a) < ::arrow::util::SafeCopy<UCType>(b);
+  static bool Compare(int type_length, T a, T b) {
+    return SafeCopy<UCType>(a) < SafeCopy<UCType>(b);
   }
 
   static T Min(int type_length, T a, T b) { return Compare(type_length, a, b) ? a : b; }
@@ -107,12 +123,12 @@ struct CompareHelper<Int96Type, is_signed> {
   using msb_type = typename std::conditional<is_signed, int32_t, uint32_t>::type;
 
   static T DefaultMin() {
-    uint32_t kMsbMax = std::numeric_limits<msb_type>::max();
+    uint32_t kMsbMax = SafeCopy<uint32_t>(std::numeric_limits<msb_type>::max());
     uint32_t kMax = std::numeric_limits<uint32_t>::max();
     return {kMax, kMax, kMsbMax};
   }
   static T DefaultMax() {
-    uint32_t kMsbMin = std::numeric_limits<msb_type>::min();
+    uint32_t kMsbMin = SafeCopy<uint32_t>(std::numeric_limits<msb_type>::min());
     uint32_t kMin = std::numeric_limits<uint32_t>::min();
     return {kMin, kMin, kMsbMin};
   }
@@ -122,8 +138,7 @@ struct CompareHelper<Int96Type, is_signed> {
     if (a.value[2] != b.value[2]) {
       // Only the MSB bit is by Signed comparison. For little-endian, this is the
       // last bit of Int96 type.
-      return ::arrow::util::SafeCopy<msb_type>(a.value[2]) <
-             ::arrow::util::SafeCopy<msb_type>(b.value[2]);
+      return SafeCopy<msb_type>(a.value[2]) < SafeCopy<msb_type>(b.value[2]);
     } else if (a.value[1] != b.value[1]) {
       return (a.value[1] < b.value[1]);
     }
@@ -374,6 +389,28 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
   int type_length_;
 };
 
+// ARROW-11675: A hand-written version of GetMinMax(), to work around
+// what looks like a MSVC code generation bug.
+// This does not seem to be required for GetMinMaxSpaced().
+template <>
+std::pair<int32_t, int32_t>
+TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(const int32_t* values,
+                                                               int64_t length) {
+  DCHECK_GT(length, 0);
+
+  const uint32_t* unsigned_values = reinterpret_cast<const uint32_t*>(values);
+  uint32_t min = std::numeric_limits<uint32_t>::max();
+  uint32_t max = std::numeric_limits<uint32_t>::lowest();
+
+  for (int64_t i = 0; i < length; i++) {
+    const auto val = unsigned_values[i];
+    min = std::min<uint32_t>(min, val);
+    max = std::max<uint32_t>(max, val);
+  }
+
+  return {SafeCopy<int32_t>(min), SafeCopy<int32_t>(max)};
+}
+
 template <bool is_signed, typename DType>
 std::pair<typename DType::c_type, typename DType::c_type>
 TypedComparatorImpl<is_signed, DType>::GetMinMax(const ::arrow::Array& values) {
@@ -477,6 +514,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
 
+  void IncrementNullCount(int64_t n) override {
+    statistics_.null_count += n;
+    has_null_count_ = true;
+  }
+
+  void IncrementNumValues(int64_t n) override { num_values_ += n; }
+
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
 
@@ -519,9 +563,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
                     int64_t num_not_null, int64_t num_null) override;
 
-  void Update(const ::arrow::Array& values) override {
-    IncrementNullCount(values.null_count());
-    IncrementNumValues(values.length() - values.null_count());
+  void Update(const ::arrow::Array& values, bool update_counts) override {
+    if (update_counts) {
+      IncrementNullCount(values.null_count());
+      IncrementNumValues(values.length() - values.null_count());
+    }
 
     if (values.null_count() == values.length()) {
       return;
@@ -583,13 +629,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void PlainDecode(const std::string& src, T* dst) const;
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
-
-  void IncrementNullCount(int64_t n) {
-    statistics_.null_count += n;
-    has_null_count_ = true;
-  }
-
-  void IncrementNumValues(int64_t n) { num_values_ += n; }
 
   void IncrementDistinctCount(int64_t n) {
     statistics_.distinct_count += n;

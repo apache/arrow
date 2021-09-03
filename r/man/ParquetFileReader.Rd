@@ -28,7 +28,8 @@ takes the following arguments:
 \verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
 \item \verb{$ReadRowGroup(i, column_indices)}: get an \code{arrow::Table} by reading the \code{i}th row group (0-based).
 The optional \verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
-\item \verb{$ReadRowGroups(row_groups, column_indices)}: get an \code{arrow::Table} by reading several row groups (0-based integers).
+\item \verb{$ReadRowGroups(row_groups, column_indices)}: get an \code{arrow::Table} by reading several row
+groups (0-based integers).
 The optional \verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
 \item \verb{$GetSchema()}: get the \code{arrow::Schema} of the data in the file
 \item \verb{$ReadColumn(i)}: read the \code{i}th column (0-based) as a \link{ChunkedArray}.
@@ -46,7 +47,7 @@ The optional \verb{column_indices=} argument is a 0-based integer vector indicat
 
 \examples{
 \dontshow{if (arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-f <- system.file("v0.7.1.parquet", package="arrow")
+f <- system.file("v0.7.1.parquet", package = "arrow")
 pq <- ParquetFileReader$create(f)
 pq$GetSchema()
 if (codec_is_available("snappy")) {

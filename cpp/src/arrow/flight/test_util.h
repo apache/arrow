@@ -164,6 +164,9 @@ ARROW_FLIGHT_EXPORT
 Status ExampleLargeBatches(BatchVector* out);
 
 ARROW_FLIGHT_EXPORT
+arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch();
+
+ARROW_FLIGHT_EXPORT
 std::vector<FlightInfo> ExampleFlightInfo();
 
 ARROW_FLIGHT_EXPORT

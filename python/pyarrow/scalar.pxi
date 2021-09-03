@@ -39,7 +39,12 @@ cdef class Scalar(_Weakrefable):
         if type_id == _Type_NA:
             return _NULL
 
-        typ = _scalar_classes[type_id]
+        try:
+            typ = _scalar_classes[type_id]
+        except KeyError:
+            raise NotImplementedError(
+                "Wrapping scalar of type " +
+                frombytes(wrapped.get().type.get().ToString()))
         self = typ.__new__(typ)
         self.init(wrapped)
 
@@ -614,17 +619,14 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             CStructType* dtype = <CStructType*> sp.type.get()
             vector[shared_ptr[CField]] fields = dtype.fields()
 
-        if sp.is_valid:
-            for i in range(dtype.num_fields()):
-                yield frombytes(fields[i].get().name())
+        for i in range(dtype.num_fields()):
+            yield frombytes(fields[i].get().name())
+
+    def items(self):
+        return ((key, self[i]) for i, key in enumerate(self))
 
     def __contains__(self, key):
-        try:
-            self[key]
-        except (KeyError, IndexError):
-            return False
-        else:
-            return True
+        return key in list(self)
 
     def __getitem__(self, key):
         """
@@ -652,20 +654,41 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
 
         try:
             return Scalar.wrap(GetResultValue(sp.field(ref)))
-        except ArrowInvalid:
+        except ArrowInvalid as exc:
             if isinstance(key, int):
-                raise IndexError(key)
+                raise IndexError(key) from exc
             else:
-                raise KeyError(key)
+                raise KeyError(key) from exc
 
     def as_py(self):
         """
         Return this value as a Python dict.
         """
         if self.is_valid:
-            return {k: v.as_py() for k, v in self.items()}
+            try:
+                return {k: self[k].as_py() for k in self.keys()}
+            except KeyError:
+                raise ValueError(
+                    "Converting to Python dictionary is not supported when "
+                    "duplicate field names are present")
         else:
             return None
+
+    def _as_py_tuple(self):
+        # a version that returns a tuple instead of dict to support repr/str
+        # with the presence of duplicate field names
+        if self.is_valid:
+            return [(key, self[i].as_py()) for i, key in enumerate(self)]
+        else:
+            return None
+
+    def __repr__(self):
+        return '<pyarrow.{}: {!r}>'.format(
+            self.__class__.__name__, self._as_py_tuple()
+        )
+
+    def __str__(self):
+        return str(self._as_py_tuple())
 
 
 cdef class MapScalar(ListScalar):
@@ -811,6 +834,75 @@ cdef class UnionScalar(Scalar):
         value = self.value
         return None if value is None else value.as_py()
 
+    @property
+    def type_code(self):
+        """
+        Return the union type code for this scalar.
+        """
+        cdef CUnionScalar* sp = <CUnionScalar*> self.wrapped.get()
+        return sp.type_code
+
+
+cdef class ExtensionScalar(Scalar):
+    """
+    Concrete class for Extension scalars.
+    """
+
+    @property
+    def value(self):
+        """
+        Return storage value as a scalar.
+        """
+        cdef CExtensionScalar* sp = <CExtensionScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value) if sp.is_valid else None
+
+    def as_py(self):
+        """
+        Return this scalar as a Python object.
+        """
+        # XXX should there be a hook to wrap the result in a custom class?
+        value = self.value
+        return None if value is None else value.as_py()
+
+    @staticmethod
+    def from_storage(BaseExtensionType typ, value):
+        """
+        Construct ExtensionScalar from type and storage value.
+
+        Parameters
+        ----------
+        typ: DataType
+            The extension type for the result scalar.
+        value: object
+            The storage value for the result scalar.
+
+        Returns
+        -------
+        ext_scalar : ExtensionScalar
+        """
+        cdef:
+            shared_ptr[CExtensionScalar] sp_scalar
+            CExtensionScalar* ext_scalar
+
+        if value is None:
+            storage = None
+        elif isinstance(value, Scalar):
+            if value.type != typ.storage_type:
+                raise TypeError("Incompatible storage type {0} "
+                                "for extension type {1}"
+                                .format(value.type, typ))
+            storage = value
+        else:
+            storage = scalar(value, typ.storage_type)
+
+        sp_scalar = make_shared[CExtensionScalar](typ.sp_type)
+        ext_scalar = sp_scalar.get()
+        ext_scalar.is_valid = storage is not None and storage.is_valid
+        if ext_scalar.is_valid:
+            ext_scalar.value = pyarrow_unwrap_scalar(storage)
+        check_status(ext_scalar.Validate())
+        return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
+
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
@@ -846,6 +938,7 @@ cdef dict _scalar_classes = {
     _Type_DICTIONARY: DictionaryScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
+    _Type_EXTENSION: ExtensionScalar,
 }
 
 

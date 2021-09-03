@@ -28,12 +28,17 @@ const readFile = promisify(require('fs').readFile);
 const asyncDone = promisify(require('async-done'));
 const exec = promisify(require('child_process').exec);
 const parseXML = promisify(require('xml2js').parseString);
+const { targetAndModuleCombinations, npmPkgName } = require('./util');
 
 const jestArgv = [`--reporters=jest-silent-reporter`];
-argv.verbose && jestArgv.push(`--verbose`);
-argv.coverage
-    ? jestArgv.push(`-c`, `jest.coverage.config.js`, `--coverage`, `-i`)
-    : jestArgv.push(`-c`, `jest.config.js`, `-i`)
+
+if (argv.verbose) {
+    jestArgv.push(`--verbose`);
+}
+
+if (targetAndModuleCombinations.length > 1) {
+    jestArgv.push(`--detectOpenHandles`);
+}
 
 const jest = path.join(path.parse(require.resolve(`jest`)).dir, `../bin/jest.js`);
 const testOptions = {
@@ -42,15 +47,21 @@ const testOptions = {
         ...process.env,
         // hide fs.promises/stream[Symbol.asyncIterator] warnings
         NODE_NO_WARNINGS: `1`,
-        // prevent the user-land `readable-stream` module from
-        // patching node's streams -- they're better now
-        READABLE_STREAM: `disable`
     },
 };
 
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
     const opts = { ...testOptions };
-    const args = [...execArgv, `test/unit/`];
+    const args = [...execArgv];
+    if (format === 'esm' || target === 'ts' || target === 'src' || target === npmPkgName) {
+        args.unshift(`--experimental-vm-modules`);
+    }
+    if (argv.coverage) {
+        args.push(`-c`, `jestconfigs/jest.coverage.config.js`);
+    } else {
+        const cfgname = [target, format].filter(Boolean).join('.');
+        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, `test/unit/`);
+    }
     opts.env = {
         ...opts.env,
         TEST_TARGET: target,

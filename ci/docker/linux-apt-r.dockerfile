@@ -19,6 +19,9 @@ ARG base
 FROM ${base}
 ARG arch
 
+ARG tz="UTC"
+ENV TZ=${tz}
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
@@ -61,6 +64,16 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+ARG gcc_version=""
+RUN if [ "${gcc_version}" != "" ]; then \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
+      update-alternatives --set cc /usr/bin/gcc && \
+      update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \
+      update-alternatives --set c++ /usr/bin/g++; \
+    fi
+
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
 COPY ci/etc/rprofile /arrow/ci/etc/
@@ -87,7 +100,6 @@ ENV \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
     ARROW_NO_DEPRECATED_API=ON \

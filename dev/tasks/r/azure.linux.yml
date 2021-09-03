@@ -48,8 +48,10 @@ jobs:
           export R_IMAGE={{ r_image }}
           export R_TAG={{ r_tag }}
           export ARROW_R_DEV={{ not_cran|default("TRUE") }}
-          # Note that ci/scripts/r_test.sh sets NOT_CRAN=true if ARROW_R_DEV=TRUE
+          # Note that by default, ci/scripts/r_test.sh sets NOT_CRAN=true
+          # if ARROW_R_DEV=TRUE. Pass `-e NOT_CRAN=false` to turn that off.
           docker-compose run \
+            {{ flags|default("") }} \
             -e ARROW_DATASET={{ arrow_dataset|default("") }} \
             -e ARROW_PARQUET={{ arrow_parquet|default("") }} \
             -e ARROW_S3={{ arrow_s3|default("") }} \
@@ -58,7 +60,6 @@ jobs:
             -e LIBARROW_MINIMAL={{ libarrow_minimal|default("") }} \
             -e LIBARROW_DOWNLOAD={{ libarrow_download|default("") }} \
             -e LIBARROW_BUILD={{ libarrow_build|default("") }} \
-            -e TEST_R_WITH_ARROW={{ with_arrow|default("TRUE") }} \
             r
         displayName: Docker run
 

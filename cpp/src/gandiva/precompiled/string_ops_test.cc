@@ -69,6 +69,31 @@ TEST(TestStringOps, TestBeginsEnds) {
   EXPECT_FALSE(ends_with_utf8_utf8("hello", 5, "sir", 3));
 }
 
+TEST(TestStringOps, TestSpace) {
+  // Space - returns a string with 'n' spaces
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  int32_t out_len = 0;
+
+  auto out = space_int32(ctx_ptr, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), " ");
+  out = space_int32(ctx_ptr, 10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "          ");
+  out = space_int32(ctx_ptr, 5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "     ");
+  out = space_int32(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  out = space_int64(ctx_ptr, 2, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "  ");
+  out = space_int64(ctx_ptr, 9, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "         ");
+  out = space_int64(ctx_ptr, 4, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "    ");
+  out = space_int64(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
 TEST(TestStringOps, TestIsSubstr) {
   EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "world", 5));
   EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "lo wo", 5));
@@ -192,6 +217,49 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   EXPECT_EQ(std::string(g_str, g_in_out_len), "-ok--valid-");
   EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
+
+  std::string h("\xa0\xa1-valid");
+  auto h_in_out_len = static_cast<int>(h.length());
+  const char* h_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, h.data(), h_in_out_len, "", 0, &h_in_out_len);
+  EXPECT_EQ(std::string(h_str, h_in_out_len), "-valid");
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  std::string i("\xa0\xa1-valid-\xa0\xa1-valid-\xa0\xa1");
+  auto i_in_out_len = static_cast<int>(i.length());
+  const char* i_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, i.data(), i_in_out_len, "", 0, &i_in_out_len);
+  EXPECT_EQ(std::string(i_str, i_in_out_len), "-valid--valid-");
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestRepeat) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = repeat_utf8_int32(ctx_ptr, "abc", 3, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabc");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "a", 1, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "aaaaa");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "", 0, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "", -20, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "a", 1, -10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Repeat number can't be negative"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastBoolToVarchar) {
@@ -215,9 +283,64 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   EXPECT_EQ(std::string(out_str, out_len), "false");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
+  castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestCastVarcharToBool) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true     ", 14), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true     ", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TRUE", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TrUe", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "1", 1), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "  1", 3), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false     ", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     false", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0", 1), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0   ", 4), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FALSE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FaLsE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "test", 4), false);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid value for boolean"));
   ctx.Reset();
 }
 
@@ -581,6 +704,54 @@ TEST(TestStringOps, TestSubstringInvalidInputs) {
   out_str = substr_utf8_int64_int64(ctx_ptr, "çåå†", 9, 2147483656, 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestGdvFnStubs, TestCastVarbinaryUtf8) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* input = "abc";
+  const char* out;
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "a");
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 500, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, -10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestCastVarbinaryBinary) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* input = "\\x41\\x42\\x43";
+  const char* out;
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 8, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\\x41\\x42");
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, 500, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, -10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestConcat) {
@@ -1208,6 +1379,97 @@ TEST(TestStringOps, TestLocate) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestByteSubstr) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str;
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -6, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 0, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 0, -500, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 1000, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Str");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -100, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestStringOps, TestStrPos) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  int pos;
+
+  pos = strpos_utf8_utf8(ctx_ptr, "TestString", 10, "String", 6);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "TestString", 10, "String", 6);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "abcabc", 6, "abc", 3);
+  EXPECT_EQ(pos, 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "s†å†emçåå†d", 21, "çåå", 6);
+  EXPECT_EQ(pos, 7);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "†barbar", 9, "bar", 3);
+  EXPECT_EQ(pos, 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "", 0, "sub", 3);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "str", 3, "", 0);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d(
+      "a\xff"
+      "c");
+  pos = strpos_utf8_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), "c", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\ff encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestReplace) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -1250,13 +1512,13 @@ TEST(TestStringOps, TestReplace) {
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5,
-                                                5, &out_len);
+  replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5, 5,
+                                      &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
   ctx.Reset();
 
-  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
-                                                &out_len);
+  replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
+                                      &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
   ctx.Reset();
 }
@@ -1492,4 +1754,5 @@ TEST(TestStringOps, TestConvertToBigEndian) {
   }
 #endif
 }
+
 }  // namespace gandiva

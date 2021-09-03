@@ -36,6 +36,8 @@ try:
 except ImportError:
     pd = tm = None
 
+pytestmark = pytest.mark.parquet
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
@@ -204,6 +206,7 @@ def test_parquet_writer_filesystem_s3_uri(s3_example_fs):
 
 
 @pytest.mark.pandas
+@pytest.mark.s3
 def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)

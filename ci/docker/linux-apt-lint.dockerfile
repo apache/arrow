@@ -35,8 +35,47 @@ RUN apt-get update && \
         python3-dev \
         python3-pip \
         ruby \
+        apt-transport-https \
+        software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+ARG r=4.1
+RUN apt-key adv \
+        --keyserver keyserver.ubuntu.com \
+        --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
+    # NOTE: R 3.5 and 3.6 are available in the repos with -cran35 suffix
+    # for trusty, xenial, bionic, and eoan (as of May 2020)
+    # -cran40 has 4.0 versions for bionic and focal
+    # R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
+    # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
+    # This is a hack to turn 3.6 into 35, and 4.0/4.1 into 40:
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran'$(echo "${r}" | tr -d . | tr 6 5 | tr 1 0)'/' && \
+    apt-get install -y \
+        r-base=${r}* \
+        r-recommended=${r}* \
+        libxml2-dev
+
+# Ensure parallel R package installation, set CRAN repo mirror,
+# and use pre-built binaries where possible
+COPY ci/etc/rprofile /arrow/ci/etc/
+RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
+# Also ensure parallel compilation of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
+
+
+COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
+COPY r/DESCRIPTION /arrow/r/
+# We need to install Arrow's dependencies in order for lintr's namespace searching to work.
+# This could be removed if lintr no longer loads the dependency namespaces (see issues/PRs below)
+RUN /arrow/ci/scripts/r_deps.sh /arrow
+# This fork has a number of changes that have PRs and Issues to resolve upstream:
+#   https://github.com/jimhester/lintr/pull/843
+#   https://github.com/jimhester/lintr/pull/841
+#   https://github.com/jimhester/lintr/pull/845
+#   https://github.com/jimhester/lintr/issues/842
+#   https://github.com/jimhester/lintr/issues/846
+RUN R -e "remotes::install_github('jonkeane/lintr@arrow-branch')"
 
 # Docker linter
 COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
@@ -49,12 +88,8 @@ RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${clang_tools}
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-COPY dev/archery/requirements.txt \
-     dev/archery/requirements-lint.txt \
-     /arrow/dev/archery/
-RUN pip install \
-      -r arrow/dev/archery/requirements.txt \
-      -r arrow/dev/archery/requirements-lint.txt
+COPY dev/archery/setup.py /arrow/dev/archery/
+RUN pip install -e arrow/dev/archery[lint]
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8

@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/base64.h"
+#include "arrow/util/double_conversion.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
@@ -33,6 +35,7 @@
 #include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
+#include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
@@ -50,6 +53,24 @@ bool gdv_fn_like_utf8_utf8_utf8(int64_t ptr, const char* data, int data_len,
                                 const char* escape_char, int escape_char_len) {
   gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
   return (*holder)(std::string(data, data_len));
+}
+
+bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
+                            const char* pattern, int pattern_len) {
+  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
+  return (*holder)(std::string(data, data_len));
+}
+
+const char* gdv_fn_regexp_replace_utf8_utf8(
+    int64_t ptr, int64_t holder_ptr, const char* data, int32_t data_len,
+    const char* /*pattern*/, int32_t /*pattern_len*/, const char* replace_string,
+    int32_t replace_string_len, int32_t* out_length) {
+  gandiva::ExecutionContext* context = reinterpret_cast<gandiva::ExecutionContext*>(ptr);
+
+  gandiva::ReplaceHolder* holder = reinterpret_cast<gandiva::ReplaceHolder*>(holder_ptr);
+
+  return (*holder)(context, data, data_len, replace_string, replace_string_len,
+                   out_length);
 }
 
 double gdv_fn_random(int64_t ptr) {
@@ -302,10 +323,65 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   return ret;
 }
 
-#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                    \
+GANDIVA_EXPORT
+const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t in_len,
+                                        int32_t* out_len) {
+  if (in_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    *out_len = 0;
+    return "";
+  }
+  if (in_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+  // use arrow method to encode base64 string
+  std::string encoded_str =
+      arrow::util::base64_encode(reinterpret_cast<const unsigned char*>(in), in_len);
+  *out_len = static_cast<int32_t>(encoded_str.length());
+  // allocate memory for response
+  char* ret = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(*out_len)));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, encoded_str.data(), *out_len);
+  return ret;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
+                                      int32_t* out_len) {
+  if (in_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    *out_len = 0;
+    return "";
+  }
+  if (in_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+  // use arrow method to decode base64 string
+  std::string decoded_str = arrow::util::base64_decode(std::string(in, in_len));
+  *out_len = static_cast<int32_t>(decoded_str.length());
+  // allocate memory for response
+  char* ret = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(*out_len)));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, decoded_str.data(), *out_len);
+  return ret;
+}
+
+#define CAST_NUMERIC_FROM_VARLEN_TYPES(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE)  \
   GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
-                                         int32_t len) {                              \
+  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,  \
+                                                 int32_t len) {                      \
     OUT_TYPE val = 0;                                                                \
     /* trim leading and trailing spaces */                                           \
     int32_t trimmed_len;                                                             \
@@ -326,6 +402,9 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
     return val;                                                                      \
   }
 
+#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME) \
+  CAST_NUMERIC_FROM_VARLEN_TYPES(OUT_TYPE, ARROW_TYPE, TYPE_NAME, utf8)
+
 CAST_NUMERIC_FROM_STRING(int32_t, arrow::Int32Type, INT)
 CAST_NUMERIC_FROM_STRING(int64_t, arrow::Int64Type, BIGINT)
 CAST_NUMERIC_FROM_STRING(float, arrow::FloatType, FLOAT4)
@@ -333,87 +412,104 @@ CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
 
-#define GDV_FN_CAST_VARCHAR_INTEGER(IN_TYPE, ARROW_TYPE)                                 \
-  GANDIVA_EXPORT                                                                         \
-  const char* gdv_fn_castVARCHAR_##IN_TYPE##_int64(int64_t context, gdv_##IN_TYPE value, \
-                                                   int64_t len, int32_t * out_len) {     \
-    if (len < 0) {                                                                       \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");        \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    if (len == 0) {                                                                      \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                       \
-    char* ret = reinterpret_cast<char*>(                                                 \
-        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));                \
-    if (ret == nullptr) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory");                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {            \
-      int64_t size = static_cast<int64_t>(v.size());                                     \
-      *out_len = static_cast<int32_t>(len < size ? len : size);                          \
-      memcpy(ret, v.data(), *out_len);                                                   \
-      return arrow::Status::OK();                                                        \
-    });                                                                                  \
-    if (!status.ok()) {                                                                  \
-      std::string err = "Could not cast " + std::to_string(value) + " to string";        \
-      gdv_fn_context_set_error_msg(context, err.c_str());                                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    return ret;                                                                          \
+#define CAST_NUMERIC_FROM_VARBINARY(OUT_TYPE, ARROW_TYPE, TYPE_NAME) \
+  CAST_NUMERIC_FROM_VARLEN_TYPES(OUT_TYPE, ARROW_TYPE, TYPE_NAME, varbinary)
+
+CAST_NUMERIC_FROM_VARBINARY(int32_t, arrow::Int32Type, INT)
+CAST_NUMERIC_FROM_VARBINARY(int64_t, arrow::Int64Type, BIGINT)
+CAST_NUMERIC_FROM_VARBINARY(float, arrow::FloatType, FLOAT4)
+CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
+
+#undef CAST_NUMERIC_STRING
+
+#define GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER(IN_TYPE, CAST_NAME, ARROW_TYPE)      \
+  GANDIVA_EXPORT                                                                  \
+  const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
+      int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
+    if (len < 0) {                                                                \
+      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    if (len == 0) {                                                               \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                \
+    char* ret = reinterpret_cast<char*>(                                          \
+        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));         \
+    if (ret == nullptr) {                                                         \
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory");         \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {     \
+      int64_t size = static_cast<int64_t>(v.size());                              \
+      *out_len = static_cast<int32_t>(len < size ? len : size);                   \
+      memcpy(ret, v.data(), *out_len);                                            \
+      return arrow::Status::OK();                                                 \
+    });                                                                           \
+    if (!status.ok()) {                                                           \
+      std::string err = "Could not cast " + std::to_string(value) + " to string"; \
+      gdv_fn_context_set_error_msg(context, err.c_str());                         \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    return ret;                                                                   \
   }
 
-#define GDV_FN_CAST_VARCHAR_REAL(IN_TYPE, ARROW_TYPE)                                    \
-  GANDIVA_EXPORT                                                                         \
-  const char* gdv_fn_castVARCHAR_##IN_TYPE##_int64(int64_t context, gdv_##IN_TYPE value, \
-                                                   int64_t len, int32_t * out_len) {     \
-    if (len < 0) {                                                                       \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");        \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    if (len == 0) {                                                                      \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    gandiva::GdvStringFormatter<arrow::ARROW_TYPE> formatter;                            \
-    char* ret = reinterpret_cast<char*>(                                                 \
-        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));                \
-    if (ret == nullptr) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory");                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {            \
-      int64_t size = static_cast<int64_t>(v.size());                                     \
-      *out_len = static_cast<int32_t>(len < size ? len : size);                          \
-      memcpy(ret, v.data(), *out_len);                                                   \
-      return arrow::Status::OK();                                                        \
-    });                                                                                  \
-    if (!status.ok()) {                                                                  \
-      std::string err = "Could not cast " + std::to_string(value) + " to string";        \
-      gdv_fn_context_set_error_msg(context, err.c_str());                                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    return ret;                                                                          \
+#define GDV_FN_CAST_VARLEN_TYPE_FROM_REAL(IN_TYPE, CAST_NAME, ARROW_TYPE)         \
+  GANDIVA_EXPORT                                                                  \
+  const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
+      int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
+    if (len < 0) {                                                                \
+      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    if (len == 0) {                                                               \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    gandiva::GdvStringFormatter<arrow::ARROW_TYPE> formatter;                     \
+    char* ret = reinterpret_cast<char*>(                                          \
+        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));         \
+    if (ret == nullptr) {                                                         \
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory");         \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {     \
+      int64_t size = static_cast<int64_t>(v.size());                              \
+      *out_len = static_cast<int32_t>(len < size ? len : size);                   \
+      memcpy(ret, v.data(), *out_len);                                            \
+      return arrow::Status::OK();                                                 \
+    });                                                                           \
+    if (!status.ok()) {                                                           \
+      std::string err = "Could not cast " + std::to_string(value) + " to string"; \
+      gdv_fn_context_set_error_msg(context, err.c_str());                         \
+      *out_len = 0;                                                               \
+      return "";                                                                  \
+    }                                                                             \
+    return ret;                                                                   \
   }
 
-GDV_FN_CAST_VARCHAR_INTEGER(int32, Int32Type)
-GDV_FN_CAST_VARCHAR_INTEGER(int64, Int64Type)
-GDV_FN_CAST_VARCHAR_REAL(float32, FloatType)
-GDV_FN_CAST_VARCHAR_REAL(float64, DoubleType)
+#define CAST_VARLEN_TYPE_FROM_NUMERIC(VARLEN_TYPE)                    \
+  GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER(int32, VARLEN_TYPE, Int32Type) \
+  GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER(int64, VARLEN_TYPE, Int64Type) \
+  GDV_FN_CAST_VARLEN_TYPE_FROM_REAL(float32, VARLEN_TYPE, FloatType)  \
+  GDV_FN_CAST_VARLEN_TYPE_FROM_REAL(float64, VARLEN_TYPE, DoubleType)
 
+CAST_VARLEN_TYPE_FROM_NUMERIC(VARCHAR)
+CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
+
+#undef CAST_VARLEN_TYPE_FROM_NUMERIC
+#undef GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER
+#undef GDV_FN_CAST_VARLEN_TYPE_FROM_REAL
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
 
-GANDIVA_EXPORT
+GDV_FORCE_INLINE
 int32_t gdv_fn_utf8_char_length(char c) {
   if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
     return 1;
@@ -428,7 +524,7 @@ int32_t gdv_fn_utf8_char_length(char c) {
   return 0;
 }
 
-GANDIVA_EXPORT
+GDV_FORCE_INLINE
 void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
   char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
@@ -582,24 +678,27 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
   return out;
 }
 
-// Checks if the character is a whitespace by its code point. To check the list
-// of the existent whitespaces characters in UTF8, take a look at this link
-// https://en.wikipedia.org/wiki/Whitespace_character#Unicode
+// Any codepoint, except the ones for lowercase letters, uppercase letters,
+// titlecase letters, decimal digits and letter numbers categories will be
+// considered as word separators.
 //
 // The Unicode characters also are divided between categories. This link
-// https://en.wikipedia.org/wiki/Unicode_character_property#General_Category shows
+// https://www.compart.com/en/unicode/category shows
 // more information about characters categories.
-GANDIVA_EXPORT
+GDV_FORCE_INLINE
 bool gdv_fn_is_codepoint_for_space(uint32_t val) {
   auto category = utf8proc_category(val);
 
-  return category == utf8proc_category_t::UTF8PROC_CATEGORY_ZS ||
-         category == utf8proc_category_t::UTF8PROC_CATEGORY_ZL ||
-         category == utf8proc_category_t::UTF8PROC_CATEGORY_ZP;
+  return category != utf8proc_category_t::UTF8PROC_CATEGORY_LU &&
+         category != utf8proc_category_t::UTF8PROC_CATEGORY_LL &&
+         category != utf8proc_category_t::UTF8PROC_CATEGORY_LT &&
+         category != utf8proc_category_t::UTF8PROC_CATEGORY_NL &&
+         category != utf8proc_category_t ::UTF8PROC_CATEGORY_ND;
 }
 
-// For a given text, initialize the first letter of each word, e.g:
-//     - "it is a text str" -> "It Is A Text Str"
+// For a given text, initialize the first letter after a word-separator and lowercase
+// the others e.g:
+//     - "IT is a tEXt str" -> "It Is A Text Str"
 GANDIVA_EXPORT
 const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_len,
                                 int32_t* out_len) {
@@ -622,34 +721,37 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   int32_t out_char_len = 0;
   int32_t out_idx = 0;
   uint32_t char_codepoint;
+
+  // Any character is considered as space, except if it is alphanumeric
   bool last_char_was_space = true;
 
   for (int32_t i = 0; i < data_len; i += char_len) {
-    char_len = gdv_fn_utf8_char_length(data[i]);
-    // For single byte characters:
-    // If it is a lowercase ASCII character, set the output to its corresponding uppercase
-    // character; else, set the output to the read character
-    if (char_len == 1) {
+    // An optimization for single byte characters:
+    if (static_cast<signed char>(data[i]) >= 0) {  // 1-byte char (0x00 ~ 0x7F)
+      char_len = 1;
       char cur = data[i];
 
       if (cur >= 0x61 && cur <= 0x7a && last_char_was_space) {
-        // 'A' - 'Z' : 0x41 - 0x5a
-        // 'a' - 'z' : 0x61 - 0x7a
+        // Check if the character is the first one of the word and it is
+        // lowercase -> 'a' - 'z' : 0x61 - 0x7a.
+        // Then turn it into uppercase -> 'A' - 'Z' : 0x41 - 0x5a
         out[out_idx++] = static_cast<char>(cur - 0x20);
         last_char_was_space = false;
+      } else if (cur >= 0x41 && cur <= 0x5a && !last_char_was_space) {
+        out[out_idx++] = static_cast<char>(cur + 0x20);
       } else {
-        // Check if the ASCII character is one of these:
-        // - space : 0x20
-        // - character tabulation : 0x9
-        // - line feed : 0xA
-        // - line tabulation : 0xB
-        // - form feed : 0xC
-        // - carriage return : 0xD
-        last_char_was_space = cur <= 0x20;
+        // Check if the ASCII character is not an alphanumeric character:
+        // '0' - '9': 0x30 - 0x39
+        // 'a' - 'z' : 0x61 - 0x7a
+        // 'A' - 'Z' : 0x41 - 0x5a
+        last_char_was_space = (cur < 0x30) || (cur > 0x39 && cur < 0x41) ||
+                              (cur > 0x5a && cur < 0x61) || (cur > 0x7a);
         out[out_idx++] = cur;
       }
       continue;
     }
+
+    char_len = gdv_fn_utf8_char_length(data[i]);
 
     // Control reaches here when we encounter a multibyte character
     const auto* in_char = (const uint8_t*)(data + i);
@@ -669,18 +771,16 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 
     int32_t formatted_codepoint;
     if (last_char_was_space && !is_char_space) {
-      // Convert the encoded codepoint to its uppercase codepoint
       formatted_codepoint = utf8proc_toupper(char_codepoint);
     } else {
-      // Leave the codepoint as is
-      formatted_codepoint = char_codepoint;
+      formatted_codepoint = utf8proc_tolower(char_codepoint);
     }
 
     // UTF8Encode advances the pointer by the number of bytes present in the character
     auto* out_char = (uint8_t*)(out + out_idx);
     uint8_t* out_char_start = out_char;
 
-    // Encode the uppercase character
+    // Encode the character
     out_char = arrow::util::UTF8Encode(out_char, formatted_codepoint);
 
     out_char_len = static_cast<int32_t>(out_char - out_char_start);
@@ -699,6 +799,54 @@ namespace gandiva {
 void ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
+
+  // gdv_fn_castVARBINARY_int32
+  args = {
+      types->i64_type(),     // context
+      types->i32_type(),     // int32_t value
+      types->i64_type(),     // int64_t out value length
+      types->i32_ptr_type()  // int32_t out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_castVARBINARY_int32_int64", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_castVARBINARY_int32_int64));
+
+  // gdv_fn_castVARBINARY_int64
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // int64_t value
+      types->i64_type(),     // int64_t out value length
+      types->i32_ptr_type()  // int32_t out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_castVARBINARY_int64_int64", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_castVARBINARY_int64_int64));
+
+  // gdv_fn_castVARBINARY_float32
+  args = {
+      types->i64_type(),     // context
+      types->float_type(),   // float value
+      types->i64_type(),     // int64_t out value length
+      types->i64_ptr_type()  // int32_t out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_castVARBINARY_float32_int64", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_castVARBINARY_float32_int64));
+
+  // gdv_fn_castVARBINARY_float64
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // double value
+      types->i64_type(),     // int64_t out value length
+      types->i32_ptr_type()  // int32_t out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_castVARBINARY_float64_int64", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_castVARBINARY_float64_int64));
 
   // gdv_fn_dec_from_string
   args = {
@@ -751,6 +899,32 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_like_utf8_utf8_utf8",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_like_utf8_utf8_utf8));
+
+  // gdv_fn_ilike_utf8_utf8
+  args = {types->i64_type(),     // int64_t ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type(),     // int data_len
+          types->i8_ptr_type(),  // const char* pattern
+          types->i32_type()};    // int pattern_len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_ilike_utf8_utf8",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_ilike_utf8_utf8));
+
+  // gdv_fn_regexp_replace_utf8_utf8
+  args = {types->i64_type(),       // int64_t ptr
+          types->i64_type(),       // int64_t holder_ptr
+          types->i8_ptr_type(),    // const char* data
+          types->i32_type(),       // int data_len
+          types->i8_ptr_type(),    // const char* pattern
+          types->i32_type(),       // int pattern_len
+          types->i8_ptr_type(),    // const char* replace_string
+          types->i32_type(),       // int32_t replace_string_len
+          types->i32_ptr_type()};  // int32_t* out_length
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_regexp_replace_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_regexp_replace_utf8_utf8));
 
   // gdv_fn_to_date_utf8_utf8
   args = {types->i64_type(),                   // int64_t execution_context
@@ -923,6 +1097,36 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_castVARCHAR_float64_int64", types->i8_ptr_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_castVARCHAR_float64_int64));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castINT_varbinary", types->i32_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_castINT_varbinary));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castBIGINT_varbinary", types->i64_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_castBIGINT_varbinary));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT4_varbinary", types->float_type(),
+                                  args,
+                                  reinterpret_cast<void*>(gdv_fn_castFLOAT4_varbinary));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT8_varbinary", types->double_type(),
+                                  args,
+                                  reinterpret_cast<void*>(gdv_fn_castFLOAT8_varbinary));
 
   // gdv_fn_sha1_int8
   args = {
@@ -1334,6 +1538,30 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_sha256_decimal128",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_sha256_decimal128));
+
+  // gdv_fn_base64_encode_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // in
+      types->i32_type(),      // in_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_base64_encode_binary",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_base64_encode_binary));
+
+  // gdv_fn_base64_decode_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // in
+      types->i32_type(),      // in_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_base64_decode_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_base64_decode_utf8));
 
   // gdv_fn_upper_utf8
   args = {

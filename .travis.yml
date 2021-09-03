@@ -100,7 +100,7 @@ jobs:
           -e ARROW_PARQUET=OFF
           -e ARROW_S3=OFF
           -e CMAKE_UNITY_BUILD=ON
-          -e CPP_MAKE_PARALLELISM=4
+          -e CPP_MAKE_PARALLELISM=2
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED
@@ -151,7 +151,7 @@ before_install:
 
 install:
   - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install docker-compose
+  - sudo -H pip3 install 'docker-compose>=1.27.0'
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:

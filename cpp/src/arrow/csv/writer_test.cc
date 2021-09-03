@@ -23,6 +23,7 @@
 #include "arrow/buffer.h"
 #include "arrow/csv/writer.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result_internal.h"
 #include "arrow/testing/gtest_util.h"
@@ -56,20 +57,26 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {field("a", uint64())},
       {field("b\"", utf8())},
       {field("c ", int32())},
+      {field("d", date32())},
+      {field("e", date64())},
   });
   auto populated_batch = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abc\"efg", "c ": 2324},
                              { "b\"": "abcd", "c ": 5467},
                              { },
                              { "a": 546, "b\"": "", "c ": 517 },
-                             { "a": 124, "b\"": "a\"\"b\"" }])";
-  std::string expected_without_header = std::string("1,,-1") + "\n" +     // line 1
-                                        +R"(1,"abc""efg",2324)" + "\n" +  // line 2
-                                        R"(,"abcd",5467)" + "\n" +        // line 3
-                                        R"(,,)" + "\n" +                  // line 4
-                                        R"(546,"",517)" + "\n" +          // line 5
-                                        R"(124,"a""""b""",)" + "\n";      // line 6
-  std::string expected_header = std::string(R"("a","b""","c ")") + "\n";
+                             { "a": 124, "b\"": "a\"\"b\"" },
+                             { "d": 0 },
+                             { "e": 86400000 }])";
+  std::string expected_without_header = std::string("1,,-1,,") + "\n" +    // line 1
+                                        R"(1,"abc""efg",2324,,)" + "\n" +  // line 2
+                                        R"(,"abcd",5467,,)" + "\n" +       // line 3
+                                        R"(,,,,)" + "\n" +                 // line 4
+                                        R"(546,"",517,,)" + "\n" +         // line 5
+                                        R"(124,"a""""b""",,,)" + "\n" +    // line 6
+                                        R"(,,,1970-01-01,)" + "\n" +       // line 7
+                                        R"(,,,,1970-01-02)" + "\n";        // line 8
+  std::string expected_header = std::string(R"("a","b""","c ","d","e")") + "\n";
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(/*header=*/false), ""},
@@ -87,7 +94,27 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
     std::shared_ptr<io::BufferOutputStream> out;
     ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
 
-    RETURN_NOT_OK(WriteCSV(data, options, default_memory_pool(), out.get()));
+    RETURN_NOT_OK(WriteCSV(data, options, out.get()));
+    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
+    return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
+  }
+
+  Result<std::string> ToCsvStringUsingWriter(const Table& data,
+                                             const WriteOptions& options) {
+    std::shared_ptr<io::BufferOutputStream> out;
+    ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
+    // Write row-by-row
+    ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(out, data.schema(), options));
+    TableBatchReader reader(data);
+    reader.set_chunksize(1);
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(reader.ReadNext(&batch));
+    while (batch != nullptr) {
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+      RETURN_NOT_OK(reader.ReadNext(&batch));
+    }
+    RETURN_NOT_OK(writer->Close());
+    EXPECT_EQ(data.num_rows(), writer->stats().num_record_batches);
     ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
     return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
   }
@@ -111,6 +138,10 @@ TEST_P(TestWriteCSV, TestWrite) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table,
                        Table::FromRecordBatches({record_batch}));
   ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*table, options));
+  EXPECT_EQ(csv, GetParam().expected_output);
+
+  // The writer should work identically.
+  ASSERT_OK_AND_ASSIGN(csv, ToCsvStringUsingWriter(*table, options));
   EXPECT_EQ(csv, GetParam().expected_output);
 }
 

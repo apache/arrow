@@ -35,7 +35,7 @@ test_that("C++ expressions", {
   expect_r6_class(f == i64, "Expression")
   expect_r6_class(f == time, "Expression")
   # can't seem to make this work right now because of R Ops.method dispatch
-  # expect_r6_class(f == as.Date("2020-01-15"), "Expression")
+  # expect_r6_class(f == as.Date("2020-01-15"), "Expression") # nolint
   expect_r6_class(f == ts, "Expression")
   expect_r6_class(f <= 2L, "Expression")
   expect_r6_class(f != FALSE, "Expression")
@@ -45,7 +45,7 @@ test_that("C++ expressions", {
   expect_r6_class(!(f < 4), "Expression")
   expect_output(
     print(f > 4),
-    'Expression\n(f > 4)',
+    "Expression\n(f > 4)",
     fixed = TRUE
   )
   expect_type_equal(
@@ -58,4 +58,72 @@ test_that("C++ expressions", {
   )
   # Interprets that as a list type
   expect_r6_class(f == c(1L, 2L), "Expression")
+
+  expect_error(
+    Expression$create("add", 1, 2),
+    "Expression arguments must be Expression objects"
+  )
+})
+
+test_that("Field reference expression schemas and types", {
+  x <- Expression$field_ref("x")
+
+  # type() throws error when schema is NULL
+  expect_error(x$type(), "schema")
+
+  # type() returns type when schema is set
+  x$schema <- Schema$create(x = int32())
+  expect_equal(x$type(), int32())
+})
+
+test_that("Scalar expression schemas and types", {
+  # type() works on scalars without setting the schema
+  expect_equal(
+    Expression$scalar("foo")$type(),
+    arrow::string()
+  )
+  expect_equal(
+    Expression$scalar(42L)$type(),
+    int32()
+  )
+})
+
+test_that("Expression schemas and types", {
+  x <- Expression$field_ref("x")
+  y <- Expression$field_ref("y")
+  z <- Expression$scalar(42L)
+
+  # type() throws error when both schemas are unset
+  expect_error(
+    Expression$create("add_checked", x, y)$type(),
+    "schema"
+  )
+
+  # type() throws error when left schema is unset
+  y$schema <- Schema$create(y = float64())
+  expect_error(
+    Expression$create("add_checked", x, y)$type(),
+    "schema"
+  )
+
+  # type() throws error when right schema is unset
+  x$schema <- Schema$create(x = int32())
+  y$schema <- NULL
+  expect_error(
+    Expression$create("add_checked", x, y)$type(),
+    "schema"
+  )
+
+  # type() returns type when both schemas are set
+  y$schema <- Schema$create(y = float64())
+  expect_equal(
+    Expression$create("add_checked", x, y)$type(),
+    float64()
+  )
+
+  # type() returns type when one arg has schema set and one is scalar
+  expect_equal(
+    Expression$create("add_checked", x, z)$type(),
+    int32()
+  )
 })

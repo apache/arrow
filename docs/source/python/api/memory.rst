@@ -50,6 +50,7 @@ Miscellaneous
 .. autosummary::
    :toctree: ../generated/
 
+   Codec
    compress
    decompress
 

@@ -40,10 +40,11 @@ namespace dataset {
 
 inline Result<std::shared_ptr<RecordBatch>> FilterSingleBatch(
     const std::shared_ptr<RecordBatch>& in, const compute::Expression& filter,
-    MemoryPool* pool) {
-  compute::ExecContext exec_context{pool};
-  ARROW_ASSIGN_OR_RAISE(Datum mask,
-                        ExecuteScalarExpression(filter, Datum(in), &exec_context));
+    const std::shared_ptr<ScanOptions>& options) {
+  compute::ExecContext exec_context{options->pool};
+  ARROW_ASSIGN_OR_RAISE(
+      Datum mask,
+      ExecuteScalarExpression(filter, *options->dataset_schema, in, &exec_context));
 
   if (mask.is_scalar()) {
     const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
@@ -59,28 +60,29 @@ inline Result<std::shared_ptr<RecordBatch>> FilterSingleBatch(
   return filtered.record_batch();
 }
 
-inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
-                                             compute::Expression filter,
-                                             MemoryPool* pool) {
+inline RecordBatchIterator FilterRecordBatch(
+    RecordBatchIterator it, compute::Expression filter,
+    const std::shared_ptr<ScanOptions>& options) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
-        return FilterSingleBatch(in, filter, pool);
+        return FilterSingleBatch(in, filter, options);
       },
       std::move(it));
 }
 
 inline Result<std::shared_ptr<RecordBatch>> ProjectSingleBatch(
     const std::shared_ptr<RecordBatch>& in, const compute::Expression& projection,
-    MemoryPool* pool) {
-  compute::ExecContext exec_context{pool};
-  ARROW_ASSIGN_OR_RAISE(Datum projected,
-                        ExecuteScalarExpression(projection, Datum(in), &exec_context));
+    const std::shared_ptr<ScanOptions>& options) {
+  compute::ExecContext exec_context{options->pool};
+  ARROW_ASSIGN_OR_RAISE(
+      Datum projected,
+      ExecuteScalarExpression(projection, *options->dataset_schema, in, &exec_context));
 
   DCHECK_EQ(projected.type()->id(), Type::STRUCT);
   if (projected.shape() == ValueDescr::SCALAR) {
     // Only virtual columns are projected. Broadcast to an array
-    ARROW_ASSIGN_OR_RAISE(projected,
-                          MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
+    ARROW_ASSIGN_OR_RAISE(projected, MakeArrayFromScalar(*projected.scalar(),
+                                                         in->num_rows(), options->pool));
   }
 
   ARROW_ASSIGN_OR_RAISE(auto out,
@@ -89,12 +91,12 @@ inline Result<std::shared_ptr<RecordBatch>> ProjectSingleBatch(
   return out->ReplaceSchemaMetadata(in->schema()->metadata());
 }
 
-inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
-                                              compute::Expression projection,
-                                              MemoryPool* pool) {
+inline RecordBatchIterator ProjectRecordBatch(
+    RecordBatchIterator it, compute::Expression projection,
+    const std::shared_ptr<ScanOptions>& options) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
-        return ProjectSingleBatch(in, projection, pool);
+        return ProjectSingleBatch(in, projection, options);
       },
       std::move(it));
 }
@@ -117,10 +119,9 @@ class FilterAndProjectScanTask : public ScanTask {
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
-        FilterRecordBatch(std::move(it), simplified_filter, options_->pool);
+        FilterRecordBatch(std::move(it), simplified_filter, options_);
 
-    return ProjectRecordBatch(std::move(filter_it), simplified_projection,
-                              options_->pool);
+    return ProjectRecordBatch(std::move(filter_it), simplified_projection, options_);
   }
 
   Result<RecordBatchIterator> ToFilteredAndProjectedIterator(
@@ -133,10 +134,9 @@ class FilterAndProjectScanTask : public ScanTask {
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
-        FilterRecordBatch(std::move(it), simplified_filter, options_->pool);
+        FilterRecordBatch(std::move(it), simplified_filter, options_);
 
-    return ProjectRecordBatch(std::move(filter_it), simplified_projection,
-                              options_->pool);
+    return ProjectRecordBatch(std::move(filter_it), simplified_projection, options_);
   }
 
   Result<std::shared_ptr<RecordBatch>> FilterAndProjectBatch(
@@ -147,11 +147,11 @@ class FilterAndProjectScanTask : public ScanTask {
     ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_projection,
                           SimplifyWithGuarantee(options()->projection, partition_));
     ARROW_ASSIGN_OR_RAISE(auto filtered,
-                          FilterSingleBatch(batch, simplified_filter, options_->pool));
-    return ProjectSingleBatch(filtered, simplified_projection, options_->pool);
+                          FilterSingleBatch(batch, simplified_filter, options_));
+    return ProjectSingleBatch(filtered, simplified_projection, options_);
   }
 
-  inline Future<RecordBatchVector> SafeExecute(internal::Executor* executor) override {
+  inline Future<RecordBatchVector> SafeExecute(Executor* executor) override {
     return task_->SafeExecute(executor).Then(
         // This should only be run via SerialExecutor so it should be safe to capture
         // `this`
@@ -162,7 +162,7 @@ class FilterAndProjectScanTask : public ScanTask {
   }
 
   inline Future<> SafeVisit(
-      internal::Executor* executor,
+      Executor* executor,
       std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
     auto filter_and_project_visitor =
         [this, visitor](const std::shared_ptr<RecordBatch>& batch) {
@@ -225,7 +225,7 @@ inline Status SetProjection(ScanOptions* options, const compute::Expression& pro
 
 inline Status SetProjection(ScanOptions* options, std::vector<compute::Expression> exprs,
                             std::vector<std::string> names) {
-  compute::ProjectOptions project_options{std::move(names)};
+  compute::MakeStructOptions project_options{std::move(names)};
 
   for (size_t i = 0; i < exprs.size(); ++i) {
     if (auto ref = exprs[i].field_ref()) {
@@ -239,7 +239,7 @@ inline Status SetProjection(ScanOptions* options, std::vector<compute::Expressio
   }
 
   return SetProjection(options,
-                       call("project", std::move(exprs), std::move(project_options)));
+                       call("make_struct", std::move(exprs), std::move(project_options)));
 }
 
 inline Status SetProjection(ScanOptions* options, std::vector<std::string> names) {

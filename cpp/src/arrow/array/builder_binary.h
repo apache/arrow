@@ -274,6 +274,23 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
+    auto bitmap = array.GetValues<uint8_t>(0, 0);
+    auto offsets = array.GetValues<offset_type>(1);
+    auto data = array.GetValues<uint8_t>(2, 0);
+    for (int64_t i = 0; i < length; i++) {
+      if (!bitmap || BitUtil::GetBit(bitmap, array.offset + offset + i)) {
+        const offset_type start = offsets[offset + i];
+        const offset_type end = offsets[offset + i + 1];
+        ARROW_RETURN_NOT_OK(Append(data + start, end - start));
+      } else {
+        ARROW_RETURN_NOT_OK(AppendNull());
+      }
+    }
+    return Status::OK();
+  }
+
   void Reset() override {
     ArrayBuilder::Reset();
     offsets_builder_.Reset();
@@ -291,14 +308,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    // XXX Why is this check necessary?  There is no reason to disallow, say,
-    // binary arrays with more than 2**31 empty or null values.
-    if (capacity > memory_limit()) {
-      return Status::CapacityError("BinaryBuilder cannot reserve space for more than ",
-                                   memory_limit(), " child elements, got ", capacity);
-    }
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
-
     // One more than requested for offsets
     ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
     return ArrayBuilder::Resize(capacity);
@@ -474,6 +484,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status Append(const Buffer& s) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(util::string_view(s));
+    return Status::OK();
+  }
+
+  Status Append(const std::shared_ptr<Buffer>& s) { return Append(*s); }
+
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -485,11 +503,21 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
 
+  Status AppendValues(const uint8_t* data, int64_t length, const uint8_t* validity,
+                      int64_t bitmap_offset);
+
   Status AppendNull() final;
   Status AppendNulls(int64_t length) final;
 
   Status AppendEmptyValue() final;
   Status AppendEmptyValues(int64_t length) final;
+
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
+    return AppendValues(
+        array.GetValues<uint8_t>(1, 0) + ((array.offset + offset) * byte_width_), length,
+        array.GetValues<uint8_t>(0, 0), array.offset + offset);
+  }
 
   void UnsafeAppend(const uint8_t* value) {
     UnsafeAppendToBitmap(true);
@@ -508,6 +536,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 #endif
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
   }
+
+  void UnsafeAppend(const Buffer& s) { UnsafeAppend(util::string_view(s)); }
+
+  void UnsafeAppend(const std::shared_ptr<Buffer>& s) { UnsafeAppend(*s); }
 
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);

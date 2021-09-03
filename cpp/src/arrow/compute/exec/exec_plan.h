@@ -17,24 +17,20 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
-
-// NOTES:
-// - ExecBatches only have arrays or scalars
-// - data streams may be ordered, so add input number?
-// - node to combine input needs to reorder
 
 namespace arrow {
 namespace compute {
-
-class ExecNode;
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
@@ -42,14 +38,19 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   virtual ~ExecPlan() = default;
 
+  ExecContext* exec_context() const { return exec_context_; }
+
   /// Make an empty exec plan
-  static Result<std::shared_ptr<ExecPlan>> Make();
+  static Result<std::shared_ptr<ExecPlan>> Make(ExecContext* = default_exec_context());
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
   template <typename Node, typename... Args>
-  ExecNode* EmplaceNode(Args&&... args) {
-    return AddNode(std::unique_ptr<Node>(new Node{std::forward<Args>(args)...}));
+  Node* EmplaceNode(Args&&... args) {
+    std::unique_ptr<Node> node{new Node{std::forward<Args>(args)...}};
+    auto out = node.get();
+    AddNode(std::move(node));
+    return out;
   }
 
   /// The initial inputs
@@ -58,58 +59,51 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// The final outputs
   const NodeVector& sinks() const;
 
-  // XXX API question:
-  // There are clearly two phases in the ExecPlan lifecycle:
-  // - one construction phase where AddNode() and ExecNode::AddInput() is called
-  //   (with optional validation at the end)
-  // - one execution phase where the nodes are topo-sorted and then started
-  //
-  // => Should we separate out those APIs? e.g. have a ExecPlanBuilder
-  // for the first phase.
-
   Status Validate();
 
-  /// Start producing on all nodes
+  /// \brief Start producing on all nodes
   ///
   /// Nodes are started in reverse topological order, such that any node
   /// is started before all of its inputs.
   Status StartProducing();
 
-  // XXX should we also have `void StopProducing()`?
+  /// \brief Stop producing on all nodes
+  ///
+  /// Nodes are stopped in topological order, such that any node
+  /// is stopped before all of its outputs.
+  void StopProducing();
+
+  /// \brief A future which will be marked finished when all nodes have stopped producing.
+  Future<> finished();
 
  protected:
-  ExecPlan() = default;
+  ExecContext* exec_context_;
+  explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
 };
 
 class ARROW_EXPORT ExecNode {
  public:
   using NodeVector = std::vector<ExecNode*>;
-  using BatchDescr = std::vector<ValueDescr>;
 
   virtual ~ExecNode() = default;
 
   virtual const char* kind_name() = 0;
 
   // The number of inputs/outputs expected by this node
-  int num_inputs() const { return static_cast<int>(input_descrs_.size()); }
+  int num_inputs() const { return static_cast<int>(inputs_.size()); }
   int num_outputs() const { return num_outputs_; }
 
   /// This node's predecessors in the exec plan
   const NodeVector& inputs() const { return inputs_; }
 
-  /// The datatypes accepted by this node for each input
-  const std::vector<BatchDescr>& input_descrs() const { return input_descrs_; }
-
   /// \brief Labels identifying the function of each input.
-  ///
-  /// For example, FilterNode accepts "target" and "filter" inputs.
   const std::vector<std::string>& input_labels() const { return input_labels_; }
 
   /// This node's successors in the exec plan
   const NodeVector& outputs() const { return outputs_; }
 
   /// The datatypes for batches produced by this node
-  const BatchDescr& output_descr() const { return output_descr_; }
+  const std::shared_ptr<Schema>& output_schema() const { return output_schema_; }
 
   /// This node's exec plan
   ExecPlan* plan() { return plan_; }
@@ -118,11 +112,7 @@ class ARROW_EXPORT ExecNode {
   ///
   /// There is no guarantee that this value is non-empty or unique.
   const std::string& label() const { return label_; }
-
-  void AddInput(ExecNode* input) {
-    inputs_.push_back(input);
-    input->outputs_.push_back(this);
-  }
+  void SetLabel(std::string label) { label_ = std::move(label); }
 
   Status Validate() const;
 
@@ -139,7 +129,7 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) = 0;
+  virtual void InputReceived(ExecNode* input, ExecBatch batch) = 0;
 
   /// Signal error to ExecNode
   virtual void ErrorReceived(ExecNode* input, Status error) = 0;
@@ -149,7 +139,7 @@ class ARROW_EXPORT ExecNode {
   /// This may be called before all inputs are received.  This simply fixes
   /// the total number of incoming batches for an input, so that the ExecNode
   /// knows when it has received all input, regardless of order.
-  virtual void InputFinished(ExecNode* input, int seq_stop) = 0;
+  virtual void InputFinished(ExecNode* input, int total_batches) = 0;
 
   /// Lifecycle API:
   /// - start / stop to initiate and terminate production
@@ -218,29 +208,143 @@ class ARROW_EXPORT ExecNode {
   /// \brief Stop producing definitively to a single output
   ///
   /// This call is a hint that an output node has completed and is not willing
-  /// to not receive any further data.
+  /// to receive any further data.
   virtual void StopProducing(ExecNode* output) = 0;
 
-  /// \brief Stop producing definitively
+  /// \brief Stop producing definitively to all outputs
   virtual void StopProducing() = 0;
 
+  /// \brief A future which will be marked finished when this node has stopped producing.
+  virtual Future<> finished() = 0;
+
  protected:
-  ExecNode(ExecPlan* plan, std::string label, std::vector<BatchDescr> input_descrs,
-           std::vector<std::string> input_labels, BatchDescr output_descr,
-           int num_outputs);
+  ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
+           std::shared_ptr<Schema> output_schema, int num_outputs);
+
+  // A helper method to send an error status to all outputs.
+  // Returns true if the status was an error.
+  bool ErrorIfNotOk(Status status);
 
   ExecPlan* plan_;
-
   std::string label_;
 
-  std::vector<BatchDescr> input_descrs_;
-  std::vector<std::string> input_labels_;
   NodeVector inputs_;
+  std::vector<std::string> input_labels_;
 
-  BatchDescr output_descr_;
+  std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
 };
+
+/// \brief An extensible registry for factories of ExecNodes
+class ARROW_EXPORT ExecFactoryRegistry {
+ public:
+  using Factory = std::function<Result<ExecNode*>(ExecPlan*, std::vector<ExecNode*>,
+                                                  const ExecNodeOptions&)>;
+
+  virtual ~ExecFactoryRegistry() = default;
+
+  /// \brief Get the named factory from this registry
+  ///
+  /// will raise if factory_name is not found
+  virtual Result<Factory> GetFactory(const std::string& factory_name) = 0;
+
+  /// \brief Add a factory to this registry with the provided name
+  ///
+  /// will raise if factory_name is already in the registry
+  virtual Status AddFactory(std::string factory_name, Factory factory) = 0;
+};
+
+/// The default registry, which includes built-in factories.
+ARROW_EXPORT
+ExecFactoryRegistry* default_exec_factory_registry();
+
+/// \brief Construct an ExecNode using the named factory
+inline Result<ExecNode*> MakeExecNode(
+    const std::string& factory_name, ExecPlan* plan, std::vector<ExecNode*> inputs,
+    const ExecNodeOptions& options,
+    ExecFactoryRegistry* registry = default_exec_factory_registry()) {
+  ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetFactory(factory_name));
+  return factory(plan, std::move(inputs), options);
+}
+
+/// \brief Helper class for declaring sets of ExecNodes efficiently
+///
+/// A Declaration represents an unconstructed ExecNode (and potentially more since its
+/// inputs may also be Declarations). The node can be constructed and added to a plan
+/// with Declaration::AddToPlan, which will recursively construct any inputs as necessary.
+struct ARROW_EXPORT Declaration {
+  using Input = util::Variant<ExecNode*, Declaration>;
+
+  Declaration(std::string factory_name, std::vector<Input> inputs,
+              std::shared_ptr<ExecNodeOptions> options, std::string label)
+      : factory_name{std::move(factory_name)},
+        inputs{std::move(inputs)},
+        options{std::move(options)},
+        label{std::move(label)} {}
+
+  template <typename Options>
+  Declaration(std::string factory_name, std::vector<Input> inputs, Options options)
+      : factory_name{std::move(factory_name)},
+        inputs{std::move(inputs)},
+        options{std::make_shared<Options>(std::move(options))},
+        label{this->factory_name} {}
+
+  template <typename Options>
+  Declaration(std::string factory_name, Options options)
+      : factory_name{std::move(factory_name)},
+        inputs{},
+        options{std::make_shared<Options>(std::move(options))},
+        label{this->factory_name} {}
+
+  /// \brief Convenience factory for the common case of a simple sequence of nodes.
+  ///
+  /// Each of decls will be appended to the inputs of the subsequent declaration,
+  /// and the final modified declaration will be returned.
+  ///
+  /// Without this convenience factory, constructing a sequence would require explicit,
+  /// difficult-to-read nesting:
+  ///
+  ///     Declaration{"n3",
+  ///                   {
+  ///                       Declaration{"n2",
+  ///                                   {
+  ///                                       Declaration{"n1",
+  ///                                                   {
+  ///                                                       Declaration{"n0", N0Opts{}},
+  ///                                                   },
+  ///                                                   N1Opts{}},
+  ///                                   },
+  ///                                   N2Opts{}},
+  ///                   },
+  ///                   N3Opts{}};
+  ///
+  /// An equivalent Declaration can be constructed more tersely using Sequence:
+  ///
+  ///     Declaration::Sequence({
+  ///         {"n0", N0Opts{}},
+  ///         {"n1", N1Opts{}},
+  ///         {"n2", N2Opts{}},
+  ///         {"n3", N3Opts{}},
+  ///     });
+  static Declaration Sequence(std::vector<Declaration> decls);
+
+  Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
+                                                  default_exec_factory_registry()) const;
+
+  std::string factory_name;
+  std::vector<Input> inputs;
+  std::shared_ptr<ExecNodeOptions> options;
+  std::string label;
+};
+
+/// \brief Wrap an ExecBatch generator in a RecordBatchReader.
+///
+/// The RecordBatchReader does not impose any ordering on emitted batches.
+ARROW_EXPORT
+std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
+    std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
+    MemoryPool*);
 
 }  // namespace compute
 }  // namespace arrow

@@ -42,6 +42,9 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
   static Status Make(const std::string& sql_pattern, const std::string& escape_char,
                      std::shared_ptr<LikeHolder>* holder);
 
+  static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder,
+                     RE2::Options regex_op);
+
   // Try and optimise a function node with a "like" pattern.
   static const FunctionNode TryOptimize(const FunctionNode& node);
 
@@ -50,6 +53,9 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
 
  private:
   explicit LikeHolder(const std::string& pattern) : pattern_(pattern), regex_(pattern) {}
+
+  LikeHolder(const std::string& pattern, RE2::Options regex_op)
+      : pattern_(pattern), regex_(pattern, regex_op) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
   RE2 regex_;            // compiled regex for the pattern

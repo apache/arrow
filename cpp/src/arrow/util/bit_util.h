@@ -290,12 +290,14 @@ static constexpr uint8_t kPrecedingWrappingBitmask[] = {255, 1, 3, 7, 15, 31, 63
 // the bitwise complement version of kPrecedingBitmask
 static constexpr uint8_t kTrailingBitmask[] = {255, 254, 252, 248, 240, 224, 192, 128};
 
-static inline bool GetBit(const uint8_t* bits, uint64_t i) {
+static constexpr bool GetBit(const uint8_t* bits, uint64_t i) {
   return (bits[i >> 3] >> (i & 0x07)) & 1;
 }
 
 // Gets the i-th bit from a byte. Should only be used with i <= 7.
-static inline bool GetBitFromByte(uint8_t byte, uint8_t i) { return byte & kBitmask[i]; }
+static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) {
+  return byte & kBitmask[i];
+}
 
 static inline void ClearBit(uint8_t* bits, int64_t i) {
   bits[i / 8] &= kFlippedBitmask[i % 8];
@@ -315,6 +317,38 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
 /// \brief set or clear a range of bits quickly
 ARROW_EXPORT
 void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set);
+
+/// \brief Sets all bits in the bitmap to true
+ARROW_EXPORT
+void SetBitmap(uint8_t* data, int64_t offset, int64_t length);
+
+/// \brief Clears all bits in the bitmap (set to false)
+ARROW_EXPORT
+void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
+
+/// Returns a mask with lower i bits set to 1. If i >= sizeof(Word)*8, all-ones will be
+/// returned
+/// ex:
+/// ref: https://stackoverflow.com/a/59523400
+template <typename Word>
+constexpr Word PrecedingWordBitmask(unsigned int const i) {
+  return (static_cast<Word>(i < sizeof(Word) * 8) << (i & (sizeof(Word) * 8 - 1))) - 1;
+}
+static_assert(PrecedingWordBitmask<uint8_t>(0) == 0x00, "");
+static_assert(PrecedingWordBitmask<uint8_t>(4) == 0x0f, "");
+static_assert(PrecedingWordBitmask<uint8_t>(8) == 0xff, "");
+static_assert(PrecedingWordBitmask<uint16_t>(8) == 0x00ff, "");
+
+/// \brief Create a word with low `n` bits from `low` and high `sizeof(Word)-n` bits
+/// from `high`.
+/// Word ret
+/// for (i = 0; i < sizeof(Word)*8; i++){
+///     ret[i]= i < n ? low[i]: high[i];
+/// }
+template <typename Word>
+constexpr Word SpliceWord(int n, Word low, Word high) {
+  return (high & ~PrecedingWordBitmask<Word>(n)) | (low & PrecedingWordBitmask<Word>(n));
+}
 
 }  // namespace BitUtil
 }  // namespace arrow

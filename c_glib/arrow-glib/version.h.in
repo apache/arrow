@@ -82,12 +82,12 @@
  * Since: 0.10.0
  */
 #define GARROW_VERSION_CHECK(major, minor, micro)       \
-  (GARROW_MAJOR_VERSION > (major) ||                    \
-   (GARROW_MAJOR_VERSION == (major) &&                  \
-    GARROW_MINOR_VERSION > (minor)) ||                  \
-   (GARROW_MAJOR_VERSION == (major) &&                  \
-    GARROW_MINOR_VERSION == (minor) &&                  \
-    GARROW_MICRO_VERSION >= (micro)))
+  (GARROW_VERSION_MAJOR > (major) ||                    \
+   (GARROW_VERSION_MAJOR == (major) &&                  \
+    GARROW_VERSION_MINOR > (minor)) ||                  \
+   (GARROW_VERSION_MAJOR == (major) &&                  \
+    GARROW_VERSION_MINOR == (minor) &&                  \
+    GARROW_VERSION_MICRO >= (micro)))
 
 /**
  * GARROW_DISABLE_DEPRECATION_WARNINGS:
@@ -109,6 +109,15 @@
 #  define GARROW_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
 #  define GARROW_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
 #endif
+
+/**
+ * GARROW_VERSION_6_0:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 6.0.0
+ */
+#define GARROW_VERSION_6_0 G_ENCODE_VERSION(6, 0)
 
 /**
  * GARROW_VERSION_5_0:
@@ -264,6 +273,20 @@
 
 
 #define GARROW_AVAILABLE_IN_ALL
+
+#if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_6_0
+#  define GARROW_DEPRECATED_IN_6_0                GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_IN_6_0_FOR(function)  GARROW_DEPRECATED_FOR(function)
+#else
+#  define GARROW_DEPRECATED_IN_6_0
+#  define GARROW_DEPRECATED_IN_6_0_FOR(function)
+#endif
+
+#if GARROW_VERSION_MAX_ALLOWED < GARROW_VERSION_6_0
+#  define GARROW_AVAILABLE_IN_6_0 GARROW_UNAVAILABLE(6, 0)
+#else
+#  define GARROW_AVAILABLE_IN_6_0
+#endif
 
 #if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_5_0
 #  define GARROW_DEPRECATED_IN_5_0                GARROW_DEPRECATED

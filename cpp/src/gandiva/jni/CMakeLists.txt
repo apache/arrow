@@ -32,14 +32,12 @@ set(PROTO_OUTPUT_FILES ${PROTO_OUTPUT_FILES} "${PROTO_OUTPUT_DIR}/Types.pb.h")
 
 set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
-get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
-                       ABSOLUTE)
+get_filename_component(ABS_GANDIVA_PROTO
+                       ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto ABSOLUTE)
 
 add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC}
-                           --proto_path
-                           ${CMAKE_SOURCE_DIR}/src/gandiva/proto
-                           --cpp_out
+                   COMMAND ${ARROW_PROTOBUF_PROTOC} --proto_path
+                           ${CMAKE_SOURCE_DIR}/src/gandiva/proto --cpp_out
                            ${PROTO_OUTPUT_DIR}
                            ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
                    DEPENDS ${ABS_GANDIVA_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF}
@@ -100,10 +98,10 @@ add_dependencies(gandiva ${GANDIVA_JNI_LIBRARIES})
 if(ARROW_BUILD_SHARED)
   # filter out everything that is not needed for the jni bridge
   # statically linked stdc++ has conflicts with stdc++ loaded by other libraries.
-  if(NOT APPLE)
-    set_target_properties(
-      gandiva_jni_shared
-      PROPERTIES LINK_FLAGS
-                 "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map")
+  if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+    set_target_properties(gandiva_jni_shared
+                          PROPERTIES LINK_FLAGS
+                                     "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map"
+    )
   endif()
 endif()

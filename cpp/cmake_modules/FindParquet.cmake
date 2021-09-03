@@ -83,13 +83,12 @@ if(ARROW_FOUND)
 
       arrow_extract_macro_value(PARQUET_SO_VERSION_QUOTED "PARQUET_SO_VERSION"
                                 "${PARQUET_VERSION_H_CONTENT}")
-      string(REGEX
-             REPLACE "^\"(.+)\"$" "\\1" PARQUET_SO_VERSION "${PARQUET_SO_VERSION_QUOTED}")
+      string(REGEX REPLACE "^\"(.+)\"$" "\\1" PARQUET_SO_VERSION
+                           "${PARQUET_SO_VERSION_QUOTED}")
       arrow_extract_macro_value(PARQUET_FULL_SO_VERSION_QUOTED "PARQUET_FULL_SO_VERSION"
                                 "${PARQUET_VERSION_H_CONTENT}")
-      string(REGEX
-             REPLACE "^\"(.+)\"$" "\\1" PARQUET_FULL_SO_VERSION
-                     "${PARQUET_FULL_SO_VERSION_QUOTED}")
+      string(REGEX REPLACE "^\"(.+)\"$" "\\1" PARQUET_FULL_SO_VERSION
+                           "${PARQUET_FULL_SO_VERSION_QUOTED}")
     endif()
   else()
     if(PARQUET_USE_CMAKE_PACKAGE_CONFIG)
@@ -113,13 +112,10 @@ mark_as_advanced(PARQUET_ABI_VERSION
                  PARQUET_STATIC_LIB
                  PARQUET_VERSION)
 
-find_package_handle_standard_args(Parquet
-                                  REQUIRED_VARS
-                                  PARQUET_INCLUDE_DIR
-                                  PARQUET_LIB_DIR
-                                  PARQUET_SO_VERSION
-                                  VERSION_VAR
-                                  PARQUET_VERSION)
+find_package_handle_standard_args(
+  Parquet
+  REQUIRED_VARS PARQUET_INCLUDE_DIR PARQUET_LIB_DIR PARQUET_SO_VERSION
+  VERSION_VAR PARQUET_VERSION)
 set(PARQUET_FOUND ${Parquet_FOUND})
 
 if(Parquet_FOUND AND NOT Parquet_FIND_QUIETLY)

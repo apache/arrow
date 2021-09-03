@@ -17,6 +17,8 @@
 
 #include "arrow/compute/exec/util.h"
 
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/table.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"
@@ -99,7 +101,26 @@ void BitUtil::bits_to_indexes_internal(int64_t hardware_flags, const int num_bit
 
 void BitUtil::bits_to_indexes(int bit_to_search, int64_t hardware_flags,
                               const int num_bits, const uint8_t* bits, int* num_indexes,
-                              uint16_t* indexes) {
+                              uint16_t* indexes, int bit_offset) {
+  bits += bit_offset / 8;
+  bit_offset %= 8;
+  if (bit_offset != 0) {
+    int num_indexes_head = 0;
+    uint64_t bits_head =
+        util::SafeLoad(reinterpret_cast<const uint64_t*>(bits)) >> bit_offset;
+    int bits_in_first_byte = std::min(num_bits, 8 - bit_offset);
+    bits_to_indexes(bit_to_search, hardware_flags, bits_in_first_byte,
+                    reinterpret_cast<const uint8_t*>(&bits_head), &num_indexes_head,
+                    indexes);
+    int num_indexes_tail = 0;
+    if (num_bits > bits_in_first_byte) {
+      bits_to_indexes(bit_to_search, hardware_flags, num_bits - bits_in_first_byte,
+                      bits + 1, &num_indexes_tail, indexes + num_indexes_head);
+    }
+    *num_indexes = num_indexes_head + num_indexes_tail;
+    return;
+  }
+
   if (bit_to_search == 0) {
     bits_to_indexes_internal<0, false>(hardware_flags, num_bits, bits, nullptr,
                                        num_indexes, indexes);
@@ -113,7 +134,27 @@ void BitUtil::bits_to_indexes(int bit_to_search, int64_t hardware_flags,
 void BitUtil::bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
                                   const int num_bits, const uint8_t* bits,
                                   const uint16_t* input_indexes, int* num_indexes,
-                                  uint16_t* indexes) {
+                                  uint16_t* indexes, int bit_offset) {
+  bits += bit_offset / 8;
+  bit_offset %= 8;
+  if (bit_offset != 0) {
+    int num_indexes_head = 0;
+    uint64_t bits_head =
+        util::SafeLoad(reinterpret_cast<const uint64_t*>(bits)) >> bit_offset;
+    int bits_in_first_byte = std::min(num_bits, 8 - bit_offset);
+    bits_filter_indexes(bit_to_search, hardware_flags, bits_in_first_byte,
+                        reinterpret_cast<const uint8_t*>(&bits_head), input_indexes,
+                        &num_indexes_head, indexes);
+    int num_indexes_tail = 0;
+    if (num_bits > bits_in_first_byte) {
+      bits_filter_indexes(bit_to_search, hardware_flags, num_bits - bits_in_first_byte,
+                          bits + 1, input_indexes + bits_in_first_byte, &num_indexes_tail,
+                          indexes + num_indexes_head);
+    }
+    *num_indexes = num_indexes_head + num_indexes_tail;
+    return;
+  }
+
   if (bit_to_search == 0) {
     bits_to_indexes_internal<0, true>(hardware_flags, num_bits, bits, input_indexes,
                                       num_indexes, indexes);
@@ -126,46 +167,32 @@ void BitUtil::bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
 
 void BitUtil::bits_split_indexes(int64_t hardware_flags, const int num_bits,
                                  const uint8_t* bits, int* num_indexes_bit0,
-                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1) {
-  bits_to_indexes(0, hardware_flags, num_bits, bits, num_indexes_bit0, indexes_bit0);
+                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1,
+                                 int bit_offset) {
+  bits_to_indexes(0, hardware_flags, num_bits, bits, num_indexes_bit0, indexes_bit0,
+                  bit_offset);
   int num_indexes_bit1;
-  bits_to_indexes(1, hardware_flags, num_bits, bits, &num_indexes_bit1, indexes_bit1);
-}
-
-void BitUtil::bits_to_bytes_internal(const int num_bits, const uint8_t* bits,
-                                     uint8_t* bytes) {
-  constexpr int unroll = 8;
-  // Processing 8 bits at a time
-  for (int i = 0; i < (num_bits + unroll - 1) / unroll; ++i) {
-    uint8_t bits_next = bits[i];
-    // Clear the lowest bit and then make 8 copies of remaining 7 bits, each 7 bits apart
-    // from the previous.
-    uint64_t unpacked = static_cast<uint64_t>(bits_next & 0xfe) *
-                        ((1ULL << 7) | (1ULL << 14) | (1ULL << 21) | (1ULL << 28) |
-                         (1ULL << 35) | (1ULL << 42) | (1ULL << 49));
-    unpacked |= (bits_next & 1);
-    unpacked &= 0x0101010101010101ULL;
-    unpacked *= 255;
-    util::SafeStore(&reinterpret_cast<uint64_t*>(bytes)[i], unpacked);
-  }
-}
-
-void BitUtil::bytes_to_bits_internal(const int num_bits, const uint8_t* bytes,
-                                     uint8_t* bits) {
-  constexpr int unroll = 8;
-  // Process 8 bits at a time
-  for (int i = 0; i < (num_bits + unroll - 1) / unroll; ++i) {
-    uint64_t bytes_next = util::SafeLoad(&reinterpret_cast<const uint64_t*>(bytes)[i]);
-    bytes_next &= 0x0101010101010101ULL;
-    bytes_next |= (bytes_next >> 7);  // Pairs of adjacent output bits in individual bytes
-    bytes_next |= (bytes_next >> 14);  // 4 adjacent output bits in individual bytes
-    bytes_next |= (bytes_next >> 28);  // All 8 output bits in the lowest byte
-    bits[i] = static_cast<uint8_t>(bytes_next & 0xff);
-  }
+  bits_to_indexes(1, hardware_flags, num_bits, bits, &num_indexes_bit1, indexes_bit1,
+                  bit_offset);
 }
 
 void BitUtil::bits_to_bytes(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bits, uint8_t* bytes) {
+                            const uint8_t* bits, uint8_t* bytes, int bit_offset) {
+  bits += bit_offset / 8;
+  bit_offset %= 8;
+  if (bit_offset != 0) {
+    uint64_t bits_head =
+        util::SafeLoad(reinterpret_cast<const uint64_t*>(bits)) >> bit_offset;
+    int bits_in_first_byte = std::min(num_bits, 8 - bit_offset);
+    bits_to_bytes(hardware_flags, bits_in_first_byte,
+                  reinterpret_cast<const uint8_t*>(&bits_head), bytes);
+    if (num_bits > bits_in_first_byte) {
+      bits_to_bytes(hardware_flags, num_bits - bits_in_first_byte, bits + 1,
+                    bytes + bits_in_first_byte);
+    }
+    return;
+  }
+
   int num_processed = 0;
 #if defined(ARROW_HAVE_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
@@ -191,7 +218,24 @@ void BitUtil::bits_to_bytes(int64_t hardware_flags, const int num_bits,
 }
 
 void BitUtil::bytes_to_bits(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bytes, uint8_t* bits) {
+                            const uint8_t* bytes, uint8_t* bits, int bit_offset) {
+  bits += bit_offset / 8;
+  bit_offset %= 8;
+  if (bit_offset != 0) {
+    uint64_t bits_head;
+    int bits_in_first_byte = std::min(num_bits, 8 - bit_offset);
+    bytes_to_bits(hardware_flags, bits_in_first_byte, bytes,
+                  reinterpret_cast<uint8_t*>(&bits_head));
+    uint8_t mask = (1 << bit_offset) - 1;
+    *bits = static_cast<uint8_t>((*bits & mask) | (bits_head << bit_offset));
+
+    if (num_bits > bits_in_first_byte) {
+      bytes_to_bits(hardware_flags, num_bits - bits_in_first_byte,
+                    bytes + bits_in_first_byte, bits + 1);
+    }
+    return;
+  }
+
   int num_processed = 0;
 #if defined(ARROW_HAVE_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
@@ -233,4 +277,35 @@ bool BitUtil::are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
 }
 
 }  // namespace util
+
+namespace compute {
+
+Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
+                              int expected_num_inputs, const char* kind_name) {
+  if (static_cast<int>(inputs.size()) != expected_num_inputs) {
+    return Status::Invalid(kind_name, " node requires ", expected_num_inputs,
+                           " inputs but got ", inputs.size());
+  }
+
+  for (auto input : inputs) {
+    if (input->plan() != plan) {
+      return Status::Invalid("Constructing a ", kind_name,
+                             " node in a different plan from its input");
+    }
+  }
+
+  return Status::OK();
+}
+
+Result<std::shared_ptr<Table>> TableFromExecBatches(
+    const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches) {
+  RecordBatchVector batches;
+  for (const auto& batch : exec_batches) {
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema));
+    batches.push_back(std::move(rb));
+  }
+  return Table::FromRecordBatches(schema, batches);
+}
+
+}  // namespace compute
 }  // namespace arrow

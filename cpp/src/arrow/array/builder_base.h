@@ -50,6 +50,8 @@ class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(MemoryPool* pool) : pool_(pool), null_bitmap_builder_(pool) {}
 
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(ArrayBuilder);
+
   virtual ~ArrayBuilder() = default;
 
   /// For nested types. Since the objects are owned by this class instance, we
@@ -116,6 +118,19 @@ class ARROW_EXPORT ArrayBuilder {
   /// This method is useful when appending null values to a parent nested type.
   virtual Status AppendEmptyValues(int64_t length) = 0;
 
+  /// \brief Append a value from a scalar
+  Status AppendScalar(const Scalar& scalar);
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats);
+  Status AppendScalars(const ScalarVector& scalars);
+
+  /// \brief Append a range of values from an array.
+  ///
+  /// The given array must be the same type as the builder.
+  virtual Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                                  int64_t length) {
+    return Status::NotImplemented("AppendArraySlice for builder for ", *type());
+  }
+
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
   /// this function responsibly.
@@ -178,6 +193,17 @@ class ARROW_EXPORT ArrayBuilder {
       return UnsafeSetNotNull(length);
     }
     null_bitmap_builder_.UnsafeAppend(valid_bytes, length);
+    length_ += length;
+    null_count_ = null_bitmap_builder_.false_count();
+  }
+
+  // Vector append. Copy from a given bitmap. If bitmap is null assume
+  // all of length bits are valid.
+  void UnsafeAppendToBitmap(const uint8_t* bitmap, int64_t offset, int64_t length) {
+    if (bitmap == NULLPTR) {
+      return UnsafeSetNotNull(length);
+    }
+    null_bitmap_builder_.UnsafeAppend(bitmap, offset, length);
     length_ += length;
     null_count_ = null_bitmap_builder_.false_count();
   }

@@ -29,6 +29,9 @@
 #include "arrow/util/make_unique.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace dataset {
 
 Fragment::Fragment(compute::Expression partition_expression,
@@ -145,7 +148,7 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
 
     std::shared_ptr<State> state;
   };
-  return Generator(internal::checked_pointer_cast<InMemoryFragment>(shared_from_this()),
+  return Generator(checked_pointer_cast<InMemoryFragment>(shared_from_this()),
                    options->batch_size);
 }
 
@@ -165,13 +168,8 @@ Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_e
     : schema_(std::move(schema)),
       partition_expression_(std::move(partition_expression)) {}
 
-Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
-    std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<ScannerBuilder>(this->shared_from_this(), options);
-}
-
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
-  return NewScan(std::make_shared<ScanOptions>());
+  return std::make_shared<ScannerBuilder>(this->shared_from_this());
 }
 
 Result<FragmentIterator> Dataset::GetFragments() {

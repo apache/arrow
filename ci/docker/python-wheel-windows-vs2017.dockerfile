@@ -27,14 +27,19 @@ RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=Sys
 RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
 # Install vcpkg
+#
+# Compiling vcpkg itself from a git tag doesn't work anymore since vcpkg has
+# started to ship precompiled binaries for the vcpkg-tool.
 ARG vcpkg
 RUN git clone https://github.com/Microsoft/vcpkg && \
-    git -C vcpkg checkout %vcpkg% && \
-    vcpkg\bootstrap-vcpkg.bat -disableMetrics -win64 && \
-    setx PATH "%PATH%;C:\vcpkg"
+    vcpkg\bootstrap-vcpkg.bat -disableMetrics && \
+    setx PATH "%PATH%;C:\vcpkg" && \
+    git -C vcpkg checkout %vcpkg%
 
 # Patch ports files as needed
-COPY ci/vcpkg arrow/ci/vcpkg
+COPY ci/vcpkg/*.patch \
+     ci/vcpkg/*windows*.cmake \
+     arrow/ci/vcpkg/
 RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
 
 # Configure vcpkg and install dependencies
@@ -42,12 +47,12 @@ RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
 # statements but bash notation in ENV statements
 # VCPKG_FORCE_SYSTEM_BINARIES=1 spare around ~750MB of image size if the system
 # cmake's and ninja's versions are recent enough
-COPY ci/vcpkg arrow/ci/vcpkg
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
     VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type} \
     VCPKG_FEATURE_FLAGS=-manifests
+
 RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \

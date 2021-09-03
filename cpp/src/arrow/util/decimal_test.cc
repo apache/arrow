@@ -20,7 +20,6 @@
 #include <cmath>
 #include <cstdint>
 #include <ostream>
-#include <sstream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -29,9 +28,13 @@
 #include <gtest/gtest.h>
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include "arrow/array.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
@@ -39,53 +42,200 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::int128_t;
 using internal::uint128_t;
+
+using DecimalTypes = ::testing::Types<Decimal128, Decimal256>;
 
 static const int128_t kInt128Max =
     (static_cast<int128_t>(INT64_MAX) << 64) + static_cast<int128_t>(UINT64_MAX);
 
-class DecimalTestFixture : public ::testing::Test {
- public:
-  DecimalTestFixture() : integer_value_(23423445), string_value_("234.23445") {}
-  Decimal128 integer_value_;
-  std::string string_value_;
+template <typename DecimalType>
+void AssertDecimalFromString(const std::string& s, const DecimalType& expected,
+                             int32_t expected_precision, int32_t expected_scale) {
+  ARROW_SCOPED_TRACE("s = '", s, "'");
+  DecimalType d;
+  int32_t precision, scale;
+  ASSERT_OK(DecimalType::FromString(s, &d, &precision, &scale));
+  EXPECT_EQ(expected, d);
+  EXPECT_EQ(expected_precision, precision);
+  EXPECT_EQ(expected_scale, scale);
+}
+
+// Assert that the low bits of an array of integers are equal to `expected_low`,
+// and that all other bits are equal to `expected_high`.
+template <typename T, size_t N, typename U, typename V>
+void AssertArrayBits(const std::array<T, N>& a, U expected_low, V expected_high) {
+  EXPECT_EQ(a[0], expected_low);
+  for (size_t i = 1; i < N; ++i) {
+    EXPECT_EQ(a[i], expected_high);
+  }
+}
+
+Decimal128 Decimal128FromLE(const std::array<uint64_t, 2>& a) {
+  return Decimal128(Decimal128::LittleEndianArray, a);
+}
+
+Decimal256 Decimal256FromLE(const std::array<uint64_t, 4>& a) {
+  return Decimal256(Decimal256::LittleEndianArray, a);
+}
+
+template <typename DecimalType>
+struct DecimalTraits {};
+
+template <>
+struct DecimalTraits<Decimal128> {
+  using ArrowType = Decimal128Type;
 };
 
-TEST_F(DecimalTestFixture, TestFromString) {
-  Decimal128 expected(this->integer_value_);
-  Decimal128 result;
-  int32_t precision, scale;
-  ASSERT_OK(Decimal128::FromString(this->string_value_, &result, &precision, &scale));
-  ASSERT_EQ(result, expected);
-  ASSERT_EQ(precision, 8);
-  ASSERT_EQ(scale, 5);
+template <>
+struct DecimalTraits<Decimal256> {
+  using ArrowType = Decimal256Type;
+};
+
+template <typename DecimalType>
+class DecimalFromStringTest : public ::testing::Test {
+ public:
+  using ArrowType = typename DecimalTraits<DecimalType>::ArrowType;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  void TestBasics() { AssertDecimalFromString("234.23445", DecimalType(23423445), 8, 5); }
+
+  void TestStringStartingWithPlus() {
+    AssertDecimalFromString("+234.567", DecimalType(234567), 6, 3);
+    AssertDecimalFromString("+2342394230592.232349023094",
+                            DecimalType("2342394230592232349023094"), 25, 12);
+  }
+
+  void TestInvalidInput() {
+    for (const std::string invalid_value :
+         {"-", "0.0.0", "0-13-32", "a", "-23092.235-", "-+23092.235", "+-23092.235",
+          "00a", "1e1a", "0.00123D/3", "1.23eA8", "1.23E+3A", "-1.23E--5",
+          "1.2345E+++07"}) {
+      ARROW_SCOPED_TRACE("invalid_value = '", invalid_value, "'");
+      ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+    }
+  }
+
+  void TestLeadingZerosNoDecimalPoint() {
+    AssertDecimalFromString("0000000", DecimalType(0), 0, 0);
+  }
+
+  void TestLeadingZerosDecimalPoint() {
+    AssertDecimalFromString("000.0000", DecimalType(0), 4, 4);
+  }
+
+  void TestNoLeadingZerosDecimalPoint() {
+    AssertDecimalFromString(".00000", DecimalType(0), 5, 5);
+  }
+
+  void TestNoDecimalPointExponent() {
+    AssertDecimalFromString("1E1", DecimalType(10), 2, 0);
+  }
+
+  void TestWithExponentAndNullptrScale() {
+    const DecimalType expected_value(123);
+    ASSERT_OK_AND_EQ(expected_value, DecimalType::FromString("1.23E-8"));
+  }
+
+  void TestSmallValues() {
+    struct TestValue {
+      std::string s;
+      int64_t expected;
+      int32_t expected_precision;
+      int32_t expected_scale;
+    };
+    for (const auto& tv : std::vector<TestValue>{{"12.3", 123LL, 3, 1},
+                                                 {"0.00123", 123LL, 5, 5},
+                                                 {"1.23E-8", 123LL, 3, 10},
+                                                 {"-1.23E-8", -123LL, 3, 10},
+                                                 {"1.23E+3", 1230LL, 4, 0},
+                                                 {"-1.23E+3", -1230LL, 4, 0},
+                                                 {"1.23E+5", 123000LL, 6, 0},
+                                                 {"1.2345E+7", 12345000LL, 8, 0},
+                                                 {"1.23e-8", 123LL, 3, 10},
+                                                 {"-1.23e-8", -123LL, 3, 10},
+                                                 {"1.23e+3", 1230LL, 4, 0},
+                                                 {"-1.23e+3", -1230LL, 4, 0},
+                                                 {"1.23e+5", 123000LL, 6, 0},
+                                                 {"1.2345e+7", 12345000LL, 8, 0}}) {
+      ARROW_SCOPED_TRACE("s = '", tv.s, "'");
+      AssertDecimalFromString(tv.s, DecimalType(tv.expected), tv.expected_precision,
+                              tv.expected_scale);
+    }
+  }
+
+  void CheckRandomValuesRoundTrip(int32_t precision, int32_t scale) {
+    auto rnd = random::RandomArrayGenerator(42);
+    const auto ty = std::make_shared<ArrowType>(precision, scale);
+    const auto array = rnd.ArrayOf(ty, 100, /*null_probability=*/0.0);
+    for (int64_t i = 0; i < array->length(); ++i) {
+      ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(i));
+      const DecimalType& dec_value = checked_cast<const ScalarType&>(*scalar).value;
+      const auto s = dec_value.ToString(scale);
+      ASSERT_OK_AND_ASSIGN(auto round_tripped, DecimalType::FromString(s));
+      ASSERT_EQ(dec_value, round_tripped);
+    }
+  }
+
+  void TestRandomSmallValuesRoundTrip() {
+    for (int32_t scale : {0, 2, 9}) {
+      ARROW_SCOPED_TRACE("scale = ", scale);
+      CheckRandomValuesRoundTrip(9, scale);
+    }
+  }
+
+  void TestRandomValuesRoundTrip() {
+    const auto max_scale = DecimalType::kMaxScale;
+    for (int32_t scale : {0, 3, max_scale / 2, max_scale}) {
+      ARROW_SCOPED_TRACE("scale = ", scale);
+      CheckRandomValuesRoundTrip(DecimalType::kMaxPrecision, scale);
+    }
+  }
+};
+
+TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
+
+TYPED_TEST(DecimalFromStringTest, Basics) { this->TestBasics(); }
+
+TYPED_TEST(DecimalFromStringTest, StringStartingWithPlus) {
+  this->TestStringStartingWithPlus();
 }
 
-TEST_F(DecimalTestFixture, TestStringStartingWithPlus) {
-  std::string plus_value("+234.234");
-  Decimal128 out;
-  int32_t scale;
-  int32_t precision;
-  ASSERT_OK(Decimal128::FromString(plus_value, &out, &precision, &scale));
-  ASSERT_EQ(234234, out);
-  ASSERT_EQ(6, precision);
-  ASSERT_EQ(3, scale);
+TYPED_TEST(DecimalFromStringTest, InvalidInput) { this->TestInvalidInput(); }
+
+TYPED_TEST(DecimalFromStringTest, LeadingZerosDecimalPoint) {
+  this->TestLeadingZerosDecimalPoint();
 }
 
-TEST_F(DecimalTestFixture, TestStringStartingWithPlus128) {
-  std::string plus_value("+2342394230592.232349023094");
-  Decimal128 expected_value("2342394230592232349023094");
-  Decimal128 out;
-  int32_t scale;
-  int32_t precision;
-  ASSERT_OK(Decimal128::FromString(plus_value, &out, &precision, &scale));
-  ASSERT_EQ(expected_value, out);
-  ASSERT_EQ(25, precision);
-  ASSERT_EQ(12, scale);
+TYPED_TEST(DecimalFromStringTest, LeadingZerosNoDecimalPoint) {
+  this->TestLeadingZerosNoDecimalPoint();
 }
 
-TEST(DecimalTest, TestFromStringDecimal128) {
+TYPED_TEST(DecimalFromStringTest, NoLeadingZerosDecimalPoint) {
+  this->TestNoLeadingZerosDecimalPoint();
+}
+
+TYPED_TEST(DecimalFromStringTest, NoDecimalPointExponent) {
+  this->TestNoDecimalPointExponent();
+}
+
+TYPED_TEST(DecimalFromStringTest, WithExponentAndNullptrScale) {
+  this->TestWithExponentAndNullptrScale();
+}
+
+TYPED_TEST(DecimalFromStringTest, SmallValues) { this->TestSmallValues(); }
+
+TYPED_TEST(DecimalFromStringTest, RandomSmallValuesRoundTrip) {
+  this->TestRandomSmallValuesRoundTrip();
+}
+
+TYPED_TEST(DecimalFromStringTest, RandomValuesRoundTrip) {
+  this->TestRandomValuesRoundTrip();
+}
+
+TEST(Decimal128Test, TestFromStringDecimal128) {
   std::string string_value("-23049223942343532412");
   Decimal128 result(string_value);
   Decimal128 expected(static_cast<int64_t>(-230492239423435324));
@@ -95,7 +245,7 @@ TEST(DecimalTest, TestFromStringDecimal128) {
   ASSERT_NE(result.high_bits(), 0);
 }
 
-TEST(DecimalTest, TestFromDecimalString128) {
+TEST(Decimal128Test, TestFromDecimalString128) {
   std::string string_value("-23049223942343.532412");
   Decimal128 result;
   ASSERT_OK_AND_ASSIGN(result, Decimal128::FromString(string_value));
@@ -106,7 +256,7 @@ TEST(DecimalTest, TestFromDecimalString128) {
   ASSERT_NE(result.high_bits(), 0);
 }
 
-TEST(DecimalTest, TestStringRoundTrip) {
+TEST(Decimal128Test, TestStringRoundTrip) {
   static constexpr uint64_t kTestBits[] = {
       0,
       1,
@@ -135,7 +285,7 @@ TEST(DecimalTest, TestStringRoundTrip) {
   }
 }
 
-TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
+TEST(Decimal128Test, TestDecimal32SignedRoundTrip) {
   Decimal128 expected("-3402692");
 
   auto bytes = expected.ToBytes();
@@ -143,7 +293,7 @@ TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
-TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
+TEST(Decimal128Test, TestDecimal64SignedRoundTrip) {
   Decimal128 expected;
   std::string string_value("-34034293045.921");
   ASSERT_OK_AND_ASSIGN(expected, Decimal128::FromString(string_value));
@@ -154,7 +304,7 @@ TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
-TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
+TEST(Decimal128Test, TestDecimalStringAndBytesRoundTrip) {
   Decimal128 expected;
   std::string string_value("-340282366920938463463374607431.711455");
   ASSERT_OK_AND_ASSIGN(expected, Decimal128::FromString(string_value));
@@ -171,117 +321,289 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
-TEST(DecimalTest, TestInvalidInputMinus) {
-  std::string invalid_value("-");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+/*
+  Note: generating a number of 64-bit decimal digits from a bigint:
+
+  >>> def dec(x, n):
+  ...:     sign = x < 0
+  ...:     if sign:
+  ...:         x = 2**(64*n) + x
+  ...:     a = []
+  ...:     for i in range(n-1):
+  ...:         x, r = divmod(x, 2**64)
+  ...:         a.append(r)
+  ...:     assert x < 2**64
+  ...:     a.append(x)
+  ...:     return a
+  ...:
+  >>> dec(10**37, 2)
+  [68739955140067328, 542101086242752217]
+  >>> dec(-10**37, 2)
+  [18378004118569484288, 17904642987466799398]
+  >>> dec(10**75, 4)
+  [0, 10084168908774762496, 12965995782233477362, 159309191113245227]
+  >>> dec(-10**75, 4)
+  [0, 8362575164934789120, 5480748291476074253, 18287434882596306388]
+*/
+
+TEST(Decimal128Test, FromStringLimits) {
+  // Positive / zero exponent
+  AssertDecimalFromString(
+      "1e37", Decimal128FromLE({68739955140067328ULL, 542101086242752217ULL}), 38, 0);
+  AssertDecimalFromString(
+      "-1e37", Decimal128FromLE({18378004118569484288ULL, 17904642987466799398ULL}), 38,
+      0);
+  AssertDecimalFromString(
+      "9.87e37", Decimal128FromLE({15251391175463010304ULL, 5350537721215964381ULL}), 38,
+      0);
+  AssertDecimalFromString(
+      "-9.87e37", Decimal128FromLE({3195352898246541312ULL, 13096206352493587234ULL}), 38,
+      0);
+  AssertDecimalFromString(
+      "12345678901234567890123456789012345678",
+      Decimal128FromLE({14143994781733811022ULL, 669260594276348691ULL}), 38, 0);
+  AssertDecimalFromString(
+      "-12345678901234567890123456789012345678",
+      Decimal128FromLE({4302749291975740594ULL, 17777483479433202924ULL}), 38, 0);
+
+  // "9..9" (38 times)
+  const auto dec38times9pos =
+      Decimal128FromLE({687399551400673279ULL, 5421010862427522170ULL});
+  // "-9..9" (38 times)
+  const auto dec38times9neg =
+      Decimal128FromLE({17759344522308878337ULL, 13025733211282029445ULL});
+
+  AssertDecimalFromString("99999999999999999999999999999999999999", dec38times9pos, 38,
+                          0);
+  AssertDecimalFromString("-99999999999999999999999999999999999999", dec38times9neg, 38,
+                          0);
+  AssertDecimalFromString("9.9999999999999999999999999999999999999e37", dec38times9pos,
+                          38, 0);
+  AssertDecimalFromString("-9.9999999999999999999999999999999999999e37", dec38times9neg,
+                          38, 0);
+
+  // Positive / zero exponent, precision too large for a non-negative scale
+  ASSERT_RAISES(Invalid, Decimal128::FromString("1e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("-1e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("9e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("-9e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("9.9e40"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("-9.9e40"));
+  // XXX conversion overflows are currently not detected
+  //   ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
+  //   ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
+  //   ASSERT_RAISES(Invalid,
+  //   Decimal128::FromString("999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //   Decimal128::FromString("999999999999999999999999999999999999999"));
+
+  // No exponent, many fractional digits
+  AssertDecimalFromString("9.9999999999999999999999999999999999999", dec38times9pos, 38,
+                          37);
+  AssertDecimalFromString("-9.9999999999999999999999999999999999999", dec38times9neg, 38,
+                          37);
+  AssertDecimalFromString("0.99999999999999999999999999999999999999", dec38times9pos, 38,
+                          38);
+  AssertDecimalFromString("-0.99999999999999999999999999999999999999", dec38times9neg, 38,
+                          38);
+
+  // Negative exponent
+  AssertDecimalFromString("1e-38", Decimal128FromLE({1, 0}), 1, 38);
+  AssertDecimalFromString(
+      "-1e-38", Decimal128FromLE({18446744073709551615ULL, 18446744073709551615ULL}), 1,
+      38);
+  AssertDecimalFromString("9.99e-36", Decimal128FromLE({999, 0}), 3, 38);
+  AssertDecimalFromString(
+      "-9.99e-36", Decimal128FromLE({18446744073709550617ULL, 18446744073709551615ULL}),
+      3, 38);
+  AssertDecimalFromString("987e-38", Decimal128FromLE({987, 0}), 3, 38);
+  AssertDecimalFromString(
+      "-987e-38", Decimal128FromLE({18446744073709550629ULL, 18446744073709551615ULL}), 3,
+      38);
+  AssertDecimalFromString("99999999999999999999999999999999999999e-37", dec38times9pos,
+                          38, 37);
+  AssertDecimalFromString("-99999999999999999999999999999999999999e-37", dec38times9neg,
+                          38, 37);
+  AssertDecimalFromString("99999999999999999999999999999999999999e-38", dec38times9pos,
+                          38, 38);
+  AssertDecimalFromString("-99999999999999999999999999999999999999e-38", dec38times9neg,
+                          38, 38);
 }
 
-TEST(DecimalTest, TestInvalidInputDot) {
-  std::string invalid_value("0.0.0");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+TEST(Decimal256Test, FromStringLimits) {
+  // Positive / zero exponent
+  AssertDecimalFromString(
+      "1e75",
+      Decimal256FromLE(
+          {0, 10084168908774762496ULL, 12965995782233477362ULL, 159309191113245227ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "-1e75",
+      Decimal256FromLE(
+          {0, 8362575164934789120ULL, 5480748291476074253ULL, 18287434882596306388ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "9.87e75",
+      Decimal256FromLE(
+          {0, 3238743064843046400ULL, 7886074450795240548ULL, 1572381716287730397ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "-9.87e75",
+      Decimal256FromLE(
+          {0, 15208001008866505216ULL, 10560669622914311067ULL, 16874362357421821218ULL}),
+      76, 0);
+
+  AssertDecimalFromString(
+      "1234567890123456789012345678901234567890123456789012345678901234567890123456",
+      Decimal256FromLE({17877984925544397504ULL, 5352188884907840935ULL,
+                        234631617561833724ULL, 196678011949953713ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "-1234567890123456789012345678901234567890123456789012345678901234567890123456",
+      Decimal256FromLE({568759148165154112ULL, 13094555188801710680ULL,
+                        18212112456147717891ULL, 18250066061759597902ULL}),
+      76, 0);
+
+  // "9..9" (76 times)
+  const auto dec76times9pos =
+      Decimal256FromLE({18446744073709551615ULL, 8607968719199866879ULL,
+                        532749306367912313ULL, 1593091911132452277ULL});
+  // "-9..9" (76 times)
+  const auto dec76times9neg = Decimal256FromLE(
+      {1, 9838775354509684736ULL, 17913994767341639302ULL, 16853652162577099338ULL});
+
+  AssertDecimalFromString(
+      "9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9pos, 76, 0);
+  AssertDecimalFromString(
+      "-9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9neg, 76, 0);
+  AssertDecimalFromString(
+      "9.999999999999999999999999999999999999999999999999999999999999999999999999999e75",
+      dec76times9pos, 76, 0);
+  AssertDecimalFromString(
+      "-9.999999999999999999999999999999999999999999999999999999999999999999999999999e75",
+      dec76times9neg, 76, 0);
+
+  // Positive / zero exponent, precision too large for a non-negative scale
+  ASSERT_RAISES(Invalid, Decimal256::FromString("1e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("-1e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("9e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("-9e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("9.9e78"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("-9.9e78"));
+
+  // XXX conversion overflows are currently not detected
+  //   ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
+  //   ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
+  //   ASSERT_RAISES(Invalid,
+  //     Decimal256::FromString("9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //     Decimal256::FromString("-9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
+
+  // No exponent, many fractional digits
+  AssertDecimalFromString(
+      "9.999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9pos, 76, 75);
+  AssertDecimalFromString(
+      "-9.999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9neg, 76, 75);
+  AssertDecimalFromString(
+      "0.9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9pos, 76, 76);
+  AssertDecimalFromString(
+      "-0.9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9neg, 76, 76);
+
+  // Negative exponent
+  AssertDecimalFromString("1e-76", Decimal256FromLE({1, 0, 0, 0}), 1, 76);
+  AssertDecimalFromString(
+      "-1e-76",
+      Decimal256FromLE({18446744073709551615ULL, 18446744073709551615ULL,
+                        18446744073709551615ULL, 18446744073709551615ULL}),
+      1, 76);
+  AssertDecimalFromString("9.99e-74", Decimal256FromLE({999, 0, 0, 0}), 3, 76);
+  AssertDecimalFromString(
+      "-9.99e-74",
+      Decimal256FromLE({18446744073709550617ULL, 18446744073709551615ULL,
+                        18446744073709551615ULL, 18446744073709551615ULL}),
+      3, 76);
+  AssertDecimalFromString("987e-76", Decimal256FromLE({987, 0, 0, 0}), 3, 76);
+  AssertDecimalFromString(
+      "-987e-76",
+      Decimal256FromLE({18446744073709550629ULL, 18446744073709551615ULL,
+                        18446744073709551615ULL, 18446744073709551615ULL}),
+      3, 76);
+  AssertDecimalFromString(
+      "9999999999999999999999999999999999999999999999999999999999999999999999999999e-75",
+      dec76times9pos, 76, 75);
+  AssertDecimalFromString(
+      "-9999999999999999999999999999999999999999999999999999999999999999999999999999e-75",
+      dec76times9neg, 76, 75);
+  AssertDecimalFromString(
+      "9999999999999999999999999999999999999999999999999999999999999999999999999999e-76",
+      dec76times9pos, 76, 76);
+  AssertDecimalFromString(
+      "-9999999999999999999999999999999999999999999999999999999999999999999999999999e-76",
+      dec76times9neg, 76, 76);
 }
 
-TEST(DecimalTest, TestInvalidInputEmbeddedMinus) {
-  std::string invalid_value("0-13-32");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputSingleChar) {
-  std::string invalid_value("a");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
-  std::string invalid_value("-23092.235-");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithMinusPlus) {
-  std::string invalid_value("-+23092.235");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithPlusMinus) {
-  std::string invalid_value("+-23092.235");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithLeadingZeros) {
-  std::string invalid_value("00a");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
-  std::string string_value("0000000");
-  Decimal128 d;
-  int32_t precision;
-  int32_t scale;
-  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(0, precision);
-  ASSERT_EQ(0, scale);
-  ASSERT_EQ(0, d);
-}
-
-TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
-  std::string string_value("000.0000");
-  Decimal128 d;
-  int32_t precision;
-  int32_t scale;
-  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(4, precision);
-  ASSERT_EQ(4, scale);
-  ASSERT_EQ(0, d);
-}
-
-TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
-  std::string string_value(".00000");
-  Decimal128 d;
-  int32_t precision;
-  int32_t scale;
-  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(5, precision);
-  ASSERT_EQ(5, scale);
-  ASSERT_EQ(0, d);
-}
-
-template <typename T>
-class Decimal128Test : public ::testing::Test {
+template <typename DecimalType>
+class DecimalFromIntegerTest : public ::testing::Test {
  public:
-  Decimal128Test() {}
+  template <typename IntegerType>
+  void CheckConstructFrom() {
+    DecimalType value(IntegerType{42});
+    AssertArrayBits(value.little_endian_array(), 42, 0);
+
+    DecimalType max_value(std::numeric_limits<IntegerType>::max());
+    AssertArrayBits(max_value.little_endian_array(),
+                    std::numeric_limits<IntegerType>::max(), 0);
+
+    DecimalType min_value(std::numeric_limits<IntegerType>::min());
+    AssertArrayBits(min_value.little_endian_array(),
+                    std::numeric_limits<IntegerType>::min(),
+                    (std::is_signed<IntegerType>::value ? -1 : 0));
+  }
+
+  void TestConstructibleFromAnyIntegerType() {
+    CheckConstructFrom<char>();                // NOLINT
+    CheckConstructFrom<signed char>();         // NOLINT
+    CheckConstructFrom<unsigned char>();       // NOLINT
+    CheckConstructFrom<short>();               // NOLINT
+    CheckConstructFrom<unsigned short>();      // NOLINT
+    CheckConstructFrom<int>();                 // NOLINT
+    CheckConstructFrom<unsigned int>();        // NOLINT
+    CheckConstructFrom<long>();                // NOLINT
+    CheckConstructFrom<unsigned long>();       // NOLINT
+    CheckConstructFrom<long long>();           // NOLINT
+    CheckConstructFrom<unsigned long long>();  // NOLINT
+  }
+
+  void TestConstructibleFromBool() {
+    {
+      DecimalType value(true);
+      AssertArrayBits(value.little_endian_array(), 1, 0);
+    }
+    {
+      DecimalType value(false);
+      AssertArrayBits(value.little_endian_array(), 0, 0);
+    }
+  }
 };
 
-using Decimal128Types =
-    ::testing::Types<char, unsigned char, short, unsigned short,  // NOLINT
-                     int, unsigned int, long, unsigned long,      // NOLINT
-                     long long, unsigned long long                // NOLINT
-                     >;
+TYPED_TEST_SUITE(DecimalFromIntegerTest, DecimalTypes);
 
-TYPED_TEST_SUITE(Decimal128Test, Decimal128Types);
-
-TYPED_TEST(Decimal128Test, ConstructibleFromAnyIntegerType) {
-  Decimal128 value(TypeParam{42});
-  EXPECT_EQ(42, value.low_bits());
-  EXPECT_EQ(0, value.high_bits());
-
-  Decimal128 max_value(std::numeric_limits<TypeParam>::max());
-  EXPECT_EQ(std::numeric_limits<TypeParam>::max(), max_value.low_bits());
-  EXPECT_EQ(0, max_value.high_bits());
-
-  Decimal128 min_value(std::numeric_limits<TypeParam>::min());
-  EXPECT_EQ(std::numeric_limits<TypeParam>::min(), min_value.low_bits());
-  EXPECT_EQ((std::is_signed<TypeParam>::value ? -1 : 0), min_value.high_bits());
+TYPED_TEST(DecimalFromIntegerTest, ConstructibleFromAnyIntegerType) {
+  this->TestConstructibleFromAnyIntegerType();
 }
 
-TEST(Decimal128TestTrue, ConstructibleFromBool) {
-  Decimal128 value(true);
-  EXPECT_EQ(1, value.low_bits());
-  EXPECT_EQ(0, value.high_bits());
-}
-
-TEST(Decimal128TestFalse, ConstructibleFromBool) {
-  Decimal128 value(false);
-  EXPECT_EQ(0, value.low_bits());
-  EXPECT_EQ(0, value.high_bits());
+TYPED_TEST(DecimalFromIntegerTest, ConstructibleFromBool) {
+  this->TestConstructibleFromBool();
 }
 
 TEST(Decimal128Test, Division) {
@@ -408,53 +730,6 @@ TEST_P(Decimal128ToStringTest, ToString) {
 INSTANTIATE_TEST_SUITE_P(Decimal128ToStringTest, Decimal128ToStringTest,
                          ::testing::ValuesIn(kToStringTestData));
 
-class Decimal128ParsingTest
-    : public ::testing::TestWithParam<std::tuple<std::string, uint64_t, int32_t>> {};
-
-TEST_P(Decimal128ParsingTest, Parse) {
-  std::string test_string;
-  uint64_t expected_low_bits;
-  int32_t expected_scale;
-  std::tie(test_string, expected_low_bits, expected_scale) = GetParam();
-  Decimal128 value;
-  int32_t scale;
-  ASSERT_OK(Decimal128::FromString(test_string, &value, nullptr, &scale));
-  ASSERT_EQ(value.low_bits(), expected_low_bits);
-  ASSERT_EQ(expected_scale, scale);
-}
-
-INSTANTIATE_TEST_SUITE_P(Decimal128ParsingTest, Decimal128ParsingTest,
-                         ::testing::Values(std::make_tuple("12.3", 123ULL, 1),
-                                           std::make_tuple("0.00123", 123ULL, 5),
-                                           std::make_tuple("1.23E-8", 123ULL, 10),
-                                           std::make_tuple("-1.23E-8", -123LL, 10),
-                                           std::make_tuple("1.23E+3", 1230ULL, 0),
-                                           std::make_tuple("-1.23E+3", -1230LL, 0),
-                                           std::make_tuple("1.23E+5", 123000ULL, 0),
-                                           std::make_tuple("1.2345E+7", 12345000ULL, 0),
-                                           std::make_tuple("1.23e-8", 123ULL, 10),
-                                           std::make_tuple("-1.23e-8", -123LL, 10),
-                                           std::make_tuple("1.23e+3", 1230ULL, 0),
-                                           std::make_tuple("-1.23e+3", -1230LL, 0),
-                                           std::make_tuple("1.23e+5", 123000ULL, 0),
-                                           std::make_tuple("1.2345e+7", 12345000ULL, 0)));
-
-class Decimal128ParsingTestInvalid : public ::testing::TestWithParam<std::string> {};
-
-TEST_P(Decimal128ParsingTestInvalid, Parse) {
-  std::string test_string = GetParam();
-  ASSERT_RAISES(Invalid, Decimal128::FromString(test_string));
-}
-
-INSTANTIATE_TEST_SUITE_P(Decimal128ParsingTestInvalid, Decimal128ParsingTestInvalid,
-                         ::testing::Values("0.00123D/3", "1.23eA8", "1.23E+3A",
-                                           "-1.23E--5", "1.2345E+++07"));
-
-TEST(Decimal128ParseTest, WithExponentAndNullptrScale) {
-  const Decimal128 expected_value(123);
-  ASSERT_OK_AND_EQ(expected_value, Decimal128::FromString("1.23E-8"));
-}
-
 template <typename Decimal, typename Real>
 void CheckDecimalFromReal(Real real, int32_t precision, int32_t scale,
                           const std::string& expected) {
@@ -558,8 +833,6 @@ TYPED_TEST_SUITE(TestDecimalFromReal, RealTypes);
 TYPED_TEST(TestDecimalFromReal, TestSuccess) { this->TestSuccess(); }
 
 TYPED_TEST(TestDecimalFromReal, TestErrors) { this->TestErrors(); }
-
-using DecimalTypes = ::testing::Types<Decimal128, Decimal256>;
 
 // Tests for Decimal128::FromReal(float, ...) and Decimal256::FromReal(float, ...)
 template <typename T>
@@ -861,16 +1134,6 @@ TYPED_TEST(TestDecimalToRealDouble, Precision) {
 }
 
 #endif  // __MINGW32__
-
-TEST(Decimal128Test, TestNoDecimalPointExponential) {
-  Decimal128 value;
-  int32_t precision;
-  int32_t scale;
-  ASSERT_OK(Decimal128::FromString("1E1", &value, &precision, &scale));
-  ASSERT_EQ(10, value.low_bits());
-  ASSERT_EQ(2, precision);
-  ASSERT_EQ(0, scale);
-}
 
 TEST(Decimal128Test, TestFromBigEndian) {
   // We test out a variety of scenarios:
@@ -1281,9 +1544,11 @@ TEST(Decimal256Test, TestComparators) {
   constexpr size_t num_values =
       sizeof(kSortedDecimal256Bits) / sizeof(kSortedDecimal256Bits[0]);
   for (size_t i = 0; i < num_values; ++i) {
-    Decimal256 left(kSortedDecimal256Bits[i]);
+    Decimal256 left(
+        ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[i]));
     for (size_t j = 0; j < num_values; ++j) {
-      Decimal256 right(kSortedDecimal256Bits[j]);
+      Decimal256 right(
+          ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[j]));
       EXPECT_EQ(i == j, left == right);
       EXPECT_EQ(i != j, left != right);
       EXPECT_EQ(i < j, left < right);
@@ -1296,7 +1561,7 @@ TEST(Decimal256Test, TestComparators) {
 
 TEST(Decimal256Test, TestToBytesRoundTrip) {
   for (const std::array<uint64_t, 4>& bits : kSortedDecimal256Bits) {
-    Decimal256 decimal(bits);
+    Decimal256 decimal(::arrow::BitUtil::LittleEndianArray::ToNative(bits));
     EXPECT_EQ(decimal, Decimal256(decimal.ToBytes().data()));
   }
 }
@@ -1318,18 +1583,21 @@ TYPED_TEST_SUITE(Decimal256Test, Decimal256Types);
 TYPED_TEST(Decimal256Test, ConstructibleFromAnyIntegerType) {
   using UInt64Array = std::array<uint64_t, 4>;
   Decimal256 value(TypeParam{42});
-  EXPECT_EQ(UInt64Array({42, 0, 0, 0}), value.little_endian_array());
+  EXPECT_EQ(UInt64Array({42, 0, 0, 0}),
+            ::arrow::BitUtil::LittleEndianArray::FromNative(value.native_endian_array()));
 
   TypeParam max = std::numeric_limits<TypeParam>::max();
   Decimal256 max_value(max);
-  EXPECT_EQ(UInt64Array({static_cast<uint64_t>(max), 0, 0, 0}),
-            max_value.little_endian_array());
+  EXPECT_EQ(
+      UInt64Array({static_cast<uint64_t>(max), 0, 0, 0}),
+      ::arrow::BitUtil::LittleEndianArray::FromNative(max_value.native_endian_array()));
 
   TypeParam min = std::numeric_limits<TypeParam>::min();
   Decimal256 min_value(min);
   uint64_t high_bits = std::is_signed<TypeParam>::value ? ~uint64_t{0} : uint64_t{0};
-  EXPECT_EQ(UInt64Array({static_cast<uint64_t>(min), high_bits, high_bits, high_bits}),
-            min_value.little_endian_array());
+  EXPECT_EQ(
+      UInt64Array({static_cast<uint64_t>(min), high_bits, high_bits, high_bits}),
+      ::arrow::BitUtil::LittleEndianArray::FromNative(min_value.native_endian_array()));
 }
 
 TEST(Decimal256Test, ConstructibleFromBool) {
@@ -1432,12 +1700,12 @@ TEST(Decimal256Test, Shift) {
     Decimal256 v("-12346789123456789123456789");
     v <<= 15;
     ASSERT_EQ(v, Decimal256("-404579585997432065997432061952"))
-        << std::hex << v.little_endian_array()[0] << " " << v.little_endian_array()[1]
-        << " " << v.little_endian_array()[2] << " " << v.little_endian_array()[3] << "\n"
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[0] << " "
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[1] << " "
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[2] << " "
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[3];
+        << std::hex << v.native_endian_array()[0] << " " << v.native_endian_array()[1]
+        << " " << v.native_endian_array()[2] << " " << v.native_endian_array()[3] << "\n"
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[0] << " "
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[1] << " "
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[2] << " "
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[3];
     v <<= 30;
     ASSERT_EQ(v, Decimal256("-434414022622047565860171081516421480448"));
     v <<= 66;

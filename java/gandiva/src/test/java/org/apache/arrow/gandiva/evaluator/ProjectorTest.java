@@ -655,6 +655,66 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   @Test
+  public void testRegexpReplace() throws GandivaException {
+
+    Field x = Field.nullable("x", new ArrowType.Utf8());
+    Field replaceString = Field.nullable("replaceString", new ArrowType.Utf8());
+
+    Field retType = Field.nullable("c", new ArrowType.Utf8());
+
+    TreeNode cond =
+            TreeBuilder.makeFunction(
+                    "regexp_replace",
+                    Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeStringLiteral("ana"),
+                            TreeBuilder.makeField(replaceString)),
+                    new ArrowType.Utf8());
+    ExpressionTree expr = TreeBuilder.makeExpression(cond, retType);
+    Schema schema = new Schema(Lists.newArrayList(x, replaceString));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 5;
+    byte[] validity = new byte[]{(byte) 15, 0};
+    String[] valuesX = new String[]{"banana", "bananaana", "bananana", "anaana", "anaana"};
+    String[] valuesReplace = new String[]{"ue", "", "", "c", ""};
+    String[] expected = new String[]{"buena", "bna", "bn", "cc", null};
+
+    ArrowBuf validityX = buf(validity);
+    ArrowBuf validityReplace = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(valuesX);
+    List<ArrowBuf> dataBufsReplace = stringBufs(valuesReplace);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(validityX, dataBufsX.get(0), dataBufsX.get(1), validityReplace,
+                            dataBufsReplace.get(0), dataBufsReplace.get(1)));
+
+    // allocate data for output vector.
+    VarCharVector outVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
+    outVector.allocateNew(numRows * 15, numRows);
+
+    // evaluate expression
+    List<ValueVector> output = new ArrayList<>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
+    eval.close();
+
+    // match expected output.
+    for (int i = 0; i < numRows - 1; i++) {
+      assertFalse("Expect none value equals null", outVector.isNull(i));
+      assertEquals(expected[i], new String(outVector.get(i)));
+    }
+
+    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
+
+  @Test
   public void testRand() throws GandivaException {
 
     TreeNode randWithSeed =
@@ -2006,6 +2066,59 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseValueVectors(output);
   }
 
+  @Test
+  public void testCastFloatVarbinary() throws Exception {
+    Field inField = Field.nullable("input", new ArrowType.Binary());
+    TreeNode inNode = TreeBuilder.makeField(inField);
+    TreeNode castFLOAT8Fn = TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(inNode),
+            float64);
+    Field resultField = Field.nullable("result", float64);
+    List<ExpressionTree> exprs =
+            Lists.newArrayList(
+                    TreeBuilder.makeExpression(castFLOAT8Fn, resultField));
+    Schema schema = new Schema(Lists.newArrayList(inField));
+    Projector eval = Projector.make(schema, exprs);
+    int numRows = 5;
+    byte[] validity = new byte[] {(byte) 255};
+    String[] values =
+        new String[] {
+            "2.3",
+            "-11.11",
+            "0",
+            "111",
+            "12345.67"
+        };
+    double[] expValues =
+        new double[] {
+            2.3, -11.11, 0, 111, 12345.67
+        };
+    ArrowBuf bufValidity = buf(validity);
+    List<ArrowBuf> bufData = stringBufs(values);
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode),
+                    Lists.newArrayList(bufValidity, bufData.get(0), bufData.get(1)));
+    List<ValueVector> output = new ArrayList<>();
+    for (int i = 0; i < exprs.size(); i++) {
+      Float8Vector float8Vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator);
+      float8Vector.allocateNew(numRows);
+      output.add(float8Vector);
+    }
+    eval.evaluate(batch, output);
+    eval.close();
+    for (ValueVector valueVector : output) {
+      Float8Vector float8Vector = (Float8Vector) valueVector;
+      for (int j = 0; j < numRows; j++) {
+        assertFalse(float8Vector.isNull(j));
+        assertTrue(expValues[j] == float8Vector.get(j));
+      }
+    }
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
+
   @Test(expected = GandivaException.class)
   public void testCastFloatInvalidValue() throws Exception {
     Field inField = Field.nullable("input", new ArrowType.Utf8());
@@ -2310,7 +2423,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     byte[] validity = new byte[]{(byte) 15, 0};
     String[] valuesX = new String[]{
         "  øhpqršvñ  \n\n",
-        "möbelträgerfüße   \nmöbelträgerfüße",
+        "möbelträger1füße   \nmöbelträge'rfüße",
         "ÂbĆDËFgh\néll",
         "citroën CaR",
         "kjk"
@@ -2318,9 +2431,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     String[] expected = new String[]{
         "  Øhpqršvñ  \n\n",
-        "Möbelträgerfüße   \nMöbelträgerfüße",
-        "ÂbĆDËFgh\nÉll",
-        "Citroën CaR",
+        "Möbelträger1füße   \nMöbelträge'Rfüße",
+        "Âbćdëfgh\nÉll",
+        "Citroën Car",
         null
     };
 

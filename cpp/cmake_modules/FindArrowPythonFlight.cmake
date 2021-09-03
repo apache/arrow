@@ -76,24 +76,19 @@ mark_as_advanced(ARROW_PYTHON_FLIGHT_IMPORT_LIB
                  ARROW_PYTHON_FLIGHT_VERSION
                  ARROW_PYTHON_FLIGHT_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowPythonFlight
-                                  REQUIRED_VARS
-                                  ARROW_PYTHON_FLIGHT_INCLUDE_DIR
-                                  ARROW_PYTHON_FLIGHT_LIB_DIR
-                                  ARROW_PYTHON_FLIGHT_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_PYTHON_FLIGHT_VERSION)
+find_package_handle_standard_args(
+  ArrowPythonFlight
+  REQUIRED_VARS ARROW_PYTHON_FLIGHT_INCLUDE_DIR ARROW_PYTHON_FLIGHT_LIB_DIR
+                ARROW_PYTHON_FLIGHT_VERSION_MATCH
+  VERSION_VAR ARROW_PYTHON_FLIGHT_VERSION)
 set(ARROW_PYTHON_FLIGHT_FOUND ${ArrowPythonFlight_FOUND})
 
 if(ArrowPythonFlight_FOUND AND NOT ArrowPythonFlight_FIND_QUIETLY)
   message(STATUS "Found the Arrow Python Flight by ${ARROW_PYTHON_FLIGHT_FIND_APPROACH}")
-  message(
-    STATUS
-      "Found the Arrow Python Flight shared library: ${ARROW_PYTHON_FLIGHT_SHARED_LIB}")
-  message(
-    STATUS
-      "Found the Arrow Python Flight import library: ${ARROW_PYTHON_FLIGHT_IMPORT_LIB}")
-  message(
-    STATUS
-      "Found the Arrow Python Flight static library: ${ARROW_PYTHON_FLIGHT_STATIC_LIB}")
+  message(STATUS "Found the Arrow Python Flight shared library: ${ARROW_PYTHON_FLIGHT_SHARED_LIB}"
+  )
+  message(STATUS "Found the Arrow Python Flight import library: ${ARROW_PYTHON_FLIGHT_IMPORT_LIB}"
+  )
+  message(STATUS "Found the Arrow Python Flight static library: ${ARROW_PYTHON_FLIGHT_STATIC_LIB}"
+  )
 endif()
