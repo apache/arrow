@@ -924,13 +924,13 @@ class IndexOptions(_IndexOptions):
 
 
 cdef class _ModeOptions(FunctionOptions):
-    def _set_options(self, n):
-        self.wrapped.reset(new CModeOptions(n))
+    def _set_options(self, n, skip_nulls, min_count):
+        self.wrapped.reset(new CModeOptions(n, skip_nulls, min_count))
 
 
 class ModeOptions(_ModeOptions):
-    def __init__(self, n=1):
-        self._set_options(n)
+    def __init__(self, n=1, skip_nulls=True, min_count=0):
+        self._set_options(n, skip_nulls, min_count)
 
 
 cdef class _SetLookupOptions(FunctionOptions):
@@ -1096,7 +1096,7 @@ class SortOptions(_SortOptions):
 
 
 cdef class _QuantileOptions(FunctionOptions):
-    def _set_options(self, quantiles, interp):
+    def _set_options(self, quantiles, interp, skip_nulls, min_count):
         interp_dict = {
             'linear': CQuantileInterp_LINEAR,
             'lower': CQuantileInterp_LOWER,
@@ -1109,24 +1109,29 @@ cdef class _QuantileOptions(FunctionOptions):
                 '{!r} is not a valid interpolation'
                 .format(interp))
         self.wrapped.reset(
-            new CQuantileOptions(quantiles, interp_dict[interp]))
+            new CQuantileOptions(quantiles, interp_dict[interp],
+                                 skip_nulls, min_count))
 
 
 class QuantileOptions(_QuantileOptions):
-    def __init__(self, *, q=0.5, interpolation='linear'):
+    def __init__(self, *, q=0.5, interpolation='linear',
+                 skip_nulls=True, min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
-        self._set_options(q, interpolation)
+        self._set_options(q, interpolation, skip_nulls, min_count)
 
 
 cdef class _TDigestOptions(FunctionOptions):
-    def _set_options(self, quantiles, delta, buffer_size):
+    def _set_options(self, quantiles, delta, buffer_size,
+                     skip_nulls, min_count):
         self.wrapped.reset(
-            new CTDigestOptions(quantiles, delta, buffer_size))
+            new CTDigestOptions(quantiles, delta, buffer_size,
+                                skip_nulls, min_count))
 
 
 class TDigestOptions(_TDigestOptions):
-    def __init__(self, *, q=0.5, delta=100, buffer_size=500):
+    def __init__(self, *, q=0.5, delta=100, buffer_size=500,
+                 skip_nulls=True, min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
-        self._set_options(q, delta, buffer_size)
+        self._set_options(q, delta, buffer_size, skip_nulls, min_count)

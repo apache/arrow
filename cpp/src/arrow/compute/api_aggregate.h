@@ -82,11 +82,16 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
 /// By default, returns the most common value and count.
 class ARROW_EXPORT ModeOptions : public FunctionOptions {
  public:
-  explicit ModeOptions(int64_t n = 1);
+  explicit ModeOptions(int64_t n = 1, bool skip_nulls = true, uint32_t min_count = 0);
   constexpr static char const kTypeName[] = "ModeOptions";
   static ModeOptions Defaults() { return ModeOptions{}; }
 
   int64_t n = 1;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel
@@ -121,10 +126,12 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
     MIDPOINT,
   };
 
-  explicit QuantileOptions(double q = 0.5, enum Interpolation interpolation = LINEAR);
+  explicit QuantileOptions(double q = 0.5, enum Interpolation interpolation = LINEAR,
+                           bool skip_nulls = true, uint32_t min_count = 0);
 
   explicit QuantileOptions(std::vector<double> q,
-                           enum Interpolation interpolation = LINEAR);
+                           enum Interpolation interpolation = LINEAR,
+                           bool skip_nulls = true, uint32_t min_count = 0);
 
   constexpr static char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
@@ -132,6 +139,11 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
   /// quantile must be between 0 and 1 inclusive
   std::vector<double> q;
   enum Interpolation interpolation;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control TDigest approximate quantile kernel behavior
@@ -140,9 +152,11 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
 class ARROW_EXPORT TDigestOptions : public FunctionOptions {
  public:
   explicit TDigestOptions(double q = 0.5, uint32_t delta = 100,
-                          uint32_t buffer_size = 500);
+                          uint32_t buffer_size = 500, bool skip_nulls = true,
+                          uint32_t min_count = 0);
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
-                          uint32_t buffer_size = 500);
+                          uint32_t buffer_size = 500, bool skip_nulls = true,
+                          uint32_t min_count = 0);
   constexpr static char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
@@ -152,6 +166,11 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t delta;
   /// input buffer size, default 500
   uint32_t buffer_size;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control Index kernel behavior
