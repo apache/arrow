@@ -533,8 +533,8 @@ public class BaseFileTest {
   }
 
   protected VectorSchemaRoot writeNullData(int valueCount) {
-    NullVector nullVector1 = new NullVector();
-    NullVector nullVector2 = new NullVector();
+    NullVector nullVector1 = new NullVector("vector1");
+    NullVector nullVector2 = new NullVector("vector2");
     nullVector1.setValueCount(valueCount);
     nullVector2.setValueCount(valueCount);
 

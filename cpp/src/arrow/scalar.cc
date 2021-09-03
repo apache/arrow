@@ -70,7 +70,11 @@ struct ScalarHashImpl {
   }
 
   Status Visit(const DayTimeIntervalScalar& s) {
-    return StdHash(s.value.days) & StdHash(s.value.days);
+    return StdHash(s.value.days) & StdHash(s.value.milliseconds);
+  }
+
+  Status Visit(const MonthDayNanoIntervalScalar& s) {
+    return StdHash(s.value.days) & StdHash(s.value.months) & StdHash(s.value.nanoseconds);
   }
 
   Status Visit(const Decimal128Scalar& s) {
@@ -781,7 +785,8 @@ Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
 // numeric to temporal
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, To>::value &&
-                            !std::is_same<DayTimeIntervalType, To>::value,
+                            !std::is_same<DayTimeIntervalType, To>::value &&
+                            !std::is_same<MonthDayNanoIntervalType, To>::value,
                         Status>::type
 CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
@@ -791,7 +796,8 @@ CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
 // temporal to numeric
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, From>::value &&
-                            !std::is_same<DayTimeIntervalType, From>::value,
+                            !std::is_same<DayTimeIntervalType, From>::value &&
+                            !std::is_same<MonthDayNanoIntervalType, From>::value,
                         Status>::type
 CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);

@@ -27,18 +27,19 @@ namespace util {
 
 void BitUtil::bits_to_indexes_avx2(int bit_to_search, const int num_bits,
                                    const uint8_t* bits, int* num_indexes,
-                                   uint16_t* indexes) {
+                                   uint16_t* indexes, uint16_t base_index) {
   if (bit_to_search == 0) {
-    bits_to_indexes_imp_avx2<0>(num_bits, bits, num_indexes, indexes);
+    bits_to_indexes_imp_avx2<0>(num_bits, bits, num_indexes, indexes, base_index);
   } else {
     ARROW_DCHECK(bit_to_search == 1);
-    bits_to_indexes_imp_avx2<1>(num_bits, bits, num_indexes, indexes);
+    bits_to_indexes_imp_avx2<1>(num_bits, bits, num_indexes, indexes, base_index);
   }
 }
 
 template <int bit_to_search>
 void BitUtil::bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
-                                       int* num_indexes, uint16_t* indexes) {
+                                       int* num_indexes, uint16_t* indexes,
+                                       uint16_t base_index) {
   // 64 bits at a time
   constexpr int unroll = 64;
 
@@ -74,7 +75,7 @@ void BitUtil::bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
     for (int j = 0; j < (num_indexes_loop + 15) / 16; ++j) {
       __m256i output = _mm256_cvtepi8_epi16(
           _mm_loadu_si128(reinterpret_cast<const __m128i*>(byte_indexes) + j));
-      output = _mm256_add_epi16(output, _mm256_set1_epi16(i * 64));
+      output = _mm256_add_epi16(output, _mm256_set1_epi16(i * 64 + base_index));
       _mm256_storeu_si256(((__m256i*)(indexes + *num_indexes)) + j, output);
     }
     *num_indexes += num_indexes_loop;
@@ -203,6 +204,9 @@ bool BitUtil::are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes) 
     __m256i x = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(bytes) + i);
     result_or = _mm256_or_si256(result_or, x);
   }
+  result_or = _mm256_cmpeq_epi8(result_or, _mm256_set1_epi8(0));
+  result_or =
+      _mm256_andnot_si256(result_or, _mm256_set1_epi8(static_cast<uint8_t>(0xff)));
   uint32_t result_or32 = _mm256_movemask_epi8(result_or);
   if (num_bytes % 32 > 0) {
     uint64_t tail[4] = {0, 0, 0, 0};

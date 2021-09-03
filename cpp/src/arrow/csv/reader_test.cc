@@ -278,7 +278,7 @@ TEST(StreamingReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, table_factory);
 }
 
-TEST(StreamingReaderTest, BytesRead) {
+TEST(StreamingReaderTests, BytesRead) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
   auto table_buffer =
       std::make_shared<Buffer>("a,b,c\n123,456,789\n101,112,131\n415,161,718\n");
@@ -356,6 +356,41 @@ TEST(StreamingReaderTest, BytesRead) {
     ASSERT_OK(streaming_reader->ReadNext(&batch));
     ASSERT_EQ(batch.get(), nullptr);
   }
+}
+
+TEST(StreamingReaderTests, SkipMultipleEmptyBlocksAtStart) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+  auto table_buffer = std::make_shared<Buffer>(
+      "aaa,bbb,ccc\n123,456,789\n101,112,131\n415,161,718\n192,021,222\n324,252,627\n"
+      "282,930,313\n233,343,536\n");
+
+  auto input = std::make_shared<io::BufferReader>(table_buffer);
+
+  auto read_options = ReadOptions::Defaults();
+  read_options.block_size = 34;
+  read_options.skip_rows_after_names = 6;
+
+  ASSERT_OK_AND_ASSIGN(
+      auto streaming_reader,
+      StreamingReader::Make(io::default_io_context(), input, read_options,
+                            ParseOptions::Defaults(), ConvertOptions::Defaults()));
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_EQ(12, streaming_reader->bytes_read());
+
+  // The first batch should have the one and only row in it
+  ASSERT_OK(streaming_reader->ReadNext(&batch));
+  ASSERT_NE(nullptr, batch.get());
+  ASSERT_EQ(1, batch->num_rows());
+  ASSERT_EQ(96, streaming_reader->bytes_read());
+
+  auto expected_schema =
+      schema({field("aaa", int64()), field("bbb", int64()), field("ccc", int64())});
+  AssertSchemaEqual(expected_schema, streaming_reader->schema());
+  auto expected_batch = RecordBatchFromJSON(expected_schema, "[[233,343,536]]");
+  ASSERT_TRUE(expected_batch->Equals(*batch));
+
+  ASSERT_OK(streaming_reader->ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch.get());
 }
 
 TEST(CountRowsAsync, Basics) {

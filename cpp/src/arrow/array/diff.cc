@@ -460,6 +460,16 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
+  Status Visit(const MonthDayNanoIntervalType&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      auto month_day_nanos =
+          checked_cast<const MonthDayNanoIntervalArray&>(array).Value(index);
+      *os << month_day_nanos.months << "m" << month_day_nanos.days << "d"
+          << month_day_nanos.nanoseconds << "ns";
+    };
+    return Status::OK();
+  }
+
   // format Binary, LargeBinary and FixedSizeBinary in hexadecimal
   template <typename T>
   enable_if_binary_like<T, Status> Visit(const T&) {

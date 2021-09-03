@@ -348,6 +348,11 @@ struct ARROW_EXPORT DayTimeIntervalScalar : public IntervalScalar<DayTimeInterva
   using IntervalScalar<DayTimeIntervalType>::IntervalScalar;
 };
 
+struct ARROW_EXPORT MonthDayNanoIntervalScalar
+    : public IntervalScalar<MonthDayNanoIntervalType> {
+  using IntervalScalar<MonthDayNanoIntervalType>::IntervalScalar;
+};
+
 struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
   using TemporalScalar<DurationType>::TemporalScalar;
 };

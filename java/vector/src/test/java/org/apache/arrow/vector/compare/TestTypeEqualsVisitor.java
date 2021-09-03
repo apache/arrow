@@ -127,9 +127,9 @@ public class TestTypeEqualsVisitor {
 
   @Test
   public void testUnionTypeEquals() {
-    try (final UnionVector right = new UnionVector("union", allocator, null);
-         final UnionVector left1 = new UnionVector("union", allocator, null);
-         final UnionVector left2 = new UnionVector("union", allocator, null)) {
+    try (final UnionVector right = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+         final UnionVector left1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+         final UnionVector left2 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null)) {
 
       right.addVector(new IntVector("int", allocator));
       left1.addVector(new IntVector("int", allocator));

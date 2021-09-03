@@ -1013,7 +1013,7 @@ tasks:
   test-r-devdocs:
     ci: github
     template: r/github.devdocs.yml
-    
+
   test-r-depsource-auto:
       ci: azure
       template: r/azure.linux.yml
@@ -1103,22 +1103,11 @@ tasks:
       r_tag: latest
       arrow_dataset: "OFF"
       arrow_parquet: "OFF"
+      arrow_json: "OFF"
       arrow_s3: "OFF"
       arrow_with_re2: "OFF"
       arrow_with_utf8proc: "OFF"
       libarrow_minimal: "TRUE"
-
-  test-r-without-arrow:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rhub
-      r_image: ubuntu-gcc-release
-      r_tag: latest
-      libarrow_download: "FALSE"
-      libarrow_build: "FALSE"
-      with_arrow: "FALSE"
-      not_cran: "FALSE"
 
   test-ubuntu-18.04-r-sanitizer:
     ci: azure

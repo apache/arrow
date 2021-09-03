@@ -88,6 +88,8 @@ constexpr Type::type MonthIntervalType::type_id;
 
 constexpr Type::type DayTimeIntervalType::type_id;
 
+constexpr Type::type MonthDayNanoIntervalType::type_id;
+
 constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
@@ -138,6 +140,7 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(TIME64)
     TO_STRING_CASE(TIMESTAMP)
     TO_STRING_CASE(INTERVAL_DAY_TIME)
+    TO_STRING_CASE(INTERVAL_MONTH_DAY_NANO)
     TO_STRING_CASE(INTERVAL_MONTHS)
     TO_STRING_CASE(DURATION)
     TO_STRING_CASE(STRING)
@@ -1811,6 +1814,8 @@ static char IntervalTypeFingerprint(IntervalType::type unit) {
       return 'd';
     case IntervalType::MONTHS:
       return 'M';
+    case IntervalType::MONTH_DAY_NANO:
+      return 'N';
     default:
       DCHECK(false) << "Unexpected IntervalType::type";
       return '\0';
@@ -2116,6 +2121,10 @@ std::shared_ptr<DataType> duration(TimeUnit::type unit) {
 
 std::shared_ptr<DataType> day_time_interval() {
   return std::make_shared<DayTimeIntervalType>();
+}
+
+std::shared_ptr<DataType> month_day_nano_interval() {
+  return std::make_shared<MonthDayNanoIntervalType>();
 }
 
 std::shared_ptr<DataType> month_interval() {

@@ -32,7 +32,6 @@ ${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
 # But unset the env var so that it doesn't cause us to run extra dev tests
 unset ARROW_R_DEV
 
-export TEST_R_WITH_ARROW=TRUE
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
 
 pushd tests

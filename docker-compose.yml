@@ -449,6 +449,7 @@ services:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
+      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
@@ -687,6 +688,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: *fedora-volumes
     command: *python-command
 
@@ -1353,6 +1355,7 @@ services:
       <<: *ccache
       ARROW_CUDA: "ON"
       ARROW_GLIB_GTK_DOC: "true"
+      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: *ubuntu-volumes
     command: &docs-command >
       /bin/bash -c "

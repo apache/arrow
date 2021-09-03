@@ -647,7 +647,9 @@ struct RandomArrayGeneratorOfImpl {
   }
 
   template <typename T>
-  enable_if_t<is_temporal_type<T>::value && !std::is_same<T, DayTimeIntervalType>::value,
+  enable_if_t<is_temporal_type<T>::value &&
+                  !std::is_same<T, DayTimeIntervalType>::value &&
+                  !std::is_same<T, MonthDayNanoIntervalType>::value,
               Status>
   Visit(const T&) {
     auto max = std::numeric_limits<typename T::c_type>::max();
@@ -867,6 +869,10 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       // This isn't as flexible as it could be, but the array-of-structs layout of this
       // type means it's not a (useful) composition of other generators
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
+    case Type::type::INTERVAL_MONTH_DAY_NANO: {
+      return *FixedSizeBinary(length, /*byte_width=*/16, null_probability)
+                  ->View(month_day_nano_interval());
+    }
 
       GENERATE_LIST_CASE(ListArray);
 
@@ -998,6 +1004,36 @@ std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
                                                   int64_t length, SeedType seed) {
   return RandomArrayGenerator(seed).BatchOf(fields, length);
 }
-
 }  // namespace random
+
+void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds>* out) {
+  const int random_seed = 0;
+  arrow::random::pcg32_fast gen(random_seed);
+  std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::min(),
+                                           std::numeric_limits<int32_t>::max());
+  out->resize(N, {});
+  std::generate(out->begin(), out->end(), [&d, &gen] {
+    DayTimeIntervalType::DayMilliseconds tmp;
+    tmp.days = d(gen);
+    tmp.milliseconds = d(gen);
+    return tmp;
+  });
+}
+
+void rand_month_day_nanos(int64_t N,
+                          std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out) {
+  const int random_seed = 0;
+  arrow::random::pcg32_fast gen(random_seed);
+  std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::min(),
+                                           std::numeric_limits<int64_t>::max());
+  out->resize(N, {});
+  std::generate(out->begin(), out->end(), [&d, &gen] {
+    MonthDayNanoIntervalType::MonthDayNanos tmp;
+    tmp.months = static_cast<int32_t>(d(gen));
+    tmp.days = static_cast<int32_t>(d(gen));
+    tmp.nanoseconds = d(gen);
+    return tmp;
+  });
+}
+
 }  // namespace arrow

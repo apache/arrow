@@ -2594,6 +2594,25 @@ def test_specified_schema(tempdir, dataset_reader):
         dataset_reader.to_table(dataset)
 
 
+@pytest.mark.parquet
+def test_incompatible_schema_hang(tempdir, dataset_reader):
+    # ARROW-13480: deadlock when reading past an errored fragment
+    import pyarrow.parquet as pq
+
+    fn = tempdir / "data.parquet"
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, fn)
+
+    schema = pa.schema([('a', pa.null())])
+    dataset = ds.dataset([str(fn)] * 100, schema=schema)
+    assert dataset.schema.equals(schema)
+    scanner = dataset_reader.scanner(dataset)
+    reader = scanner.to_reader()
+    with pytest.raises(NotImplementedError,
+                       match='Unsupported cast from int64 to null'):
+        reader.read_all()
+
+
 def test_ipc_format(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
                       'b': pa.array([.1, .2, .3], type="float64")})
@@ -3481,13 +3500,14 @@ def test_write_dataset_parquet(tempdir):
     assert result.equals(table)
 
     # using custom options
-    for version in ["1.0", "2.0"]:
+    for version in ["1.0", "2.4", "2.6"]:
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
-        assert meta.format_version == version
+        expected_version = "1.0" if version == "1.0" else "2.6"
+        assert meta.format_version == expected_version
 
 
 def test_write_dataset_csv(tempdir):

@@ -43,7 +43,9 @@ std::vector<std::string> GetInputLabels(const ExecNode::NodeVector& inputs) {
   return labels;
 }
 }  // namespace
-struct UnionNode : ExecNode {
+
+class UnionNode : public ExecNode {
+ public:
   UnionNode(ExecPlan* plan, std::vector<ExecNode*> inputs)
       : ExecNode(plan, inputs, GetInputLabels(inputs),
                  /*output_schema=*/inputs[0]->output_schema(),
@@ -141,7 +143,12 @@ struct UnionNode : ExecNode {
   Future<> finished_ = Future<>::MakeFinished();
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterUnion("union", UnionNode::Make);
+namespace internal {
 
+void RegisterUnionNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("union", UnionNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

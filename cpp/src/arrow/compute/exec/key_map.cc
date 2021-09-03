@@ -100,7 +100,7 @@ inline void SwissTable::search_block(uint64_t block, int stamp, int start_slot,
 // zero, which is the default value stored in empty slots.
 //
 inline uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
-                                             uint64_t group_id_mask) {
+                                             uint64_t group_id_mask) const {
   // Input slot can be equal to 8, in which case we need to output any valid group id
   // value, so we take the one from slot 0 in the block.
   int clamped_slot = slot & 7;

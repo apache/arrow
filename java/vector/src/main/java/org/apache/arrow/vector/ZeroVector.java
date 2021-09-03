@@ -20,6 +20,8 @@ package org.apache.arrow.vector;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -29,6 +31,35 @@ import org.apache.arrow.vector.util.TransferPair;
 public final class ZeroVector extends NullVector {
   public static final ZeroVector INSTANCE = new ZeroVector();
 
+  /**
+   * Instantiate a ZeroVector.
+   *
+   * @param name name of the vector
+   */
+  public ZeroVector(String name) {
+    super(name);
+  }
+
+  /**
+   * Instantiate a ZeroVector.
+   *
+   * @param name      name of the vector
+   * @param fieldType type of Field materialized by this vector.
+   */
+  public ZeroVector(String name, FieldType fieldType) {
+    super(name, fieldType);
+  }
+
+  /**
+   * Instantiate a ZeroVector.
+   *
+   * @param field field materialized by this vector.
+   */
+  public ZeroVector(Field field) {
+    super(field);
+  }
+
+  @Deprecated
   public ZeroVector() {
   }
 

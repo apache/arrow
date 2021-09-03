@@ -480,9 +480,6 @@ features in the package build (S3 support, compression libraries, etc.).
 Others are generally skipped by default but can be enabled with environment
 variables or other settings:
 
-* All tests are skipped on Linux if the package builds without the C++ libarrow.
-  To make the build fail if libarrow is not available (as in, to test that
-  the C++ build was successful), set `TEST_R_WITH_ARROW=true`
 * Some tests are disabled unless `ARROW_R_DEV=true`
 * Tests that require allocating >2GB of memory to test Large types are disabled
   unless `ARROW_LARGE_MEMORY_TESTS=true`

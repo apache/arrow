@@ -23,6 +23,7 @@
 #include <cstdint>
 
 #include "arrow/compute/exec/util.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace compute {
@@ -55,27 +56,24 @@ inline uint32_t Hashing::combine_accumulators(const uint32_t acc1, const uint32_
   return ROTL(acc1, 1) + ROTL(acc2, 7) + ROTL(acc3, 12) + ROTL(acc4, 18);
 }
 
-inline void Hashing::helper_8B(uint32_t key_length, uint32_t num_keys,
-                               const uint8_t* keys, uint32_t* hashes) {
+template <typename T>
+inline void Hashing::helper_8B(uint32_t key_length, uint32_t num_keys, const T* keys,
+                               uint32_t* hashes) {
   ARROW_DCHECK(key_length <= 8);
-  uint64_t mask = ~0ULL >> (8 * (8 - key_length));
   constexpr uint64_t multiplier = 14029467366897019727ULL;
-  uint32_t offset = 0;
   for (uint32_t ikey = 0; ikey < num_keys; ++ikey) {
-    uint64_t x = *reinterpret_cast<const uint64_t*>(keys + offset);
-    x &= mask;
+    uint64_t x = static_cast<uint64_t>(keys[ikey]);
     hashes[ikey] = static_cast<uint32_t>(BYTESWAP(x * multiplier));
-    offset += key_length;
   }
 }
 
 inline void Hashing::helper_stripe(uint32_t offset, uint64_t mask_hi, const uint8_t* keys,
                                    uint32_t& acc1, uint32_t& acc2, uint32_t& acc3,
                                    uint32_t& acc4) {
-  uint64_t v1 = reinterpret_cast<const uint64_t*>(keys + offset)[0];
+  uint64_t v1 = util::SafeLoadAs<const uint64_t>(keys + offset);
   // We do not need to mask v1, because we will not process a stripe
   // unless at least 9 bytes of it are part of the key.
-  uint64_t v2 = reinterpret_cast<const uint64_t*>(keys + offset)[1];
+  uint64_t v2 = util::SafeLoadAs<const uint64_t>(keys + offset + 8);
   v2 &= mask_hi;
   uint32_t x1 = static_cast<uint32_t>(v1);
   uint32_t x2 = static_cast<uint32_t>(v1 >> 32);
@@ -129,7 +127,7 @@ void Hashing::helper_stripes(int64_t hardware_flags, uint32_t num_keys,
 
 inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8_t* keys,
                                      uint32_t acc) {
-  uint64_t v = reinterpret_cast<const uint64_t*>(keys + offset)[0];
+  uint64_t v = util::SafeLoadAs<const uint64_t>(keys + offset);
   v &= mask;
   uint32_t x1 = static_cast<uint32_t>(v);
   uint32_t x2 = static_cast<uint32_t>(v >> 32);
@@ -163,8 +161,23 @@ void Hashing::hash_fixed(int64_t hardware_flags, uint32_t num_keys, uint32_t len
                          const uint8_t* keys, uint32_t* hashes) {
   ARROW_DCHECK(length_key > 0);
 
-  if (length_key <= 8) {
-    helper_8B(length_key, num_keys, keys, hashes);
+  if (length_key <= 8 && ARROW_POPCOUNT64(length_key) == 1) {
+    switch (length_key) {
+      case 1:
+        helper_8B(length_key, num_keys, keys, hashes);
+        break;
+      case 2:
+        helper_8B(length_key, num_keys, reinterpret_cast<const uint16_t*>(keys), hashes);
+        break;
+      case 4:
+        helper_8B(length_key, num_keys, reinterpret_cast<const uint32_t*>(keys), hashes);
+        break;
+      case 8:
+        helper_8B(length_key, num_keys, reinterpret_cast<const uint64_t*>(keys), hashes);
+        break;
+      default:
+        ARROW_DCHECK(false);
+    }
     return;
   }
   helper_stripes(hardware_flags, num_keys, length_key, keys, hashes);
@@ -174,46 +187,6 @@ void Hashing::hash_fixed(int64_t hardware_flags, uint32_t num_keys, uint32_t len
   avalanche(hardware_flags, num_keys, hashes);
 }
 
-void Hashing::hash_varlen_helper(uint32_t length, const uint8_t* key, uint32_t* acc) {
-  for (uint32_t i = 0; i < length / 16; ++i) {
-    for (int j = 0; j < 4; ++j) {
-      uint32_t lane = reinterpret_cast<const uint32_t*>(key)[i * 4 + j];
-      acc[j] += (lane * PRIME32_2);
-      acc[j] = ROTL(acc[j], 13);
-      acc[j] *= PRIME32_1;
-    }
-  }
-
-  int tail = length % 16;
-  if (tail) {
-    uint64_t last_stripe[2];
-    const uint64_t* last_stripe_base =
-        reinterpret_cast<const uint64_t*>(key + length - (length % 16));
-    last_stripe[0] = last_stripe_base[0];
-    uint64_t mask = ~0ULL >> (8 * ((length + 7) / 8 * 8 - length));
-    if (tail <= 8) {
-      last_stripe[1] = 0;
-      last_stripe[0] &= mask;
-    } else {
-      last_stripe[1] = last_stripe_base[1];
-      last_stripe[1] &= mask;
-    }
-
-    // The stack allocation and memcpy here should be optimized out by the compiler.
-    // Using a reinterpret_cast causes a compiler warning on gcc and can lead to incorrect
-    // results. See https://issues.apache.org/jira/browse/ARROW-13600 for more info.
-    uint32_t lanes[4];
-    memcpy(&lanes, &last_stripe, sizeof(last_stripe));
-
-    for (int j = 0; j < 4; ++j) {
-      uint32_t lane = lanes[j];
-      acc[j] += (lane * PRIME32_2);
-      acc[j] = ROTL(acc[j], 13);
-      acc[j] *= PRIME32_1;
-    }
-  }
-}
-
 void Hashing::hash_varlen(int64_t hardware_flags, uint32_t num_rows,
                           const uint32_t* offsets, const uint8_t* concatenated_keys,
                           uint32_t* temp_buffer,  // Needs to hold 4 x 32-bit per row
@@ -221,24 +194,125 @@ void Hashing::hash_varlen(int64_t hardware_flags, uint32_t num_rows,
 #if defined(ARROW_HAVE_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     hash_varlen_avx2(num_rows, offsets, concatenated_keys, temp_buffer, hashes);
-  } else {
-#endif
-    for (uint32_t i = 0; i < num_rows; ++i) {
-      uint32_t acc[4];
-      acc[0] = static_cast<uint32_t>(
-          (static_cast<uint64_t>(PRIME32_1) + static_cast<uint64_t>(PRIME32_2)) &
-          0xffffffff);
-      acc[1] = PRIME32_2;
-      acc[2] = 0;
-      acc[3] = static_cast<uint32_t>(-static_cast<int32_t>(PRIME32_1));
-      uint32_t length = offsets[i + 1] - offsets[i];
-      hash_varlen_helper(length, concatenated_keys + offsets[i], acc);
-      hashes[i] = combine_accumulators(acc[0], acc[1], acc[2], acc[3]);
-    }
-    avalanche(hardware_flags, num_rows, hashes);
-#if defined(ARROW_HAVE_AVX2)
+    return;
   }
 #endif
+  static const uint64_t masks[9] = {0,
+                                    0xffULL,
+                                    0xffffULL,
+                                    0xffffffULL,
+                                    0xffffffffULL,
+                                    0xffffffffffULL,
+                                    0xffffffffffffULL,
+                                    0xffffffffffffffULL,
+                                    ~0ULL};
+
+  for (uint32_t i = 0; i < num_rows; ++i) {
+    uint32_t offset = offsets[i];
+    uint32_t key_length = offsets[i + 1] - offsets[i];
+    const uint32_t num_stripes = key_length / 16;
+
+    uint32_t acc1, acc2, acc3, acc4;
+    acc1 = static_cast<uint32_t>(
+        (static_cast<uint64_t>(PRIME32_1) + static_cast<uint64_t>(PRIME32_2)) &
+        0xffffffff);
+    acc2 = PRIME32_2;
+    acc3 = 0;
+    acc4 = static_cast<uint32_t>(-static_cast<int32_t>(PRIME32_1));
+
+    for (uint32_t stripe = 0; stripe < num_stripes; ++stripe) {
+      helper_stripe(offset, ~0ULL, concatenated_keys, acc1, acc2, acc3, acc4);
+      offset += 16;
+    }
+    uint32_t key_length_remaining = key_length - num_stripes * 16;
+    if (key_length_remaining > 8) {
+      helper_stripe(offset, masks[key_length_remaining - 8], concatenated_keys, acc1,
+                    acc2, acc3, acc4);
+      hashes[i] = combine_accumulators(acc1, acc2, acc3, acc4);
+    } else if (key_length > 0) {
+      uint32_t acc_combined = combine_accumulators(acc1, acc2, acc3, acc4);
+      hashes[i] = helper_tail(offset, masks[key_length_remaining], concatenated_keys,
+                              acc_combined);
+    } else {
+      hashes[i] = combine_accumulators(acc1, acc2, acc3, acc4);
+    }
+  }
+  avalanche(hardware_flags, num_rows, hashes);
+}
+
+// From:
+// https://www.boost.org/doc/libs/1_37_0/doc/html/hash/reference.html#boost.hash_combine
+// template <class T>
+// inline void hash_combine(std::size_t& seed, const T& v)
+//{
+//    std::hash<T> hasher;
+//    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+//}
+void Hashing::HashCombine(KeyEncoder::KeyEncoderContext* ctx, uint32_t num_rows,
+                          uint32_t* accumulated_hash, const uint32_t* next_column_hash) {
+  uint32_t num_processed = 0;
+#if defined(ARROW_HAVE_AVX2)
+  if (ctx->has_avx2()) {
+    num_processed = HashCombine_avx2(num_rows, accumulated_hash, next_column_hash);
+  }
+#endif
+  for (uint32_t i = num_processed; i < num_rows; ++i) {
+    uint32_t acc = accumulated_hash[i];
+    uint32_t next = next_column_hash[i];
+    next += 0x9e3779b9 + (acc << 6) + (acc >> 2);
+    acc ^= next;
+    accumulated_hash[i] = acc;
+  }
+}
+
+void Hashing::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& cols,
+                              KeyEncoder::KeyEncoderContext* ctx, uint32_t* out_hash) {
+  uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
+
+  auto hash_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, num_rows);
+  auto hash_null_index_buf = util::TempVectorHolder<uint16_t>(ctx->stack, num_rows);
+  auto byte_temp_buf = util::TempVectorHolder<uint8_t>(ctx->stack, num_rows);
+  auto varbin_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, 4 * num_rows);
+
+  bool is_first = true;
+
+  for (size_t icol = 0; icol < cols.size(); ++icol) {
+    if (cols[icol].metadata().is_fixed_length) {
+      uint32_t col_width = cols[icol].metadata().fixed_length;
+      if (col_width == 0) {
+        util::BitUtil::bits_to_bytes(ctx->hardware_flags, num_rows, cols[icol].data(1),
+                                     byte_temp_buf.mutable_data(),
+                                     cols[icol].bit_offset(1));
+      }
+      Hashing::hash_fixed(
+          ctx->hardware_flags, num_rows, col_width == 0 ? 1 : col_width,
+          col_width == 0 ? byte_temp_buf.mutable_data() : cols[icol].data(1),
+          is_first ? out_hash : hash_temp_buf.mutable_data());
+    } else {
+      Hashing::hash_varlen(
+          ctx->hardware_flags, num_rows, cols[icol].offsets(), cols[icol].data(2),
+          varbin_temp_buf.mutable_data(),  // Needs to hold 4 x 32-bit per row
+          is_first ? out_hash : hash_temp_buf.mutable_data());
+    }
+
+    // Zero hash for nulls
+    if (cols[icol].data(0)) {
+      uint32_t* dst_hash = is_first ? out_hash : hash_temp_buf.mutable_data();
+      int num_nulls;
+      util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, num_rows, cols[icol].data(0),
+                                     &num_nulls, hash_null_index_buf.mutable_data(),
+                                     cols[icol].bit_offset(0));
+      for (int i = 0; i < num_nulls; ++i) {
+        uint16_t row_id = hash_null_index_buf.mutable_data()[i];
+        dst_hash[row_id] = 0;
+      }
+    }
+
+    if (!is_first) {
+      HashCombine(ctx, num_rows, out_hash, hash_temp_buf.mutable_data());
+    }
+    is_first = false;
+  }
 }
 
 }  // namespace compute

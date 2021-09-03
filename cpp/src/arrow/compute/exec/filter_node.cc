@@ -135,8 +135,14 @@ class FilterNode : public ExecNode {
   Expression filter_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterFilter("filter", FilterNode::Make);
-
 }  // namespace
+
+namespace internal {
+
+void RegisterFilterNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("filter", FilterNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

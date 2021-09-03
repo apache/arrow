@@ -43,7 +43,11 @@
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
+
+#if defined(ARROW_R_WITH_JSON)
 #include <arrow/json/type_fwd.h>
+#endif
+
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
 
@@ -101,6 +105,7 @@ auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
 }
 
 namespace r {
+class RTasks;
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
@@ -174,9 +179,13 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
 
 #if defined(HAS_ALTREP)
+
+namespace altrep {
+
 void Init_Altrep_classes(DllInfo* dll);
-SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array);
-SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array);
+SEXP MakeAltrepArrayPrimitive(const std::shared_ptr<Array>& array);
+
+}  // namespace altrep
 #endif
 
 }  // namespace r
@@ -216,9 +225,11 @@ R6_CLASS_NAME(parquet::arrow::FileWriter, "ParquetFileWriter");
 
 R6_CLASS_NAME(arrow::ipc::feather::Reader, "FeatherReader");
 
+#if defined(ARROW_R_WITH_JSON)
 R6_CLASS_NAME(arrow::json::ReadOptions, "JsonReadOptions");
 R6_CLASS_NAME(arrow::json::ParseOptions, "JsonParseOptions");
 R6_CLASS_NAME(arrow::json::TableReader, "JsonTableReader");
+#endif
 
 #undef R6_CLASS_NAME
 

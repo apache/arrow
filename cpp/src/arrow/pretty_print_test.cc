@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -54,6 +55,7 @@ void CheckStream(const T& obj, const PrettyPrintOptions& options, const char* ex
 
 void CheckArray(const Array& arr, const PrettyPrintOptions& options, const char* expected,
                 bool check_operator = true) {
+  ARROW_SCOPED_TRACE("For datatype: ", arr.type()->ToString());
   CheckStream(arr, options, expected);
 
   if (options.indent == 0 && check_operator) {
@@ -276,6 +278,192 @@ TEST_F(TestPrettyPrint, DateTimeTypes) {
     CheckPrimitive<Time64Type, int64_t>(time64(TimeUnit::NANO), {0, 10}, is_valid, values,
                                         expected);
   }
+}
+
+TEST_F(TestPrettyPrint, TestIntervalTypes) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+
+  {
+    std::vector<DayTimeIntervalType::DayMilliseconds> values = {
+        {1, 2}, {-3, 4}, {}, {}, {}};
+    static const char* expected = R"expected([
+  1d2ms,
+  -3d4ms,
+  null,
+  0d0ms,
+  null
+])expected";
+    CheckPrimitive<DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds>(
+        {0, 10}, is_valid, values, expected);
+  }
+  {
+    std::vector<MonthDayNanoIntervalType::MonthDayNanos> values = {
+        {1, 2, 3}, {-3, 4, -5}, {}, {}, {}};
+    static const char* expected = R"expected([
+  1m2d3ns,
+  -3m4d-5ns,
+  null,
+  0m0d0ns,
+  null
+])expected";
+    CheckPrimitive<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+        {0, 10}, is_valid, values, expected);
+  }
+}
+
+TEST_F(TestPrettyPrint, DateTimeTypesWithOutOfRangeValues) {
+  // Our vendored date library allows years within [-32767, 32767],
+  // which limits the range of values which can be displayed.
+  const int32_t min_int32 = std::numeric_limits<int32_t>::min();
+  const int32_t max_int32 = std::numeric_limits<int32_t>::max();
+  const int64_t min_int64 = std::numeric_limits<int64_t>::min();
+  const int64_t max_int64 = std::numeric_limits<int64_t>::max();
+
+  const int32_t min_date32 = -12687428;
+  const int32_t max_date32 = 11248737;
+  const int64_t min_date64 = 86400000LL * min_date32;
+  const int64_t max_date64 = 86400000LL * (max_date32 + 1) - 1;
+  const int64_t min_timestamp_seconds = -1096193779200LL;
+  const int64_t max_timestamp_seconds = 971890963199LL;
+  const int64_t min_timestamp_millis = min_timestamp_seconds * 1000;
+  const int64_t max_timestamp_millis = max_timestamp_seconds * 1000 + 999;
+  const int64_t min_timestamp_micros = min_timestamp_millis * 1000;
+  const int64_t max_timestamp_micros = max_timestamp_millis * 1000 + 999;
+
+  std::vector<bool> is_valid = {false, false, false, false, true,
+                                true,  true,  true,  true,  true};
+
+  {
+    std::vector<int32_t> values = {min_int32,  max_int32, min_date32 - 1, max_date32 + 1,
+                                   min_int32,  max_int32, min_date32 - 1, max_date32 + 1,
+                                   min_date32, max_date32};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -2147483648>,
+  <value out of range: 2147483647>,
+  <value out of range: -12687429>,
+  <value out of range: 11248738>,
+  -32767-01-01,
+  32767-12-31
+])expected";
+    CheckPrimitive<Date32Type, int32_t>({0, 10}, is_valid, values, expected);
+  }
+
+  {
+    std::vector<int64_t> values = {min_int64,  max_int64, min_date64 - 1, max_date64 + 1,
+                                   min_int64,  max_int64, min_date64 - 1, max_date64 + 1,
+                                   min_date64, max_date64};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779200001>,
+  <value out of range: 971890963200000>,
+  -32767-01-01,
+  32767-12-31
+])expected";
+    CheckPrimitive<Date64Type, int64_t>({0, 10}, is_valid, values, expected);
+  }
+
+  // TODO time32, time64
+
+  {
+    std::vector<int64_t> values = {min_int64,
+                                   max_int64,
+                                   min_timestamp_seconds - 1,
+                                   max_timestamp_seconds + 1,
+                                   min_int64,
+                                   max_int64,
+                                   min_timestamp_seconds - 1,
+                                   max_timestamp_seconds + 1,
+                                   min_timestamp_seconds,
+                                   max_timestamp_seconds};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779201>,
+  <value out of range: 971890963200>,
+  -32767-01-01 00:00:00,
+  32767-12-31 23:59:59
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::SECOND), {0, 10}, is_valid,
+                                           values, expected);
+  }
+  {
+    std::vector<int64_t> values = {min_int64,
+                                   max_int64,
+                                   min_timestamp_millis - 1,
+                                   max_timestamp_millis + 1,
+                                   min_int64,
+                                   max_int64,
+                                   min_timestamp_millis - 1,
+                                   max_timestamp_millis + 1,
+                                   min_timestamp_millis,
+                                   max_timestamp_millis};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779200001>,
+  <value out of range: 971890963200000>,
+  -32767-01-01 00:00:00.000,
+  32767-12-31 23:59:59.999
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MILLI), {0, 10}, is_valid,
+                                           values, expected);
+  }
+  {
+    std::vector<int64_t> values = {min_int64,
+                                   max_int64,
+                                   min_timestamp_micros - 1,
+                                   max_timestamp_micros + 1,
+                                   min_int64,
+                                   max_int64,
+                                   min_timestamp_micros - 1,
+                                   max_timestamp_micros + 1,
+                                   min_timestamp_micros,
+                                   max_timestamp_micros};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779200000001>,
+  <value out of range: 971890963200000000>,
+  -32767-01-01 00:00:00.000000,
+  32767-12-31 23:59:59.999999
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO), {0, 10}, is_valid,
+                                           values, expected);
+  }
+#ifndef ARROW_UBSAN
+  // While the values below are legal and correct, they trigger an internal
+  // signed overflow inside the arrow_vendored::date library.
+  {
+    std::vector<int64_t> values = {min_int64, max_int64};
+    static const char* expected = R"expected([
+  1677-09-21 00:12:43.145224192,
+  2262-04-11 23:47:16.854775807
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::NANO), {0, 10},
+                                           {true, true}, values, expected);
+  }
+#endif
 }
 
 TEST_F(TestPrettyPrint, StructTypeBasic) {

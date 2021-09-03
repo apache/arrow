@@ -62,8 +62,14 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
   switch (ver) {
     case ParquetVersion::PARQUET_1_0:
       return "1.0";
+      ARROW_SUPPRESS_DEPRECATION_WARNING
     case ParquetVersion::PARQUET_2_0:
-      return "2.0";
+      return "pseudo-2.0";
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    case ParquetVersion::PARQUET_2_4:
+      return "2.4";
+    case ParquetVersion::PARQUET_2_6:
+      return "2.6";
   }
 
   // This should be unreachable
@@ -815,7 +821,7 @@ ParquetVersion::type FileMetaData::version() const {
     case 1:
       return ParquetVersion::PARQUET_1_0;
     case 2:
-      return ParquetVersion::PARQUET_2_0;
+      return ParquetVersion::PARQUET_2_LATEST;
     default:
       // Improperly set version, assuming Parquet 1.0
       break;
@@ -1670,10 +1676,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       case ParquetVersion::PARQUET_1_0:
         file_version = 1;
         break;
-      case ParquetVersion::PARQUET_2_0:
-        file_version = 2;
-        break;
       default:
+        file_version = 2;
         break;
     }
     metadata_->__set_version(file_version);

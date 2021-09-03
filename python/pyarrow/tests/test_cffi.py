@@ -317,3 +317,38 @@ def test_export_import_batch_reader(reader_factory):
     # Now released
     with assert_stream_released:
         pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+
+
+@needs_cffi
+def test_imported_batch_reader_error():
+    c_stream = ffi.new("struct ArrowArrayStream*")
+    ptr_stream = int(ffi.cast("uintptr_t", c_stream))
+
+    schema = pa.schema([('foo', pa.int32())])
+    batches = [pa.record_batch([[1, 2, 3]], schema=schema),
+               pa.record_batch([[4, 5, 6]], schema=schema)]
+    buf = make_serialized(schema, batches)
+
+    # Open a corrupt/incomplete stream and export it
+    reader = pa.ipc.open_stream(buf[:-16])
+    reader._export_to_c(ptr_stream)
+    del reader
+
+    reader_new = pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+    batch = reader_new.read_next_batch()
+    assert batch == batches[0]
+    with pytest.raises(OSError,
+                       match="Expected to be able to read 16 bytes "
+                             "for message body, got 8"):
+        reader_new.read_next_batch()
+
+    # Again, but call read_all()
+    reader = pa.ipc.open_stream(buf[:-16])
+    reader._export_to_c(ptr_stream)
+    del reader
+
+    reader_new = pa.ipc.RecordBatchReader._import_from_c(ptr_stream)
+    with pytest.raises(OSError,
+                       match="Expected to be able to read 16 bytes "
+                             "for message body, got 8"):
+        reader_new.read_all()

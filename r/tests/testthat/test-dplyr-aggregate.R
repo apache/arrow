@@ -59,9 +59,7 @@ test_that("Can aggregate in Arrow", {
     input %>%
       summarize(total = sum(int)) %>%
       collect(),
-    tbl,
-    # ARROW-13497: This is failing because the default is na.rm = FALSE
-    warning = TRUE
+    tbl
   )
 })
 
@@ -91,14 +89,91 @@ test_that("Group by sum on dataset", {
       arrange(some_grouping) %>%
       collect(),
     tbl,
-    # ARROW-13497: This is failing because the default is na.rm = FALSE
-    warning = TRUE
+  )
+})
+
+test_that("Group by mean on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(mean = mean(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(mean = mean(int, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Group by sd on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(sd = sd(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+  skip("ARROW-13691 - na.rm not yet implemented for VarianceOptions")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(sd = sd(int, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Group by var on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(var = var(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+  skip("ARROW-13691 - na.rm not yet implemented for VarianceOptions")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(var = var(int, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("n()", {
+  withr::local_options(list(arrow.debug = TRUE))
+  expect_dplyr_equal(
+    input %>%
+      summarize(counts = n()) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(counts = n()) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
   )
 })
 
 test_that("Group by any/all", {
-  withr::local_options(list(arrow.debug = TRUE))
-
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
@@ -115,7 +190,22 @@ test_that("Group by any/all", {
       collect(),
     tbl
   )
-  # ARROW-13497: na.rm option also is not being passed/received to any/all
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(any(lgl, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(all(lgl, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
 
   expect_dplyr_equal(
     input %>%
@@ -135,12 +225,28 @@ test_that("Group by any/all", {
       collect(),
     tbl
   )
-  skip("This seems to be calling base::nchar")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
-      summarize(has_words = all(nchar(verses) < 0)) %>%
+      summarize(has_words = all(nchar(verses) < 0, na.rm = TRUE)) %>%
       arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Group by n_distinct() on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(distinct = n_distinct(lgl, na.rm = FALSE)) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
