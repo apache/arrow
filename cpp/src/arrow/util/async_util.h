@@ -25,6 +25,7 @@
 namespace arrow {
 namespace util {
 
+/// Custom deleter for AsyncDestroyable objects
 template <typename T>
 struct DestroyingDeleter {
   void operator()(T* p) { p->Destroy(); }
@@ -33,7 +34,8 @@ struct DestroyingDeleter {
 /// An object which should be asynchronously closed before it is destroyed
 ///
 /// Classes can extend this to ensure that the close method is called and completed
-/// before the instance is deleted.
+/// before the instance is deleted.  This provides smart_ptr / delete semantics for
+/// objects with an asynchronous destructor.
 ///
 /// Classes which extend this must be constructed using MakeSharedAsync or MakeUniqueAsync
 class ARROW_EXPORT AsyncDestroyable {
@@ -41,6 +43,11 @@ class ARROW_EXPORT AsyncDestroyable {
   AsyncDestroyable();
   virtual ~AsyncDestroyable();
 
+  /// A future which will complete when the AsyncDestroyable has finished and is ready
+  /// to be deleted.
+  ///
+  /// This can be used to ensure all work done by this object has been completed before
+  /// proceeding.
   Future<> on_closed() { return on_closed_; }
 
  protected:
@@ -88,10 +95,30 @@ std::unique_ptr<T, DestroyingDeleter<T>> MakeUniqueAsync(Args&&... args) {
   return ptr;
 }
 
+/// A utility which keeps track of a collection of asynchronous tasks
+///
+/// This can be used to provide structured concurrency for asynchronous development.
+/// A task group created at a high level can be distributed amongst low level components
+/// which register work to be completed.  The high level job can then wait for all work
+/// to be completed before cleaning up.
 class AsyncTaskGroup {
  public:
+  /// Add a task to be tracked by this task group
+  ///
+  /// If a previous task has failed then adding a task will fail
+  ///  
+  /// If WaitForTasksToFinish has been called and the returned future has been marked
+  /// completed then adding a task will fail.
   Status AddTask(const Future<>& task);
-  Future<> StopAddingAndWait();
+  /// A future that will be completed when all running tasks are finished.
+  ///
+  /// It is allowed for tasks to be added after this call provided the future has not yet
+  /// completed.  This should be safe as long as the tasks being added are added as part
+  /// of a task that is tracked.  As soon as the count of running tasks reaches 0 this
+  /// future will be marked complete.
+  ///
+  /// Any attempt to add a task after the returned future has completed will fail.
+  Future<> WaitForTasksToFinish();
 
  private:
   bool finished_adding_ = false;

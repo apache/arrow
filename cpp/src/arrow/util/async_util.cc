@@ -43,11 +43,17 @@ void AsyncDestroyable::Destroy() {
 
 Status AsyncTaskGroup::AddTask(const Future<>& task) {
   auto guard = mutex_.Lock();
-  if (finished_adding_) {
-    return Status::Invalid("Attempt to add a task after StopAddingAndWait");
+  if (all_tasks_done_.is_finished()) {
+    return Status::Invalid("Attempt to add a task after the task group has completed");
   }
   if (!err_.ok()) {
     return err_;
+  }
+  // If the task is already finished there is nothing to track so lets save
+  // some work and return early
+  if (task.is_finished()) {
+    err_ &= task.status();
+    return Status::OK();
   }
   running_tasks_++;
   guard.Unlock();
@@ -62,11 +68,12 @@ Status AsyncTaskGroup::AddTask(const Future<>& task) {
   return Status::OK();
 }
 
-Future<> AsyncTaskGroup::StopAddingAndWait() {
+Future<> AsyncTaskGroup::WaitForTasksToFinish() {
   auto guard = mutex_.Lock();
   finished_adding_ = true;
   if (running_tasks_ == 0) {
-    return err_;
+    all_tasks_done_.MarkFinished(err_);
+    return all_tasks_done_;
   }
   return all_tasks_done_;
 }

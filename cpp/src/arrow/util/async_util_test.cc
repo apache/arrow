@@ -86,7 +86,7 @@ TEST(AsyncTaskGroup, Basic) {
   Future<> fut2 = Future<>::Make();
   ASSERT_OK(task_group.AddTask(fut1));
   ASSERT_OK(task_group.AddTask(fut2));
-  Future<> all_done = task_group.StopAddingAndWait();
+  Future<> all_done = task_group.WaitForTasksToFinish();
   AssertNotFinished(all_done);
   fut1.MarkFinished();
   AssertNotFinished(all_done);
@@ -96,20 +96,36 @@ TEST(AsyncTaskGroup, Basic) {
 
 TEST(AsyncTaskGroup, NoTasks) {
   AsyncTaskGroup task_group;
-  ASSERT_FINISHES_OK(task_group.StopAddingAndWait());
+  ASSERT_FINISHES_OK(task_group.WaitForTasksToFinish());
 }
 
 TEST(AsyncTaskGroup, AddAfterDone) {
   AsyncTaskGroup task_group;
-  ASSERT_FINISHES_OK(task_group.StopAddingAndWait());
+  ASSERT_FINISHES_OK(task_group.WaitForTasksToFinish());
   ASSERT_RAISES(Invalid, task_group.AddTask(Future<>::Make()));
+}
+
+TEST(AsyncTaskGroup, AddAfterWaitButBeforeFinish) {
+  AsyncTaskGroup task_group;
+  Future<> task_one = Future<>::Make();
+  ASSERT_OK(task_group.AddTask(task_one));
+  Future<> finish_fut = task_group.WaitForTasksToFinish();
+  AssertNotFinished(finish_fut);
+  Future<> task_two = Future<>::Make();
+  ASSERT_OK(task_group.AddTask(task_two));
+  AssertNotFinished(finish_fut);
+  task_one.MarkFinished();
+  AssertNotFinished(finish_fut);
+  task_two.MarkFinished();
+  AssertFinished(finish_fut);
+  ASSERT_FINISHES_OK(finish_fut);
 }
 
 TEST(AsyncTaskGroup, Error) {
   AsyncTaskGroup task_group;
   Future<> failed_task = Future<>::MakeFinished(Status::Invalid("XYZ"));
   ASSERT_OK(task_group.AddTask(failed_task));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.StopAddingAndWait());
+  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.WaitForTasksToFinish());
 }
 
 TEST(AsyncTaskGroup, TaskFinishesAfterError) {
@@ -117,7 +133,7 @@ TEST(AsyncTaskGroup, TaskFinishesAfterError) {
   Future<> fut1 = Future<>::Make();
   ASSERT_OK(task_group.AddTask(fut1));
   ASSERT_OK(task_group.AddTask(Future<>::MakeFinished(Status::Invalid("XYZ"))));
-  Future<> finished_fut = task_group.StopAddingAndWait();
+  Future<> finished_fut = task_group.WaitForTasksToFinish();
   AssertNotFinished(finished_fut);
   fut1.MarkFinished();
   ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
@@ -127,7 +143,7 @@ TEST(AsyncTaskGroup, AddAfterFailed) {
   AsyncTaskGroup task_group;
   ASSERT_OK(task_group.AddTask(Future<>::MakeFinished(Status::Invalid("XYZ"))));
   ASSERT_RAISES(Invalid, task_group.AddTask(Future<>::Make()));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.StopAddingAndWait());
+  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.WaitForTasksToFinish());
 }
 
 }  // namespace util
