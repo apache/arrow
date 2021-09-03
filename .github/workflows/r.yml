@@ -247,6 +247,7 @@ jobs:
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE
           )
           rcmdcheck::rcmdcheck("r",
@@ -260,6 +261,15 @@ jobs:
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
       # We can remove this when we drop support for Rtools 3.5.
       - name: Ensure using system tar in actions/cache
         run: |
