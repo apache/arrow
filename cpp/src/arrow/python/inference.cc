@@ -354,14 +354,17 @@ class TypeInferrer {
       *keep_going = make_unions_;
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
-    } else if (PyList_Check(obj) || PyTuple_Check(obj)) {
-      RETURN_NOT_OK(VisitList(obj, keep_going));
-    } else if (PySet_Check(obj)) {
+    } else if (PySet_Check(obj) || Py_IS_TYPE(obj, &PyDictValues_Type)) {
       RETURN_NOT_OK(VisitSet(obj, keep_going));
     } else if (PyArray_Check(obj)) {
       RETURN_NOT_OK(VisitNdarray(obj, keep_going));
     } else if (PyDict_Check(obj)) {
       RETURN_NOT_OK(VisitDict(obj));
+    } else if (PySequence_Check(obj)) {
+      // Deals with generic sequences. Including list and tuple.
+      // Must be the last in if/else chain as more specific types might
+      // figure as sequences too.
+      RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
