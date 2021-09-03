@@ -51,7 +51,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
 
   mask <- arrow_mask(.data, aggregation = TRUE)
 
-  results <- list()
+  results <- empty_named_list()
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
