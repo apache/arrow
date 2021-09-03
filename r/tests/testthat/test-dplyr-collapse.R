@@ -16,7 +16,6 @@
 # under the License.
 
 skip_if_not_available("dataset")
-skip_if_multithreading_disabled()
 
 withr::local_options(list(arrow.summarise.sort = TRUE))
 

@@ -16,7 +16,6 @@
 # under the License.
 
 skip_if_not_available("dataset")
-skip_if_multithreading_disabled()
 
 library(dplyr)
 library(stringr)

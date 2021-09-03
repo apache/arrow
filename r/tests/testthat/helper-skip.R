@@ -25,6 +25,10 @@ skip_if_not_available <- function(feature) {
   if (feature == "re2") {
     # RE2 does not support valgrind (on purpose): https://github.com/google/re2/issues/177
     skip_on_valgrind()
+  } else if (feature == "dataset") {
+    # These tests often hang on 32-bit windows rtools35, and we haven't been
+    # able to figure out how to make them work safely
+    skip_if_multithreading_disabled()
   }
 
   yes <- feature %in% names(build_features) && build_features[feature]
