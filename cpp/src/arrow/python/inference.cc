@@ -400,11 +400,11 @@ class TypeInferrer {
     }
   }
 
-    // Infer value type from a sequence of values
+  // Infer value type from a sequence of values
   Status VisitIterable(PyObject* obj) {
-    return internal::VisitIterable(
-        obj,
-        [this](PyObject* value, bool* keep_going) { return Visit(value, keep_going); });
+    return internal::VisitIterable(obj, [this](PyObject* value, bool* keep_going) {
+      return Visit(value, keep_going);
+    });
   }
 
   Status GetType(std::shared_ptr<DataType>* out) {
