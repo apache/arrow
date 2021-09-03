@@ -18,7 +18,7 @@
 skip_if_not_available("dataset")
 skip_if_multithreading_disabled()
 
-# withr::local_options(list(arrow.summarise.sort = TRUE))
+withr::local_options(list(arrow.summarise.sort = TRUE))
 
 library(dplyr)
 library(stringr)
