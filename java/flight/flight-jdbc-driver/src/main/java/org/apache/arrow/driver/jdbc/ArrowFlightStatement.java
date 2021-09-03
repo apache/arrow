@@ -36,7 +36,9 @@ public class ArrowFlightStatement extends AvaticaStatement {
   }
 
   /**
-   * Returns a FlightInfo for Statement query execution
+   * Returns a FlightInfo for Statement query execution.
+   *
+   * @return the {@link FlightInfo}.
    */
   public FlightInfo getFlightInfoToExecuteQuery() throws SQLException {
     final ArrowFlightConnection connection = (ArrowFlightConnection) getConnection();

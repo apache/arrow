@@ -17,36 +17,62 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.calcite.avatica.AvaticaConnection;
+import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaPreparedStatement;
-import org.apache.calcite.avatica.Meta;
+import org.apache.calcite.avatica.Meta.Signature;
+import org.apache.calcite.avatica.Meta.StatementHandle;
 
 
 /**
  * Arrow Flight JBCS's implementation {@link PreparedStatement}.
- *
  */
 public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement {
 
   private final FlightClientHandler.PreparedStatement preparedStatement;
 
-  ArrowFlightPreparedStatement(final AvaticaConnection connection,
-      final Meta.StatementHandle handle,
-      final Meta.Signature signature, final int resultSetType,
-      final int resultSetConcurrency, final int resultSetHoldability) throws SQLException {
-    super(connection, handle, signature, resultSetType, resultSetConcurrency,
-        resultSetHoldability);
-    final FlightClientHandler clientHandler = ((ArrowFlightConnection) connection).getClientHandler();
-    this.preparedStatement = clientHandler.prepare(signature.sql);
+  private ArrowFlightPreparedStatement(final ArrowFlightConnection connection,
+                                       final FlightClientHandler.PreparedStatement preparedStatement,
+                                       final StatementHandle handle,
+                                       final Signature signature, final int resultSetType,
+                                       final int resultSetConcurrency, final int resultSetHoldability)
+      throws SQLException {
+    super(connection, handle, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
+    this.preparedStatement = Preconditions.checkNotNull(preparedStatement);
   }
 
   /**
-   * Returns a FlightInfo for PreparedStatement query execution
+   * Creates a new {@link ArrowFlightPreparedStatement} from the provided information.
+   *
+   * @param connection           the {@link Connection} to use.
+   * @param statementHandle      the {@link StatementHandle} to use.
+   * @param signature            the {@link Signature} to use.
+   * @param resultSetType        the ResultSet type.
+   * @param resultSetConcurrency the ResultSet concurrency.
+   * @param resultSetHoldability the ResultSet holdability.
+   * @return a new {@link PreparedStatement}.
+   * @throws SQLException on error.
+   */
+  static ArrowFlightPreparedStatement createNewPreparedStatement(final ArrowFlightConnection connection,
+                                                                 final StatementHandle statementHandle,
+                                                                 final Signature signature,
+                                                                 final int resultSetType,
+                                                                 final int resultSetConcurrency,
+                                                                 final int resultSetHoldability) throws SQLException {
+    return new ArrowFlightPreparedStatement(
+        connection, connection.getClientHandler().prepare(signature.sql), statementHandle,
+        signature, resultSetType, resultSetConcurrency, resultSetHoldability);
+  }
+
+  /**
+   * Returns a FlightInfo for PreparedStatement query execution.
+   *
+   * @return the {@link FlightInfo}.
    */
   public FlightInfo getFlightInfoToExecuteQuery() throws SQLException {
     return preparedStatement.executeQuery();
