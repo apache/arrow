@@ -505,11 +505,19 @@ def test_filters_invalid_pred_op(tempdir, use_legacy_dataset):
                                     use_legacy_dataset=use_legacy_dataset)
         assert dataset.read().num_rows == 0
 
-    with pytest.raises(ValueError):
-        pq.ParquetDataset(base_path,
-                          filesystem=fs,
-                          filters=[('integers', '!=', {3})],
-                          use_legacy_dataset=use_legacy_dataset)
+    if use_legacy_dataset:
+        with pytest.raises(ValueError):
+            pq.ParquetDataset(base_path,
+                              filesystem=fs,
+                              filters=[('integers', '!=', {3})],
+                              use_legacy_dataset=use_legacy_dataset)
+    else:
+        dataset = pq.ParquetDataset(base_path,
+                                    filesystem=fs,
+                                    filters=[('integers', '!=', {3})],
+                                    use_legacy_dataset=use_legacy_dataset)
+        with pytest.raises(NotImplementedError):
+            assert dataset.read().num_rows == 0
 
 
 @pytest.mark.pandas
