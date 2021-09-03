@@ -88,6 +88,10 @@ jobs:
         with:
           name: thirdparty_deps
           path: arrow/r/
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt install libcurl4-openssl-dev libssl-dev
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "glue", "sys"))
