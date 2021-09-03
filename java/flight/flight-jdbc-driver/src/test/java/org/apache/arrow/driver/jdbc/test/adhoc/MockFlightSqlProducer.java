@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.test.adhoc;
 
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
+import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
 import java.nio.charset.StandardCharsets;
@@ -43,9 +44,9 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
-import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
+import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
@@ -99,27 +100,21 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
 
 
   @Override
-  public void createPreparedStatement(ActionCreatePreparedStatementRequest request,
-                                      CallContext callContext, StreamListener<Result> listener) {
+  public void createPreparedStatement(final ActionCreatePreparedStatementRequest request,
+                                      final CallContext callContext, final StreamListener<Result> listener) {
     try {
       final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
       final String query = request.getQuery();
-
-      final Entry<Schema, List<UUID>> entry = queryResults.get(query);
-      if (entry == null) {
-        listener.onError(CallStatus.INVALID_ARGUMENT.withDescription("Query not found").toRuntimeException());
-        return;
-      }
-
-      preparedStatements.put(preparedStatementHandle, query);
-
-      final Schema datasetSchema = entry.getKey();
-      final ByteString datasetSchemaBytes =
-          ByteString.copyFrom(MessageSerializer.serializeMetadata(datasetSchema, DEFAULT_OPTION));
-
-      final FlightSql.ActionCreatePreparedStatementResult result =
-          FlightSql.ActionCreatePreparedStatementResult.newBuilder()
-              .setDatasetSchema(datasetSchemaBytes)
+      final Entry<Schema, List<UUID>> entry =
+          Preconditions.checkNotNull(
+              queryResults.get(query), format("Query not found for handle: <%s>.", preparedStatementHandle));
+      Preconditions.checkState(
+          preparedStatements.putIfAbsent(preparedStatementHandle, query) == null,
+          format("Attempted to overwrite pre-existing query under handle: <%s>.", preparedStatementHandle));
+      final ActionCreatePreparedStatementResult result =
+          ActionCreatePreparedStatementResult.newBuilder()
+              .setDatasetSchema(
+                  ByteString.copyFrom(MessageSerializer.serializeMetadata(entry.getKey(), DEFAULT_OPTION)))
               .setPreparedStatementHandle(preparedStatementHandle)
               .build();
       listener.onNext(new Result(pack(result).toByteArray()));
@@ -143,7 +138,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
                                            final FlightDescriptor flightDescriptor) {
     final String query = commandStatementQuery.getQuery();
     final Entry<Schema, List<UUID>> queryInfo =
-        Preconditions.checkNotNull(queryResults.get(query), String.format("Query not registered: <%s>.", query));
+        Preconditions.checkNotNull(queryResults.get(query), format("Query not registered: <%s>.", query));
     final List<FlightEndpoint> endpoints =
         queryInfo.getValue().stream()
             .map(UUID::toString)
@@ -163,13 +158,11 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
                                                    CallContext callContext, FlightDescriptor flightDescriptor) {
     final ByteString preparedStatementHandle = commandPreparedStatementQuery.getPreparedStatementHandle();
 
-    final String query = preparedStatements.get(preparedStatementHandle);
-    if (query == null) {
-      throw CallStatus.NOT_FOUND.toRuntimeException();
-    }
-
+    final String query = Preconditions.checkNotNull(
+        preparedStatements.get(preparedStatementHandle),
+        format("No query registered under handle: <%s>.", preparedStatementHandle));
     final Entry<Schema, List<UUID>> queryInfo =
-        Preconditions.checkNotNull(queryResults.get(query), String.format("Query not registered: <%s>.", query));
+        Preconditions.checkNotNull(queryResults.get(query), format("Query not registered: <%s>.", query));
     final List<FlightEndpoint> endpoints =
         queryInfo.getValue().stream()
             .map(UUID::toString)
@@ -189,7 +182,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
                                          CallContext callContext, FlightDescriptor flightDescriptor) {
     final String query = commandStatementQuery.getQuery();
     final Entry<Schema, List<UUID>> queryInfo =
-        Preconditions.checkNotNull(queryResults.get(query), String.format("Query not registered: <%s>.", query));
+        Preconditions.checkNotNull(queryResults.get(query), format("Query not registered: <%s>.", query));
 
     return new SchemaResult(queryInfo.getKey());
   }
