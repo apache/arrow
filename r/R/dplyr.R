@@ -66,6 +66,11 @@ arrow_dplyr_query <- function(.data) {
   )
 }
 
+# The only difference between `arrow_dplyr_query()` and `as_adq()` is that if
+# `.data` is already an `arrow_dplyr_query`, `as_adq()`, will return it as is, but 
+# `arrow_dplyr_query()` will nest it inside a new `arrow_dplyr_query`. The only
+# place where `arrow_dplyr_query()` should be called directly is inside
+# `collapse()` methods; everywhere else, call `as_adq()`.
 as_adq <- function(.data) {
   # For most dplyr methods,
   # method.Table == method.RecordBatch == method.Dataset == method.arrow_dplyr_query

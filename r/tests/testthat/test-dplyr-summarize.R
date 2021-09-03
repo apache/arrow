@@ -164,7 +164,7 @@ test_that("Group by var on dataset", {
   )
 })
 
-test_that("Group by any/all", {
+test_that("n()", {
   withr::local_options(list(arrow.debug = TRUE))
   expect_dplyr_equal(
     input %>%
