@@ -354,7 +354,7 @@ class TypeInferrer {
       *keep_going = make_unions_;
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
-    } else if (PyList_Check(obj)) {
+    } else if (PyList_Check(obj) || PyTuple_Check(obj)) {
       RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PySet_Check(obj)) {
       RETURN_NOT_OK(VisitSet(obj, keep_going));
