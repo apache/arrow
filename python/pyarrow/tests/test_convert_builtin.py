@@ -150,8 +150,10 @@ def _as_numpy_array(xs):
     arr[:] = xs
     return arr
 
+
 def _as_set(xs):
     return set(xs)
+
 
 SEQUENCE_TYPES = [_as_list, _as_tuple, _as_deque, _as_numpy_array]
 ITERABLE_TYPES = [_as_set, _as_dict_values] + SEQUENCE_TYPES
