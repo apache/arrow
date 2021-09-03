@@ -98,15 +98,15 @@ jobs:
           ARROW_R_DEV: TRUE
         run: |
           cd arrow/r
-          R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz
+          R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz |& tee testthat.out
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
       - name: Dump test logs
-        run: cat arrow-tests/testthat.Rout*
-        if: failure()
+        run: cat arrow/r/testthat.Rout*
+        if: always()
       - name: Save the test output
         uses: actions/upload-artifact@v2
         with:
           name: test-output
-          path: arrow-tests/testthat.Rout*
+          path: arrow/r/testthat.Rout*
         if: always()
