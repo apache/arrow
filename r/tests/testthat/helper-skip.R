@@ -39,6 +39,7 @@ skip_if_not_available <- function(feature) {
 
 skip_if_no_pyarrow <- function() {
   skip_on_valgrind()
+  skip_on_os("windows")
 
   skip_if_not_installed("reticulate")
   if (!reticulate::py_module_available("pyarrow")) {

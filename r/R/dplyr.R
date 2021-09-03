@@ -67,7 +67,7 @@ arrow_dplyr_query <- function(.data) {
 }
 
 # The only difference between `arrow_dplyr_query()` and `as_adq()` is that if
-# `.data` is already an `arrow_dplyr_query`, `as_adq()`, will return it as is, but 
+# `.data` is already an `arrow_dplyr_query`, `as_adq()`, will return it as is, but
 # `arrow_dplyr_query()` will nest it inside a new `arrow_dplyr_query`. The only
 # place where `arrow_dplyr_query()` should be called directly is inside
 # `collapse()` methods; everywhere else, call `as_adq()`.
@@ -162,14 +162,14 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO: refactor/rename
+  # TODO (ARROW-13893): refactor
   out <- head.Dataset(x, n, ...)
   restore_dplyr_features(out, x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO: refactor/rename
+  # TODO (ARROW-13893): refactor
   out <- tail.Dataset(x, n, ...)
   restore_dplyr_features(out, x)
 }
@@ -177,7 +177,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #' @export
 `[.arrow_dplyr_query` <- `[.Dataset`
 # TODO: ^ should also probably restore_dplyr_features, and/or that should be moved down
-# TODO: refactor/rename
+# TODO (ARROW-13893): refactor
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {

@@ -91,7 +91,9 @@ implicit_schema <- function(.data) {
     new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
   } else {
     new_fields <- map(summarize_projection(.data), ~ .$type(old_schm))
-    # * Put group_by_vars first (this can't be done by summarize, they have to be last per the aggregate node signature, and they get projected to this order after aggregation)
+    # * Put group_by_vars first (this can't be done by summarize,
+    #   they have to be last per the aggregate node signature,
+    #   and they get projected to this order after aggregation)
     # * Infer the output types from the aggregations
     group_fields <- new_fields[.data$group_by_vars]
     agg_fields <- imap(
