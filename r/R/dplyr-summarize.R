@@ -20,7 +20,7 @@
 
 summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb")) {
   call <- match.call()
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
   exprs <- quos(...)
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
@@ -47,11 +47,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # ARROW-13550
     abort("`summarize()` with `.groups` argument not supported in Arrow")
   }
-  exprs <- quos(...)
-  # Check for unnamed expressions and fix if any
-  unnamed <- !nzchar(names(exprs))
-  # Deparse and take the first element in case they're long expressions
-  names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
+  exprs <- ensure_named_exprs(quos(...))
 
   mask <- arrow_mask(.data, aggregation = TRUE)
 
@@ -68,61 +64,20 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       )
       stop(msg, call. = FALSE)
     }
-    # Put it in the data mask too?
-    # Should we: mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  # Now, from that, split out the data (expressions) and options
-  .data$aggregations <- lapply(results, function(x) x[c("fun", "options")])
-
-  inputs <- lapply(results, function(x) x$data)
-  # This is essentially a projection, and the column names don't matter
-  # (but must exist)
-  names(inputs) <- as.character(seq_along(inputs))
-  .data$selected_columns <- inputs
-
-  # Eventually, we will return .data here if (dataset) but do it eagerly now
-  do_exec_plan(.data, group_vars = dplyr::group_vars(.data))
+  .data$aggregations <- results
+  # TODO: should in-memory query evaluate eagerly?
+  collapse.arrow_dplyr_query(.data)
 }
 
-do_exec_plan <- function(.data, group_vars = NULL) {
-  plan <- ExecPlan$create()
-
-  grouped <- length(group_vars) > 0
-
-  # Collect the target names first because we have to add back the group vars
-  target_names <- names(.data)
-
-  if (grouped) {
-    .data <- ensure_group_vars(.data)
-    # We also need to prefix all of the aggregation function names with "hash_"
-    .data$aggregations <- lapply(.data$aggregations, function(x) {
-      x[["fun"]] <- paste0("hash_", x[["fun"]])
-      x
-    })
-  }
-
-  start_node <- plan$Scan(.data)
-  # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
-  if (inherits(.data$filtered_rows, "Expression")) {
-    start_node <- start_node$Filter(.data$filtered_rows)
-  }
-  # If any columns are derived we need to Project (otherwise this may be no-op)
-  project_node <- start_node$Project(.data$selected_columns)
-
-  final_node <- project_node$Aggregate(
-    options = .data$aggregations,
-    target_names = target_names,
-    out_field_names = names(.data$aggregations),
-    key_names = group_vars
+summarize_projection <- function(.data) {
+  c(
+    map(.data$aggregations, ~ .$data),
+    .data$selected_columns[.data$group_by_vars]
   )
+}
 
-  out <- plan$Run(final_node)
-  if (grouped) {
-    # The result will have result columns first then the grouping cols.
-    # dplyr orders group cols first, so adapt the result to meet that expectation.
-    n_results <- length(.data$aggregations)
-    out <- out[c((n_results + 1):ncol(out), seq_along(.data$aggregations))]
-  }
-  out
+format_aggregation <- function(x) {
+  paste0(x$fun, "(", x$data$ToString(), ")")
 }

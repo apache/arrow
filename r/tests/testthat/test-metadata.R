@@ -239,9 +239,10 @@ test_that("metadata of list elements (ARROW-10386)", {
   ds <- open_dataset(dst_dir)
   expect_warning(
     df_from_ds <- collect(ds),
-    "Row-level metadata is not compatible with this operation and has been ignored"
+    NA # TODO: ARROW-13852
+    # "Row-level metadata is not compatible with this operation and has been ignored"
   )
-  expect_equal(df_from_ds[c(1, 4, 3, 2), ], df, check.attributes = FALSE)
+  expect_equal(arrange(df_from_ds, int), arrange(df, int), check.attributes = FALSE)
 
   # however there is *no* warning if we don't select the metadata column
   expect_warning(

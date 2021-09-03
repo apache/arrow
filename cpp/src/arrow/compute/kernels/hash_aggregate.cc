@@ -1593,6 +1593,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     options_ = *checked_cast<const TDigestOptions*>(options);
     ctx_ = ctx;
     pool_ = ctx->memory_pool();
+    counts_ = TypedBufferBuilder<int64_t>(pool_);
+    no_nulls_ = TypedBufferBuilder<bool>(pool_);
     return Status::OK();
   }
 
@@ -1602,12 +1604,21 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     for (int64_t i = 0; i < added_groups; i++) {
       tdigests_.emplace_back(options_.delta, options_.buffer_size);
     }
+    RETURN_NOT_OK(counts_.Append(new_num_groups, 0));
+    RETURN_NOT_OK(no_nulls_.Append(new_num_groups, true));
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
-    VisitGroupedValuesNonNull<Type>(
-        batch, [&](uint32_t g, CType value) { tdigests_[g].NanAdd(value); });
+    int64_t* counts = counts_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
+    VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t g, CType value) {
+          tdigests_[g].NanAdd(value);
+          counts[g]++;
+        },
+        [&](uint32_t g) { BitUtil::SetBitTo(no_nulls, g, false); });
     return Status::OK();
   }
 
@@ -1615,15 +1626,26 @@ struct GroupedTDigestImpl : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedTDigestImpl*>(&raw_other);
 
+    int64_t* counts = counts_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
+
+    const int64_t* other_counts = other->counts_.data();
+    const uint8_t* other_no_nulls = no_nulls_.mutable_data();
+
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       tdigests_[*g].Merge(other->tdigests_[other_g]);
+      counts[*g] += other_counts[other_g];
+      BitUtil::SetBitTo(
+          no_nulls, *g,
+          BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
     }
 
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
+    const int64_t* counts = counts_.data();
     std::shared_ptr<Buffer> null_bitmap;
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Buffer> values,
@@ -1633,7 +1655,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
 
     double* results = reinterpret_cast<double*>(values->mutable_data());
     for (int64_t i = 0; static_cast<size_t>(i) < tdigests_.size(); ++i) {
-      if (!tdigests_[i].is_empty()) {
+      if (!tdigests_[i].is_empty() && counts[i] >= options_.min_count) {
         for (int64_t j = 0; j < slot_length; j++) {
           results[i * slot_length + j] = tdigests_[i].Quantile(options_.q[j]);
         }
@@ -1649,6 +1671,18 @@ struct GroupedTDigestImpl : public GroupedAggregator {
       std::fill(&results[i * slot_length], &results[(i + 1) * slot_length], 0.0);
     }
 
+    if (!options_.skip_nulls) {
+      null_count = kUnknownNullCount;
+      if (null_bitmap) {
+        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
+                                   no_nulls_.data(), /*right_offset=*/0,
+                                   static_cast<int64_t>(tdigests_.size()),
+                                   /*out_offset=*/0, null_bitmap->mutable_data());
+      } else {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, no_nulls_.Finish());
+      }
+    }
+
     auto child = ArrayData::Make(float64(), tdigests_.size() * options_.q.size(),
                                  {nullptr, std::move(values)}, /*null_count=*/0);
     return ArrayData::Make(out_type(), tdigests_.size(), {std::move(null_bitmap)},
@@ -1661,6 +1695,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
 
   TDigestOptions options_;
   std::vector<TDigest> tdigests_;
+  TypedBufferBuilder<int64_t> counts_;
+  TypedBufferBuilder<bool> no_nulls_;
   ExecContext* ctx_;
   MemoryPool* pool_;
 };

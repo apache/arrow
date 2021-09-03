@@ -146,6 +146,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type id()
 
         c_bool Equals(const CDataType& other)
+        c_bool Equals(const shared_ptr[CDataType]& other)
 
         shared_ptr[CField] field(int i)
         const vector[shared_ptr[CField]] fields()
@@ -1993,8 +1994,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):
-        CModeOptions(int64_t n)
+        CModeOptions(int64_t n, c_bool skip_nulls, uint32_t min_count)
         int64_t n
+        c_bool skip_nulls
+        uint32_t min_count
 
     cdef cppclass CIndexOptions \
             "arrow::compute::IndexOptions"(CFunctionOptions):
@@ -2041,17 +2044,23 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CQuantileOptions \
             "arrow::compute::QuantileOptions"(CFunctionOptions):
-        CQuantileOptions(vector[double] q, CQuantileInterp interpolation)
+        CQuantileOptions(vector[double] q, CQuantileInterp interpolation,
+                         c_bool skip_nulls, uint32_t min_count)
         vector[double] q
         CQuantileInterp interpolation
+        c_bool skip_nulls
+        uint32_t min_count
 
     cdef cppclass CTDigestOptions \
             "arrow::compute::TDigestOptions"(CFunctionOptions):
         CTDigestOptions(vector[double] q,
-                        unsigned int delta, unsigned int buffer_size)
+                        unsigned int delta, unsigned int buffer_size,
+                        c_bool skip_nulls, uint32_t min_count)
         vector[double] q
         unsigned int delta
         unsigned int buffer_size
+        c_bool skip_nulls
+        uint32_t min_count
 
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
@@ -2340,6 +2349,14 @@ cdef extern from 'arrow/extension_type.h' namespace 'arrow':
     cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
+
+        @staticmethod
+        shared_ptr[CArray] WrapArray(shared_ptr[CDataType] ext_type,
+                                     shared_ptr[CArray] storage)
+
+        @staticmethod
+        shared_ptr[CChunkedArray] WrapArray(shared_ptr[CDataType] ext_type,
+                                            shared_ptr[CChunkedArray] storage)
 
     cdef cppclass CExtensionArray" arrow::ExtensionArray"(CArray):
         CExtensionArray(shared_ptr[CDataType], shared_ptr[CArray] storage)

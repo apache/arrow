@@ -3214,4 +3214,73 @@ TEST(TestSwapEndianArrayData, MonthDayNanoInterval) {
   ASSERT_OK(swap_array->ValidateFull());
 }
 
+DataTypeVector SwappableTypes() {
+  return DataTypeVector{int8(),
+                        int16(),
+                        int32(),
+                        int64(),
+                        uint8(),
+                        uint16(),
+                        uint32(),
+                        uint64(),
+                        decimal128(19, 4),
+                        decimal256(37, 8),
+                        timestamp(TimeUnit::MICRO, ""),
+                        time32(TimeUnit::SECOND),
+                        time64(TimeUnit::NANO),
+                        date32(),
+                        date64(),
+                        day_time_interval(),
+                        month_interval(),
+                        month_day_nano_interval(),
+                        binary(),
+                        utf8(),
+                        large_binary(),
+                        large_utf8(),
+                        list(int16()),
+                        large_list(int16()),
+                        dictionary(int16(), utf8())};
+}
+
+TEST(TestSwapEndianArrayData, RandomData) {
+  random::RandomArrayGenerator rng(42);
+
+  for (const auto& type : SwappableTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    auto arr = rng.ArrayOf(*field("", type), /*size=*/31);
+    ASSERT_OK_AND_ASSIGN(auto swapped_data,
+                         ::arrow::internal::SwapEndianArrayData(arr->data()));
+    auto swapped = MakeArray(swapped_data);
+    ASSERT_OK_AND_ASSIGN(auto roundtripped_data,
+                         ::arrow::internal::SwapEndianArrayData(swapped_data));
+    auto roundtripped = MakeArray(roundtripped_data);
+    ASSERT_OK(roundtripped->ValidateFull());
+
+    AssertArraysEqual(*arr, *roundtripped, /*verbose=*/true);
+    if (type->id() == Type::INT8 || type->id() == Type::UINT8) {
+      AssertArraysEqual(*arr, *swapped, /*verbose=*/true);
+    } else {
+      // Random generated data is unlikely to be made of byte-palindromes
+      ASSERT_FALSE(arr->Equals(*swapped));
+    }
+  }
+}
+
+TEST(TestSwapEndianArrayData, InvalidLength) {
+  // IPC-incoming data may be invalid, SwapEndianArrayData shouldn't crash
+  // by accessing memory out of bounds.
+  random::RandomArrayGenerator rng(42);
+
+  for (const auto& type : SwappableTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(type, 0));
+    auto data = arr->data();
+    // Fake length
+    data->length = 123456789;
+    ASSERT_OK_AND_ASSIGN(auto swapped_data, ::arrow::internal::SwapEndianArrayData(data));
+    auto swapped = MakeArray(swapped_data);
+    ASSERT_RAISES(Invalid, swapped->Validate());
+  }
+}
+
 }  // namespace arrow

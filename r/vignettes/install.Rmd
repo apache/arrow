@@ -326,6 +326,7 @@ Some features are optional when you build Arrow from source. With the exception 
 * `ARROW_MIMALLOC` for the `mimalloc` memmory allocator
 * `ARROW_PARQUET`
 * `ARROW_DATASET`
+* `ARROW_JSON` for the JSON parsing library
 * `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
 * `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
 * `ARROW_JSON` for JSON parsing

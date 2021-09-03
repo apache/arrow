@@ -78,11 +78,16 @@ class ArrayDataWrapper {
 
 class ArrayDataEndianSwapper {
  public:
-  ArrayDataEndianSwapper(const std::shared_ptr<ArrayData>& data, int64_t length)
-      : data_(data), length_(length) {
+  explicit ArrayDataEndianSwapper(const std::shared_ptr<ArrayData>& data) : data_(data) {
     out_ = data->Copy();
   }
 
+  // WARNING: this facility can be called on invalid Array data by the IPC reader.
+  // Do not rely on the advertised ArrayData length, instead use the physical
+  // buffer sizes to avoid accessing memory out of bounds.
+  //
+  // (If this guarantee turns out to be difficult to maintain, we should call
+  //  Validate() instead)
   Status SwapType(const DataType& type) {
     RETURN_NOT_OK(VisitTypeInline(type, this));
     RETURN_NOT_OK(SwapChildren(type.fields()));
@@ -111,6 +116,7 @@ class ArrayDataEndianSwapper {
     auto in_data = reinterpret_cast<const T*>(in_buffer->data());
     ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(in_buffer->size()));
     auto out_data = reinterpret_cast<T*>(out_buffer->mutable_data());
+    // NOTE: data_->length not trusted (see warning above)
     int64_t length = in_buffer->size() / sizeof(T);
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = BitUtil::ByteSwap(in_data[i]);
@@ -146,8 +152,8 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    int64_t length = length_;
-    length = data_->buffers[1]->size() / (sizeof(uint64_t) * 2);
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal128Type::kByteWidth;
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp;
       auto idx = i * 2;
@@ -169,8 +175,8 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    int64_t length = length_;
-    length = data_->buffers[1]->size() / (sizeof(uint64_t) * 4);
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal256Type::kByteWidth;
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp0, tmp1, tmp2;
       auto idx = i * 4;
@@ -206,9 +212,10 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const MonthDayNanos*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<MonthDayNanos*>(new_buffer->mutable_data());
-    int64_t length = data_->length;
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / sizeof(MonthDayNanos);
     for (int64_t i = 0; i < length; i++) {
-      MonthDayNanoIntervalType::MonthDayNanos tmp = data[i];
+      MonthDayNanos tmp = data[i];
 #if ARROW_LITTLE_ENDIAN
       tmp.months = BitUtil::FromBigEndian(tmp.months);
       tmp.days = BitUtil::FromBigEndian(tmp.days);
@@ -279,7 +286,6 @@ class ArrayDataEndianSwapper {
   }
 
   const std::shared_ptr<ArrayData>& data_;
-  int64_t length_;
   std::shared_ptr<ArrayData> out_;
 };
 
@@ -292,7 +298,7 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
   if (data->offset != 0) {
     return Status::Invalid("Unsupported data format: data.offset != 0");
   }
-  ArrayDataEndianSwapper swapper(data, data->length);
+  ArrayDataEndianSwapper swapper(data);
   RETURN_NOT_OK(swapper.SwapType(*data->type));
   return std::move(swapper.out_);
 }

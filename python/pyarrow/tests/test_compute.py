@@ -306,6 +306,14 @@ def test_mode_array():
     arr = pa.array([], type='int64')
     assert len(pc.mode(arr)) == 0
 
+    arr = pa.array([1, 1, 3, 4, 3, None], type='int64')
+    mode = pc.mode(arr, skip_nulls=False)
+    assert len(mode) == 0
+    mode = pc.mode(arr, min_count=6)
+    assert len(mode) == 0
+    mode = pc.mode(arr, skip_nulls=False, min_count=5)
+    assert len(mode) == 0
+
 
 def test_mode_chunked_array():
     # ARROW-9917
@@ -650,7 +658,8 @@ def test_generated_signatures():
                         "options=None, skip_nulls=True, min_count=1)")
     sig = inspect.signature(pc.quantile)
     assert str(sig) == ("(array, *, memory_pool=None, "
-                        "options=None, q=0.5, interpolation='linear')")
+                        "options=None, q=0.5, interpolation='linear', "
+                        "skip_nulls=True, min_count=0)")
     sig = inspect.signature(pc.binary_join_element_wise)
     assert str(sig) == ("(*strings, memory_pool=None, options=None, "
                         "null_handling='emit_null', null_replacement='')")

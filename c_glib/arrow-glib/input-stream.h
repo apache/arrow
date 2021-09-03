@@ -104,54 +104,42 @@ GArrowBufferInputStream *garrow_buffer_input_stream_new(GArrowBuffer *buffer);
 GArrowBuffer *garrow_buffer_input_stream_get_buffer(GArrowBufferInputStream *input_stream);
 
 
-#define GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM          \
-  (garrow_memory_mapped_input_stream_get_type())
-#define GARROW_MEMORY_MAPPED_INPUT_STREAM(obj)                          \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
-                              GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM,   \
-                              GArrowMemoryMappedInputStream))
-#define GARROW_MEMORY_MAPPED_INPUT_STREAM_CLASS(klass)                  \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                                     \
-                           GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM,      \
-                           GArrowMemoryMappedInputStreamClass))
-#define GARROW_IS_MEMORY_MAPPED_INPUT_STREAM(obj)                       \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
-                              GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM))
-#define GARROW_IS_MEMORY_MAPPED_INPUT_STREAM_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                                     \
-                           GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM))
-#define GARROW_MEMORY_MAPPED_INPUT_STREAM_GET_CLASS(obj)                \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                                     \
-                             GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM,    \
-                             GArrowMemoryMappedInputStreamClass))
-
-typedef struct _GArrowMemoryMappedInputStream         GArrowMemoryMappedInputStream;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowMemoryMappedInputStreamClass    GArrowMemoryMappedInputStreamClass;
-#endif
-
-/**
- * GArrowMemoryMappedInputStream:
- *
- * It wraps `arrow::io::MemoryMappedFile`.
- */
-struct _GArrowMemoryMappedInputStream
+#define GARROW_TYPE_FILE_INPUT_STREAM (garrow_file_input_stream_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFileInputStream,
+                         garrow_file_input_stream,
+                         GARROW,
+                         FILE_INPUT_STREAM,
+                         GArrowSeekableInputStream)
+struct _GArrowFileInputStreamClass
 {
-  /*< private >*/
-  GArrowSeekableInputStream parent_instance;
+  GArrowSeekableInputStreamClass parent_class;
 };
 
-#ifndef __GTK_DOC_IGNORE__
+GArrowFileInputStream *
+garrow_file_input_stream_new(const gchar *path,
+                             GError **error);
+GArrowFileInputStream *
+garrow_file_input_stream_new_file_descriptor(gint fd,
+                                             GError **error);
+gint
+garrow_file_input_stream_get_file_descriptor(GArrowFileInputStream *stream);
+
+
+#define GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM          \
+  (garrow_memory_mapped_input_stream_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMemoryMappedInputStream,
+                         garrow_memory_mapped_input_stream,
+                         GARROW,
+                         MEMORY_MAPPED_INPUT_STREAM,
+                         GArrowSeekableInputStream)
 struct _GArrowMemoryMappedInputStreamClass
 {
   GArrowSeekableInputStreamClass parent_class;
 };
-#endif
 
-GType garrow_memory_mapped_input_stream_get_type(void) G_GNUC_CONST;
-
-GArrowMemoryMappedInputStream *garrow_memory_mapped_input_stream_new(const gchar *path,
-                                                                     GError **error);
+GArrowMemoryMappedInputStream *
+garrow_memory_mapped_input_stream_new(const gchar *path,
+                                      GError **error);
 
 
 #define GARROW_TYPE_GIO_INPUT_STREAM            \

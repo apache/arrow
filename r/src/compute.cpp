@@ -194,6 +194,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "hash_count_distinct") {
+    using Options = arrow::compute::CountOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    out->mode =
+        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::ONLY_VALID : Options::ALL;
+    return out;
+  }
+
   if (func_name == "min_element_wise" || func_name == "max_element_wise") {
     using Options = arrow::compute::ElementWiseAggregateOptions;
     bool skip_nulls = true;
@@ -216,6 +224,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       out->interpolation =
           cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
               interpolation);
+    }
+    if (!Rf_isNull(options["na.min_count"])) {
+      out->min_count = cpp11::as_cpp<int64_t>(options["na.min_count"]);
+    }
+    if (!Rf_isNull(options["na.rm"])) {
+      out->skip_nulls = cpp11::as_cpp<int64_t>(options["na.rm"]);
     }
     return out;
   }
@@ -368,8 +382,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::VarianceOptions;
     auto out = std::make_shared<Options>();
     out->ddof = cpp11::as_cpp<int64_t>(options["ddof"]);
-    if (!Rf_isNull(options["na.min_count"])) {
-      out->min_count = cpp11::as_cpp<int64_t>(options["na.min_count"]);
+    if (!Rf_isNull(options["min_count"])) {
+      out->min_count = cpp11::as_cpp<int64_t>(options["min_count"]);
     }
     if (!Rf_isNull(options["na.rm"])) {
       out->skip_nulls = cpp11::as_cpp<int64_t>(options["na.rm"]);

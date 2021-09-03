@@ -1365,6 +1365,18 @@ TEST(TestBinaryDecimalArithmetic, DispatchBest) {
     }
   }
 
+  // decimal, integer
+  for (std::string name : {"add", "subtract", "multiply", "divide"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {int64(), decimal128(1, 0)},
+                        {decimal128(1, 0), decimal128(1, 0)});
+      CheckDispatchBest(name, {decimal128(1, 0), int64()},
+                        {decimal128(1, 0), decimal128(1, 0)});
+    }
+  }
+
   // decimal, decimal
   for (std::string name : {"add", "subtract"}) {
     for (std::string suffix : {"", "_checked"}) {
@@ -1410,8 +1422,6 @@ TEST(TestBinaryDecimalArithmetic, DispatchBest) {
                         {decimal256(6, 4), decimal256(6, 4)});
     }
   }
-
-  // TODO(ARROW-13067): add 'integer, decimal' tests
 }
 
 // reference result from bc (precsion=100, scale=40)

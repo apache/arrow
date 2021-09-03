@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
@@ -45,6 +46,8 @@
 namespace arrow {
 
 using internal::checked_cast;
+
+namespace {
 
 class PrettyPrinter {
  public:
@@ -89,11 +92,6 @@ void PrettyPrinter::CloseArray(const Array& array) {
 
 void PrettyPrinter::Write(const char* data) { (*sink_) << data; }
 void PrettyPrinter::Write(const std::string& data) { (*sink_) << data; }
-
-void PrettyPrinter::WriteIndented(const char* data) {
-  Indent();
-  Write(data);
-}
 
 void PrettyPrinter::WriteIndented(const std::string& data) {
   Indent();
@@ -167,29 +165,36 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  enable_if_date<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+  enable_if_time<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
-    using unit = typename std::conditional<std::is_same<T, Date32Array>::value,
-                                           arrow_vendored::date::days,
-                                           std::chrono::milliseconds>::type;
-    WriteValues(array, [&](int64_t i) { FormatDateTime<unit>("%F", data[i], true); });
+    const auto& type = checked_cast<const TimeType&>(*array.type());
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime(type.unit(), "%T", data[i], false); });
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_time<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+  Status WriteDataValues(const Date32Array& array) {
     const auto data = array.raw_values();
-    const auto type = static_cast<const TimeType*>(array.type().get());
-    WriteValues(array,
-                [&](int64_t i) { FormatDateTime(type->unit(), "%T", data[i], false); });
+    WriteValues(array, [&](int64_t i) {
+      FormatDateTime("%F", arrow_vendored::date::days{data[i]}, true);
+    });
+    return Status::OK();
+  }
+
+  Status WriteDataValues(const Date64Array& array) {
+    const auto data = array.raw_values();
+    WriteValues(array, [&](int64_t i) {
+      FormatDateTime("%F", std::chrono::milliseconds{data[i]}, true);
+    });
     return Status::OK();
   }
 
   Status WriteDataValues(const TimestampArray& array) {
     const int64_t* data = array.raw_values();
-    const auto type = static_cast<const TimestampType*>(array.type().get());
+    const auto& type = checked_cast<const TimestampType&>(*array.type());
+
     WriteValues(array,
-                [&](int64_t i) { FormatDateTime(type->unit(), "%F %T", data[i], true); });
+                [&](int64_t i) { FormatDateTime(type.unit(), "%F %T", data[i], true); });
     return Status::OK();
   }
 
@@ -429,11 +434,47 @@ class ArrayPrinter : public PrettyPrinter {
 
  private:
   template <typename Unit>
-  void FormatDateTime(const char* fmt, int64_t value, bool add_epoch) {
+  void FormatDateTime(const char* fmt, Unit duration, bool add_epoch) {
+    // NOTE about bounds checking:
+    //
+    // While we catch exceptions below, some out-of-bound values would result
+    // in successful but erroneous printing because of silent integer wraparound
+    // in the `arrow_vendored::date` library.
+    //
+    // To avoid such misprinting, we must therefore check the bounds explicitly.
+    // The bounds correspond to start of year -32767 and end of year 32767,
+    // respectively (-32768 is an invalid year value in `arrow_vendored::date`).
+    //
+    // Note these values are the same as documented for C++20:
+    // https://en.cppreference.com/w/cpp/chrono/year_month_day/operator_days
+    constexpr Unit kMinIncl =
+        std::chrono::duration_cast<Unit>(arrow_vendored::date::days{-12687428});
+    constexpr Unit kMaxExcl =
+        std::chrono::duration_cast<Unit>(arrow_vendored::date::days{11248738});
+    if (duration >= kMinIncl && duration < kMaxExcl) {
+      try {
+        if (add_epoch) {
+          (*sink_) << arrow_vendored::date::format(fmt, epoch_ + duration);
+        } else {
+          (*sink_) << arrow_vendored::date::format(fmt, duration);
+        }
+        return;
+      } catch (std::ios::failure&) {
+        // Fall back below
+      }
+    }
+    WriteOutOfRange(duration.count());
+  }
+
+  // FormatDateTime specialization for nanoseconds: a 64-bit number of
+  // nanoseconds cannot represent years outside of the [-32767, 32767]
+  // range, and the {kMinIncl, kMaxExcl} constants above would overflow.
+  void FormatDateTime(const char* fmt, std::chrono::nanoseconds duration,
+                      bool add_epoch) {
     if (add_epoch) {
-      (*sink_) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
+      (*sink_) << arrow_vendored::date::format(fmt, epoch_ + duration);
     } else {
-      (*sink_) << arrow_vendored::date::format(fmt, Unit{value});
+      (*sink_) << arrow_vendored::date::format(fmt, duration);
     }
   }
 
@@ -441,24 +482,29 @@ class ArrayPrinter : public PrettyPrinter {
                       bool add_epoch) {
     switch (unit) {
       case TimeUnit::NANO:
-        FormatDateTime<std::chrono::nanoseconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::nanoseconds{value}, add_epoch);
         break;
       case TimeUnit::MICRO:
-        FormatDateTime<std::chrono::microseconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::microseconds{value}, add_epoch);
         break;
       case TimeUnit::MILLI:
-        FormatDateTime<std::chrono::milliseconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::milliseconds{value}, add_epoch);
         break;
       case TimeUnit::SECOND:
-        FormatDateTime<std::chrono::seconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::seconds{value}, add_epoch);
         break;
     }
   }
 
-  static arrow_vendored::date::sys_days epoch_;
+  template <typename V>
+  void WriteOutOfRange(const V& value) {
+    (*sink_) << "<value out of range: " << value << ">";
+  }
+
+  static const arrow_vendored::date::sys_days epoch_;
 };
 
-arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
+const arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
     arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
@@ -476,6 +522,8 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
     return Status::OK();
   }
 }
+
+}  // namespace
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
   PrettyPrintOptions options;
@@ -608,6 +656,8 @@ Status DebugPrint(const Array& arr, int indent) {
   return PrettyPrint(arr, indent, &std::cerr);
 }
 
+namespace {
+
 class SchemaPrinter : public PrettyPrinter {
  public:
   SchemaPrinter(const Schema& schema, const PrettyPrintOptions& options,
@@ -708,6 +758,8 @@ Status SchemaPrinter::PrintField(const Field& field) {
   }
   return Status::OK();
 }
+
+}  // namespace
 
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink) {

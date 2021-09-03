@@ -202,6 +202,24 @@ test_that("ChunkedArray supports difftime", {
   expect_chunked_roundtrip(list(time, time), time32("s"))
 })
 
+test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
+  types <- c(int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
+            uint64(), float32(), float64(), timestamp("ns"), binary(),
+            large_binary(), fixed_size_binary(32), date32(), date64(),
+            decimal(4, 2))
+
+  empty_filter <- ChunkedArray$create(type = bool())
+  for (type in types) {
+    one_empty_chunk <- ChunkedArray$create(type = type)
+    expect_type_equal(one_empty_chunk$type, type)
+    expect_identical(length(one_empty_chunk), length(as.vector(one_empty_chunk)))
+    zero_empty_chunks <- one_empty_chunk$Filter(empty_filter)
+    expect_equal(zero_empty_chunks$num_chunks, 0)
+    expect_type_equal(zero_empty_chunks$type, type)
+    expect_identical(length(zero_empty_chunks), length(as.vector(zero_empty_chunks)))
+  }
+})
+
 test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   int_types <- c(int8(), int16(), int32(), int64())
   uint_types <- c(uint8(), uint16(), uint32(), uint64())

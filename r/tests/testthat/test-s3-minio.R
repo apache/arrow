@@ -86,8 +86,8 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     test_that("open_dataset with an S3 file (not directory) URI", {
       skip_if_not_available("parquet")
       expect_identical(
-        open_dataset(minio_uri("test.parquet")) %>% collect(),
-        example_data
+        open_dataset(minio_uri("test.parquet")) %>% collect() %>% arrange(int),
+        example_data %>% arrange(int)
       )
     })
 
@@ -96,8 +96,10 @@ if (arrow_with_s3() && process_is_running("minio server")) {
         open_dataset(
           c(minio_uri("test.feather"), minio_uri("test2.feather")),
           format = "feather"
-        ) %>% collect(),
-        rbind(example_data, example_data)
+        ) %>%
+          arrange(int) %>%
+          collect(),
+        rbind(example_data, example_data) %>% arrange(int)
       )
     })
 
@@ -153,8 +155,8 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     test_that("open_dataset with fs", {
       ds <- open_dataset(fs$path(minio_path("hive_dir")))
       expect_identical(
-        ds %>% select(dbl, lgl) %>% collect(),
-        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+        ds %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
       )
     })
 
@@ -170,16 +172,16 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       expect_length(dir(td), 2)
       ds <- open_dataset(td)
       expect_identical(
-        ds %>% select(dbl, lgl) %>% collect(),
-        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+        ds %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
       )
 
       # Let's copy the other way and use a SubTreeFileSystem rather than URI
       copy_files(td, fs$path(minio_path("hive_dir2")))
       ds2 <- open_dataset(fs$path(minio_path("hive_dir2")))
       expect_identical(
-        ds2 %>% select(dbl, lgl) %>% collect(),
-        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+        ds2 %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
       )
     })
   }

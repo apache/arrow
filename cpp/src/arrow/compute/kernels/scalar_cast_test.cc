@@ -71,8 +71,10 @@ static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
 
-static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = {
+static std::vector<std::shared_ptr<DataType>> kIntegerTypes = {
     int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
+
+static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = kIntegerTypes;
 
 static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
     binary(), utf8(), large_binary(), large_utf8()};
@@ -585,6 +587,36 @@ TEST(Cast, Decimal256ToInt) {
   options.allow_int_overflow = true;
   options.allow_decimal_truncate = true;
   CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
+}
+
+TEST(Cast, IntegerToDecimal) {
+  for (auto decimal_type : {decimal128(21, 2), decimal256(21, 2)}) {
+    for (auto integer_type : kIntegerTypes) {
+      CheckCast(
+          ArrayFromJSON(integer_type, "[0, 7, null, 100, 99]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", "7.00", null, "100.00", "99.00"])"));
+    }
+  }
+
+  // extreme value
+  for (auto decimal_type : {decimal128(19, 0), decimal256(19, 0)}) {
+    CheckCast(ArrayFromJSON(int64(), "[-9223372036854775808, 9223372036854775807]"),
+              ArrayFromJSON(decimal_type,
+                            R"(["-9223372036854775808", "9223372036854775807"])"));
+    CheckCast(ArrayFromJSON(uint64(), "[0, 18446744073709551615]"),
+              ArrayFromJSON(decimal_type, R"(["0", "18446744073709551615"])"));
+  }
+
+  // insufficient output precision
+  {
+    CastOptions options;
+
+    options.to_type = decimal128(5, 3);
+    CheckCastFails(ArrayFromJSON(int8(), "[0]"), options);
+
+    options.to_type = decimal256(76, 67);
+    CheckCastFails(ArrayFromJSON(int32(), "[0]"), options);
+  }
 }
 
 TEST(Cast, Decimal128ToDecimal128) {

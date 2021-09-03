@@ -1215,17 +1215,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     valueBuffer.setBytes(startOffset, value, start, length);
   }
 
-  /**
-   * Gets the starting offset of a record, given its index.
-   * This method is deprecated. Please use {@link BaseVariableWidthVector#getStartOffset(int)} instead.
-   * @param index index of the record.
-   * @return the starting offset of the record.
-   */
-  @Deprecated
-  protected final int getstartOffset(int index) {
-    return getStartOffset(index);
-  }
-
   public final int getStartOffset(int index) {
     return offsetBuffer.getInt((long) index * OFFSET_WIDTH);
   }
