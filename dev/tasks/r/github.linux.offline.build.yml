@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
     env:
-      ARROW_R_DEV: "TRUE"
+      ARROW_R_DEV: TRUE
       RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
     steps:
       - name: Checkout Arrow
@@ -95,18 +95,17 @@ jobs:
         env:
           TEST_OFFLINE_BUILD: true
           LIBARROW_MINIMAL: false
-          ARROW_R_DEV: TRUE
         run: |
           cd arrow/r
-          R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz |& tee testthat.out
+          R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
       - name: Dump test logs
-        run: cat arrow/r/testthat.Rout*
-        if: always()
+        run: cat arrow-tests/testthat.Rout*
+        if: failure()
       - name: Save the test output
         uses: actions/upload-artifact@v2
         with:
           name: test-output
-          path: arrow/r/testthat.Rout*
+          path: arrow-tests/testthat.Rout*
         if: always()
