@@ -53,12 +53,10 @@ public class ResultSetMetadataTest {
   public static void setup() throws SQLException {
     connection = rule.getConnection();
 
-    final Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_METADATA_SQL_CMD);
-
-    metadata = resultSet.getMetaData();
-
-    resultSet.close();
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_METADATA_SQL_CMD)) {
+      metadata = resultSet.getMetaData();
+    }
   }
 
   @AfterClass
