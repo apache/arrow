@@ -681,10 +681,10 @@ garrow_file_input_stream_new(const gchar *path,
  * Since: 6.0.0
  */
 GArrowFileInputStream *
-garrow_file_input_stream_new_file_descriptor(gint fd,
+garrow_file_input_stream_new_file_descriptor(gint file_descriptor,
                                              GError **error)
 {
-  auto arrow_stream_result = arrow::io::ReadableFile::Open(fd);
+  auto arrow_stream_result = arrow::io::ReadableFile::Open(file_descriptor);
   if (garrow::check(error,
                     arrow_stream_result,
                     "[file-input-stream][new-file-descriptor]")) {

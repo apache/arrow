@@ -119,7 +119,7 @@ GArrowFileInputStream *
 garrow_file_input_stream_new(const gchar *path,
                              GError **error);
 GArrowFileInputStream *
-garrow_file_input_stream_new_file_descriptor(gint fd,
+garrow_file_input_stream_new_file_descriptor(gint file_descriptor,
                                              GError **error);
 gint
 garrow_file_input_stream_get_file_descriptor(GArrowFileInputStream *stream);
