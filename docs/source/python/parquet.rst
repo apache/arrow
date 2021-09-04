@@ -483,7 +483,7 @@ Reading from Partitioned Datasets
 ------------------------------------------------
 
 The :class:`~.ParquetDataset` class accepts either a directory name or a list
-or file paths, and can discover and infer some common partition structures,
+of file paths, and can discover and infer some common partition structures,
 such as those produced by Hive:
 
 .. code-block:: python
