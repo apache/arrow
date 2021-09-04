@@ -307,9 +307,13 @@ struct StringTransformBase {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
 
-  // Derived classes should also define this method:
+  // Unary derived classes should define this method:
   //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
   //                     uint8_t* output);
+
+  // Binary derived classes should define this method:
+  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits, const
+  //   std::shared_ptr<Scalar>& input2, uint8_t* output);
 };
 
 template <typename Type, typename StringTransform>
@@ -429,6 +433,8 @@ struct StringTransformExecWithState
 ///   * Array, Scalar - scalar is broadcasted and paired with all values of array
 ///   * Array, Array - arrays are processed element-wise
 ///   * Scalar, Array - not supported by default
+// TODO(edponce): For when second parameter is an array, need to specify a corresponding
+// iterator/visitor.
 template <typename Type1, typename Type2, typename StringTransform>
 struct StringBinaryTransformExecBase {
   using offset_type = typename Type1::offset_type;
