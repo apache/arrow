@@ -89,3 +89,7 @@ garrow_sort_key_get_raw(GArrowSortKey *sort_key);
 
 arrow::compute::SortOptions *
 garrow_sort_options_get_raw(GArrowSortOptions *options);
+
+
+arrow::compute::SetLookupOptions *
+garrow_set_lookup_options_get_raw(GArrowSetLookupOptions *options);
