@@ -2249,8 +2249,7 @@ def test_str_repeat():
         2: ["æÆ&æÆ&", None, "", "bb", "ɑɽⱤoWɑɽⱤoW", "ıIıI", "$. 3$. 3"],
     }
     for repeat, expected in repeat_and_expected_map.items():
-        options = pc.RepeatOptions(repeat)
-        result = pc.str_repeat(values, options=options)
+        result = pc.str_repeat(values, repeat, options=options)
         assert result.equals(pa.array(expected))
 
     # Test with multiple values for number of repeats
@@ -2261,10 +2260,9 @@ def test_str_repeat():
         (0, 0): ["", ""],
     }
     for repeat, expected in repeat_and_expected_map.items():
-        options = pc.RepeatOptions(repeat)
-        result = pc.str_repeat(values, options=options)
+        result = pc.str_repeat(values, repeat, options=options)
         assert result.equals(pa.array(expected))
 
     # Test with invalid number of values and repeats
     with pytest.raises(ValueError, match="differ in length"):
-        pc.str_repeat(["a", "b"], repeats=[1, 2, 3])
+        pc.str_repeat(["a", "b"], [1, 2, 3])

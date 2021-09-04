@@ -166,20 +166,6 @@ class ARROW_EXPORT SplitPatternOptions : public FunctionOptions {
   bool reverse;
 };
 
-class ARROW_EXPORT RepeatOptions : public FunctionOptions {
- public:
-  // NOTE: Use 'int' instead of 'int64_t' because R-cpp11 does not supports
-  // 'r_vector<int64_t>'.
-  explicit RepeatOptions(std::vector<int> repeats);
-  RepeatOptions();
-  constexpr static char const kTypeName[] = "RepeatOptions";
-
-  /// Number of repeats
-  /// A single value is applied to all inputs, otherwise repeats are apply to
-  /// corresponding input based on order.
-  std::vector<int> repeats;
-};
-
 class ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
  public:
   explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement);

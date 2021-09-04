@@ -31,10 +31,6 @@ import pyarrow.lib as lib
 import numpy as np
 
 
-def is_iterable(obj):
-    return hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes))
-
-
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ scalar Function in a ScalarFunction object.
@@ -1163,18 +1159,6 @@ cdef class _VarianceOptions(FunctionOptions):
 class VarianceOptions(_VarianceOptions):
     def __init__(self, *, ddof=0, skip_nulls=True, min_count=0):
         self._set_options(ddof, skip_nulls, min_count)
-
-
-cdef class _RepeatOptions(FunctionOptions):
-    def _set_options(self, repeats):
-        self.wrapped.reset(new CRepeatOptions(repeats))
-
-
-class RepeatOptions(_RepeatOptions):
-    def __init__(self, repeats):
-        if not is_iterable(repeats):
-            repeats = [repeats]
-        self._set_options(repeats)
 
 
 cdef class _SplitOptions(FunctionOptions):

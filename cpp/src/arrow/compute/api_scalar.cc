@@ -209,8 +209,6 @@ static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOption
     DataMember("pattern", &SplitPatternOptions::pattern),
     DataMember("max_splits", &SplitPatternOptions::max_splits),
     DataMember("reverse", &SplitPatternOptions::reverse));
-static auto kRepeatOptionsType =
-    GetFunctionOptionsType<RepeatOptions>(DataMember("repeats", &RepeatOptions::repeats));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
@@ -320,11 +318,6 @@ SplitPatternOptions::SplitPatternOptions(std::string pattern, int64_t max_splits
       reverse(reverse) {}
 SplitPatternOptions::SplitPatternOptions() : SplitPatternOptions("", -1, false) {}
 constexpr char SplitPatternOptions::kTypeName[];
-
-RepeatOptions::RepeatOptions(std::vector<int> repeats)
-    : FunctionOptions(internal::kRepeatOptionsType), repeats(repeats) {}
-RepeatOptions::RepeatOptions() : RepeatOptions({1}) {}
-constexpr char RepeatOptions::kTypeName[];
 
 ReplaceSliceOptions::ReplaceSliceOptions(int64_t start, int64_t stop,
                                          std::string replacement)
@@ -447,7 +440,6 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSplitOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSplitPatternOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kRepeatOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));

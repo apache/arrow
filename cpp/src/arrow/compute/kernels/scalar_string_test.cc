@@ -1044,8 +1044,7 @@ TYPED_TEST(TestStringKernels, Utf8Title) {
 }
 
 TYPED_TEST(TestStringKernels, StrRepeat) {
-  RepeatOptions options;
-  this->CheckUnary("str_repeat", "[]", this->type(), "[]", &options);
+  this->CheckUnary("str_repeat", "[]", this->type(), "[]");
 
   std::string values(
       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
@@ -1059,25 +1058,23 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
   });
 
   for (const auto& pair : repeats_and_expected_map) {
-    options.repeats = {pair.first};
-    this->CheckUnary("str_repeat", values, this->type(), pair.second, &options);
+    this->CheckUnary("str_repeat", values, this->type(), pair.second);
   }
 }
 
 TYPED_TEST(TestStringKernels, StrRepeats) {
-  RepeatOptions options{{-1, 2, 4, 2, 0, 1, 3, 2, 3}};
+  std::vector<int> repeats{-1, 2, 4, 2, 0, 1, 3, 2, 3};
   std::string values(
       R"(["aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
 
   std::string expected(
       R"(["", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])");
-  this->CheckUnary("str_repeat", values, this->type(), expected, &options);
+  this->CheckUnary("str_repeat", values, this->type(), expected);
 
   // Test invalid data: len(repeats) != len(inputs)
-  options.repeats.pop_back();
   auto invalid_input = ArrayFromJSON(this->type(), "[\"b\"]");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("differ in length"),
-                                  CallFunction("str_repeat", {invalid_input}, &options));
+                                  CallFunction("str_repeat", {invalid_input, repeats}));
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
