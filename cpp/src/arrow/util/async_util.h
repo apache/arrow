@@ -106,7 +106,7 @@ class AsyncTaskGroup {
   /// Add a task to be tracked by this task group
   ///
   /// If a previous task has failed then adding a task will fail
-  ///  
+  ///
   /// If WaitForTasksToFinish has been called and the returned future has been marked
   /// completed then adding a task will fail.
   Status AddTask(const Future<>& task);
