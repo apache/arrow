@@ -2753,7 +2753,8 @@ struct StrRepeatTransform : public StringTransformBase {
       ArrayType1 array1(batch[0].array());
       ArrayType2 array2(batch[1].array());
       if (array1.length() != array2.length()) {
-        return Status::Invalid("Number of input strings and repetitions differ in length");
+        return Status::Invalid(
+            "Number of input strings and repetitions differ in length");
       }
 
       // Note: Ideally, we would like to calculate the exact output size by iterating over
@@ -2776,7 +2777,7 @@ struct StrRepeatTransform : public StringTransformBase {
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                     const std::shared_ptr<Scalar>& input2, uint8_t* output) {
+                    const std::shared_ptr<Scalar>& input2, uint8_t* output) {
     auto nrepeats =
         static_cast<int64_t>(checked_cast<const NumericScalar<Type2>&>(*input2).value);
     uint8_t* output_start = output;
