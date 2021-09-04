@@ -30,7 +30,7 @@ AsyncDestroyable::~AsyncDestroyable() {
   DCHECK(constructed_correctly_) << "An instance of AsyncDestroyable must be created by "
                                     "MakeSharedAsync or MakeUniqueAsync";
 }
-#elif
+#else
 AsyncDestroyable::~AsyncDestroyable() = default;
 #endif
 
