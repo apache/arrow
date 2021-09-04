@@ -107,7 +107,7 @@ function. Normally, when installing on a computer with internet access, the
 build process will download third-party dependencies as needed.
 This function provides a way to download them in advance.
 Doing so may be useful when installing Arrow on a computer without internet access.
-Note that Arrow _can_ be installed on a computer without internet access, but
+Note that Arrow _can_ be installed on a computer without internet access without doing this, but
 many useful features will be disabled, as they depend on third-party components.
 More precisely, `arrow::arrow_info()$capabilities()` will be `FALSE` for every
 capability.

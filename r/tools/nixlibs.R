@@ -441,9 +441,6 @@ turn_off_thirdparty_features <- function(env_var_list) {
     "ARROW_WITH_ZSTD" = "OFF",
     "ARROW_WITH_RE2" = "OFF",
     "ARROW_WITH_UTF8PROC" = "OFF",
-    # NOTE: this code sets the environment variable ARROW_JSON to "OFF", but
-    # that setting is will *not* be honored by build_arrow_static.sh until
-    # ARROW-13768 is resolved.
     "ARROW_JSON" = "OFF",
     # The syntax to turn off XSIMD is different.
     # Pull existing value of EXTRA_CMAKE_FLAGS first (must be defined)
@@ -484,8 +481,21 @@ set_thirdparty_urls <- function(env_var_list) {
   env_var_list
 }
 
+is_feature_requested <- function(env_varname, default = env_is("LIBARROW_MINIMAL", "false")) {
+  env_value <- tolower(Sys.getenv(env_varname))
+  if (identical(env_value, "off")) {
+    # If e.g. ARROW_MIMALLOC=OFF explicitly, override default
+    requested <- FALSE
+  } else if (identical(env_value, "on")) {
+    requested <- TRUE
+  } else {
+    requested <- default
+  }
+  requested
+}
+
 with_mimalloc <- function(env_var_list) {
-  arrow_mimalloc <- env_is("ARROW_MIMALLOC", "on") || env_is("LIBARROW_MINIMAL", "false")
+  arrow_mimalloc <- is_feature_requested("ARROW_MIMALLOC")
   if (arrow_mimalloc) {
     # User wants mimalloc. If they're using gcc, let's make sure the version is >= 4.9
     if (isTRUE(cmake_gcc_version(env_var_list) < "4.9")) {
@@ -497,11 +507,7 @@ with_mimalloc <- function(env_var_list) {
 }
 
 with_s3_support <- function(env_var_list) {
-  arrow_s3 <- env_is("ARROW_S3", "on") || env_is("LIBARROW_MINIMAL", "false")
-  # but if ARROW_S3=OFF explicitly, we are definitely off, so override
-  if (env_is("ARROW_S3", "off")) {
-    arrow_s3 <- FALSE
-  }
+  arrow_s3 <- is_feature_requested("ARROW_S3")
   if (arrow_s3) {
     # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
     # and make sure that we have curl and openssl system libs

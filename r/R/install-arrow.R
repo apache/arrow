@@ -138,12 +138,13 @@ reload_arrow <- function() {
 }
 
 
-#' Create an install package with all thirdparty dependencies
+#' Create a source bundle that includes all thirdparty dependencies
 #'
 #' @param dest_file File path for the new tar.gz package. Defaults to
 #' `arrow_V.V.V_with_deps.tar.gz` in the current directory (`V.V.V` is the version)
 #' @param source_file File path for the input tar.gz package. Defaults to
-#' downloading the package.
+#' downloading the package from CRAN (or whatever you have set as the first in
+#' `getOption("repos")`)
 #' @return The full path to `dest_file`, invisibly
 #'
 #' This function is used for setting up an offline build. If it's possible to
@@ -181,6 +182,7 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
     pkg_download_dir <- tempfile()
     dir.create(pkg_download_dir)
     on.exit(unlink(pkg_download_dir, recursive = TRUE), add = TRUE)
+    message("Downloading Arrow source file")
     downloaded <- utils::download.packages("arrow", destdir = pkg_download_dir, type = "source")
     source_file <- downloaded[1, 2, drop = TRUE]
   }

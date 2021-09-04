@@ -2,7 +2,7 @@
 % Please edit documentation in R/install-arrow.R
 \name{create_package_with_all_dependencies}
 \alias{create_package_with_all_dependencies}
-\title{Create an install package with all thirdparty dependencies}
+\title{Create a source bundle that includes all thirdparty dependencies}
 \usage{
 create_package_with_all_dependencies(dest_file = NULL, source_file = NULL)
 }
@@ -11,7 +11,8 @@ create_package_with_all_dependencies(dest_file = NULL, source_file = NULL)
 \code{arrow_V.V.V_with_deps.tar.gz} in the current directory (\code{V.V.V} is the version)}
 
 \item{source_file}{File path for the input tar.gz package. Defaults to
-downloading the package.}
+downloading the package from CRAN (or whatever you have set as the first in
+\code{getOption("repos")})}
 }
 \value{
 The full path to \code{dest_file}, invisibly
@@ -46,7 +47,7 @@ https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 }
 }
 \description{
-Create an install package with all thirdparty dependencies
+Create a source bundle that includes all thirdparty dependencies
 }
 \examples{
 \dontrun{
