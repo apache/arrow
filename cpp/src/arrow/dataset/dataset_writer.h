@@ -22,7 +22,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/util/async_nursery.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/future.h"
 
 namespace arrow {
@@ -37,20 +37,19 @@ constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 64 * 1024 * 1024;
 ///
 /// The dataset writer enforces its own back pressure based on the # of rows (as opposed
 /// to # of batches which is how it is typically enforced elsewhere) and # of files.
-class ARROW_EXPORT DatasetWriter : public util::AsyncCloseablePimpl {
+class ARROW_EXPORT DatasetWriter {
  public:
   /// \brief Creates a dataset writer
   ///
   /// Will fail if basename_template is invalid or if there is existing data and
   /// existing_data_behavior is kError
   ///
-  /// \param nursery an enclosing nursery which will contain the dataset write
   /// \param write_options options to control how the data should be written
   /// \param max_rows_queued max # of rows allowed to be queued before the dataset_writer
   ///                        will ask for backpressure
-  static Result<std::unique_ptr<DatasetWriter, util::DestroyingDeleter<DatasetWriter>>>
-  Make(util::Nursery* nursery, FileSystemDatasetWriteOptions write_options,
-       uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
+  static Result<std::unique_ptr<DatasetWriter>> Make(
+      FileSystemDatasetWriteOptions write_options,
+      uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
 
   ~DatasetWriter();
 
@@ -81,14 +80,15 @@ class ARROW_EXPORT DatasetWriter : public util::AsyncCloseablePimpl {
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory);
 
+  /// Finish all pending writes and close any open files
+  Future<> Finish();
+
  protected:
   DatasetWriter(FileSystemDatasetWriteOptions write_options,
                 uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
 
   class DatasetWriterImpl;
-  std::unique_ptr<DatasetWriterImpl> impl_;
-
-  friend util::Nursery;
+  std::unique_ptr<DatasetWriterImpl, util::DestroyingDeleter<DatasetWriterImpl>> impl_;
 };
 
 }  // namespace dataset

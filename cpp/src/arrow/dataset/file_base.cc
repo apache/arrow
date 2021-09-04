@@ -32,7 +32,6 @@
 #include "arrow/io/compressed.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/util/async_nursery.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
@@ -365,31 +364,28 @@ Future<> WriteNextBatch(DatasetWriter* dataset_writer, TaggedRecordBatch batch,
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
-  std::function<Status(util::Nursery * nursery)> task = [&](util::Nursery* nursery) {
-    ARROW_ASSIGN_OR_RAISE(auto batch_gen, scanner->ScanBatchesAsync());
-    ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                          DatasetWriter::Make(nursery, write_options));
+  ARROW_ASSIGN_OR_RAISE(auto batch_gen, scanner->ScanBatchesAsync());
+  ARROW_ASSIGN_OR_RAISE(auto dataset_writer, DatasetWriter::Make(write_options));
 
-    AsyncGenerator<std::shared_ptr<int>> queued_batch_gen =
-        [batch_gen, &dataset_writer, &write_options]() -> Future<std::shared_ptr<int>> {
-      Future<TaggedRecordBatch> next_batch_fut = batch_gen();
-      return next_batch_fut.Then(
-          [&dataset_writer, &write_options](const TaggedRecordBatch& batch) {
-            if (IsIterationEnd(batch)) {
-              return AsyncGeneratorEnd<std::shared_ptr<int>>();
-            }
-            return WriteNextBatch(dataset_writer.get(), batch, write_options).Then([] {
-              return std::make_shared<int>(0);
-            });
+  AsyncGenerator<std::shared_ptr<int>> queued_batch_gen =
+      [batch_gen, &dataset_writer, &write_options]() -> Future<std::shared_ptr<int>> {
+    Future<TaggedRecordBatch> next_batch_fut = batch_gen();
+    return next_batch_fut.Then(
+        [&dataset_writer, &write_options](const TaggedRecordBatch& batch) {
+          if (IsIterationEnd(batch)) {
+            return AsyncGeneratorEnd<std::shared_ptr<int>>();
+          }
+          return WriteNextBatch(dataset_writer.get(), batch, write_options).Then([] {
+            return std::make_shared<int>(0);
           });
-    };
-    Future<> queue_fut =
-        VisitAsyncGenerator(std::move(queued_batch_gen),
-                            [&](const std::shared_ptr<int>&) { return Status::OK(); });
-
-    return queue_fut.status();
+        });
   };
-  return util::Nursery::RunInNursery(std::move(task));
+  Future<> queue_fut =
+      VisitAsyncGenerator(std::move(queued_batch_gen),
+                          [&](const std::shared_ptr<int>&) { return Status::OK(); });
+
+  ARROW_RETURN_NOT_OK(queue_fut.status());
+  return dataset_writer->Finish().status();
 }
 
 }  // namespace dataset

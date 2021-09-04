@@ -130,7 +130,7 @@ class DatasetWriterStatistics {
   std::mutex mutex_;
 };
 
-class DatasetWriterFileQueue : public util::AsyncCloseable {
+class DatasetWriterFileQueue : public util::AsyncDestroyable {
  public:
   explicit DatasetWriterFileQueue(const Future<std::shared_ptr<FileWriter>>& writer_fut,
                                   const FileSystemDatasetWriteOptions& options,
@@ -160,7 +160,7 @@ class DatasetWriterFileQueue : public util::AsyncCloseable {
     return write_future;
   }
 
-  Future<> DoClose() override {
+  Future<> DoDestroy() override {
     std::lock_guard<std::mutex> lg(mutex);
     if (!running_task_.is_valid()) {
       RETURN_NOT_OK(DoFinish());
@@ -259,15 +259,13 @@ struct WriteTask {
   uint64_t num_rows;
 };
 
-class DatasetWriterDirectoryQueue : public util::AsyncCloseable {
+class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
  public:
-  DatasetWriterDirectoryQueue(util::AsyncCloseable* parent, std::string directory,
-                              std::shared_ptr<Schema> schema,
+  DatasetWriterDirectoryQueue(std::string directory, std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
                               DatasetWriterStatistics* write_statistics,
                               std::mutex* visitors_mutex)
-      : util::AsyncCloseable(parent),
-        directory_(std::move(directory)),
+      : directory_(std::move(directory)),
         schema_(std::move(schema)),
         write_options_(write_options),
         write_statistics_(write_statistics),
@@ -275,8 +273,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncCloseable {
 
   Result<std::shared_ptr<RecordBatch>> NextWritableChunk(
       std::shared_ptr<RecordBatch> batch, std::shared_ptr<RecordBatch>* remainder,
-      bool* will_open_file) {
-    RETURN_NOT_OK(CheckClosed());
+      bool* will_open_file) const {
     DCHECK_GT(batch->num_rows(), 0);
     uint64_t rows_available = std::numeric_limits<uint64_t>::max();
     *will_open_file = rows_written_ == 0;
@@ -295,11 +292,10 @@ class DatasetWriterDirectoryQueue : public util::AsyncCloseable {
   }
 
   Future<WriteTask> StartWrite(const std::shared_ptr<RecordBatch>& batch) {
-    RETURN_NOT_OK(CheckClosed());
     rows_written_ += batch->num_rows();
     WriteTask task{current_filename_, static_cast<uint64_t>(batch->num_rows())};
     if (!latest_open_file_) {
-      latest_open_file_ = OpenFileQueue(current_filename_);
+      ARROW_ASSIGN_OR_RAISE(latest_open_file_, OpenFileQueue(current_filename_));
     }
     return latest_open_file_->Push(batch).Then([task] { return task; });
   }
@@ -330,7 +326,8 @@ class DatasetWriterDirectoryQueue : public util::AsyncCloseable {
                                                {write_options_.filesystem, filename});
   }
 
-  std::shared_ptr<DatasetWriterFileQueue> OpenFileQueue(const std::string& filename) {
+  Result<std::shared_ptr<DatasetWriterFileQueue>> OpenFileQueue(
+      const std::string& filename) {
     write_statistics_->RecordFileStart();
     Future<std::shared_ptr<FileWriter>> file_writer_fut =
         init_future_.Then([this, filename] {
@@ -339,10 +336,10 @@ class DatasetWriterDirectoryQueue : public util::AsyncCloseable {
           return DeferNotOk(
               io_executor->Submit([this, filename]() { return OpenWriter(filename); }));
         });
-    auto file_queue = nursery_->MakeSharedCloseable<DatasetWriterFileQueue>(
+    auto file_queue = util::MakeSharedAsync<DatasetWriterFileQueue>(
         file_writer_fut, write_options_, visitors_mutex_);
-    AddDependentTask(
-        file_queue->OnClosed().Then([this] { write_statistics_->RecordFileFinished(); }));
+    RETURN_NOT_OK(task_group_.AddTask(file_queue->on_closed().Then(
+        [this] { write_statistics_->RecordFileFinished(); })));
     return file_queue;
   }
 
@@ -363,22 +360,28 @@ class DatasetWriterDirectoryQueue : public util::AsyncCloseable {
         }));
   }
 
-  Future<> DoClose() override { return FinishCurrentFile(); }
-
-  static Result<std::shared_ptr<DatasetWriterDirectoryQueue>> Make(
-      util::AsyncCloseable* parent, util::Nursery* nursery,
-      const FileSystemDatasetWriteOptions& write_options,
-      DatasetWriterStatistics* write_statistics, std::shared_ptr<Schema> schema,
-      std::string dir, std::mutex* visitors_mutex) {
-    auto dir_queue = nursery->MakeSharedCloseable<DatasetWriterDirectoryQueue>(
-        parent, std::move(dir), std::move(schema), write_options, write_statistics,
+  static Result<std::unique_ptr<DatasetWriterDirectoryQueue,
+                                util::DestroyingDeleter<DatasetWriterDirectoryQueue>>>
+  Make(util::AsyncTaskGroup* task_group,
+       const FileSystemDatasetWriteOptions& write_options,
+       DatasetWriterStatistics* write_statistics, std::shared_ptr<Schema> schema,
+       std::string dir, std::mutex* visitors_mutex) {
+    auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
+        std::move(dir), std::move(schema), write_options, write_statistics,
         visitors_mutex);
+    RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
     dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
     return dir_queue;
   }
 
+  Future<> DoDestroy() override {
+    latest_open_file_.reset();
+    return task_group_.WaitForTasksToFinish();
+  }
+
  private:
+  util::AsyncTaskGroup task_group_;
   std::string directory_;
   std::shared_ptr<Schema> schema_;
   const FileSystemDatasetWriteOptions& write_options_;
@@ -424,7 +427,7 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
 
 }  // namespace
 
-class DatasetWriter::DatasetWriterImpl : public util::AsyncCloseable {
+class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
  public:
   DatasetWriterImpl(FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued)
       : write_options_(std::move(write_options)),
@@ -432,7 +435,6 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncCloseable {
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory) {
-    RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckError());
     if (!directory.empty()) {
       auto full_path =
@@ -441,11 +443,6 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncCloseable {
     } else {
       return DoWriteRecordBatch(std::move(batch), write_options_.base_dir);
     }
-  }
-
-  Future<> DoClose() override {
-    directory_queues_.clear();
-    return CheckError();
   }
 
  protected:
@@ -468,7 +465,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncCloseable {
         auto dir_queue_itr,
         ::arrow::internal::GetOrInsertGenerated(
             &directory_queues_, directory, [this, &batch](const std::string& dir) {
-              return DatasetWriterDirectoryQueue::Make(this, nursery_, write_options_,
+              return DatasetWriterDirectoryQueue::Make(&task_group_, write_options_,
                                                        &statistics_, batch->schema(), dir,
                                                        &visitors_mutex_);
             }));
@@ -503,11 +500,11 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncCloseable {
       // One of the below callbacks could run immediately and set err_ so we check
       // it each time through the loop
       RETURN_NOT_OK(CheckError());
-      AddDependentTask(scheduled_write.Then(
+      RETURN_NOT_OK(task_group_.AddTask(scheduled_write.Then(
           [this](const WriteTask& write) {
             statistics_.RecordWriteFinish(write.num_rows);
           },
-          [this](const Status& err) { SetError(err); }));
+          [this](const Status& err) { SetError(err); })));
     }
     if (hit_backpressure) {
       Future<> maybe_backpressure = statistics_.backpressure();
@@ -532,6 +529,12 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncCloseable {
     return err_;
   }
 
+  Future<> DoDestroy() override {
+    directory_queues_.clear();
+    return task_group_.WaitForTasksToFinish().Then([this] { return err_; });
+  }
+
+  util::AsyncTaskGroup task_group_;
   FileSystemDatasetWriteOptions write_options_;
   DatasetWriterStatistics statistics_;
   std::unordered_map<std::string, std::shared_ptr<DatasetWriterDirectoryQueue>>
@@ -544,18 +547,15 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncCloseable {
 
 DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
                              uint64_t max_rows_queued)
-    : AsyncCloseablePimpl(),
-      impl_(new DatasetWriterImpl(std::move(write_options), max_rows_queued)) {
-  AsyncCloseablePimpl::Init(impl_.get());
-}
+    : impl_(util::MakeUniqueAsync<DatasetWriterImpl>(std::move(write_options),
+                                                     max_rows_queued)) {}
 
-Result<std::unique_ptr<DatasetWriter, util::DestroyingDeleter<DatasetWriter>>>
-DatasetWriter::Make(util::Nursery* nursery, FileSystemDatasetWriteOptions write_options,
-                    uint64_t max_rows_queued) {
+Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
+    FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued) {
   RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
   RETURN_NOT_OK(EnsureDestinationValid(write_options));
-  return nursery->MakeUniqueCloseable<DatasetWriter>(std::move(write_options),
-                                                     max_rows_queued);
+  return std::unique_ptr<DatasetWriter>(
+      new DatasetWriter(std::move(write_options), max_rows_queued));
 }
 
 DatasetWriter::~DatasetWriter() = default;
@@ -563,6 +563,12 @@ DatasetWriter::~DatasetWriter() = default;
 Future<> DatasetWriter::WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                                          const std::string& directory) {
   return impl_->WriteRecordBatch(std::move(batch), directory);
+}
+
+Future<> DatasetWriter::Finish() {
+  Future<> finished = impl_->on_closed();
+  impl_.reset();
+  return finished;
 }
 
 }  // namespace dataset

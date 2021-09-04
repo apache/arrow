@@ -26,7 +26,6 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/async_nursery.h"
 #include "arrow/util/optional.h"
 #include "gtest/gtest.h"
 
@@ -94,7 +93,7 @@ class DatasetWriterTestFixture : public testing::Test {
   }
 
   void AssertVisited(const std::vector<std::string>& actual_paths,
-                     std::string expected_path) {
+                     const std::string& expected_path) {
     std::vector<std::string>::const_iterator found =
         std::find(actual_paths.begin(), actual_paths.end(), expected_path);
     ASSERT_NE(found, actual_paths.end())
@@ -118,14 +117,14 @@ class DatasetWriterTestFixture : public testing::Test {
     }
   }
 
-  void AssertNotFiles(const std::vector<std::string> expected_non_files) {
+  void AssertNotFiles(const std::vector<std::string>& expected_non_files) {
     for (const auto& expected_non_file : expected_non_files) {
       util::optional<MockFileInfo> file = FindFile(expected_non_file);
       ASSERT_FALSE(file.has_value());
     }
   }
 
-  void AssertEmptyFiles(const std::vector<std::string> expected_empty_files) {
+  void AssertEmptyFiles(const std::vector<std::string>& expected_empty_files) {
     for (const auto& expected_empty_file : expected_empty_files) {
       util::optional<MockFileInfo> file = FindFile(expected_empty_file);
       ASSERT_TRUE(file.has_value());
@@ -142,53 +141,49 @@ class DatasetWriterTestFixture : public testing::Test {
 };
 
 TEST_F(DatasetWriterTestFixture, Basic) {
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
-    Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
-    AssertFinished(queue_fut);
-  }));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part-0.arrow", 0, 100}});
 }
 
-TEST_F(DatasetWriterTestFixture, MaxRows) {
+TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
-    Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(35), "");
-    AssertFinished(queue_fut);
-  }));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(35), "");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part-0.arrow", 0, 10},
                {"testdir/part-1.arrow", 10, 20},
                {"testdir/part-2.arrow", 20, 30},
                {"testdir/part-3.arrow", 30, 35}});
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    std::shared_ptr<DatasetWriter> dataset_writer =
-        nursery->MakeSharedCloseable<DatasetWriter>(write_options_);
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
-  }));
+}
+
+TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
+  write_options_.max_rows_per_file = 10;
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part-0.arrow", 0, 10}, {"testdir/part-1.arrow", 10, 8}});
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
   auto gated_fs = UseGatedFs();
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
-    for (int i = 0; i < 10; i++) {
-      Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(10), "");
-      AssertFinished(queue_fut);
-      ASSERT_FINISHES_OK(queue_fut);
-    }
-    ASSERT_OK(gated_fs->WaitForOpenOutputStream(1));
-    ASSERT_OK(gated_fs->UnlockOpenOutputStream(1));
-  }));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  for (int i = 0; i < 10; i++) {
+    Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(10), "");
+    AssertFinished(queue_fut);
+    ASSERT_FINISHES_OK(queue_fut);
+  }
+  ASSERT_OK(gated_fs->WaitForOpenOutputStream(1));
+  ASSERT_OK(gated_fs->UnlockOpenOutputStream(1));
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part-0.arrow", 0, 100}});
 }
 
@@ -197,47 +192,42 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
   constexpr int NBATCHES = 6;
   auto gated_fs = UseGatedFs();
   std::vector<ExpectedFile> expected_files;
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
-    for (int i = 0; i < NBATCHES; i++) {
-      std::string i_str = std::to_string(i);
-      expected_files.push_back(ExpectedFile{"testdir/part" + i_str + "/part-0.arrow",
-                                            static_cast<uint64_t>(i) * 10,
-                                            (static_cast<uint64_t>(i + 1) * 10)});
-      Future<> queue_fut =
-          dataset_writer->WriteRecordBatch(MakeBatch(10), "part" + i_str);
-      AssertFinished(queue_fut);
-      ASSERT_FINISHES_OK(queue_fut);
-    }
-    ASSERT_OK(gated_fs->WaitForOpenOutputStream(NBATCHES));
-    ASSERT_OK(gated_fs->UnlockOpenOutputStream(NBATCHES));
-  }));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  for (int i = 0; i < NBATCHES; i++) {
+    std::string i_str = std::to_string(i);
+    expected_files.push_back(ExpectedFile{"testdir/part" + i_str + "/part-0.arrow",
+                                          static_cast<uint64_t>(i) * 10,
+                                          (static_cast<uint64_t>(i + 1) * 10)});
+    Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(10), "part" + i_str);
+    AssertFinished(queue_fut);
+    ASSERT_FINISHES_OK(queue_fut);
+  }
+  ASSERT_OK(gated_fs->WaitForOpenOutputStream(NBATCHES));
+  ASSERT_OK(gated_fs->UnlockOpenOutputStream(NBATCHES));
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles(expected_files);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
   auto gated_fs = UseGatedFs();
   write_options_.max_open_files = 2;
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
 
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part0"));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part1"));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part0"));
-    Future<> fut = dataset_writer->WriteRecordBatch(MakeBatch(10), "part2");
-    // Backpressure will be applied until an existing file can be evicted
-    AssertNotFinished(fut);
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part0"));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part1"));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part0"));
+  Future<> fut = dataset_writer->WriteRecordBatch(MakeBatch(10), "part2");
+  // Backpressure will be applied until an existing file can be evicted
+  AssertNotFinished(fut);
 
-    // Ungate the writes to relieve the pressure, testdir/part0 should be closed
-    ASSERT_OK(gated_fs->WaitForOpenOutputStream(2));
-    ASSERT_OK(gated_fs->UnlockOpenOutputStream(4));
-    ASSERT_FINISHES_OK(fut);
+  // Ungate the writes to relieve the pressure, testdir/part0 should be closed
+  ASSERT_OK(gated_fs->WaitForOpenOutputStream(2));
+  ASSERT_OK(gated_fs->UnlockOpenOutputStream(4));
+  ASSERT_FINISHES_OK(fut);
 
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part0"));
-    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part1"));
-  }));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part0"));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part1"));
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part0/part-0.arrow", 0, 10},
                {"testdir/part0/part-0.arrow", 20, 10},
                {"testdir/part0/part-1.arrow", 40, 10},
@@ -255,12 +245,10 @@ TEST_F(DatasetWriterTestFixture, DeleteExistingData) {
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
   write_options_.existing_data_behavior = kDeleteMatchingPartitions;
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
-    Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
-    AssertFinished(queue_fut);
-  }));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part-0.arrow", 0, 100}});
   AssertNotFiles({"testdir/part-5.arrow", "testdir/blah.txt"});
 }
@@ -275,12 +263,10 @@ TEST_F(DatasetWriterTestFixture, PartitionedDeleteExistingData) {
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
   write_options_.existing_data_behavior = kDeleteMatchingPartitions;
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
-    Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "part0");
-    AssertFinished(queue_fut);
-  }));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "part0");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part0/part-0.arrow", 0, 100}});
   AssertNotFiles({"testdir/part0/foo.arrow"});
   AssertEmptyFiles({"testdir/part1/bar.arrow"});
@@ -296,12 +282,10 @@ TEST_F(DatasetWriterTestFixture, LeaveExistingData) {
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
   write_options_.existing_data_behavior = kOverwriteOrIgnore;
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    EXPECT_OK_AND_ASSIGN(auto dataset_writer,
-                         DatasetWriter::Make(nursery, write_options_));
-    Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
-    AssertFinished(queue_fut);
-  }));
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
+  AssertFinished(queue_fut);
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part-0.arrow", 0, 100}});
   AssertEmptyFiles({"testdir/part-5.arrow", "testdir/blah.txt"});
 }
@@ -315,9 +299,7 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
                      fs::File("testdir/part-5.arrow"), fs::File("testdir/blah.txt")}));
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
-  ASSERT_OK(util::Nursery::RunInNursery([&](util::Nursery* nursery) {
-    ASSERT_RAISES(Invalid, DatasetWriter::Make(nursery, write_options_));
-  }));
+  ASSERT_RAISES(Invalid, DatasetWriter::Make(write_options_));
   AssertEmptyFiles({"testdir/part-0.arrow", "testdir/part-5.arrow", "testdir/blah.txt"});
 }
 
