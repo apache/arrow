@@ -19,7 +19,12 @@
 
 This is meant as a temporary script until we begin writing docs for Gandiva funcs.'''
 from collections import defaultdict
+
+from docutils import nodes
+from docutils.parsers.rst import Directive, directives
+
 import pyarrow as pa
+
 
 def get_functions():
     try:
@@ -27,6 +32,7 @@ def get_functions():
         return gandiva.get_registered_function_signatures()
     except ImportError:
         return []
+
 
 COMPARE_FUNCS = [
     'not',
@@ -88,6 +94,7 @@ ARITHMETIC_FUNCS = [
 
 STRING_TYPES = [pa.string(), pa.binary(), ]
 
+
 def get_function_group(func):
     if func.name().startswith('cast'):
         return 'Cast'
@@ -106,10 +113,28 @@ def get_function_group(func):
     else:
         return 'Other'
 
-grouped_funcs = defaultdict(lambda: defaultdict(list))
 
 for func in get_functions():
     grouped_funcs[get_function_group(func)][func.name()].append(func)
+
+
+class GandivaFuncListDirective(Directive):
+
+    has_content = True
+
+    def run(self):
+        list_node = nodes.bullet_list()
+
+        group = self.content.trim()
+
+        grouped_funcs = defaultdict(lambda: defaultdict(list))
+        for func in get_functions():
+            grouped_funcs[get_function_group(func)][func.name()].append(func)
+
+        funcs = grouped_funcs[group]
+
+        nodes.paragraph(text=)
+
 
 with open('source/cpp/gandiva_functions.rst', 'w') as file:
     for group, name_list in grouped_funcs.items():
@@ -124,5 +149,6 @@ with open('source/cpp/gandiva_functions.rst', 'w') as file:
                     file.write(f"  * - {func.name()}\n")
                 else:
                     file.write(f"  * -\n")
-                file.write(f"    - ``({', '.join(str(f) for f in func.param_types())})`` -> ``{func.return_type()}``\n")
+                file.write(
+                    f"    - ``({', '.join(str(f) for f in func.param_types())})`` -> ``{func.return_type()}``\n")
         file.write('\n')
