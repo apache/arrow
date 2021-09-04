@@ -1046,8 +1046,7 @@ TYPED_TEST(TestStringKernels, Utf8Title) {
 TYPED_TEST(TestStringKernels, StrRepeat) {
   this->CheckUnary("str_repeat", "[]", this->type(), "[]");
 
-  std::string values(
-      R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+  auto values = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   std::vector<std::pair<int64_t, std::string>> repeats_and_expected_map({
       {-1, R"(["", null, "", "", "", "", "", "", "", ""])"},
       {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
@@ -1058,23 +1057,40 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
   });
 
   for (const auto& pair : repeats_and_expected_map) {
-    this->CheckUnary("str_repeat", values, this->type(), pair.second);
+    auto repeat = pair.first;
+    auto expected = pair.second;
+    if (repeat >= 0) {
+      this->CheckVarArgs("str_repeat", {values, Datum(repeat)}, this->type(), expected);
+    } else {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("non-negative"),
+                                    CallFunction("str_repeat", {values, Datum(repeat)}));
+    }
   }
 }
 
 TYPED_TEST(TestStringKernels, StrRepeats) {
-  std::vector<int> repeats{-1, 2, 4, 2, 0, 1, 3, 2, 3};
-  std::string values(
-      R"(["aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
-
-  std::string expected(
-      R"(["", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])");
-  this->CheckUnary("str_repeat", values, this->type(), expected);
-
-  // Test invalid data: len(repeats) != len(inputs)
-  auto invalid_input = ArrayFromJSON(this->type(), "[\"b\"]");
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("differ in length"),
-                                  CallFunction("str_repeat", {invalid_input, repeats}));
+  {
+    auto repeats = ArrayFromJSON(int64(), R"([1, 2, 4, 2, 0, 1, 3, 2, 3])");
+    auto values = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+    std::string expected = R"(["aAazZæÆ&", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
+    this->CheckVarArgs("str_repeat", {values, repeats}, this->type(), expected);
+  }
+  {
+    // Invalid case: len(repeats) != len(strings)
+    // TODO(edponce): ExecBatchIterator (compute/exec.cc) triggers error:
+    //   Actual: "Invalid: Array arguments must all be the same length"
+    // auto repeats = ArrayFromJSON(int64(), R"([1, 2, 4, 2, 0, 1, 3, 2, 3])");
+    // auto values = ArrayFromJSON(this->type(), R"(["b"])");
+    // EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("differ in length"),
+    //                                 CallFunction("str_repeat", {values, repeats}));
+  }
+  {
+    // Invalid case: len(repeats) != len(strings)
+    auto repeats = ArrayFromJSON(int64(), R"([-1])");
+    auto values = ArrayFromJSON(this->type(), R"(["b"])");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("non-negative"),
+                                    CallFunction("str_repeat", {values, repeats}));
+  }
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {

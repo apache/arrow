@@ -2733,61 +2733,60 @@ void AddSplit(FunctionRegistry* registry) {
 #endif
 }
 
-template <typename Type>
+template <typename Type1, typename Type2>
 struct StrRepeatTransform : public StringTransformBase {
-  using Options = RepeatOptions;
-  using State = OptionsWrapper<Options>;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-
-  const Options* options;
-  std::function<int64_t(const uint8_t*, int64_t, uint8_t*)> Transform;
-  std::vector<int>::const_iterator it;
-
-  explicit StrRepeatTransform(const Options& options) : options{&options} {
-    // NOTE: This is an incorrect hack to iterate through the repeat values because for
-    // null entries, Transform() is not invoked and thus the iterator does not moves.
-    it = this->options->repeats.begin();
-    Transform = [&](const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
-      auto nrepeats = *it++;
-      if (it == this->options->repeats.end()) {
-        it = this->options->repeats.begin();
-      }
-      return this->Transform_(input, input_string_ncodeunits, output, nrepeats);
-    };
-  }
+  using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
+  using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+  int64_t max_nrepeats = 0;
 
   Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
-    if ((options->repeats.size() > 1) && (batch[0].kind() == Datum::ARRAY)) {
-      ArrayType input(batch[0].array());
-      if (static_cast<int64_t>(options->repeats.size()) !=
-          static_cast<int64_t>(input.length())) {
-        return Status::Invalid(
-            "Number of repeats and input strings differ in length");
+    // Since repeat values are validated here, might as well get the maximum repeat value
+    // into a data member and use it for MaxCodeunits().
+    if (batch[1].is_scalar()) {
+      max_nrepeats = static_cast<int64_t>(
+          checked_cast<const NumericScalar<Type2>&>(*batch[1].scalar()).value);
+    }
+
+    if (batch[0].is_array() && batch[1].is_array()) {
+      // TODO(edponce): Is it possible to not convert to ArrayType for these checks and
+      // finding max?
+      ArrayType1 array1(batch[0].array());
+      ArrayType2 array2(batch[1].array());
+      if (array1.length() != array2.length()) {
+        return Status::Invalid("Number of input strings and repetitions differ in length");
       }
+
+      // Note: Ideally, we would like to calculate the exact output size by iterating over
+      // all input strings and summing each length multiplied by the corresponding repeat
+      // value, but this requires traversing the data twice (now and during transform).
+      // The upper limit is to assume that all strings are repeated the max number of
+      // times.
+      max_nrepeats =
+          static_cast<int64_t>(**std::max_element(array2.begin(), array2.end()));
+    }
+
+    if (max_nrepeats < 0) {
+      return Status::Invalid("Invalid string repetition value, has to be non-negative");
     }
     return Status::OK();
   }
 
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    // NOTE: Ideally, we would like to sum the values that correspond to non-null entries
-    // along with each inputs' size but this requires traversing the data twice. The upper
-    // limit is to assume that all strings are repeated the max number of times.
-    auto max_repeat = *std::max_element(options->repeats.begin(), options->repeats.end());
-    return input_ncodeunits * std::max<int64_t>(max_repeat, 0);
+  int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits) override {
+    return input_ncodeunits * max_nrepeats;
   }
 
- private:
-  int64_t Transform_(const uint8_t* input, int64_t input_string_ncodeunits,
-                     uint8_t* output, const int64_t nrepeats) {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                     const std::shared_ptr<Scalar>& input2, uint8_t* output) {
+    auto nrepeats =
+        static_cast<int64_t>(checked_cast<const NumericScalar<Type2>&>(*input2).value);
     uint8_t* output_start = output;
     if (nrepeats > 0) {
       // log2(repeats) approach
       std::memcpy(output, input, input_string_ncodeunits);
       output += input_string_ncodeunits;
       int64_t i = 1;
-      for (int64_t ilen = input_string_ncodeunits; i <= (nrepeats >> 1);
-           i <<= 1, ilen <<= 1) {
+      for (int64_t ilen = input_string_ncodeunits; i <= (nrepeats / 2);
+           i *= 2, ilen *= 2) {
         std::memcpy(output, output_start, ilen);
         output += ilen;
       }
@@ -2801,8 +2800,30 @@ struct StrRepeatTransform : public StringTransformBase {
   }
 };
 
-template <typename Type>
-using StrRepeat = StringTransformExecWithState<Type, StrRepeatTransform<Type>>;
+template <typename Type1, typename Type2>
+using StrRepeat =
+    StringBinaryTransformExec<Type1, Type2, StrRepeatTransform<Type1, Type2>>;
+
+template <template <typename...> class ExecFunctor>
+void MakeStrRepeatBatchKernel(std::string name, FunctionRegistry* registry,
+                              const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
+  {
+    for (const auto& ty : IntTypes()) {
+      auto exec = GenerateInteger<ExecFunctor, StringType>(ty);
+      ScalarKernel kernel{{utf8(), ty}, utf8(), exec};
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+  }
+  {
+    for (const auto& ty : IntTypes()) {
+      auto exec = GenerateInteger<ExecFunctor, LargeStringType>(ty);
+      ScalarKernel kernel{{large_utf8(), ty}, large_utf8(), exec};
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
 
 // ----------------------------------------------------------------------
 // Replace substring (plain, regex)
@@ -4721,6 +4742,11 @@ const FunctionDoc utf8_reverse_doc(
      "clusters. Hence, it will not correctly reverse grapheme clusters\n"
      "composed of multiple codepoints."),
     {"strings"});
+
+const FunctionDoc str_repeat_doc(
+    "Repeat a string a given number of times",
+    ("For each string in `strings`, return a replicated version."),
+    {"strings", "repeats"});
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
@@ -4823,6 +4849,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSplit(registry);
   AddStrptime(registry);
   AddBinaryJoin(registry);
+  MakeStrRepeatBatchKernel<StrRepeat>("str_repeat", registry, &str_repeat_doc);
 }
 
 }  // namespace internal
