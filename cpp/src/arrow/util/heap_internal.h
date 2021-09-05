@@ -32,9 +32,8 @@ class Heap {
   Heap() : values_(), comp_() {}
   explicit Heap(const Compare& compare) : values_(), comp_(compare) {}
 
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Heap);
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Heap);
-
-  T* data() const { return values_.data(); }
 
   T top() const { return values_.front(); }
 
@@ -59,12 +58,63 @@ class Heap {
   }
 
  public:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Heap);
-
   std::vector<T> values_;
 
   Compare comp_;
 };
 
+// A Stable Heap class, is a simple wrapper to make heap operation simpler.
+template <typename T>
+class StableHeap {
+ public:
+  using Comparator = std::function<int64_t(const T&, const T&)>;
+  using HeapItem = std::pair<T, uint64_t>;
+  using StableComparator = std::function<bool(const HeapItem&, const HeapItem&)>;
+
+  explicit StableHeap(const Comparator& compare)
+      : values_(), comp_(compare), counter_(0) {
+    this->stable_comp_ = [this](const HeapItem& lhs, const HeapItem& rhs) -> bool {
+      auto cmp = this->comp_(lhs.first, rhs.first);
+      if ((cmp < 0) || ((cmp == 0) && (lhs.second < rhs.second))) return true;
+      return false;
+    };
+  }
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(StableHeap);
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(StableHeap);
+
+  T top() const { return values_.front().first; }
+
+  bool empty() const { return values_.empty(); }
+
+  size_t size() const { return values_.size(); }
+
+  void Push(const T& value) {
+    values_.emplace_back(std::make_pair(value, counter_));
+    std::push_heap(values_.begin(), values_.end(), stable_comp_);
+    ++counter_;
+  }
+
+  void Pop() {
+    std::pop_heap(values_.begin(), values_.end(), stable_comp_);
+    values_.pop_back();
+    --counter_;
+  }
+
+  void ReplaceTop(const T& value) {
+    std::pop_heap(values_.begin(), values_.end(), stable_comp_);
+    values_.back() = std::make_pair(value, counter_);
+    std::push_heap(values_.begin(), values_.end(), stable_comp_);
+  }
+
+ private:
+  std::vector<HeapItem> values_;
+
+  Comparator comp_;
+
+  uint64_t counter_;
+
+  StableComparator stable_comp_;
+};
 }  // namespace internal
 }  // namespace arrow

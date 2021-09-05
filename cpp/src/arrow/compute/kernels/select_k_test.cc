@@ -261,7 +261,7 @@ class TestSelectKRandom : public TestSelectKBase<ArrowType> {
   }
 };
 
-using SelectKableNumericAndTemporal =
+using NumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
                      TimestampType, Time32Type, Time64Type>;
@@ -327,7 +327,7 @@ struct TestTopKWithChunkedArray
   }
 };
 
-TYPED_TEST_SUITE(TestTopKWithChunkedArray, SelectKableNumericAndTemporal);
+TYPED_TEST_SUITE(TestTopKWithChunkedArray, NumericBasedTypes);
 
 TYPED_TEST(TestTopKWithChunkedArray, WithTypedParam) {
   auto type = this->type_singleton();
@@ -359,7 +359,7 @@ struct TestBottomKWithChunkedArray
   }
 };
 
-TYPED_TEST_SUITE(TestBottomKWithChunkedArray, SelectKableNumericAndTemporal);
+TYPED_TEST_SUITE(TestBottomKWithChunkedArray, NumericBasedTypes);
 
 TYPED_TEST(TestBottomKWithChunkedArray, Int8) {
   auto type = this->type_singleton();
