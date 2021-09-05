@@ -170,11 +170,11 @@ See $.data for the source Arrow object",
   )
 
   expect_equal(
-    q %>% arrange(lgl) %>% head(1) %>% collect(),
+    q %>% arrange(total) %>% head(1) %>% collect(),
     tibble::tibble(lgl = FALSE, total = 8L, extra = 40)
   )
   expect_equal(
-    q %>% arrange(lgl) %>% tail(1) %>% collect(),
+    q %>% arrange(total) %>% tail(1) %>% collect(),
     tibble::tibble(lgl = NA, total = 25L, extra = 125)
   )
 })
