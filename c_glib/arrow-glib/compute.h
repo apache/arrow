@@ -452,6 +452,22 @@ GArrowSetLookupOptions *
 garrow_set_lookup_options_new(GArrowDatum *value_set);
 
 
+#define GARROW_TYPE_VARIANCE_OPTIONS (garrow_variance_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowVarianceOptions,
+                         garrow_variance_options,
+                         GARROW,
+                         VARIANCE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowVarianceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowVarianceOptions *
+garrow_variance_options_new(void);
+
+
 GArrowArray *garrow_array_cast(GArrowArray *array,
                                GArrowDataType *target_data_type,
                                GArrowCastOptions *options,
