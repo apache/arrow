@@ -29,7 +29,11 @@ import java.util.Map;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
@@ -37,6 +41,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
  * Importer for {@link ArrowSchema}.
  */
 final class SchemaImporter {
+  private static final Logger logger = LoggerFactory.getLogger(SchemaImporter.class);
+
   private static final int MAX_IMPORT_RECURSION_LEVEL = 64;
   private long nextDictionaryID = 1L;
 
@@ -63,6 +69,18 @@ final class SchemaImporter {
     ArrowType arrowType = Format.asType(format, snapshot.flags);
     boolean nullable = (snapshot.flags & Flags.ARROW_FLAG_NULLABLE) != 0;
     Map<String, String> metadata = Metadata.decode(snapshot.metadata);
+
+    if (metadata != null && metadata.containsKey(ExtensionType.EXTENSION_METADATA_KEY_NAME)) {
+      final String extensionName = metadata.get(ExtensionType.EXTENSION_METADATA_KEY_NAME);
+      final String extensionMetadata = metadata.getOrDefault(ExtensionType.EXTENSION_METADATA_KEY_METADATA, "");
+      ExtensionType extensionType = ExtensionTypeRegistry.lookup(extensionName);
+      if (extensionType != null) {
+        arrowType = extensionType.deserialize(arrowType, extensionMetadata);
+      } else {
+        // Otherwise, we haven't registered the type
+        logger.info("Unrecognized extension type: {}", extensionName);
+      }
+    }
 
     // Handle dictionary encoded vectors
     DictionaryEncoding dictionaryEncoding = null;

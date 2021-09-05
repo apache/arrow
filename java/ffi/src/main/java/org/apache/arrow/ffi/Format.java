@@ -27,6 +27,7 @@ import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 
 /**
  * Conversion between {@link ArrowType} and string formats, as per C data
@@ -38,6 +39,10 @@ final class Format {
   }
 
   static String asString(ArrowType arrowType) {
+    if (arrowType instanceof ExtensionType) {
+      arrowType = ((ExtensionType) arrowType).storageType();
+    }
+
     switch (arrowType.getTypeID()) {
       case Binary:
         return "z";

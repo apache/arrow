@@ -22,22 +22,28 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -85,6 +91,8 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
+import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -120,6 +128,23 @@ public class RoundtripTest {
 
       // Consumer imports vector
       return FFI.importVector(allocator, consumerArrowArray, consumerArrowSchema, null);
+    }
+  }
+
+  VectorSchemaRoot vectorSchemaRootRoundtrip(VectorSchemaRoot root) {
+    // Consumer allocates empty structures
+    try (ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator);
+        ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
+
+      // Producer creates structures from existing memory pointers
+      try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+          ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+        // Producer exports vector into the FFI structures
+        FFI.exportVectorSchemaRoot(allocator, root, null, arrowArray, arrowSchema);
+      }
+
+      // Consumer imports vector
+      return FFI.importVectorSchemaRoot(allocator, consumerArrowSchema, consumerArrowArray, null);
     }
   }
 
@@ -536,7 +561,6 @@ public class RoundtripTest {
 
   @Test
   public void testUnionVector() {
-
     final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
     uInt4Holder.value = 100;
     uInt4Holder.isSet = 1;
@@ -563,6 +587,47 @@ public class RoundtripTest {
       data.put("col_2", Arrays.stream(new int[] { 3, 4 }).boxed().collect(Collectors.toList()));
       setVector(vector, data);
       assertTrue(roundtrip(vector, StructVector.class));
+    }
+  }
+
+  @Test
+  public void testExtensionTypeVector() {
+    ExtensionTypeRegistry.register(new UuidType());
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new UuidType())));
+    try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      // Fill with data
+      UUID u1 = UUID.randomUUID();
+      UUID u2 = UUID.randomUUID();
+      UuidVector vector = (UuidVector) root.getVector("a");
+      vector.setValueCount(3);
+      vector.set(0, u1);
+      vector.set(1, u2);
+      vector.set(2, null);
+      root.setRowCount(3);
+
+      // Roundtrip (export + import)
+      VectorSchemaRoot importedRoot = vectorSchemaRootRoundtrip(root);
+
+      // Verify correctness
+      assertEquals(root.getSchema(), importedRoot.getSchema());
+
+      final Field field = importedRoot.getSchema().getFields().get(0);
+      final UuidType expectedType = new UuidType();
+      assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
+          expectedType.extensionName());
+      assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
+          expectedType.serialize());
+
+      final UuidVector deserialized = (UuidVector) importedRoot.getFieldVectors().get(0);
+      assertEquals(vector.getValueCount(), deserialized.getValueCount());
+      for (int i = 0; i < vector.getValueCount(); i++) {
+        assertEquals(vector.isNull(i), deserialized.isNull(i));
+        if (!vector.isNull(i)) {
+          assertEquals(vector.getObject(i), deserialized.getObject(i));
+        }
+      }
+
+      importedRoot.close();
     }
   }
 
@@ -662,4 +727,69 @@ public class RoundtripTest {
     return new VectorSchemaRoot(fields, vectors);
   }
 
+  static class UuidType extends ExtensionType {
+
+    @Override
+    public ArrowType storageType() {
+      return new ArrowType.FixedSizeBinary(16);
+    }
+
+    @Override
+    public String extensionName() {
+      return "uuid";
+    }
+
+    @Override
+    public boolean extensionEquals(ExtensionType other) {
+      return other instanceof UuidType;
+    }
+
+    @Override
+    public ArrowType deserialize(ArrowType storageType, String serializedData) {
+      if (!storageType.equals(storageType())) {
+        throw new UnsupportedOperationException("Cannot construct UuidType from underlying type " + storageType);
+      }
+      return new UuidType();
+    }
+
+    @Override
+    public String serialize() {
+      return "";
+    }
+
+    @Override
+    public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator) {
+      return new UuidVector(name, allocator, new FixedSizeBinaryVector(name, allocator, 16));
+    }
+  }
+
+  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector> {
+
+    public UuidVector(String name, BufferAllocator allocator, FixedSizeBinaryVector underlyingVector) {
+      super(name, allocator, underlyingVector);
+    }
+
+    @Override
+    public UUID getObject(int index) {
+      final ByteBuffer bb = ByteBuffer.wrap(getUnderlyingVector().getObject(index));
+      return new UUID(bb.getLong(), bb.getLong());
+    }
+
+    @Override
+    public int hashCode(int index) {
+      return hashCode(index, null);
+    }
+
+    @Override
+    public int hashCode(int index, ArrowBufHasher hasher) {
+      return getUnderlyingVector().hashCode(index, hasher);
+    }
+
+    public void set(int index, UUID uuid) {
+      ByteBuffer bb = ByteBuffer.allocate(16);
+      bb.putLong(uuid.getMostSignificantBits());
+      bb.putLong(uuid.getLeastSignificantBits());
+      getUnderlyingVector().set(index, bb.array());
+    }
+  }
 }
