@@ -616,8 +616,8 @@ struct StringBinaryTransformExecBase {
     auto output_str = value_buffer->mutable_data();
 
     auto input1_string = input1.value->data();
-    auto encoded_nbytes =
-        transform->Transform(input1_string, input_ncodeunits, scalar2, output_str);
+    auto encoded_nbytes = static_cast<offset_type>(
+        transform->Transform(input1_string, input_ncodeunits, scalar2, output_str));
     if (encoded_nbytes < 0) {
       return transform->InvalidStatus();
     }
