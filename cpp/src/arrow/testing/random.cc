@@ -389,6 +389,8 @@ std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
                                                                int32_t min_length,
                                                                int32_t max_length,
                                                                double null_probability) {
+  ARROW_CHECK_LE(unique, size);
+
   // Generate a random string dictionary without any nulls
   auto array = String(unique, min_length, max_length, /*null_probability=*/0);
   auto dictionary = std::dynamic_pointer_cast<StringArray>(array);
@@ -619,110 +621,8 @@ std::shared_ptr<Array> RandomArrayGenerator::DenseUnion(const ArrayVector& field
 
 namespace {
 
-struct RandomArrayGeneratorOfImpl {
-  Status Visit(const NullType&) {
-    out_ = std::make_shared<NullArray>(size_);
-    return Status::OK();
-  }
-
-  Status Visit(const BooleanType&) {
-    double probability = 0.25;
-    out_ = rag_->Boolean(size_, probability, null_probability_);
-    return Status::OK();
-  }
-
-  template <typename T>
-  enable_if_integer<T, Status> Visit(const T&) {
-    auto max = std::numeric_limits<typename T::c_type>::max();
-    auto min = std::numeric_limits<typename T::c_type>::lowest();
-
-    out_ = rag_->Numeric<T>(size_, min, max, null_probability_);
-    return Status::OK();
-  }
-
-  template <typename T>
-  enable_if_floating_point<T, Status> Visit(const T&) {
-    out_ = rag_->Numeric<T>(size_, 0., 1., null_probability_);
-    return Status::OK();
-  }
-
-  template <typename T>
-  enable_if_t<is_temporal_type<T>::value &&
-                  !std::is_same<T, DayTimeIntervalType>::value &&
-                  !std::is_same<T, MonthDayNanoIntervalType>::value,
-              Status>
-  Visit(const T&) {
-    auto max = std::numeric_limits<typename T::c_type>::max();
-    auto min = std::numeric_limits<typename T::c_type>::lowest();
-    auto values =
-        rag_->Numeric<typename T::PhysicalType>(size_, min, max, null_probability_);
-    return values->View(type_).Value(&out_);
-  }
-
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T& t) {
-    int32_t min_length = 0;
-    auto max_length = static_cast<int32_t>(std::sqrt(size_));
-
-    if (t.layout().buffers[1].byte_width == sizeof(int32_t)) {
-      out_ = rag_->String(size_, min_length, max_length, null_probability_);
-    } else {
-      out_ = rag_->LargeString(size_, min_length, max_length, null_probability_);
-    }
-    return out_->View(type_).Value(&out_);
-  }
-
-  template <typename T>
-  enable_if_t<std::is_same<T, FixedSizeBinaryType>::value, Status> Visit(const T& t) {
-    const int32_t value_size = t.byte_width();
-    int64_t data_nbytes = size_ * value_size;
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data, AllocateBuffer(data_nbytes));
-    random_bytes(data_nbytes, /*seed=*/0, data->mutable_data());
-    auto validity = rag_->Boolean(size_, 1 - null_probability_);
-
-    // Assemble the data for a FixedSizeBinaryArray
-    auto values_data = std::make_shared<ArrayData>(type_, size_);
-    values_data->buffers = {validity->data()->buffers[1], data};
-    out_ = MakeArray(values_data);
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Type&) {
-    out_ = rag_->Decimal256(type_, size_, null_probability_);
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal128Type&) {
-    out_ = rag_->Decimal128(type_, size_, null_probability_);
-    return Status::OK();
-  }
-
-  Status Visit(const DataType& t) {
-    return Status::NotImplemented("generation of random arrays of type ", t);
-  }
-
-  std::shared_ptr<Array> Finish() && {
-    DCHECK_OK(VisitTypeInline(*type_, this));
-    DCHECK(type_->Equals(out_->type()));
-    return std::move(out_);
-  }
-
-  RandomArrayGenerator* rag_;
-  const std::shared_ptr<DataType>& type_;
-  int64_t size_;
-  double null_probability_;
-  std::shared_ptr<Array> out_;
-};
-
-}  // namespace
-
-std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
-                                                     int64_t size,
-                                                     double null_probability) {
-  return RandomArrayGeneratorOfImpl{this, type, size, null_probability, nullptr}.Finish();
-}
-
-namespace {
+// Helper for RandomArrayGenerator::ArrayOf: extract some C value from
+// a given metadata key.
 template <typename T, typename ArrowType = typename CTypeTraits<T>::ArrowType>
 enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata,
                                                    const std::string& key,
@@ -737,14 +637,24 @@ enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metad
   }
   return output;
 }
+
 }  // namespace
+
+std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
+                                                     int64_t size,
+                                                     double null_probability) {
+  auto metadata =
+      key_value_metadata({"null_probability"}, {std::to_string(null_probability)});
+  auto field = ::arrow::field("", std::move(type), std::move(metadata));
+  return ArrayOf(*field, size);
+}
 
 std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t length) {
 #define VALIDATE_RANGE(PARAM, MIN, MAX)                                          \
   if (PARAM < MIN || PARAM > MAX) {                                              \
     ABORT_NOT_OK(Status::Invalid(field.ToString(), ": ", ARROW_STRINGIFY(PARAM), \
                                  " must be in [", MIN, ", ", MAX, " ] but got ", \
-                                 null_probability));                             \
+                                 PARAM));                                        \
   }
 #define VALIDATE_MIN_MAX(MIN, MAX)                                                  \
   if (MIN > MAX) {                                                                  \
@@ -783,7 +693,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     const auto min_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(         \
         field.metadata().get(), "min_length", 0);                                    \
     const auto max_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(         \
-        field.metadata().get(), "max_length", 1024);                                 \
+        field.metadata().get(), "max_length", 20);                                   \
     const auto lengths = internal::checked_pointer_cast<                             \
         CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrayType>(                 \
         Numeric<CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrowType>(         \
@@ -835,7 +745,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       const auto min_length =
           GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
       const auto max_length =
-          GetMetadata<int32_t>(field.metadata().get(), "max_length", 1024);
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 20);
       const auto unique_values =
           GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
       if (unique_values > 0) {
@@ -956,7 +866,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       const auto min_length =
           GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
       const auto max_length =
-          GetMetadata<int32_t>(field.metadata().get(), "max_length", 1024);
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 20);
       const auto unique_values =
           GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
       if (unique_values > 0) {
