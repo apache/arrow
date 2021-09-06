@@ -88,7 +88,12 @@ public final class JdbcToArrowConfig {
    * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
    */
   JdbcToArrowConfig(BufferAllocator allocator, Calendar calendar) {
-    this(allocator, calendar, false, false, null, null, DEFAULT_TARGET_BATCH_SIZE, null);
+    this(allocator, calendar,
+        /* include metadata */ false,
+        /* reuse vector schema root */ false,
+        /* array sub-types by column index */ null,
+        /* array sub-types by column name */ null,
+        DEFAULT_TARGET_BATCH_SIZE, null);
   }
 
   /**

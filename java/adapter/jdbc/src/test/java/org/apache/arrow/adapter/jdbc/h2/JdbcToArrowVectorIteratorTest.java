@@ -27,6 +27,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -94,6 +95,42 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
         JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
 
     validate(iterator);
+  }
+
+  @Test
+  public void testVectorSchemaRootReuse() throws SQLException, IOException {
+
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()).setTargetBatchSize(3).setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
+
+    ArrowVectorIterator iterator =
+        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
+
+    int batchCount = 0;
+    VectorSchemaRoot prev = null;
+    while (iterator.hasNext()) {
+      VectorSchemaRoot cur = iterator.next();
+      assertNotNull(cur);
+
+      if (prev != null) {
+        // skip the first iteration
+
+        if (reuseVectorSchemaRoot) {
+          // when reuse is enabled, different iterations are based on the same vector schema root.
+          assertTrue(prev == cur);
+        } else {
+          // when reuse is enabled, a new vector schema root is created in each iteration.
+          assertFalse(prev == cur);
+          cur.close();
+        }
+      }
+
+      prev = cur;
+      batchCount += 1;
+    }
+
+    // make sure we have at least two batches, so the above test paths are actually covered
+    assertTrue(batchCount > 1);
   }
 
   @Test

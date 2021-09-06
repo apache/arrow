@@ -235,7 +235,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     int x = 0;
     final int targetRows = 600000;
     ResultSet rs = new FakeResultSet(targetRows);
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar(), false)
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
+        allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
         .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
 
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
