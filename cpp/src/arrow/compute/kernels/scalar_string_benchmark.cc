@@ -77,11 +77,6 @@ static void SplitPattern(benchmark::State& state) {
   UnaryStringBenchmark(state, "split_pattern", &options);
 }
 
-static void StrRepeat(benchmark::State& state) {
-  RepeatOptions options({8});
-  UnaryStringBenchmark(state, "str_repeat", &options);
-}
-
 static void TrimSingleAscii(benchmark::State& state) {
   TrimOptions options("a");
   UnaryStringBenchmark(state, "ascii_trim", &options);
