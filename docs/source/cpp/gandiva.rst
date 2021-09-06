@@ -158,7 +158,7 @@ Available Gandiva Functions
 Common Types
 ------------
 
-To be succint, we describe the types in the following groups:
+To be succinct, we describe the types in the following groups:
 
  * Integer: ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``uint16``, ``uint32``, ``uint64``
  * Float: ``float``, ``double``
@@ -167,6 +167,17 @@ To be succint, we describe the types in the following groups:
  * Date: ``date64[ms]``, ``date32[day]``
  * Time: ``time32[ms]``
  * Timestamp: ``timestamp[ms]``
+
+When we wrap the input types in parentheses, that means those inputs must be in
+that order.
+
+.. warning::
+  Functions that take decimals and return decimals do not currently respect or
+  enforce the scale and precision of the provided return type. For example,
+  ``add(decimal(28, 4), decimal(28, 3))`` will always return a ``decimal(28, 4)``,
+  so if you specify a return type ``decimal(28, 3)`` the resulting array will
+  have incorrect results. It is up to the user to match the return type with the
+  expectations of the functions.
 
 
 Comparisons
@@ -213,8 +224,8 @@ Comparisons
   unknown and never equal.
 
 
-Cast
-----
+Casting and Conversion
+----------------------
 
 
 Casts convert values between types. These may raise errors, for example if casting
@@ -706,7 +717,7 @@ String Manipulation
     - Binary
     - (``string``, ``int32``)
     - ``string``
-   -
+    -
   * - lpad, rpad
     - Ternary
     - (``string``, ``int32``, ``string``)
