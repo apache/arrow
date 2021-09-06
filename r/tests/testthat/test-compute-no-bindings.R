@@ -15,9 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not(arrow_available())
-
-test_that("non-bound compute kernels using TrimOptions", {
+test_that("non-bound string compute kernels using TrimOptions", {
+  
+  skip_if_not_available("utf8proc")
+  
   expect_equal(
     call_function("utf8_trim", Scalar$create("abracadabra"), options = list(characters = "ab")),
     Scalar$create("racadabr")
