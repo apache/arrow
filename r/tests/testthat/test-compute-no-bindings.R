@@ -103,6 +103,7 @@ test_that("non-bound compute kernels using ReplaceSliceOptions", {
     Array$create("I don't need to fix this string")
   )
 })
+
 test_that("non-bound compute kernels using ModeOptions", {
   expect_equal(
     as.vector(
@@ -116,5 +117,12 @@ test_that("non-bound compute kernels using ModeOptions", {
       call_function("mode", Array$create(c(1:10, 10, 9, NA)), options = list(n = 3, skip_nulls = FALSE))
     ),
     tibble::tibble("mode" = numeric(), "count" = integer())
+  )
+})
+
+test_that("non-bound compute kernels using PartitionNthOptions", {
+  expect_equal(
+    as.vector(call_function("partition_nth_indices", Array$create(c(1:10)), options = list(pivot = 5))),
+    c(1L, 0L, 4L, 3L, 2L, 5L, 6L, 7L, 8L, 9L)
   )
 })
