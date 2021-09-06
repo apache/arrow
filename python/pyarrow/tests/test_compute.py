@@ -1496,10 +1496,18 @@ def test_strftime():
                 expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
                 assert result.equals(expected)
 
+        fmt = "%Y-%m-%dT%H:%M:%S"
+
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        assert result.equals(expected)
+
+        # Default format plus timezone
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt + "%Z")))
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
@@ -1518,18 +1526,27 @@ def test_strftime():
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
-        options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C")
+        options = pc.StrftimeOptions(fmt, "C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
         assert result.equals(expected)
 
-    for unit in ["s", "ms", "us", "ns"]:
-        tsa = pa.array(ts, type=pa.timestamp(unit))
-        for fmt in formats:
-            with pytest.raises(pa.ArrowInvalid,
-                               match="Timestamps without a time zone "
-                                     "cannot be reliably formatted"):
-                pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
+    # Test timestamps without timezone
+    fmt = "%Y-%m-%dT%H:%M:%S"
+    ts = pd.to_datetime(times)
+    tsa = pa.array(ts, type=pa.timestamp("s"))
+    result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
+    expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+
+    assert result.equals(expected)
+    with pytest.raises(
+            pa.ArrowInvalid,
+            match="Timezone not present, cannot convert to string"):
+        pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
+    with pytest.raises(
+            pa.ArrowInvalid,
+            match="Timezone not present, cannot convert to string"):
+        pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%z"))
 
 
 def _check_datetime_components(timestamps, timezone=None):

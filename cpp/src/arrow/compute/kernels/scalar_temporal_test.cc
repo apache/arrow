@@ -394,7 +394,7 @@ TEST_F(ScalarTemporalTest, Strftime) {
   const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
 
   const char* default_seconds = R"(
-      ["1970-01-01T00:00:59Z", "2021-08-18T15:11:50Z", null])";
+      ["1970-01-01T00:00:59", "2021-08-18T15:11:50", null])";
   const char* string_seconds = R"(
       ["1970-01-01T00:00:59+0000", "2021-08-18T15:11:50+0000", null])";
   const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
@@ -414,12 +414,20 @@ TEST_F(ScalarTemporalTest, Strftime) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
+  auto options_default = StrftimeOptions();
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), seconds);
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), seconds, utf8(), seconds,
+                   &options_default);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      testing::HasSubstr("Timestamps without a time zone cannot be reliably formatted"),
-      Strftime(arr, StrftimeOptions()));
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%z")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidTimezone) {
@@ -440,7 +448,7 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
   const char* microseconds = R"(["1970-01-01T00:00:59.123456", null])";
   const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
 
-  const char* default_seconds = R"(["1970-01-01T00:00:59Z", null])";
+  const char* default_seconds = R"(["1970-01-01T00:00:59", null])";
   const char* string_seconds = R"(["1970-01-01T00:00:59+0000", null])";
   const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
   const char* string_microseconds = R"(["1970-01-01T05:30:59.123456+0530", null])";
