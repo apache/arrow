@@ -91,8 +91,8 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
+import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -599,11 +599,10 @@ public class RoundtripTest {
       UUID u1 = UUID.randomUUID();
       UUID u2 = UUID.randomUUID();
       UuidVector vector = (UuidVector) root.getVector("a");
-      vector.setValueCount(3);
+      vector.setValueCount(2);
       vector.set(0, u1);
       vector.set(1, u2);
-      vector.set(2, null);
-      root.setRowCount(3);
+      root.setRowCount(2);
 
       // Roundtrip (export + import)
       VectorSchemaRoot importedRoot = vectorSchemaRootRoundtrip(root);

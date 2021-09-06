@@ -30,12 +30,12 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Importer for {@link ArrowSchema}.

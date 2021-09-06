@@ -16,13 +16,12 @@
 // under the License.
 
 #include <jni.h>
-#include <memory>
-#include <cassert>
-#include "abi.h"
-#include <stdint.h>
-#include <string>
-#include <inttypes.h>
 
+#include <cassert>
+#include <memory>
+#include <string>
+
+#include "abi.h"
 #include "org_apache_arrow_ffi_jni_JniWrapper.h"
 
 namespace
@@ -48,7 +47,7 @@ namespace
   class JniPendingException : public std::runtime_error
   {
   public:
-    explicit JniPendingException(const std::string &arg) : runtime_error(arg) {}
+    explicit JniPendingException(const std::string &arg) : std::runtime_error(arg) {}
   };
 
   void ThrowPendingException(const std::string &message)
@@ -63,7 +62,7 @@ namespace
     jmethodID ret = env->GetMethodID(this_class, name, sig);
     if (ret == nullptr) {
       std::string error_message = "Unable to find method " + std::string(name) +
-                                  " within signature" + std::string(sig);
+                                  " within signature " + std::string(sig);
       ThrowPendingException(error_message);
     }
     return ret;
@@ -236,6 +235,6 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_ffi_jni_JniWrapper_exportArray(
   jobject private_data_ref = env->NewGlobalRef(private_data);
 
   array->private_data = new InnerPrivateData(vm, private_data_ref);
-  array->release = &release_exported<ArrowArray>; 
+  array->release = &release_exported<ArrowArray>;
   JNI_METHOD_END()
 }
