@@ -402,10 +402,10 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::ModeOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["n"])) {
-      out->n = cpp11::as_cpp<int>(options["n"]);
+      out->n = cpp11::as_cpp<int64_t>(options["n"]);
     }
     if (!Rf_isNull(options["min_count"])) {
-      out->min_count = cpp11::as_cpp<int>(options["min_count"]);
+      out->min_count = cpp11::as_cpp<uint32_t>(options["min_count"]);
     }
     if (!Rf_isNull(options["skip_nulls"])) {
       out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
