@@ -23,6 +23,17 @@ download the required dependencies for you.
 These downloaded dependencies are only used in the build if
 \code{ARROW_DEPENDENCY_SOURCE} is unset, \code{BUNDLED}, or \code{AUTO}.
 https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
+
+If you're using binary packages you shouldn't need to use this function. You
+should download the appropriate binary from your package repository, transfer
+that to the offline computer, and install that. Any OS can create the source
+bundle, but it cannot be installed on Windows. (Instead, use a standard
+Windows binary package.)
+
+Note if you're using RStudio Package Manager on Linux: If you still want to
+make a source bundle with this function, make sure to set the first repo in
+\code{options("repos")} to be a mirror that contains source packages (that is:
+something other than the RSPM binary mirror URLs).
 \subsection{Steps for an offline install with optional dependencies:}{
 \subsection{Using a computer with internet access, pre-download the dependencies:}{
 \itemize{

@@ -102,6 +102,8 @@ satisfy C++ dependencies.
 
 > Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
+## Offline installation
+
 The `install-arrow.R` file also includes the `create_package_with_all_dependencies()`
 function. Normally, when installing on a computer with internet access, the
 build process will download third-party dependencies as needed.
@@ -114,6 +116,17 @@ capability.
 One approach to add more capabilities in an offline install is to prepare a
 package with pre-downloaded dependencies. The
 `create_package_with_all_dependencies()` function does this preparation.
+
+If you're using binary packages you shouldn't need to follow these steps. You
+should download the appropriate binary from your package repository, transfer
+that to the offline computer, and install that. Any OS can create the source
+bundle, but it cannot be installed on Windows. (Instead, use a standard
+Windows binary package.)
+
+Note if you're using RStudio Package Manager on Linux: If you still want to
+make a source bundle with this function, make sure to set the first repo in
+`options("repos")` to be a mirror that contains source packages (that is:
+something other than the RSPM binary mirror URLs).
 
 ### Using a computer with internet access, pre-download the dependencies:
 * Install the `arrow` package _or_ run
