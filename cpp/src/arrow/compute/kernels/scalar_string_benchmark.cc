@@ -215,7 +215,6 @@ BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
 BENCHMARK(MatchSubstring);
 BENCHMARK(SplitPattern);
-BENCHMARK(StrRepeat);
 BENCHMARK(TrimSingleAscii);
 BENCHMARK(TrimManyAscii);
 #ifdef ARROW_WITH_RE2
