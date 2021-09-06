@@ -55,6 +55,9 @@ skip_if_not_available("utf8proc")
 })
 
 test_that("non-bound compute kernels using ReplaceSliceOptions", {
+  
+  skip_if_not_available("utf8proc")
+  
   expect_equal(
     call_function(
       "binary_replace_slice",
