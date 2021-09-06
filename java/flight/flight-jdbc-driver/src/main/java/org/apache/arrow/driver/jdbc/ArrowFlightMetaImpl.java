@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static java.lang.String.format;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
@@ -29,7 +31,6 @@ import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.MetaImpl;
-import org.apache.calcite.avatica.MissingResultsException;
 import org.apache.calcite.avatica.NoSuchStatementException;
 import org.apache.calcite.avatica.QueryState;
 import org.apache.calcite.avatica.remote.TypedValue;
@@ -68,15 +69,15 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public ExecuteResult execute(final StatementHandle statementHandle,
-      final List<TypedValue> typedValues, final long maxRowCount)
-          throws NoSuchStatementException {
+                               final List<TypedValue> typedValues, final long maxRowCount)
+      throws NoSuchStatementException {
     return null;
   }
 
   @Override
   public ExecuteResult execute(final StatementHandle statementHandle,
-      final List<TypedValue> typedValues, final int maxRowsInFirstFrame)
-          throws NoSuchStatementException {
+                               final List<TypedValue> typedValues, final int maxRowsInFirstFrame)
+      throws NoSuchStatementException {
     // Avatica removes the signature in case of updates
     if (statementHandle.signature == null) {
       // TODO: Handle updates
@@ -89,21 +90,27 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public ExecuteBatchResult executeBatch(final StatementHandle statementHandle,
-      final List<List<TypedValue>> parameterValuesList)
-          throws NoSuchStatementException {
+                                         final List<List<TypedValue>> parameterValuesList)
+      throws NoSuchStatementException {
     throw new IllegalStateException();
   }
 
   @Override
   public Frame fetch(final StatementHandle statementHandle, final long offset,
-      final int fetchMaxRowCount)
-          throws NoSuchStatementException, MissingResultsException {
-    throw new IllegalStateException();
+                     final int fetchMaxRowCount) {
+    /*
+     * ArrowFlightMetaImpl does not use frames.
+     * Instead, we have accessors that contain a VectorSchemaRoot with
+     * the results.
+     */
+    throw AvaticaConnection.HELPER.wrap(
+        format("%s does not use frames.", this),
+        AvaticaConnection.HELPER.unsupported());
   }
 
   @Override
   public StatementHandle prepare(final ConnectionHandle connectionHandle,
-      final String query, final long maxRowCount) {
+                                 final String query, final long maxRowCount) {
 
     return new StatementHandle(
         connectionHandle.id, statementHandleId.incrementAndGet(), newSignature(query));
@@ -111,17 +118,17 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public ExecuteResult prepareAndExecute(final StatementHandle statementHandle,
-      final String query, final long maxRowCount,
-      final PrepareCallback prepareCallback)
-          throws NoSuchStatementException {
+                                         final String query, final long maxRowCount,
+                                         final PrepareCallback prepareCallback)
+      throws NoSuchStatementException {
     // TODO Fill this stub.
     return null;
   }
 
   @Override
   public ExecuteResult prepareAndExecute(final StatementHandle handle,
-      final String query, final long maxRowCount, final int maxRowsInFirstFrame,
-      final PrepareCallback callback) throws NoSuchStatementException {
+                                         final String query, final long maxRowCount, final int maxRowsInFirstFrame,
+                                         final PrepareCallback callback) throws NoSuchStatementException {
     final Signature signature = newSignature(query);
     try {
       synchronized (callback.getMonitor()) {
@@ -143,7 +150,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   @Override
   public ExecuteBatchResult prepareAndExecuteBatch(
       final StatementHandle statementHandle, final List<String> queries)
-          throws NoSuchStatementException {
+      throws NoSuchStatementException {
     // TODO Fill this stub.
     return null;
   }
@@ -155,8 +162,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public boolean syncResults(final StatementHandle statementHandle,
-      final QueryState queryState, final long offset)
-          throws NoSuchStatementException {
+                             final QueryState queryState, final long offset)
+      throws NoSuchStatementException {
     // TODO Fill this stub.
     return false;
   }
