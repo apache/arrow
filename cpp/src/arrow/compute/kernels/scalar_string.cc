@@ -2743,8 +2743,7 @@ struct StrRepeatTransform : public StringTransformBase {
     // Since repeat values are validated here, might as well get the maximum repeat value
     // into a data member and use it for MaxCodeunits().
     if (batch[1].is_scalar()) {
-      max_nrepeats = static_cast<int64_t>(
-          checked_cast<const NumericScalar<Type2>&>(*batch[1].scalar()).value);
+      max_nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*batch[1].scalar()));
     }
 
     if (batch[0].is_array() && batch[1].is_array()) {
@@ -2778,8 +2777,7 @@ struct StrRepeatTransform : public StringTransformBase {
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     const std::shared_ptr<Scalar>& input2, uint8_t* output) {
-    auto nrepeats =
-        static_cast<int64_t>(checked_cast<const NumericScalar<Type2>&>(*input2).value);
+    auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*input2));
     uint8_t* output_start = output;
     if (nrepeats > 0) {
       // log2(repeats) approach
