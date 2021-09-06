@@ -1853,6 +1853,10 @@ TYPED_TEST(TestNumericIndexKernel, Basics) {
   this->AssertIndexIs(chunked_input2, value, 4);
   this->AssertIndexIs(chunked_input3, value, -1);
   this->AssertIndexIs(chunked_input4, value, 5);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Must provide IndexOptions"),
+      CallFunction("index", {ArrayFromJSON(this->type_singleton(), "[0]")}));
 }
 TYPED_TEST(TestNumericIndexKernel, Random) {
   constexpr auto kChunks = 4;

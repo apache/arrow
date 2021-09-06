@@ -549,6 +549,9 @@ struct IndexInit {
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
+    if (!args.options) {
+      return Status::Invalid("Must provide IndexOptions for index kernel");
+    }
     IndexInit visitor(ctx, static_cast<const IndexOptions&>(*args.options),
                       *args.inputs[0].type);
     return visitor.Create();
