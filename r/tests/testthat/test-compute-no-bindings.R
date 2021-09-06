@@ -177,3 +177,11 @@ test_that("non-bound compute kernels using MatchSubstringOptions", {
     c(0, 0, 1, 1)
   )
 })
+
+test_that("non-bound compute kernels using ExtractRegexOptions", {
+  skip_if_not_available("re2")
+  expect_equal(
+    call_function("extract_regex", Scalar$create("abracadabra"), options = list(pattern = "(?P<letter>[a])")),
+    Scalar$create(tibble::tibble(letter = "a"))
+  )
+})

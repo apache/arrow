@@ -309,6 +309,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<std::string>(options["replacement"]),
                                      max_replacements);
   }
+  
+  if (func_name == "extract_regex") {
+    using Options = arrow::compute::ExtractRegexOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]));
+  }
 
   if (func_name == "day_of_week") {
     using Options = arrow::compute::DayOfWeekOptions;
