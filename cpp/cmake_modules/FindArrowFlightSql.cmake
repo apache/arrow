@@ -77,13 +77,17 @@ mark_as_advanced(ARROW_FLIGHT_SQL_IMPORT_LIB
 
 find_package_handle_standard_args(
   ArrowFlightSql
-  REQUIRED_VARS ARROW_FLIGHT_SQL_INCLUDE_DIR ARROW_FLIGHT_SQL_LIB_DIR ARROW_FLIGHT_SQL_VERSION_MATCH
+  REQUIRED_VARS ARROW_FLIGHT_SQL_INCLUDE_DIR ARROW_FLIGHT_SQL_LIB_DIR
+                ARROW_FLIGHT_SQL_VERSION_MATCH
   VERSION_VAR ARROW_FLIGHT_SQL_VERSION)
 set(ARROW_FLIGHT_SQL_FOUND ${ArrowFlightSql_FOUND})
 
 if(ArrowFlightSql_FOUND AND NOT ArrowFlightSql_FIND_QUIETLY)
   message(STATUS "Found the Arrow Flight SQL by ${ARROW_FLIGHT_SQL_FIND_APPROACH}")
-  message(STATUS "Found the Arrow Flight SQL shared library: ${ARROW_FLIGHT_SQL_SHARED_LIB}")
-  message(STATUS "Found the Arrow Flight SQL import library: ${ARROW_FLIGHT_SQL_IMPORT_LIB}")
-  message(STATUS "Found the Arrow Flight SQL static library: ${ARROW_FLIGHT_SQL_STATIC_LIB}")
+  message(STATUS "Found the Arrow Flight SQL shared library: ${ARROW_FLIGHT_SQL_SHARED_LIB}"
+  )
+  message(STATUS "Found the Arrow Flight SQL import library: ${ARROW_FLIGHT_SQL_IMPORT_LIB}"
+  )
+  message(STATUS "Found the Arrow Flight SQL static library: ${ARROW_FLIGHT_SQL_STATIC_LIB}"
+  )
 endif()
