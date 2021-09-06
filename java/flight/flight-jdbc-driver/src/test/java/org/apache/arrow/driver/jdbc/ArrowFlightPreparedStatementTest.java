@@ -37,7 +37,7 @@ public class ArrowFlightPreparedStatementTest {
   private static final Random RANDOM = new Random(10);
 
   @ClassRule
-  public static FlightServerTestRule rule =
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
       FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
 
   private static Connection connection;
@@ -47,7 +47,7 @@ public class ArrowFlightPreparedStatementTest {
 
   @BeforeClass
   public static void setup() throws SQLException {
-    connection = rule.getConnection();
+    connection = FLIGHT_SERVER_TEST_RULE.getConnection();
   }
 
   @AfterClass

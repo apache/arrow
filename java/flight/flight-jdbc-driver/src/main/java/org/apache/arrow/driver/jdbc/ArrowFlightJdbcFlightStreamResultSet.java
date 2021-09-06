@@ -74,13 +74,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
-    if (statement instanceof ArrowFlightStatement) {
-      return execute(((ArrowFlightStatement) statement).getFlightInfoToExecuteQuery());
-    } else if (statement instanceof ArrowFlightPreparedStatement) {
-      return execute(((ArrowFlightPreparedStatement) statement).getFlightInfoToExecuteQuery());
-    }
-
-    throw new IllegalStateException();
+    return execute(((ArrowFlightInfoStatement) statement).executeFlightInfoQuery());
   }
 
   private AvaticaResultSet execute(final FlightInfo flightInfo) throws SQLException {

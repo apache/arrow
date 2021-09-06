@@ -18,29 +18,23 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.SQLException;
+import java.sql.Statement;
 
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.calcite.avatica.AvaticaStatement;
-import org.apache.calcite.avatica.Meta.StatementHandle;
 
 /**
- * A SQL statement for querying data from an Arrow Flight server.
+ * A {@link Statement} that deals with {@link FlightInfo}.
  */
-public class ArrowFlightStatement extends AvaticaStatement implements ArrowFlightInfoStatement {
-
-  ArrowFlightStatement(final ArrowFlightConnection connection,
-                       final StatementHandle handle, final int resultSetType,
-                       final int resultSetConcurrency, final int resultSetHoldability) {
-    super(connection, handle, resultSetType, resultSetConcurrency, resultSetHoldability);
-  }
+public interface ArrowFlightInfoStatement extends Statement {
 
   @Override
-  public ArrowFlightConnection getConnection() throws SQLException {
-    return (ArrowFlightConnection) super.getConnection();
-  }
+  ArrowFlightConnection getConnection() throws SQLException;
 
-  @Override
-  public FlightInfo executeFlightInfoQuery() throws SQLException {
-    return getConnection().getClientHandler().getInfo(getSignature().sql);
-  }
+  /**
+   * Executes the query this {@link Statement} is holding.
+   *
+   * @return the {@link FlightInfo} for the results.
+   * @throws SQLException on error.
+   */
+  FlightInfo executeFlightInfoQuery() throws SQLException;
 }

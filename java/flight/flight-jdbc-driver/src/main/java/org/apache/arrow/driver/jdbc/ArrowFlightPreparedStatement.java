@@ -32,7 +32,7 @@ import org.apache.calcite.avatica.Meta.StatementHandle;
 /**
  * Arrow Flight JBCS's implementation {@link PreparedStatement}.
  */
-public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement {
+public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement implements ArrowFlightInfoStatement {
 
   private final FlightClientHandler.PreparedStatement preparedStatement;
 
@@ -69,18 +69,19 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement {
         signature, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 
-  /**
-   * Returns a FlightInfo for PreparedStatement query execution.
-   *
-   * @return the {@link FlightInfo}.
-   */
-  public FlightInfo getFlightInfoToExecuteQuery() throws SQLException {
-    return preparedStatement.executeQuery();
+  @Override
+  public ArrowFlightConnection getConnection() throws SQLException {
+    return (ArrowFlightConnection) super.getConnection();
   }
 
   @Override
   public synchronized void close() throws SQLException {
     this.preparedStatement.close();
     super.close();
+  }
+
+  @Override
+  public FlightInfo executeFlightInfoQuery() throws SQLException {
+    return preparedStatement.executeQuery();
   }
 }

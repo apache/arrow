@@ -36,19 +36,19 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
   private static final Random RANDOM = new Random(10);
 
   @ClassRule
-  public static FlightServerTestRule rule =
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
       FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
 
   static {
-    rule.addUser("user1", "pass1");
-    rule.addUser("user2", "pass2");
+    FLIGHT_SERVER_TEST_RULE.addUser("user1", "pass1");
+    FLIGHT_SERVER_TEST_RULE.addUser("user2", "pass2");
   }
 
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
   @Before
   public void setUp() {
-    dataSource = rule.createConnectionPoolDataSource();
+    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
   }
 
   @After
