@@ -195,8 +195,6 @@ module Arrow
     alias_method :size, :n_rows
     alias_method :length, :n_rows
 
-    alias_method :[], :find_column
-
     alias_method :slice_raw, :slice
 
     # @overload slice(offset, length)
@@ -395,41 +393,6 @@ module Arrow
         end
       end
       remove_column_raw(index)
-    end
-
-    # TODO
-    #
-    # @return [Arrow::Table]
-    def select_columns(*selectors, &block)
-      if selectors.empty?
-        return to_enum(__method__) unless block_given?
-        selected_columns = columns.select(&block)
-      else
-        selected_columns = []
-        selectors.each do |selector|
-          case selector
-          when String, Symbol
-            column = find_column(selector)
-            if column.nil?
-              message = "unknown column: #{selector.inspect}: #{inspect}"
-              raise KeyError.new(message)
-            end
-            selected_columns << column
-          when Range
-            selected_columns.concat(columns[selector])
-          else
-            column = columns[selector]
-            if column.nil?
-              message = "out of index (0..#{n_columns - 1}): " +
-              "#{selector.inspect}: #{inspect}"
-              raise IndexError.new(message)
-            end
-            selected_columns << column
-          end
-        end
-        selected_columns = selected_columns.select(&block) if block_given?
-      end
-      self.class.new(selected_columns)
     end
 
     # Experimental
