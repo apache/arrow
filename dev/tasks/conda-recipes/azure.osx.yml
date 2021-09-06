@@ -18,6 +18,7 @@ jobs:
 
   - script: |
       source activate base
+      conda config --set channel_priority strict
       conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=3 conda-build
     displayName: 'Add conda-forge-ci-setup=3'
 
@@ -26,7 +27,6 @@ jobs:
       /usr/bin/sudo mangle_homebrew
       /usr/bin/sudo -k
     displayName: Mangle homebrew
-
 
   {{ macros.azure_checkout_arrow() }}
 
@@ -37,7 +37,7 @@ jobs:
       setup_conda_rc ./ ./ ./.ci_support/${CONFIG}.yaml
       export CI=azure
       source run_conda_forge_build_setup
-      conda update --yes --quiet --override-channels -c conda-forge -c defaults --all
+      conda update --yes --quiet --override-channels -c conda-forge --all
     displayName: Configure conda and conda-build
     workingDirectory: arrow/dev/tasks/conda-recipes
     env:
