@@ -54,11 +54,15 @@ public final class ${className} implements ValueHolder{
     public ${field.type} ${field.name};
     </#list>
 
+    /**
+     * Reason for not supporting the operation is that ValueHolders are potential scalar
+     * replacements and hence we don't want any methods to be invoked on them.
+     */
     public int hashCode(){
       throw new UnsupportedOperationException();
     }
 
-    /*
+    /**
      * Reason for not supporting the operation is that ValueHolders are potential scalar
      * replacements and hence we don't want any methods to be invoked on them.
      */
