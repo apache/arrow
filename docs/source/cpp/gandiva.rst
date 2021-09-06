@@ -150,7 +150,6 @@ Here is an example of evaluating the Filter and Projector created above:
 
 .. _gandiva-function-list:
 
-.. TODO: Describe responsibility on Decimal precisions
 
 Available Gandiva Functions
 ===========================

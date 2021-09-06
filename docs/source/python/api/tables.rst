@@ -22,9 +22,7 @@
 Tables and Tensors
 ==================
 
-
-
-Function Registry
+Factory Functions
 -----------------
 
 .. autosummary::
@@ -36,11 +34,8 @@ Function Registry
    record_batch
    table
 
-    :ref:`Available Gandiva functions (C++ documentation) <gandiva-function-list>`.
-
-
-Expression Tree Builder
------------------------
+Classes
+-------
 
 .. autosummary::
    :toctree: ../generated/
