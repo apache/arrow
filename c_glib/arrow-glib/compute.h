@@ -51,6 +51,31 @@ struct _GArrowFunctionOptionsClass
 };
 
 
+#define GARROW_TYPE_FUNCTION_DOC (garrow_function_doc_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFunctionDoc,
+                         garrow_function_doc,
+                         GARROW,
+                         FUNCTION_DOC,
+                         GObject)
+struct _GArrowFunctionDocClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+gchar *
+garrow_function_doc_get_summary(GArrowFunctionDoc *doc);
+GARROW_AVAILABLE_IN_6_0
+gchar *
+garrow_function_doc_get_description(GArrowFunctionDoc *doc);
+GARROW_AVAILABLE_IN_6_0
+gchar **
+garrow_function_doc_get_arg_names(GArrowFunctionDoc *doc);
+GARROW_AVAILABLE_IN_6_0
+gchar *
+garrow_function_doc_get_options_class_name(GArrowFunctionDoc *doc);
+
+
 #define GARROW_TYPE_FUNCTION (garrow_function_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFunction,
                          garrow_function,
@@ -72,6 +97,10 @@ GArrowDatum *garrow_function_execute(GArrowFunction *function,
                                      GArrowFunctionOptions *options,
                                      GArrowExecuteContext *context,
                                      GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+GArrowFunctionDoc *
+garrow_function_get_doc(GArrowFunction *function);
 
 
 #define GARROW_TYPE_EXECUTE_NODE_OPTIONS (garrow_execute_node_options_get_type())

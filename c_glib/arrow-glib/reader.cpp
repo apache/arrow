@@ -1360,10 +1360,13 @@ garrow_csv_read_options_set_null_values(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_null_values:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The values to be processed as null. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as null.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.14.0
  */
@@ -1425,10 +1428,13 @@ garrow_csv_read_options_set_true_values(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_true_values:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The values to be processed as true. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as true.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.14.0
  */
@@ -1490,10 +1496,13 @@ garrow_csv_read_options_set_false_values(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_false_values:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The values to be processed as false. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as false.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.14.0
  */
@@ -1556,10 +1565,13 @@ garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_column_names:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The column names. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The column names.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.15.0
  */
