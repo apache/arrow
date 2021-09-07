@@ -199,4 +199,8 @@ public final class ArrowFlightConnection extends AvaticaConnection {
      */
     LOGGER.error("Memory leak detected!", exception);
   }
+
+  BufferAllocator getBufferAllocator() {
+    return allocator;
+  }
 }
