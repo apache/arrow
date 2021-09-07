@@ -369,3 +369,13 @@ test_that("Expressions on aggregations", {
     tbl
   )
 })
+
+test_that("Summarize with 0 arguments", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize() %>%
+      collect(),
+    tbl
+  )
+})

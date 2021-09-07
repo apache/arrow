@@ -185,7 +185,7 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
 
   constexpr static char const kTypeName[] = "StrftimeOptions";
 
-  constexpr static const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%SZ";
+  constexpr static const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%S";
 
   /// The desired format string.
   std::string format;

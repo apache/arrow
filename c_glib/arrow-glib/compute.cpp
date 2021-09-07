@@ -165,6 +165,12 @@ G_BEGIN_DECLS
  * #GArrowSortOptions is a class to customize the `sort_indices`
  * function.
  *
+ * #GArrowSetLookupOptions is a class to customize the `is_in` function
+ * and `index_in` function.
+ *
+ * #GArrowVarianceOptions is a class to customize the `stddev` function
+ * and `variance` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -2417,6 +2423,312 @@ garrow_sort_options_set_sort_keys(GArrowSortOptions *options,
 }
 
 
+typedef struct GArrowSetLookupOptionsPrivate_ {
+  GArrowDatum *value_set;
+} GArrowSetLookupOptionsPrivate;
+
+enum {
+  PROP_SET_LOOKUP_OPTIONS_VALUE_SET = 1,
+  PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowSetLookupOptions,
+                           garrow_set_lookup_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_SET_LOOKUP_OPTIONS_GET_PRIVATE(object) \
+  static_cast<GArrowSetLookupOptionsPrivate *>(       \
+    garrow_set_lookup_options_get_instance_private(   \
+      GARROW_SET_LOOKUP_OPTIONS(object)))
+
+static void
+garrow_set_lookup_options_dispose(GObject *object)
+{
+  auto priv = GARROW_SET_LOOKUP_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->value_set) {
+    g_object_unref(priv->value_set);
+    priv->value_set = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_set_lookup_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_set_lookup_options_set_property(GObject *object,
+                                       guint prop_id,
+                                       const GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_SET_LOOKUP_OPTIONS_GET_PRIVATE(object);
+  auto options =
+    garrow_set_lookup_options_get_raw(GARROW_SET_LOOKUP_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SET_LOOKUP_OPTIONS_VALUE_SET:
+    priv->value_set = GARROW_DATUM(g_value_dup_object(value));
+    options->value_set = garrow_datum_get_raw(priv->value_set);
+    break;
+  case PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_set_lookup_options_get_property(GObject *object,
+                                       guint prop_id,
+                                       GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_SET_LOOKUP_OPTIONS_GET_PRIVATE(object);
+  auto options =
+    garrow_set_lookup_options_get_raw(GARROW_SET_LOOKUP_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SET_LOOKUP_OPTIONS_VALUE_SET:
+    g_value_set_object(value, priv->value_set);
+    break;
+  case PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_set_lookup_options_init(GArrowSetLookupOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::SetLookupOptions());
+}
+
+static void
+garrow_set_lookup_options_class_init(GArrowSetLookupOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_set_lookup_options_dispose;
+  gobject_class->set_property = garrow_set_lookup_options_set_property;
+  gobject_class->get_property = garrow_set_lookup_options_get_property;
+
+
+  arrow::compute::SetLookupOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowSetLookupOptions:value-set:
+   *
+   * The set of values to look up input values into.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_object("value-set",
+                             "Value set",
+                             "The set of values to look up input values into",
+                             GARROW_TYPE_DATUM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SET_LOOKUP_OPTIONS_VALUE_SET,
+                                  spec);
+
+  /**
+   * GArrowSetLookupOptions:skip-nulls:
+   *
+   * Whether NULLs are skipped or not.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip NULLs",
+                              "Whether NULLs are skipped or not",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS,
+                                  spec);
+}
+
+/**
+ * garrow_set_lookup_options_new:
+ * @value_set: A #GArrowArrayDatum or #GArrowChunkedArrayDatum to be looked up.
+ *
+ * Returns: A newly created #GArrowSetLookupOptions.
+ *
+ * Since: 6.0.0
+ */
+GArrowSetLookupOptions *
+garrow_set_lookup_options_new(GArrowDatum *value_set)
+{
+  return GARROW_SET_LOOKUP_OPTIONS(
+    g_object_new(GARROW_TYPE_SET_LOOKUP_OPTIONS,
+                 "value-set", value_set,
+                 NULL));
+}
+
+
+enum {
+  PROP_VARIANCE_OPTIONS_DDOF = 1,
+  PROP_VARIANCE_OPTIONS_SKIP_NULLS,
+  PROP_VARIANCE_OPTIONS_MIN_COUNT,
+};
+
+G_DEFINE_TYPE(GArrowVarianceOptions,
+              garrow_variance_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_VARIANCE_OPTIONS_GET_PRIVATE(object)  \
+  static_cast<GArrowVarianceOptionsPrivate *>(       \
+    garrow_variance_options_get_instance_private(    \
+      GARROW_VARIANCE_OPTIONS(object)))
+
+static void
+garrow_variance_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_variance_options_get_raw(GARROW_VARIANCE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_VARIANCE_OPTIONS_DDOF:
+    options->ddof = g_value_get_int(value);
+    break;
+  case PROP_VARIANCE_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  case PROP_VARIANCE_OPTIONS_MIN_COUNT:
+    options->min_count = g_value_get_uint(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_variance_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_variance_options_get_raw(GARROW_VARIANCE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_VARIANCE_OPTIONS_DDOF:
+    g_value_set_int(value, options->ddof);
+    break;
+  case PROP_VARIANCE_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  case PROP_VARIANCE_OPTIONS_MIN_COUNT:
+    g_value_set_uint(value, options->min_count);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_variance_options_init(GArrowVarianceOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::VarianceOptions());
+}
+
+static void
+garrow_variance_options_class_init(GArrowVarianceOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_variance_options_set_property;
+  gobject_class->get_property = garrow_variance_options_get_property;
+
+
+  arrow::compute::VarianceOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowVarianceOptions:ddof:
+   *
+   * The Delta Degrees of Freedom (ddof) to be used.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_int("ddof",
+                          "Delta Degrees of Freedom",
+                          "The Delta Degrees of Freedom (ddof) to be used",
+                          G_MININT,
+                          G_MAXINT,
+                          options.ddof,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_VARIANCE_OPTIONS_DDOF,
+                                  spec);
+
+  /**
+   * GArrowVarianceOptions:skip-nulls:
+   *
+   * Whether NULLs are skipped or not.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip NULLs",
+                              "Whether NULLs are skipped or not",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_VARIANCE_OPTIONS_SKIP_NULLS,
+                                  spec);
+
+  /**
+   * GArrowVarianceOptions:min-count:
+   *
+   * If less than this many non-null values are observed, emit null.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_uint("min-count",
+                           "Min count",
+                           "If less than this many non-null values "
+                           "are observed, emit null",
+                           0,
+                           G_MAXUINT,
+                           options.min_count,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_VARIANCE_OPTIONS_MIN_COUNT,
+                                  spec);
+
+}
+
+/**
+ * garrow_variance_options_new:
+ *
+ * Returns: A newly created #GArrowVarianceOptions.
+ *
+ * Since: 6.0.0
+ */
+GArrowVarianceOptions *
+garrow_variance_options_new(void)
+{
+  return GARROW_VARIANCE_OPTIONS(
+    g_object_new(GARROW_TYPE_VARIANCE_OPTIONS, NULL));
+}
+
+
 /**
  * garrow_array_cast:
  * @array: A #GArrowArray.
@@ -3753,5 +4065,20 @@ arrow::compute::SortOptions *
 garrow_sort_options_get_raw(GArrowSortOptions *options)
 {
   return static_cast<arrow::compute::SortOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+arrow::compute::SetLookupOptions *
+garrow_set_lookup_options_get_raw(GArrowSetLookupOptions *options)
+{
+  return static_cast<arrow::compute::SetLookupOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+arrow::compute::VarianceOptions *
+garrow_variance_options_get_raw(GArrowVarianceOptions *options)
+{
+  return static_cast<arrow::compute::VarianceOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

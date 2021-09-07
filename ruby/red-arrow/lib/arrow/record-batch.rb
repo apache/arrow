@@ -50,8 +50,6 @@ module Arrow
     alias_method :size, :n_rows
     alias_method :length, :n_rows
 
-    alias_method :[], :find_column
-
     # Converts the record batch to {Arrow::Table}.
     #
     # @return [Arrow::Table]

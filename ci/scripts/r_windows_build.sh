@@ -92,10 +92,10 @@ cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/l
 
 # Do the same also for ucrt64
 if [ "$RTOOLS_VERSION" != "35" ]; then
-ls $MSYS_LIB_DIR/ucrt64/lib/
-mkdir -p $DST_DIR/lib/x64-ucrt
-mv ucrt64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64-ucrt
-cp $MSYS_LIB_DIR/ucrt64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
+  ls $MSYS_LIB_DIR/ucrt64/lib/
+  mkdir -p $DST_DIR/lib/x64-ucrt
+  mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
+  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
 fi
 
 # Create build artifact

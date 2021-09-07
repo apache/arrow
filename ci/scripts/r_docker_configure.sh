@@ -37,7 +37,7 @@ if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
   dnf install -y libcxx-devel
   sed -i.bak -E -e 's/(CXX1?1? =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
   rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
-  
+
   sed -i.bak -E -e 's/(CXXFLAGS = )(.*)/\1 -g -O3 -Wall -pedantic -frtti -fPIC/' $(${R_BIN} RHOME)/etc/Makeconf
   rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
 fi
@@ -75,9 +75,3 @@ fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
-
-if [ "`which curl`" ]; then
-  # We need this on R >= 4.0
-  curl -L https://sourceforge.net/projects/checkbaskisms/files/2.0.0.2/checkbashisms/download > /usr/local/bin/checkbashisms
-  chmod 755 /usr/local/bin/checkbashisms
-fi

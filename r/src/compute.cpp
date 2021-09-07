@@ -360,6 +360,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(max_splits, reverse);
   }
 
+  if (func_name == "utf8_trim" || func_name == "utf8_ltrim" ||
+      func_name == "utf8_rtrim" || func_name == "ascii_trim" ||
+      func_name == "ascii_ltrim" || func_name == "ascii_rtrim") {
+    using Options = arrow::compute::TrimOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["characters"]));
+  }
+
   if (func_name == "utf8_slice_codeunits") {
     using Options = arrow::compute::SliceOptions;
 

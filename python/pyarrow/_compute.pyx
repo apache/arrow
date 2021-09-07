@@ -989,7 +989,7 @@ cdef class _StrftimeOptions(FunctionOptions):
 
 
 class StrftimeOptions(_StrftimeOptions):
-    def __init__(self, format="%Y-%m-%dT%H:%M:%SZ", locale="C"):
+    def __init__(self, format="%Y-%m-%dT%H:%M:%S", locale="C"):
         self._set_options(format, locale)
 
 
