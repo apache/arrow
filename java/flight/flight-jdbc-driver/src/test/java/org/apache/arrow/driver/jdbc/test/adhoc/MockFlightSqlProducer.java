@@ -67,6 +67,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 
 /**
  * An ad-hoc {@link FlightSqlProducer} for tests.
@@ -141,14 +142,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
         Preconditions.checkNotNull(queryResults.get(query), format("Query not registered: <%s>.", query));
     final List<FlightEndpoint> endpoints =
         queryInfo.getValue().stream()
-            .map(UUID::toString)
-            .map(ByteString::copyFromUtf8)
-            .map(TicketStatementQuery.newBuilder()::setStatementHandle)
-            .map(TicketStatementQuery.Builder::build)
-            .map(Any::pack)
-            .map(Any::toByteArray)
-            .map(Ticket::new)
-            .map(FlightEndpoint::new)
+            .map(TicketConversionUtils::getTicketBytesFromUuid)
+            .map(TicketConversionUtils::getTicketStatementQueryFromHandle)
+            .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(Collectors.toList());
     return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
   }
@@ -165,14 +161,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
         Preconditions.checkNotNull(queryResults.get(query), format("Query not registered: <%s>.", query));
     final List<FlightEndpoint> endpoints =
         queryInfo.getValue().stream()
-            .map(UUID::toString)
-            .map(ByteString::copyFromUtf8)
-            .map(CommandPreparedStatementQuery.newBuilder()::setPreparedStatementHandle)
-            .map(CommandPreparedStatementQuery.Builder::build)
-            .map(Any::pack)
-            .map(Any::toByteArray)
-            .map(Ticket::new)
-            .map(FlightEndpoint::new)
+            .map(TicketConversionUtils::getTicketBytesFromUuid)
+            .map(TicketConversionUtils::getCommandPreparedStatementQueryFromHandle)
+            .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(Collectors.toList());
     return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
   }
@@ -350,5 +341,27 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   public void listFlights(CallContext callContext, Criteria criteria, StreamListener<FlightInfo> streamListener) {
     // TODO Implement this method.
     throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  }
+
+  private static final class TicketConversionUtils {
+    private TicketConversionUtils() {
+      // Prevent instantiation.
+    }
+
+    private static ByteString getTicketBytesFromUuid(final UUID uuid) {
+      return ByteString.copyFromUtf8(uuid.toString());
+    }
+
+    private static TicketStatementQuery getTicketStatementQueryFromHandle(final ByteString handle) {
+      return TicketStatementQuery.newBuilder().setStatementHandle(handle).build();
+    }
+
+    private static CommandPreparedStatementQuery getCommandPreparedStatementQueryFromHandle(final ByteString handle) {
+      return CommandPreparedStatementQuery.newBuilder().setPreparedStatementHandle(handle).build();
+    }
+
+    private static FlightEndpoint getEndpointFromMessage(final Message message) {
+      return new FlightEndpoint(new Ticket(Any.pack(message).toByteArray()));
+    }
   }
 }

@@ -17,21 +17,18 @@
 
 package org.apache.arrow.driver.jdbc.test.adhoc;
 
-import static org.hamcrest.CoreMatchers.instanceOf;
+import static java.lang.String.format;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
-import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
@@ -74,20 +71,18 @@ public final class CoreMockedSqlProducers {
   /**
    * Gets the {@link MockFlightSqlProducer} for legacy tests and backward compatibility.
    *
-   * @param random    the {@link Random} instance to use.
-   * @param allocator the {@link BufferAllocator} to use.
    * @return a new producer.
    */
-  public static MockFlightSqlProducer getLegacyProducer(final Random random) {
+  public static MockFlightSqlProducer getLegacyProducer() {
 
     final MockFlightSqlProducer producer = new MockFlightSqlProducer();
-    addLegacyRegularSqlCmdSupport(producer, random);
+    addLegacyRegularSqlCmdSupport(producer);
     addLegacyMetadataSqlCmdSupport(producer);
     addLegacyCancellationSqlCmdSupport(producer);
     return producer;
   }
 
-  private static void addLegacyRegularSqlCmdSupport(final MockFlightSqlProducer producer, final Random random) {
+  private static void addLegacyRegularSqlCmdSupport(final MockFlightSqlProducer producer) {
     final Schema querySchema = new Schema(ImmutableList.of(
         new Field(
             "ID",
@@ -130,15 +125,18 @@ public final class CoreMockedSqlProducers {
           int indexOnBatch = 0;
           int resultsOffset = page * rowsPerPage;
           for (int i = 0; i < rowsPerPage; i++) {
-            ((BigIntVector) root.getVector("ID")).setSafe(indexOnBatch, random.nextLong());
+            ((BigIntVector) root.getVector("ID"))
+                .setSafe(indexOnBatch, (long) Integer.MAX_VALUE + 1 + i + resultsOffset);
             ((VarCharVector) root.getVector("Name"))
                 .setSafe(indexOnBatch, new Text("Test Name #" + (resultsOffset + i)));
-            ((UInt4Vector) root.getVector("Age")).setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
-            ((Float8Vector) root.getVector("Salary")).setSafe(indexOnBatch, random.nextDouble());
+            ((UInt4Vector) root.getVector("Age"))
+                .setSafe(indexOnBatch, (int) Short.MAX_VALUE + 1 + i + resultsOffset);
+            ((Float8Vector) root.getVector("Salary"))
+                .setSafe(indexOnBatch, Math.scalb((double) (i + resultsOffset) / 2, i + resultsOffset));
             ((DateDayVector) root.getVector("Hire Date"))
-                .setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
+                .setSafe(indexOnBatch, i + resultsOffset);
             ((TimeStampMilliVector) root.getVector("Last Sale"))
-                .setSafe(indexOnBatch, Instant.now().toEpochMilli());
+                .setSafe(indexOnBatch, Long.MAX_VALUE - i - resultsOffset);
             indexOnBatch++;
             if (indexOnBatch == batchSize) {
               root.setRowCount(indexOnBatch);
@@ -206,24 +204,55 @@ public final class CoreMockedSqlProducers {
         }));
   }
 
-  public static void assertLegacyRegularSqlResultSet(final ResultSet resultSet, final ErrorCollector collector) throws
-      SQLException {
-    int count = 0;
-    int expectedRows = 50000;
+  /**
+   * Asserts that the values in the provided {@link ResultSet} are expected for the
+   * legacy {@link MockFlightSqlProducer}.
+   *
+   * @param resultSet the result set.
+   * @param collector the {@link ErrorCollector} to use.
+   * @throws SQLException on error.
+   */
+  public static void assertLegacyRegularSqlResultSet(final ResultSet resultSet, final ErrorCollector collector)
+      throws SQLException {
+    final int expectedRowCount = 50_000;
 
-    Set<String> testNames =
-        IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
+    final long[] expectedIds = new long[expectedRowCount];
+    final List<String> expectedNames = new ArrayList<>(expectedRowCount);
+    final int[] expectedAges = new int[expectedRowCount];
+    final double[] expectedSalaries = new double[expectedRowCount];
+    final List<Date> expectedHireDates = new ArrayList<>(expectedRowCount);
+    final List<Timestamp> expectedLastSales = new ArrayList<>(expectedRowCount);
 
-    for (; resultSet.next(); count++) {
-      collector.checkThat(resultSet.getObject(1), instanceOf(Long.class));
-      collector.checkThat(testNames.remove(resultSet.getString(2)), is(true));
-      collector.checkThat(resultSet.getObject(3), instanceOf(Integer.class));
-      collector.checkThat(resultSet.getObject(4), instanceOf(Double.class));
-      collector.checkThat(resultSet.getObject(5), instanceOf(Date.class));
-      collector.checkThat(resultSet.getObject(6), instanceOf(Timestamp.class));
+    final long[] actualIds = new long[expectedRowCount];
+    final List<String> actualNames = new ArrayList<>(expectedRowCount);
+    final int[] actualAges = new int[expectedRowCount];
+    final double[] actualSalaries = new double[expectedRowCount];
+    final List<Date> actualHireDates = new ArrayList<>(expectedRowCount);
+    final List<Timestamp> actualLastSales = new ArrayList<>(expectedRowCount);
+
+    int actualRowCount = 0;
+
+    for (; resultSet.next(); actualRowCount++) {
+      expectedIds[actualRowCount] = (long) Integer.MAX_VALUE + 1 + actualRowCount;
+      expectedNames.add(format("Test Name #%d", actualRowCount));
+      expectedAges[actualRowCount] = (int) Short.MAX_VALUE + 1 + actualRowCount;
+      expectedSalaries[actualRowCount] = Math.scalb((double) actualRowCount / 2, actualRowCount);
+      expectedHireDates.add(new Date(86_400_000L * actualRowCount));
+      expectedLastSales.add(new Timestamp(Long.MAX_VALUE - actualRowCount));
+
+      actualIds[actualRowCount] = (long) resultSet.getObject(1);
+      actualNames.add((String) resultSet.getObject(2));
+      actualAges[actualRowCount] = (int) resultSet.getObject(3);
+      actualSalaries[actualRowCount] = (double) resultSet.getObject(4);
+      actualHireDates.add((Date) resultSet.getObject(5));
+      actualLastSales.add((Timestamp) resultSet.getObject(6));
     }
-
-    collector.checkThat(testNames.isEmpty(), is(true));
-    collector.checkThat(expectedRows, is(count));
+    collector.checkThat(actualRowCount, is(equalTo(expectedRowCount)));
+    collector.checkThat(actualIds, is(expectedIds));
+    collector.checkThat(actualNames, is(expectedNames));
+    collector.checkThat(actualAges, is(expectedAges));
+    collector.checkThat(actualSalaries, is(expectedSalaries));
+    collector.checkThat(actualHireDates, is(expectedHireDates));
+    collector.checkThat(actualLastSales, is(expectedLastSales));
   }
 }

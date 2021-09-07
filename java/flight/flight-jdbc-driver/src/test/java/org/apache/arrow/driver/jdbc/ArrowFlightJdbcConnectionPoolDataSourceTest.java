@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
-import java.util.Random;
 
 import javax.sql.PooledConnection;
 
@@ -32,12 +31,9 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 public class ArrowFlightJdbcConnectionPoolDataSourceTest {
-
-  private static final Random RANDOM = new Random(10);
-
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
+      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   static {
     FLIGHT_SERVER_TEST_RULE.addUser("user1", "pass1");
