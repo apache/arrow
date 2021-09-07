@@ -2189,8 +2189,8 @@ struct CoalesceFunctor<FixedSizeListType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthCoalesce(ctx, batch, out,
-                                [&](ArrayBuilder* builder) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
   }
 };
 
@@ -2206,8 +2206,8 @@ struct CoalesceFunctor<Type, enable_if_var_size_list<Type>> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthCoalesce(ctx, batch, out,
-                                [&](ArrayBuilder* builder) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
   }
 };
 
@@ -2223,8 +2223,8 @@ struct CoalesceFunctor<MapType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthCoalesce(ctx, batch, out,
-                                [&](ArrayBuilder* builder) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
   }
 };
 
@@ -2240,8 +2240,8 @@ struct CoalesceFunctor<StructType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthCoalesce(ctx, batch, out,
-                                [&](ArrayBuilder* builder) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
   }
 };
 
