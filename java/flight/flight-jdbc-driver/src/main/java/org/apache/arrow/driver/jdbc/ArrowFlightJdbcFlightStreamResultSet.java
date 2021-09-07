@@ -92,7 +92,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
   public boolean next() throws SQLException {
     while (true) {
       final boolean hasNext = super.next();
-      final int maxRows = statement.getMaxRows();
+      final int maxRows = statement != null ? statement.getMaxRows() : 0;
       if (maxRows != 0 && this.getRow() > maxRows) {
         if (statement.isCloseOnCompletion()) {
           statement.close();
@@ -121,7 +121,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
         continue;
       }
 
-      if (statement.isCloseOnCompletion()) {
+      if (statement != null && statement.isCloseOnCompletion()) {
         statement.close();
       }
 
@@ -160,7 +160,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
 
   private FlightStream getNextFlightStream(final boolean isExecution) throws SQLException {
     if (isExecution) {
-      final int statementTimeout = statement.getQueryTimeout();
+      final int statementTimeout = statement != null ? statement.getQueryTimeout() : 0;
       return statementTimeout != 0 ?
           flightStreamQueue.next(statementTimeout, TimeUnit.SECONDS) : flightStreamQueue.next();
     } else {
