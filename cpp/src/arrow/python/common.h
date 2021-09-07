@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/python/helpers.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 #include "arrow/result.h"
@@ -315,6 +316,10 @@ struct PyBytesView {
       bytes = reinterpret_cast<const char*>(buffer->buf);
       size = buffer->len;
       is_utf8 = false;
+    } else if (internal::IsUuid(obj)) {
+      PyObject* bytes_obj = PyObject_GetAttrString(obj, "bytes");
+      RETURN_IF_PYERROR();
+      return ParseBinary(bytes_obj);
     } else {
       return Status::TypeError("Expected bytes, got a '", Py_TYPE(obj)->tp_name,
                                "' object");

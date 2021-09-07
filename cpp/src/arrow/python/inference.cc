@@ -636,6 +636,8 @@ Result<std::shared_ptr<DataType>> InferArrowType(PyObject* obj, PyObject* mask,
     internal::InitPandasStaticData();
   }
 
+  internal::InitUuidStaticData();
+
   std::shared_ptr<DataType> out_type;
   TypeInferrer inferrer(pandas_null_sentinels);
   RETURN_NOT_OK(inferrer.VisitSequence(obj, mask));

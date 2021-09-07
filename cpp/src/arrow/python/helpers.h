@@ -28,6 +28,7 @@
 
 #include <numpy/halffloat.h>
 
+#include "arrow/python/platform.h"
 #include "arrow/python/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
@@ -87,12 +88,19 @@ bool IsPandasTimedelta(PyObject* obj);
 // \brief Check that obj is a pandas.Timestamp instance
 bool IsPandasTimestamp(PyObject* obj);
 
+// \brief Import symbols from uuid module needed for uuid type-checking
+void InitUuidStaticData();
+
+// \brief Check that obj is a uuid.UUID instance
+bool IsUuid(PyObject* obj);
+
 // \brief Check whether obj is a floating-point NaN
 ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
 
 inline bool IsPyBinary(PyObject* obj) {
-  return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
+  return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj) ||
+         IsUuid(obj);
 }
 
 // \brief Convert a Python integer into a C integer

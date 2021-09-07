@@ -25,6 +25,7 @@ import pickle
 import pytest
 import struct
 import sys
+import uuid
 import weakref
 
 import numpy as np
@@ -1949,6 +1950,13 @@ def test_time32_time64_from_integer():
                          datetime.time(microsecond=2), None],
                         type=pa.time64('ns'))
     assert result.equals(expected)
+
+
+def test_uuid_to_binary():
+    values = [uuid.uuid4() for _ in range(32)]
+    values_bytes = [value.bytes for value in values]
+    arrow_values = pa.array(values)
+    assert arrow_values.to_pylist() == values_bytes
 
 
 def test_binary_string_pandas_null_sentinels():
