@@ -73,10 +73,7 @@ Status RegexStatus(const RE2& regex) {
 
 // IsAlpha/Digit etc
 
-template <typename T>
-static inline bool IsAsciiCharacter(T character) {
-  return character < 128;
-}
+static inline bool IsAsciiCharacter(uint8_t character) { return character < 128; }
 
 static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
   return (ascii_character >= 'a') && (ascii_character <= 'z');
@@ -1746,8 +1743,7 @@ struct IsNumericUnicode : CharacterPredicateUnicode<IsNumericUnicode> {
 struct IsAscii {
   static bool Call(KernelContext*, const uint8_t* input,
                    size_t input_string_nascii_characters, Status*) {
-    return std::all_of(input, input + input_string_nascii_characters,
-                       IsAsciiCharacter<uint8_t>);
+    return std::all_of(input, input + input_string_nascii_characters, IsAsciiCharacter);
   }
 };
 
