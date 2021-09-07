@@ -25,7 +25,6 @@ import java.sql.SQLTimeoutException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaParameter;
@@ -39,8 +38,6 @@ import org.apache.calcite.avatica.remote.TypedValue;
  * Metadata handler for Arrow Flight.
  */
 public class ArrowFlightMetaImpl extends MetaImpl {
-
-  private final AtomicInteger statementHandleId = new AtomicInteger();
 
   public ArrowFlightMetaImpl(final AvaticaConnection connection) {
     super(connection);
@@ -111,9 +108,9 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   @Override
   public StatementHandle prepare(final ConnectionHandle connectionHandle,
                                  final String query, final long maxRowCount) {
-
-    return new StatementHandle(
-        connectionHandle.id, statementHandleId.incrementAndGet(), newSignature(query));
+    final StatementHandle handle = super.createStatement(connectionHandle);
+    handle.signature = newSignature(query);
+    return handle;
   }
 
   @Override
