@@ -15,13 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <unordered_map>
-
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/array/builder_union.h"
-#include "arrow/array/dict_internal.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/util_internal.h"
@@ -30,7 +27,6 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
-#include "arrow/util/int_util.h"
 
 namespace arrow {
 
@@ -1062,109 +1058,6 @@ void AddFSBinaryIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_funct
   DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
 }
 
-// Given a reference dictionary, computes indices to map dictionary values from a
-// comparison dictionary to the reference.
-class DictionaryRemapper {
- public:
-  virtual ~DictionaryRemapper() = default;
-  virtual Status Init(const Array& dictionary) = 0;
-  virtual Result<std::unique_ptr<Int32Array>> Remap(const Array& dictionary) = 0;
-  Result<std::unique_ptr<Int32Array>> Remap(const Datum& has_dictionary) {
-    DCHECK_EQ(has_dictionary.type()->id(), Type::DICTIONARY);
-    if (has_dictionary.is_scalar()) {
-      return Remap(*checked_cast<const DictionaryScalar&>(*has_dictionary.scalar())
-                        .value.dictionary);
-    } else {
-      return Remap(*MakeArray(has_dictionary.array()->dictionary));
-    }
-  }
-};
-
-template <typename T>
-class DictionaryRemapperImpl : public DictionaryRemapper {
- public:
-  using ArrayType = typename TypeTraits<T>::ArrayType;
-  using MemoTableType = typename arrow::internal::HashTraits<T>::MemoTableType;
-
-  explicit DictionaryRemapperImpl(MemoryPool* pool) : pool_(pool), memo_table_(pool) {}
-
-  Status Init(const Array& dictionary) override {
-    const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
-    if (values.length() > std::numeric_limits<int32_t>::max()) {
-      return Status::CapacityError("Cannot remap dictionary with more than ",
-                                   std::numeric_limits<int32_t>::max(),
-                                   " elements, have: ", values.length());
-    }
-    for (int32_t i = 0; i < values.length(); ++i) {
-      if (values.IsNull(i)) {
-        memo_table_.GetOrInsertNull();
-        continue;
-      }
-      int32_t unused_memo_index = 0;
-      RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &unused_memo_index));
-    }
-    return Status::OK();
-  }
-
-  Result<std::unique_ptr<Int32Array>> Remap(const Array& dictionary) override {
-    const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
-    std::shared_ptr<Buffer> valid_buffer;
-    ARROW_ASSIGN_OR_RAISE(auto indices_buffer,
-                          AllocateBuffer(dictionary.length() * sizeof(int32_t), pool_));
-    int32_t* indices = reinterpret_cast<int32_t*>(indices_buffer->mutable_data());
-    int64_t null_count = 0;
-    for (int64_t i = 0; i < values.length(); ++i) {
-      int32_t index = -1;
-      index =
-          values.IsNull(i) ? memo_table_.GetNull() : memo_table_.Get(values.GetView(i));
-      indices[i] = std::max(0, index);
-      if (index == arrow::internal::kKeyNotFound && !valid_buffer) {
-        ARROW_ASSIGN_OR_RAISE(
-            valid_buffer,
-            AllocateBuffer(BitUtil::BytesForBits(dictionary.length()), pool_));
-        std::memset(valid_buffer->mutable_data(), 0xFF, valid_buffer->size());
-      }
-      if (index == arrow::internal::kKeyNotFound) {
-        BitUtil::ClearBit(valid_buffer->mutable_data(), i);
-        null_count++;
-      }
-    }
-    return arrow::internal::make_unique<Int32Array>(dictionary.length(),
-                                                    std::move(indices_buffer),
-                                                    std::move(valid_buffer), null_count);
-  }
-
- private:
-  MemoryPool* pool_;
-  MemoTableType memo_table_;
-};
-
-struct MakeRemapper {
-  template <typename T>
-  enable_if_no_memoize<T, Status> Visit(const T& value_type) {
-    return Status::NotImplemented("Unification of ", value_type,
-                                  " dictionaries is not implemented");
-  }
-
-  template <typename T>
-  enable_if_memoize<T, Status> Visit(const T&) {
-    result_.reset(new DictionaryRemapperImpl<T>(pool_));
-    return Status::OK();
-  }
-
-  static Result<std::unique_ptr<DictionaryRemapper>> Make(MemoryPool* pool,
-                                                          const Array& dictionary) {
-    const auto& value_type = *dictionary.type();
-    MakeRemapper impl{pool, /*result_=*/nullptr};
-    RETURN_NOT_OK(VisitTypeInline(value_type, &impl));
-    RETURN_NOT_OK(impl.result_->Init(dictionary));
-    return std::move(impl.result_);
-  }
-
-  MemoryPool* pool_;
-  std::unique_ptr<DictionaryRemapper> result_;
-};
-
 // Helper to copy or broadcast fixed-width values between buffers.
 template <typename Type, typename Enable = void>
 struct CopyFixedWidth {};
@@ -1191,150 +1084,14 @@ struct CopyFixedWidth<Type, enable_if_number<Type>> {
     const CType value = UnboxScalar<Type>::Unbox(scalar);
     std::fill(out_values + out_offset, out_values + out_offset + length, value);
   }
-  static void CopyScalar(const Scalar& scalar, const Int32Array& transpose_map,
-                         const int64_t length, uint8_t* raw_out_values,
-                         const int64_t out_offset) {
-    CType* out_values = reinterpret_cast<CType*>(raw_out_values);
-    const CType value = UnboxScalar<Type>::Unbox(scalar);
-    const CType transposed = static_cast<CType>(transpose_map.raw_values()[value]);
-    std::fill(out_values + out_offset, out_values + out_offset + length, transposed);
-  }
   static void CopyArray(const DataType&, const uint8_t* in_values,
                         const int64_t in_offset, const int64_t length,
                         uint8_t* raw_out_values, const int64_t out_offset) {
     std::memcpy(raw_out_values + out_offset * sizeof(CType),
                 in_values + in_offset * sizeof(CType), length * sizeof(CType));
   }
-  static void CopyArray(const DataType&, const Int32Array& transpose_map,
-                        const uint8_t* in_values, const int64_t in_offset,
-                        const int64_t length, uint8_t* raw_out_values,
-                        const int64_t out_offset) {
-    arrow::internal::TransposeInts<CType, CType>(
-        reinterpret_cast<const CType*>(in_values) + in_offset,
-        reinterpret_cast<CType*>(raw_out_values) + out_offset, length,
-        transpose_map.raw_values());
-  }
 };
 
-template <typename Type>
-struct CopyFixedWidth<Type, enable_if_dictionary<Type>> {
-  static void CopyScalar(const Scalar& scalar, const int64_t length,
-                         uint8_t* raw_out_values, const int64_t out_offset) {
-    const auto& index = *checked_cast<const DictionaryScalar&>(scalar).value.index;
-    switch (index.type->id()) {
-      case arrow::Type::INT8:
-      case arrow::Type::UINT8:
-        CopyFixedWidth<UInt8Type>::CopyScalar(index, length, raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT16:
-      case arrow::Type::UINT16:
-        CopyFixedWidth<UInt16Type>::CopyScalar(index, length, raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT32:
-      case arrow::Type::UINT32:
-        CopyFixedWidth<UInt32Type>::CopyScalar(index, length, raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT64:
-      case arrow::Type::UINT64:
-        CopyFixedWidth<UInt64Type>::CopyScalar(index, length, raw_out_values, out_offset);
-        break;
-      default:
-        ARROW_CHECK(false) << "Invalid index type for dictionary: " << *index.type;
-    }
-  }
-  static void CopyScalar(const Scalar& scalar, const Int32Array& transpose_map,
-                         const int64_t length, uint8_t* raw_out_values,
-                         const int64_t out_offset) {
-    const auto& index = *checked_cast<const DictionaryScalar&>(scalar).value.index;
-    switch (index.type->id()) {
-      case arrow::Type::INT8:
-      case arrow::Type::UINT8:
-        CopyFixedWidth<UInt8Type>::CopyScalar(index, transpose_map, length,
-                                              raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT16:
-      case arrow::Type::UINT16:
-        CopyFixedWidth<UInt16Type>::CopyScalar(index, transpose_map, length,
-                                               raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT32:
-      case arrow::Type::UINT32:
-        CopyFixedWidth<UInt32Type>::CopyScalar(index, transpose_map, length,
-                                               raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT64:
-      case arrow::Type::UINT64:
-        CopyFixedWidth<UInt64Type>::CopyScalar(index, transpose_map, length,
-                                               raw_out_values, out_offset);
-        break;
-      default:
-        ARROW_CHECK(false) << "Invalid index type for dictionary: " << *index.type;
-    }
-  }
-  static void CopyArray(const DataType& type, const uint8_t* in_values,
-                        const int64_t in_offset, const int64_t length,
-                        uint8_t* raw_out_values, const int64_t out_offset) {
-    const auto& index_type = *checked_cast<const DictionaryType&>(type).index_type();
-    switch (index_type.id()) {
-      case arrow::Type::INT8:
-      case arrow::Type::UINT8:
-        CopyFixedWidth<UInt8Type>::CopyArray(index_type, in_values, in_offset, length,
-                                             raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT16:
-      case arrow::Type::UINT16:
-        CopyFixedWidth<UInt16Type>::CopyArray(index_type, in_values, in_offset, length,
-                                              raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT32:
-      case arrow::Type::UINT32:
-        CopyFixedWidth<UInt32Type>::CopyArray(index_type, in_values, in_offset, length,
-                                              raw_out_values, out_offset);
-        break;
-      case arrow::Type::INT64:
-      case arrow::Type::UINT64:
-        CopyFixedWidth<UInt64Type>::CopyArray(index_type, in_values, in_offset, length,
-                                              raw_out_values, out_offset);
-        break;
-      default:
-        ARROW_CHECK(false) << "Invalid index type for dictionary: " << index_type;
-    }
-  }
-  static void CopyArray(const DataType& type, const Int32Array& transpose_map,
-                        const uint8_t* in_values, const int64_t in_offset,
-                        const int64_t length, uint8_t* raw_out_values,
-                        const int64_t out_offset) {
-    const auto& index_type = *checked_cast<const DictionaryType&>(type).index_type();
-    switch (index_type.id()) {
-      case arrow::Type::INT8:
-      case arrow::Type::UINT8:
-        CopyFixedWidth<UInt8Type>::CopyArray(index_type, transpose_map, in_values,
-                                             in_offset, length, raw_out_values,
-                                             out_offset);
-        break;
-      case arrow::Type::INT16:
-      case arrow::Type::UINT16:
-        CopyFixedWidth<UInt16Type>::CopyArray(index_type, transpose_map, in_values,
-                                              in_offset, length, raw_out_values,
-                                              out_offset);
-        break;
-      case arrow::Type::INT32:
-      case arrow::Type::UINT32:
-        CopyFixedWidth<UInt32Type>::CopyArray(index_type, transpose_map, in_values,
-                                              in_offset, length, raw_out_values,
-                                              out_offset);
-        break;
-      case arrow::Type::INT64:
-      case arrow::Type::UINT64:
-        CopyFixedWidth<UInt64Type>::CopyArray(index_type, transpose_map, in_values,
-                                              in_offset, length, raw_out_values,
-                                              out_offset);
-        break;
-      default:
-        ARROW_CHECK(false) << "Invalid index type for dictionary: " << index_type;
-    }
-  }
-};
 template <typename Type>
 struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
   static void CopyScalar(const Scalar& values, const int64_t length,
@@ -1389,11 +1146,8 @@ struct CopyFixedWidth<Type, enable_if_decimal<Type>> {
 
 // Copy fixed-width values from a scalar/array datum into an output values buffer
 template <typename Type>
-enable_if_t<!is_dictionary_type<Type>::value> CopyValues(
-    const Datum& in_values, const int64_t in_offset, const int64_t length,
-    uint8_t* out_valid, uint8_t* out_values, const int64_t out_offset,
-    const Int32Array* transpose_map = nullptr) {
-  DCHECK(!transpose_map);
+void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t length,
+                uint8_t* out_valid, uint8_t* out_values, const int64_t out_offset) {
   if (in_values.is_scalar()) {
     const auto& scalar = *in_values.scalar();
     if (out_valid) {
@@ -1421,123 +1175,6 @@ enable_if_t<!is_dictionary_type<Type>::value> CopyValues(
                                     array.offset + in_offset, length, out_values,
                                     out_offset);
   }
-}
-
-// Copy values, optionally transposing dictionary indices.
-template <typename Type>
-enable_if_dictionary<Type> CopyValues(const Datum& in_values, const int64_t in_offset,
-                                      const int64_t length, uint8_t* out_valid,
-                                      uint8_t* out_values, const int64_t out_offset,
-                                      const Int32Array* transpose_map) {
-  if (in_values.is_scalar()) {
-    const auto& scalar = *in_values.scalar();
-    if (out_valid) {
-      BitUtil::SetBitsTo(out_valid, out_offset, length, scalar.is_valid);
-    }
-    if (transpose_map) {
-      CopyFixedWidth<Type>::CopyScalar(scalar, *transpose_map, length, out_values,
-                                       out_offset);
-    } else {
-      CopyFixedWidth<Type>::CopyScalar(scalar, length, out_values, out_offset);
-    }
-  } else {
-    const ArrayData& array = *in_values.array();
-    if (out_valid) {
-      if (array.MayHaveNulls()) {
-        if (length == 1) {
-          // CopyBitmap is slow for short runs
-          BitUtil::SetBitTo(
-              out_valid, out_offset,
-              BitUtil::GetBit(array.buffers[0]->data(), array.offset + in_offset));
-        } else {
-          arrow::internal::CopyBitmap(array.buffers[0]->data(), array.offset + in_offset,
-                                      length, out_valid, out_offset);
-        }
-      } else {
-        BitUtil::SetBitsTo(out_valid, out_offset, length, true);
-      }
-    }
-    if (transpose_map) {
-      CopyFixedWidth<Type>::CopyArray(*array.type, *transpose_map,
-                                      array.buffers[1]->data(), array.offset + in_offset,
-                                      length, out_values, out_offset);
-    } else {
-      CopyFixedWidth<Type>::CopyArray(*array.type, array.buffers[1]->data(),
-                                      array.offset + in_offset, length, out_values,
-                                      out_offset);
-    }
-  }
-}
-
-/// Check that we can actually remap dictionary indices from one dictionary to
-/// another without losing data.
-struct CheckValidTranspositionArrayImpl {
-  template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
-    using c_type = typename T::c_type;
-    const c_type* values = arr.GetValues<c_type>(1);
-    // TODO: eventually offer the option to zero out the bitmap instead
-    return arrow::internal::VisitSetBitRuns(
-        arr.buffers[0], arr.offset + offset, length,
-        [&](int64_t position, int64_t length) {
-          for (int64_t i = 0; i < length; i++) {
-            const uint64_t idx = static_cast<uint64_t>(values[offset + position + i]);
-            if (!BitUtil::GetBit(transpose_valid, idx)) {
-              return Status::Invalid("Cannot map dictionary index ", idx, " at position ",
-                                     offset + position + i, " to the common dictionary");
-            }
-          }
-          return Status::OK();
-        });
-  }
-
-  Status Visit(const DataType& ty) {
-    return Status::TypeError("Dictionary cannot have index type", ty);
-  }
-
-  const ArrayData& arr;
-  const int64_t offset;
-  const int64_t length;
-  const uint8_t* transpose_valid;
-};
-
-struct CheckValidTranspositionScalarImpl {
-  template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
-    const uint64_t idx = static_cast<uint64_t>(UnboxScalar<T>::Unbox(
-        *checked_cast<const DictionaryScalar&>(scalar).value.index));
-    // TODO: eventually offer the option to zero out the bitmap instead
-    if (!BitUtil::GetBit(transpose_valid, idx)) {
-      return Status::Invalid("Cannot map dictionary index ", idx,
-                             " to the common dictionary");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const DataType& ty) {
-    return Status::TypeError("Dictionary cannot have index type", ty);
-  }
-
-  const Scalar& scalar;
-  const uint8_t* transpose_valid;
-};
-
-Status CheckValidTransposition(const Datum& values, const int64_t offset,
-                               const int64_t length, const Int32Array* transpose_map) {
-  // Note we assume the transpose map never has an offset
-  if (!transpose_map || transpose_map->null_count() == 0) return Status::OK();
-  DCHECK_EQ(values.type()->id(), Type::DICTIONARY);
-  if (values.is_scalar()) {
-    const Scalar& scalar = *values.scalar();
-    CheckValidTranspositionScalarImpl impl{scalar, transpose_map->null_bitmap_data()};
-    return VisitTypeInline(
-        *checked_cast<const DictionaryType&>(*scalar.type).index_type(), &impl);
-  }
-  const ArrayData& arr = *values.array();
-  CheckValidTranspositionArrayImpl impl{arr, offset, length,
-                                        transpose_map->null_bitmap_data()};
-  return VisitTypeInline(*checked_cast<const DictionaryType&>(*arr.type).index_type(),
-                         &impl);
 }
 
 // Specialized helper to copy a single value from a source array. Allows avoiding
@@ -1657,9 +1294,9 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out
     // All conditions false, no 'else' argument
     result = MakeNullScalar(out->type());
   }
-  CopyValues<Type>(
-      result, /*in_offset=*/0, batch.length, output->GetMutableValues<uint8_t>(0, 0),
-      output->GetMutableValues<uint8_t>(1, 0), output->offset, /*transpose_map=*/nullptr);
+  CopyValues<Type>(result, /*in_offset=*/0, batch.length,
+                   output->GetMutableValues<uint8_t>(0, 0),
+                   output->GetMutableValues<uint8_t>(1, 0), output->offset);
   return Status::OK();
 }
 
@@ -1679,28 +1316,10 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   uint8_t* out_valid = output->buffers[0]->mutable_data();
   uint8_t* out_values = output->buffers[1]->mutable_data();
 
-  std::unique_ptr<DictionaryRemapper> remapper;
-  std::unique_ptr<Int32Array> transpose_map;
-  if (is_dictionary_type<Type>::value) {
-    // We always use the dictionary of the first argument
-    const Datum& dict_from = batch[1];
-    if (dict_from.is_scalar()) {
-      output->dictionary = checked_cast<const DictionaryScalar&>(*dict_from.scalar())
-                               .value.dictionary->data();
-    } else {
-      output->dictionary = dict_from.array()->dictionary;
-    }
-    ARROW_ASSIGN_OR_RAISE(
-        remapper, MakeRemapper::Make(ctx->memory_pool(), *MakeArray(output->dictionary)));
-  }
-
   if (have_else_arg) {
     // Copy 'else' value into output
-    if (is_dictionary_type<Type>::value) {
-      ARROW_ASSIGN_OR_RAISE(transpose_map, remapper->Remap(batch.values.back()));
-    }
     CopyValues<Type>(batch.values.back(), /*in_offset=*/0, batch.length, out_valid,
-                     out_values, out_offset, transpose_map.get());
+                     out_values, out_offset);
   } else {
     // There's no 'else' argument, so we should have an all-null validity bitmap
     BitUtil::SetBitsTo(out_valid, out_offset, batch.length, false);
@@ -1719,10 +1338,6 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
     const Datum& values_datum = batch[i + 1];
     int64_t offset = 0;
 
-    if (is_dictionary_type<Type>::value) {
-      ARROW_ASSIGN_OR_RAISE(transpose_map, remapper->Remap(values_datum));
-    }
-
     if (cond_array.GetNullCount() == 0) {
       // If no valid buffer, visit mask & cond bitmap simultaneously
       BinaryBitBlockCounter counter(mask, /*start_offset=*/0, cond_values, cond_offset,
@@ -1730,19 +1345,15 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
       while (offset < batch.length) {
         const auto block = counter.NextAndWord();
         if (block.AllSet()) {
-          RETURN_NOT_OK(CheckValidTransposition(values_datum, offset, block.length,
-                                                transpose_map.get()));
           CopyValues<Type>(values_datum, offset, block.length, out_valid, out_values,
-                           out_offset + offset, transpose_map.get());
+                           out_offset + offset);
           BitUtil::SetBitsTo(mask, offset, block.length, false);
         } else if (block.popcount) {
           for (int64_t j = 0; j < block.length; ++j) {
             if (BitUtil::GetBit(mask, offset + j) &&
                 BitUtil::GetBit(cond_values, cond_offset + offset + j)) {
-              RETURN_NOT_OK(CheckValidTransposition(values_datum, offset + j,
-                                                    /*length=*/1, transpose_map.get()));
               CopyValues<Type>(values_datum, offset + j, /*length=*/1, out_valid,
-                               out_values, out_offset + offset + j, transpose_map.get());
+                               out_values, out_offset + offset + j);
               BitUtil::SetBitTo(mask, offset + j, false);
             }
           }
@@ -1755,31 +1366,25 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
       Bitmap bitmaps[3] = {{mask, /*offset=*/0, batch.length},
                            {cond_values, cond_offset, batch.length},
                            {cond_valid, cond_offset, batch.length}};
-      Status valid_transposition = Status::OK();
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
         const uint64_t word = words[0] & words[1] & words[2];
         const int64_t block_length = std::min<int64_t>(64, batch.length - offset);
         if (word == std::numeric_limits<uint64_t>::max()) {
-          valid_transposition &= CheckValidTransposition(
-              values_datum, offset, block_length, transpose_map.get());
           CopyValues<Type>(values_datum, offset, block_length, out_valid, out_values,
-                           out_offset + offset, transpose_map.get());
+                           out_offset + offset);
           BitUtil::SetBitsTo(mask, offset, block_length, false);
         } else if (word) {
           for (int64_t j = 0; j < block_length; ++j) {
             if (BitUtil::GetBit(mask, offset + j) &&
                 BitUtil::GetBit(cond_valid, cond_offset + offset + j) &&
                 BitUtil::GetBit(cond_values, cond_offset + offset + j)) {
-              valid_transposition &= CheckValidTransposition(
-                  values_datum, offset + j, /*length=*/1, transpose_map.get());
               CopyValues<Type>(values_datum, offset + j, /*length=*/1, out_valid,
-                               out_values, out_offset + offset + j, transpose_map.get());
+                               out_values, out_offset + offset + j);
               BitUtil::SetBitTo(mask, offset + j, false);
             }
           }
         }
       });
-      RETURN_NOT_OK(valid_transposition);
     }
   }
   if (!have_else_arg) {
@@ -1809,18 +1414,6 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
         }
       }
       offset += block.length;
-    }
-  } else if (is_dictionary_type<Type>::value) {
-    // Check that any 'else' slots that were not overwritten are valid transpositions.
-    arrow::internal::SetBitRunReader reader(mask, /*offset=*/0, batch.length);
-    if (is_dictionary_type<Type>::value) {
-      ARROW_ASSIGN_OR_RAISE(transpose_map, remapper->Remap(batch.values.back()));
-    }
-    while (true) {
-      const auto run = reader.NextRun();
-      if (run.length == 0) break;
-      RETURN_NOT_OK(CheckValidTransposition(batch.values.back(), run.position, run.length,
-                                            transpose_map.get()));
     }
   }
   return Status::OK();
@@ -2117,6 +1710,26 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
     return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
+  }
+};
+
+template <>
+struct CaseWhenFunctor<DictionaryType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return ExecVarWidthArrayCaseWhen(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) { return Status::OK(); });
   }
 };
 

@@ -76,6 +76,10 @@ void CheckScalar(std::string func_name, const ScalarVector& inputs,
 void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expected,
                  const FunctionOptions* options = nullptr);
 
+// Like CheckScalar, but gets the expected result by
+// dictionary-decoding arguments and calling the function again.
+void CheckDictionary(const std::string& func_name, const DatumVector& args);
+
 // Just call the function with the given arguments.
 void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
                              const Datum& expected,

@@ -637,22 +637,20 @@ TYPED_TEST_SUITE(TestCaseWhenDict, IntegralArrowTypes);
 TYPED_TEST(TestCaseWhenDict, Simple) {
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  // TODO: test dictionaries with nulls
   for (const auto& dict :
-       {JsonDict{utf8(), R"(["a", null, "bc", "def"])"},
-        JsonDict{int64(), "[1, null, 2, 3]"},
-        JsonDict{decimal256(3, 2), R"(["1.23", null, "3.45", "6.78"])"}}) {
+       {JsonDict{utf8(), R"(["a", "b", "bc", "def"])"}, JsonDict{int64(), "[1, 4, 2, 3]"},
+        JsonDict{decimal256(3, 2), R"(["1.23", "2.34", "3.45", "6.78"])"}}) {
     auto type = dictionary(default_type_instance<TypeParam>(), dict.type);
     auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict.value);
     auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict.value);
     auto values2 = DictArrayFromJSON(type, "[2, 1, null, 0]", dict.value);
 
     // Easy case: all arguments have the same dictionary
-    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
-                DictArrayFromJSON(type, "[0, null, null, null]", dict.value));
-    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
-                DictArrayFromJSON(type, "[0, null, null, 1]", dict.value));
-    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
-                DictArrayFromJSON(type, "[null, null, null, 1]", dict.value));
+    CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
+    CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1});
+    CheckDictionary("case_when",
+                    {MakeStruct({cond1, cond2}), values_null, values2, values1});
   }
 }
 
@@ -660,7 +658,7 @@ TYPED_TEST(TestCaseWhenDict, Mixed) {
   auto type = dictionary(default_type_instance<TypeParam>(), utf8());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
-  auto dict = R"(["a", null, "bc", "def"])";
+  auto dict = R"(["a", "", "bc", "def"])";
   auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
   auto values1_dict = DictArrayFromJSON(type, "[0, null, 3, 1]", dict);
   auto values1_decoded = ArrayFromJSON(utf8(), R"(["a", null, "def", null])");
@@ -668,16 +666,14 @@ TYPED_TEST(TestCaseWhenDict, Mixed) {
   auto values2_decoded = ArrayFromJSON(utf8(), R"(["bc", null, null, "a"])");
 
   // If we have mixed dictionary/non-dictionary arguments, we decode dictionaries
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1_dict, values2_decoded},
-              ArrayFromJSON(utf8(), R"(["a", null, null, null])"));
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1_decoded, values2_dict},
-              ArrayFromJSON(utf8(), R"(["a", null, null, null])"));
-  CheckScalar("case_when",
-              {MakeStruct({cond1, cond2}), values1_dict, values2_dict, values1_decoded},
-              ArrayFromJSON(utf8(), R"(["a", null, null, null])"));
-  CheckScalar("case_when",
-              {MakeStruct({cond1, cond2}), values_null, values2_dict, values1_decoded},
-              ArrayFromJSON(utf8(), R"([null, null, null, null])"));
+  CheckDictionary("case_when",
+                  {MakeStruct({cond1, cond2}), values1_dict, values2_decoded});
+  CheckDictionary("case_when",
+                  {MakeStruct({cond1, cond2}), values1_decoded, values2_dict});
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1_dict, values2_dict,
+                                values1_decoded});
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values_null, values2_dict,
+                                values1_decoded});
 }
 
 TYPED_TEST(TestCaseWhenDict, NestedSimple) {
@@ -699,52 +695,38 @@ TYPED_TEST(TestCaseWhenDict, NestedSimple) {
   auto values1 = make_list(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
   auto values2 = make_list(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
 
-  CheckScalarNonRecursive(
-      "case_when", {MakeStruct({cond1, cond2}), values1, values2},
-      make_list(ArrayFromJSON(int32(), "[0, 2, 2, null, 2]"),
-                DictArrayFromJSON(inner_type, "[0, null]", R"(["a"])")));
-  CheckScalarNonRecursive(
-      "case_when",
-      {MakeStruct({cond1, cond2}), values1,
-       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing)},
-      make_list(ArrayFromJSON(int32(), "[0, 2, null, null, 2]"),
-                DictArrayFromJSON(inner_type, "[0, null]", R"(["a"])")));
-  CheckScalarNonRecursive(
-      "case_when",
-      {MakeStruct({cond1, cond2}), values1,
-       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing), values1},
-      make_list(ArrayFromJSON(int32(), "[0, 2, null, 2, 3]"),
-                DictArrayFromJSON(inner_type, "[0, null, 1]", R"(["a", "b"])")));
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1,
+                                make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"),
+                                          values2_backing)});
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1,
+                                make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"),
+                                          values2_backing),
+                                values1});
 
-  CheckScalarNonRecursive(
-      "case_when",
-      {
-          Datum(MakeStruct({cond1, cond2})),
-          Datum(std::make_shared<ListScalar>(
-              DictArrayFromJSON(inner_type, "[0, 1]", dict))),
-          Datum(std::make_shared<ListScalar>(
-              DictArrayFromJSON(inner_type, "[2, 3]", dict))),
-      },
-      make_list(ArrayFromJSON(int32(), "[0, 2, 4, null, 6]"),
-                DictArrayFromJSON(inner_type, "[0, 1, 0, 1, 2, 3]", dict)));
+  CheckDictionary("case_when", {
+                                   Datum(MakeStruct({cond1, cond2})),
+                                   Datum(std::make_shared<ListScalar>(
+                                       DictArrayFromJSON(inner_type, "[0, 1]", dict))),
+                                   Datum(std::make_shared<ListScalar>(
+                                       DictArrayFromJSON(inner_type, "[2, 3]", dict))),
+                               });
 
-  CheckScalarNonRecursive(
-      "case_when", {MakeStruct({Datum(true), Datum(false)}), values1, values2}, values1);
-  CheckScalarNonRecursive(
-      "case_when", {MakeStruct({Datum(false), Datum(true)}), values1, values2}, values2);
-  CheckScalarNonRecursive("case_when", {MakeStruct({Datum(false)}), values1, values2},
-                          values2);
-  CheckScalarNonRecursive("case_when",
-                          {MakeStruct({Datum(false), Datum(false)}), values1, values2},
-                          values_null);
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(true), Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(true)}), values1, values2});
+  CheckDictionary("case_when", {MakeStruct({Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values1, values2});
 }
 
 TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
   auto type = dictionary(default_type_instance<TypeParam>(), utf8());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
-  auto dict1 = R"(["a", null, "bc", "def"])";
-  auto dict2 = R"(["bc", "foo", null, "a"])";
+  auto dict1 = R"(["a", "", "bc", "def"])";
+  auto dict2 = R"(["bc", "foo", "", "a"])";
   auto dict3 = R"(["def", "a", "a", "bc"])";
   auto values1_null = DictArrayFromJSON(type, "[null, null, null, null]", dict1);
   auto values2_null = DictArrayFromJSON(type, "[null, null, null, null]", dict2);
@@ -752,120 +734,51 @@ TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
   auto values2 = DictArrayFromJSON(type, "[2, 1, null, 0]", dict2);
   auto values3 = DictArrayFromJSON(type, "[0, 1, 2, 3]", dict3);
 
-  // For scalar conditions, we borrow the dictionary of the chosen output (or the first
-  // input when outputting null)
-  CheckScalar("case_when", {MakeStruct({Datum(true), Datum(false)}), values1, values2},
-              values1);
-  CheckScalar("case_when", {MakeStruct({Datum(false), Datum(true)}), values1, values2},
-              values2);
-  CheckScalar("case_when", {MakeStruct({Datum(false), Datum(false)}), values1, values2},
-              values1_null);
-  CheckScalar("case_when", {MakeStruct({Datum(false), Datum(false)}), values2, values1},
-              values2_null);
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(true), Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(true)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values2, values1});
 
-  // For array conditions, we always borrow the dictionary of the first input
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
-              DictArrayFromJSON(type, "[0, null, null, null]", dict1));
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
-              DictArrayFromJSON(type, "[0, null, null, 1]", dict1));
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1});
 
-  // When mixing dictionaries, we try to map other dictionaries onto the first one
-  // Don't check the scalar cases since we don't remap dictionaries in that case
-  CheckScalarNonRecursive(
-      "case_when",
-      {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]")}), values1,
-       values2},
-      DictArrayFromJSON(type, "[0, null, null, 2]", dict1));
-  CheckScalarNonRecursive(
-      "case_when",
-      {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
-                   ArrayFromJSON(boolean(), "[true, false, true, false]")}),
-       values1, values2},
-      DictArrayFromJSON(type, "[0, null, null, null]", dict1));
-  CheckScalarNonRecursive(
-      "case_when",
-      {MakeStruct({ArrayFromJSON(boolean(), "[false, false, false, false]"),
-                   ArrayFromJSON(boolean(), "[true, true, true, true]")}),
-       values1, values3},
-      DictArrayFromJSON(type, "[3, 0, 0, 2]", dict1));
-  CheckScalarNonRecursive(
-      "case_when",
-      {MakeStruct({ArrayFromJSON(boolean(), "[null, null, null, true]"),
-                   ArrayFromJSON(boolean(), "[true, true, true, true]")}),
-       values1, values3},
-      DictArrayFromJSON(type, "[3, 0, 0, 1]", dict1));
-  CheckScalarNonRecursive(
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, false, false, true]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                               ArrayFromJSON(boolean(), "[true, false, true, false]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[false, false, false, false]"),
+                               ArrayFromJSON(boolean(), "[true, true, true, true]")}),
+                   values1, values3});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[null, null, null, true]"),
+                               ArrayFromJSON(boolean(), "[true, true, true, true]")}),
+                   values1, values3});
+  CheckDictionary(
       "case_when",
       {
           MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]")}),
           DictScalarFromJSON(type, "0", dict1),
           DictScalarFromJSON(type, "0", dict2),
-      },
-      DictArrayFromJSON(type, "[0, 0, 2, 2]", dict1));
-  CheckScalarNonRecursive(
+      });
+  CheckDictionary(
       "case_when",
       {
           MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
                       ArrayFromJSON(boolean(), "[false, false, true, true]")}),
           DictScalarFromJSON(type, "0", dict1),
           DictScalarFromJSON(type, "0", dict2),
-      },
-      DictArrayFromJSON(type, "[0, 0, 2, 2]", dict1));
-
-  // If we can't map values from a dictionary, then raise an error
-  // Unmappable value is in the else clause
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr(
-          "Cannot map dictionary index 1 at position 1 to the common dictionary"),
-      CallFunction(
-          "case_when",
-          {MakeStruct({ArrayFromJSON(boolean(), "[false, false, false, false]")}),
-           values1, values2}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("Cannot map dictionary index 1 to the common dictionary"),
-      CallFunction(
-          "case_when",
-          {MakeStruct({ArrayFromJSON(boolean(), "[false, false, false, false]")}),
-           values1, DictScalarFromJSON(type, "1", dict2)}));
-  // Unmappable value is in a branch (test multiple times to ensure coverage of branches
-  // in impl)
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr(
-          "Cannot map dictionary index 1 at position 1 to the common dictionary"),
-      CallFunction("case_when",
-                   {MakeStruct({Datum(false),
-                                ArrayFromJSON(boolean(), "[true, true, true, true]")}),
-                    values1, values2}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr(
-          "Cannot map dictionary index 1 at position 1 to the common dictionary"),
-      CallFunction("case_when",
-                   {MakeStruct({Datum(false),
-                                ArrayFromJSON(boolean(), "[false, true, false, false]")}),
-                    values1, values2}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr(
-          "Cannot map dictionary index 1 at position 1 to the common dictionary"),
-      CallFunction("case_when",
-                   {MakeStruct({Datum(false),
-                                ArrayFromJSON(boolean(), "[null, true, null, null]")}),
-                    values1, values2}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("Cannot map dictionary index 1 to the common dictionary"),
-      CallFunction("case_when",
-                   {MakeStruct({Datum(false),
-                                ArrayFromJSON(boolean(), "[true, true, true, null]")}),
-                    values1, DictScalarFromJSON(type, "1", dict2)}));
-
-  // ...or optionally, emit null
-
-  // TODO: this is not implemented yet
+      });
 }
 
 TEST(TestCaseWhen, Null) {
