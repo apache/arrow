@@ -102,6 +102,50 @@ satisfy C++ dependencies.
 
 > Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
+## Offline installation
+
+The `install-arrow.R` file also includes the `create_package_with_all_dependencies()`
+function. Normally, when installing on a computer with internet access, the
+build process will download third-party dependencies as needed.
+This function provides a way to download them in advance.
+Doing so may be useful when installing Arrow on a computer without internet access.
+Note that Arrow _can_ be installed on a computer without internet access without doing this, but
+many useful features will be disabled, as they depend on third-party components.
+More precisely, `arrow::arrow_info()$capabilities()` will be `FALSE` for every
+capability.
+One approach to add more capabilities in an offline install is to prepare a
+package with pre-downloaded dependencies. The
+`create_package_with_all_dependencies()` function does this preparation.
+
+If you're using binary packages you shouldn't need to follow these steps. You
+should download the appropriate binary from your package repository, transfer
+that to the offline computer, and install that. Any OS can create the source
+bundle, but it cannot be installed on Windows. (Instead, use a standard
+Windows binary package.)
+
+Note if you're using RStudio Package Manager on Linux: If you still want to
+make a source bundle with this function, make sure to set the first repo in
+`options("repos")` to be a mirror that contains source packages (that is:
+something other than the RSPM binary mirror URLs).
+
+### Using a computer with internet access, pre-download the dependencies:
+* Install the `arrow` package _or_ run
+  `source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")`
+* Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
+* Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
+
+### On the computer without internet access, install the prepared package:
+* Install the `arrow` package from the copied file
+  * `install.packages("my_arrow_pkg.tar.gz", dependencies = c("Depends", "Imports", "LinkingTo"))`
+  * This installation will build from source, so `cmake` must be available
+* Run `arrow_info()` to check installed capabilities
+
+#### Alternative, hands-on approach
+* Download the dependency files (`cpp/thirdparty/download_dependencies.sh` may be helpful)
+* Copy the directory of dependencies to the offline computer
+* Create the environment variable `ARROW_THIRDPARTY_DEPENDENCY_DIR` on the offline computer, pointing to the copied directory.
+* Install the `arrow` package as usual.
+
 ## S3 support
 
 The `arrow` package allows you to work with data in AWS S3 or in other cloud
@@ -156,10 +200,10 @@ If found, they will be downloaded and bundled when your R package compiles.
 For a list of supported distributions and versions,
 see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
 
-If no binary is found, it will download the Arrow C++ source that matches the R package version
-(CRAN release or nightly build) and attempt to build it locally.
-If no matching source bundle is found, it will also look to see if you are in
+If no C++ library binary is found, it will attempt to build it locally.
+First, it will also look to see if you are in
 a checkout of the `apache/arrow` git repository and thus have the C++ source there.
+Otherwise, it builds from the C++ files included in the package.
 Depending on your system, building Arrow C++ from source may be slow.
 
 For the specific mechanics of how all this works, see the R package `configure` script,
@@ -329,11 +373,15 @@ Some features are optional when you build Arrow from source. With the exception 
 * `ARROW_S3`: If set to `ON` S3 support will be built as long as the
   dependencies are met; if they are not met, the build script will turn this `OFF`
 * `ARROW_JEMALLOC` for the `jemalloc` memory allocator
+* `ARROW_MIMALLOC` for the `mimalloc` memmory allocator
 * `ARROW_PARQUET`
 * `ARROW_DATASET`
 * `ARROW_JSON` for the JSON parsing library
 * `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
 * `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
+* `ARROW_JSON` for JSON parsing
+* `ARROW_WITH_BROTLI`, `ARROW_WITH_BZ2`, `ARROW_WITH_LZ4`, `ARROW_WITH_SNAPPY`, `ARROW_WITH_ZLIB`, and `ARROW_WITH_ZSTD` for various compression algorithms
+
 
 There are a number of other variables that affect the `configure` script and the bundled build script.
 By default, these are all unset. All boolean variables are case-insensitive.
@@ -342,10 +390,6 @@ By default, these are all unset. All boolean variables are case-insensitive.
   won't look for Arrow libraries on your system and instead will look to download/build them.
   Use this if you have a version mismatch between installed system libraries
   and the version of the R package you're installing.
-* `LIBARROW_DOWNLOAD`: Unless set to `false`, the build script
-  will attempt to download C++ binary or source bundles.
-  If you're in a checkout of the `apache/arrow` git repository
-  and want to build the C++ library from the local source, make this `false`.
 * `LIBARROW_BINARY`: If set to `true`, the script will try to download a binary
   C++ library built for your operating system.
   You may also set it to some other string,

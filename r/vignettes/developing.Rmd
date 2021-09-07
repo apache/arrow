@@ -50,13 +50,13 @@ This document is a work in progress and will grow and change as the Apache Arrow
 
 We welcome any feedback you have about things that are confusing or additions you would like to see here - please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) if you have any suggestions or requests.
 
-# Developer environment setup 
+# Developer environment setup
 
 ## R-only {.tabset}
 
 Windows and macOS users who wish to contribute to the R package and
 don't need to alter libarrow (Arrow's C++ library) may be able to obtain a
-recent version of the library without building from source. 
+recent version of the library without building from source.
 
 ### Linux
 
@@ -71,7 +71,7 @@ nightly$ls("libarrow/bin")
 ```
 Version numbers in that repository correspond to dates.
 
-You'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the compiled libarrow binary files into it. 
+You'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the compiled libarrow binary files into it.
 
 ### macOS
 On macOS, you can install libarrow using [Homebrew](https://brew.sh/):
@@ -95,7 +95,7 @@ nightly$ls("libarrow/bin")
 ```
 Version numbers in that repository correspond to dates.
 
-You can set the `RWINLIB_LOCAL` environment variable to point to the zip file containing libarrow before installing the arrow R package. 
+You can set the `RWINLIB_LOCAL` environment variable to point to the zip file containing libarrow before installing the arrow R package.
 
 
 ## R and C++
@@ -258,7 +258,7 @@ cmake \
   ..
 ```
 </p>
-</details>  
+</details>
 
 ## Installing a version of the R package with a specific git reference
 
@@ -283,13 +283,13 @@ remotes::install_github("apache/arrow/r@bugfix", build = FALSE)
 Developers may wish to use this method of installing a specific commit
 separate from another Arrow development environment or system installation
 (e.g. we use this in [arrowbench](https://github.com/ursacomputing/arrowbench)
-to install development versions of libarrow isolated from the system install). If 
-you already have libarrow installed system-wide, you may need to set 
+to install development versions of libarrow isolated from the system install). If
+you already have libarrow installed system-wide, you may need to set
 some additional variables in order to isolate this build from your system libraries:
 
 * Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for libarrow and attempt to build from the same source at the repository+ref given.
 
-* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of libarrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: 
+* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of libarrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so:
 ```{r}
 withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))
 ```
@@ -304,7 +304,7 @@ You can load the R package via `devtools::load_all()`.
 
 ## Rebuilding the documentation
 
-The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.1.9001, which hasn't yet been released on CRAN at the time of writing.  If you are making changes which require updating the documentation, please install the development version of `roxygen2` from GitHub. 
+The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.1.9001, which hasn't yet been released on CRAN at the time of writing.  If you are making changes which require updating the documentation, please install the development version of `roxygen2` from GitHub.
 
 ```{r}
 remotes::install_github("r-lib/roxygen2")
@@ -326,7 +326,7 @@ pkgdown::build_site(preview=TRUE)
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
-To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run 
+To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run
 
 ```{r}
 lintr::lint_package("arrow/r")
@@ -360,12 +360,12 @@ C++ code in `src/`. This is because there are some features that are only enable
 and built conditionally during build time. If you change C++ code in the R
 package, you will need to set the `ARROW_R_DEV` environment variable to `true`
 (optionally, add it to your `~/.Renviron` file to persist across sessions) so
-that the `data-raw/codegen.R` file is used for code generation. The `Makefile` 
+that the `data-raw/codegen.R` file is used for code generation. The `Makefile`
 commands also handles this automatically.
 
 We use Google C++ style in our C++ code. The easiest way to accomplish this is
-use an editors/IDE that formats your code for you. Many popular editors/IDEs 
-have support for running `clang-format` on C++ files when you save them. 
+use an editors/IDE that formats your code for you. Many popular editors/IDEs
+have support for running `clang-format` on C++ files when you save them.
 Installing/enabling the appropriate plugin may save you much frustration.
 
 Check for style errors with
@@ -392,7 +392,7 @@ On macOS, you can get this by installing LLVM via Homebrew and running the scrip
 CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh
 ```
 
-_Note_ that the lint script requires Python 3 and the Python dependencies 
+_Note_ that the lint script requires Python 3 and the Python dependencies
 (note that `cmake_format is pinned to a specific version):
 
 * autopep8
@@ -419,16 +419,16 @@ variables or other settings:
 * All tests are skipped on Linux if the package builds without the C++ libarrow.
   To make the build fail if libarrow is not available (as in, to test that
   the C++ build was successful), set `TEST_R_WITH_ARROW=true`
-  
+
 * Some tests are disabled unless `ARROW_R_DEV=true`
 
 * Tests that require allocating >2GB of memory to test Large types are disabled
   unless `ARROW_LARGE_MEMORY_TESTS=true`
-  
+
 * Integration tests against a real S3 bucket are disabled unless credentials
   are set in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; these are available
   on request
-  
+
 * S3 tests using [MinIO](https://min.io/) locally are enabled if the
   `minio server` process is found running. If you're running MinIO with custom
   settings, you can set `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and
@@ -436,7 +436,7 @@ variables or other settings:
 
 ## Running checks
 
-You can run package checks by using `devtools::check()` and check test coverage 
+You can run package checks by using `devtools::check()` and check test coverage
 with `covr::package_coverage()`.
 
 ```r
@@ -458,10 +458,10 @@ R CMD check arrow_*.tar.gz --as-cran
 
 ## Running additional CI checks
 
-On a pull request, there are some actions you can trigger by commenting on the 
+On a pull request, there are some actions you can trigger by commenting on the
 PR. We have additional CI checks that run nightly and can be requested on demand
-using an internal tool called 
-[crossbow](https://arrow.apache.org/docs/developers/crossbow.html). 
+using an internal tool called
+[crossbow](https://arrow.apache.org/docs/developers/crossbow.html).
 A few important GitHub comment commands are shown below.
 
 #### Run all extended R CI tasks
@@ -476,7 +476,7 @@ This runs each of the R-related CI tasks.
 @github-actions crossbow submit {task-name}
 ```
 
-See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml) 
+See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml)
 for a list of glob expression patterns that match names of items in the `tasks:`
 list below it.
 
@@ -486,9 +486,23 @@ list below it.
 @github-actions autotune
 ```
 
-This will run and fix lint C++ linting errors, run R documentation (among other 
-cleanup tasks), run styler on any changed R code, and commit the resulting 
+This will run and fix lint C++ linting errors, run R documentation (among other
+cleanup tasks), run styler on any changed R code, and commit the resulting
 updates to the branch.
+
+# Summary of environment variables
+
+* See the user-facing [Install vignette](install.html) for a large number of
+  environment variables that determine how the build works and what features
+  get built.
+* `TEST_OFFLINE_BUILD`: When set to `true`, the build script will not download
+  prebuilt the C++ library binary.
+  It will turn off any features that require a download, unless they're available
+  in the `tools/cpp/thirdparty/download/` subfolder of the tar.gz file.
+  `create_package_with_all_dependencies()` creates that subfolder.
+  Regardless of this flag's value, `cmake` will be downloaded if it's unavailable.
+* `TEST_R_WITHOUT_LIBARROW`: When set to `true`, skip tests that would require
+  the C++ Arrow library (that is, almost everything).
 
 # Troubleshooting
 
@@ -519,8 +533,8 @@ To resolve this, try [rebuilding the Arrow library](#step-3-building-arrow).
 
 ## Multiple versions of libarrow
 
-If you are installing from a user-level directory, and you already have a 
-previous installation of libarrow in a system directory, you get you may get 
+If you are installing from a user-level directory, and you already have a
+previous installation of libarrow in a system directory, you get you may get
 errors like the following when you install the R package:
 
 ```
@@ -531,7 +545,7 @@ Error: package or namespace load failed for ‘arrow' in dyn.load(file, DLLpath 
   Reason: image not found
 ```
 
-If this happens, you need to make sure that you don't let R link to your system 
+If this happens, you need to make sure that you don't let R link to your system
 library when building arrow. You can do this a number of different ways:
 
 * Setting the `MAKEFLAGS` environment variable to `"LDFLAGS="` (see below for an example) this is the recommended way to accomplish this
@@ -589,3 +603,4 @@ guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 ## Other installation issues
 
 There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the installation vignette](./install.html#how-dependencies-are-resolved) for more information.
+>>>>>>> master

@@ -36,8 +36,14 @@ test:
 deps:
 	R -s -e 'lib <- Sys.getenv("R_LIB", .libPaths()[1]); install.packages("devtools", repo="https://cloud.r-project.org", lib=lib); devtools::install_dev_deps(lib=lib)'
 
+# Note: files in tools are available at build time, but not at run time. The thirdparty
+# cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one level up from cpp/
 build: doc
 	cp ../NOTICE.txt inst/NOTICE.txt
+	rsync --archive --delete ../cpp tools/
+	cp -p ../.env tools/
+	cp -p ../NOTICE.txt tools/
+	cp -p ../LICENSE.txt tools/
 	R CMD build .
 
 check: build
@@ -56,4 +62,5 @@ clean:
 	-rm src/Makevars.win
 	-rm -rf arrow.Rcheck/
 	-rm -rf libarrow/
+	-rm -rf tools/cpp/ tools/.env tools/NOTICE.txt tools/LICENSE.txt
 	-find . -name "*.orig" -delete

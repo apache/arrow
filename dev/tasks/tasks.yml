@@ -1033,6 +1033,19 @@ tasks:
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_DEPENDENCY_SOURCE=SYSTEM'
       image: ubuntu-r-only-r
 
+  test-r-offline-minimal:
+      ci: azure
+      template: r/azure.linux.yml
+      params:
+        r_org: rocker
+        r_image: r-base
+        r_tag: latest
+        flags: '-e TEST_OFFLINE_BUILD=true'
+
+  test-r-offline-maximal:
+    ci: github
+    template: r/github.linux.offline.build.yml
+
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),

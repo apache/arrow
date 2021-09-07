@@ -30,16 +30,6 @@ options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
-# * no download, build_ok: Only build with local git checkout
-# * download_ok, no build: Only use prebuilt binary, if found
-# * neither: Get the arrow-without-arrow package
-# Download and build are OK unless you say not to
-download_ok <- !env_is("LIBARROW_DOWNLOAD", "false")
-build_ok <- !env_is("LIBARROW_BUILD", "false")
-# But binary defaults to not OK
-binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false")
-# For local debugging, set ARROW_R_DEV=TRUE to make this script print more
-quietly <- !env_is("ARROW_R_DEV", "true")
 
 try_download <- function(from_url, to_file) {
   status <- try(
@@ -51,6 +41,26 @@ try_download <- function(from_url, to_file) {
   # Return whether the download was successful
   !inherits(status, "try-error") && status == 0
 }
+
+# For local debugging, set ARROW_R_DEV=TRUE to make this script print more
+quietly <- !env_is("ARROW_R_DEV", "true")
+
+# Default is build from source, not download a binary
+build_ok <- !env_is("LIBARROW_BUILD", "false")
+binary_ok <- !(env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", ""))
+
+# Check if we're doing an offline build.
+# (Note that cmake will still be downloaded if necessary
+#  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
+download_ok <- !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://github.com", tempfile())
+
+# This "tools/thirdparty_dependencies" path, within the tar file, might exist if
+# create_package_with_all_dependencies() was run, or if someone has created it
+# manually before running make build.
+# If you change this path, you also need to edit
+# `create_package_with_all_dependencies()` in install-arrow.R
+thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
+
 
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
@@ -82,7 +92,7 @@ download_binary <- function(os = identify_os()) {
 # * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_DOWNLOAD"))) {
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY")) {
   if (tolower(os) %in% c("", "false")) {
     # Env var says not to download a binary
     return(NULL)
@@ -193,6 +203,10 @@ system_release <- function() {
 
 read_system_release <- function() utils::head(readLines("/etc/system-release"), 1)
 
+is_solaris <- function() {
+  tolower(Sys.info()[["sysname"]]) %in% "sunos"
+}
+
 #### end distro ####
 
 find_available_binary <- function(os) {
@@ -209,73 +223,40 @@ find_available_binary <- function(os) {
   os
 }
 
-download_source <- function() {
-  tf1 <- tempfile()
-  src_dir <- tempfile()
-
-  # Given VERSION as x.y.z.p
-  p <- package_version(VERSION)[1, 4]
-  if (is.na(p)) {
-    # This is just x.y.z so download the official Apache release
-    if (apache_download(VERSION, tf1)) {
-      untar(tf1, exdir = src_dir)
-      unlink(tf1)
-      src_dir <- paste0(src_dir, "/apache-arrow-", VERSION, "/cpp")
-    }
-  } else if (p != 9000) {
-    # This is a custom dev version (x.y.z.9999) or a nightly (x.y.z.20210505)
-    # (Don't try to download on the default dev .9000 version)
-    if (nightly_download(VERSION, tf1)) {
-      unzip(tf1, exdir = src_dir)
-      unlink(tf1)
-      src_dir <- paste0(src_dir, "/cpp")
-    }
-  }
-
-  if (dir.exists(src_dir)) {
-    cat("*** Successfully retrieved C++ source\n")
-    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
-    # These scripts need to be executable
-    system(
-      sprintf("chmod 755 %s/build-support/*.sh", src_dir),
-      ignore.stdout = quietly, ignore.stderr = quietly
-    )
-    return(src_dir)
-  } else {
-    return(NULL)
-  }
-}
-
-nightly_download <- function(version, destfile) {
-  source_url <- paste0(arrow_repo, "src/arrow-", version, ".zip")
-  try_download(source_url, destfile)
-}
-
-apache_download <- function(version, destfile, n_mirrors = 3) {
-  apache_path <- paste0("arrow/arrow-", version, "/apache-arrow-", version, ".tar.gz")
-  apache_urls <- c(
-    # This returns a different mirror each time
-    rep("https://www.apache.org/dyn/closer.lua?action=download&filename=", n_mirrors),
-    "https://downloads.apache.org/" # The backup
+find_local_source <- function() {
+  # We'll take the first of these that exists
+  # The first case probably occurs if we're in the arrow git repo
+  # The second probably occurs if we're installing the arrow R package
+  cpp_dir_options <- c(
+    file.path(Sys.getenv("ARROW_SOURCE_HOME", ".."), "cpp"),
+    "tools/cpp"
   )
-  downloaded <- FALSE
-  for (u in apache_urls) {
-    downloaded <- try_download(paste0(u, apache_path), destfile)
-    if (downloaded) {
-      break
+  for (cpp_dir in cpp_dir_options) {
+    if (file.exists(file.path(cpp_dir, "src/arrow/api.h"))) {
+      cat(paste0("*** Found local C++ source: '", cpp_dir, "'\n"))
+      return(cpp_dir)
     }
   }
-  downloaded
+  NULL
 }
 
-find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")) {
-  if (file.exists(paste0(arrow_home, "/cpp/src/arrow/api.h"))) {
-    # We're in a git checkout of arrow, so we can build it
-    cat("*** Found local C++ source\n")
-    return(paste0(arrow_home, "/cpp"))
-  } else {
-    return(NULL)
+env_vars_as_string <- function(env_var_list) {
+  # Do some basic checks on env_var_list:
+  # Check that env_var_list has names, that those names are valid POSIX
+  # environment variables, and that none of the values contain `'`.
+  stopifnot(
+    length(env_var_list) == length(names(env_var_list)),
+    all(grepl("^[^0-9]", names(env_var_list))),
+    all(grepl("^[A-Z0-9_]+$", names(env_var_list))),
+    !any(grepl("'", env_var_list, fixed = TRUE))
+  )
+  env_var_string <- paste0(names(env_var_list), "='", env_var_list, "'", collapse = " ")
+  if (nchar(env_var_string) > 30000) {
+    # This could happen if the full paths in *_SOURCE_URL were *very* long.
+    # A more formal check would look at getconf ARG_MAX, but this shouldn't matter
+    cat("*** Warning: Environment variables are very long. This could cause issues on some shells.\n")
   }
+  env_var_string
 }
 
 build_libarrow <- function(src_dir, dst_dir) {
@@ -320,25 +301,42 @@ build_libarrow <- function(src_dir, dst_dir) {
     BUILD_DIR = build_dir,
     DEST_DIR = dst_dir,
     CMAKE = cmake,
+    # EXTRA_CMAKE_FLAGS will often be "", but it's convenient later to have it defined
+    EXTRA_CMAKE_FLAGS = Sys.getenv("EXTRA_CMAKE_FLAGS"),
     # Make sure we build with the same compiler settings that R is using
     CC = R_CMD_config("CC"),
     CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
-  env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
-  env_vars <- with_s3_support(env_vars)
-  env_vars <- with_mimalloc(env_vars)
-  if (tolower(Sys.info()[["sysname"]]) %in% "sunos") {
-    # jemalloc doesn't seem to build on Solaris
-    # nor does thrift, so turn off parquet,
-    # and arrowExports.cpp requires parquet for dataset (ARROW-11994), so turn that off
-    # xsimd doesn't compile, so set SIMD level to NONE to skip it
-    # re2 and utf8proc do compile,
-    # but `ar` fails to build libarrow_bundled_dependencies, so turn them off
-    # so that there are no bundled deps
-    env_vars <- paste(env_vars, "ARROW_JEMALLOC=OFF ARROW_PARQUET=OFF ARROW_DATASET=OFF ARROW_WITH_RE2=OFF ARROW_WITH_UTF8PROC=OFF EXTRA_CMAKE_FLAGS=-DARROW_SIMD_LEVEL=NONE")
+  env_var_list <- with_s3_support(env_var_list)
+  env_var_list <- with_mimalloc(env_var_list)
+  # turn_off_thirdparty_features() needs to happen after with_mimalloc() and
+  # with_s3_support(), since those might turn features ON.
+  thirdparty_deps_unavailable <- !download_ok &&
+    !dir.exists(thirdparty_dependency_dir) &&
+    !env_is("ARROW_DEPENDENCY_SOURCE", "system")
+  if (is_solaris()) {
+    # Note that JSON support does work on Solaris, but will be turned off with
+    # the rest of the thirdparty dependencies.
+    # All other dependencies don't compile (e.g thrift, jemalloc, and xsimd)
+    # or do compile but `ar` fails to build
+    # libarrow_bundled_dependencies (e.g. re2 and utf8proc).
+    env_var_list <- turn_off_thirdparty_features(env_var_list)
+  } else if (thirdparty_deps_unavailable) {
+    cat(paste0(
+      "*** Building C++ library from source, but downloading thirdparty dependencies\n",
+      "    is not possible, so this build will turn off all thirdparty features.\n",
+      "    See install vignette for details:\n",
+      "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+    ))
+    env_var_list <- turn_off_thirdparty_features(env_var_list)
+  } else if (dir.exists(thirdparty_dependency_dir)){
+    # Add the *_SOURCE_URL env vars
+    env_var_list <- set_thirdparty_urls(env_var_list)
   }
+  env_vars <- env_vars_as_string(env_var_list)
+
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- suppressWarnings(system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -346,7 +344,11 @@ build_libarrow <- function(src_dir, dst_dir) {
   ))
   if (status != 0) {
     # It failed :(
-    cat("**** Error building Arrow C++. Re-run with ARROW_R_DEV=true for debug information.\n")
+    cat(
+      "**** Error building Arrow C++.",
+      ifelse(env_is("ARROW_R_DEV", "true"), "", "Re-run with ARROW_R_DEV=true for debug information."),
+      "\n"
+    )
   }
   invisible(status)
 }
@@ -373,7 +375,15 @@ ensure_cmake <- function() {
     )
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
-    try_download(cmake_binary_url, cmake_tar)
+    download_successful <- try_download(cmake_binary_url, cmake_tar)
+    if (!download_successful) {
+      cat(paste0(
+        "*** cmake was not found locally and download failed.\n",
+        "    Make sure cmake >= 3.10 is installed and available on your PATH,\n",
+        "    or download ", cmake_binary_url, "\n",
+        "    and define the CMAKE environment variable.\n"
+      ))
+    }
     untar(cmake_tar, exdir = cmake_dir)
     unlink(cmake_tar)
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
@@ -413,53 +423,121 @@ cmake_version <- function(cmd = "cmake") {
   )
 }
 
-with_s3_support <- function(env_vars) {
-  arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
-  # but if ARROW_S3=OFF explicitly, we are definitely off, so override
-  if (toupper(Sys.getenv("ARROW_S3")) == "OFF") {
-    arrow_s3 <- FALSE
-  }
-  if (arrow_s3) {
-    # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
-    # and make sure that we have curl and openssl system libs
-    if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
-      cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
-      arrow_s3 <- FALSE
-    } else if (!cmake_find_package("CURL", NULL, env_vars)) {
-      # curl on macos should be installed, so no need to alter this for macos
-      cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
-      arrow_s3 <- FALSE
-    } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars)) {
-      cat("**** S3 support requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew); building with ARROW_S3=OFF\n")
-      arrow_s3 <- FALSE
-    }
-  }
-  paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
+turn_off_thirdparty_features <- function(env_var_list) {
+  # Because these are done as environment variables (as opposed to build flags),
+  # setting these to "OFF" overrides any previous setting. We don't need to
+  # check the existing value.
+  turn_off <- c(
+    "ARROW_MIMALLOC" = "OFF",
+    "ARROW_JEMALLOC" = "OFF",
+    "ARROW_PARQUET" = "OFF", # depends on thrift
+    "ARROW_DATASET" = "OFF", # depends on parquet
+    "ARROW_S3" = "OFF",
+    "ARROW_WITH_BROTLI" = "OFF",
+    "ARROW_WITH_BZ2" = "OFF",
+    "ARROW_WITH_LZ4" = "OFF",
+    "ARROW_WITH_SNAPPY" = "OFF",
+    "ARROW_WITH_ZLIB" = "OFF",
+    "ARROW_WITH_ZSTD" = "OFF",
+    "ARROW_WITH_RE2" = "OFF",
+    "ARROW_WITH_UTF8PROC" = "OFF",
+    "ARROW_JSON" = "OFF",
+    # The syntax to turn off XSIMD is different.
+    # Pull existing value of EXTRA_CMAKE_FLAGS first (must be defined)
+    "EXTRA_CMAKE_FLAGS" = paste(
+      env_var_list[["EXTRA_CMAKE_FLAGS"]],
+      "-DARROW_SIMD_LEVEL=NONE -DARROW_RUNTIME_SIMD_LEVEL=NONE"
+    )
+  )
+  # Create a new env_var_list, with the values of turn_off set.
+  # replace() also adds new values if they didn't exist before
+  replace(env_var_list, names(turn_off), turn_off)
 }
 
-with_mimalloc <- function(env_vars) {
-  arrow_mimalloc <- toupper(Sys.getenv("ARROW_MIMALLOC")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
+set_thirdparty_urls <- function(env_var_list) {
+  # This function does *not* check if existing *_SOURCE_URL variables are set.
+  # The directory tools/thirdparty_dependencies is created by
+  # create_package_with_all_dependencies() and saved in the tar file.
+  files <- list.files(thirdparty_dependency_dir, full.names = FALSE)
+  url_env_varname <- toupper(sub("(.*?)-.*", "ARROW_\\1_URL", files))
+  # Special handling for the aws dependencies, which have extra `-`
+  aws <- grepl("^aws", files)
+  url_env_varname[aws] <- sub(
+    "AWS_SDK_CPP", "AWSSDK",
+    gsub(
+      "-", "_",
+      sub(
+        "(AWS.*)-.*", "ARROW_\\1_URL",
+        toupper(files[aws])
+      )
+    )
+  )
+  full_filenames <- file.path(normalizePath(thirdparty_dependency_dir), files)
+
+  env_var_list <- replace(env_var_list, url_env_varname, full_filenames)
+  if (!quietly) {
+    env_var_list <- replace(env_var_list, "ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
+  }
+  env_var_list
+}
+
+is_feature_requested <- function(env_varname, default = env_is("LIBARROW_MINIMAL", "false")) {
+  env_value <- tolower(Sys.getenv(env_varname))
+  if (identical(env_value, "off")) {
+    # If e.g. ARROW_MIMALLOC=OFF explicitly, override default
+    requested <- FALSE
+  } else if (identical(env_value, "on")) {
+    requested <- TRUE
+  } else {
+    requested <- default
+  }
+  requested
+}
+
+with_mimalloc <- function(env_var_list) {
+  arrow_mimalloc <- is_feature_requested("ARROW_MIMALLOC")
   if (arrow_mimalloc) {
     # User wants mimalloc. If they're using gcc, let's make sure the version is >= 4.9
-    if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
+    if (isTRUE(cmake_gcc_version(env_var_list) < "4.9")) {
       cat("**** mimalloc support not available for gcc < 4.9; building with ARROW_MIMALLOC=OFF\n")
       arrow_mimalloc <- FALSE
     }
   }
-  paste(env_vars, ifelse(arrow_mimalloc, "ARROW_MIMALLOC=ON", "ARROW_MIMALLOC=OFF"))
+  replace(env_var_list, "ARROW_MIMALLOC", ifelse(arrow_mimalloc, "ON", "OFF"))
 }
 
-cmake_gcc_version <- function(env_vars) {
+with_s3_support <- function(env_var_list) {
+  arrow_s3 <- is_feature_requested("ARROW_S3")
+  if (arrow_s3) {
+    # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
+    # and make sure that we have curl and openssl system libs
+    if (isTRUE(cmake_gcc_version(env_var_list) < "4.9")) {
+      cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
+      arrow_s3 <- FALSE
+    } else if (!cmake_find_package("CURL", NULL, env_var_list)) {
+      # curl on macos should be installed, so no need to alter this for macos
+      cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
+      arrow_s3 <- FALSE
+    } else if (!cmake_find_package("OpenSSL", "1.0.2", env_var_list)) {
+      cat("**** S3 support requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew); building with ARROW_S3=OFF\n")
+      arrow_s3 <- FALSE
+    }
+  }
+  replace(env_var_list, "ARROW_S3", ifelse(arrow_s3, "ON", "OFF"))
+}
+
+cmake_gcc_version <- function(env_var_list) {
   # This function returns NA if using a non-gcc compiler
   # Always enclose calls to it in isTRUE() or isFALSE()
-  vals <- cmake_cxx_compiler_vars(env_vars)
+  vals <- cmake_cxx_compiler_vars(env_var_list)
   if (!identical(vals[["CMAKE_CXX_COMPILER_ID"]], "GNU")) {
     return(NA)
   }
   package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]])
 }
 
-cmake_cxx_compiler_vars <- function(env_vars) {
+cmake_cxx_compiler_vars <- function(env_var_list) {
+  env_vars <- env_vars_as_string(env_var_list)
   info <- system(paste("export", env_vars, "&& $CMAKE --system-information"), intern = TRUE)
   info <- grep("^[A-Z_]* .*$", info, value = TRUE)
   vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
@@ -467,12 +545,13 @@ cmake_cxx_compiler_vars <- function(env_vars) {
   vals[grepl("^CMAKE_CXX_COMPILER_?", names(vals))]
 }
 
-cmake_find_package <- function(pkg, version = NULL, env_vars) {
+cmake_find_package <- function(pkg, version = NULL, env_var_list) {
   td <- tempfile()
   dir.create(td)
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), td))
   find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
+  env_vars <- env_vars_as_string(env_var_list)
   cmake_cmd <- paste0(
     "export ", env_vars,
     " && cd ", td,
@@ -501,12 +580,7 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     unlink(bin_file)
   } else if (build_ok) {
     # (2) Find source and build it
-    if (download_ok) {
-      src_dir <- download_source()
-    }
-    if (is.null(src_dir)) {
-      src_dir <- find_local_source()
-    }
+    src_dir <- find_local_source()
     if (!is.null(src_dir)) {
       cat("*** Building C++ libraries\n")
       build_libarrow(src_dir, dst_dir)

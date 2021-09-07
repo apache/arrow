@@ -39,7 +39,7 @@ FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 FORCE_BUNDLED_BUILD=`echo $FORCE_BUNDLED_BUILD | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
-LIBARROW_DOWNLOAD=`echo $LIBARROW_DOWNLOAD | tr '[:upper:]' '[:lower:]'`
+TEST_OFFLINE_BUILD=`echo $TEST_OFFLINE_BUILD | tr '[:upper:]' '[:lower:]'`
 NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
@@ -129,18 +129,15 @@ else
         # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
       fi
     else
+
       # Set some default values/backwards compatibility
-      if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
-        LIBARROW_DOWNLOAD=$NOT_CRAN; export LIBARROW_DOWNLOAD
-      fi
-      if [ "${LIBARROW_BINARY}" = "" ] && [ "${LIBARROW_DOWNLOAD}" != "" ]; then
-        LIBARROW_BINARY=$LIBARROW_DOWNLOAD; export LIBARROW_BINARY
-      fi
-      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
-        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
-      fi
-      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
-        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
+      if [ "${NOT_CRAN}" = "true" ]; then
+        if [ "${LIBARROW_BINARY}" = "" ]; then
+          LIBARROW_BINARY=true; export LIBARROW_BINARY
+        fi
+        if [ "${LIBARROW_MINIMAL}" = "" ]; then
+          LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
+        fi
       fi
 
       # find openssl on macos. macOS ships with libressl. openssl is installable
