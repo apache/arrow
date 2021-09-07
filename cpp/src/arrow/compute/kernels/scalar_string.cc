@@ -306,14 +306,6 @@ struct StringTransformBase {
   virtual Status InvalidStatus() {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
-
-  // Unary derived classes should define this method:
-  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-  //                     uint8_t* output);
-
-  // Binary derived classes should define this method:
-  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits, const
-  //   std::shared_ptr<Scalar>& input2, uint8_t* output);
 };
 
 template <typename Type, typename StringTransform>
@@ -400,6 +392,10 @@ struct StringTransformExecBase {
     DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
     return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
   }
+
+  // Unary derived classes should define this method:
+  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+  //                     uint8_t* output);
 };
 
 template <typename Type, typename StringTransform>
@@ -426,6 +422,26 @@ struct StringTransformExecWithState
   }
 };
 
+struct StringBinaryTransformBase {
+  virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::OK();
+  }
+
+  // Return the maximum total size of the output in codeunits (i.e. bytes)
+  // given input characteristics.
+  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
+                               const std::shared_ptr<Scalar>& input2) {
+    return input_ncodeunits;
+  }
+
+  // Return the maximum total size of the output in codeunits (i.e. bytes)
+  // given input characteristics.
+  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
+                               const std::shared_ptr<ArrayData>& data2) {
+    return input_ncodeunits;
+  }
+};
+
 /// Kernel exec generator for binary string transforms.
 /// The first parameter is expected to always be a string type while the second parameter
 /// is generic. It supports executions of the form:
@@ -433,8 +449,6 @@ struct StringTransformExecWithState
 ///   * Array, Scalar - scalar is broadcasted and paired with all values of array
 ///   * Array, Array - arrays are processed element-wise
 ///   * Scalar, Array - not supported by default
-// TODO(edponce): For when second parameter is an array, need to specify a corresponding
-// iterator/visitor.
 template <typename Type1, typename Type2, typename StringTransform>
 struct StringBinaryTransformExecBase {
   using offset_type = typename Type1::offset_type;
@@ -468,17 +482,15 @@ struct StringBinaryTransformExecBase {
   static Status ExecScalarScalar(KernelContext* ctx, StringTransform* transform,
                                  const std::shared_ptr<Scalar>& scalar1,
                                  const std::shared_ptr<Scalar>& scalar2, Datum* out) {
-    const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
-    // TODO(edponce): How to validate inputs? For some kernels, returning null is ok
-    // (ascii_lower) but others not necessarily (concatenate)
-    if (!input1.is_valid) {
+    if (!scalar1->is_valid || !scalar2->is_valid) {
       return Status::OK();
     }
 
+    const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
     auto input_ncodeunits = input1.value->size();
     auto input_nstrings = 1;
     auto output_ncodeunits_max =
-        transform->MaxCodeunits(input_nstrings, input_ncodeunits);
+        transform->MaxCodeunits(input_nstrings, input_ncodeunits, scalar2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -503,12 +515,15 @@ struct StringBinaryTransformExecBase {
   static Status ExecArrayScalar(KernelContext* ctx, StringTransform* transform,
                                 const std::shared_ptr<ArrayData>& data1,
                                 const std::shared_ptr<Scalar>& scalar2, Datum* out) {
-    ArrayType1 input1(data1);
+    if (!scalar2->is_valid) {
+      return Status::OK();
+    }
 
+    ArrayType1 input1(data1);
     auto input1_ncodeunits = input1.total_values_length();
     auto input1_nstrings = input1.length();
     auto output_ncodeunits_max =
-        transform->MaxCodeunits(input1_nstrings, input1_ncodeunits);
+        transform->MaxCodeunits(input1_nstrings, input1_ncodeunits, scalar2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -562,7 +577,7 @@ struct StringBinaryTransformExecBase {
     auto input1_ncodeunits = input1.total_values_length();
     auto input1_nstrings = input1.length();
     auto output_ncodeunits_max =
-        transform->MaxCodeunits(input1_nstrings, input1_ncodeunits);
+        transform->MaxCodeunits(input1_nstrings, input1_ncodeunits, data2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -579,7 +594,7 @@ struct StringBinaryTransformExecBase {
 
     offset_type output_ncodeunits = 0;
     for (int64_t i = 0; i < input1_nstrings; ++i) {
-      if (!input1.IsNull(i)) {
+      if (!input1.IsNull(i) || !input2.IsNull(i)) {
         offset_type input1_string_ncodeunits;
         auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
         auto scalar2 = *input2.GetScalar(i);
@@ -598,6 +613,10 @@ struct StringBinaryTransformExecBase {
     // Trim the codepoint buffer, since we allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
+
+  // Binary derived classes should define this method:
+  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits, const
+  //   std::shared_ptr<Scalar>& input2, uint8_t* output);
 };
 
 template <typename Type1, typename Type2, typename StringTransform>
