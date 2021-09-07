@@ -302,7 +302,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
         internal::checked_cast<const DictionaryScalar&>(scalar);
     const auto& dict = internal::checked_cast<const typename TypeTraits<T>::ArrayType&>(
         *dict_scalar.value.dictionary);
-    RETURN_NOT_OK(Reserve(n_repeats));
+    ARROW_RETURN_NOT_OK(Reserve(n_repeats));
     switch (dict_ty.index_type()->id()) {
       case Type::UINT8:
         return AppendScalarImpl<UInt8Type>(dict, *dict_scalar.value.index, n_repeats);
@@ -337,7 +337,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
     // Visit the indices and insert the unpacked values.
     const auto& dict_ty = internal::checked_cast<const DictionaryType&>(*array.type);
     const typename TypeTraits<T>::ArrayType dict(array.dictionary);
-    RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
     switch (dict_ty.index_type()->id()) {
       case Type::UINT8:
         return AppendArraySliceImpl<uint8_t>(dict, array, offset, length);
@@ -461,9 +461,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
     const c_type* values = array.GetValues<c_type>(1) + offset;
     return VisitBitBlocks(
         array.buffers[0], array.offset + offset, length,
-        [&](c_type position) {
-          if (dict.IsValid(values[position])) {
-            return Append(dict.GetView(values[position]));
+        [&](const int64_t position) {
+          const int64_t index = static_cast<int64_t>(values[position]);
+          if (dict.IsValid(index)) {
+            return Append(dict.GetView(index));
           }
           return AppendNull();
         },
