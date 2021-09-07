@@ -273,95 +273,35 @@ inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
 #undef PARSE_UNSIGNED_ITERATION
 #undef PARSE_UNSIGNED_ITERATION_LAST
 
-#define PARSE_HEX_ITERATION(C_TYPE)                                     \
-  if (length > 0) {                                                     \
-    char val = *s;                                                      \
-    s++;                                                                \
-    result = static_cast<C_TYPE>(result << 4);                          \
-    length--;                                                           \
-    if (val >= '0' && val <= '9'){                                      \
-      result = static_cast<C_TYPE>(result | (val -'0'));                \
-    } else if (val >= 'A' && val <= 'F'){                               \
-      result = static_cast<C_TYPE>(result | (val -'A' + 10));           \
-    } else if (val >= 'a' && val <= 'f'){                               \
-      result = static_cast<C_TYPE>(result | (val -'a' + 10));           \
-    } else {                                                            \
-      /* Non-digit */                                                   \
-      return false;                                                     \
-    }                                                                   \
-  } else {                                                              \
-    break;                                                              \
+
+
+template <typename T>
+bool ParseHex(const char* s, size_t length, T* out) {
+  T result = 0;
+  int num_iterations = (int)(sizeof(T)*2);
+  for (int i = 0; i < num_iterations; i++){
+    if (length > 0) {
+      char val = *s;
+      s++;
+      result = static_cast<T>(result << 4);
+      length--;
+      if (val >= '0' && val <= '9'){
+        result = static_cast<T>(result | (val -'0'));
+      } else if (val >= 'A' && val <= 'F'){
+        result = static_cast<T>(result | (val -'A' + 10));
+      } else if (val >= 'a' && val <= 'f'){
+        result = static_cast<T>(result | (val -'a' + 10));
+      } else {
+        /* Non-digit */
+        return false;
+      }
+    } else {
+      break;
+    }
   }
-
-
-inline bool ParseHex(const char* s, size_t length, uint8_t* out) {
-  uint8_t result = 0;
-
-  do {
-    PARSE_HEX_ITERATION(uint8_t);
-    PARSE_HEX_ITERATION(uint8_t);    
-  } while (false);
   *out = result;
   return true;
 }
-
-inline bool ParseHex(const char* s, size_t length, uint16_t* out) {
-  uint16_t result = 0;
-  do {
-    PARSE_HEX_ITERATION(uint16_t);
-    PARSE_HEX_ITERATION(uint16_t);
-    PARSE_HEX_ITERATION(uint16_t);
-    PARSE_HEX_ITERATION(uint16_t);
-  } while (false);
-  *out = result;
-  return true;
-}
-
-inline bool ParseHex(const char* s, size_t length, uint32_t* out) {
-  uint32_t result = 0;
-  do {
-    PARSE_HEX_ITERATION(uint32_t);
-    PARSE_HEX_ITERATION(uint32_t);
-    PARSE_HEX_ITERATION(uint32_t);
-    PARSE_HEX_ITERATION(uint32_t);
-    
-    PARSE_HEX_ITERATION(uint32_t);
-    PARSE_HEX_ITERATION(uint32_t);
-    PARSE_HEX_ITERATION(uint32_t);
-    PARSE_HEX_ITERATION(uint32_t);    
-  } while (false);
-  *out = result;
-  return true;
-}
-
-inline bool ParseHex(const char* s, size_t length, uint64_t* out) {
-  uint64_t result = 0;
-  do {
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-    PARSE_HEX_ITERATION(uint64_t);
-  } while (false);
-  *out = result;
-  return true;
-}
-
-#undef PARSE_HEX_ITERATION
 
 template <class ARROW_TYPE>
 struct StringToUnsignedIntConverterMixin {
@@ -372,7 +312,7 @@ struct StringToUnsignedIntConverterMixin {
       return false;
     }
     // If its starts with 0x then its hex
-    if (*s == '0' && *(s + 1) == 'x'){
+    if (*s == '0' && ((*(s + 1) == 'x') || (*(s + 1) == 'X'))){
       length -= 2;
       s += 2;
       // lets make sure that the length of the string is not too big
@@ -432,16 +372,9 @@ struct StringToSignedIntConverterMixin {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
     }
-    if (*s == '-') {
-      negative = true;
-      s++;
-      if (--length == 0) {
-        return false;
-      }
-    }
-
+    
     // If its starts with 0x then its hex
-    if (*s == '0' && *(s + 1) == 'x'){
+    if (*s == '0' && ((*(s + 1) == 'x') || (*(s + 1) == 'X'))){
       length -= 2;
       s += 2;
       // lets make sure that the length of the string is not too big
@@ -454,6 +387,15 @@ struct StringToSignedIntConverterMixin {
       *out = static_cast<value_type>(unsigned_value);
       return true; 
     }
+
+    if (*s == '-') {
+      negative = true;
+      s++;
+      if (--length == 0) {
+        return false;
+      }
+    }
+    
     // Skip leading zeros
     while (length > 0 && *s == '0') {
       length--;
