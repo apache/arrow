@@ -238,8 +238,8 @@ public class TestExtensionType {
 
   @Test
   public void testVectorCompare() {
-    ExtensionTypeRegistry.register(new UuidType());
     UuidType uuidType = new UuidType();
+    ExtensionTypeRegistry.register(uuidType);
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
          UuidVector a1 = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);
          UuidVector a2 = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);

@@ -217,7 +217,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
 
   @Override
   public Boolean visit(ExtensionTypeVector<?> left, Range range) {
-    if (!validate(left) || !(right instanceof ExtensionTypeVector<?>)) {
+    if (!(right instanceof ExtensionTypeVector<?>) || !validate(left)) {
       return false;
     }
     ValueVector rightUnderlying = ((ExtensionTypeVector<?>) right).getUnderlyingVector();
