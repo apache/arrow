@@ -210,7 +210,8 @@ class GreedyDualSizeCache {
       }
     } else {
       // if value is too big for memory cache, save it directly to disk
-      CacheObjectFileMetadata fileMetadata(std::to_string(key.Hash()), value.size, value.cost);
+      CacheObjectFileMetadata fileMetadata(std::to_string(key.Hash()), value.size,
+                                           value.cost);
       auto key_save = key;
       saveObjectToCacheDir(key_save, value.module, fileMetadata);
     }

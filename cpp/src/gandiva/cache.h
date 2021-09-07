@@ -88,24 +88,24 @@ class Cache {
     mtx_.unlock();
   }
 
-//  ValueType GetObjectCode(KeyType cache_key) {
-//    arrow::util::optional<ValueType> result;
-//    mtx_.lock();
-//    result = cache_.getObject(cache_key);
-//    mtx_.unlock();
-//    if (result != arrow::util::nullopt) {
-//      return *result;
-//    } else {
-//      return nullptr;
-//    }
-//  }
+  //  ValueType GetObjectCode(KeyType cache_key) {
+  //    arrow::util::optional<ValueType> result;
+  //    mtx_.lock();
+  //    result = cache_.getObject(cache_key);
+  //    mtx_.unlock();
+  //    if (result != arrow::util::nullopt) {
+  //      return *result;
+  //    } else {
+  //      return nullptr;
+  //    }
+  //  }
 
-//  void PutObjectCode(KeyType& cache_key, ValueType object_code,
-//                     size_t object_cache_size) {
-//    mtx_.lock();
-//    cache_.insertObject(cache_key, object_code, object_cache_size);
-//    mtx_.unlock();
-//  }
+  //  void PutObjectCode(KeyType& cache_key, ValueType object_code,
+  //                     size_t object_cache_size) {
+  //    mtx_.lock();
+  //    cache_.insertObject(cache_key, object_code, object_cache_size);
+  //    mtx_.unlock();
+  //  }
 
   ::std::shared_ptr<Cache> CreateSharedCachePtr() { return Cache::create(); }
 

@@ -24,8 +24,8 @@ namespace gandiva {
 static const size_t DEFAULT_CACHE_SIZE = 256 * 1024 * 1024;  // bytes or 256 MiB
 static const size_t DEFAULT_DISK_CACHE_SIZE = 1ULL * 1024 * 1024 * 1024;  // bytes or 1
                                                                           // GiB
-static const size_t DEFAULT_RESERVED_SIZE = 10ULL * 1024 * 1024 * 1024;  // bytes or 10
-                                                                         // GiB
+static const size_t DEFAULT_RESERVED_SIZE = 10ULL * 1024 * 1024 * 1024;   // bytes or 10
+                                                                          // GiB
 
 size_t GetCapacity() {
   size_t capacity;

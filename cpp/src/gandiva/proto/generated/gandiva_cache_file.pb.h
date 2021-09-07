@@ -84,8 +84,10 @@ namespace proto {
 
 // ===================================================================
 
-class SchemaExpressionsPair PROTOBUF_FINAL : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:gandiva.cache.proto.SchemaExpressionsPair)
-                                                                                      */
+class SchemaExpressionsPair PROTOBUF_FINAL
+    : public ::PROTOBUF_NAMESPACE_ID::
+          Message /* @@protoc_insertion_point(class_definition:gandiva.cache.proto.SchemaExpressionsPair)
+                   */
 {
  public:
   inline SchemaExpressionsPair() : SchemaExpressionsPair(nullptr) {}
@@ -279,8 +281,9 @@ class SchemaExpressionsPair PROTOBUF_FINAL : public ::PROTOBUF_NAMESPACE_ID::Mes
 // -------------------------------------------------------------------
 
 class SchemaExprsPairAndObjectCode PROTOBUF_FINAL
-    : public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
-                                               */
+    : public ::PROTOBUF_NAMESPACE_ID::
+          Message /* @@protoc_insertion_point(class_definition:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
+                   */
 {
  public:
   inline SchemaExprsPairAndObjectCode() : SchemaExprsPairAndObjectCode(nullptr) {}

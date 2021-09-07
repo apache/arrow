@@ -46,7 +46,7 @@ class TestProjector : public ::testing::Test {
     // To test the eviction, uncomment the line below:
     setenv("GANDIVA_CACHE_SIZE", "18432", 1);  // 25 KiB
     // To test the file eviction, uncomment the line below:
-    setenv("GANDIVA_DISK_CAPACITY_SIZE", "256000", 1); // 500 KiB
+    setenv("GANDIVA_DISK_CAPACITY_SIZE", "256000", 1);  // 500 KiB
   }
 
  protected:

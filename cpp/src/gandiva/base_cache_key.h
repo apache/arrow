@@ -60,8 +60,8 @@ class BaseCacheKey {
     schema_ = key.schema();
   }
 
-  BaseCacheKey(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<Expression>& expr,
-               const std::string& type)
+  BaseCacheKey(const std::shared_ptr<arrow::Schema>& schema,
+               const std::shared_ptr<Expression>& expr, const std::string& type)
       : type_(type) {
     static const int32_t kSeedValue = 4;
     size_t result_hash = kSeedValue;
@@ -85,9 +85,7 @@ class BaseCacheKey {
     return exprs;
   }
 
-  std::string getSchemaString() {
-    return schema_->ToString();
-  }
+  std::string getSchemaString() { return schema_->ToString(); }
 
   bool checkCacheFile(const std::string& schema,
                       const std::vector<std::string>& exprs) const {
@@ -100,8 +98,7 @@ class BaseCacheKey {
     }
 
     for (size_t i = 0; i < exprs.size(); ++i) {
-      if (exprs.at(i) !=  exprs_.at(i)->ToString()) {
-
+      if (exprs.at(i) != exprs_.at(i)->ToString()) {
       }
     }
 
