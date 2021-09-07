@@ -36,15 +36,19 @@ import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
  * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
  */
 public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
-  private final ArrowFlightConnection connection;
 
   protected ArrowDatabaseMetadata(final ArrowFlightConnection connection) {
     super(connection);
-    this.connection = connection;
+  }
+
+  @Override
+  public ArrowFlightConnection getConnection() throws SQLException {
+    return (ArrowFlightConnection) super.getConnection();
   }
 
   @Override
   public ResultSet getCatalogs() throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoCatalogs = connection.getClientHandler().getCatalogs();
 
     final BufferAllocator allocator = connection.getBufferAllocator();
@@ -57,6 +61,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public ResultSet getImportedKeys(final String catalog, final String schema, final String table) throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoImportedKeys = connection.getClientHandler().getImportedKeys(catalog, schema, table);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
@@ -81,6 +86,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public ResultSet getExportedKeys(final String catalog, final String schema, final String table) throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoExportedKeys = connection.getClientHandler().getExportedKeys(catalog, schema, table);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
@@ -105,6 +111,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public ResultSet getSchemas(final String catalog, final String schemaPattern) throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoSchemas = connection.getClientHandler().getSchemas(catalog, schemaPattern);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
@@ -118,6 +125,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public ResultSet getTableTypes() throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoTableTypes = connection.getClientHandler().getTableTypes();
 
     final BufferAllocator allocator = connection.getBufferAllocator();
@@ -132,6 +140,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   public ResultSet getTables(final String catalog, final String schemaPattern, final String tableNamePattern,
                              final String[] types)
       throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoTables =
         connection.getClientHandler().getTables(catalog, schemaPattern, tableNamePattern, types);
 
@@ -148,6 +157,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public ResultSet getPrimaryKeys(final String catalog, final String schema, final String table) throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoPrimaryKeys = connection.getClientHandler().getPrimaryKeys(catalog, schema, table);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
