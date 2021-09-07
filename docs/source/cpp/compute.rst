@@ -1213,29 +1213,29 @@ null input value is converted into a null output value.
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These functions extract datetime components (year, month, day, etc) from timestamp type.
-If the input timestamps have a non-empty timezone, localized timestamp components will be returned.
+These functions extract datetime components (year, month, day, etc) from temporal types.
+For timestamps inputs with non-empty timezone, localized timestamp components will be returned.
 
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | Function name      | Arity      | Input types       | Output type   | Options class              | Notes |
 +====================+============+===================+===============+============================+=======+
-| year               | Unary      | Timestamp         | Int64         |                            |       |
+| year               | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| month              | Unary      | Timestamp         | Int64         |                            |       |
+| month              | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| day                | Unary      | Timestamp         | Int64         |                            |       |
+| day                | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| day_of_week        | Unary      | Timestamp         | Int64         | :struct:`DayOfWeekOptions` | \(1)  |
+| day_of_week        | Unary      | Temporal          | Int64         | :struct:`DayOfWeekOptions` | \(1)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| day_of_year        | Unary      | Timestamp         | Int64         |                            |       |
+| day_of_year        | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_year           | Unary      | Timestamp         | Int64         |                            | \(2)  |
+| iso_year           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_week           | Unary      | Timestamp         | Int64         |                            | \(2)  |
+| iso_week           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_calendar       | Unary      | Timestamp         | Struct        |                            | \(3)  |
+| iso_calendar       | Unary      | Temporal          | Struct        |                            | \(3)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| quarter            | Unary      | Timestamp         | Int64         |                            |       |
+| quarter            | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | hour               | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
