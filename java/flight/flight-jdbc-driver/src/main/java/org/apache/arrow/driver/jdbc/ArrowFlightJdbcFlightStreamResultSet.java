@@ -55,7 +55,36 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
     this.connection = (ArrowFlightConnection) statement.connection;
   }
 
-  FlightStreamQueue getFlightStreamQueue() {
+  /**
+   * Create a {@link ResultSet} which pulls data from given {@link FlightInfo}.
+   *
+   * @param connection  The connection linked to the returned ResultSet.
+   * @param flightInfo  The FlightInfo from which data will be iterated by the returned ResultSet.
+   * @param transformer Optional transformer for processing VectorSchemaRoot before access from ResultSet
+   * @return A ResultSet which pulls data from given FlightInfo.
+   */
+  static ArrowFlightJdbcFlightStreamResultSet fromFlightInfo(
+      final ArrowFlightConnection connection,
+      final FlightInfo flightInfo,
+      final VectorSchemaRootTransformer transformer) throws SQLException {
+    // Similar to how org.apache.calcite.avatica.util.ArrayFactoryImpl does
+
+    final TimeZone timeZone = TimeZone.getDefault();
+    final QueryState state = new QueryState();
+
+    final Meta.Signature signature = ArrowFlightMetaImpl.newSignature(null);
+
+    final AvaticaResultSetMetaData resultSetMetaData = new AvaticaResultSetMetaData(null, null, signature);
+    final ArrowFlightJdbcFlightStreamResultSet resultSet =
+        new ArrowFlightJdbcFlightStreamResultSet(null, state, signature, resultSetMetaData, timeZone, null, connection);
+
+    resultSet.transformer = transformer;
+
+    resultSet.execute(flightInfo);
+    return resultSet;
+  }
+
+  protected FlightStreamQueue getFlightStreamQueue() {
     return flightStreamQueue;
   }
 

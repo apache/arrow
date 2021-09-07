@@ -176,7 +176,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   /**
    * Base Schemas for {@link VectorSchemaRootTransformer} use.
    */
-  static class Schemas {
+  private static class Schemas {
     public static final Schema GET_TABLES = new Schema(Arrays.asList(
         Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
         Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
@@ -190,17 +190,17 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         Field.nullable("REF_GENERATION", Types.MinorType.VARBINARY.getType())
     ));
 
-    public static final Schema GET_CATALOGS = new Schema(
+    private static final Schema GET_CATALOGS = new Schema(
         Collections.singletonList(Field.notNullable("TABLE_CAT", Types.MinorType.VARCHAR.getType())));
 
-    public static final Schema GET_TABLE_TYPES =
+    private static final Schema GET_TABLE_TYPES =
         new Schema(Collections.singletonList(Field.notNullable("TABLE_TYPE", Types.MinorType.VARCHAR.getType())));
 
-    public static final Schema GET_SCHEMAS = new Schema(
+    private static final Schema GET_SCHEMAS = new Schema(
         Arrays.asList(Field.notNullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
             Field.nullable("TABLE_CATALOG", Types.MinorType.VARCHAR.getType())));
 
-    public static final Schema GET_IMPORTED_AND_EXPORTED_KEYS = new Schema(Arrays.asList(
+    private static final Schema GET_IMPORTED_AND_EXPORTED_KEYS = new Schema(Arrays.asList(
         Field.nullable("PKTABLE_CAT", Types.MinorType.VARCHAR.getType()),
         Field.nullable("PKTABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
         Field.notNullable("PKTABLE_NAME", Types.MinorType.VARCHAR.getType()),
@@ -216,7 +216,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         Field.notNullable("DELETE_RULE", new ArrowType.Int(8, false)),
         Field.notNullable("DEFERRABILITY", new ArrowType.Int(8, false))));
 
-    public static final Schema GET_PRIMARY_KEYS = new Schema(Arrays.asList(
+    private static final Schema GET_PRIMARY_KEYS = new Schema(Arrays.asList(
         Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
         Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
         Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
