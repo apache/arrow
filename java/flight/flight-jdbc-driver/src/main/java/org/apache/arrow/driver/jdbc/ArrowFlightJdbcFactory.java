@@ -94,8 +94,7 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
                                                                final Meta.Frame frame) throws SQLException {
     final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
 
-    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame,
-        ((ArrowFlightConnection) statement.getConnection()));
+    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame);
   }
 
   @Override
