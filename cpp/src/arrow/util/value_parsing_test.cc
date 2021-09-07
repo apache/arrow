@@ -230,6 +230,7 @@ TEST(StringConversion, ToInt32) {
   AssertConversion<Int32Type>("0x123abc", 1194684);
   AssertConversion<Int32Type>("0xA4b35", 674613);
   AssertConversion<Int32Type>("0x7FFFfFfF", 2147483647);
+  AssertConversion<UInt32Type>("0XFFFFfFfF", -1);
   AssertConversionFails<Int32Type>("0x23512ak");
   
 }
@@ -258,6 +259,7 @@ TEST(StringConversion, ToUInt32) {
   AssertConversion<UInt32Type>("0x123abc", 1194684);
   AssertConversion<UInt32Type>("0xA4b35", 674613);
   AssertConversion<UInt32Type>("0x7FFFfFfF", 2147483647);
+  AssertConversion<UInt32Type>("0XFFFFfFfF", 4294967295);
   AssertConversionFails<UInt32Type>("0x23512ak");
 }
 
@@ -282,6 +284,8 @@ TEST(StringConversion, ToInt64) {
   AssertConversion<Int64Type>("0x5415a123ABC123cb", 6058926048274359243);
   AssertConversion<Int64Type>("0xA4B35", 674613);
   AssertConversion<Int64Type>("0x7FFFFFFFFFFFFFFf", 9223372036854775807);
+  AssertConversion<UInt64Type>("0XF000000000000001", -1152921504606846975);
+  AssertConversion<UInt64Type>("0xfFFFFFFFFFFFFFFf", -1);
   AssertConversionFails<Int64Type>("0x12345678901234567");
   AssertConversionFails<Int64Type>("0x23512ak");
 }
@@ -304,6 +308,8 @@ TEST(StringConversion, ToUInt64) {
   AssertConversion<UInt64Type>("0x5415a123ABC123cb", 6058926048274359243);
   AssertConversion<UInt64Type>("0xA4B35", 674613);
   AssertConversion<UInt64Type>("0x7FFFFFFFFFFFFFFf", 9223372036854775807);
+  AssertConversion<UInt64Type>("0XF000000000000001", 17293822569102704641ULL);
+  AssertConversion<UInt64Type>("0xfFFFFFFFFFFFFFFf", 18446744073709551615ULL);
   AssertConversionFails<UInt64Type>("0x12345678901234567");
   AssertConversionFails<UInt64Type>("0x23512ak");
 }
