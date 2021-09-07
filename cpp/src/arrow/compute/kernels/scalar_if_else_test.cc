@@ -1654,6 +1654,18 @@ TEST(TestCaseWhen, DispatchBest) {
                 CallFunction("case_when", {MakeStruct({ArrayFromJSON(boolean(), "[]")}),
                                            ArrayFromJSON(int64(), "[]"),
                                            ArrayFromJSON(utf8(), "[]")}));
+
+  // Do not dictionary-decode when we have only dictionary values
+  CheckDispatchBest("case_when",
+                    {struct_({field("", boolean())}), dictionary(int64(), utf8()),
+                     dictionary(int64(), utf8())},
+                    {struct_({field("", boolean())}), dictionary(int64(), utf8()),
+                     dictionary(int64(), utf8())});
+
+  // Dictionary-decode if we have a mix
+  CheckDispatchBest(
+      "case_when", {struct_({field("", boolean())}), dictionary(int64(), utf8()), utf8()},
+      {struct_({field("", boolean())}), utf8(), utf8()});
 }
 
 template <typename Type>
