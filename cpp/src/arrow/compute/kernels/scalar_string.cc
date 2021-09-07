@@ -2734,44 +2734,50 @@ void AddSplit(FunctionRegistry* registry) {
 }
 
 template <typename Type1, typename Type2>
-struct StrRepeatTransform : public StringTransformBase {
+struct StrRepeatTransform : public StringBinaryTransformBase {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
-  int64_t max_nrepeats = 0;
 
   Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
-    // Since repeat values are validated here, might as well get the maximum repeat value
-    // into a data member and use it for MaxCodeunits().
+    // TODO(edponce): Does it makes sense to validate repetition values here or make it a silent no-op? When it is an array, it should not be validated here because it would require iterating through all values.
     if (batch[1].is_scalar()) {
-      max_nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*batch[1].scalar()));
+      auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*batch[1].scalar()));
+      if (nrepeats < 0) {
+        return Status::Invalid("Invalid string repetition value, has to be non-negative");
+      }
+    } else {
+      ArrayType2 array2(batch[1].array());
+      for (int i = 0; i < array2.length(); ++i) {
+        auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(**array2.GetScalar(i)));
+        if (nrepeats < 0) {
+          return Status::Invalid("Invalid string repetition value, has to be non-negative");
+        }
+      }
     }
-
     if (batch[0].is_array() && batch[1].is_array()) {
-      // TODO(edponce): Is it possible to not convert to ArrayType for these checks and
-      // finding max?
       ArrayType1 array1(batch[0].array());
       ArrayType2 array2(batch[1].array());
       if (array1.length() != array2.length()) {
         return Status::Invalid(
             "Number of input strings and repetitions differ in length");
       }
-
-      // Note: Ideally, we would like to calculate the exact output size by iterating over
-      // all input strings and summing each length multiplied by the corresponding repeat
-      // value, but this requires traversing the data twice (now and during transform).
-      // The upper limit is to assume that all strings are repeated the max number of
-      // times.
-      max_nrepeats =
-          static_cast<int64_t>(**std::max_element(array2.begin(), array2.end()));
-    }
-
-    if (max_nrepeats < 0) {
-      return Status::Invalid("Invalid string repetition value, has to be non-negative");
     }
     return Status::OK();
   }
 
-  int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits) override {
+  int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits, const std::shared_ptr<Scalar>& input2) override {
+    auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*input2));
+    return input_ncodeunits * nrepeats;
+  }
+
+  int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits, const std::shared_ptr<ArrayData>& data2) override {
+    ArrayType2 array2(data2);
+    // Note: Ideally, we would like to calculate the exact output size by iterating over
+    // all input strings and summing each length multiplied by the corresponding repeat
+    // value, but this requires traversing the data twice (now and during transform).
+    // The upper limit is to assume that all strings are repeated the max number of
+    // times.
+    auto max_nrepeats = static_cast<int64_t>(**std::max_element(array2.begin(), array2.end()));
     return input_ncodeunits * max_nrepeats;
   }
 
