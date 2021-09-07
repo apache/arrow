@@ -126,3 +126,27 @@ test_that("non-bound compute kernels using PartitionNthOptions", {
     c(1L, 0L, 4L, 3L, 2L, 5L, 6L, 7L, 8L, 9L)
   )
 })
+
+
+test_that("non-bound compute kernels using MatchSubstringOptions", {
+  skip_if_not_available("utf8proc")
+  expect_equal(
+    call_function("starts_with", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "abr")),
+    Array$create(c(TRUE, FALSE, FALSE, TRUE))
+  )
+
+  expect_equal(
+    call_function("ends_with", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "e")),
+    Array$create(c(FALSE, FALSE, TRUE, TRUE))
+  )
+
+  expect_equal(
+    as.vector(call_function("count_substring", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "e"))),
+    c(0, 0, 1, 1)
+  )
+
+  expect_equal(
+    as.vector(call_function("count_substring_regex", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "e"))),
+    c(0, 0, 1, 1)
+  )
+})

@@ -287,7 +287,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "match_substring" || func_name == "match_substring_regex" ||
       func_name == "find_substring" || func_name == "find_substring_regex" ||
-      func_name == "match_like") {
+      func_name == "match_like" || func_name == "starts_with" ||
+      func_name == "ends_with" || func_name == "count_substring" ||
+      func_name == "count_substring_regex") {
     using Options = arrow::compute::MatchSubstringOptions;
     bool ignore_case = false;
     if (!Rf_isNull(options["ignore_case"])) {
