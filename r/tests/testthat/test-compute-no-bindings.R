@@ -162,6 +162,8 @@ test_that("non-bound compute kernels using MatchSubstringOptions", {
     c(0, 0, 1, 1)
   )
 
+  skip_if_not_available("re2")
+
   # Remove this test when ARROW-13156 has been completed 
   expect_equal(
     as.vector(
