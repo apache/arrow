@@ -128,7 +128,7 @@ class ProjectNode : public ExecNode {
   std::string ToStringExtra() const override {
     std::stringstream ss;
     ss << "projection=[";
-    for (int64_t i = 0; static_cast<size_t>(i) < exprs_.size(); i++) {
+    for (int i = 0; static_cast<size_t>(i) < exprs_.size(); i++) {
       if (i > 0) ss << ", ";
       auto repr = exprs_[i].ToString();
       if (repr != output_schema_->field(i)->name()) {
