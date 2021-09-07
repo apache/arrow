@@ -31,7 +31,7 @@ namespace gandiva {
 
 class BaseCacheKey {
  public:
-  BaseCacheKey(Expression& expr, std::string type) : type_(type) {
+  BaseCacheKey(Expression& expr, const std::string& type) : type_(type) {
     static const int32_t kSeedValue = 4;
     std::string expr_as_string = expr.ToString();
     size_t result_hash = kSeedValue;
@@ -40,7 +40,7 @@ class BaseCacheKey {
     hash_code_ = result_hash;
   }
 
-  BaseCacheKey(ProjectorCacheKey& key, std::string type) : type_(type) {
+  BaseCacheKey(ProjectorCacheKey& key, const std::string& type) : type_(type) {
     static const int32_t kSeedValue = 4;
     size_t key_hash = key.Hash();
     size_t result_hash = kSeedValue;
@@ -50,7 +50,7 @@ class BaseCacheKey {
     schema_ = key.schema();
   }
 
-  BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
+  BaseCacheKey(FilterCacheKey& key, const std::string& type) : type_(type) {
     static const size_t kSeedValue = 4;
     size_t key_hash = key.Hash();
     size_t result_hash = kSeedValue;
@@ -60,8 +60,8 @@ class BaseCacheKey {
     schema_ = key.schema();
   }
 
-  BaseCacheKey(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expression> expr,
-               std::string type)
+  BaseCacheKey(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<Expression>& expr,
+               const std::string& type)
       : type_(type) {
     static const int32_t kSeedValue = 4;
     size_t result_hash = kSeedValue;
@@ -77,6 +77,37 @@ class BaseCacheKey {
 
   std::string Type() const { return type_; }
 
+  std::vector<std::string> getExprsString() {
+    std::vector<std::string> exprs;
+    for (auto& expr : exprs_) {
+      exprs.push_back(expr->ToString());
+    }
+    return exprs;
+  }
+
+  std::string getSchemaString() {
+    return schema_->ToString();
+  }
+
+  bool checkCacheFile(const std::string& schema,
+                      const std::vector<std::string>& exprs) const {
+    if (schema_->ToString() != schema) {
+      return false;
+    }
+
+    if (exprs.size() != exprs_.size()) {
+      return false;
+    }
+
+    for (size_t i = 0; i < exprs.size(); ++i) {
+      if (exprs.at(i) !=  exprs_.at(i)->ToString()) {
+
+      }
+    }
+
+    return true;
+  }
+
   bool operator==(const BaseCacheKey& other) const {
     if (hash_code_ != other.hash_code_) {
       return false;
@@ -90,6 +121,7 @@ class BaseCacheKey {
   uint64_t hash_code_;
   std::string type_;
   SchemaPtr schema_;
+  ExpressionVector exprs_;
 };
 
 }  // namespace gandiva

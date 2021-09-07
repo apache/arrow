@@ -38,7 +38,7 @@ class GreedyDualSizeCacheKey {
 
 class TestGreedyDualSizeCache : public ::testing::Test {
  public:
-  TestGreedyDualSizeCache() : cache_(2) {}
+  TestGreedyDualSizeCache() : cache_(2, 1024, 1024) {}
 
  protected:
   GreedyDualSizeCache<GreedyDualSizeCacheKey, std::string> cache_;
