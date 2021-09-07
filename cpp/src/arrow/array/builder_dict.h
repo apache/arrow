@@ -307,70 +307,22 @@ class DictionaryBuilderBase : public ArrayBuilder {
     const auto& dict = internal::checked_cast<const typename TypeTraits<T>::ArrayType&>(
         *dict_scalar.value.dictionary);
     switch (dict_ty.index_type()->id()) {
-      case Type::UINT8: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const UInt8Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
-      case Type::INT8: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const Int8Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
-      case Type::UINT16: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const UInt16Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
-      case Type::INT16: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const Int16Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
-      case Type::UINT32: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const UInt32Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
-      case Type::INT32: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const Int32Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
-      case Type::UINT64: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const UInt64Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
-      case Type::INT64: {
-        const auto& value = dict.GetView(
-            internal::checked_cast<const Int64Scalar&>(*dict_scalar.value.index).value);
-        for (int64_t i = 0; i < n_repeats; i++) {
-          ARROW_RETURN_NOT_OK(Append(value));
-        }
-        break;
-      }
+      case Type::UINT8:
+        return AppendScalarImpl<UInt8Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT8:
+        return AppendScalarImpl<Int8Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::UINT16:
+        return AppendScalarImpl<UInt16Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT16:
+        return AppendScalarImpl<Int16Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::UINT32:
+        return AppendScalarImpl<UInt32Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT32:
+        return AppendScalarImpl<Int32Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::UINT64:
+        return AppendScalarImpl<UInt64Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT64:
+        return AppendScalarImpl<Int64Type>(dict, *dict_scalar.value.index, n_repeats);
       default:
         return Status::TypeError("Invalid index type: ", dict_ty);
     }
@@ -389,62 +341,22 @@ class DictionaryBuilderBase : public ArrayBuilder {
     const auto& dict_ty = internal::checked_cast<const DictionaryType&>(*array.type);
     const typename TypeTraits<T>::ArrayType dict(array.dictionary);
     switch (dict_ty.index_type()->id()) {
-      case Type::UINT8: {
-        const uint8_t* values = array.GetValues<uint8_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
-      case Type::INT8: {
-        const int8_t* values = array.GetValues<int8_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
-      case Type::UINT16: {
-        const uint16_t* values = array.GetValues<uint16_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
-      case Type::INT16: {
-        const int16_t* values = array.GetValues<int16_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
-      case Type::UINT32: {
-        const uint32_t* values = array.GetValues<uint32_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
-      case Type::INT32: {
-        const int32_t* values = array.GetValues<int32_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
-      case Type::UINT64: {
-        const uint64_t* values = array.GetValues<uint64_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
-      case Type::INT64: {
-        const int64_t* values = array.GetValues<int64_t>(1) + offset;
-        return VisitBitBlocks(
-            array.buffers[0], array.offset + offset, std::min(array.length, length),
-            [&](int64_t position) { return Append(dict.GetView(values[position])); },
-            [&]() { return AppendNull(); });
-      }
+      case Type::UINT8:
+        return AppendArraySliceImpl<uint8_t>(dict, array, offset, length);
+      case Type::INT8:
+        return AppendArraySliceImpl<int8_t>(dict, array, offset, length);
+      case Type::UINT16:
+        return AppendArraySliceImpl<uint16_t>(dict, array, offset, length);
+      case Type::INT16:
+        return AppendArraySliceImpl<int16_t>(dict, array, offset, length);
+      case Type::UINT32:
+        return AppendArraySliceImpl<uint32_t>(dict, array, offset, length);
+      case Type::INT32:
+        return AppendArraySliceImpl<int32_t>(dict, array, offset, length);
+      case Type::UINT64:
+        return AppendArraySliceImpl<uint64_t>(dict, array, offset, length);
+      case Type::INT64:
+        return AppendArraySliceImpl<int64_t>(dict, array, offset, length);
       default:
         return Status::TypeError("Invalid index type: ", dict_ty);
     }
@@ -545,6 +457,36 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
  protected:
+  template <typename c_type>
+  Status AppendArraySliceImpl(const typename TypeTraits<T>::ArrayType& dict,
+                              const ArrayData& array, int64_t offset, int64_t length) {
+    const c_type* values = array.GetValues<c_type>(1) + offset;
+    return VisitBitBlocks(
+        array.buffers[0], array.offset + offset, std::min(array.length, length),
+        [&](c_type position) {
+          if (dict.IsValid(values[position])) {
+            return Append(dict.GetView(values[position]));
+          }
+          return AppendNull();
+        },
+        [&]() { return AppendNull(); });
+  }
+
+  template <typename IndexType>
+  Status AppendScalarImpl(const typename TypeTraits<T>::ArrayType& dict,
+                          const Scalar& index_scalar, int64_t n_repeats) {
+    using ScalarType = typename TypeTraits<IndexType>::ScalarType;
+    const auto index = internal::checked_cast<const ScalarType&>(index_scalar).value;
+    if (index_scalar.is_valid && dict.IsValid(index)) {
+      const auto& value = dict.GetView(index);
+      for (int64_t i = 0; i < n_repeats; i++) {
+        ARROW_RETURN_NOT_OK(Append(value));
+      }
+      return Status::OK();
+    }
+    return AppendNulls(n_repeats);
+  }
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     std::shared_ptr<ArrayData> dictionary;
     ARROW_RETURN_NOT_OK(FinishWithDictOffset(/*offset=*/0, out, &dictionary));
