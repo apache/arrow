@@ -47,10 +47,6 @@ auto GetLogicalValue(const ArrayType& array, uint64_t index)
   return array.GetView(index);
 }
 
-Decimal128 GetLogicalValue(const Decimal128Array& array, uint64_t index) {
-  return Decimal128(array.Value(index));
-}
-
 }  // namespace
 
 template <typename ArrayType, SortOrder order>
@@ -58,10 +54,6 @@ class SelectKComparator {
  public:
   template <typename Type>
   bool operator()(const Type& lval, const Type& rval) {
-    if (is_floating_type<typename ArrayType::TypeClass>::value) {
-      if (rval != rval) return true;
-      if (lval != lval) return false;
-    }
     if (order == SortOrder::Ascending) {
       return lval <= rval;
     } else {
@@ -73,41 +65,77 @@ class SelectKComparator {
 template <SortOrder order>
 Result<std::shared_ptr<Array>> SelectK(const Array& values, int64_t k) {
   if (order == SortOrder::Descending) {
-    return TopK(values, k);
+    return TopK(Datum(values), SelectKOptions::TopKDefault(k));
   } else {
-    return BottomK(values, k);
+    return BottomK(Datum(values), SelectKOptions::BottomKDefault(k));
   }
 }
 template <SortOrder order>
 Result<std::shared_ptr<Array>> SelectK(const ChunkedArray& values, int64_t k) {
   if (order == SortOrder::Descending) {
-    return TopK(values, k);
+    return TopK(Datum(values), SelectKOptions::TopKDefault(k));
   } else {
-    return BottomK(values, k);
+    return BottomK(Datum(values), SelectKOptions::BottomKDefault(k));
   }
 }
 
 template <SortOrder order>
-Result<std::shared_ptr<RecordBatch>> SelectK(const RecordBatch& values,
-                                             const SelectKOptions& options) {
-  if (order == SortOrder::Descending) {
-    ARROW_ASSIGN_OR_RAISE(auto out, TopK(Datum(values), options.k, options));
-    return out.record_batch();
-  } else {
-    ARROW_ASSIGN_OR_RAISE(auto out, BottomK(Datum(values), options.k, options));
-    return out.record_batch();
-  }
-}
-
-template <SortOrder order>
-Result<std::shared_ptr<Table>> SelectK(const Table& values,
+Result<std::shared_ptr<Array>> SelectK(const RecordBatch& values,
                                        const SelectKOptions& options) {
   if (order == SortOrder::Descending) {
-    ARROW_ASSIGN_OR_RAISE(auto out, TopK(Datum(values), options.k, options));
-    return out.table();
+    return TopK(Datum(values), options);
   } else {
-    ARROW_ASSIGN_OR_RAISE(auto out, BottomK(Datum(values), options.k, options));
-    return out.table();
+    return BottomK(Datum(values), options);
+  }
+}
+
+template <SortOrder order>
+Result<std::shared_ptr<Array>> SelectK(const Table& values,
+                                       const SelectKOptions& options) {
+  if (order == SortOrder::Descending) {
+    return TopK(Datum(values), options);
+  } else {
+    return BottomK(Datum(values), options);
+  }
+}
+
+void ValidateSelectK(const Array& array, int k, Array& select_k_indices, SortOrder order,
+                     bool stable_sort = false) {
+  ASSERT_OK_AND_ASSIGN(auto sorted_indices, SortIndices(array, order));
+
+  if (k < array.length()) {
+    // head(k)
+    auto head_k_indices = sorted_indices->Slice(0, select_k_indices.length());
+    if (stable_sort) {
+      AssertArraysEqual(*head_k_indices, select_k_indices);
+    } else {
+      ASSERT_OK_AND_ASSIGN(auto expected,
+                           Take(array, *head_k_indices, TakeOptions::NoBoundsCheck()));
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           Take(array, select_k_indices, TakeOptions::NoBoundsCheck()));
+      AssertArraysEqual(*expected, *actual);
+    }
+  }
+}
+
+void ValidateSelectK(const ChunkedArray& chunked_array, int k, Array& select_k_indices,
+                     SortOrder order, bool stable_sort = false) {
+  ASSERT_OK_AND_ASSIGN(auto sorted_indices, SortIndices(chunked_array, order));
+
+  if (k < chunked_array.length()) {
+    // head(k)
+    auto head_k_indices = sorted_indices->Slice(0, select_k_indices.length());
+    if (stable_sort) {
+      AssertArraysEqual(*head_k_indices, select_k_indices);
+    } else {
+      ASSERT_OK_AND_ASSIGN(auto expected,
+                           Take(Datum(chunked_array), Datum(head_k_indices),
+                                TakeOptions::NoBoundsCheck()));
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           Take(Datum(chunked_array), Datum(select_k_indices),
+                                TakeOptions::NoBoundsCheck()));
+      AssertChunkedEqual(*expected.chunked_array(), *actual.chunked_array());
+    }
   }
 }
 
@@ -116,38 +144,20 @@ class TestSelectKBase : public TestBase {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  protected:
-  void Validate(const ArrayType& array, int k, ArrayType& select_k, SortOrder order) {
-    ASSERT_OK_AND_ASSIGN(auto sorted_indices, SortIndices(array, order));
-
-    // head(k)
-    auto head_k_indices = sorted_indices->Slice(0, select_k.length());
-
-    // sorted_indices
-    ASSERT_OK_AND_ASSIGN(Datum sorted_datum,
-                         Take(array, head_k_indices, TakeOptions::NoBoundsCheck()));
-    std::shared_ptr<Array> sorted_array_out = sorted_datum.make_array();
-
-    const ArrayType& sorted_array = *checked_pointer_cast<ArrayType>(sorted_array_out);
-
-    if (k < array.length()) {
-      AssertArraysEqual(sorted_array, select_k);
-    }
-  }
   template <SortOrder order>
   void AssertSelectKArray(const std::shared_ptr<Array> values, int n) {
     std::shared_ptr<Array> select_k;
     ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(*values, n));
     ASSERT_EQ(select_k->data()->null_count, 0);
     ValidateOutput(*select_k);
-    Validate(*checked_pointer_cast<ArrayType>(values), n,
-             *checked_pointer_cast<ArrayType>(select_k), order);
+    ValidateSelectK(*values, n, *select_k, order);
   }
 
   void AssertTopKArray(const std::shared_ptr<Array> values, int n) {
     AssertSelectKArray<SortOrder::Descending>(values, n);
   }
   void AssertBottomKArray(const std::shared_ptr<Array> values, int n) {
-    AssertSelectKArray<SortOrder::Descending>(values, n);
+    AssertSelectKArray<SortOrder::Ascending>(values, n);
   }
 
   void AssertSelectKJson(const std::string& values, int n) {
@@ -212,6 +222,7 @@ TYPED_TEST(TestSelectKForReal, Real) {
   this->AssertSelectKJson("[null, 2, NaN, 3, 1]", 4);
   this->AssertSelectKJson("[NaN, 2, null, 3, 1]", 3);
   this->AssertSelectKJson("[NaN, 2, null, 3, 1]", 4);
+  this->AssertSelectKJson("[100, 4, 2, 7, 8, 3, NaN, 3, 1]", 4);
 }
 
 TYPED_TEST(TestSelectKForIntegral, Integral) {
@@ -261,15 +272,9 @@ class TestSelectKRandom : public TestSelectKBase<ArrowType> {
   }
 };
 
-using NumericBasedTypes =
-    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
-                     TimestampType, Time32Type, Time64Type>;
-
 using SelectKableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, Decimal128Type,
-                     StringType>;
+                     Int32Type, Int64Type, FloatType, DoubleType, StringType>;
 
 TYPED_TEST_SUITE(TestSelectKRandom, SelectKableTypes);
 
@@ -277,147 +282,66 @@ TYPED_TEST(TestSelectKRandom, RandomValues) {
   Random<TypeParam> rand(0x61549225);
   int length = 100;
   for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+    auto array = rand.Generate(length, null_probability);
     // Try n from 0 to out of bound
     for (int n = 0; n <= length; ++n) {
-      auto array = rand.Generate(length, null_probability);
       this->AssertTopKArray(array, n);
       this->AssertBottomKArray(array, n);
     }
   }
 }
 
-template <SortOrder order>
+// Test basic cases for chunked array
+
+template <typename ArrowType>
 struct TestSelectKWithChunkedArray : public ::testing::Test {
-  TestSelectKWithChunkedArray()
-      : sizes_({0, 1, 2, 4, 16, 31, 1234}),
-        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+  TestSelectKWithChunkedArray() {}
 
-  void Check(const std::shared_ptr<DataType>& type,
-             const std::vector<std::string>& values, int64_t k,
-             const std::string& expected) {
-    std::shared_ptr<Array> actual;
-    ASSERT_OK(this->DoSelectK(type, values, k, &actual));
-    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(type, expected), *actual);
+  // Slice `array` into multiple chunks along `offsets`
+  ArrayVector Slices(const std::shared_ptr<Array>& array,
+                     const std::shared_ptr<Int32Array>& offsets) {
+    ArrayVector slices(offsets->length() - 1);
+    for (int64_t i = 0; i != static_cast<int64_t>(slices.size()); ++i) {
+      slices[i] =
+          array->Slice(offsets->Value(i), offsets->Value(i + 1) - offsets->Value(i));
+    }
+    return slices;
   }
 
-  void Check(const std::shared_ptr<DataType>& type,
-             const std::shared_ptr<ChunkedArray>& values, int64_t k,
-             const std::string& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, SelectK<order>(*values, k));
-    ValidateOutput(actual);
-    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(type, expected), *actual);
+  template <SortOrder order = SortOrder::Descending>
+  void AssertSelectK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {
+    ASSERT_OK_AND_ASSIGN(auto select_k_array, SelectK<order>(*chunked_array, k));
+    ValidateSelectK(*chunked_array, k, *select_k_array, order);
   }
 
-  Status DoSelectK(const std::shared_ptr<DataType>& type,
-                   const std::vector<std::string>& values, int64_t k,
-                   std::shared_ptr<Array>* out) {
-    ARROW_ASSIGN_OR_RAISE(*out, SelectK<order>(*(ChunkedArrayFromJSON(type, values)), k));
-    ValidateOutput(*out);
-    return Status::OK();
+  void AssertTopK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {
+    AssertSelectK<SortOrder::Descending>(chunked_array, k);
   }
-  std::vector<int32_t> sizes_;
-  std::vector<double> null_probabilities_;
-};
-
-template <typename ArrowType>
-struct TestTopKWithChunkedArray
-    : public TestSelectKWithChunkedArray<SortOrder::Descending> {
-  std::shared_ptr<DataType> type_singleton() {
-    return default_type_instance<ArrowType>();
+  void AssertBottomK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {
+    AssertSelectK<SortOrder::Ascending>(chunked_array, k);
   }
 };
 
-TYPED_TEST_SUITE(TestTopKWithChunkedArray, NumericBasedTypes);
+TYPED_TEST_SUITE(TestSelectKWithChunkedArray, SelectKableTypes);
 
-TYPED_TEST(TestTopKWithChunkedArray, WithTypedParam) {
-  auto type = this->type_singleton();
-  this->Check(type, {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[10, 9, 7]");
-  this->Check(type, {"[]", "[]"}, 0, "[]");
-  this->Check(type, {"[]"}, 0, "[]");
-}
-
-TYPED_TEST(TestTopKWithChunkedArray, Null) {
-  auto type = this->type_singleton();
-  this->Check(type, {"[null]", "[8, null]"}, 1, "[8]");
-
-  // this->Check(type, {"[null]", "[null, null]"}, 0, "[]");
-  // this->Check(type, {"[0, null, 9]", "[3, null, 2, null, 10]"}, 3, "[10, 9, 3]");
-  // this->Check(type, {"[null]", "[]"}, 0, "[]");
-}
-
-TYPED_TEST(TestTopKWithChunkedArray, NaN) {
-  this->Check(float32(), {"[NaN]", "[8, NaN]"}, 1, "[8]");
-  this->Check(float32(), {"[NaN]", "[NaN, NaN]"}, 0, "[]");
-  this->Check(float32(), {"[0, NaN, 9]", "[3, NaN, 2, NaN, 10]"}, 3, "[10, 9, 3]");
-  this->Check(float32(), {"[NaN]", "[]"}, 0, "[]");
-}
-template <typename ArrowType>
-struct TestBottomKWithChunkedArray
-    : public TestSelectKWithChunkedArray<SortOrder::Ascending> {
-  std::shared_ptr<DataType> type_singleton() {
-    return default_type_instance<ArrowType>();
+TYPED_TEST(TestSelectKWithChunkedArray, RandomValuesWithSlices) {
+  Random<TypeParam> rand(0x61549225);
+  int length = 100;
+  for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+    // Try n from 0 to out of bound
+    auto array = rand.Generate(length, null_probability);
+    auto offsets = rand.Offsets(length, 3);
+    auto slices = this->Slices(array, offsets);
+    ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(slices));
+    for (int k = 0; k <= length; k += 10) {
+      this->AssertTopK(chunked_array, k);
+      this->AssertBottomK(chunked_array, k);
+    }
   }
-};
-
-TYPED_TEST_SUITE(TestBottomKWithChunkedArray, NumericBasedTypes);
-
-TYPED_TEST(TestBottomKWithChunkedArray, Int8) {
-  auto type = this->type_singleton();
-  this->Check(type, {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[0, 1, 2]");
-  this->Check(type, {"[]", "[]"}, 0, "[]");
-  this->Check(type, {"[]"}, 0, "[]");
-}
-
-TYPED_TEST(TestBottomKWithChunkedArray, Null) {
-  auto type = this->type_singleton();
-  this->Check(type, {"[null]", "[8, null]"}, 1, "[8]");
-  this->Check(type, {"[null]", "[null, null]"}, 0, "[]");
-  this->Check(type, {"[0, null, 9]", "[3, null, 2, null, 10]"}, 3, "[0, 2, 3]");
-  this->Check(type, {"[null]", "[]"}, 0, "[]");
-}
-
-TYPED_TEST(TestBottomKWithChunkedArray, NaN) {
-  this->Check(float32(), {"[NaN]", "[8, NaN]"}, 1, "[8]");
-  this->Check(float32(), {"[NaN]", "[NaN, NaN]"}, 0, "[]");
-  this->Check(float32(), {"[0, NaN, 9]", "[3, NaN, 2, NaN, 10]"}, 3, "[0, 2, 3]");
-  this->Check(float32(), {"[NaN]", "[]"}, 0, "[]");
-}
-
-// Tests for decimal types
-template <typename ArrowType>
-class TestTopKWithChunkedArrayForDecimal
-    : public TestSelectKWithChunkedArray<SortOrder::Descending> {
- protected:
-  std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(5, 2); }
-};
-TYPED_TEST_SUITE(TestTopKWithChunkedArrayForDecimal, DecimalArrowTypes);
-
-TYPED_TEST(TestTopKWithChunkedArrayForDecimal, Basics) {
-  auto type = this->type_singleton();
-  auto chunked_array = ChunkedArrayFromJSON(
-      type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78",
-      null])"});
-  this->Check(type, chunked_array, 3, R"(["456.78", "123.45", "-123.45"])");
-}
-
-template <typename ArrowType>
-class TestBottomKWithChunkedArrayForDecimal
-    : public TestSelectKWithChunkedArray<SortOrder::Ascending> {
- protected:
-  std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(5, 2); }
-};
-TYPED_TEST_SUITE(TestBottomKWithChunkedArrayForDecimal, DecimalArrowTypes);
-
-TYPED_TEST(TestBottomKWithChunkedArrayForDecimal, Basics) {
-  auto type = this->type_singleton();
-  auto chunked_array = ChunkedArrayFromJSON(
-      type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78",
-      null])"});
-  this->Check(type, chunked_array, 3, R"(["-456.78", "-123.45", "123.45"])");
 }
 
 template <typename ArrayType, SortOrder order>
-void ValidateSelectK(const ArrayType& array) {
+void ValidateSelectKIndices(const ArrayType& array) {
   ValidateOutput(array);
   SelectKComparator<ArrayType, order> compare;
   for (uint64_t i = 1; i < static_cast<uint64_t>(array.length()); i++) {
@@ -440,9 +364,14 @@ struct TestSelectKWithChunkedArrayRandomBase : public ::testing::Test {
           arrays.push_back(array);
         }
         ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
-        ASSERT_OK_AND_ASSIGN(auto top_k, SelectK<order>(*chunked_array, 5));
-        // Concatenates chunks to use existing ValidateSorted() for array.
-        ValidateSelectK<ArrayType, order>(*checked_pointer_cast<ArrayType>(top_k));
+        ASSERT_OK_AND_ASSIGN(auto indices, SelectK<order>(*chunked_array, 5));
+        ASSERT_OK_AND_ASSIGN(auto actual, Take(Datum(chunked_array), Datum(indices),
+                                               TakeOptions::NoBoundsCheck()));
+        ASSERT_OK_AND_ASSIGN(auto sorted_k,
+                             Concatenate(actual.chunked_array()->chunks()));
+
+        ValidateSelectKIndices<ArrayType, order>(
+            *checked_pointer_cast<ArrayType>(sorted_k));
       }
     }
   }
@@ -477,7 +406,7 @@ TYPED_TEST_SUITE(TestBottomKChunkedArrayRandom, SelectKableTypes);
 
 TYPED_TEST(TestBottomKChunkedArrayRandom, BottomK) { this->TestSelectK(1000); }
 
-// Test basic cases for record batch.
+// // Test basic cases for record batch.
 template <SortOrder order>
 class TestSelectKWithRecordBatch : public ::testing::Test {
  public:
@@ -491,8 +420,12 @@ class TestSelectKWithRecordBatch : public ::testing::Test {
   Status DoSelectK(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                    const SelectKOptions& options, std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
-    ARROW_ASSIGN_OR_RAISE(*out, SelectK<order>(*batch, options));
-    ValidateOutput(*out);
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*batch, options));
+
+    ValidateOutput(*indices);
+    ARROW_ASSIGN_OR_RAISE(
+        auto select_k, Take(Datum(batch), Datum(indices), TakeOptions::NoBoundsCheck()));
+    *out = select_k.record_batch();
     return Status::OK();
   }
 };
@@ -515,9 +448,7 @@ TEST_F(TestTopKWithRecordBatch, NoNull) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = SelectKOptions::TopKDefault();
-  options.k = 3;
-  options.keys = {"a"};
+  auto options = SelectKOptions::TopKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 30,    "b": 3},
@@ -544,9 +475,7 @@ TEST_F(TestTopKWithRecordBatch, Null) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = SelectKOptions::TopKDefault();
-  options.k = 3;
-  options.keys = {"a"};
+  auto options = SelectKOptions::TopKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 30,    "b": 3},
@@ -575,9 +504,8 @@ TEST_F(TestTopKWithRecordBatch, OneColumnKey) {
         {"country": "Anguilla", "population": 11300},
         {"country": "Montserrat", "population": 5200}
         ])";
-  auto options = SelectKOptions::TopKDefault();
-  options.keys = {"population"};
-  options.k = 3;
+
+  auto options = SelectKOptions::TopKDefault(3, {"population"});
 
   auto expected_batch =
       R"([{"country": "France", "population": 65000000},
@@ -603,9 +531,7 @@ TEST_F(TestTopKWithRecordBatch, MultipleColumnKeys) {
         {"country": "Tuvalu", "population": 11300, "GDP": 38},
         {"country": "Anguilla", "population": 11300, "GDP": 311}
         ])";
-  auto options = SelectKOptions::TopKDefault();
-  options.keys = {"population", "GDP"};
-  options.k = 3;
+  auto options = SelectKOptions::TopKDefault(3, {"population", "GDP"});
 
   auto expected_batch =
       R"([{"country": "France", "population": 65000000, "GDP": 2583560},
@@ -633,9 +559,7 @@ TEST_F(TestBottomKWithRecordBatch, NoNull) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = SelectKOptions::TopKDefault();
-  options.k = 3;
-  options.keys = {"a"};
+  auto options = SelectKOptions::BottomKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 0,    "b": 6},
@@ -662,9 +586,7 @@ TEST_F(TestBottomKWithRecordBatch, Null) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = SelectKOptions::TopKDefault();
-  options.k = 3;
-  options.keys = {"a"};
+  auto options = SelectKOptions::BottomKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 10,    "b": 3},
@@ -693,9 +615,8 @@ TEST_F(TestBottomKWithRecordBatch, OneColumnKey) {
         {"country": "Anguilla", "population": 11300},
         {"country": "Montserrat", "population": 5200}
         ])";
-  auto options = SelectKOptions::TopKDefault();
-  options.keys = {"population"};
-  options.k = 3;
+
+  auto options = SelectKOptions::BottomKDefault(3, {"population"});
 
   auto expected_batch =
       R"([{"country": "Montserrat", "population": 5200},
@@ -721,9 +642,8 @@ TEST_F(TestBottomKWithRecordBatch, MultipleColumnKeys) {
         {"country": "Tuvalu", "population": 11300, "GDP": 38},
         {"country": "Anguilla", "population": 11300, "GDP": 311}
         ])";
-  auto options = SelectKOptions::TopKDefault();
-  options.keys = {"population", "GDP"};
-  options.k = 3;
+
+  auto options = SelectKOptions::BottomKDefault(3, {"population", "GDP"});
 
   auto expected_batch =
       R"([{"country": "Tuvalu", "population": 11300, "GDP": 38},
@@ -747,9 +667,13 @@ struct TestSelectKWithTable : public ::testing::Test {
   Status DoSelectK(const std::shared_ptr<Schema>& schm,
                    const std::vector<std::string>& input_json,
                    const SelectKOptions& options, std::shared_ptr<Table>* out) {
-    auto batch = TableFromJSON(schm, input_json);
-    ARROW_ASSIGN_OR_RAISE(*out, SelectK<order>(*batch, options));
-    ValidateOutput(*out);
+    auto table = TableFromJSON(schm, input_json);
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*table, options));
+    ValidateOutput(*indices);
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto select_k, Take(Datum(table), Datum(indices), TakeOptions::NoBoundsCheck()));
+    *out = select_k.table();
     return Status::OK();
   }
 };
@@ -769,9 +693,8 @@ TEST_F(TestTopKWithTable, OneColumnKey) {
                                      {"a": 2,    "b": 5},
                                      {"a": 1,    "b": 5}
                                     ])"};
-  auto options = SelectKOptions::TopKDefault();
-  options.k = 3;
-  options.keys = {"a"};
+
+  auto options = SelectKOptions::TopKDefault(3, {"a"});
 
   std::vector<std::string> expected = {R"([{"a": 3,    "b": null},
                                      {"a": 2,    "b": 5},
@@ -794,9 +717,7 @@ TEST_F(TestTopKWithTable, MultipleColumnKeys) {
                                           {"a": 1,    "b": 5}
                                         ])"};
 
-  auto options = SelectKOptions::TopKDefault();
-  options.k = 3;
-  options.keys = {"a", "b"};
+  auto options = SelectKOptions::TopKDefault(3, {"a", "b"});
 
   std::vector<std::string> expected = {R"([{"a": 3,    "b": null},
                                      {"a": 2,    "b": 5},

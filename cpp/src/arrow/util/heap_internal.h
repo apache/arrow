@@ -57,7 +57,7 @@ class Heap {
     std::push_heap(values_.begin(), values_.end(), comp_);
   }
 
- public:
+ protected:
   std::vector<T> values_;
 
   Compare comp_;
@@ -71,11 +71,16 @@ class StableHeap {
   using HeapItem = std::pair<T, uint64_t>;
   using StableComparator = std::function<bool(const HeapItem&, const HeapItem&)>;
 
-  explicit StableHeap(const Comparator& compare)
-      : values_(), comp_(compare), counter_(0) {
+  explicit StableHeap(const Comparator& compare,
+                      bool ascending_order_for_duplicates = true)
+      : values_(),
+        comp_(compare),
+        counter_(0),
+        ascending_order_for_duplicates_(ascending_order_for_duplicates) {
     this->stable_comp_ = [this](const HeapItem& lhs, const HeapItem& rhs) -> bool {
       auto cmp = this->comp_(lhs.first, rhs.first);
-      if ((cmp < 0) || ((cmp == 0) && (lhs.second < rhs.second))) return true;
+      if ((cmp < 0) || ((cmp == 0) && this->CompareDuplicates(lhs.second, rhs.second)))
+        return true;
       return false;
     };
   }
@@ -98,13 +103,19 @@ class StableHeap {
   void Pop() {
     std::pop_heap(values_.begin(), values_.end(), stable_comp_);
     values_.pop_back();
-    --counter_;
   }
 
   void ReplaceTop(const T& value) {
     std::pop_heap(values_.begin(), values_.end(), stable_comp_);
     values_.back() = std::make_pair(value, counter_);
     std::push_heap(values_.begin(), values_.end(), stable_comp_);
+    ++counter_;
+  }
+
+ protected:
+  bool CompareDuplicates(uint64_t left, uint64_t right) {
+    if (ascending_order_for_duplicates_) return left < right;
+    return right < left;
   }
 
  private:
@@ -113,6 +124,8 @@ class StableHeap {
   Comparator comp_;
 
   uint64_t counter_;
+
+  bool ascending_order_for_duplicates_;
 
   StableComparator stable_comp_;
 };

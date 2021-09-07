@@ -35,6 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 // IWYU pragma: end_exports
 
@@ -154,6 +155,11 @@ class RandomImpl {
  public:
   std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
     return generator_.ArrayOf(type_, count, null_prob);
+  }
+
+  std::shared_ptr<Int32Array> Offsets(int32_t length, int32_t slice_count) {
+    return arrow::internal::checked_pointer_cast<Int32Array>(
+        generator_.Offsets(slice_count, 0, length));
   }
 };
 

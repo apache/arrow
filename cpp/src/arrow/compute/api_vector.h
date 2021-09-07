@@ -123,24 +123,47 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 /// \brief SelectK options for TopK/BottomK
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
-  explicit SelectKOptions(int64_t k = -1, std::vector<std::string> keys = {},
-                          bool keep_duplicates = false,
-                          SortOrder order = SortOrder::Ascending);
+  explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {},
+                          bool keep_duplicates = false);
+
   constexpr static char const kTypeName[] = "SelectKOptions";
-  static SelectKOptions TopKDefault() {
-    return SelectKOptions{-1, {}, false, SortOrder::Descending};
+
+  static SelectKOptions SelectKDefault(int64_t k = -1) {
+    return SelectKOptions{k, {}, false};
   }
-  static SelectKOptions BottomKDefault() {
-    return SelectKOptions{-1, {}, false, SortOrder::Ascending};
+  static SelectKOptions TopKDefault(int64_t k = -1) {
+    std::vector<SortKey> keys;
+    keys.emplace_back(SortKey("not-used", SortOrder::Descending));
+    return SelectKOptions{k, keys, false};
   }
-  /// The index into the equivalent sorted array of the partition pivot element.
+  static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names)
+      keys.emplace_back(SortKey(name, SortOrder::Descending));
+    return SelectKOptions{k, keys, false};
+  }
+  static SelectKOptions BottomKDefault(int64_t k = -1) {
+    std::vector<SortKey> keys;
+    keys.emplace_back(SortKey("not-used", SortOrder::Ascending));
+    return SelectKOptions{k, keys, false};
+  }
+  static SelectKOptions BottomKDefault(int64_t k, std::vector<std::string> key_names) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names)
+      keys.emplace_back(SortKey(name, SortOrder::Ascending));
+    return SelectKOptions{k, keys, false};
+  }
+
+  bool is_top_k() const;
+
+  bool is_bottom_k() const;
+
+  /// The number of `k` elements to keep.
   int64_t k;
-  /// Column label(s) to order by.
-  std::vector<std::string> keys;
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
   /// Do not drop any duplicates, even it means selecting more than k items.
   bool keep_duplicates;
-  /// How to order. SortOrder::Descending(TopK), SortOrder::Ascending(BottomK)
-  SortOrder order;
 };
 
 /// \brief Partitioning options for NthToIndices
@@ -273,110 +296,52 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the first k elements ordered by value in ascending order.
+/// \brief Returns the first k elements ordered by `options.keys`.
 ///
 /// Return a sorted array with its elements rearranged in such
-/// a way that the value of the element in k-th position is in the position it would be in
-/// a sorted array in ascending order. Null like values will be not part of the output.
-/// Output is not guaranteed to be stable.
+/// a way that the value of the element in k-th position (options.k) is in the position it
+/// would be in a sorted datum ordered by `options.keys`. Null like values will be not
+/// part of the output. Output is not guaranteed to be stable.
 ///
-/// \param[in] values array to be partitioned
-/// \param[in] k pivot array around sorted k-th element
-/// \param[in] keep_duplicates do not drop any duplicates,
-/// even it means selecting more than k items.
+/// \param[in] datum datum to be partitioned
+/// \param[in] options options
 /// \param[in] ctx the function execution context, optional
-/// \return an array of the same type as the input
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> TopK(const Array& values, int64_t k,
-                                    bool keep_duplicates = false,
-                                    ExecContext* ctx = NULLPTR);
+/// \return a datum with the same schema as the input
 
-/// \brief Returns the first k elements ordered by value in ascending order.
-///
-/// Return a sorted array with its elements rearranged in such
-/// a way that the value of the element in k-th position is in the position it would be in
-/// a sorted array in ascending order. Null like values will be not part of the output.
-/// Output is not guaranteed to be stable.
-///
-/// \param[in] chunked_array chunked array to be partitioned
-/// \param[in] k pivot array around sorted k-th element
-/// \param[in] keep_duplicates do not drop any duplicates,
-/// even it means selecting more than k items.
-/// \param[in] ctx the function execution context, optional
-/// \return an array of the same type as the input
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> TopK(const ChunkedArray& chunked_array, int64_t k,
-                                    bool keep_duplicates = false,
-                                    ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<Array>> SelectK(const Datum& datum, SelectKOptions options,
+                                       ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the first k rows ordered by `options.keys` in ascending order.
 ///
 /// Return a sorted datum with its elements rearranged in such
-/// a way that the value of the element in k-th position is in the position it would be in
-/// a sorted datum in ascending order. Null like values will be not part of the output.
-/// Output is not guaranteed to be stable.
+/// a way that the value of the element in k-th (options.k) position is in the position it
+/// would be in a sorted datum in ascending order. Null like values will be not part of
+/// the output. Output is not guaranteed to be stable.
 ///
 /// \param[in] datum datum to be partitioned
-/// \param[in] k pivot array around sorted k-th element
 /// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
 ARROW_EXPORT
-Result<Datum> TopK(const Datum& datum, int64_t k, SelectKOptions options,
-                   ExecContext* ctx = NULLPTR);
-
-/// \brief Returns the first k elements ordered by value in descending order.
-///
-/// Return a sorted array with its elements rearranged in such
-/// a way that the value of the element in k-th position is in the position it would be in
-/// a sorted array in descending order. Null like values will be not part of the output.
-/// Output is not guaranteed to be stable.
-///
-/// \param[in] values array to be partitioned
-/// \param[in] k pivot array around sorted k-th element
-/// \param[in] keep_duplicates do not drop any duplicates,
-/// even it means selecting more than k items.
-/// \param[in] ctx the function execution context, optional
-/// \return an array of the same type as the input
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> BottomK(const Array& values, int64_t k,
-                                       bool keep_duplicates = false,
-                                       ExecContext* ctx = NULLPTR);
-
-/// \brief Returns the first k elements ordered by value in descending order.
-///
-/// Return a sorted array with its elements rearranged in such
-/// a way that the value of the element in k-th position is in the position it would be in
-/// a sorted array in descending order. Null like values will be not part of the output.
-/// Output is not guaranteed to be stable.
-///
-/// \param[in] chunked_array chunked array to be partitioned
-/// \param[in] k pivot array around sorted k-th element
-/// \param[in] keep_duplicates do not drop any duplicates,
-/// even it means selecting more than k items.
-/// \param[in] ctx the function execution context, optional
-/// \return an array of the same type as the input
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> BottomK(const ChunkedArray& chunked_array, int64_t k,
-                                       bool keep_duplicates = false,
-                                       ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<Array>> TopK(const Datum& datum, SelectKOptions options,
+                                    ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the first k elements ordered by options.keys` in descending order.
 ///
 /// Return a sorted array with its elements rearranged in such
-/// a way that the value of the element in k-th position is in the position it would be in
-/// a sorted datum in descending order. Null like values will be not part of the output.
-/// Output is not guaranteed to be stable.
+/// a way that the value of the element in k-th position (options.k) is in the position it
+/// would be in a sorted datum in descending order. Null like values will be not part of
+/// the output. Output is not guaranteed to be stable.
 ///
 /// \param[in] datum datum to be partitioned
-/// \param[in] k pivot array around sorted k-th element
 /// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
 
 ARROW_EXPORT
-Result<Datum> BottomK(const Datum& datum, int64_t k, SelectKOptions options,
-                      ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<Array>> BottomK(const Datum& datum, SelectKOptions options,
+                                       ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array in the
 /// specified order.
