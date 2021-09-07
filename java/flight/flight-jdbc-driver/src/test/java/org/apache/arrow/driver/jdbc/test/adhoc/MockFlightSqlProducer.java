@@ -68,6 +68,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import com.google.protobuf.StringValue;
 
 /**
  * An ad-hoc {@link FlightSqlProducer} for tests.
@@ -341,6 +342,27 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   public void listFlights(CallContext callContext, Criteria criteria, StreamListener<FlightInfo> streamListener) {
     // TODO Implement this method.
     throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  }
+
+  private void getStreamCatalogFunctions(final Ticket ticket, final ServerStreamListener serverStreamListener) {
+    Preconditions.checkNotNull(
+            catalogQueriesResults.get(ticket),
+            format("Query not registered for ticket: <%s>", ticket))
+        .accept(serverStreamListener);
+  }
+
+  private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
+                                                                final FlightDescriptor descriptor) {
+    return getFlightInfo(message, Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA, descriptor);
+  }
+
+  private static FlightInfo getFlightInfo(final Message message, final Schema schema,
+                                          final FlightDescriptor descriptor) {
+    return new FlightInfo(
+        schema,
+        descriptor,
+        Collections.singletonList(new FlightEndpoint(new Ticket(Any.pack(message).toByteArray()))),
+        -1, -1);
   }
 
   private static final class TicketConversionUtils {
