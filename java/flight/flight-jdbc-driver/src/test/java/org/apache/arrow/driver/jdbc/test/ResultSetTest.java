@@ -51,7 +51,7 @@ public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
   @ClassRule
   public static FlightServerTestRule rule =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
+      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
   private static Connection connection;
 
   @Rule

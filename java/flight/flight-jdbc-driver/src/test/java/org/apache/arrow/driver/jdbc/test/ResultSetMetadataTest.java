@@ -26,7 +26,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.Random;
 
 import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
 import org.hamcrest.CoreMatchers;
@@ -39,8 +38,6 @@ import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
 public class ResultSetMetadataTest {
-
-  private static final Random RANDOM = new Random(10);
   private static ResultSetMetaData metadata;
 
   private static Connection connection;
@@ -50,7 +47,7 @@ public class ResultSetMetadataTest {
 
   @ClassRule
   public static final FlightServerTestRule rule =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
+      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   @BeforeClass
   public static void setup() throws SQLException {

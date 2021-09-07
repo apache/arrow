@@ -21,7 +21,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Random;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
@@ -34,11 +33,9 @@ import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightPreparedStatementTest {
 
-  private static final Random RANDOM = new Random(10);
-
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
+      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   private static Connection connection;
 
