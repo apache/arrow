@@ -131,27 +131,46 @@ test_that("non-bound compute kernels using PartitionNthOptions", {
 test_that("non-bound compute kernels using MatchSubstringOptions", {
   skip_if_not_available("utf8proc")
 
-  # Remove this test when ARROW-13924 has been completed and more complete tests for bindings have been written
+  # Remove this test when ARROW-13924 has been completed 
   expect_equal(
-    call_function("starts_with", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "abr")),
+    call_function(
+      "starts_with",
+      Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")),
+      options = list(pattern = "abr")
+    ), 
     Array$create(c(TRUE, FALSE, FALSE, TRUE))
   )
 
-  # Remove this test when ARROW-13924 has been completed and more complete tests for bindings have been written
+  # Remove this test when ARROW-13924 has been completed 
   expect_equal(
-    call_function("ends_with", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "e")),
+    call_function(
+      "ends_with",
+      Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")),
+      options = list(pattern = "e")), 
     Array$create(c(FALSE, FALSE, TRUE, TRUE))
   )
 
-  # Remove this test when ARROW-13156 has been completed and more complete tests for bindings have been written
+  # Remove this test when ARROW-13156 has been completed 
   expect_equal(
-    as.vector(call_function("count_substring", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "e"))),
+    as.vector(
+      call_function(
+        "count_substring",
+        Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")),
+        options = list(pattern = "e")
+        )
+      ), 
     c(0, 0, 1, 1)
   )
 
-  # Remove this test when ARROW-13156 has been completed and more complete tests for bindings have been written
+  # Remove this test when ARROW-13156 has been completed 
   expect_equal(
-    as.vector(call_function("count_substring_regex", Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")), options = list(pattern = "e"))),
+    as.vector(
+      call_function(
+        "count_substring_regex",
+        Array$create(c("abracadabra", "abacus", "abdicate", "abrasive")),
+        options = list(pattern = "e")
+      )
+    ),
     c(0, 0, 1, 1)
   )
 })
