@@ -107,6 +107,46 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
     };
   }
 
+  @Override
+  public FlightInfo getCatalogs() {
+    return sqlClient.getCatalogs(getOptions());
+  }
+
+  @Override
+  public FlightInfo getImportedKeys(final String catalog, final String schema, final String table) {
+    return sqlClient.getImportedKeys(catalog, schema, table, getOptions());
+  }
+
+  @Override
+  public FlightInfo getExportedKeys(final String catalog, final String schema, final String table) {
+    return sqlClient.getExportedKeys(catalog, schema, table, getOptions());
+  }
+
+  @Override
+  public FlightInfo getSchemas(final String catalog, final String schemaPattern) {
+    return sqlClient.getSchemas(catalog, schemaPattern, getOptions());
+  }
+
+  @Override
+  public FlightInfo getTableTypes() {
+    return sqlClient.getTableTypes(getOptions());
+  }
+
+  @Override
+  public FlightInfo getTables(final String catalog, final String schemaPattern, final String tableNamePattern,
+                              final String[] types, final boolean includeSchema) {
+
+    return sqlClient.getTables(catalog, schemaPattern,
+        tableNamePattern, types != null ? Arrays.asList(types) : null, includeSchema,
+        getOptions());
+  }
+
+
+  @Override
+  public FlightInfo getPrimaryKeys(final String catalog, final String schema, final String table) {
+    return sqlClient.getPrimaryKeys(catalog, schema, table, getOptions());
+  }
+
   /**
    * Builder for {@link ArrowFlightSqlClientHandler}.
    */

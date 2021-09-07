@@ -24,6 +24,7 @@ import static java.util.UUID.randomUUID;
 
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +69,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import com.google.protobuf.StringValue;
 
 /**
  * An ad-hoc {@link FlightSqlProducer} for tests.
@@ -223,113 +225,104 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public FlightInfo getFlightInfoSqlInfo(CommandGetSqlInfo commandGetSqlInfo, CallContext callContext,
-                                         FlightDescriptor flightDescriptor) {
+  public FlightInfo getFlightInfoSqlInfo(final CommandGetSqlInfo commandGetSqlInfo, final CallContext callContext,
+                                         final FlightDescriptor flightDescriptor) {
+    return getFlightInfo(commandGetSqlInfo, Schemas.GET_SQL_INFO_SCHEMA, flightDescriptor);
+  }
+
+  @Override
+  public void getStreamSqlInfo(final CommandGetSqlInfo commandGetSqlInfo, final CallContext callContext,
+                               final Ticket ticket, final ServerStreamListener serverStreamListener) {
     // TODO Implement this method.
     throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
 
   @Override
-  public void getStreamSqlInfo(CommandGetSqlInfo commandGetSqlInfo, CallContext callContext,
-                               Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public FlightInfo getFlightInfoCatalogs(final CommandGetCatalogs commandGetCatalogs, final CallContext callContext,
+                                          final FlightDescriptor flightDescriptor) {
+    return getFlightInfo(commandGetCatalogs, Schemas.GET_CATALOGS_SCHEMA, flightDescriptor);
   }
 
   @Override
-  public FlightInfo getFlightInfoCatalogs(CommandGetCatalogs commandGetCatalogs, CallContext callContext,
-                                          FlightDescriptor flightDescriptor) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public void getStreamCatalogs(final CallContext callContext, final Ticket ticket,
+                                final ServerStreamListener serverStreamListener) {
+    getStreamCatalogFunctions(ticket, serverStreamListener);
   }
 
   @Override
-  public void getStreamCatalogs(CallContext callContext, Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public FlightInfo getFlightInfoSchemas(final CommandGetSchemas commandGetSchemas, final CallContext callContext,
+                                         final FlightDescriptor flightDescriptor) {
+    return getFlightInfo(commandGetSchemas, Schemas.GET_SCHEMAS_SCHEMA, flightDescriptor);
   }
 
   @Override
-  public FlightInfo getFlightInfoSchemas(CommandGetSchemas commandGetSchemas, CallContext callContext,
-                                         FlightDescriptor flightDescriptor) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public void getStreamSchemas(final CommandGetSchemas commandGetSchemas, final CallContext callContext,
+                               final Ticket ticket, final ServerStreamListener serverStreamListener) {
+    getStreamCatalogFunctions(ticket, serverStreamListener);
   }
 
   @Override
-  public void getStreamSchemas(CommandGetSchemas commandGetSchemas, CallContext callContext,
-                               Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public FlightInfo getFlightInfoTables(final CommandGetTables commandGetTables, final CallContext callContext,
+                                        final FlightDescriptor flightDescriptor) {
+    return getFlightInfo(commandGetTables, Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, flightDescriptor);
   }
 
   @Override
-  public FlightInfo getFlightInfoTables(CommandGetTables commandGetTables, CallContext callContext,
-                                        FlightDescriptor flightDescriptor) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public void getStreamTables(final CommandGetTables commandGetTables, final CallContext callContext,
+                              final Ticket ticket, final ServerStreamListener serverStreamListener) {
+    getStreamCatalogFunctions(ticket, serverStreamListener);
   }
 
   @Override
-  public void getStreamTables(CommandGetTables commandGetTables, CallContext callContext,
-                              Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public FlightInfo getFlightInfoTableTypes(final CommandGetTableTypes commandGetTableTypes,
+                                            final CallContext callContext,
+                                            final FlightDescriptor flightDescriptor) {
+    return getFlightInfo(commandGetTableTypes, Schemas.GET_TABLE_TYPES_SCHEMA, flightDescriptor);
   }
 
   @Override
-  public FlightInfo getFlightInfoTableTypes(CommandGetTableTypes commandGetTableTypes, CallContext callContext,
-                                            FlightDescriptor flightDescriptor) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public void getStreamTableTypes(final CallContext callContext, final Ticket ticket,
+                                  final ServerStreamListener serverStreamListener) {
+    getStreamCatalogFunctions(ticket, serverStreamListener);
   }
 
   @Override
-  public void getStreamTableTypes(CallContext callContext, Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public FlightInfo getFlightInfoPrimaryKeys(final CommandGetPrimaryKeys commandGetPrimaryKeys,
+                                             final CallContext callContext,
+                                             final FlightDescriptor flightDescriptor) {
+    return getFlightInfo(commandGetPrimaryKeys, Schemas.GET_PRIMARY_KEYS_SCHEMA, flightDescriptor);
   }
 
   @Override
-  public FlightInfo getFlightInfoPrimaryKeys(CommandGetPrimaryKeys commandGetPrimaryKeys, CallContext callContext,
-                                             FlightDescriptor flightDescriptor) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public void getStreamPrimaryKeys(final CommandGetPrimaryKeys commandGetPrimaryKeys, final CallContext callContext,
+                                   final Ticket ticket, final ServerStreamListener serverStreamListener) {
+    getStreamCatalogFunctions(ticket, serverStreamListener);
   }
 
   @Override
-  public void getStreamPrimaryKeys(CommandGetPrimaryKeys commandGetPrimaryKeys, CallContext callContext,
-                                   Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public FlightInfo getFlightInfoExportedKeys(final CommandGetExportedKeys commandGetExportedKeys,
+                                              final CallContext callContext,
+                                              final FlightDescriptor flightDescriptor) {
+    return getFightInfoExportedAndImportedKeys(commandGetExportedKeys, flightDescriptor);
   }
 
   @Override
-  public FlightInfo getFlightInfoExportedKeys(CommandGetExportedKeys commandGetExportedKeys, CallContext callContext,
-                                              FlightDescriptor flightDescriptor) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public FlightInfo getFlightInfoImportedKeys(final CommandGetImportedKeys commandGetImportedKeys,
+                                              final CallContext callContext,
+                                              final FlightDescriptor flightDescriptor) {
+    return getFightInfoExportedAndImportedKeys(commandGetImportedKeys, flightDescriptor);
   }
 
   @Override
-  public FlightInfo getFlightInfoImportedKeys(CommandGetImportedKeys commandGetImportedKeys, CallContext callContext,
-                                              FlightDescriptor flightDescriptor) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public void getStreamExportedKeys(final CommandGetExportedKeys commandGetExportedKeys, final CallContext callContext,
+                                    final Ticket ticket, final ServerStreamListener serverStreamListener) {
+    getStreamCatalogFunctions(ticket, serverStreamListener);
   }
 
   @Override
-  public void getStreamExportedKeys(CommandGetExportedKeys commandGetExportedKeys, CallContext callContext,
-                                    Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
-  }
-
-  @Override
-  public void getStreamImportedKeys(CommandGetImportedKeys commandGetImportedKeys, CallContext callContext,
-                                    Ticket ticket, ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  public void getStreamImportedKeys(final CommandGetImportedKeys commandGetImportedKeys, final CallContext callContext,
+                                    final Ticket ticket, final ServerStreamListener serverStreamListener) {
+    getStreamCatalogFunctions(ticket, serverStreamListener);
   }
 
   @Override
@@ -338,7 +331,8 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public void listFlights(CallContext callContext, Criteria criteria, StreamListener<FlightInfo> streamListener) {
+  public void listFlights(final CallContext callContext, final Criteria criteria,
+                          final StreamListener<FlightInfo> streamListener) {
     // TODO Implement this method.
     throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
