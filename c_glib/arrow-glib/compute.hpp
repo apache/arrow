@@ -30,6 +30,11 @@ garrow_execute_context_get_raw(GArrowExecuteContext *context);
 arrow::compute::FunctionOptions *
 garrow_function_options_get_raw(GArrowFunctionOptions *options);
 
+GArrowFunctionDoc *
+garrow_function_doc_new_raw(const arrow::compute::FunctionDoc *arrow_doc);
+arrow::compute::FunctionDoc *
+garrow_function_doc_get_raw(GArrowFunctionDoc *doc);
+
 GArrowFunction *
 garrow_function_new_raw(std::shared_ptr<arrow::compute::Function> *arrow_function);
 std::shared_ptr<arrow::compute::Function>
