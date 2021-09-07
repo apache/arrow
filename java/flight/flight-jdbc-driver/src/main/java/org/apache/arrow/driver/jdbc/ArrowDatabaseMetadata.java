@@ -142,7 +142,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoTables =
-        connection.getClientHandler().getTables(catalog, schemaPattern, tableNamePattern, types);
+        connection.getClientHandler().getTables(catalog, schemaPattern, tableNamePattern, types, false);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
@@ -182,6 +182,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
         Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
         Field.notNullable("TABLE_TYPE", Types.MinorType.VARCHAR.getType()),
+        // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
         Field.nullable("REMARKS", Types.MinorType.VARBINARY.getType()),
         Field.nullable("TYPE_CAT", Types.MinorType.VARBINARY.getType()),
         Field.nullable("TYPE_SCHEM", Types.MinorType.VARBINARY.getType()),

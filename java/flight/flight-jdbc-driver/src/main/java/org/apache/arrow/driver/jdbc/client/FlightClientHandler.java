@@ -56,6 +56,92 @@ public interface FlightClientHandler extends AutoCloseable {
   PreparedStatement prepare(String query);
 
   /**
+   * Makes an RPC "getCatalogs" request.
+   *
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getCatalogs();
+
+  /**
+   * Makes an RPC "getImportedKeys" request based on the provided info.
+   *
+   * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                narrow the search.
+   * @param schema  The schema name. Must match the schema name as it is stored in the database.
+   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                the search.
+   * @param table   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getImportedKeys(String catalog, String schema, String table);
+
+  /**
+   * Makes an RPC "getExportedKeys" request based on the provided info.
+   *
+   * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                narrow the search.
+   * @param schema  The schema name. Must match the schema name as it is stored in the database.
+   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                the search.
+   * @param table   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getExportedKeys(String catalog, String schema, String table);
+
+  /**
+   * Makes an RPC "getSchemas" request based on the provided info.
+   *
+   * @param catalog       The catalog name. Must match the catalog name as it is stored in the database.
+   *                      Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                      narrow the search.
+   * @param schemaPattern The schema name pattern. Must match the schema name as it is stored in the database.
+   *                      Null means that schema name should not be used to narrow down the search.
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getSchemas(String catalog, String schemaPattern);
+
+  /**
+   * Makes an RPC "getTableTypes" request.
+   *
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getTableTypes();
+
+  /**
+   * Makes an RPC "getTables" request based on the provided info.
+   *
+   * @param catalog          The catalog name. Must match the catalog name as it is stored in the database.
+   *                         Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                         narrow the search.
+   * @param schemaPattern    The schema name pattern. Must match the schema name as it is stored in the database.
+   *                         "" retrieves those without a schema. Null means that the schema name should not be used to
+   *                         narrow the search.
+   * @param tableNamePattern The table name pattern. Must match the table name as it is stored in the database.
+   * @param types            The list of table types, which must be from the list of table types to include.
+   *                         Null returns all types.
+   * @param includeSchema    Whether to include schema.
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getTables(String catalog, String schemaPattern, String tableNamePattern,
+                       String[] types, boolean includeSchema);
+
+  /**
+   * Makes an RPC "getPrimaryKeys" request based on the provided info.
+   *
+   * @param catalog The catalog name; must match the catalog name as it is stored in the database.
+   *                "" retrieves those without a catalog.
+   *                Null means that the catalog name should not be used to narrow the search.
+   * @param schema  The schema name; must match the schema name as it is stored in the database.
+   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                the search.
+   * @param table   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getPrimaryKeys(String catalog, String schema, String table);
+
+  /**
    * A prepared statement handler.
    */
   interface PreparedStatement extends AutoCloseable {
