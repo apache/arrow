@@ -539,11 +539,7 @@ struct FixedSizeBinaryTransformExecWithState
   }
 };
 
-struct StringBinaryTransformBase {
-  virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return Status::OK();
-  }
-
+struct StringBinaryTransformBase : StringTransformBase {
   // Return the maximum total size of the output in codeunits (i.e. bytes)
   // given input characteristics.
   virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
