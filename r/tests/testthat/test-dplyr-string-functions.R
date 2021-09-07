@@ -719,6 +719,55 @@ test_that("errors in strptime", {
   )
 })
 
+test_that("strftime", {
+  # TODO: consider reevaluating this workaround after ARROW-12980
+  withr::local_timezone("UTC")
+  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  t_string <- tibble(x = c("2018-10-07 19:04:05.000000", NA))
+  t_string_2 <- tibble(x = c("07 October 2018 19:04:05.000000 UTC", NA))
+
+  # TODO: remove once we have tz support on windows ARROW-13168
+  if (tolower(Sys.info()[["sysname"]]) != "windows") {
+    expect_equal(
+      t_stamp %>%
+        Table$create() %>%
+        mutate(
+          x = strftime(x)
+        ) %>%
+        collect(),
+      t_string
+    )
+
+    expect_equal(
+      t_stamp %>%
+        Table$create() %>%
+        mutate(
+          x = strftime(x, format = "%Y-%m-%d %H:%M:%S")
+        ) %>%
+        collect(),
+      t_string
+    )
+
+    expect_equal(
+      t_stamp %>%
+        Table$create() %>%
+        mutate(
+          x = strftime(x, format = "%d %B %Y %H:%M:%S %Z", locale = "C")
+        ) %>%
+        collect(),
+      t_string_2
+    )
+  } else {
+    expect_error(
+      t_stamp %>%
+        Table$create() %>%
+        mutate(x = strftime(x)) %>%
+        collect(),
+      "Strftime not yet implemented on windows."
+    )
+  }
+})
+
 test_that("arrow_find_substring and arrow_find_substring_regex", {
   df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
 
