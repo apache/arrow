@@ -407,14 +407,6 @@ ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
 // Helpers for iterating over common DataType instances for adding kernels to
 // functions
 
-const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
-const std::vector<std::shared_ptr<DataType>>& StringTypes();
-const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
-const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
-const std::vector<std::shared_ptr<DataType>>& IntTypes();
-const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
-const std::vector<Type::type>& DecimalTypeIds();
-
 // Returns a vector of example instances of parametric types such as
 //
 // * Decimal
@@ -432,18 +424,6 @@ const std::vector<Type::type>& DecimalTypeIds();
 // the OutputType of the kernel's signature and match::SameTypeId for the
 // corresponding InputType
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes();
-
-// Number types without boolean
-const std::vector<std::shared_ptr<DataType>>& NumericTypes();
-
-// Temporal types including time and timestamps for each unit
-const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
-
-// Interval types
-const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
-
-// Integer, floating point, base binary, and temporal
-const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 // ----------------------------------------------------------------------
 // "Applicators" take an operator definition (which may be scalar-valued or
