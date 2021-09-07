@@ -637,10 +637,10 @@ TYPED_TEST_SUITE(TestCaseWhenDict, IntegralArrowTypes);
 TYPED_TEST(TestCaseWhenDict, Simple) {
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
-  // TODO: test dictionaries with nulls
   for (const auto& dict :
-       {JsonDict{utf8(), R"(["a", "b", "bc", "def"])"}, JsonDict{int64(), "[1, 4, 2, 3]"},
-        JsonDict{decimal256(3, 2), R"(["1.23", "2.34", "3.45", "6.78"])"}}) {
+       {JsonDict{utf8(), R"(["a", null, "bc", "def"])"},
+        JsonDict{int64(), "[1, null, 2, 3]"},
+        JsonDict{decimal256(3, 2), R"(["1.23", null, "3.45", "6.78"])"}}) {
     auto type = dictionary(default_type_instance<TypeParam>(), dict.type);
     auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict.value);
     auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict.value);
@@ -658,7 +658,7 @@ TYPED_TEST(TestCaseWhenDict, Mixed) {
   auto type = dictionary(default_type_instance<TypeParam>(), utf8());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
-  auto dict = R"(["a", "", "bc", "def"])";
+  auto dict = R"(["a", null, "bc", "def"])";
   auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
   auto values1_dict = DictArrayFromJSON(type, "[0, null, 3, 1]", dict);
   auto values1_decoded = ArrayFromJSON(utf8(), R"(["a", null, "def", null])");
@@ -687,7 +687,7 @@ TYPED_TEST(TestCaseWhenDict, NestedSimple) {
   auto type = list(inner_type);
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
-  auto dict = R"(["a", "b", "bc", "def"])";
+  auto dict = R"(["a", null, "bc", "def"])";
   auto values_null = make_list(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
                                DictArrayFromJSON(inner_type, "[]", dict));
   auto values1_backing = DictArrayFromJSON(inner_type, "[0, null, 3, 1]", dict);
@@ -725,9 +725,9 @@ TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
   auto type = dictionary(default_type_instance<TypeParam>(), utf8());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
-  auto dict1 = R"(["a", "", "bc", "def"])";
-  auto dict2 = R"(["bc", "foo", "", "a"])";
-  auto dict3 = R"(["def", "a", "a", "bc"])";
+  auto dict1 = R"(["a", null, "bc", "def"])";
+  auto dict2 = R"(["bc", "foo", null, "a"])";
+  auto dict3 = R"(["def", null, "a", "bc"])";
   auto values1_null = DictArrayFromJSON(type, "[null, null, null, null]", dict1);
   auto values2_null = DictArrayFromJSON(type, "[null, null, null, null]", dict2);
   auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict1);
