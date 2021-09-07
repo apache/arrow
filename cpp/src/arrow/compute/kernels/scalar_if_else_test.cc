@@ -724,14 +724,14 @@ TYPED_TEST(TestCaseWhenDict, NestedSimple) {
 TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
   auto type = dictionary(default_type_instance<TypeParam>(), utf8());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
-  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, null, true]");
   auto dict1 = R"(["a", null, "bc", "def"])";
   auto dict2 = R"(["bc", "foo", null, "a"])";
   auto dict3 = R"(["def", null, "a", "bc"])";
   auto values1_null = DictArrayFromJSON(type, "[null, null, null, null]", dict1);
   auto values2_null = DictArrayFromJSON(type, "[null, null, null, null]", dict2);
-  auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict1);
-  auto values2 = DictArrayFromJSON(type, "[2, 1, null, 0]", dict2);
+  auto values1 = DictArrayFromJSON(type, "[null, 0, 3, 1]", dict1);
+  auto values2 = DictArrayFromJSON(type, "[2, 1, 0, null]", dict2);
   auto values3 = DictArrayFromJSON(type, "[0, 1, 2, 3]", dict3);
 
   CheckDictionary("case_when",
@@ -777,6 +777,14 @@ TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
           MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
                       ArrayFromJSON(boolean(), "[false, false, true, true]")}),
           DictScalarFromJSON(type, "0", dict1),
+          DictScalarFromJSON(type, "0", dict2),
+      });
+  CheckDictionary(
+      "case_when",
+      {
+          MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                      ArrayFromJSON(boolean(), "[false, false, true, true]")}),
+          DictScalarFromJSON(type, "null", dict1),
           DictScalarFromJSON(type, "0", dict2),
       });
 }

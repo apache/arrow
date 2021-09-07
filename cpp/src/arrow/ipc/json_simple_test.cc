@@ -1394,7 +1394,7 @@ TEST(TestDictScalarFromJSON, Basics) {
     auto scalar = DictScalarFromJSON(type, index, dict);
     auto expected_index = ScalarFromJSON(int32(), index);
     AssertScalarsEqual(*DictionaryScalar::Make(expected_index, expected_dictionary),
-                       *scalar);
+                       *scalar, /*verbose=*/true);
   }
 }
 

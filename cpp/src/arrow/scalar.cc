@@ -600,7 +600,7 @@ std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar>
                                                          std::shared_ptr<Array> dict) {
   auto type = dictionary(index->type, dict->type());
   return std::make_shared<DictionaryScalar>(ValueType{std::move(index), std::move(dict)},
-                                            std::move(type));
+                                            std::move(type), index->is_valid);
 }
 
 namespace {
