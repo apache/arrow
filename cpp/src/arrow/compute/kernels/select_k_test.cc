@@ -26,6 +26,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -39,15 +40,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
-
-namespace {
-template <typename ArrayType>
-auto GetLogicalValue(const ArrayType& array, uint64_t index)
-    -> decltype(array.GetView(index)) {
-  return array.GetView(index);
-}
-
-}  // namespace
 
 template <typename ArrayType, SortOrder order>
 class SelectKComparator {
@@ -343,10 +335,14 @@ TYPED_TEST(TestSelectKWithChunkedArray, RandomValuesWithSlices) {
 template <typename ArrayType, SortOrder order>
 void ValidateSelectKIndices(const ArrayType& array) {
   ValidateOutput(array);
+
   SelectKComparator<ArrayType, order> compare;
   for (uint64_t i = 1; i < static_cast<uint64_t>(array.length()); i++) {
-    const auto lval = GetLogicalValue(array, i - 1);
-    const auto rval = GetLogicalValue(array, i);
+    using ArrowType = typename ArrayType::TypeClass;
+    using GetView = internal::GetViewType<ArrowType>;
+
+    const auto lval = GetView::LogicalValue(array.GetView(i - 1));
+    const auto rval = GetView::LogicalValue(array.GetView(i));
     ASSERT_TRUE(compare(lval, rval));
   }
 }

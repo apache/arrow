@@ -57,6 +57,8 @@ class Heap {
     std::push_heap(values_.begin(), values_.end(), comp_);
   }
 
+  const T* Data() const { return values_.data(); }
+
  protected:
   std::vector<T> values_;
 

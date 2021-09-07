@@ -307,7 +307,6 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 /// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
-
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> SelectK(const Datum& datum, SelectKOptions options,
                                        ExecContext* ctx = NULLPTR);
@@ -338,7 +337,6 @@ Result<std::shared_ptr<Array>> TopK(const Datum& datum, SelectKOptions options,
 /// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
-
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> BottomK(const Datum& datum, SelectKOptions options,
                                        ExecContext* ctx = NULLPTR);
