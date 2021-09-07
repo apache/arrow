@@ -116,10 +116,9 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   @Override
   public ExecuteResult prepareAndExecute(final StatementHandle statementHandle,
                                          final String query, final long maxRowCount,
-                                         final PrepareCallback prepareCallback)
-      throws NoSuchStatementException {
-    // TODO Fill this stub.
-    return null;
+                                         final PrepareCallback prepareCallback) throws NoSuchStatementException {
+    return prepareAndExecute(
+        statementHandle, query, maxRowCount, -1 /* Not used */, prepareCallback);
   }
 
   @Override
