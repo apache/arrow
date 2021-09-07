@@ -36,9 +36,13 @@ fi
 
 if [[ "${target_platform}" == "osx-arm64" ]]; then
     # We need llvm 11+ support in Arrow for this
-    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=OFF"
+    # Tell jemalloc to support 16K page size on apple arm64 silicon
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=OFF -DARROW_JEMALLOC_LG_PAGE=14"
     sed -ie "s;protoc-gen-grpc.*$;protoc-gen-grpc=${BUILD_PREFIX}/bin/grpc_cpp_plugin\";g" ../src/arrow/flight/CMakeLists.txt
-    sed -ie 's;"--with-jemalloc-prefix\=je_arrow_";"--with-jemalloc-prefix\=je_arrow_" "--with-lg-page\=14";g' ../cmake_modules/ThirdpartyToolchain.cmake
+elif [[ "${target_platform}" == "linux-aarch64" ]]; then
+    # Tell jemalloc to support both 4k and 64k page arm64 systems
+    # See https://github.com/apache/arrow/pull/10940
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=ON -DARROW_JEMALLOC_LG_PAGE=16"
 else
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=ON"
 fi
