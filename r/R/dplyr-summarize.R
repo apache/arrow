@@ -109,7 +109,7 @@ format_aggregation <- function(x) {
 
 summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
   expr <- quo_get_expr(quosure)
-  ctx$quo_env <- rlang::quo_get_env(quosure)
+  ctx$quo_env <- quo_get_env(quosure)
   funs_in_expr <- all_funs(expr)
 
   if (length(funs_in_expr) == 0) {
@@ -139,7 +139,7 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
     # fun(agg(x), ...)
     # So based on the aggregations that have been extracted, mutate after
     mutate_mask <- arrow_mask(list(selected_columns = make_field_refs(names(ctx$results))))
-    ctx$post_mutate[[name]] <- arrow_eval_or_stop(rlang::as_quosure(expr, ctx$quo_env), mutate_mask)
+    ctx$post_mutate[[name]] <- arrow_eval_or_stop(as_quosure(expr, ctx$quo_env), mutate_mask)
     return()
   }
   # TODO: Handle some known cases
@@ -157,7 +157,7 @@ extract_aggregations <- function(expr, ctx) {
   }
   if (funs[1] %in% names(agg_funcs)) {
     tmpname <- paste0("..temp", length(ctx$results))
-    ctx$results[[tmpname]] <- arrow_eval_or_stop(rlang::as_quosure(expr, ctx$quo_env), ctx$mask)
+    ctx$results[[tmpname]] <- arrow_eval_or_stop(as_quosure(expr, ctx$quo_env), ctx$mask)
     expr <- as.symbol(tmpname)
   }
   expr
