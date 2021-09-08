@@ -277,26 +277,22 @@ inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
 
 template <typename T>
 bool ParseHex(const char* s, size_t length, T* out) {
+  // lets make sure that the length of the string is not too big
+  if (!ARROW_PREDICT_TRUE(sizeof(T)*2 >= length && length > 0)){
+    return false;
+  }
   T result = 0;
-  int num_iterations = (int)(sizeof(T)*2);
-  for (int i = 0; i < num_iterations; i++){
-    if (length > 0) {
-      char val = *s;
-      s++;
-      result = static_cast<T>(result << 4);
-      length--;
-      if (val >= '0' && val <= '9'){
-        result = static_cast<T>(result | (val -'0'));
-      } else if (val >= 'A' && val <= 'F'){
-        result = static_cast<T>(result | (val -'A' + 10));
-      } else if (val >= 'a' && val <= 'f'){
-        result = static_cast<T>(result | (val -'a' + 10));
-      } else {
-        /* Non-digit */
-        return false;
-      }
+  for (size_t i = 0; i < length; i++){
+    result = static_cast<T>(result << 4);
+    if (s[i] >= '0' && s[i] <= '9'){
+      result = static_cast<T>(result | (s[i] -'0'));
+    } else if (s[i] >= 'A' && s[i] <= 'F'){
+      result = static_cast<T>(result | (s[i] -'A' + 10));
+    } else if (s[i] >= 'a' && s[i] <= 'f'){
+      result = static_cast<T>(result | (s[i] -'a' + 10));
     } else {
-      break;
+      /* Non-digit */
+      return false;
     }
   }
   *out = result;
@@ -311,15 +307,11 @@ struct StringToUnsignedIntConverterMixin {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
     }
-    // If its starts with 0x then its hex
-    if (*s == '0' && ((*(s + 1) == 'x') || (*(s + 1) == 'X'))){
+    // If it starts with 0x then its hex
+    if (length > 2 && s[0] == '0' && ((s[1] == 'x') || (s[1] == 'X'))){
       length -= 2;
       s += 2;
 
-      // lets make sure that the length of the string is not too big
-      if (!ARROW_PREDICT_TRUE(sizeof(value_type)*2 >= length && length > 0)) {
-        return false;
-      }
       if (!ARROW_PREDICT_TRUE(ParseHex(s, length, out))) {
         return false;
       }
@@ -374,15 +366,11 @@ struct StringToSignedIntConverterMixin {
       return false;
     }
     
-    // If its starts with 0x then its hex
-    if (*s == '0' && ((*(s + 1) == 'x') || (*(s + 1) == 'X'))){
+    // If it starts with 0x then its hex
+    if (length > 2 && s[0] == '0' && ((s[1] == 'x') || (s[1] == 'X'))){
       length -= 2;
       s += 2;
 
-      // lets make sure that the length of the string is not too big
-      if (!ARROW_PREDICT_TRUE(sizeof(unsigned_value)*2 >= length && length > 0)) {
-        return false;
-      }
       if (!ARROW_PREDICT_TRUE(ParseHex(s, length, &unsigned_value))) {
         return false;
       }
