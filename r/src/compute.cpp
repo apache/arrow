@@ -177,11 +177,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       func_name == "hash_all") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
-    if (!Rf_isNull(options["na.min_count"])) {
-      out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
+    if (!Rf_isNull(options["min_count"])) {
+      out->min_count = cpp11::as_cpp<int>(options["min_count"]);
     }
-    if (!Rf_isNull(options["na.rm"])) {
-      out->skip_nulls = cpp11::as_cpp<bool>(options["na.rm"]);
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
     }
     return out;
   }
@@ -225,11 +225,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
           cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
               interpolation);
     }
-    if (!Rf_isNull(options["na.min_count"])) {
-      out->min_count = cpp11::as_cpp<int64_t>(options["na.min_count"]);
+    if (!Rf_isNull(options["min_count"])) {
+      out->min_count = cpp11::as_cpp<int64_t>(options["min_count"]);
     }
-    if (!Rf_isNull(options["na.rm"])) {
-      out->skip_nulls = cpp11::as_cpp<int64_t>(options["na.rm"]);
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<int64_t>(options["skip_nulls"]);
     }
     return out;
   }
@@ -392,8 +392,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(options["min_count"])) {
       out->min_count = cpp11::as_cpp<int64_t>(options["min_count"]);
     }
-    if (!Rf_isNull(options["na.rm"])) {
-      out->skip_nulls = cpp11::as_cpp<int64_t>(options["na.rm"]);
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
     }
     return out;
   }

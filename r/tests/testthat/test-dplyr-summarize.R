@@ -134,7 +134,6 @@ test_that("Group by sd on dataset", {
     tbl
   )
 
-  skip("ARROW-13691 - na.rm not yet implemented for VarianceOptions")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
@@ -153,7 +152,6 @@ test_that("Group by var on dataset", {
     tbl
   )
 
-  skip("ARROW-13691 - na.rm not yet implemented for VarianceOptions")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
