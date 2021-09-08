@@ -29,14 +29,13 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         python3 \
-        python3-pip \
-        python3-dev \
-        cmake \
-        libarrow-dev \
-        libarrow-python-dev && \
+        python3-pip && \
     apt-get clean
 
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-RUN pip install pyarrow cffi
+# Need a newer pip than Debian's to install manylinux201x wheels
+RUN pip install -U pip
+
+RUN pip install pyarrow cffi --only-binary pyarrow
