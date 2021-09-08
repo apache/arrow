@@ -20,9 +20,75 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include "arrow/c/abi.h"
 #include "arrow/c/helpers.h"
 #include "utils.h"
+
+static const int64_t kDefaultFlags = ARROW_FLAG_NULLABLE;
+
+static void release_int32_type(struct ArrowSchema* schema) {
+    // mark released
+    schema->release = NULL;
+}
+
+void export_int32_type(struct ArrowSchema* schema) {
+    const char* encoded_metadata;
+    if (is_little_endian() == 1) {
+        encoded_metadata = kEncodedMeta1LE;
+    } else {
+        encoded_metadata = kEncodedMeta1BE;
+    }
+    *schema = (struct ArrowSchema) {
+        // Type description
+        .format = "i",
+        .name = "",
+        .metadata = encoded_metadata,
+        .flags = 0,
+        .n_children = 0,
+        .children = NULL,
+        .dictionary = NULL,
+        // bookkeeping
+        .release = &release_int32_type,
+    };
+}
+
+static bool test1_released = false;
+
+int test1_is_released() { return test1_released; }
+
+static void release_int32_array(struct ArrowArray* array) {
+    assert(array->n_buffers == 2);
+    // free the buffers and buffers array
+    free((void *) array->buffers[1]);
+    free(array->buffers);
+    // mark released
+    array->release = NULL;
+    test1_released = true;    
+}
+
+void export_int32_array(const int32_t* data, int64_t nitems, struct ArrowArray* array) {
+    // initialize primitive fields
+    *array = (struct ArrowArray) {
+        .length = nitems,
+        .offset = 0,
+        .null_count = 0,
+        .n_buffers = 2,
+        .n_children = 0,
+        .children = NULL,
+        .dictionary = NULL,
+        // bookkeeping
+        .release = &release_int32_array
+    };
+
+    // allocate list of buffers
+    array->buffers = (const void**)malloc(sizeof(void*) * array->n_buffers);
+    assert(array->buffers != NULL);
+    array->buffers[0] = NULL; // no nulls, null bitmap can be omitted
+    array->buffers[1] = data;
+}
+
 
 static void release_primitive(struct ArrowSchema* schema) {
     free((void *)schema->format);    
@@ -131,7 +197,7 @@ struct ArrowSchema** fill_structs(const char** fmts, const char** names, int64_t
 struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n) {
     struct ArrowSchema** schemas = fill_structs(fmts, names, flags, n);
 
-    if (check_for_endianness() == 1) {
+    if (is_little_endian() == 1) {
         schemas[n-1]->metadata = kEncodedMeta2LE;
     } else {
         schemas[n-1]->metadata = kEncodedMeta2BE;
@@ -143,7 +209,7 @@ struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t*
 struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n) {
     struct ArrowSchema** schemas = fill_structs(fmts, names, flags, n);
 
-    if (check_for_endianness() == 1) {
+    if (is_little_endian() == 1) {
         schemas[0]->metadata = kEncodedMeta2LE;
         schemas[n-1]->metadata = kEncodedMeta1LE;
     } else {

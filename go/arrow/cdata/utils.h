@@ -21,7 +21,7 @@
    Function check_for_endianness() returns 1, if architecture 
    is little endian, 0 in case of big endian.
 */
-inline int check_for_endianness()
+inline int is_little_endian()
 {
   unsigned int x = 1;
   char *c = (char*) &x;
