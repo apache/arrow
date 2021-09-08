@@ -1503,9 +1503,7 @@ TEST(Cast, StringToInt) {
       CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_int8 + "\"]"), options);
     }
 
-    for (std::string not_uint8 : {"256", "-1", "0.5", "0x",
-                                  "0x3wa"
-                                  "0x123"}) {
+    for (std::string not_uint8 : {"256", "-1", "0.5", "0x", "0x3wa", "0x123"}) {
       auto options = CastOptions::Safe(uint8());
       CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_uint8 + "\"]"), options);
     }

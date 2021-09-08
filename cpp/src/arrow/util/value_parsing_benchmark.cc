@@ -60,18 +60,15 @@ template <typename c_int>
 static std::vector<std::string> MakeHexStrings(int32_t num_items) {
   int32_t num_bytes = sizeof(c_int);
   const char* kAsciiTable = "0123456789ABCDEF";
-  std::vector<char> large_hex_chars(num_bytes*2 + 2);
-  large_hex_chars[0]='0';
-  large_hex_chars[1]='x';
-  for (int32_t i = 0; i < num_bytes*2; ++i) {
+  std::vector<char> large_hex_chars(num_bytes * 2 + 2);
+  large_hex_chars[0] = '0';
+  large_hex_chars[1] = 'x';
+  for (int32_t i = 0; i < num_bytes * 2; ++i) {
     large_hex_chars[i + 2] = kAsciiTable[i];
   }
   std::string large_hex(&large_hex_chars[0], large_hex_chars.size());
 
-  std::vector<std::string> base_strings = {"0x0",
-                                           "0xA5",
-                                           "0x5E",
-                                           large_hex};
+  std::vector<std::string> base_strings = {"0x0", "0xA5", "0x5E", large_hex};
   std::vector<std::string> strings;
   for (int32_t i = 0; i < num_items; ++i) {
     strings.push_back(base_strings[i % base_strings.size()]);

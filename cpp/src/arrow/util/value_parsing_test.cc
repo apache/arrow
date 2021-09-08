@@ -241,7 +241,6 @@ TEST(StringConversion, ToInt32) {
   AssertConversion<Int32Type>("0XFFFFfFfF", -1);
   AssertConversionFails<Int32Type>("0X");
   AssertConversionFails<Int32Type>("0x23512ak");
-  
 }
 
 TEST(StringConversion, ToUInt32) {
