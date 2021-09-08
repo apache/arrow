@@ -473,7 +473,7 @@ struct Sign {
   template <typename T, typename Arg>
   static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg arg,
                                                         Status*) {
-    return arg > 0;
+    return (arg > 0) ? 1 : 0;
   }
 
   template <typename T, typename Arg>
