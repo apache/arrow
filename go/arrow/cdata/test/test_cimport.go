@@ -20,6 +20,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"github.com/apache/arrow/go/arrow"
@@ -30,6 +31,11 @@ import (
 
 // #include <stdint.h>
 import "C"
+
+//export runGC
+func runGC() {
+	runtime.GC()
+}
 
 //export importSchema
 func importSchema(ptr uintptr) {

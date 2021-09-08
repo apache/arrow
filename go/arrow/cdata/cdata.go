@@ -140,6 +140,9 @@ func decodeCMetadata(md *C.char) arrow.Metadata {
 
 // convert a C.ArrowSchema to an arrow.Field to maintain metadata with the schema
 func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
+	// always release, even on error
+	defer C.ArrowSchemaRelease(schema)
+
 	var childFields []arrow.Field
 	if schema.n_children > 0 {
 		// call ourselves recursively if there are children.
