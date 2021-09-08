@@ -315,8 +315,9 @@ struct StringToUnsignedIntConverterMixin {
     if (*s == '0' && ((*(s + 1) == 'x') || (*(s + 1) == 'X'))){
       length -= 2;
       s += 2;
+
       // lets make sure that the length of the string is not too big
-      if (!ARROW_PREDICT_TRUE(sizeof(value_type)*2 >= length)) {
+      if (!ARROW_PREDICT_TRUE(sizeof(value_type)*2 >= length && length > 0)) {
         return false;
       }
       if (!ARROW_PREDICT_TRUE(ParseHex(s, length, out))) {
@@ -377,8 +378,9 @@ struct StringToSignedIntConverterMixin {
     if (*s == '0' && ((*(s + 1) == 'x') || (*(s + 1) == 'X'))){
       length -= 2;
       s += 2;
+
       // lets make sure that the length of the string is not too big
-      if (!ARROW_PREDICT_TRUE(sizeof(unsigned_value)*2 >= length)) {
+      if (!ARROW_PREDICT_TRUE(sizeof(unsigned_value)*2 >= length && length > 0)) {
         return false;
       }
       if (!ARROW_PREDICT_TRUE(ParseHex(s, length, &unsigned_value))) {
@@ -395,7 +397,7 @@ struct StringToSignedIntConverterMixin {
         return false;
       }
     }
-    
+
     // Skip leading zeros
     while (length > 0 && *s == '0') {
       length--;
