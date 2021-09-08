@@ -17,19 +17,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
+import gc
 import os
+import unittest
+
 import pyarrow as pa
 from pyarrow.cffi import ffi
 
-def make_schema():
-    return pa.schema([('ints', pa.list_(pa.int32()))],
-                     metadata={b'key1': b'value1'})
 
-def make_batch():
-    return pa.record_batch([[[1], [2, 42]]], make_schema())
-
-
-def load_lib():
+def load_cgotest():
+    # XXX what about Darwin?
     libext = 'so'
     if os.name == 'nt':
         libext = 'dll'
@@ -39,20 +37,54 @@ def load_lib():
         void importSchema(uintptr_t ptr);
         void importRecordBatch(uintptr_t scptr, uintptr_t rbptr);
         """)
-    return ffi.dlopen('./cgotest.{}'.format(libext))
+    return ffi.dlopen(f'./cgotest.{libext}')
 
 
-c_schema = ffi.new("struct ArrowSchema*")
-ptr_schema = int(ffi.cast("uintptr_t", c_schema))
-make_schema()._export_to_c(ptr_schema)
+cgotest = load_cgotest()
 
-cgotest = load_lib()
-cgotest.importSchema(ptr_schema)
 
-c_array = ffi.new("struct ArrowArray*")
-ptr_array = int(ffi.cast("uintptr_t", c_array))
+class TestPythonToGo(unittest.TestCase):
 
-batch = make_batch()
-batch._export_to_c(ptr_array)
+    def make_schema(self):
+        return pa.schema([('ints', pa.list_(pa.int32()))],
+                         metadata={b'key1': b'value1'})
 
-cgotest.importRecordBatch(ptr_schema, ptr_array)
+    def make_batch(self):
+        return pa.record_batch([[[1], [], None, [2, 42]]],
+                               self.make_schema())
+
+    @contextlib.contextmanager
+    def assert_pyarrow_memory_released(self):
+        gc.collect()
+        old_allocated = pa.total_allocated_bytes()
+        yield
+        gc.collect()
+        diff = pa.total_allocated_bytes() - old_allocated
+        self.assertEqual(
+            pa.total_allocated_bytes(), old_allocated,
+            f"PyArrow memory was not adequately released: {diff} bytes lost")
+
+    def test_schema(self):
+        c_schema = ffi.new("struct ArrowSchema*")
+        ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+
+        with self.assert_pyarrow_memory_released():
+            self.make_schema()._export_to_c(ptr_schema)
+            # Will panic if expectations are not met
+            cgotest.importSchema(ptr_schema)
+
+    def test_record_batch(self):
+        c_schema = ffi.new("struct ArrowSchema*")
+        ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+        c_array = ffi.new("struct ArrowArray*")
+        ptr_array = int(ffi.cast("uintptr_t", c_array))
+
+        with self.assert_pyarrow_memory_released():
+            self.make_schema()._export_to_c(ptr_schema)
+            self.make_batch()._export_to_c(ptr_array)
+            # Will panic if expectations are not met
+            cgotest.importRecordBatch(ptr_schema, ptr_array)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

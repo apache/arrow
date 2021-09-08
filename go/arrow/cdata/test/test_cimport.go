@@ -45,6 +45,9 @@ func importSchema(ptr uintptr) {
 	if !schema.Equal(expectedSchema) {
 		panic(fmt.Sprintf("schema didn't match: expected %s, got %s", expectedSchema, schema))
 	}
+	if !schema.Metadata().Equal(expectedMetadata) {
+		panic(fmt.Sprintf("metadata didn't match: expected %s, got %s", expectedMetadata, schema.Metadata()))
+	}
 
 	fmt.Println("schema matches! Huzzah!")
 }
@@ -69,8 +72,12 @@ func importRecordBatch(scptr, rbptr uintptr) {
 	lb := bldr.Field(0).(*array.ListBuilder)
 	vb := lb.ValueBuilder().(*array.Int32Builder)
 
+	// [[[1], [], None [2, 42]]]
 	lb.Append(true)
 	vb.Append(int32(1))
+
+	lb.Append(true)
+	lb.Append(false)
 
 	lb.Append(true)
 	vb.AppendValues([]int32{2, 42}, nil)
