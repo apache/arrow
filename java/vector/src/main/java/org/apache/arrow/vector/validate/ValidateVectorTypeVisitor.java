@@ -29,6 +29,7 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -144,6 +145,17 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     } else {
       validateOrThrow(timestampType.getTimezone() == null, "The time zone should be null");
     }
+  }
+
+  private void validateExtensionTypeVector(ExtensionTypeVector<?> vector) {
+    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.ExtensionType,
+        "Vector %s is not an extension type vector.", vector.getClass());
+    validateOrThrow(vector.getField().getMetadata().containsKey(ArrowType.ExtensionType.EXTENSION_METADATA_KEY_NAME),
+            "Field %s does not have proper extension type metadata: %s",
+            vector.getField().getName(),
+            vector.getField().getMetadata());
+    // Validate the storage vector type
+    vector.getUnderlyingVector().accept(this, null);
   }
 
   @Override
@@ -355,6 +367,12 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(NullVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.Null.class);
+    return null;
+  }
+
+  @Override
+  public Void visit(ExtensionTypeVector<?> vector, Void value) {
+    validateExtensionTypeVector(vector);
     return null;
   }
 }
