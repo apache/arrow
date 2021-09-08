@@ -120,40 +120,21 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   std::vector<SortKey> sort_keys;
 };
 
-/// \brief SelectK options for TopK/BottomK
+// \brief Selection algorithm. Default is `NonStableSelect` which uses a Heap based
+// algorithm.
+enum class SelectKAlgorithm { NonStableSelect, StableSelect };
+
+/// \brief SelectK options
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
   explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {},
-                          bool keep_duplicates = false);
+                          SelectKAlgorithm kind = SelectKAlgorithm::NonStableSelect);
 
   constexpr static char const kTypeName[] = "SelectKOptions";
 
-  static SelectKOptions SelectKDefault(int64_t k = -1) {
-    return SelectKOptions{k, {}, false};
+  static SelectKOptions Defaults(int64_t k = -1) {
+    return SelectKOptions{k, {}, SelectKAlgorithm::NonStableSelect};
   }
-  static SelectKOptions TopKDefault(int64_t k = -1) {
-    std::vector<SortKey> keys;
-    keys.emplace_back(SortKey("not-used", SortOrder::Descending));
-    return SelectKOptions{k, keys, false};
-  }
-  static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names) {
-    std::vector<SortKey> keys;
-    for (const auto& name : key_names)
-      keys.emplace_back(SortKey(name, SortOrder::Descending));
-    return SelectKOptions{k, keys, false};
-  }
-  static SelectKOptions BottomKDefault(int64_t k = -1) {
-    std::vector<SortKey> keys;
-    keys.emplace_back(SortKey("not-used", SortOrder::Ascending));
-    return SelectKOptions{k, keys, false};
-  }
-  static SelectKOptions BottomKDefault(int64_t k, std::vector<std::string> key_names) {
-    std::vector<SortKey> keys;
-    for (const auto& name : key_names)
-      keys.emplace_back(SortKey(name, SortOrder::Ascending));
-    return SelectKOptions{k, keys, false};
-  }
-
   bool is_top_k() const;
 
   bool is_bottom_k() const;
@@ -162,8 +143,50 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
-  /// Do not drop any duplicates, even it means selecting more than k items.
-  bool keep_duplicates;
+  /// Selection algorithm.
+  SelectKAlgorithm kind;
+};
+
+/// \brief TopK options
+class ARROW_EXPORT TopKOptions : public FunctionOptions {
+ public:
+  explicit TopKOptions(int64_t k = -1, std::vector<std::string> keys = {},
+                       SelectKAlgorithm kind = SelectKAlgorithm::NonStableSelect);
+
+  constexpr static char const kTypeName[] = "TopKOptions";
+
+  static TopKOptions Defaults(int64_t k, std::vector<std::string> keys) {
+    return TopKOptions{k, keys, SelectKAlgorithm::NonStableSelect};
+  }
+  SortOrder order() const { return SortOrder::Descending; }
+
+  /// The number of `k` elements to keep.
+  int64_t k;
+  /// Column key(s) to order by.
+  std::vector<std::string> keys;
+  /// Selection algorithm.
+  SelectKAlgorithm kind;
+};
+
+/// \brief BottomK options
+class ARROW_EXPORT BottomKOptions : public FunctionOptions {
+ public:
+  explicit BottomKOptions(int64_t k = -1, std::vector<std::string> keys = {},
+                          SelectKAlgorithm kind = SelectKAlgorithm::NonStableSelect);
+
+  constexpr static char const kTypeName[] = "BottomKOptions";
+
+  static BottomKOptions Defaults(int64_t k, std::vector<std::string> keys) {
+    return BottomKOptions{k, keys, SelectKAlgorithm::NonStableSelect};
+  }
+  SortOrder order() const { return SortOrder::Ascending; }
+
+  /// The number of `k` elements to keep.
+  int64_t k;
+  /// Column key(s) to order by.
+  std::vector<std::string> keys;
+  /// Selection algorithm.
+  SelectKAlgorithm kind;
 };
 
 /// \brief Partitioning options for NthToIndices
@@ -323,7 +346,7 @@ Result<std::shared_ptr<Array>> SelectK(const Datum& datum, SelectKOptions option
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> TopK(const Datum& datum, SelectKOptions options,
+Result<std::shared_ptr<Array>> TopK(const Datum& datum, TopKOptions options,
                                     ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the first k elements ordered by options.keys` in descending order.
@@ -338,7 +361,7 @@ Result<std::shared_ptr<Array>> TopK(const Datum& datum, SelectKOptions options,
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> BottomK(const Datum& datum, SelectKOptions options,
+Result<std::shared_ptr<Array>> BottomK(const Datum& datum, BottomKOptions options,
                                        ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array in the

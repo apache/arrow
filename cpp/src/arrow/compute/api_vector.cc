@@ -114,7 +114,13 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys),
-    DataMember("keep", &SelectKOptions::keep_duplicates));
+    DataMember("kind", &SelectKOptions::kind));
+static auto kTopKOptionsType = GetFunctionOptionsType<TopKOptions>(
+    DataMember("k", &TopKOptions::k), DataMember("keys", &TopKOptions::keys),
+    DataMember("kind", &TopKOptions::kind));
+static auto kBottomKOptionsType = GetFunctionOptionsType<BottomKOptions>(
+    DataMember("k", &BottomKOptions::k), DataMember("keys", &BottomKOptions::keys),
+    DataMember("kind", &BottomKOptions::kind));
 }  // namespace
 }  // namespace internal
 
@@ -145,11 +151,11 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot)
 constexpr char PartitionNthOptions::kTypeName[];
 
 SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys,
-                               bool keep_duplicates)
+                               SelectKAlgorithm kind)
     : FunctionOptions(internal::kSelectKOptionsType),
       k(k),
       sort_keys(std::move(sort_keys)),
-      keep_duplicates(keep_duplicates) {}
+      kind(kind) {}
 
 bool SelectKOptions::is_top_k() const {
   SortOrder order = SortOrder::Descending;
@@ -172,6 +178,21 @@ bool SelectKOptions::is_bottom_k() const {
   return order == SortOrder::Ascending;
 }
 constexpr char SelectKOptions::kTypeName[];
+
+TopKOptions::TopKOptions(int64_t k, std::vector<std::string> keys, SelectKAlgorithm kind)
+    : FunctionOptions(internal::kTopKOptionsType),
+      k(k),
+      keys(std::move(keys)),
+      kind(kind) {}
+constexpr char TopKOptions::kTypeName[];
+
+BottomKOptions::BottomKOptions(int64_t k, std::vector<std::string> keys,
+                               SelectKAlgorithm kind)
+    : FunctionOptions(internal::kBottomKOptionsType),
+      k(k),
+      keys(std::move(keys)),
+      kind(kind) {}
+constexpr char BottomKOptions::kTypeName[];
 
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
@@ -202,13 +223,13 @@ Result<std::shared_ptr<Array>> SelectK(const Datum& datum, SelectKOptions option
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> TopK(const Datum& datum, SelectKOptions options,
+Result<std::shared_ptr<Array>> TopK(const Datum& datum, TopKOptions options,
                                     ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("top_k", {datum}, &options, ctx));
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> BottomK(const Datum& datum, SelectKOptions options,
+Result<std::shared_ptr<Array>> BottomK(const Datum& datum, BottomKOptions options,
                                        ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("bottom_k", {datum}, &options, ctx));
   return result.make_array();

@@ -36,7 +36,7 @@ Result<std::shared_ptr<Array>> TopKWithSorting(const Array& values, int64_t n) {
 static void TopKBenchmark(benchmark::State& state, const std::shared_ptr<Array>& values,
                           int64_t k) {
   for (auto _ : state) {
-    ABORT_NOT_OK(TopK(*values, SelectKOptions::TopKDefault(k)).status());
+    ABORT_NOT_OK(TopK(*values, TopKOptions(k)).status());
   }
   state.SetItemsProcessed(state.iterations() * values->length());
 }

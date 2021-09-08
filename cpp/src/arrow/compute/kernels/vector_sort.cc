@@ -1804,9 +1804,9 @@ class SortIndicesMetaFunction : public MetaFunction {
 
 using SelectKOptionsState = internal::OptionsWrapper<SelectKOptions>;
 
-const auto kDefaultSelectKOptions = SelectKOptions::SelectKDefault();
-const auto kDefaultTopKOptions = SelectKOptions::TopKDefault();
-const auto kDefaultBottomKOptions = SelectKOptions::BottomKDefault();
+const auto kDefaultSelectKOptions = SelectKOptions::Defaults();
+const auto kDefaultTopKOptions = SelectKOptions::Defaults();
+const auto kDefaultBottomKOptions = SelectKOptions::Defaults();
 
 const FunctionDoc top_k_doc(
     "Returns the first k elements ordered by `options.keys` in ascending order",
@@ -1865,33 +1865,6 @@ class SelectKComparator<SortOrder::Descending> {
   }
 };
 
-template <SortOrder order>
-class StableSelectKComparator {
- public:
-  template <typename Type>
-  int64_t operator()(const Type& lval, const Type& rval);
-};
-
-template <>
-class StableSelectKComparator<SortOrder::Ascending> {
- public:
-  template <typename Type>
-  int64_t operator()(const Type& lval, const Type& rval) {
-    if (lval == rval) return 0;
-    return (lval < rval) ? -1 : 1;
-  }
-};
-
-template <>
-class StableSelectKComparator<SortOrder::Descending> {
- public:
-  template <typename Type>
-  int64_t operator()(const Type& lval, const Type& rval) {
-    if (lval == rval) return 0;
-    return (rval < lval) ? -1 : 1;
-  }
-};
-
 template <SortOrder sort_order>
 class ArraySelecter : public TypeVisitor {
  public:
@@ -1907,82 +1880,14 @@ class ArraySelecter : public TypeVisitor {
   Status Run() { return physical_type_->Accept(this); }
 
 #define VISIT(TYPE) \
-  Status Visit(const TYPE& type) { return NonStableSelectKthInternal<TYPE>(); }
+  Status Visit(const TYPE& type) { return SelectKthInternal<TYPE>(); }
 
   VISIT_PHYSICAL_TYPES(VISIT)
 
 #undef VISIT
 
   template <typename InType>
-  Status StableSelectKthInternal() {
-    using GetView = GetViewType<InType>;
-    using ArrayType = typename TypeTraits<InType>::ArrayType;
-
-    ArrayType arr(array_.data());
-    std::vector<uint64_t> indices(arr.length());
-
-    uint64_t* indices_begin = indices.data();
-    uint64_t* indices_end = indices_begin + indices.size();
-    std::iota(indices_begin, indices_end, 0);
-    if (options_.k > arr.length()) {
-      options_.k = arr.length();
-    }
-    auto end_iter =
-        PartitionNulls<ArrayType, StablePartitioner>(indices_begin, indices_end, arr, 0);
-    auto kth_begin = indices_begin + options_.k;
-    if (kth_begin > end_iter) {
-      kth_begin = end_iter;
-    }
-    StableSelectKComparator<sort_order> comparator;
-    auto cmp = [&arr, &comparator](uint64_t left, uint64_t right) -> int64_t {
-      const auto lval = GetView::LogicalValue(arr.GetView(left));
-      const auto rval = GetView::LogicalValue(arr.GetView(right));
-      return comparator(lval, rval);
-    };
-    arrow::internal::StableHeap<uint64_t> heap(cmp);
-
-    uint64_t* iter = indices_begin;
-    for (; iter != kth_begin; ++iter) {
-      heap.Push(*iter);
-    }
-    for (; iter != end_iter && !heap.empty(); ++iter) {
-      uint64_t x_index = *iter;
-      const auto lval = GetView::LogicalValue(arr.GetView(x_index));
-      const auto rval = GetView::LogicalValue(arr.GetView(heap.top()));
-      if (comparator(lval, rval) < 0) {
-        heap.ReplaceTop(x_index);
-      }
-    }
-    if (options_.keep_duplicates == true) {
-      iter = indices_begin;
-      for (; iter != end_iter; ++iter) {
-        if (*iter != heap.top()) {
-          const auto lval = GetView::LogicalValue(arr.GetView(*iter));
-          const auto rval = GetView::LogicalValue(arr.GetView(heap.top()));
-          if (lval == rval) {
-            heap.Push(*iter);
-          }
-        }
-      }
-    }
-
-    int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(
-        auto take_indices,
-        MakeMutableArrayForNumericBasedType(uint64(), out_size, ctx_->memory_pool()));
-
-    auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
-    while (heap.size() > 0) {
-      *out_cbegin = heap.top();
-      heap.Pop();
-      --out_cbegin;
-    }
-    *output_ = Datum(take_indices);
-    return Status::OK();
-  }
-
-  template <typename InType>
-  Status NonStableSelectKthInternal() {
+  Status SelectKthInternal() {
     using GetView = GetViewType<InType>;
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
@@ -2022,19 +1927,6 @@ class ArraySelecter : public TypeVisitor {
         heap.ReplaceTop(x_index);
       }
     }
-    if (options_.keep_duplicates == true) {
-      iter = indices_begin;
-      for (; iter != end_iter; ++iter) {
-        if (*iter != heap.top()) {
-          const auto lval = GetView::LogicalValue(arr.GetView(*iter));
-          const auto rval = GetView::LogicalValue(arr.GetView(heap.top()));
-          if (lval == rval) {
-            heap.Push(*iter);
-          }
-        }
-      }
-    }
-
     int64_t out_size = static_cast<int64_t>(heap.size());
     ARROW_ASSIGN_OR_RAISE(
         auto take_indices,
@@ -2142,33 +2034,6 @@ class ChunkedArraySelecter : public TypeVisitor {
         }
       }
       offset += chunk->length();
-    }
-
-    if (options_.keep_duplicates == true) {
-      offset = 0;
-      for (const auto& chunk : chunks_holder) {
-        ArrayType& arr = *chunk;
-
-        std::vector<uint64_t> indices(arr.length());
-        uint64_t* indices_begin = indices.data();
-        uint64_t* indices_end = indices_begin + indices.size();
-        std::iota(indices_begin, indices_end, 0);
-
-        auto iter = indices_begin;
-        for (; iter != indices_end; ++iter) {
-          uint64_t x_index = *iter;
-          auto top_item = heap.top();
-          if (x_index + offset != top_item.index + top_item.offset) {
-            const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
-            const auto& top_value =
-                GetView::LogicalValue(top_item.array->GetView(top_item.index));
-            if (xval == top_value) {
-              heap.Push(HeapItem{x_index, offset, &arr});
-            }
-          }
-        }
-        offset += chunk->length();
-      }
     }
 
     int64_t out_size = static_cast<int64_t>(heap.size());
@@ -2290,20 +2155,6 @@ class RecordBatchSelecter : public TypeVisitor {
       auto top_item = heap.top();
       if (cmp(x_index, top_item)) {
         heap.ReplaceTop(x_index);
-      }
-    }
-    if (options_.keep_duplicates == true) {
-      iter = indices_begin;
-      for (; iter != end_iter; ++iter) {
-        uint64_t x_index = *iter;
-        auto top_item = heap.top();
-        if (x_index != top_item) {
-          const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
-          const auto& top_value = GetView::LogicalValue(arr.GetView(top_item));
-          if (xval == top_value && comparator.Equals(x_index, top_item, 1)) {
-            heap.Push(x_index);
-          }
-        }
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
@@ -2485,22 +2336,6 @@ class TableSelecter : public TypeVisitor {
         heap.ReplaceTop(x_index);
       }
     }
-    if (options_.keep_duplicates == true) {
-      iter = indices_begin;
-      for (; iter != end_iter; ++iter) {
-        uint64_t x_index = *iter;
-        auto top_item = heap.top();
-        if (x_index != top_item) {
-          auto chunk_left = first_sort_key.template GetChunk<ArrayType>(x_index);
-          auto chunk_right = first_sort_key.template GetChunk<ArrayType>(top_item);
-          auto xval = chunk_left.Value();
-          auto top_value = chunk_right.Value();
-          if (xval == top_value && comparator.Equals(x_index, top_item, 1)) {
-            heap.Push(x_index);
-          }
-        }
-      }
-    }
     int64_t out_size = static_cast<int64_t>(heap.size());
     ARROW_ASSIGN_OR_RAISE(
         auto take_indices,
@@ -2622,7 +2457,14 @@ class TopKMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     SelectKthMetaFunction impl;
-    return impl.ExecuteImpl(args, options, ctx);
+    const TopKOptions& opts = static_cast<const TopKOptions&>(*options);
+
+    std::vector<SortKey> sort_keys;
+    for (const auto& name : opts.keys)
+      sort_keys.emplace_back(SortKey(name, opts.order()));
+
+    SelectKOptions select_k_options(opts.k, sort_keys, opts.kind);
+    return impl.ExecuteImpl(args, &select_k_options, ctx);
   }
 };
 
@@ -2635,7 +2477,14 @@ class BottomKMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     SelectKthMetaFunction impl;
-    return impl.ExecuteImpl(args, options, ctx);
+    const BottomKOptions& opts = static_cast<const BottomKOptions&>(*options);
+
+    std::vector<SortKey> sort_keys;
+    for (const auto& name : opts.keys)
+      sort_keys.emplace_back(SortKey(name, opts.order()));
+
+    SelectKOptions select_k_options(opts.k, sort_keys, opts.kind);
+    return impl.ExecuteImpl(args, &select_k_options, ctx);
   }
 };
 

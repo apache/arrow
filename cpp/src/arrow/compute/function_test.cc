@@ -116,9 +116,12 @@ TEST(FunctionOptions, Equality) {
       {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
-  options.emplace_back(new SelectKOptions(0, {}, false));
+  options.emplace_back(new SelectKOptions(0, {}));
+  options.emplace_back(new SelectKOptions(5, {{SortKey("key", SortOrder::Ascending)}}));
   options.emplace_back(
-      new SelectKOptions(5, {{SortKey("key", SortOrder::Ascending)}}, false));
+      new TopKOptions(5, {"not-used"}, SelectKAlgorithm::NonStableSelect));
+  options.emplace_back(
+      new BottomKOptions(5, {"not-used"}, SelectKAlgorithm::NonStableSelect));
 
   for (size_t i = 0; i < options.size(); i++) {
     const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;
