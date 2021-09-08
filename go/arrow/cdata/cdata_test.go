@@ -49,8 +49,8 @@ func TestSchemaExport(t *testing.T) {
 	assert.Equal(t, keys, f.Metadata.Keys())
 	assert.Equal(t, vals, f.Metadata.Values())
 
-	releaseSchema(&sc)
-	assert.Nil(t, sc.release)
+	// schema was released when importing
+	assert.True(t, schemaIsReleased(&sc))
 }
 
 func TestSimpleArrayExport(t *testing.T) {
@@ -127,7 +127,6 @@ func TestPrimitiveSchemas(t *testing.T) {
 
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
-			releaseSchema(&sc)
 			assert.True(t, schemaIsReleased(&sc))
 		})
 	}
@@ -169,7 +168,6 @@ func TestImportTemporalSchema(t *testing.T) {
 
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
-			releaseSchema(&sc)
 			assert.True(t, schemaIsReleased(&sc))
 		})
 	}
@@ -189,7 +187,7 @@ func TestListSchemas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.typ.Name(), func(t *testing.T) {
 			sc := testNested(tt.fmts, tt.names)
-			defer releaseNestedSchemas(sc)
+			defer freeMallocedSchemas(sc)
 
 			top := (*[1]*CArrowSchema)(unsafe.Pointer(sc))[0]
 			f, err := ImportCArrowField(top)
@@ -197,7 +195,6 @@ func TestListSchemas(t *testing.T) {
 
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
-			releaseSchema(top)
 			assert.True(t, schemaIsReleased(top))
 		})
 	}
@@ -219,7 +216,7 @@ func TestStructSchemas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.typ.Name(), func(t *testing.T) {
 			sc := testStruct(tt.fmts, tt.names, tt.flags)
-			defer releaseNestedSchemas(sc)
+			defer freeMallocedSchemas(sc)
 
 			top := (*[1]*CArrowSchema)(unsafe.Pointer(sc))[0]
 			f, err := ImportCArrowField(top)
@@ -227,7 +224,6 @@ func TestStructSchemas(t *testing.T) {
 
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
-			releaseSchema(top)
 			assert.True(t, schemaIsReleased(top))
 		})
 	}
@@ -248,7 +244,7 @@ func TestMapSchemas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.typ.Name(), func(t *testing.T) {
 			sc := testMap(tt.fmts, tt.names, tt.flags)
-			defer releaseNestedSchemas(sc)
+			defer freeMallocedSchemas(sc)
 
 			top := (*[1]*CArrowSchema)(unsafe.Pointer(sc))[0]
 			f, err := ImportCArrowField(top)
@@ -257,7 +253,6 @@ func TestMapSchemas(t *testing.T) {
 			tt.typ.KeysSorted = tt.keysSorted
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
-			releaseSchema(top)
 			assert.True(t, schemaIsReleased(top))
 		})
 	}
@@ -271,7 +266,7 @@ func TestSchema(t *testing.T) {
 	}, &metadata2)
 
 	cst := testSchema([]string{"+s", "n", "l"}, []string{"", "nulls", "values"}, []int64{0, 0, flagIsNullable})
-	defer releaseNestedSchemas(cst)
+	defer freeMallocedSchemas(cst)
 
 	top := (*[1]*CArrowSchema)(unsafe.Pointer(cst))[0]
 	out, err := ImportCArrowSchema(top)
@@ -280,7 +275,6 @@ func TestSchema(t *testing.T) {
 	assert.True(t, sc.Equal(out))
 	assert.True(t, sc.Metadata().Equal(out.Metadata()))
 
-	releaseSchema(top)
 	assert.True(t, schemaIsReleased(top))
 }
 
@@ -579,7 +573,7 @@ func TestRecordBatch(t *testing.T) {
 	defer freeTestArr(carr)
 
 	sc := testStruct([]string{"+s", "c", "u"}, []string{"", "a", "b"}, []int64{0, flagIsNullable, flagIsNullable})
-	defer releaseNestedSchemas(sc)
+	defer freeMallocedSchemas(sc)
 
 	top := (*[1]*CArrowSchema)(unsafe.Pointer(sc))[0]
 	rb, err := ImportCRecordBatch(carr, top)

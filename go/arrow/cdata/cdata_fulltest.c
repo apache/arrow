@@ -29,16 +29,37 @@ static void release_primitive(struct ArrowSchema* schema) {
     schema->release = NULL;
 }
 
-static void release_nested(struct ArrowSchema* schema) {
-    for (int i = 0; i < schema->n_children; ++i) {
-        assert(!ArrowSchemaIsReleased(schema->children[i]));
-        ArrowSchemaRelease(schema->children[i]);
-        ArrowSchemaMarkReleased(schema->children[i]);
-    }
+static void release_nested_internal(struct ArrowSchema* schema,
+                                    int is_dynamic) {
     assert(!ArrowSchemaIsReleased(schema));
-    free((void *)schema->format);
+    for (int i = 0; i < schema->n_children; ++i) {
+        ArrowSchemaRelease(schema->children[i]);
+        free(schema->children[i]);
+    }
+    if (is_dynamic) {
+        free((void*)schema->format);
+        free((void*)schema->name);
+    }
+    ArrowSchemaMarkReleased(schema);
+}
+
+static void release_nested_static(struct ArrowSchema* schema) {
+    release_nested_internal(schema, /*is_dynamic=*/0);
+}
+
+static void release_nested_dynamic(struct ArrowSchema* schema) {
+    release_nested_internal(schema, /*is_dynamic=*/1);
+}
+
+static void release_nested_dynamic_toplevel(struct ArrowSchema* schema) {
+    assert(!ArrowSchemaIsReleased(schema));
+    for (int i = 0; i < schema->n_children; ++i) {
+        ArrowSchemaRelease(schema->children[i]);
+        free(schema->children[i]);
+    }
+    free((void*)schema->format);
     if (strlen(schema->name) > 0) {
-        free((void *)schema->name);
+        free((void*)schema->name);
     }
     ArrowSchemaMarkReleased(schema);
 }
@@ -58,21 +79,14 @@ void test_primitive(struct ArrowSchema* schema, const char* fmt) {
     };
 }
 
-void free_nested_schemas(struct ArrowSchema* top) {    
-    for (int i = 0; i < top->n_children; ++i) {
-        free_nested_schemas(top->children[i]);
-    }
-    ArrowSchemaMarkReleased(top);
-    // free(top);
-}
-
-void free_top_schema(struct ArrowSchema** top) {
-    free_nested_schemas(top[0]);
-    free(top);
+// Since test_lists et al. allocate an entirely array of ArrowSchema pointers,
+// need to expose a function to free it.
+void free_malloced_schemas(struct ArrowSchema** schemas) {
+    free(schemas);
 }
 
 struct ArrowSchema** test_lists(const char** fmts, const char** names, const int n) {
-    struct ArrowSchema** schemas = malloc(sizeof(struct ArrowSchema*)*n);    
+    struct ArrowSchema** schemas = malloc(sizeof(struct ArrowSchema*)*n);
     for (int i = 0; i < n; ++i) {
         schemas[i] = malloc(sizeof(struct ArrowSchema));
         *schemas[i] = (struct ArrowSchema) {
@@ -83,7 +97,7 @@ struct ArrowSchema** test_lists(const char** fmts, const char** names, const int
             .children = NULL,
             .n_children = 0,
             .dictionary = NULL,
-            .release = &release_nested,
+            .release = &release_nested_dynamic,
         };
         if (i != 0) {
             schemas[i-1]->n_children = 1;
@@ -105,7 +119,7 @@ struct ArrowSchema** fill_structs(const char** fmts, const char** names, int64_t
             .children = NULL,
             .n_children = 0,
             .dictionary = NULL,
-            .release = &release_nested,
+            .release = &release_nested_dynamic,
         };
     }
 
@@ -151,7 +165,7 @@ struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* fl
             .children = NULL,
             .n_children = 0,
             .dictionary = NULL,
-            .release = &release_nested,
+            .release = &release_nested_dynamic,
         };
     }
 
@@ -181,7 +195,7 @@ static int stream_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) {
         .children = NULL,
         .n_children = 0,
         .dictionary = NULL,
-        .release = &release_nested,
+        .release = &release_nested_static,
     };
 
     out->children[1] = malloc(sizeof(struct ArrowSchema));
@@ -193,11 +207,11 @@ static int stream_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) {
         .children = NULL,
         .n_children = 0,
         .dictionary = NULL,
-        .release = &release_nested,
+        .release = &release_nested_static,
     };
 
     out->format = "+s";
-    out->release = &free_nested_schemas;
+    out->release = &release_nested_static;
 
     return 0;
 }

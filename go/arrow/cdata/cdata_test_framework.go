@@ -43,7 +43,7 @@ package cdata
 // void export_int32_array(const int32_t*, int64_t, struct ArrowArray*);
 // int test1_is_released();
 // void test_primitive(struct ArrowSchema* schema, const char* fmt);
-// void free_top_schema(struct ArrowSchema** top);
+// void free_malloced_schemas(struct ArrowSchema**);
 // struct ArrowSchema** test_lists(const char** fmts, const char** names, const int n);
 // struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* flags, const int n);
@@ -113,8 +113,8 @@ func testPrimitive(fmtstr string) CArrowSchema {
 	return s
 }
 
-func releaseNestedSchemas(top **CArrowSchema) {
-	C.free_top_schema(top)
+func freeMallocedSchemas(schemas **CArrowSchema) {
+	C.free_malloced_schemas(schemas)
 }
 
 func testNested(fmts, names []string) **CArrowSchema {
