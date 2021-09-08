@@ -259,6 +259,16 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
 
 namespace detail {
 
+inline void ResetBufferdValues_(const uint8_t* buffer, const int& byte_offset,
+                                const int& bytes_remaining, uint64_t* buffered_values) {
+  if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
+    memcpy(buffered_values, buffer + byte_offset, 8);
+  } else {
+    memcpy(buffered_values, buffer + byte_offset, bytes_remaining);
+  }
+  *buffered_values = arrow::BitUtil::FromLittleEndian(*buffered_values);
+}
+
 template <typename T>
 inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
                       int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
@@ -276,13 +286,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
     *byte_offset += 8;
     *bit_offset -= 64;
 
-    int bytes_remaining = max_bytes - *byte_offset;
-    if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
-      memcpy(buffered_values, buffer + *byte_offset, 8);
-    } else {
-      memcpy(buffered_values, buffer + *byte_offset, bytes_remaining);
-    }
-    *buffered_values = arrow::BitUtil::FromLittleEndian(*buffered_values);
+    ResetBufferdValues_(buffer, *byte_offset, max_bytes - *byte_offset, buffered_values);
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4800 4805)
@@ -378,13 +382,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     }
   }
 
-  int bytes_remaining = max_bytes - byte_offset;
-  if (bytes_remaining >= 8) {
-    memcpy(&buffered_values, buffer + byte_offset, 8);
-  } else {
-    memcpy(&buffered_values, buffer + byte_offset, bytes_remaining);
-  }
-  buffered_values = arrow::BitUtil::FromLittleEndian(buffered_values);
+  detail::ResetBufferdValues_(buffer, byte_offset, max_bytes - byte_offset,
+                              &buffered_values);
 
   for (; i < batch_size; ++i) {
     detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
@@ -415,15 +414,9 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   *v = arrow::BitUtil::FromLittleEndian(*v);
   byte_offset_ += num_bytes;
 
-  // Reset buffered_values_
   bit_offset_ = 0;
-  int bytes_remaining = max_bytes_ - byte_offset_;
-  if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
-    memcpy(&buffered_values_, buffer_ + byte_offset_, 8);
-  } else {
-    memcpy(&buffered_values_, buffer_ + byte_offset_, bytes_remaining);
-  }
-  buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
+  detail::ResetBufferdValues_(buffer_, byte_offset_, max_bytes_ - byte_offset_,
+                              &buffered_values_);
   return true;
 }
 
@@ -435,14 +428,8 @@ inline bool BitReader::Advance(int64_t num_bits) {
   }
   byte_offset_ += static_cast<int>(bits_required >> 3);
   bit_offset_ = static_cast<int>(bits_required & 7);
-  // Reset buffered_values_
-  int bytes_remaining = max_bytes_ - byte_offset_;
-  if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
-    memcpy(&buffered_values_, buffer_ + byte_offset_, 8);
-  } else {
-    memcpy(&buffered_values_, buffer_ + byte_offset_, bytes_remaining);
-  }
-  buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
+  detail::ResetBufferdValues_(buffer_, byte_offset_, max_bytes_ - byte_offset_,
+                              &buffered_values_);
   return true;
 }
 

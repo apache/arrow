@@ -2268,7 +2268,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     num_valid_values_ = num_length;
   }
 
-  void SetData(int num_values, std::shared_ptr<::arrow::BitUtil::BitReader> decoder) {
+  void SetDecoder(int num_values, std::shared_ptr<::arrow::BitUtil::BitReader> decoder) {
     num_values_ = num_values;
     decoder_ = decoder;
 
@@ -2306,7 +2306,6 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
     for (int i = 0; i < max_values; ++i) {
       buffer[i].ptr = data_ptr;
-      std::string str((char*)buffer[i].ptr, buffer[i].len);
       data_ptr += buffer[i].len;
     }
     this->num_values_ -= max_values;
@@ -2363,7 +2362,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     prefix_len_offset_ = 0;
     num_valid_values_ = num_prefix;
 
-    suffix_decoder_.SetData(num_values, decoder_);
+    suffix_decoder_.SetDecoder(num_values, decoder_);
     // TODO: read corrupted files written with bug(PARQUET-246). last_value_ should be set
     // to last_value_in_previous_page_ when decoding a new page(except the first page)
     last_value_ = ByteArray(0, nullptr);

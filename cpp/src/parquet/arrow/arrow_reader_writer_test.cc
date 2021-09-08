@@ -4193,11 +4193,11 @@ TEST(TestArrowReadDeltaEncoding, DeltaByteArray) {
   ASSERT_OK(
       FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), &parquet_reader));
   ASSERT_OK(parquet_reader->ReadTable(&parquet_table));
-  ASSERT_OK_AND_ASSIGN(auto actural_table, parquet_table->CombineChunks());
+  ASSERT_OK(parquet_table->ValidateFull());
 
   ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(expect_file));
   auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
-  std::array<std::string, 12> column_names = {
+  std::vector<std::string> column_names = {
       "c_customer_id", "c_salutation",          "c_first_name",
       "c_last_name",   "c_preferred_cust_flag", "c_birth_country",
       "c_login",       "c_email_address",       "c_last_review_date"};
@@ -4211,9 +4211,8 @@ TEST(TestArrowReadDeltaEncoding, DeltaByteArray) {
                            ::arrow::csv::ReadOptions::Defaults(),
                            ::arrow::csv::ParseOptions::Defaults(), convert_options));
   ASSERT_OK_AND_ASSIGN(auto csv_table, csv_reader->Read());
-  ASSERT_OK_AND_ASSIGN(auto expect_table, csv_table->CombineChunks());
 
-  ::arrow::AssertTablesEqual(*actural_table, *expect_table);
+  ::arrow::AssertTablesEqual(*parquet_table, *csv_table, false);
 }
 
 #else
