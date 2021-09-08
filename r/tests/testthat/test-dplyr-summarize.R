@@ -356,11 +356,22 @@ test_that("Expressions on aggregations", {
     tbl
   )
   # More concisely:
-  withr::local_options(list(arrow.debug = TRUE))
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl) & !all(lgl)) %>%
+      collect(),
+    tbl
+  )
+
+  # Save one of the aggregates first
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        any_lgl = any(lgl),
+        some = any_lgl & !all(lgl)
+      ) %>%
       collect(),
     tbl
   )
@@ -373,5 +384,50 @@ test_that("Summarize with 0 arguments", {
       summarize() %>%
       collect(),
     tbl
+  )
+})
+
+test_that("Not (yet) supported: implicit join", {
+  withr::local_options(list(arrow.debug = TRUE))
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        sum((dbl - mean(dbl))^2)
+      ) %>%
+      collect(),
+    tbl,
+    warning = "Expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        sqrt(sum((dbl - mean(dbl))^2) / (n() - 1L))
+      ) %>%
+      collect(),
+    tbl,
+    warning = "Expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        dbl - mean(dbl)
+      ) %>%
+      collect(),
+    tbl,
+    warning = "Expression dbl - mean\\(dbl\\) not supported in Arrow; pulling data into R"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        dbl - int
+      ) %>%
+      collect(),
+    tbl,
+    warning = "Expression dbl - int not supported in Arrow; pulling data into R"
   )
 })

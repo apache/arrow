@@ -27,7 +27,7 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
     unlist(lapply(exprs, all.vars)), # vars referenced in summarise
     dplyr::group_vars(.data) # vars needed for grouping
   ))
-  .data <- dplyr::select(.data, vars_to_keep)
+  .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
   if (match.arg(.engine) == "duckdb") {
     dplyr::summarise(to_duckdb(.data), ...)
   } else {
@@ -132,7 +132,7 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
   if (outer_agg) {
     # This just works by normal arrow_eval, unless there's a mix of aggs and
     # columns in the original data like agg(fun(x, agg(x)))
-    # TODO if this errors, check whether all/any inner_agg_exprs
+    # (but that will have been caught in extract_aggregations())
     ctx$results[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
     return()
   } else if (all(inner_agg_exprs)) {
@@ -142,12 +142,20 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
     ctx$post_mutate[[name]] <- arrow_eval_or_stop(as_quosure(expr, ctx$quo_env), mutate_mask)
     return()
   }
-  # TODO: Handle some known cases
-
-  stop(handle_arrow_not_supported(expr, as_label(expr)), call. = FALSE)
+  # !outer_agg && !all(inner_agg_exprs)
+  # This is fun(x, agg(y)), which really should be in mutate()
+  # but summarize() allows it. (See also below in extract_aggregations)
+  # TODO: support in ARROW-13926
+  # (This could also be fun(x, y), which would work in mutate() already
+  # if it were the only expression)
+  # TODO: this message should probably also say "not supported in summarize()"
+  # since some of these expressions may be legal elsewhere
+  stop(handle_arrow_not_supported(quo_get_expr(quosure), as_label(quo_get_expr(quosure))), call. = FALSE)
 }
 
 extract_aggregations <- function(expr, ctx) {
+  # Keep the input in case we need to raise an error message with it
+  original_expr <- expr
   funs <- all_funs(expr)
   if (length(funs) == 0) {
     return(expr)
@@ -156,6 +164,15 @@ extract_aggregations <- function(expr, ctx) {
     expr[-1] <- lapply(expr[-1], extract_aggregations, ctx)
   }
   if (funs[1] %in% names(agg_funcs)) {
+    inner_agg_exprs <- all_vars(expr) %in% names(ctx$results)
+    if (any(inner_agg_exprs) & !all(inner_agg_exprs)) {
+      # We can't aggregate over a combination of dataset columns and other
+      # aggregations (e.g. sum(x - mean(x)))
+      # TODO: Add "because" arg to explain _why_ it's not supported?
+      # TODO: support in ARROW-13926
+      stop(handle_arrow_not_supported(original_expr, as_label(original_expr)), call. = FALSE)
+    }
+
     tmpname <- paste0("..temp", length(ctx$results))
     ctx$results[[tmpname]] <- arrow_eval_or_stop(as_quosure(expr, ctx$quo_env), ctx$mask)
     expr <- as.symbol(tmpname)
