@@ -37,6 +37,9 @@ test_that("Schema metadata", {
   )
 })
 
+print("six")
+
+
 test_that("Table metadata", {
   tab <- Table$create(x = 1:2, y = c("a", "b"))
   expect_equal(tab$metadata, empty_named_list())
@@ -49,6 +52,8 @@ test_that("Table metadata", {
   tab$metadata <- NULL
   expect_equal(tab$metadata, empty_named_list())
 })
+
+print("five")
 
 test_that("Table R metadata", {
   tab <- Table$create(example_with_metadata)
@@ -96,6 +101,8 @@ test_that("Garbage R metadata doesn't break things", {
     fixed = TRUE
   )
 })
+
+print("four")
 
 test_that("Metadata serialization compression", {
   # attributes that (when serialized) are just under 100kb are not compressed,
@@ -180,6 +187,8 @@ test_that("haven types roundtrip via feather", {
   expect_identical(read_feather(tf), haven_data)
 })
 
+print("three")
+
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
   expect_r6_class(rb$schema$posixlt$type, "StructType")
@@ -193,6 +202,7 @@ test_that("metadata keeps attribute of top level data frame", {
   expect_identical(as.data.frame(tab), df)
 })
 
+print("two")
 
 test_that("metadata drops readr's problems attribute", {
   readr_like <- tibble::tibble(
@@ -221,6 +231,7 @@ test_that("metadata of list elements (ARROW-10386)", {
   expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
 })
 
+print("one")
 
 test_that("metadata of list elements (ARROW-10386)", {
   skip_if_not_available("dataset")

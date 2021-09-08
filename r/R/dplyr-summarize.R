@@ -18,7 +18,7 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb")) {
+summarise.arrow_dplyr_query <- function(.data, ...) {
   call <- match.call()
   .data <- as_adq(.data)
   exprs <- quos(...)
@@ -35,16 +35,13 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
   # because it will effectively project to keep what it needs anyway,
   # but the duckdb and data.frame fallback versions do benefit from select here
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
-  if (match.arg(.engine) == "duckdb") {
-    dplyr::summarise(to_duckdb(.data), ...)
+
+  # Try stuff, if successful return()
+  out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
+  if (inherits(out, "try-error")) {
+    return(abandon_ship(call, .data, format(out)))
   } else {
-    # Try stuff, if successful return()
-    out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
-    if (inherits(out, "try-error")) {
-      return(abandon_ship(call, .data, format(out)))
-    } else {
-      return(out)
-    }
+    return(out)
   }
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
