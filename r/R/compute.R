@@ -120,7 +120,7 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
-scalar_aggregate <- function(FUN, ..., na.rm = FALSE, min_count = 0) {
+scalar_aggregate <- function(FUN, ..., na.rm = FALSE, min_count = 0L) {
   a <- collect_arrays_from_dots(list(...))
   if (FUN == "min_max" && na.rm && a$null_count == length(a)) {
     Array$create(data.frame(min = Inf, max = -Inf))
