@@ -1130,6 +1130,40 @@ class SortOptions(_SortOptions):
         self._set_options(sort_keys)
 
 
+cdef class _SelectKOptions(FunctionOptions):
+    def _set_options(self, k, sort_keys, kind):
+        cdef:
+            c_string c_name
+            vector[CSortKey] c_sort_keys
+            CSelectKAlgorithm c_kind
+            CSortOrder c_order
+
+        if kind == "non_stable_select":
+            c_kind = CSelectKAlgorithm_NonStableSelect
+        elif kind == "stable_select":
+            c_kind = CSelectKAlgorithm_StableSelect
+        for name, order in sort_keys:
+            if order == "ascending":
+                c_order = CSortOrder_Ascending
+            elif order == "descending":
+                c_order = CSortOrder_Descending
+            else:
+                raise ValueError(
+                    "{!r} is not a valid order".format(order)
+                )
+            c_name = tobytes(name)
+            c_sort_keys.push_back(CSortKey(c_name, c_order))
+
+        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys, c_kind))
+
+
+class SelectKOptions(_SelectKOptions):
+    def __init__(self, k, keys=None, kind='non_stable_select'):
+        if keys is None:
+            keys = []
+        self._set_options(k, keys, kind)
+
+
 cdef class _TopKOptions(FunctionOptions):
     def _set_options(self, k, keys, kind):
         cdef:
@@ -1148,6 +1182,30 @@ cdef class _TopKOptions(FunctionOptions):
 
 
 class TopKOptions(_TopKOptions):
+    def __init__(self, k, keys=None, kind='non_stable_select'):
+        if keys is None:
+            keys = []
+        self._set_options(k, keys, kind)
+
+
+cdef class _BottomKOptions(FunctionOptions):
+    def _set_options(self, k, keys, kind):
+        cdef:
+            c_string c_name
+            vector[c_string] c_keys
+            CSelectKAlgorithm c_kind
+
+        if kind == "non_stable_select":
+            c_kind = CSelectKAlgorithm_NonStableSelect
+        elif kind == "stable_select":
+            c_kind = CSelectKAlgorithm_StableSelect
+        for name in keys:
+            c_name = tobytes(name)
+            c_keys.push_back(c_name)
+        self.wrapped.reset(new CBottomKOptions(k, c_keys, c_kind))
+
+
+class BottomKOptions(_BottomKOptions):
     def __init__(self, k, keys=None, kind='non_stable_select'):
         if keys is None:
             keys = []
