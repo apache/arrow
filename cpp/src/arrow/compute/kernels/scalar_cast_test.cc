@@ -1473,13 +1473,13 @@ TEST(Cast, StringToInt) {
 
     for (auto unsigned_type : {uint8(), uint16(), uint32(), uint64()}) {
       CheckCast(ArrayFromJSON(string_type,
-                              R"(["0", null, "127", "255", "0", "0X0", "0xff", "0x7f])"),
+                              R"(["0", null, "127", "255", "0", "0X0", "0xff", "0x7f"])"),
                 ArrayFromJSON(unsigned_type, "[0, null, 127, 255, 0, 0, 255, 127]"));
     }
 
     CheckCast(
         ArrayFromJSON(string_type, R"(["2147483647", null, "4294967295", "0", 
-                                    "0x0", "0x7FFFFFf", "0xFFFFFFFF"])"),
+                                    "0x0", "0x7FFFFFFf", "0xFFFFFFFF"])"),
         ArrayFromJSON(uint32(),
                       "[2147483647, null, 4294967295, 0, 0, 2147483647, 4294967295]"));
 
