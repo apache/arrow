@@ -88,6 +88,23 @@ class ThreadIndexer {
   std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
 
+void AggregatesToString(
+    std::stringstream* ss, const Schema& input_schema,
+    const std::vector<internal::Aggregate>& aggs,
+    const std::vector<int>& target_field_ids,
+    const std::vector<std::unique_ptr<FunctionOptions>>& owned_options) {
+  *ss << "aggregates=[" << std::endl;
+  for (size_t i = 0; i < aggs.size(); i++) {
+    *ss << '\t' << aggs[i].function << '('
+        << input_schema.field(target_field_ids[i])->name();
+    if (owned_options[i]) {
+      *ss << ", " << owned_options[i]->ToString();
+    }
+    *ss << ")," << std::endl;
+  }
+  *ss << ']';
+}
+
 class ScalarAggregateNode : public ExecNode {
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -240,16 +257,7 @@ class ScalarAggregateNode : public ExecNode {
   std::string ToStringExtra() const override {
     std::stringstream ss;
     const auto input_schema = inputs_[0]->output_schema();
-    ss << "aggregates=[" << std::endl;
-    for (size_t i = 0; i < aggs_.size(); i++) {
-      ss << '\t' << aggs_[i].function << '('
-         << input_schema->field(target_field_ids_[i])->name();
-      if (owned_options_[i]) {
-        ss << ", " << owned_options_[i]->ToString();
-      }
-      ss << ")," << std::endl;
-    }
-    ss << ']';
+    AggregatesToString(&ss, *input_schema, aggs_, target_field_ids_, owned_options_);
     return ss.str();
   }
 
@@ -566,16 +574,8 @@ class GroupByNode : public ExecNode {
       if (i > 0) ss << ", ";
       ss << '"' << input_schema->field(key_field_ids_[i])->name() << '"';
     }
-    ss << "], aggregates=[" << std::endl;
-    for (size_t i = 0; i < aggs_.size(); i++) {
-      ss << '\t' << aggs_[i].function << '('
-         << input_schema->field(agg_src_field_ids_[i])->name();
-      if (owned_options_[i]) {
-        ss << ", " << owned_options_[i]->ToString();
-      }
-      ss << ")," << std::endl;
-    }
-    ss << ']';
+    ss << "], ";
+    AggregatesToString(&ss, *input_schema, aggs_, agg_src_field_ids_, owned_options_);
     return ss.str();
   }
 
