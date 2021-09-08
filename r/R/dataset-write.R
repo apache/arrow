@@ -76,6 +76,7 @@
 #' # You can obtain the same result as as the previous examples using arrow with
 #' # a dplyr pipeline. This will be the same as two_levels_tree above, but the
 #' # output directory will be different.
+#' library(dplyr)
 #' two_levels_tree_2 <- tempfile()
 #' mtcars %>%
 #'   group_by(cyl, gear) %>%
