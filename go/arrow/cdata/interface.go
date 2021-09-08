@@ -35,8 +35,8 @@ func ImportCArrowField(out *CArrowSchema) (arrow.Field, error) {
 
 // ImportCArrowSchema takes in the ArrowSchema from the C Data Interface, it
 // will copy the metadata and schema definitions over from the C object rather
-// than keep direct references to them. It is safe to call C.ArrowSchemaRelease
-// after receiving the schema from this function.
+// than keep direct references to them. This function will call ArrowSchemaRelease
+// on the passed in schema regardless of whether or not there is an error returned.
 //
 // This version is intended to take in a schema for a record batch, which means
 // that the top level of the schema should be a struct of the schema fields. If
@@ -73,7 +73,8 @@ func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (array.Interface,
 
 // ImportCArray takes a pointer to both a C Data ArrowArray and C Data ArrowSchema in order
 // to import them into usable Go Objects. If err is not nil, then ArrowArrayRelease must still
-// be called on arr to release the memory.
+// be called on arr to release the memory. The ArrowSchemaRelease will be called on the passed in
+// schema regardless of whether there is an error or not.
 //
 // The Schema will be copied with the information used to populate the returned Field, complete
 // with metadata. The array will reference the same memory that is referred to by the ArrowArray
