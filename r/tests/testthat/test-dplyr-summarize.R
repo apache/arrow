@@ -162,7 +162,6 @@ test_that("Group by var on dataset", {
 })
 
 test_that("n()", {
-  withr::local_options(list(arrow.debug = TRUE))
   expect_dplyr_equal(
     input %>%
       summarize(counts = n()) %>%
@@ -350,7 +349,6 @@ test_that("Expressions on aggregations", {
         any = any(lgl),
         all = all(lgl)
       ) %>%
-      compute() %>%
       ungroup() %>% # TODO: loosen the restriction on mutate after group_by
       mutate(some = any & !all) %>%
       select(some_grouping, some) %>%
@@ -358,7 +356,7 @@ test_that("Expressions on aggregations", {
     tbl
   )
   # More concisely:
-  skip("TODO: ARROW-13778")
+  withr::local_options(list(arrow.debug = TRUE))
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%

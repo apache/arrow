@@ -49,26 +49,38 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   }
   exprs <- ensure_named_exprs(quos(...))
 
-  mask <- arrow_mask(.data, aggregation = TRUE)
-
-  results <- empty_named_list()
+  # Create a stateful environment for recording our evaluated expressions
+  # It's more complex than other places because a single summarize() expr
+  # may result in multiple query nodes (Aggregate, Project)
+  ctx <- env(
+    mask = arrow_mask(.data, aggregation = TRUE),
+    results = empty_named_list(),
+    post_mutate = empty_named_list()
+  )
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
-    new_var <- names(exprs)[i]
-    results[[new_var]] <- arrow_eval(exprs[[i]], mask)
-    if (inherits(results[[new_var]], "try-error")) {
-      msg <- handle_arrow_not_supported(
-        results[[new_var]],
-        as_label(exprs[[i]])
-      )
-      stop(msg, call. = FALSE)
-    }
+    summarize_eval(names(exprs)[i], exprs[[i]], ctx)
   }
 
-  .data$aggregations <- results
-  # TODO: should in-memory query evaluate eagerly?
-  collapse.arrow_dplyr_query(.data)
+  .data$aggregations <- ctx$results
+  out <- collapse.arrow_dplyr_query(.data)
+  if (length(ctx$post_mutate)) {
+    # mutate()
+    # TODO: get order of columns correct
+    out$selected_columns <- c(out$selected_columns[-grep("^\\.\\.temp", names(out$selected_columns))], ctx$post_mutate)
+  }
+  out
+}
+
+arrow_eval_or_stop <- function(expr, mask) {
+  # TODO: change arrow_eval error handling behavior?
+  out <- arrow_eval(expr, mask)
+  if (inherits(out, "try-error")) {
+    msg <- handle_arrow_not_supported(out, as_label(expr))
+    stop(msg, call. = FALSE)
+  }
+  out
 }
 
 summarize_projection <- function(.data) {
@@ -80,4 +92,73 @@ summarize_projection <- function(.data) {
 
 format_aggregation <- function(x) {
   paste0(x$fun, "(", x$data$ToString(), ")")
+}
+
+# Cases:
+# * agg(fun(x, y)): OK
+# * fun(agg(x), agg(y)): TODO now: pull out aggregates, insert fieldref, then mutate
+# * z = agg(x); fun(z, agg(y)): TODO now
+# * agg(fun(agg(x), agg(y))): TODO now too? is this meaningful? (dplyr doesn't error on it)
+# * fun(agg(x), y): Later (implicit join; seems to be equivalent to doing it in mutate)
+# * z = agg(x); fun(z, y): Later (same, implicit join)
+
+# find aggregation subcomponents
+# eval, insert fieldref; give "..temp" prefix to name
+# record fieldrefs in list and in mask
+#
+
+summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
+  expr <- quo_get_expr(quosure)
+  ctx$quo_env <- rlang::quo_get_env(quosure)
+  funs_in_expr <- all_funs(expr)
+
+  if (length(funs_in_expr) == 0) {
+    # Skip if it is a scalar or field ref
+    ctx$results[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
+    return()
+  }
+
+  agg_funs <- names(agg_funcs)
+  outer_agg <- funs_in_expr[1] %in% agg_funs
+  inner_agg <- funs_in_expr[-1] %in% agg_funs
+
+  # First, pull out any aggregations wrapped in other function calls
+  if (any(inner_agg)) {
+    expr <- extract_aggregations(expr, ctx)
+  }
+
+  inner_agg_exprs <- all_vars(expr) %in% names(ctx$results)
+
+  if (outer_agg) {
+    # This just works by normal arrow_eval, unless there's a mix of aggs and
+    # columns in the original data like agg(fun(x, agg(x)))
+    # TODO if this errors, check whether all/any inner_agg_exprs
+    ctx$results[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
+    return()
+  } else if (all(inner_agg_exprs)) {
+    # fun(agg(x), ...)
+    # So based on the aggregations that have been extracted, mutate after
+    mutate_mask <- arrow_mask(list(selected_columns = make_field_refs(names(ctx$results))))
+    ctx$post_mutate[[name]] <- arrow_eval_or_stop(rlang::as_quosure(expr, ctx$quo_env), mutate_mask)
+    return()
+  }
+  # TODO: Handle some known cases
+
+  stop(handle_arrow_not_supported(expr, as_label(expr)), call. = FALSE)
+}
+
+extract_aggregations <- function(expr, ctx) {
+  funs <- all_funs(expr)
+  if (length(funs) == 0) {
+    return(expr)
+  } else if (length(funs) > 1) {
+    # Recurse more
+    expr[-1] <- lapply(expr[-1], extract_aggregations, ctx)
+  }
+  if (funs[1] %in% names(agg_funcs)) {
+    tmpname <- paste0("..temp", length(ctx$results))
+    ctx$results[[tmpname]] <- arrow_eval_or_stop(rlang::as_quosure(expr, ctx$quo_env), ctx$mask)
+    expr <- as.symbol(tmpname)
+  }
+  expr
 }
