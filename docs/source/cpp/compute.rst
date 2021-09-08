@@ -1367,6 +1367,18 @@ value, but smaller than nulls.
 +-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
 | sort_indices          | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`SortOptions`          | \(2) \(5)      |
 +-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
+| top_k                 | Unary      | Binary- and String-like     | UInt64            | :struct:`TopKOptions`          | \(2) \(5) \(6) |
++-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
+| top_k                 | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`TopKOptions`          | \(2) \(5)      |
++-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
+| bottom_k              | Unary      | Binary- and String-like     | UInt64            | :struct:`TopKOptions`          | \(2) \(5) \(6) |
++-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
+| bottom_k              | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`TopKOptions`          | \(2) \(5)      |
++-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
+| select_k              | Unary      | Binary- and String-like     | UInt64            | :struct:`TopKOptions`          | \(2) \(5) \(6) |
++-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
+| select_k              | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`TopKOptions`          | \(2) \(5)      |
++-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
 
 * \(1) The output is an array of indices into the input array, that define
   a partial non-stable sort such that the *N*'th index points to the *N*'th
@@ -1386,6 +1398,9 @@ value, but smaller than nulls.
 * \(5) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
+
+* \(6) The output is an array of indices into the input, that define a
+  non-stable sort of the input.
 
 .. _cpp-compute-vector-structural-transforms:
 

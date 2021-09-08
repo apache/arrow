@@ -2058,6 +2058,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSortOptions(vector[CSortKey] sort_keys)
         vector[CSortKey] sort_keys
 
+    cdef enum CSelectKAlgorithm" arrow::compute::SelectKAlgorithm":
+        CSelectKAlgorithm_NonStableSelect \
+            "arrow::compute::SelectKAlgorithm::NonStableSelect"
+        CSelectKAlgorithm_StableSelect \
+            "arrow::compute::SelectKAlgorithm::StableSelect"
+
+    cdef cppclass CTopKOptions \
+            "arrow::compute::TopKOptions"(CFunctionOptions):
+        CTopKOptions(int64_t k, vector[c_string] keys, CSelectKAlgorithm kind)
+        int64_t k
+        vector[c_string] keys
+        CSelectKAlgorithm kind
+
     enum CQuantileInterp \
             "arrow::compute::QuantileOptions::Interpolation":
         CQuantileInterp_LINEAR   "arrow::compute::QuantileOptions::LINEAR"

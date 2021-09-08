@@ -203,6 +203,8 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kTopKOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kBottomKOptionsType));
 }
 }  // namespace internal
 

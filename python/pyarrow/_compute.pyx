@@ -1130,6 +1130,30 @@ class SortOptions(_SortOptions):
         self._set_options(sort_keys)
 
 
+cdef class _TopKOptions(FunctionOptions):
+    def _set_options(self, k, keys, kind):
+        cdef:
+            c_string c_name
+            vector[c_string] c_keys
+            CSelectKAlgorithm c_kind
+
+        if kind == "non_stable_select":
+            c_kind = CSelectKAlgorithm_NonStableSelect
+        elif kind == "stable_select":
+            c_kind = CSelectKAlgorithm_StableSelect
+        for name in keys:
+            c_name = tobytes(name)
+            c_keys.push_back(c_name)
+        self.wrapped.reset(new CTopKOptions(k, c_keys, c_kind))
+
+
+class TopKOptions(_TopKOptions):
+    def __init__(self, k, keys=None, kind='non_stable_select'):
+        if keys is None:
+            keys = []
+        self._set_options(k, keys, kind)
+
+
 cdef class _QuantileOptions(FunctionOptions):
     def _set_options(self, quantiles, interp, skip_nulls, min_count):
         interp_dict = {

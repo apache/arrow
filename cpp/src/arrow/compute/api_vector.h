@@ -132,8 +132,8 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
 
   constexpr static char const kTypeName[] = "SelectKOptions";
 
-  static SelectKOptions Defaults(int64_t k = -1) {
-    return SelectKOptions{k, {}, SelectKAlgorithm::NonStableSelect};
+  static SelectKOptions Defaults() {
+    return SelectKOptions{-1, {}, SelectKAlgorithm::NonStableSelect};
   }
   bool is_top_k() const;
 
@@ -155,8 +155,8 @@ class ARROW_EXPORT TopKOptions : public FunctionOptions {
 
   constexpr static char const kTypeName[] = "TopKOptions";
 
-  static TopKOptions Defaults(int64_t k, std::vector<std::string> keys) {
-    return TopKOptions{k, keys, SelectKAlgorithm::NonStableSelect};
+  static TopKOptions Defaults() {
+    return TopKOptions{-1, {}, SelectKAlgorithm::NonStableSelect};
   }
   SortOrder order() const { return SortOrder::Descending; }
 
@@ -176,8 +176,8 @@ class ARROW_EXPORT BottomKOptions : public FunctionOptions {
 
   constexpr static char const kTypeName[] = "BottomKOptions";
 
-  static BottomKOptions Defaults(int64_t k, std::vector<std::string> keys) {
-    return BottomKOptions{k, keys, SelectKAlgorithm::NonStableSelect};
+  static BottomKOptions Defaults() {
+    return BottomKOptions{-1, {}, SelectKAlgorithm::NonStableSelect};
   }
   SortOrder order() const { return SortOrder::Ascending; }
 

@@ -1802,11 +1802,20 @@ class SortIndicesMetaFunction : public MetaFunction {
 // ----------------------------------------------------------------------
 // TopK/BottomK implementations
 
-using SelectKOptionsState = internal::OptionsWrapper<SelectKOptions>;
-
 const auto kDefaultSelectKOptions = SelectKOptions::Defaults();
-const auto kDefaultTopKOptions = SelectKOptions::Defaults();
-const auto kDefaultBottomKOptions = SelectKOptions::Defaults();
+const auto kDefaultTopKOptions = TopKOptions::Defaults();
+const auto kDefaultBottomKOptions = BottomKOptions::Defaults();
+
+const FunctionDoc select_k_doc(
+    "Returns the first k elements ordered by `options.keys`",
+    ("This function computes the k elements of the input\n"
+     "array, record batch or table specified in the column names (`options.sort_keys`).\n"
+     "The columns that are not specified are returned as well, but not used for\n"
+     "ordering. Null values are considered  greater than any other value and are\n"
+     "therefore sorted at the end of the array.\n"
+     "For floating-point types, NaNs are considered greater than any\n"
+     "other non-null value, but smaller than null values."),
+    {"input"}, "SelectKOptions");
 
 const FunctionDoc top_k_doc(
     "Returns the first k elements ordered by `options.keys` in ascending order",
@@ -1817,7 +1826,7 @@ const FunctionDoc top_k_doc(
      "at the end of the array.\n"
      "For floating-point types, NaNs are considered greater than any\n"
      "other non-null value, but smaller than null values."),
-    {"input"}, "SelectKOptions");
+    {"input"}, "TopKOptions");
 
 const FunctionDoc bottom_k_doc(
     "Returns the first k elements ordered by `options.keys` in descending order",
@@ -1828,7 +1837,7 @@ const FunctionDoc bottom_k_doc(
      "at the end of the array.\n"
      "For floating-point types, NaNs are considered greater than any\n"
      "other non-null value, but smaller than null values."),
-    {"input"}, "SelectKOptions");
+    {"input"}, "BottomKOptions");
 
 Result<std::shared_ptr<ArrayData>> MakeMutableArrayForNumericBasedType(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
@@ -2438,7 +2447,8 @@ class SelectKthMetaFunction {
 class SelectKMetaFunction : public MetaFunction {
  public:
   SelectKMetaFunction()
-      : MetaFunction("select_k", Arity::Unary(), &top_k_doc, &kDefaultSelectKOptions) {}
+      : MetaFunction("select_k", Arity::Unary(), &select_k_doc, &kDefaultSelectKOptions) {
+  }
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
