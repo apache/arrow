@@ -23,10 +23,6 @@ ENV DEBIAN_FRONTEND noninteractive
 # install libarrow-dev and libarrow-python-dev so we can use pyarrow to 
 # test C Data Interface consumption
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends ca-certificates lsb-release wget && \
-    wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
-    apt-get install -y -q --no-install-recommends ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
-    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         python3 \
         python3-pip && \
