@@ -2471,8 +2471,10 @@ class TopKMetaFunction : public MetaFunction {
 
     std::vector<SortKey> sort_keys;
     for (const auto& name : opts.keys)
-      sort_keys.emplace_back(SortKey(name, opts.order()));
-
+      sort_keys.emplace_back(SortKey(name, TopKOptions::order()));
+    if (args[0].kind() == Datum::ARRAY || args[0].kind() == Datum::CHUNKED_ARRAY) {
+      sort_keys.emplace_back(SortKey("not-used", TopKOptions::order()));
+    }
     SelectKOptions select_k_options(opts.k, sort_keys, opts.kind);
     return impl.ExecuteImpl(args, &select_k_options, ctx);
   }
@@ -2491,8 +2493,10 @@ class BottomKMetaFunction : public MetaFunction {
 
     std::vector<SortKey> sort_keys;
     for (const auto& name : opts.keys)
-      sort_keys.emplace_back(SortKey(name, opts.order()));
-
+      sort_keys.emplace_back(SortKey(name, BottomKOptions::order()));
+    if (args[0].kind() == Datum::ARRAY || args[0].kind() == Datum::CHUNKED_ARRAY) {
+      sort_keys.emplace_back(SortKey("not-used", BottomKOptions::order()));
+    }
     SelectKOptions select_k_options(opts.k, sort_keys, opts.kind);
     return impl.ExecuteImpl(args, &select_k_options, ctx);
   }

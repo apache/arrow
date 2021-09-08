@@ -767,8 +767,8 @@ TEST_F(TestBottomKWithTable, MultipleColumnKeys) {
 
   auto options = BottomKOptions(3, {"a", "b"});
 
-  std::vector<std::string> expected = {R"([{"a": 1,    "b": 5},
-                                     {"a": 1,    "b": 3},
+  std::vector<std::string> expected = {R"([{"a": 1,    "b": 3},
+                                     {"a": 1,    "b": 5},
                                      {"a": 2,    "b": 5}
                                     ])"};
   Check(schema, input, options, expected);

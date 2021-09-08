@@ -158,7 +158,7 @@ class ARROW_EXPORT TopKOptions : public FunctionOptions {
   static TopKOptions Defaults() {
     return TopKOptions{-1, {}, SelectKAlgorithm::NonStableSelect};
   }
-  SortOrder order() const { return SortOrder::Descending; }
+  static SortOrder order() { return SortOrder::Descending; }
 
   /// The number of `k` elements to keep.
   int64_t k;
@@ -179,7 +179,7 @@ class ARROW_EXPORT BottomKOptions : public FunctionOptions {
   static BottomKOptions Defaults() {
     return BottomKOptions{-1, {}, SelectKAlgorithm::NonStableSelect};
   }
-  SortOrder order() const { return SortOrder::Ascending; }
+  static SortOrder order() { return SortOrder::Ascending; }
 
   /// The number of `k` elements to keep.
   int64_t k;

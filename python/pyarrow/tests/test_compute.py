@@ -1780,6 +1780,62 @@ def test_partition_nth():
                for i in range(pivot, len(data)))
 
 
+def test_select_k_array():
+    def validate_select_k(select_k_indices, arr, order, stable_sort = False):
+        sorted_indices = pc.sort_indices(arr, sort_keys=[("dummy", order)])
+        head_k_indices = sorted_indices.slice(0, len(select_k_indices))
+        if stable_sort:
+            assert select_k_indices == head_k_indices
+        else:
+            expected = pc.take(arr, head_k_indices)
+            actual = pc.take(arr, select_k_indices)
+            assert actual == expected
+
+    arr = pa.array([1, 2, None, 0])
+    for select_k, order in [(pc.top_k, "descending"), (pc.bottom_k, "ascending")]:
+        for k in [0, 2, 4]:
+            result = select_k(arr, k=k)
+            validate_select_k(result, arr, order)
+            
+            result = select_k(arr, k=k, keys=["dummy"])
+            validate_select_k(result, arr, order)
+
+    result = pc.top_k(arr, options=pc.TopKOptions(k=2, keys=["dummy"]))
+    validate_select_k(result, arr, "descending")
+
+    result = pc.bottom_k(arr, options=pc.BottomKOptions(k=2, keys=["dummy"]))
+    validate_select_k(result, arr, "ascending")
+
+
+def test_select_k_table():
+    table = pa.table({"a": [1, 2, 0], "b": [1, 0, 1]})
+
+    def validate_select_k(select_k_indices, table, sort_keys, stable_sort = False):
+        sorted_indices = pc.sort_indices(table, sort_keys=sort_keys)
+        head_k_indices = sorted_indices.slice(0, len(select_k_indices))
+        if stable_sort:
+            assert select_k_indices == head_k_indices
+        else:
+            expected = pc.take(table, head_k_indices)
+            actual = pc.take(table, select_k_indices)
+            assert actual == expected
+
+    for k in [0, 2, 4]:
+        result = pc.select_k(table, k=k, sort_keys=[("a", "ascending")])
+        validate_select_k(result, table, sort_keys=[("a", "ascending")])
+
+        result = pc.select_k(
+            table, k=k, sort_keys=[("a", "ascending"), ("b", "ascending")]
+        )
+        validate_select_k(result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
+
+        with pytest.raises(ValueError, match="TopK/BottomK requires a valid `k` parameter"):
+            pc.select_k(table)
+
+        with pytest.raises(ValueError, match="not a valid order"):
+            pc.select_k(table, k=k, sort_keys=[("a", "nonscending")])
+
+
 def test_array_sort_indices():
     arr = pa.array([1, 2, None, 0])
     result = pc.array_sort_indices(arr)

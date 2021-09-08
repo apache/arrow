@@ -1158,10 +1158,10 @@ cdef class _SelectKOptions(FunctionOptions):
 
 
 class SelectKOptions(_SelectKOptions):
-    def __init__(self, k, keys=None, kind='non_stable_select'):
-        if keys is None:
-            keys = []
-        self._set_options(k, keys, kind)
+    def __init__(self, k, sort_keys=None, kind='non_stable_select'):
+        if sort_keys is None:
+            sort_keys = []
+        self._set_options(k, sort_keys, kind)
 
 
 cdef class _TopKOptions(FunctionOptions):
