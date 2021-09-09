@@ -40,11 +40,6 @@ from pyarrow._parquet cimport (
     FileMetaData, RowGroupMetaData, ColumnChunkMetaData
 )
 
-try:
-    from pyarrow._dataset_orc import OrcFileFormat
-except ImportError:
-    OrcFileFormat = None
-
 
 def _forbid_instantiation(klass, subclasses_instead=True):
     msg = '{} is an abstract class thus cannot be initialized.'.format(
@@ -56,6 +51,26 @@ def _forbid_instantiation(klass, subclasses_instead=True):
             ', '.join(subclasses)
         )
     raise TypeError(msg)
+
+
+_orc_fileformat = None
+_orc_imported = False
+
+
+def _get_orc_filesystem():
+    """
+    Import OrcFileSystem on first usage (to avoid circular import issue
+    when `pyarrow._dataset_orc` would be imported first)
+    """
+    global _orc_fileformat
+    global _orc_imported
+    if not _orc_imported:
+        try:
+            from pyarrow._dataset_orc import OrcFileFormat
+            _orc_fileformat = OrcFileFormat
+        except ImportError as e:
+            _orc_fileformat = None
+    return _orc_fileformat
 
 
 cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
@@ -842,7 +857,7 @@ cdef class FileFormat(_Weakrefable):
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
             'parquet': ParquetFileFormat,
-            'orc': OrcFileFormat,
+            'orc': _get_orc_filesystem(),
         }
 
         class_ = classes.get(type_name, None)
