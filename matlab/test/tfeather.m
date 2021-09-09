@@ -24,14 +24,12 @@ classdef tfeather < matlab.unittest.TestCase
             testCase.applyFixture(PathFixture('util'));
             % Add featherread and featherwrite to the MATLAB path.
             testCase.applyFixture(PathFixture(fullfile('..', 'src')));
-            % featherreadmex must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('featherreadmex')), ...
-                '''featherreadmex'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
-            % featherwritemex must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('featherwritemex')), ...
-                '''featherwritemex'' must be on to the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
+            % Add mexDispatcher to the MATLAB path.
+            testCase.applyFixture(PathFixture(fullfile('..', 'build')));
+            % mexDispatcher must be on the MATLAB path.
+            testCase.assertTrue(~isempty(which('mexDispatcher')), ...
+                '''mexDispatcher'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
         end
-        
     end
     
     methods(TestMethodSetup)
@@ -226,7 +224,5 @@ classdef tfeather < matlab.unittest.TestCase
             expectedTable = featherRoundTrip(filename, actualTable);
             testCase.verifyNotEqual(actualTable, expectedTable);
         end
-        
     end
-    
 end

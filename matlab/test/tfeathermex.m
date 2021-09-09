@@ -24,14 +24,12 @@ classdef tfeathermex < matlab.unittest.TestCase
             testCase.applyFixture(PathFixture('util'));
             % Add featherread and featherwrite to the MATLAB path.
             testCase.applyFixture(PathFixture(fullfile('..', 'src')));
-            % featherreadmex must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('featherreadmex')), ...
-                '''featherreadmex'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
-            % featherwritemex must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('featherwritemex')), ...
-                '''featherwritemex'' must be on to the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
+            % Add mexDispatcher to the MATLAB path.
+            testCase.applyFixture(PathFixture(fullfile('..', 'build')));
+            % mexDispatcher must be on the MATLAB path.
+            testCase.assertTrue(~isempty(which('mexDispatcher')), ...
+                '''mexDispatcher'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
         end
-        
     end
     
     methods(TestMethodSetup)
@@ -40,7 +38,6 @@ classdef tfeathermex < matlab.unittest.TestCase
             import matlab.unittest.fixtures.WorkingFolderFixture;
             testCase.applyFixture(WorkingFolderFixture);
         end
-        
     end
     
     methods(Test)
@@ -61,7 +58,7 @@ classdef tfeathermex < matlab.unittest.TestCase
             validVariable = mlarrow.util.createVariableStruct('double', 1, true, 'Valid');
             variables = [invalidVariable, validVariable];
             metadata = mlarrow.util.createMetadataStruct(1, 2);
-            featherwritemex(filename, variables, metadata);
+            mexDispatcher('featherwrite', filename, variables, metadata);
             t = featherread(filename);
             
             testCase.verifyEqual(t.Properties.VariableNames{1}, 'x_');
@@ -69,8 +66,6 @@ classdef tfeathermex < matlab.unittest.TestCase
             
             testCase.verifyEqual(t.Properties.VariableDescriptions{1}, 'Original variable name: ''@''');
             testCase.verifyEqual(t.Properties.VariableDescriptions{2}, '');
-        end
-        
+        end 
     end
-
 end
