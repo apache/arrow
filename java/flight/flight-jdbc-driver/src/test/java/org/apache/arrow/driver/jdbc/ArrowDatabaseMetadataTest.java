@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
@@ -46,7 +47,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.UInt8Vector;
+import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.util.Text;
@@ -84,9 +85,9 @@ public class ArrowDatabaseMetadataTest {
     final Consumer<ServerStreamListener> commandGetCatalogsResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_CATALOGS_SCHEMA, allocator)) {
-        final VarCharVector varCharVector = (VarCharVector) root.getVector("catalog_name");
+        final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
         final int rows = 10;
-        range(0, rows).forEach(i -> varCharVector.setSafe(i, new Text(format("catalog #%d", i))));
+        range(0, rows).forEach(i -> catalogName.setSafe(i, new Text(format("catalog #%d", i))));
         root.setRowCount(rows);
         listener.start(root);
         listener.putNext();
@@ -102,9 +103,9 @@ public class ArrowDatabaseMetadataTest {
     final Consumer<ServerStreamListener> commandGetTableTypesResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLE_TYPES_SCHEMA, allocator)) {
-        final VarCharVector varCharVector = (VarCharVector) root.getVector("table_type");
+        final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
         final int rows = 10;
-        range(0, rows).forEach(i -> varCharVector.setSafe(i, new Text(format("table_type #%d", i))));
+        range(0, rows).forEach(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
         root.setRowCount(rows);
         listener.start(root);
         listener.putNext();
@@ -120,16 +121,16 @@ public class ArrowDatabaseMetadataTest {
     final Consumer<ServerStreamListener> commandGetTablesResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)) {
-        final VarCharVector varCharVectorCatalogName = (VarCharVector) root.getVector("catalog_name");
-        final VarCharVector varCharVectorSchemaName = (VarCharVector) root.getVector("schema_name");
-        final VarCharVector varCharVectorTableName = (VarCharVector) root.getVector("table_name");
-        final VarCharVector varCharVectorTableType = (VarCharVector) root.getVector("table_type");
+        final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
+        final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
         final int rows = 10;
         range(0, rows)
-            .peek(i -> varCharVectorCatalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
-            .peek(i -> varCharVectorSchemaName.setSafe(i, new Text(format("schema_name #%d", i))))
-            .peek(i -> varCharVectorTableName.setSafe(i, new Text(format("table_name #%d", i))))
-            .forEach(i -> varCharVectorTableType.setSafe(i, new Text(format("table_type #%d", i))));
+            .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
+            .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
+            .peek(i -> tableName.setSafe(i, new Text(format("table_name #%d", i))))
+            .forEach(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
         root.setRowCount(rows);
         listener.start(root);
         listener.putNext();
@@ -145,12 +146,12 @@ public class ArrowDatabaseMetadataTest {
     final Consumer<ServerStreamListener> commandGetSchemasResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SCHEMAS_SCHEMA, allocator)) {
-        final VarCharVector varCharVectorCatalogName = (VarCharVector) root.getVector("catalog_name");
-        final VarCharVector varCharVectorSchemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
         final int rows = 10;
         range(0, rows)
-            .peek(i -> varCharVectorCatalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
-            .forEach(i -> varCharVectorSchemaName.setSafe(i, new Text(format("schema_name #%d", i))));
+            .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
+            .forEach(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))));
         root.setRowCount(rows);
         listener.start(root);
         listener.putNext();
@@ -168,34 +169,34 @@ public class ArrowDatabaseMetadataTest {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA,
                allocator)) {
-        final VarCharVector varCharVectorPKCatalogName = (VarCharVector) root.getVector("pk_catalog_name");
-        final VarCharVector varCharVectorPKSchemaName = (VarCharVector) root.getVector("pk_schema_name");
-        final VarCharVector varCharVectorPKTableName = (VarCharVector) root.getVector("pk_table_name");
-        final VarCharVector varCharVectorPKColumnName = (VarCharVector) root.getVector("pk_column_name");
-        final VarCharVector varCharVectorFKCatalogName = (VarCharVector) root.getVector("fk_catalog_name");
-        final VarCharVector varCharVectorFKSchemaName = (VarCharVector) root.getVector("fk_schema_name");
-        final VarCharVector varCharVectorFKTableName = (VarCharVector) root.getVector("fk_table_name");
-        final VarCharVector varCharVectorFKColumnName = (VarCharVector) root.getVector("fk_column_name");
-        final IntVector intVectorKeySequence = (IntVector) root.getVector("key_sequence");
-        final VarCharVector varCharVectorFKKeyName = (VarCharVector) root.getVector("fk_key_name");
-        final VarCharVector varCharVectorPKKeyName = (VarCharVector) root.getVector("pk_key_name");
-        final UInt8Vector uInt8VectorVectorUpdateRule = (UInt8Vector) root.getVector("update_rule");
-        final UInt8Vector uInt8VectorVectorDeleteRule = (UInt8Vector) root.getVector("delete_rule");
+        final VarCharVector pkCatalogName = (VarCharVector) root.getVector("pk_catalog_name");
+        final VarCharVector pkSchemaName = (VarCharVector) root.getVector("pk_schema_name");
+        final VarCharVector pkTableName = (VarCharVector) root.getVector("pk_table_name");
+        final VarCharVector pkColumnName = (VarCharVector) root.getVector("pk_column_name");
+        final VarCharVector fkCatalogName = (VarCharVector) root.getVector("fk_catalog_name");
+        final VarCharVector fkSchemaName = (VarCharVector) root.getVector("fk_schema_name");
+        final VarCharVector fkTableName = (VarCharVector) root.getVector("fk_table_name");
+        final VarCharVector fkColumnName = (VarCharVector) root.getVector("fk_column_name");
+        final IntVector keySequence = (IntVector) root.getVector("key_sequence");
+        final VarCharVector fkKeyName = (VarCharVector) root.getVector("fk_key_name");
+        final VarCharVector pkKeyName = (VarCharVector) root.getVector("pk_key_name");
+        final UInt1Vector updateRule = (UInt1Vector) root.getVector("update_rule");
+        final UInt1Vector deleteRule = (UInt1Vector) root.getVector("delete_rule");
         final int rows = 10;
         range(0, rows)
-            .peek(i -> varCharVectorPKCatalogName.setSafe(i, new Text(format("pk_catalog_name #%d", i))))
-            .peek(i -> varCharVectorPKSchemaName.setSafe(i, new Text(format("pk_schema_name #%d", i))))
-            .peek(i -> varCharVectorPKTableName.setSafe(i, new Text(format("pk_table_name #%d", i))))
-            .peek(i -> varCharVectorPKColumnName.setSafe(i, new Text(format("pk_column_name #%d", i))))
-            .peek(i -> varCharVectorFKCatalogName.setSafe(i, new Text(format("fk_catalog_name #%d", i))))
-            .peek(i -> varCharVectorFKSchemaName.setSafe(i, new Text(format("fk_schema_name #%d", i))))
-            .peek(i -> varCharVectorFKTableName.setSafe(i, new Text(format("fk_table_name #%d", i))))
-            .peek(i -> varCharVectorFKColumnName.setSafe(i, new Text(format("fk_column_name #%d", i))))
-            .peek(i -> intVectorKeySequence.setSafe(i, i))
-            .peek(i -> varCharVectorFKKeyName.setSafe(i, new Text(format("fk_key_name #%d", i))))
-            .peek(i -> varCharVectorPKKeyName.setSafe(i, new Text(format("pk_key_name #%d", i))))
-            .peek(i -> uInt8VectorVectorUpdateRule.setSafe(i, i))
-            .forEach(i -> uInt8VectorVectorDeleteRule.setSafe(i, i));
+            .peek(i -> pkCatalogName.setSafe(i, new Text(format("pk_catalog_name #%d", i))))
+            .peek(i -> pkSchemaName.setSafe(i, new Text(format("pk_schema_name #%d", i))))
+            .peek(i -> pkTableName.setSafe(i, new Text(format("pk_table_name #%d", i))))
+            .peek(i -> pkColumnName.setSafe(i, new Text(format("pk_column_name #%d", i))))
+            .peek(i -> fkCatalogName.setSafe(i, new Text(format("fk_catalog_name #%d", i))))
+            .peek(i -> fkSchemaName.setSafe(i, new Text(format("fk_schema_name #%d", i))))
+            .peek(i -> fkTableName.setSafe(i, new Text(format("fk_table_name #%d", i))))
+            .peek(i -> fkColumnName.setSafe(i, new Text(format("fk_column_name #%d", i))))
+            .peek(i -> keySequence.setSafe(i, i))
+            .peek(i -> fkKeyName.setSafe(i, new Text(format("fk_key_name #%d", i))))
+            .peek(i -> pkKeyName.setSafe(i, new Text(format("pk_key_name #%d", i))))
+            .peek(i -> updateRule.setSafe(i, i))
+            .forEach(i -> deleteRule.setSafe(i, i));
         root.setRowCount(rows);
         listener.start(root);
         listener.putNext();
@@ -212,20 +213,20 @@ public class ArrowDatabaseMetadataTest {
     final Consumer<ServerStreamListener> commandGetPrimaryKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_PRIMARY_KEYS_SCHEMA, allocator)) {
-        final VarCharVector varCharVectorCatalogName = (VarCharVector) root.getVector("catalog_name");
-        final VarCharVector varCharVectorSchemaName = (VarCharVector) root.getVector("schema_name");
-        final VarCharVector varCharVectorTableName = (VarCharVector) root.getVector("table_name");
-        final VarCharVector varCharVectorColumnName = (VarCharVector) root.getVector("column_name");
-        final IntVector intVectorKeySequence = (IntVector) root.getVector("key_sequence");
-        final VarCharVector varCharVectorKeyName = (VarCharVector) root.getVector("key_name");
+        final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
+        final VarCharVector columnName = (VarCharVector) root.getVector("column_name");
+        final IntVector keySequence = (IntVector) root.getVector("key_sequence");
+        final VarCharVector keyName = (VarCharVector) root.getVector("key_name");
         final int rows = 10;
         range(0, rows)
-            .peek(i -> varCharVectorCatalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
-            .peek(i -> varCharVectorSchemaName.setSafe(i, new Text(format("schema_name #%d", i))))
-            .peek(i -> varCharVectorTableName.setSafe(i, new Text(format("table_name #%d", i))))
-            .peek(i -> varCharVectorColumnName.setSafe(i, new Text(format("column_name #%d", i))))
-            .peek(i -> intVectorKeySequence.setSafe(i, i))
-            .forEach(i -> varCharVectorKeyName.setSafe(i, new Text(format("key_name #%d", i))));
+            .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
+            .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
+            .peek(i -> tableName.setSafe(i, new Text(format("table_name #%d", i))))
+            .peek(i -> columnName.setSafe(i, new Text(format("column_name #%d", i))))
+            .peek(i -> keySequence.setSafe(i, i))
+            .forEach(i -> keyName.setSafe(i, new Text(format("key_name #%d", i))));
         root.setRowCount(rows);
         listener.start(root);
         listener.putNext();
@@ -326,35 +327,38 @@ public class ArrowDatabaseMetadataTest {
   }
 
   @Test
-  @Ignore // FIXME TODO
   public void testExportedKeys() throws SQLException {
-    final List<ArrayList<?>> expectedSchemas =
-        range(0, 10).mapToObj(i -> new ArrayList<>(Arrays.asList(
-            format("pk_catalog_name #%d", i),
-            format("pk_schema_name #%d", i),
-            format("pk_table_name #%d", i),
-            format("pk_column_name #%d", i),
-            format("fk_catalog_name #%d", i),
-            format("fk_schema_name #%d", i),
-            format("fk_table_name #%d", i),
-            format("fk_column_name #%d", i),
-            i,
-            format("fk_key_name #%d", i),
-            format("pk_key_name #%d", i),
-            i,
-            i
-        ))).collect(toList());
-    final List<List<String>> actualSchemas = new ArrayList<>();
+    final List<List<String>> expectedKeys =
+        range(0, 10)
+            .mapToObj(i -> new String[] {
+                format("pk_catalog_name #%d", i),
+                format("pk_schema_name #%d", i),
+                format("pk_table_name #%d", i),
+                format("pk_column_name #%d", i),
+                format("fk_catalog_name #%d", i),
+                format("fk_schema_name #%d", i),
+                format("fk_table_name #%d", i),
+                format("fk_column_name #%d", i),
+                String.valueOf(i),
+                format("fk_key_name #%d", i),
+                format("pk_key_name #%d", i),
+                String.valueOf(i),
+                String.valueOf(i),
+                // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
+                null})
+            .map(Arrays::asList)
+            .collect(toList());
+    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, "Test")) {
       while (resultSet.next()) {
         final List<String> schemas = new ArrayList<>();
         for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
           schemas.add(resultSet.getString(column + 1));
         }
-        actualSchemas.add(schemas);
+        actualKeys.add(schemas);
       }
     }
-    collector.checkThat(actualSchemas, is(expectedSchemas));
+    collector.checkThat(actualKeys, is(expectedKeys));
   }
 
   @Test
