@@ -40,6 +40,7 @@ import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
@@ -164,7 +165,7 @@ public class ArrowDatabaseMetadataTest {
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetSchemas, commandGetSchemasResultProducer);
 
     final Message commandGetExportedKeys = CommandGetExportedKeys.newBuilder().setTable("Test").build();
-    final Message commandGetImportedKeys = FlightSql.CommandGetImportedKeys.getDefaultInstance();
+    final Message commandGetImportedKeys = CommandGetImportedKeys.newBuilder().setTable("Test").build();
     final Consumer<ServerStreamListener> commandGetExportedAndImportedKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA,
@@ -362,35 +363,38 @@ public class ArrowDatabaseMetadataTest {
   }
 
   @Test
-  @Ignore // FIXME TODO
   public void testImportedKeys() throws SQLException {
-    final List<ArrayList<?>> expectedSchemas =
-        range(0, 10).mapToObj(i -> new ArrayList<>(Arrays.asList(
-            format("pk_catalog_name #%d", i),
-            format("pk_schema_name #%d", i),
-            format("pk_table_name #%d", i),
-            format("pk_column_name #%d", i),
-            format("fk_catalog_name #%d", i),
-            format("fk_schema_name #%d", i),
-            format("fk_table_name #%d", i),
-            format("fk_column_name #%d", i),
-            i,
-            format("fk_key_name #%d", i),
-            format("pk_key_name #%d", i),
-            i,
-            i
-        ))).collect(toList());
-    final List<List<String>> actualSchemas = new ArrayList<>();
+    final List<List<String>> expectedKeys =
+        range(0, 10)
+            .mapToObj(i -> new String[] {
+                format("pk_catalog_name #%d", i),
+                format("pk_schema_name #%d", i),
+                format("pk_table_name #%d", i),
+                format("pk_column_name #%d", i),
+                format("fk_catalog_name #%d", i),
+                format("fk_schema_name #%d", i),
+                format("fk_table_name #%d", i),
+                format("fk_column_name #%d", i),
+                String.valueOf(i),
+                format("fk_key_name #%d", i),
+                format("pk_key_name #%d", i),
+                String.valueOf(i),
+                String.valueOf(i),
+                // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
+                null})
+            .map(Arrays::asList)
+            .collect(toList());
+    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, "Test")) {
       while (resultSet.next()) {
         final List<String> schemas = new ArrayList<>();
         for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
           schemas.add(resultSet.getString(column + 1));
         }
-        actualSchemas.add(schemas);
+        actualKeys.add(schemas);
       }
     }
-    collector.checkThat(actualSchemas, is(expectedSchemas));
+    collector.checkThat(actualKeys, is(expectedKeys));
   }
 
   @Test
