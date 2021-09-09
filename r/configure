@@ -129,9 +129,8 @@ else
         # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
       fi
     else
-
-      # Set some default values/backwards compatibility
       if [ "${NOT_CRAN}" = "true" ]; then
+        # Set some default values
         if [ "${LIBARROW_BINARY}" = "" ]; then
           LIBARROW_BINARY=true; export LIBARROW_BINARY
         fi

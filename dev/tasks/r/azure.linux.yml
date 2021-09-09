@@ -50,18 +50,7 @@ jobs:
           export ARROW_R_DEV={{ not_cran|default("TRUE") }}
           # Note that by default, ci/scripts/r_test.sh sets NOT_CRAN=true
           # if ARROW_R_DEV=TRUE. Pass `-e NOT_CRAN=false` to turn that off.
-          docker-compose run \
-            {{ flags|default("") }} \
-            -e ARROW_DATASET={{ arrow_dataset|default("") }} \
-            -e ARROW_PARQUET={{ arrow_parquet|default("") }} \
-            -e ARROW_JSON={{ arrow_json|default("") }} \
-            -e ARROW_S3={{ arrow_s3|default("") }} \
-            -e ARROW_WITH_RE2={{ arrow_with_re2|default("") }} \
-            -e ARROW_WITH_UTF8PROC={{ arrow_with_utf8proc|default("") }} \
-            -e LIBARROW_MINIMAL={{ libarrow_minimal|default("") }} \
-            -e LIBARROW_DOWNLOAD={{ libarrow_download|default("") }} \
-            -e LIBARROW_BUILD={{ libarrow_build|default("") }} \
-            r
+          docker-compose run {{ flags|default("") }} r
         displayName: Docker run
 
       - script: |

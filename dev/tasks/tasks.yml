@@ -1114,13 +1114,7 @@ tasks:
       r_org: rocker
       r_image: r-base
       r_tag: latest
-      arrow_dataset: "OFF"
-      arrow_parquet: "OFF"
-      arrow_json: "OFF"
-      arrow_s3: "OFF"
-      arrow_with_re2: "OFF"
-      arrow_with_utf8proc: "OFF"
-      libarrow_minimal: "TRUE"
+      flags: "-e LIBARROW_MINIMAL=TRUE"
 
   test-ubuntu-18.04-r-sanitizer:
     ci: azure
