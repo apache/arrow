@@ -33,20 +33,98 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
   test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
 }
 test_df <- tibble::tibble(date = test_date)
+test_date_df <- tibble::tibble(date = as.Date(as.character(test_date)))
 
-# We can support this feature when ARROW-13138 is resolved
-test_that("date32 objects are not supported", {
-  date <- ymd("2017-01-01")
-  df <- tibble::tibble(date = date)
-
-  expect_error(
-    Table$create(df) %>%
+test_that("extract year from date32 objects", {
+  expect_equivalent(
+    test_date_df %>%
       mutate(x = year(date)) %>%
-      collect(),
-    "Function year has no kernel matching input types"
+      collect() %>%
+      select(x),
+    test_df %>%
+      mutate(x = year(date)) %>%
+      collect() %>%
+      select(x)
   )
 })
 
+test_that("extract isoyear from date32 objects", {
+  expect_equivalent(
+    test_date_df %>%
+      mutate(x = isoyear(date)) %>%
+      collect() %>%
+      select(x),
+    test_df %>%
+      mutate(x = isoyear(date)) %>%
+      collect() %>%
+      select(x)
+  )
+})
+
+test_that("extract quarter from date32 objects", {
+  expect_equivalent(
+    test_date_df %>%
+      mutate(x = quarter(date)) %>%
+      collect() %>%
+      select(x),
+    test_df %>%
+      mutate(x = quarter(date)) %>%
+      collect() %>%
+      select(x)
+  )
+})
+
+test_that("extract month from date32 objects", {
+  expect_equivalent(
+    test_date_df %>%
+      mutate(x = month(date)) %>%
+      collect() %>%
+      select(x),
+    test_df %>%
+      mutate(x = month(date)) %>%
+      collect() %>%
+      select(x)
+  )
+})
+
+test_that("extract isoweek from date32 objects", {
+  expect_equivalent(
+    test_date_df %>%
+      mutate(x = isoweek(date)) %>%
+      collect() %>%
+      select(x),
+    test_df %>%
+      mutate(x = isoweek(date)) %>%
+      collect() %>%
+      select(x)
+  )
+})
+
+test_that("extract day from date32 objects", {
+  expect_equivalent(
+    test_date_df %>%
+      mutate(x = day(date)) %>%
+      collect() %>%
+      select(x),
+    test_df %>%
+      mutate(x = day(date)) %>%
+      collect() %>%
+      select(x)
+  )
+})
+
+test_that("extract yday from date32 objects", {
+  expect_equivalent(
+    test_date_df %>%
+      mutate(x = yday(date)) %>%
+      collect() %>%
+      select(x),
+    test_df %>%
+      mutate(x = yday(date)) %>%
+      collect() %>%
+      select(x)
+  )
+})
 
 test_that("extract year from date", {
   expect_dplyr_equal(

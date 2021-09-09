@@ -28,6 +28,44 @@ using internal::StringFormatter;
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
+  const char* date32s =
+      R"([0,
+      11016,
+      -25932,
+      23148,
+      18262,
+      18261,
+      18260,
+      14609,
+      14610,
+      14612,
+      14613,
+      13149,
+      13148,
+      14241,
+      14242,
+      15340,
+      null])";
+
+  const char* date64s =
+      R"([0,
+      951782400000,
+      -2240524800000,
+      1999987200000,
+      1577836800000,
+      1577750400000,
+      1577664000000,
+      1262217600000,
+      1262304000000,
+      1262476800000,
+      1262563200000,
+      1136073600000,
+      1135987200000,
+      1230422400000,
+      1230508800000,
+      1325376000000,
+      null])";
+
   const char* times =
       R"(["1970-01-01T00:00:59.123456789","2000-02-29T23:23:23.999999999",
           "1899-01-01T00:59:20.001001001","2033-05-18T03:33:20.000000000",
@@ -98,24 +136,33 @@ class ScalarTemporalTest : public ::testing::Test {
 
 namespace compute {
 
-TEST_F(ScalarTemporalTest, TestTemporalComponentExtraction) {
-  auto unit = timestamp(TimeUnit::NANO);
-  CheckScalarUnary("year", unit, times, int64(), year);
-  CheckScalarUnary("month", unit, times, int64(), month);
-  CheckScalarUnary("day", unit, times, int64(), day);
-  CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
-  CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
-  CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
-  CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
-  CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times), iso_calendar);
-  CheckScalarUnary("quarter", unit, times, int64(), quarter);
-  CheckScalarUnary("hour", unit, times, int64(), hour);
-  CheckScalarUnary("minute", unit, times, int64(), minute);
-  CheckScalarUnary("second", unit, times, int64(), second);
-  CheckScalarUnary("millisecond", unit, times, int64(), millisecond);
-  CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
-  CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
-  CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
+TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
+  std::vector<std::shared_ptr<DataType>> units = {date32(), date64(),
+                                                  timestamp(TimeUnit::NANO)};
+  std::vector<const char*> samples = {date32s, date64s, times};
+  DCHECK_EQ(units.size(), samples.size());
+  for (size_t i = 0; i < samples.size(); ++i) {
+    auto unit = units[i];
+    auto sample = samples[i];
+    CheckScalarUnary("year", unit, sample, int64(), year);
+    CheckScalarUnary("month", unit, sample, int64(), month);
+    CheckScalarUnary("day", unit, sample, int64(), day);
+    CheckScalarUnary("day_of_week", unit, sample, int64(), day_of_week);
+    CheckScalarUnary("day_of_year", unit, sample, int64(), day_of_year);
+    CheckScalarUnary("iso_year", unit, sample, int64(), iso_year);
+    CheckScalarUnary("iso_week", unit, sample, int64(), iso_week);
+    CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, sample), iso_calendar);
+    CheckScalarUnary("quarter", unit, sample, int64(), quarter);
+    if (unit->id() == Type::TIMESTAMP) {
+      CheckScalarUnary("hour", unit, sample, int64(), hour);
+      CheckScalarUnary("minute", unit, sample, int64(), minute);
+      CheckScalarUnary("second", unit, sample, int64(), second);
+      CheckScalarUnary("millisecond", unit, sample, int64(), millisecond);
+      CheckScalarUnary("microsecond", unit, sample, int64(), microsecond);
+      CheckScalarUnary("nanosecond", unit, sample, int64(), nanosecond);
+      CheckScalarUnary("subsecond", unit, sample, float64(), subsecond);
+    }
+  }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
@@ -384,6 +431,7 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
 }
 
 #ifndef _WIN32
+
 TEST_F(ScalarTemporalTest, Strftime) {
   auto options_default = StrftimeOptions();
   auto options = StrftimeOptions("%Y-%m-%dT%H:%M:%S%z");
