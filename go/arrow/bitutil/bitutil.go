@@ -17,9 +17,12 @@
 package bitutil
 
 import (
+	"math"
 	"math/bits"
 	"reflect"
 	"unsafe"
+
+	"github.com/apache/arrow/go/arrow/memory"
 )
 
 var (
@@ -156,4 +159,62 @@ func bytesToUint64(b []byte) []uint64 {
 	s.Cap = h.Cap / uint64SizeBytes
 
 	return res
+}
+
+var (
+	// PrecedingBitmask is a convenience set of values as bitmasks for checking
+	// prefix bits of a byte
+	PrecedingBitmask = [8]byte{0, 1, 3, 7, 15, 31, 63, 127}
+	// TrailingBitmask is the bitwise complement version of kPrecedingBitmask
+	TrailingBitmask = [8]byte{255, 254, 252, 248, 240, 224, 192, 128}
+)
+
+// SetBitsTo is a convenience function to quickly set or unset all the bits
+// in a bitmap starting at startOffset for length bits.
+func SetBitsTo(bits []byte, startOffset, length int64, areSet bool) {
+	if length == 0 {
+		return
+	}
+
+	beg := startOffset
+	end := startOffset + length
+	var fill uint8 = 0
+	if areSet {
+		fill = math.MaxUint8
+	}
+
+	byteBeg := beg / 8
+	byteEnd := end/8 + 1
+
+	// don't modify bits before the startOffset by using this mask
+	firstByteMask := PrecedingBitmask[beg%8]
+	// don't modify bits past the length by using this mask
+	lastByteMask := TrailingBitmask[end%8]
+
+	if byteEnd == byteBeg+1 {
+		// set bits within a single byte
+		onlyByteMask := firstByteMask
+		if end%8 != 0 {
+			onlyByteMask = firstByteMask | lastByteMask
+		}
+
+		bits[byteBeg] &= onlyByteMask
+		bits[byteBeg] |= fill &^ onlyByteMask
+		return
+	}
+
+	// set/clear trailing bits of first byte
+	bits[byteBeg] &= firstByteMask
+	bits[byteBeg] |= fill &^ firstByteMask
+
+	if byteEnd-byteBeg > 2 {
+		memory.Set(bits[byteBeg+1:byteEnd-1], fill)
+	}
+
+	if end%8 == 0 {
+		return
+	}
+
+	bits[byteEnd-1] &= lastByteMask
+	bits[byteEnd-1] |= fill &^ lastByteMask
 }
