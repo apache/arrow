@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -78,9 +79,6 @@ bool IsPositive(const Scalar& scalar) {
   std::ignore = VisitScalarInline(scalar, &visitor);
   return visitor.result;
 }
-
-// N.B. take care not to conflict with type_traits.h as that can cause surprises in a
-// unity build
 
 // Bitwise operations
 
@@ -1374,6 +1372,17 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
 }
 
 template <typename Op>
+std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNullStructOutType(
+    std::string name, const FunctionDoc* doc, std::shared_ptr<DataType> out_type) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+  for (const auto& ty : NumericTypes()) {
+    auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, out_type, exec));
+  }
+  return func;
+}
+
+template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
                                                             FunctionDoc doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
@@ -1697,6 +1706,14 @@ const FunctionDoc div_checked_doc{
     "Divide the arguments element-wise",
     ("An error is returned when trying to divide by zero, or when\n"
      "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc divmod_doc{
+    "Calculate the quotient and remainder",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"divmod_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
     {"dividend", "divisor"}};
 
 const FunctionDoc negate_doc{"Negate the argument element-wise",
@@ -2200,6 +2217,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   }
 
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto divmod = MakeArithmeticFunctionNotNullStructOutType<Divmod>("divmod", divmod_doc,
+                                                                   DivmodType<int64_t>());
+  DCHECK_OK(registry->AddFunction(std::move(divmod)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);

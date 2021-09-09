@@ -672,13 +672,14 @@ Result<Datum> RoundToMultiple(const Datum& arg, RoundToMultipleOptions options,
   }
 
 SCALAR_ARITHMETIC_BINARY(Add, "add", "add_checked")
-SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
-SCALAR_ARITHMETIC_BINARY(Logb, "logb", "logb_checked")
+SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
 SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
+SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
+SCALAR_ARITHMETIC_BINARY(Divmod, "divmod", "divmod_checked")
+SCALAR_ARITHMETIC_BINARY(Logb, "logb", "logb_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
-SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
 SCALAR_EAGER_BINARY(Atan2, "atan2")
 SCALAR_EAGER_UNARY(Floor, "floor")
 SCALAR_EAGER_UNARY(Ceil, "ceil")

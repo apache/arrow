@@ -425,6 +425,42 @@ struct DivideChecked {
   }
 };
 
+template <typename T>
+const std::shared_ptr<DataType>& DivmodType() {
+  // TODO(edponce): Need to find a way of mapping T to DataType.
+  static auto type = struct_({field("quotient", int64()), field("remainder", int64())});
+  return type;
+}
+
+struct Divmod {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T, StructScalar> Call(KernelContext*, Arg0 left,
+                                                        Arg1 right, Status*) {
+    auto quotient = std::floor(left / right);
+    auto remainder = std::fmod(left, right);
+    ScalarVector values = {std::make_shared<T>(quotient), std::make_shared<T>(remainder)};
+    return StructScalar(std::move(values), DivmodType<T>());
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_c_integer<T, StructScalar> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                   Status* st) {
+    T quotient;
+    T remainder = 0;
+    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &quotient))) {
+      if (right == 0) {
+        *st = Status::Invalid("divide by zero");
+      } else {
+        quotient = 0;
+      }
+    } else {
+      remainder = left % right;
+    }
+    ScalarVector values = {std::make_shared<T>(quotient), std::make_shared<T>(remainder)};
+    return StructScalar(std::move(values), DivmodType<T>());
+  }
+};
+
 struct Negate {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {
