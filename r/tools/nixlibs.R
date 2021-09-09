@@ -47,7 +47,7 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 # Default is build from source, not download a binary
 build_ok <- !env_is("LIBARROW_BUILD", "false")
-binary_ok <- !(env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", ""))
+binary_ok <- env_is("LIBARROW_BINARY", "true")
 
 # Check if we're doing an offline build.
 # (Note that cmake will still be downloaded if necessary
@@ -308,21 +308,21 @@ build_libarrow <- function(src_dir, dst_dir) {
   env_var_list <- with_s3_support(env_var_list)
   env_var_list <- with_mimalloc(env_var_list)
 
-  # turn_off_optional_features() needs to happen after with_mimalloc() and
+  # turn_off_all_optional_features() needs to happen after with_mimalloc() and
   # with_s3_support(), since those might turn features ON.
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
-  do_minimal_build <- tolower(Sys.info()[["sysname"]]) %in% "sunos" ||
-    identical(tolower(Sys.getenv("LIBARROW_MINIMAL")), "true")
+  on_solaris <- tolower(Sys.info()[["sysname"]]) %in% "sunos"
+  do_minimal_build <- on_solaris || env_is("LIBARROW_MINIMAL", "true")
 
   if (do_minimal_build) {
     # Note that JSON support does work on Solaris, but will be turned off with
-    # the rest of the thirdparty dependencies.
+    # the rest of the optional dependencies.
     # All other dependencies don't compile (e.g thrift, jemalloc, and xsimd)
     # or do compile but `ar` fails to build
     # libarrow_bundled_dependencies (e.g. re2 and utf8proc).
-    env_var_list <- turn_off_optional_features(env_var_list)
+    env_var_list <- turn_off_all_optional_features(env_var_list)
   } else if (thirdparty_deps_unavailable) {
     cat(paste0(
       "*** Building C++ library from source, but downloading thirdparty dependencies\n",
@@ -330,7 +330,7 @@ build_libarrow <- function(src_dir, dst_dir) {
       "    See install vignette for details:\n",
       "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
     ))
-    env_var_list <- turn_off_optional_features(env_var_list)
+    env_var_list <- turn_off_all_optional_features(env_var_list)
   } else if (dir.exists(thirdparty_dependency_dir)) {
     # Add the *_SOURCE_URL env vars
     env_var_list <- set_thirdparty_urls(env_var_list)
@@ -423,7 +423,7 @@ cmake_version <- function(cmd = "cmake") {
   )
 }
 
-turn_off_optional_features <- function(env_var_list) {
+turn_off_all_optional_features <- function(env_var_list) {
   # Because these are done as environment variables (as opposed to build flags),
   # setting these to "OFF" overrides any previous setting. We don't need to
   # check the existing value.
