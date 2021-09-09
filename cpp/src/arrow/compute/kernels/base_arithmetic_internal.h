@@ -425,6 +425,90 @@ struct DivideChecked {
   }
 };
 
+struct FloorDivide {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    return std::floor(left / right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    T result;
+    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
+      if (ARROW_PREDICT_FALSE(right == 0)) {
+        *st = Status::Invalid("divide by zero");
+        result = 0;
+      } else {
+        result = 0;
+      }
+    }
+    return result;
+  }
+};
+
+struct FloorDivideChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result;
+    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
+      if (ARROW_PREDICT_FALSE(right == 0)) {
+        *st = Status::Invalid("divide by zero");
+        result = 0;
+      } else {
+        *st = Status::Invalid("overflow");
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      *st = Status::Invalid("divide by zero");
+      return 0;
+    }
+    return std::floor(left / right);
+  }
+};
+
+struct Remainder {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    return std::fmod(left, right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      *st = Status::Invalid("divide by zero");
+      return 0;
+    }
+    return left % right;
+  }
+};
+
+struct RemainderChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    return std::fmod(left, right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      *st = Status::Invalid("divide by zero");
+      return 0;
+    }
+    return left % right;
+  }
+};
+
 struct Negate {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {

@@ -937,6 +937,22 @@ TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
   this->AssertBinop(Divide, MakeArray(min), MakeArray(-1), "[0]");
 }
 
+TYPED_TEST(TestBinaryArithmeticIntegral, Remainder) {
+  // Empty arrays
+  this->AssertBinop(Remainder, "[]", "[]", "[]");
+  // Ordinary arrays
+  this->AssertBinop(Remainder, "[3, 2, 6]", "[1, 1, 2]", "[0, 0, 0]");
+  // Array with nulls
+  this->AssertBinop(Remainder, "[null, 10, 30, null, 20]", "[1, 4, 2, 5, 10]",
+                    "[null, 2, 0, null, 0]");
+  // Scalar divides by array
+  this->AssertBinop(Remainder, 33, "[null, 1, 3, null, 2]", "[null, 0, 0, null, 1]");
+  // Array divides by scalar
+  this->AssertBinop(Remainder, "[null, 10, 30, null, 2]", 3, "[null, 1, 0, null, 2]");
+  // Scalar divides by scalar
+  this->AssertBinop(Remainder, 16, 7, 2);
+}
+
 TYPED_TEST(TestBinaryArithmeticFloating, Power) {
   using CType = typename TestFixture::CType;
   auto max = std::numeric_limits<CType>::max();

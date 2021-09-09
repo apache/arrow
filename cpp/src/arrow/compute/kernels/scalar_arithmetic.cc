@@ -1699,6 +1699,34 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
+const FunctionDoc floor_div_doc{
+    "Calculate the quotient without the fractional part",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"floor_divide_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc floor_div_checked_doc{
+    "Calculate the quotient without the fractional part",
+    ("An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc remainder_doc{
+    "Calculate the remainder of dividing two values",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"remainder_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc remainder_checked_doc{
+    "Calculate the remainder of dividing two values",
+    ("An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
 const FunctionDoc negate_doc{"Negate the argument element-wise",
                              ("Results will wrap around on integer overflow.\n"
                               "Use function \"negate_checked\" if you want overflow\n"
@@ -2207,8 +2235,31 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
+<<<<<<< HEAD
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
+=======
+  auto floor_divide =
+      MakeArithmeticFunctionNotNull<FloorDivide>("floor_divide", &floor_div_doc);
+  DCHECK_OK(registry->AddFunction(std::move(floor_divide)));
+
+  // ----------------------------------------------------------------------
+  auto floor_divide_checked = MakeArithmeticFunctionNotNull<FloorDivideChecked>(
+      "floor_divide_checked", &floor_div_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(floor_divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto remainder = MakeArithmeticFunctionNotNull<Remainder>("remainder", &remainder_doc);
+  DCHECK_OK(registry->AddFunction(std::move(remainder)));
+
+  // ----------------------------------------------------------------------
+  auto remainder_checked = MakeArithmeticFunctionNotNull<RemainderChecked>(
+      "remainder_checked", &remainder_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(remainder_checked)));
+
+  // ----------------------------------------------------------------------
+  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", &negate_doc);
+>>>>>>> 853bfca88 (add floor_divide and remainder compute functions)
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
