@@ -17,13 +17,12 @@
 
 #include <string>
 
-#include <mex.h>
-
+#include "featherwritemex.h"
 #include "feather_writer.h"
 #include "util/handle_status.h"
 
 // MEX gateway function. This is the entry point for featherwritemex.cc.
-void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
+void featherwrite(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
   const std::string filename{mxArrayToUTF8String(prhs[0])};
 
   // Open a Feather file at the provided file path for writing.

@@ -39,6 +39,7 @@ end
 [variables, metadata] = table2mlarrow(t);
 
 % Write the table to a Feather file.
-featherwritemex(filename, variables, metadata);
+mexDispatcher('featherwrite', filename, variables, metadata);
+%featherwritemex(filename, variables, metadata);
 
 end
