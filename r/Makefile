@@ -38,13 +38,15 @@ deps:
 
 # Note: files in tools are available at build time, but not at run time. The thirdparty
 # cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one level up from cpp/
-build: doc
+sync-cpp:
 	cp ../NOTICE.txt inst/NOTICE.txt
-	rsync --archive --delete ../cpp tools/
+	rsync --archive --delete --exclude 'build' --exclude 'build-support/boost_*' --exclude 'submodules' ../cpp tools/
 	cp -p ../.env tools/
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/
-	R CMD build .
+
+build: doc sync-cpp
+	R CMD build ${args} .
 
 check: build
 	-export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE && export ARROW_R_DEV=$(ARROW_R_DEV) && export _R_CHECK_TESTS_NLINES_=0 && R CMD check --as-cran --run-donttest arrow_$(VERSION).tar.gz
