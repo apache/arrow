@@ -24,12 +24,16 @@ import (
 	"github.com/apache/arrow/go/arrow/internal/debug"
 )
 
+// helper function to handle big-endian architectures properly
 var toFromLEFunc func(uint64) uint64
 
 func init() {
 	if endian.IsBigEndian {
+		// if we're on a big endian architecture, then use the reverse bytes
+		// function so we can perform byte-swaps when necessary
 		toFromLEFunc = bits.ReverseBytes64
 	} else {
+		// identity function if we're on a little endian architecture
 		toFromLEFunc = func(in uint64) uint64 { return in }
 	}
 }
@@ -145,6 +149,8 @@ func (b *BitmapWriter) Next() {
 	}
 }
 
+// AppendBools writes a series of booleans to the bitmapwriter and returns
+// the number of remaining bytes left in the buffer for writing.
 func (b *BitmapWriter) AppendBools(in []bool) int {
 	space := min(int(BytesForBits(int64(b.length-b.pos))), len(in))
 
@@ -177,6 +183,8 @@ func (b *BitmapWriter) Finish() {
 	}
 }
 
+// BitmapWordReader is a reader for bitmaps that reads a word at a time (a word being an 8 byte uint64)
+// and then provides functions to grab the individual trailing bytes after the last word
 type BitmapWordReader struct {
 	bitmap        []byte
 	offset        int
@@ -186,6 +194,8 @@ type BitmapWordReader struct {
 	curword       uint64
 }
 
+// NewBitmapWordReader sets up a word reader, calculates the number of trailing bits and
+// number of trailing bytes, along with the number of words.
 func NewBitmapWordReader(bitmap []byte, offset, length int) *BitmapWordReader {
 	bitoffset := offset % 8
 	byteOffset := offset / 8
@@ -209,6 +219,10 @@ func NewBitmapWordReader(bitmap []byte, offset, length int) *BitmapWordReader {
 	return bm
 }
 
+// NextWord returns the next full word read from the bitmap, should not be called
+// if Words() is 0 as it will step outside of the bounds of the bitmap slice and panic.
+//
+// We don't perform the bounds checking in order to improve performance.
 func (bm *BitmapWordReader) NextWord() uint64 {
 	bm.bitmap = bm.bitmap[unsafe.Sizeof(bm.curword):]
 	word := bm.curword
@@ -232,6 +246,12 @@ func (bm *BitmapWordReader) NextWord() uint64 {
 	return word
 }
 
+// NextTrailingByte returns the next trailing byte of the bitmap after the last word
+// along with the number of valid bits in that byte. When validBits < 8, that
+// is the last byte.
+//
+// If the bitmap ends on a byte alignment, then the last byte can also return 8 valid bits.
+// Thus the TrailingBytes function should be used to know how many trailing bytes to read.
 func (bm *BitmapWordReader) NextTrailingByte() (val byte, validBits int) {
 	debug.Assert(bm.trailingBits > 0, "next trailing byte called with no trailing bits")
 
@@ -268,6 +288,9 @@ func (bm *BitmapWordReader) NextTrailingByte() (val byte, validBits int) {
 func (bm *BitmapWordReader) Words() int         { return bm.nwords }
 func (bm *BitmapWordReader) TrailingBytes() int { return bm.trailingBytes }
 
+// BitmapWordWriter is a bitmap writer for writing a full word at a time (a word being
+// a uint64). After the last full word is written, PutNextTrailingByte can be used to
+// write the remaining trailing bytes.
 type BitmapWordWriter struct {
 	bitmap []byte
 	offset int
@@ -277,6 +300,8 @@ type BitmapWordWriter struct {
 	currentWord uint64
 }
 
+// NewBitmapWordWriter initializes a new bitmap word writer which will start writing
+// into the byte slice at bit offset start, expecting to write len bits.
 func NewBitmapWordWriter(bitmap []byte, start, len int) *BitmapWordWriter {
 	ret := &BitmapWordWriter{
 		bitmap:  bitmap[start/8:],
@@ -295,6 +320,8 @@ func NewBitmapWordWriter(bitmap []byte, start, len int) *BitmapWordWriter {
 	return ret
 }
 
+// PutNextWord writes the given word to the bitmap, potentially splitting across
+// two adjacent words.
 func (bm *BitmapWordWriter) PutNextWord(word uint64) {
 	sz := int(unsafe.Sizeof(word))
 	if bm.offset != 0 {
@@ -322,6 +349,8 @@ func (bm *BitmapWordWriter) PutNextWord(word uint64) {
 	bm.bitmap = bm.bitmap[sz:]
 }
 
+// PutNextTrailingByte writes the number of bits indicated by validBits from b to
+// the bitmap.
 func (bm *BitmapWordWriter) PutNextTrailingByte(b byte, validBits int) {
 	curbyte := (*[8]byte)(unsafe.Pointer(&bm.currentWord))[0]
 	if validBits == 8 {
@@ -354,14 +383,18 @@ func (bm *BitmapWordWriter) PutNextTrailingByte(b byte, validBits int) {
 	}
 }
 
+// CopyBitmap copies the bitmap indicated by src, starting at bit offset srcOffset,
+// and copying length bits into dst, starting at bit offset dstOffset.
 func CopyBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
 	if length == 0 {
+		// if there's nothing to write, end early.
 		return
 	}
 
 	bitOffset := srcOffset % 8
 	destBitOffset := dstOffset % 8
 
+	// slow path, one of the bitmaps are not byte aligned.
 	if bitOffset != 0 || destBitOffset != 0 {
 		rdr := NewBitmapWordReader(src, srcOffset, length)
 		wr := NewBitmapWordWriter(dst, dstOffset, length)
@@ -380,10 +413,7 @@ func CopyBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
 		return
 	}
 
-	if length == 0 {
-		return
-	}
-
+	// fast path, both are starting with byte-aligned bitmaps
 	nbytes := int(BytesForBits(int64(length)))
 
 	// shift by its byte offset
