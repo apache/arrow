@@ -31,9 +31,9 @@ install:
 ## Building JNI wrapper shared library
 
 ```
-mkdir -p ./target/build/
-pushd ./target/build/
-cmake ../..
+mkdir -p build
+pushd build
+cmake ..
 make
 popd
 ```
@@ -41,6 +41,8 @@ popd
 To use ninja, pass `-GNinja` when calling cmake and then use the `ninja` command instead of `make`.
 
 ## Building and running tests
+
+To build Apache Arrow (Java) with this module enabled run the following from the project root directory:
 
 ```
 cd java

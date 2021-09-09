@@ -58,7 +58,7 @@ final class SchemaImporter {
 
   private Field importField(ArrowSchema schema, FFIDictionaryProvider provider,
       int recursionLevel) {
-    checkState(recursionLevel < MAX_IMPORT_RECURSION_LEVEL, "Recursion level in ArrowSchema struct exceeded");
+    checkState(recursionLevel <= MAX_IMPORT_RECURSION_LEVEL, "Recursion level in ArrowSchema struct exceeded");
 
     ArrowSchema.Snapshot snapshot = schema.snapshot();
     checkState(snapshot.release != NULL, "Cannot import released ArrowSchema");

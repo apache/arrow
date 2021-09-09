@@ -54,18 +54,17 @@ final class FFIReferenceManager implements ReferenceManager {
   public boolean release(int decrement) {
     Preconditions.checkState(decrement >= 1, "ref count decrement should be greater than or equal to 1");
     // decrement the ref count
-    final int refCnt;
-    synchronized (this) {
-      refCnt = bufRefCnt.addAndGet(-decrement);
-      if (refCnt == 0) {
-        // refcount of this reference manager has dropped to 0
-        // release the underlying memory
+    final int refCnt = bufRefCnt.addAndGet(-decrement);
+    // the new ref count should be >= 0
+    Preconditions.checkState(refCnt >= 0, "RefCnt has gone negative");
+    if (refCnt == 0) {
+      // refcount of this reference manager has dropped to 0
+      // release the underlying memory
+      synchronized (this) {
         struct.release();
         struct.close();
       }
     }
-    // the new ref count should be >= 0
-    Preconditions.checkState(refCnt >= 0, "RefCnt has gone negative");
     return refCnt == 0;
   }
 
@@ -83,7 +82,11 @@ final class FFIReferenceManager implements ReferenceManager {
   @Override
   public ArrowBuf retain(ArrowBuf srcBuffer, BufferAllocator targetAllocator) {
     retain();
-    return srcBuffer;
+
+    ArrowBuf targetArrowBuf = this.deriveBuffer(srcBuffer, 0, srcBuffer.capacity());
+    targetArrowBuf.readerIndex(srcBuffer.readerIndex());
+    targetArrowBuf.writerIndex(srcBuffer.writerIndex());
+    return targetArrowBuf;
   }
 
   @Override

@@ -40,7 +40,8 @@ final class Format {
 
   static String asString(ArrowType arrowType) {
     if (arrowType instanceof ExtensionType) {
-      arrowType = ((ExtensionType) arrowType).storageType();
+      ArrowType innerType = ((ExtensionType) arrowType).storageType();
+      return asString(innerType);
     }
 
     switch (arrowType.getTypeID()) {

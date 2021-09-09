@@ -81,7 +81,7 @@ final class ArrayImporter {
     ArrowArray.Snapshot snapshot = src.snapshot();
     checkState(snapshot.release != NULL, "Cannot import released ArrowArray");
     recursionLevel = parent.recursionLevel + 1;
-    checkState(recursionLevel < MAX_IMPORT_RECURSION_LEVEL, "Recursion level in ArrowArray struct exceeded");
+    checkState(recursionLevel <= MAX_IMPORT_RECURSION_LEVEL, "Recursion level in ArrowArray struct exceeded");
     // Child buffers will keep the entire parent import alive.
     // Perhaps we can move the child structs on import,
     // but that is another level of complication.

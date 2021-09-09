@@ -24,7 +24,7 @@
     <description>Java implementation of C Data Interface</description>
     <packaging>jar</packaging>
     <properties>
-        <arrow.ffi.cpp.build.dir>./target/build</arrow.ffi.cpp.build.dir>
+        <arrow.ffi.cpp.build.dir>./build</arrow.ffi.cpp.build.dir>
     </properties>
 
     <dependencies>

@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include "abi.h"
@@ -78,6 +79,40 @@ namespace
     jobject j_private_data_;
   };
 
+  class JNIEnvGuard
+  {
+    public:
+      explicit JNIEnvGuard(JavaVM* vm) : vm_(vm), should_deattach_(false) {
+        JNIEnv* env;
+        jint code = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
+        if (code == JNI_EDETACHED) {
+          JavaVMAttachArgs args;
+          args.version = JNI_VERSION;
+          args.name = NULL;
+          args.group = NULL;
+          code = vm->AttachCurrentThread(reinterpret_cast<void**>(&env), &args);
+          should_deattach_ = (code == JNI_OK);
+        }
+        if (code != JNI_OK) {
+          ThrowPendingException("Failed to attach the current thread to a Java VM");
+        }
+        env_ = env;
+      }
+
+      JNIEnv* env() { return env_; }
+
+      ~JNIEnvGuard() {
+        if (should_deattach_) {
+          vm_->DetachCurrentThread();
+          should_deattach_ = false;
+        }
+      }    
+    private:
+      bool should_deattach_;
+      JavaVM* vm_;
+      JNIEnv* env_;
+  };
+
   template<typename T>
   void release_exported(T* base) {
     // This should not be called on already released structure
@@ -101,10 +136,10 @@ namespace
 
     // Release all data directly owned by the struct
     InnerPrivateData* private_data = reinterpret_cast<InnerPrivateData*>(base->private_data);
-    JNIEnv* env;
-    if (private_data->vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
-      ThrowPendingException("JNIEnv was not attached to current thread");
-    }
+
+    JNIEnvGuard guard(private_data->vm_);
+    JNIEnv* env = guard.env();
+
     env->CallObjectMethod(private_data->j_private_data_, private_data_close_method);
     if (env->ExceptionCheck()) {
         env->ExceptionDescribe();
