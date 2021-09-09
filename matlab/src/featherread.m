@@ -46,7 +46,7 @@ end
 
 % Read table variables and metadata from the given Feather file using
 % libarrow.
-[variables, metadata] = mexDispatcher('featherread', filename);
+[variables, metadata] = mexfcn('featherread', filename);
 
 % Make valid MATLAB table variable names out of any of the
 % Feather table column names that are not valid MATLAB table

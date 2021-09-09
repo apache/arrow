@@ -58,7 +58,7 @@ classdef tfeathermex < matlab.unittest.TestCase
             validVariable = mlarrow.util.createVariableStruct('double', 1, true, 'Valid');
             variables = [invalidVariable, validVariable];
             metadata = mlarrow.util.createMetadataStruct(1, 2);
-            mexDispatcher('featherwrite', filename, variables, metadata);
+            mexfcn('featherwrite', filename, variables, metadata);
             t = featherread(filename);
             
             testCase.verifyEqual(t.Properties.VariableNames{1}, 'x_');
