@@ -47,9 +47,8 @@ inline Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenReader(
     pool = default_memory_pool();
   }
 
-  std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader;
-  auto status =
-      arrow::adapters::orc::ORCFileReader::Open(std::move(input), pool, &reader);
+  auto reader = arrow::adapters::orc::ORCFileReader::Open(std::move(input), pool);
+  auto status = reader.status();
   if (!status.ok()) {
     return status.WithMessage("Could not open ORC input source '", source.path(),
                               "': ", status.message());
@@ -86,8 +85,7 @@ class OrcScanTask : public ScanTask {
         // orc.py for custom logic)
         // std::vector<int> included_fields;
         // TODO pass scan_options_->batch_size
-        RETURN_NOT_OK(reader_->ReadStripe(i_++, &batch));
-        return batch;
+        return reader_->ReadStripe(i_++);
       }
 
       std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader_;
@@ -139,9 +137,7 @@ Result<bool> OrcFileFormat::IsSupported(const FileSource& source) const {
 
 Result<std::shared_ptr<Schema>> OrcFileFormat::Inspect(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(reader->ReadSchema(&schema));
-  return schema;
+  return reader->ReadSchema();
 }
 
 Result<ScanTaskIterator> OrcFileFormat::ScanFile(
