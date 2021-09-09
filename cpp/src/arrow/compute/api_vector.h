@@ -131,17 +131,23 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
 
   static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
     std::vector<SortKey> keys;
-    for (const auto& name : key_names)
+    for (const auto& name : key_names) {
       keys.emplace_back(SortKey(name, SortOrder::Descending));
-    if (key_names.empty()) keys.emplace_back(SortKey("not-used", SortOrder::Descending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Descending));
+    }
     return SelectKOptions{k, keys};
   }
   static SelectKOptions BottomKDefault(int64_t k,
                                        std::vector<std::string> key_names = {}) {
     std::vector<SortKey> keys;
-    for (const auto& name : key_names)
+    for (const auto& name : key_names) {
       keys.emplace_back(SortKey(name, SortOrder::Ascending));
-    if (key_names.empty()) keys.emplace_back(SortKey("not-used", SortOrder::Ascending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Ascending));
+    }
     return SelectKOptions{k, keys};
   }
   bool is_top_k() const;
@@ -164,6 +170,8 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
 };
+
+/// @}
 
 /// \brief Filter with a boolean selection filter
 ///

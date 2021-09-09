@@ -1814,28 +1814,6 @@ const FunctionDoc select_k_doc(
      "other non-null value, but smaller than null values."),
     {"input"}, "SelectKOptions");
 
-const FunctionDoc top_k_doc(
-    "Returns the first k elements ordered by `options.keys` in ascending order",
-    ("This function computes the k largest elements in ascending order of the input\n"
-     "array, record batch or table specified in the column names (`options.keys`). The\n"
-     "columns that are not specified are returned as well, but not used for ordering.\n"
-     "Null values are considered  greater than any other value and are therefore sorted\n"
-     "at the end of the array.\n"
-     "For floating-point types, NaNs are considered greater than any\n"
-     "other non-null value, but smaller than null values."),
-    {"input"}, "SelectKOptions::TopKDefault");
-
-const FunctionDoc bottom_k_doc(
-    "Returns the first k elements ordered by `options.keys` in descending order",
-    ("This function computes the k smallest elements in descending order of the input\n"
-     "array, record batch or table specified in the column names (`options.keys`). The\n"
-     "columns that are not specified are returned as well, but not used for ordering.\n"
-     "Null values are considered  greater than any other value and are therefore sorted\n"
-     "at the end of the array.\n"
-     "For floating-point types, NaNs are considered greater than any\n"
-     "other non-null value, but smaller than null values."),
-    {"input"}, "SelectKOptions::BottomKDefault");
-
 Result<std::shared_ptr<ArrayData>> MakeMutableArrayForNumericBasedType(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
   auto buffer_size = BitUtil::BytesForBits(
@@ -2346,12 +2324,11 @@ class TableSelecter : public TypeVisitor {
   Comparator comparator_;
 };
 
-template <typename ArrowContainer>
-static Status CheckConsistency(const ArrowContainer& container,
+static Status CheckConsistency(const Schema& schema,
                                const std::vector<SortKey>& sort_keys) {
   for (const auto& key : sort_keys) {
-    auto array = container.GetColumnByName(key.name);
-    if (!array) {
+    auto field = schema.GetFieldByName(key.name);
+    if (!field) {
       return Status::Invalid("Nonexistent sort key column: ", key.name);
     }
   }
@@ -2425,7 +2402,7 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   }
   Result<Datum> SelectKth(const RecordBatch& record_batch, const SelectKOptions& options,
                           ExecContext* ctx) const {
-    ARROW_RETURN_NOT_OK(CheckConsistency(record_batch, options.sort_keys));
+    ARROW_RETURN_NOT_OK(CheckConsistency(*record_batch.schema(), options.sort_keys));
     Datum output;
     RecordBatchSelecter selecter(ctx, record_batch, options, &output);
     ARROW_RETURN_NOT_OK(selecter.Run());
@@ -2433,7 +2410,7 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   }
   Result<Datum> SelectKth(const Table& table, const SelectKOptions& options,
                           ExecContext* ctx) const {
-    ARROW_RETURN_NOT_OK(CheckConsistency(table, options.sort_keys));
+    ARROW_RETURN_NOT_OK(CheckConsistency(*table.schema(), options.sort_keys));
     Datum output;
     TableSelecter selecter(ctx, table, options, &output);
     ARROW_RETURN_NOT_OK(selecter.Run());

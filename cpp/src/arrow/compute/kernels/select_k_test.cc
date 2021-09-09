@@ -55,24 +55,16 @@ class SelectKComparator {
 };
 
 template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const Array& values, int64_t k) {
+Result<std::shared_ptr<Array>> SelectK(const Datum& values, int64_t k) {
   if (order == SortOrder::Descending) {
-    return SelectKUnstable(Datum(values), SelectKOptions::TopKDefault(k));
+    return SelectKUnstable(values, SelectKOptions::TopKDefault(k));
   } else {
-    return SelectKUnstable(Datum(values), SelectKOptions::BottomKDefault(k));
-  }
-}
-template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const ChunkedArray& values, int64_t k) {
-  if (order == SortOrder::Descending) {
-    return SelectKUnstable(Datum(values), SelectKOptions::TopKDefault(k));
-  } else {
-    return SelectKUnstable(Datum(values), SelectKOptions::BottomKDefault(k));
+    return SelectKUnstable(values, SelectKOptions::BottomKDefault(k));
   }
 }
 
 template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const RecordBatch& values,
+Result<std::shared_ptr<Array>> SelectK(const Datum& values,
                                        const SelectKOptions& options) {
   if (order == SortOrder::Descending) {
     return SelectKUnstable(Datum(values), options);
@@ -81,52 +73,23 @@ Result<std::shared_ptr<Array>> SelectK(const RecordBatch& values,
   }
 }
 
-template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const Table& values,
-                                       const SelectKOptions& options) {
-  if (order == SortOrder::Descending) {
-    return SelectKUnstable(Datum(values), options);
-  } else {
-    return SelectKUnstable(Datum(values), options);
-  }
-}
-
-void ValidateSelectK(const Array& array, int64_t k, Array& select_k_indices,
+void ValidateSelectK(const Datum& datum, int64_t k, Array& select_k_indices,
                      SortOrder order, bool stable_sort = false) {
-  ASSERT_OK_AND_ASSIGN(auto sorted_indices, SortIndices(array, order));
+  ASSERT_TRUE(datum.is_arraylike());
+  ASSERT_OK_AND_ASSIGN(auto sorted_indices,
+                       SortIndices(datum, SortOptions({SortKey("unused", order)})));
 
-  if (k < array.length()) {
+  if (k < datum.length()) {
     // head(k)
     auto head_k_indices = sorted_indices->Slice(0, select_k_indices.length());
     if (stable_sort) {
-      AssertArraysEqual(*head_k_indices, select_k_indices);
+      AssertDatumsEqual(*head_k_indices, select_k_indices);
     } else {
       ASSERT_OK_AND_ASSIGN(auto expected,
-                           Take(array, *head_k_indices, TakeOptions::NoBoundsCheck()));
+                           Take(datum, *head_k_indices, TakeOptions::NoBoundsCheck()));
       ASSERT_OK_AND_ASSIGN(auto actual,
-                           Take(array, select_k_indices, TakeOptions::NoBoundsCheck()));
-      AssertArraysEqual(*expected, *actual);
-    }
-  }
-}
-
-void ValidateSelectK(const ChunkedArray& chunked_array, int64_t k,
-                     Array& select_k_indices, SortOrder order, bool stable_sort = false) {
-  ASSERT_OK_AND_ASSIGN(auto sorted_indices, SortIndices(chunked_array, order));
-
-  if (k < chunked_array.length()) {
-    // head(k)
-    auto head_k_indices = sorted_indices->Slice(0, select_k_indices.length());
-    if (stable_sort) {
-      AssertArraysEqual(*head_k_indices, select_k_indices);
-    } else {
-      ASSERT_OK_AND_ASSIGN(auto expected,
-                           Take(Datum(chunked_array), Datum(head_k_indices),
-                                TakeOptions::NoBoundsCheck()));
-      ASSERT_OK_AND_ASSIGN(auto actual,
-                           Take(Datum(chunked_array), Datum(select_k_indices),
-                                TakeOptions::NoBoundsCheck()));
-      AssertChunkedEqual(*expected.chunked_array(), *actual.chunked_array());
+                           Take(datum, select_k_indices, TakeOptions::NoBoundsCheck()));
+      AssertDatumsEqual(Datum(expected), Datum(actual));
     }
   }
 }
@@ -139,10 +102,10 @@ class TestSelectKBase : public TestBase {
   template <SortOrder order>
   void AssertSelectKArray(const std::shared_ptr<Array> values, int n) {
     std::shared_ptr<Array> select_k;
-    ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(*values, n));
+    ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(Datum(*values), n));
     ASSERT_EQ(select_k->data()->null_count, 0);
     ValidateOutput(*select_k);
-    ValidateSelectK(*values, n, *select_k, order);
+    ValidateSelectK(Datum(*values), n, *select_k, order);
   }
 
   void AssertTopKArray(const std::shared_ptr<Array> values, int n) {
@@ -302,8 +265,8 @@ struct TestSelectKWithChunkedArray : public ::testing::Test {
 
   template <SortOrder order = SortOrder::Descending>
   void AssertSelectK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {
-    ASSERT_OK_AND_ASSIGN(auto select_k_array, SelectK<order>(*chunked_array, k));
-    ValidateSelectK(*chunked_array, k, *select_k_array, order);
+    ASSERT_OK_AND_ASSIGN(auto select_k_array, SelectK<order>(Datum(*chunked_array), k));
+    ValidateSelectK(Datum(*chunked_array), k, *select_k_array, order);
   }
 
   void AssertTopK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {
@@ -360,7 +323,7 @@ struct TestSelectKWithChunkedArrayRandomBase : public ::testing::Test {
           arrays.push_back(array);
         }
         ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
-        ASSERT_OK_AND_ASSIGN(auto indices, SelectK<order>(*chunked_array, 5));
+        ASSERT_OK_AND_ASSIGN(auto indices, SelectK<order>(Datum(*chunked_array), 5));
         ASSERT_OK_AND_ASSIGN(auto actual, Take(Datum(chunked_array), Datum(indices),
                                                TakeOptions::NoBoundsCheck()));
         ASSERT_OK_AND_ASSIGN(auto sorted_k,
@@ -416,7 +379,7 @@ class TestSelectKWithRecordBatch : public ::testing::Test {
   Status DoSelectK(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                    const SelectKOptions& options, std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*batch, options));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(Datum(*batch), options));
 
     ValidateOutput(*indices);
     ARROW_ASSIGN_OR_RAISE(
@@ -664,7 +627,7 @@ struct TestSelectKWithTable : public ::testing::Test {
                    const std::vector<std::string>& input_json,
                    const SelectKOptions& options, std::shared_ptr<Table>* out) {
     auto table = TableFromJSON(schm, input_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*table, options));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(Datum(*table), options));
     ValidateOutput(*indices);
 
     ARROW_ASSIGN_OR_RAISE(

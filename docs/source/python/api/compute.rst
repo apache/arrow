@@ -350,8 +350,6 @@ Sorts and partitions
 
    partition_nth_indices
    sort_indices
-   top_k
-   bottom_k
    select_k
 
 Structural Transforms
