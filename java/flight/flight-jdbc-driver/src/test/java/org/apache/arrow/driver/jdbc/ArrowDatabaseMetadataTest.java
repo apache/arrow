@@ -308,11 +308,12 @@ public class ArrowDatabaseMetadataTest {
   }
 
   @Test
-  @Ignore // FIXME TODO
   public void testSchemas() throws SQLException {
-    final List<ArrayList<String>> expectedSchemas =
-        range(0, 10).mapToObj(
-                i -> new ArrayList<>(Arrays.asList(format("schema_name #%d", i), format("catalog_name #%d", i))))
+    final List<List<String>> expectedSchemas =
+        range(0, 10)
+            .mapToObj(i -> new String[] {
+                format("schema_name #%d", i), format("catalog_name #%d", i)})
+            .map(Arrays::asList)
             .collect(toList());
     final List<List<String>> actualSchemas = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getSchemas()) {
