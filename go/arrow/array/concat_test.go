@@ -18,6 +18,7 @@ package array_test
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"testing"
 
@@ -67,8 +68,11 @@ func TestConcatenate(t *testing.T) {
 		{arrow.PrimitiveTypes.Uint64},
 		{arrow.PrimitiveTypes.Float32},
 		{arrow.PrimitiveTypes.Float64},
+		{arrow.BinaryTypes.String},
 		{arrow.ListOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int8)},
+		{arrow.StructOf()},
+		{arrow.MapOf(arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int8)},
 	}
 
 	for _, tt := range tests {
@@ -161,6 +165,52 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) array.Inte
 		data := array.NewData(arrow.FixedSizeListOf(listsize, arrow.PrimitiveTypes.Int8), int(size), []*memory.Buffer{nil}, []*array.Data{values.Data()}, 0, 0)
 		defer data.Release()
 		return array.MakeFromData(data)
+	case arrow.STRUCT:
+		foo := cts.rng.Int8(size, 0, 127, nullprob)
+		defer foo.Release()
+		bar := cts.rng.Float64(size, 0, 127, nullprob)
+		defer bar.Release()
+		baz := cts.rng.Boolean(size, 0.5, nullprob)
+		defer baz.Release()
+
+		data := array.NewData(arrow.StructOf(
+			arrow.Field{Name: "foo", Type: foo.DataType(), Nullable: true},
+			arrow.Field{Name: "bar", Type: bar.DataType(), Nullable: true},
+			arrow.Field{Name: "baz", Type: baz.DataType(), Nullable: true}),
+			int(size), []*memory.Buffer{nil}, []*array.Data{foo.Data(), bar.Data(), baz.Data()}, 0, 0)
+		defer data.Release()
+		return array.NewStructData(data)
+	case arrow.MAP:
+		valuesSize := size * 4
+		keys := cts.rng.Uint16(valuesSize, 0, 127, 0).(*array.Uint16)
+		defer keys.Release()
+		values := cts.rng.Int8(valuesSize, 0, 127, nullprob).(*array.Int8)
+		defer values.Release()
+
+		offsetsVector := cts.offsets(int32(valuesSize), int32(size))
+		offsetsVector[0] = 0
+		offsetsVector[len(offsetsVector)-1] = int32(valuesSize)
+
+		bldr := array.NewMapBuilder(memory.DefaultAllocator, arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int8, false)
+		defer bldr.Release()
+
+		kb := bldr.KeyBuilder().(*array.Uint16Builder)
+		vb := bldr.ItemBuilder().(*array.Int8Builder)
+
+		valid := make([]bool, len(offsetsVector)-1)
+		for i := range valid {
+			valid[i] = true
+		}
+		bldr.AppendValues(offsetsVector, valid)
+		for i := 0; i < int(valuesSize); i++ {
+			kb.Append(keys.Value(i))
+			if values.IsValid(i) {
+				vb.Append(values.Value(i))
+			} else {
+				vb.AppendNull()
+			}
+		}
+		return bldr.NewArray()
 	default:
 		return nil
 	}
@@ -185,9 +235,7 @@ func (cts *ConcatTestSuite) offsets(length, slicecount int32) []int32 {
 	offsets := make([]int32, slicecount+1)
 	dist := rand.New(rand.NewSource(cts.seed))
 	for i := range offsets {
-		// if length > 0 {
 		offsets[i] = dist.Int31n(length + 1)
-		// }
 	}
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
 	return offsets
@@ -221,4 +269,14 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 			}
 		})
 	}
+}
+
+func TestOffsetOverflow(t *testing.T) {
+	fakeOffsets := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes([]int32{0, math.MaxInt32}))
+	fakeArr := array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, []*memory.Buffer{nil, fakeOffsets, memory.NewBufferBytes([]byte{})}, nil, 0, 0))
+	var err error
+	assert.NotPanics(t, func() {
+		_, err = array.Concatenate([]array.Interface{fakeArr, fakeArr}, memory.DefaultAllocator)
+	})
+	assert.EqualError(t, err, "offset overflow while concatenating arrays")
 }

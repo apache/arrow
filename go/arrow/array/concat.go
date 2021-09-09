@@ -231,6 +231,9 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		out.buffers[1] = offsetBuffer
 		out.childData = make([]*Data, 1)
 		out.childData[0], err = concat(childData, mem)
+		if err != nil {
+			return nil, err
+		}
 	case *arrow.FixedSizeListType:
 		childData := gatherChildrenMultiplier(data, 0, int(dt.Len()))
 		children, err := concat(childData, mem)
@@ -256,6 +259,9 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		out.buffers[1] = offsetBuffer
 		out.childData = make([]*Data, 1)
 		out.childData[0], err = concat(childData, mem)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, xerrors.Errorf("concatenate not implemented for type %s", dt)
 	}
