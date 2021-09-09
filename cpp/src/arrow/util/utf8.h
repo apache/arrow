@@ -248,7 +248,11 @@ inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
 inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
-  using simd_batch = xsimd::batch<int8_t, 16>;
+#ifdef ARROW_HAVE_NEON
+  using simd_batch = xsimd::batch<int8_t, xsimd::neon64>;
+#else
+  using simd_batch = xsimd::batch<int8_t, xsimd::sse4_2>;
+#endif
 
   if (len >= 32) {
     const simd_batch zero(static_cast<int8_t>(0));
@@ -256,8 +260,8 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
     simd_batch or1 = zero, or2 = zero;
 
     while (len >= 32) {
-      or1 |= simd_batch(reinterpret_cast<const int8_t*>(data), xsimd::unaligned_mode{});
-      or2 |= simd_batch(reinterpret_cast<const int8_t*>(data2), xsimd::unaligned_mode{});
+      or1 |= simd_batch::load_unaligned(reinterpret_cast<const int8_t*>(data));
+      or2 |= simd_batch::load_unaligned(reinterpret_cast<const int8_t*>(data2));
       data += 32;
       data2 += 32;
       len -= 32;
