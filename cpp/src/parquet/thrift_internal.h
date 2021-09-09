@@ -20,6 +20,7 @@
 #include "arrow/util/windows_compatibility.h"
 
 #include <cstdint>
+#include <limits>
 
 // Check if thrift version < 0.11.0
 // or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
@@ -386,9 +387,8 @@ using configuration_type =
 // Overload with TConfiguration available
 template <typename T = ThriftBuffer, typename C = configuration_type<T>>
 void CreateReadOnlyMemoryBuffer(uint8_t* buf, uint32_t len, std::shared_ptr<T>* out) {
-  auto conf = std::make_shared<C>();
-  conf->setMaxMessageSize(std::numeric_limits<int>::max());
-  *out = std::make_shared<T>(buf, len, ThriftBuffer::OBSERVE, std::move(conf));
+  auto conf = std::make_shared<C>(/*maxMessageSize=*/std::numeric_limits<int>::max());
+  *out = std::make_shared<T>(buf, len, ThriftBuffer::OBSERVE, conf);
 }
 
 // Overload without TConfiguration available
