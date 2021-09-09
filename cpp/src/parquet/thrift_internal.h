@@ -20,6 +20,7 @@
 #include "arrow/util/windows_compatibility.h"
 
 #include <cstdint>
+
 // Check if thrift version < 0.11.0
 // or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
 #if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
@@ -27,7 +28,10 @@
 #else
 #include <memory>
 #endif
+#include <sstream>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 // TCompactProtocol requires some #defines to work right.
@@ -35,11 +39,7 @@
 #define ARITHMETIC_RIGHT_SHIFT 1
 #include <thrift/TApplicationException.h>
 #include <thrift/protocol/TCompactProtocol.h>
-#include <thrift/protocol/TDebugProtocol.h>
-
-#include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
-#include <sstream>
 
 #include "arrow/util/logging.h"
 
@@ -363,12 +363,48 @@ static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryptio
 
 using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 
+// On Thrift 0.14.0+, we want to use TConfiguration to raise the max message size
+// limit (ARROW-13655).  If we wanted to protect against huge messages, we could
+// do it ourselves since we know the message size up front.
+
+// We use an elaborate SFINAE hack to check for the existence of TConfiguration
+// since Thrift doesn't expose version macros (THRIFT-5462):
+// - define two potential CreateReadOnlyMemoryBuffer overloads,
+//   one taking a `uint8_t*` buffer, the other a `void*`
+// - if both overloads are available, the `uint8_t*` one will be preferred
+//   as it is more specific
+// - however, the `uint8_t*` overload is conditional on the existence of
+//   the configuration type (obtained by inspecting the return type
+//   of ThriftBuffer::getConfiguration).
+// - therefore, if TConfiguration is not available, the `void*` overload
+//   is selected.
+
+template <typename T>
+using configuration_type =
+    typename std::remove_reference<decltype(*std::declval<T>().getConfiguration())>::type;
+
+// Overload with TConfiguration available
+template <typename T = ThriftBuffer, typename C = configuration_type<T>>
+void CreateReadOnlyMemoryBuffer(uint8_t* buf, uint32_t len, std::shared_ptr<T>* out) {
+  auto conf = std::make_shared<C>();
+  conf->setMaxMessageSize(std::numeric_limits<int>::max());
+  *out = std::make_shared<T>(buf, len, ThriftBuffer::OBSERVE, std::move(conf));
+}
+
+// Overload without TConfiguration available
+template <typename T = ThriftBuffer>
+void CreateReadOnlyMemoryBuffer(void* buf, uint32_t len, std::shared_ptr<T>* out) {
+  *out = std::make_shared<T>(reinterpret_cast<uint8_t*>(buf), len);
+}
+
 template <class T>
 inline void DeserializeThriftUnencryptedMsg(const uint8_t* buf, uint32_t* len,
                                             T* deserialized_msg) {
   // Deserialize msg bytes into c++ thrift msg using memory transport.
-  shared_ptr<ThriftBuffer> tmem_transport(
-      new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
+
+  shared_ptr<ThriftBuffer> tmem_transport;
+  CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), *len, &tmem_transport);
+
   apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
   // Protect against CPU and memory bombs
   tproto_factory.setStringSizeLimit(100 * 1000 * 1000);
