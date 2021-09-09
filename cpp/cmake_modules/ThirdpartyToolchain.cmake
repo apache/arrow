@@ -1332,6 +1332,11 @@ if(ARROW_WITH_THRIFT)
   endif()
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${THRIFT_INCLUDE_DIR})
+
+  string(REPLACE "." ";" VERSION_LIST ${THRIFT_VERSION})
+  list(GET VERSION_LIST 0 THRIFT_VERSION_MAJOR)
+  list(GET VERSION_LIST 1 THRIFT_VERSION_MINOR)
+  list(GET VERSION_LIST 2 THRIFT_VERSION_PATCH)
 endif()
 
 # ----------------------------------------------------------------------
