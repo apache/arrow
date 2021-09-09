@@ -38,7 +38,6 @@ from pyarrow._dataset import (  # noqa
     IpcFileFormat,
     IpcFileWriteOptions,
     InMemoryDataset,
-    OrcFileFormat,
     ParquetDatasetFactory,
     ParquetFactoryOptions,
     ParquetFileFormat,
@@ -56,6 +55,11 @@ from pyarrow._dataset import (  # noqa
     _get_partition_keys,
     _filesystemdataset_write,
 )
+
+try:
+    from pyarrow._dataset_orc import OrcFileFormat
+except ImportError:
+    pass
 
 
 def field(name):

@@ -486,6 +486,9 @@ endif()
 if(PYARROW_BUILD_ORC)
   # ORC
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
+  if(PYARROW_BUILD_DATASET)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_orc)
+  endif()
 endif()
 
 # Flight
