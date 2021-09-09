@@ -64,20 +64,9 @@ TEST(AsyncDestroyable, MakeShared) {
 }
 
 TEST(AsyncDestroyable, MakeUnique) {
-  Future<> gate = Future<>::Make();
-  bool destroyed = false;
-  bool on_closed = false;
-  {
-    std::unique_ptr<GatingDestroyable, DestroyingDeleter<GatingDestroyable>> obj =
-        MakeUniqueAsync<GatingDestroyable>(gate, &destroyed);
-    obj->on_closed().AddCallback([&](const Status& st) { on_closed = true; });
-    ASSERT_FALSE(destroyed);
-  }
-  ASSERT_FALSE(destroyed);
-  ASSERT_FALSE(on_closed);
-  gate.MarkFinished();
-  ASSERT_TRUE(destroyed);
-  ASSERT_TRUE(on_closed);
+  TestAsyncDestroyable([](Future<> gate, bool* destroyed) {
+    return MakeUniqueAsync<GatingDestroyable>(gate, destroyed);
+  });
 }
 
 TEST(AsyncTaskGroup, Basic) {
@@ -144,6 +133,21 @@ TEST(AsyncTaskGroup, AddAfterFailed) {
   ASSERT_OK(task_group.AddTask(Future<>::MakeFinished(Status::Invalid("XYZ"))));
   ASSERT_RAISES(Invalid, task_group.AddTask(Future<>::Make()));
   ASSERT_FINISHES_AND_RAISES(Invalid, task_group.WaitForTasksToFinish());
+}
+
+TEST(AsyncTaskGroup, FailAfterAdd) {
+  AsyncTaskGroup task_group;
+  Future<> will_fail = Future<>::Make();
+  ASSERT_OK(task_group.AddTask(will_fail));
+  Future<> added_later_and_passes = Future<>::Make();
+  ASSERT_OK(task_group.AddTask(added_later_and_passes));
+  will_fail.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_RAISES(Invalid, task_group.AddTask(Future<>::Make()));
+  Future<> finished_fut = task_group.WaitForTasksToFinish();
+  AssertNotFinished(finished_fut);
+  added_later_and_passes.MarkFinished();
+  AssertFinished(finished_fut);
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
 }
 
 }  // namespace util

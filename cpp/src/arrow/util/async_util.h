@@ -101,7 +101,7 @@ std::unique_ptr<T, DestroyingDeleter<T>> MakeUniqueAsync(Args&&... args) {
 /// A task group created at a high level can be distributed amongst low level components
 /// which register work to be completed.  The high level job can then wait for all work
 /// to be completed before cleaning up.
-class AsyncTaskGroup {
+class ARROW_EXPORT AsyncTaskGroup {
  public:
   /// Add a task to be tracked by this task group
   ///
