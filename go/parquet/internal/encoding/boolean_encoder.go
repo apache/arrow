@@ -69,7 +69,7 @@ func (enc *PlainBooleanEncoder) PutSpaced(in []bool, validBits []byte, validBits
 // EstimatedDataEncodedSize returns the current number of bytes that have
 // been buffered so far
 func (enc *PlainBooleanEncoder) EstimatedDataEncodedSize() int64 {
-	return int64(enc.sink.Len() + int(bitutil.BytesForBits(enc.wr.Pos())))
+	return int64(enc.sink.Len() + int(bitutil.BytesForBits(int64(enc.wr.Pos()))))
 }
 
 // FlushValues returns the buffered data, the responsibility is on the caller

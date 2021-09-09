@@ -242,3 +242,103 @@ func BenchmarkCopyBitmapWithOffsetBoth(b *testing.B) {
 		})
 	}
 }
+
+const bufferSize = 1024 * 8
+
+// a naive bitmap reader for a baseline
+
+type NaiveBitmapReader struct {
+	bitmap []byte
+	pos    int
+}
+
+func (n *NaiveBitmapReader) IsSet() bool    { return bitutil.BitIsSet(n.bitmap, n.pos) }
+func (n *NaiveBitmapReader) IsNotSet() bool { return !n.IsSet() }
+func (n *NaiveBitmapReader) Next()          { n.pos++ }
+
+// naive bitmap writer for a baseline
+
+type NaiveBitmapWriter struct {
+	bitmap []byte
+	pos    int
+}
+
+func (n *NaiveBitmapWriter) Set() {
+	byteOffset := n.pos / 8
+	bitOffset := n.pos % 8
+	bitSetMask := uint8(1 << bitOffset)
+	n.bitmap[byteOffset] |= bitSetMask
+}
+
+func (n *NaiveBitmapWriter) Clear() {
+	byteOffset := n.pos / 8
+	bitOffset := n.pos % 8
+	bitClearMask := uint8(0xFF ^ (1 << bitOffset))
+	n.bitmap[byteOffset] &= bitClearMask
+}
+
+func (n *NaiveBitmapWriter) Next()   { n.pos++ }
+func (n *NaiveBitmapWriter) Finish() {}
+
+func randomBuffer(nbytes int64) []byte {
+	buf := make([]byte, nbytes)
+	r := rand.New(rand.NewSource(0))
+	r.Read(buf)
+	return buf
+}
+
+func BenchmarkBitmapReader(b *testing.B) {
+	buf := randomBuffer(bufferSize)
+	nbits := bufferSize * 8
+
+	b.Run("naive baseline", func(b *testing.B) {
+		b.SetBytes(2 * bufferSize)
+		for i := 0; i < b.N; i++ {
+			{
+				total := 0
+				rdr := NaiveBitmapReader{buf, 0}
+				for j := 0; j < nbits; j++ {
+					if rdr.IsSet() {
+						total++
+					}
+					rdr.Next()
+				}
+			}
+			{
+				total := 0
+				rdr := NaiveBitmapReader{buf, 0}
+				for j := 0; j < nbits; j++ {
+					if rdr.IsSet() {
+						total++
+					}
+					rdr.Next()
+				}
+			}
+		}
+	})
+	b.Run("bitmap reader", func(b *testing.B) {
+		b.SetBytes(2 * bufferSize)
+		for i := 0; i < b.N; i++ {
+			{
+				total := 0
+				rdr := bitutil.NewBitmapReader(buf, 0, nbits)
+				for j := 0; j < nbits; j++ {
+					if rdr.Set() {
+						total++
+					}
+					rdr.Next()
+				}
+			}
+			{
+				total := 0
+				rdr := bitutil.NewBitmapReader(buf, 0, nbits)
+				for j := 0; j < nbits; j++ {
+					if rdr.Set() {
+						total++
+					}
+					rdr.Next()
+				}
+			}
+		}
+	})
+}
