@@ -375,6 +375,31 @@ test_that("Expressions on aggregations", {
       collect(),
     tbl
   )
+
+  # Make sure order of columns in result is correct
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        any_lgl = any(lgl),
+        some = any_lgl & !all(lgl),
+        n()
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # Aggregate on an aggregate (trivial but dplyr allows)
+  skip("Not supported")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        any_lgl = any(any(lgl))
+      ) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("Summarize with 0 arguments", {
@@ -403,6 +428,16 @@ test_that("Not (yet) supported: implicit join", {
     input %>%
       group_by(some_grouping) %>%
       summarize(
+        sum(dbl - mean(dbl))
+      ) %>%
+      collect(),
+    tbl,
+    warning = "Expression sum\\(dbl - mean\\(dbl\\)\\) not supported in Arrow; pulling data into R"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
         sqrt(sum((dbl - mean(dbl))^2) / (n() - 1L))
       ) %>%
       collect(),
@@ -420,6 +455,8 @@ test_that("Not (yet) supported: implicit join", {
     tbl,
     warning = "Expression dbl - mean\\(dbl\\) not supported in Arrow; pulling data into R"
   )
+
+  # This one could possibly be supported--in mutate()
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
