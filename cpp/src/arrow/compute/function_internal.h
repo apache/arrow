@@ -56,22 +56,6 @@ struct EnumTraits<compute::SortOrder>
     return "<INVALID>";
   }
 };
-template <>
-struct EnumTraits<compute::SelectKAlgorithm>
-    : BasicEnumTraits<compute::SelectKAlgorithm,
-                      compute::SelectKAlgorithm::NonStableSelect,
-                      compute::SelectKAlgorithm::StableSelect> {
-  static std::string name() { return "SelectKAlgorithm"; }
-  static std::string value_name(compute::SelectKAlgorithm value) {
-    switch (value) {
-      case compute::SelectKAlgorithm::NonStableSelect:
-        return "NonStableSelect";
-      case compute::SelectKAlgorithm::StableSelect:
-        return "StableSelect";
-    }
-    return "<INVALID>";
-  }
-};
 }  // namespace internal
 
 namespace compute {

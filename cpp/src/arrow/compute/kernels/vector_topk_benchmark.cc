@@ -27,21 +27,15 @@ namespace arrow {
 namespace compute {
 constexpr auto kSeed = 0x0ff1ce;
 
-Result<std::shared_ptr<Array>> TopKWithSorting(const Array& values, int64_t n) {
-  ARROW_ASSIGN_OR_RAISE(auto sorted, SortIndices(values, SortOrder::Descending));
-  auto head_k_indices = sorted->Slice(0, n);
-  return head_k_indices;
-}
-
-static void TopKBenchmark(benchmark::State& state, const std::shared_ptr<Array>& values,
-                          int64_t k) {
+static void SelectKBenchmark(benchmark::State& state,
+                             const std::shared_ptr<Array>& values, int64_t k) {
   for (auto _ : state) {
-    ABORT_NOT_OK(TopK(*values, TopKOptions(k)).status());
+    ABORT_NOT_OK(SelectKUnstable(*values, SelectKOptions::TopKDefault(k)).status());
   }
   state.SetItemsProcessed(state.iterations() * values->length());
 }
 
-static void TopKInt64(benchmark::State& state) {
+static void SelectKInt64(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
@@ -51,10 +45,10 @@ static void TopKInt64(benchmark::State& state) {
   auto max = std::numeric_limits<int64_t>::max();
   auto values = rand.Int64(array_size, min, max, args.null_proportion);
 
-  TopKBenchmark(state, values, array_size / 8);
+  SelectKBenchmark(state, values, array_size / 8);
 }
 
-BENCHMARK(TopKInt64)
+BENCHMARK(SelectKInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
     ->Args({1 << 23, 100})

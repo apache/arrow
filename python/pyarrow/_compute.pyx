@@ -1131,17 +1131,12 @@ class SortOptions(_SortOptions):
 
 
 cdef class _SelectKOptions(FunctionOptions):
-    def _set_options(self, k, sort_keys, kind):
+    def _set_options(self, k, sort_keys):
         cdef:
             c_string c_name
             vector[CSortKey] c_sort_keys
-            CSelectKAlgorithm c_kind
             CSortOrder c_order
 
-        if kind == "non_stable_select":
-            c_kind = CSelectKAlgorithm_NonStableSelect
-        elif kind == "stable_select":
-            c_kind = CSelectKAlgorithm_StableSelect
         for name, order in sort_keys:
             if order == "ascending":
                 c_order = CSortOrder_Ascending
@@ -1154,62 +1149,14 @@ cdef class _SelectKOptions(FunctionOptions):
             c_name = tobytes(name)
             c_sort_keys.push_back(CSortKey(c_name, c_order))
 
-        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys, c_kind))
+        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
 
 class SelectKOptions(_SelectKOptions):
-    def __init__(self, k, sort_keys=None, kind='non_stable_select'):
+    def __init__(self, k, sort_keys=None):
         if sort_keys is None:
             sort_keys = []
-        self._set_options(k, sort_keys, kind)
-
-
-cdef class _TopKOptions(FunctionOptions):
-    def _set_options(self, k, keys, kind):
-        cdef:
-            c_string c_name
-            vector[c_string] c_keys
-            CSelectKAlgorithm c_kind
-
-        if kind == "non_stable_select":
-            c_kind = CSelectKAlgorithm_NonStableSelect
-        elif kind == "stable_select":
-            c_kind = CSelectKAlgorithm_StableSelect
-        for name in keys:
-            c_name = tobytes(name)
-            c_keys.push_back(c_name)
-        self.wrapped.reset(new CTopKOptions(k, c_keys, c_kind))
-
-
-class TopKOptions(_TopKOptions):
-    def __init__(self, k, keys=None, kind='non_stable_select'):
-        if keys is None:
-            keys = []
-        self._set_options(k, keys, kind)
-
-
-cdef class _BottomKOptions(FunctionOptions):
-    def _set_options(self, k, keys, kind):
-        cdef:
-            c_string c_name
-            vector[c_string] c_keys
-            CSelectKAlgorithm c_kind
-
-        if kind == "non_stable_select":
-            c_kind = CSelectKAlgorithm_NonStableSelect
-        elif kind == "stable_select":
-            c_kind = CSelectKAlgorithm_StableSelect
-        for name in keys:
-            c_name = tobytes(name)
-            c_keys.push_back(c_name)
-        self.wrapped.reset(new CBottomKOptions(k, c_keys, c_kind))
-
-
-class BottomKOptions(_BottomKOptions):
-    def __init__(self, k, keys=None, kind='non_stable_select'):
-        if keys is None:
-            keys = []
-        self._set_options(k, keys, kind)
+        self._set_options(k, sort_keys)
 
 
 cdef class _QuantileOptions(FunctionOptions):

@@ -57,37 +57,37 @@ class SelectKComparator {
 template <SortOrder order>
 Result<std::shared_ptr<Array>> SelectK(const Array& values, int64_t k) {
   if (order == SortOrder::Descending) {
-    return TopK(Datum(values), TopKOptions(k));
+    return SelectKUnstable(Datum(values), SelectKOptions::TopKDefault(k));
   } else {
-    return BottomK(Datum(values), BottomKOptions(k));
+    return SelectKUnstable(Datum(values), SelectKOptions::BottomKDefault(k));
   }
 }
 template <SortOrder order>
 Result<std::shared_ptr<Array>> SelectK(const ChunkedArray& values, int64_t k) {
   if (order == SortOrder::Descending) {
-    return TopK(Datum(values), TopKOptions(k));
+    return SelectKUnstable(Datum(values), SelectKOptions::TopKDefault(k));
   } else {
-    return BottomK(Datum(values), BottomKOptions(k));
+    return SelectKUnstable(Datum(values), SelectKOptions::BottomKDefault(k));
   }
 }
 
 template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const RecordBatch& values, int64_t k,
-                                       std::vector<std::string> keys) {
+Result<std::shared_ptr<Array>> SelectK(const RecordBatch& values,
+                                       const SelectKOptions& options) {
   if (order == SortOrder::Descending) {
-    return TopK(Datum(values), TopKOptions(k, keys));
+    return SelectKUnstable(Datum(values), options);
   } else {
-    return BottomK(Datum(values), BottomKOptions(k, keys));
+    return SelectKUnstable(Datum(values), options);
   }
 }
 
 template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const Table& values, int64_t k,
-                                       std::vector<std::string> keys) {
+Result<std::shared_ptr<Array>> SelectK(const Table& values,
+                                       const SelectKOptions& options) {
   if (order == SortOrder::Descending) {
-    return TopK(Datum(values), TopKOptions(k, keys));
+    return SelectKUnstable(Datum(values), options);
   } else {
-    return BottomK(Datum(values), BottomKOptions(k, keys));
+    return SelectKUnstable(Datum(values), options);
   }
 }
 
@@ -198,7 +198,7 @@ TYPED_TEST_SUITE(TestSelectKForStrings, testing::Types<StringType>);
 
 TYPED_TEST(TestSelectKForReal, SelectKDoesNotProvideDefaultOptions) {
   auto input = ArrayFromJSON(this->type_singleton(), "[null, 1, 3.3, null, 2, 5.3]");
-  ASSERT_RAISES(Invalid, CallFunction("top_k", {input}));
+  ASSERT_RAISES(Invalid, CallFunction("select_k_unstable", {input}));
 }
 
 TYPED_TEST(TestSelectKForReal, Real) {
@@ -406,19 +406,17 @@ TYPED_TEST(TestBottomKChunkedArrayRandom, BottomK) { this->TestSelectK(1000); }
 template <SortOrder order>
 class TestSelectKWithRecordBatch : public ::testing::Test {
  public:
-  template <typename OptionsType>
   void Check(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
-             const OptionsType& options, const std::string& expected_batch) {
+             const SelectKOptions& options, const std::string& expected_batch) {
     std::shared_ptr<RecordBatch> actual;
     ASSERT_OK(this->DoSelectK(schm, batch_json, options, &actual));
     ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
   }
 
-  template <typename OptionsType>
   Status DoSelectK(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
-                   const OptionsType& options, std::shared_ptr<RecordBatch>* out) {
+                   const SelectKOptions& options, std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*batch, options.k, options.keys));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*batch, options));
 
     ValidateOutput(*indices);
     ARROW_ASSIGN_OR_RAISE(
@@ -446,7 +444,7 @@ TEST_F(TestTopKWithRecordBatch, NoNull) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = TopKOptions(3, {"a"});
+  auto options = SelectKOptions::TopKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 30,    "b": 3},
@@ -473,7 +471,7 @@ TEST_F(TestTopKWithRecordBatch, Null) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = TopKOptions(3, {"a"});
+  auto options = SelectKOptions::TopKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 30,    "b": 3},
@@ -503,7 +501,7 @@ TEST_F(TestTopKWithRecordBatch, OneColumnKey) {
         {"country": "Montserrat", "population": 5200}
         ])";
 
-  auto options = TopKOptions(3, {"population"});
+  auto options = SelectKOptions::TopKDefault(3, {"population"});
 
   auto expected_batch =
       R"([{"country": "France", "population": 65000000},
@@ -529,7 +527,7 @@ TEST_F(TestTopKWithRecordBatch, MultipleColumnKeys) {
         {"country": "Tuvalu", "population": 11300, "GDP": 38},
         {"country": "Anguilla", "population": 11300, "GDP": 311}
         ])";
-  auto options = TopKOptions(3, {"population", "GDP"});
+  auto options = SelectKOptions::TopKDefault(3, {"population", "GDP"});
 
   auto expected_batch =
       R"([{"country": "France", "population": 65000000, "GDP": 2583560},
@@ -557,7 +555,7 @@ TEST_F(TestBottomKWithRecordBatch, NoNull) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = BottomKOptions(3, {"a"});
+  auto options = SelectKOptions::BottomKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 0,    "b": 6},
@@ -584,7 +582,7 @@ TEST_F(TestBottomKWithRecordBatch, Null) {
     {"a": 10,   "b": 3}
   ])";
 
-  auto options = BottomKOptions(3, {"a"});
+  auto options = SelectKOptions::BottomKDefault(3, {"a"});
 
   auto expected_batch = R"([
     {"a": 10,    "b": 3},
@@ -614,7 +612,7 @@ TEST_F(TestBottomKWithRecordBatch, OneColumnKey) {
         {"country": "Montserrat", "population": 5200}
         ])";
 
-  auto options = BottomKOptions(3, {"population"});
+  auto options = SelectKOptions::BottomKDefault(3, {"population"});
 
   auto expected_batch =
       R"([{"country": "Montserrat", "population": 5200},
@@ -641,7 +639,7 @@ TEST_F(TestBottomKWithRecordBatch, MultipleColumnKeys) {
         {"country": "Anguilla", "population": 11300, "GDP": 311}
         ])";
 
-  auto options = BottomKOptions(3, {"population", "GDP"});
+  auto options = SelectKOptions::BottomKDefault(3, {"population", "GDP"});
 
   auto expected_batch =
       R"([{"country": "Tuvalu", "population": 11300, "GDP": 38},
@@ -654,21 +652,19 @@ TEST_F(TestBottomKWithRecordBatch, MultipleColumnKeys) {
 // Test basic cases for table.
 template <SortOrder order>
 struct TestSelectKWithTable : public ::testing::Test {
-  template <typename OptionsType>
   void Check(const std::shared_ptr<Schema>& schm,
-             const std::vector<std::string>& input_json, const OptionsType& options,
+             const std::vector<std::string>& input_json, const SelectKOptions& options,
              const std::vector<std::string>& expected) {
     std::shared_ptr<Table> actual;
     ASSERT_OK(this->DoSelectK(schm, input_json, options, &actual));
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected), *actual);
   }
 
-  template <typename OptionsType>
   Status DoSelectK(const std::shared_ptr<Schema>& schm,
-                   const std::vector<std::string>& input_json, const OptionsType& options,
-                   std::shared_ptr<Table>* out) {
+                   const std::vector<std::string>& input_json,
+                   const SelectKOptions& options, std::shared_ptr<Table>* out) {
     auto table = TableFromJSON(schm, input_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*table, options.k, options.keys));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(*table, options));
     ValidateOutput(*indices);
 
     ARROW_ASSIGN_OR_RAISE(
@@ -694,7 +690,7 @@ TEST_F(TestTopKWithTable, OneColumnKey) {
                                      {"a": 1,    "b": 5}
                                     ])"};
 
-  auto options = TopKOptions(3, {"a"});
+  auto options = SelectKOptions::TopKDefault(3, {"a"});
 
   std::vector<std::string> expected = {R"([{"a": 3,    "b": null},
                                      {"a": 2,    "b": 5},
@@ -717,7 +713,7 @@ TEST_F(TestTopKWithTable, MultipleColumnKeys) {
                                           {"a": 1,    "b": 5}
                                         ])"};
 
-  auto options = TopKOptions(3, {"a", "b"});
+  auto options = SelectKOptions::TopKDefault(3, {"a", "b"});
 
   std::vector<std::string> expected = {R"([{"a": 3,    "b": null},
                                      {"a": 2,    "b": 5},
@@ -742,7 +738,7 @@ TEST_F(TestBottomKWithTable, OneColumnKey) {
                                      {"a": 1,    "b": 5}
                                     ])"};
 
-  auto options = BottomKOptions(3, {"a"});
+  auto options = SelectKOptions::BottomKDefault(3, {"a"});
 
   std::vector<std::string> expected = {R"([{"a": 0,    "b": 3},
                                            {"a": 1,    "b": 5},
@@ -765,7 +761,7 @@ TEST_F(TestBottomKWithTable, MultipleColumnKeys) {
                                           {"a": 1,    "b": 5}
                                         ])"};
 
-  auto options = BottomKOptions(3, {"a", "b"});
+  auto options = SelectKOptions::BottomKDefault(3, {"a", "b"});
 
   std::vector<std::string> expected = {R"([{"a": 1,    "b": 3},
                                      {"a": 1,    "b": 5},

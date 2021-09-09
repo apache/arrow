@@ -34,7 +34,6 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/heap_internal.h"
 #include "arrow/util/optional.h"
 #include "arrow/visitor_inline.h"
 
@@ -1803,8 +1802,6 @@ class SortIndicesMetaFunction : public MetaFunction {
 // TopK/BottomK implementations
 
 const auto kDefaultSelectKOptions = SelectKOptions::Defaults();
-const auto kDefaultTopKOptions = TopKOptions::Defaults();
-const auto kDefaultBottomKOptions = BottomKOptions::Defaults();
 
 const FunctionDoc select_k_doc(
     "Returns the first k elements ordered by `options.keys`",
@@ -1826,7 +1823,7 @@ const FunctionDoc top_k_doc(
      "at the end of the array.\n"
      "For floating-point types, NaNs are considered greater than any\n"
      "other non-null value, but smaller than null values."),
-    {"input"}, "TopKOptions");
+    {"input"}, "SelectKOptions::TopKDefault");
 
 const FunctionDoc bottom_k_doc(
     "Returns the first k elements ordered by `options.keys` in descending order",
@@ -1837,7 +1834,7 @@ const FunctionDoc bottom_k_doc(
      "at the end of the array.\n"
      "For floating-point types, NaNs are considered greater than any\n"
      "other non-null value, but smaller than null values."),
-    {"input"}, "BottomKOptions");
+    {"input"}, "SelectKOptions::BottomKDefault");
 
 Result<std::shared_ptr<ArrayData>> MakeMutableArrayForNumericBasedType(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
@@ -1882,7 +1879,7 @@ class ArraySelecter : public TypeVisitor {
       : TypeVisitor(),
         ctx_(ctx),
         array_(array),
-        options_(options),
+        k_(options.k),
         physical_type_(GetPhysicalType(array.type())),
         output_(output) {}
 
@@ -1906,12 +1903,12 @@ class ArraySelecter : public TypeVisitor {
     uint64_t* indices_begin = indices.data();
     uint64_t* indices_end = indices_begin + indices.size();
     std::iota(indices_begin, indices_end, 0);
-    if (options_.k > arr.length()) {
-      options_.k = arr.length();
+    if (k_ > arr.length()) {
+      k_ = arr.length();
     }
     auto end_iter = PartitionNulls<ArrayType, NonStablePartitioner>(indices_begin,
                                                                     indices_end, arr, 0);
-    auto kth_begin = indices_begin + options_.k;
+    auto kth_begin = indices_begin + k_;
     if (kth_begin > end_iter) {
       kth_begin = end_iter;
     }
@@ -1921,19 +1918,14 @@ class ArraySelecter : public TypeVisitor {
       const auto rval = GetView::LogicalValue(arr.GetView(right));
       return comparator(lval, rval);
     };
-    arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
-
-    uint64_t* iter = indices_begin;
-    for (; iter != kth_begin; ++iter) {
-      heap.Push(*iter);
-    }
-
-    for (; iter != end_iter && !heap.empty(); ++iter) {
+    using HeapContainer =
+        std::priority_queue<uint64_t, std::vector<uint64_t>, decltype(cmp)>;
+    HeapContainer heap(indices_begin, kth_begin, cmp);
+    for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
       uint64_t x_index = *iter;
-      const auto lval = GetView::LogicalValue(arr.GetView(x_index));
-      const auto rval = GetView::LogicalValue(arr.GetView(heap.top()));
-      if (comparator(lval, rval)) {
-        heap.ReplaceTop(x_index);
+      if (cmp(x_index, heap.top())) {
+        heap.pop();
+        heap.push(x_index);
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
@@ -1944,7 +1936,7 @@ class ArraySelecter : public TypeVisitor {
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();
-      heap.Pop();
+      heap.pop();
       --out_cbegin;
     }
     *output_ = Datum(take_indices);
@@ -1953,7 +1945,7 @@ class ArraySelecter : public TypeVisitor {
 
   ExecContext* ctx_;
   const Array& array_;
-  SelectKOptions options_;
+  int64_t k_;
   const std::shared_ptr<DataType> physical_type_;
   Datum* output_;
 };
@@ -1974,7 +1966,7 @@ class ChunkedArraySelecter : public TypeVisitor {
         chunked_array_(chunked_array),
         physical_type_(GetPhysicalType(chunked_array.type())),
         physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
-        options_(options),
+        k_(options.k),
         ctx_(ctx),
         output_(output) {}
 
@@ -1997,8 +1989,8 @@ class ChunkedArraySelecter : public TypeVisitor {
     if (num_chunks == 0) {
       return Status::OK();
     }
-    if (options_.k > chunked_array_.length()) {
-      options_.k = chunked_array_.length();
+    if (k_ > chunked_array_.length()) {
+      k_ = chunked_array_.length();
     }
     std::function<bool(const HeapItem&, const HeapItem&)> cmp;
     SelectKComparator<sort_order> comparator;
@@ -2008,7 +2000,10 @@ class ChunkedArraySelecter : public TypeVisitor {
       const auto rval = GetView::LogicalValue(right.array->GetView(right.index));
       return comparator(lval, rval);
     };
-    arrow::internal::Heap<HeapItem, decltype(cmp)> heap(cmp);
+    using HeapContainer =
+        std::priority_queue<HeapItem, std::vector<HeapItem>, decltype(cmp)>;
+
+    HeapContainer heap(cmp);
     std::vector<std::shared_ptr<ArrayType>> chunks_holder;
     uint64_t offset = 0;
     for (const auto& chunk : physical_chunks_) {
@@ -2023,14 +2018,14 @@ class ChunkedArraySelecter : public TypeVisitor {
 
       auto end_iter = PartitionNulls<ArrayType, NonStablePartitioner>(
           indices_begin, indices_end, arr, 0);
-      auto kth_begin = indices_begin + options_.k;
+      auto kth_begin = indices_begin + k_;
 
       if (kth_begin > end_iter) {
         kth_begin = end_iter;
       }
       uint64_t* iter = indices_begin;
-      for (; iter != kth_begin && heap.size() < static_cast<size_t>(options_.k); ++iter) {
-        heap.Push(HeapItem{*iter, offset, &arr});
+      for (; iter != kth_begin && heap.size() < static_cast<size_t>(k_); ++iter) {
+        heap.push(HeapItem{*iter, offset, &arr});
       }
       for (; iter != end_iter && !heap.empty(); ++iter) {
         uint64_t x_index = *iter;
@@ -2039,7 +2034,8 @@ class ChunkedArraySelecter : public TypeVisitor {
         const auto& top_value =
             GetView::LogicalValue(top_item.array->GetView(top_item.index));
         if (comparator(xval, top_value)) {
-          heap.ReplaceTop(HeapItem{x_index, offset, &arr});
+          heap.pop();
+          heap.push(HeapItem{x_index, offset, &arr});
         }
       }
       offset += chunk->length();
@@ -2053,7 +2049,7 @@ class ChunkedArraySelecter : public TypeVisitor {
     while (heap.size() > 0) {
       auto top_item = heap.top();
       *out_cbegin = top_item.index + top_item.offset;
-      heap.Pop();
+      heap.pop();
       --out_cbegin;
     }
     *output_ = Datum(take_indices);
@@ -2063,7 +2059,7 @@ class ChunkedArraySelecter : public TypeVisitor {
   const ChunkedArray& chunked_array_;
   const std::shared_ptr<DataType> physical_type_;
   const ArrayVector physical_chunks_;
-  SelectKOptions options_;
+  int64_t k_;
   ExecContext* ctx_;
   Datum* output_;
 };
@@ -2079,15 +2075,12 @@ class RecordBatchSelecter : public TypeVisitor {
       : TypeVisitor(),
         ctx_(ctx),
         record_batch_(record_batch),
-        options_(options),
+        k_(options.k),
         output_(output),
-        sort_keys_(ResolveSortKeys(record_batch, options.sort_keys, &status_)),
+        sort_keys_(ResolveSortKeys(record_batch, options.sort_keys)),
         comparator_(sort_keys_) {}
 
-  Status Run() {
-    ARROW_RETURN_NOT_OK(status_);
-    return sort_keys_[0].type->Accept(this);
-  }
+  Status Run() { return sort_keys_[0].type->Accept(this); }
 
  protected:
 #define VISIT(TYPE)                                            \
@@ -2100,14 +2093,10 @@ class RecordBatchSelecter : public TypeVisitor {
 #undef VISIT
 
   static std::vector<ResolvedSortKey> ResolveSortKeys(
-      const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
+      const RecordBatch& batch, const std::vector<SortKey>& sort_keys) {
     std::vector<ResolvedSortKey> resolved;
     for (const auto& key : sort_keys) {
       auto array = batch.GetColumnByName(key.name);
-      if (!array) {
-        *status = Status::Invalid("Nonexistent sort key column: ", key.name);
-        break;
-      }
       resolved.emplace_back(array, key.order);
     }
     return resolved;
@@ -2125,8 +2114,8 @@ class RecordBatchSelecter : public TypeVisitor {
     if (num_rows == 0) {
       return Status::OK();
     }
-    if (options_.k > record_batch_.num_rows()) {
-      options_.k = record_batch_.num_rows();
+    if (k_ > record_batch_.num_rows()) {
+      k_ = record_batch_.num_rows();
     }
     std::function<bool(const uint64_t&, const uint64_t&)> cmp;
     SelectKComparator<sort_order> select_k_comparator;
@@ -2141,7 +2130,8 @@ class RecordBatchSelecter : public TypeVisitor {
       }
       return select_k_comparator(lval, rval);
     };
-    arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
+    using HeapContainer =
+        std::priority_queue<uint64_t, std::vector<uint64_t>, decltype(cmp)>;
 
     std::vector<uint64_t> indices(arr.length());
     uint64_t* indices_begin = indices.data();
@@ -2150,20 +2140,18 @@ class RecordBatchSelecter : public TypeVisitor {
 
     auto end_iter = PartitionNulls<ArrayType, NonStablePartitioner>(indices_begin,
                                                                     indices_end, arr, 0);
-    auto kth_begin = indices_begin + options_.k;
+    auto kth_begin = indices_begin + k_;
 
     if (kth_begin > end_iter) {
       kth_begin = end_iter;
     }
-    uint64_t* iter = indices_begin;
-    for (; iter != kth_begin; ++iter) {
-      heap.Push(*iter);
-    }
-    for (; iter != end_iter && !heap.empty(); ++iter) {
+    HeapContainer heap(indices_begin, kth_begin, cmp);
+    for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
       uint64_t x_index = *iter;
       auto top_item = heap.top();
       if (cmp(x_index, top_item)) {
-        heap.ReplaceTop(x_index);
+        heap.pop();
+        heap.push(x_index);
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
@@ -2173,7 +2161,7 @@ class RecordBatchSelecter : public TypeVisitor {
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();
-      heap.Pop();
+      heap.pop();
       --out_cbegin;
     }
     *output_ = Datum(take_indices);
@@ -2182,11 +2170,10 @@ class RecordBatchSelecter : public TypeVisitor {
 
   ExecContext* ctx_;
   const RecordBatch& record_batch_;
-  SelectKOptions options_;
+  int64_t k_;
   Datum* output_;
   std::vector<ResolvedSortKey> sort_keys_;
   Comparator comparator_;
-  Status status_;
 };
 
 class TableSelecter : public TypeVisitor {
@@ -2200,15 +2187,12 @@ class TableSelecter : public TypeVisitor {
       : TypeVisitor(),
         ctx_(ctx),
         table_(table),
-        options_(options),
+        k_(options.k),
         output_(output),
-        sort_keys_(ResolveSortKeys(table, options.sort_keys, &status_)),
+        sort_keys_(ResolveSortKeys(table, options.sort_keys)),
         comparator_(sort_keys_) {}
 
-  Status Run() {
-    ARROW_RETURN_NOT_OK(status_);
-    return sort_keys_[0].type->Accept(this);
-  }
+  Status Run() { return sort_keys_[0].type->Accept(this); }
 
  protected:
 #define VISIT(TYPE)                                            \
@@ -2222,14 +2206,10 @@ class TableSelecter : public TypeVisitor {
 #undef VISIT
 
   static std::vector<ResolvedSortKey> ResolveSortKeys(
-      const Table& table, const std::vector<SortKey>& sort_keys, Status* status) {
+      const Table& table, const std::vector<SortKey>& sort_keys) {
     std::vector<ResolvedSortKey> resolved;
     for (const auto& key : sort_keys) {
       auto chunked_array = table.GetColumnByName(key.name);
-      if (!chunked_array) {
-        *status = Status::Invalid("Nonexistent sort key column: ", key.name);
-        break;
-      }
       resolved.emplace_back(*chunked_array, key.order);
     }
     return resolved;
@@ -2305,8 +2285,8 @@ class TableSelecter : public TypeVisitor {
     if (num_rows == 0) {
       return Status::OK();
     }
-    if (options_.k > table_.num_rows()) {
-      options_.k = table_.num_rows();
+    if (k_ > table_.num_rows()) {
+      k_ = table_.num_rows();
     }
     std::function<bool(const uint64_t&, const uint64_t&)> cmp;
     SelectKComparator<sort_order> select_k_comparator;
@@ -2320,7 +2300,8 @@ class TableSelecter : public TypeVisitor {
       }
       return select_k_comparator(value_left, value_right);
     };
-    arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
+    using HeapContainer =
+        std::priority_queue<uint64_t, std::vector<uint64_t>, decltype(cmp)>;
 
     std::vector<uint64_t> indices(num_rows);
     uint64_t* indices_begin = indices.data();
@@ -2329,20 +2310,18 @@ class TableSelecter : public TypeVisitor {
 
     auto end_iter =
         this->PartitionNullsInternal<InType>(indices_begin, indices_end, first_sort_key);
-    auto kth_begin = indices_begin + options_.k;
+    auto kth_begin = indices_begin + k_;
 
     if (kth_begin > end_iter) {
       kth_begin = end_iter;
     }
-    uint64_t* iter = indices_begin;
-    for (; iter != kth_begin; ++iter) {
-      heap.Push(*iter);
-    }
-    for (; iter != end_iter && !heap.empty(); ++iter) {
+    HeapContainer heap(indices_begin, kth_begin, cmp);
+    for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
       uint64_t x_index = *iter;
       uint64_t top_item = heap.top();
       if (cmp(x_index, top_item)) {
-        heap.ReplaceTop(x_index);
+        heap.pop();
+        heap.push(x_index);
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
@@ -2352,7 +2331,7 @@ class TableSelecter : public TypeVisitor {
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();
-      heap.Pop();
+      heap.pop();
       --out_cbegin;
     }
     *output_ = Datum(take_indices);
@@ -2361,20 +2340,36 @@ class TableSelecter : public TypeVisitor {
 
   ExecContext* ctx_;
   const Table& table_;
-  SelectKOptions options_;
+  int64_t k_;
   Datum* output_;
   std::vector<ResolvedSortKey> sort_keys_;
   Comparator comparator_;
-  Status status_;
 };
 
-class SelectKthMetaFunction {
+template <typename ArrowContainer>
+static Status CheckConsistency(const ArrowContainer& container,
+                               const std::vector<SortKey>& sort_keys) {
+  for (const auto& key : sort_keys) {
+    auto array = container.GetColumnByName(key.name);
+    if (!array) {
+      return Status::Invalid("Nonexistent sort key column: ", key.name);
+    }
+  }
+  return Status::OK();
+}
+
+class SelectKUnstableMetaFunction : public MetaFunction {
  public:
+  SelectKUnstableMetaFunction()
+      : MetaFunction("select_k_unstable", Arity::Unary(), &select_k_doc,
+                     &kDefaultSelectKOptions) {}
+
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {
     const SelectKOptions& select_k_options = static_cast<const SelectKOptions&>(*options);
     if (select_k_options.k < 0) {
-      return Status::Invalid("TopK/BottomK requires a valid `k` parameter");
+      return Status::Invalid("SelectK requires a nonnegative `k`, got ",
+                             select_k_options.k);
     }
     switch (args[0].kind()) {
       case Datum::ARRAY: {
@@ -2405,7 +2400,7 @@ class SelectKthMetaFunction {
         break;
     }
     return Status::NotImplemented(
-        "Unsupported types for sort_indices operation: "
+        "Unsupported types for select_k operation: "
         "values=",
         args[0].ToString());
   }
@@ -2430,6 +2425,7 @@ class SelectKthMetaFunction {
   }
   Result<Datum> SelectKth(const RecordBatch& record_batch, const SelectKOptions& options,
                           ExecContext* ctx) const {
+    ARROW_RETURN_NOT_OK(CheckConsistency(record_batch, options.sort_keys));
     Datum output;
     RecordBatchSelecter selecter(ctx, record_batch, options, &output);
     ARROW_RETURN_NOT_OK(selecter.Run());
@@ -2437,6 +2433,7 @@ class SelectKthMetaFunction {
   }
   Result<Datum> SelectKth(const Table& table, const SelectKOptions& options,
                           ExecContext* ctx) const {
+    ARROW_RETURN_NOT_OK(CheckConsistency(table, options.sort_keys));
     Datum output;
     TableSelecter selecter(ctx, table, options, &output);
     ARROW_RETURN_NOT_OK(selecter.Run());
@@ -2444,66 +2441,7 @@ class SelectKthMetaFunction {
   }
 };
 
-class SelectKMetaFunction : public MetaFunction {
- public:
-  SelectKMetaFunction()
-      : MetaFunction("select_k", Arity::Unary(), &select_k_doc, &kDefaultSelectKOptions) {
-  }
-
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
-    SelectKthMetaFunction impl;
-    return impl.ExecuteImpl(args, options, ctx);
-  }
-};
-
-class TopKMetaFunction : public MetaFunction {
- public:
-  TopKMetaFunction()
-      : MetaFunction("top_k", Arity::Unary(), &top_k_doc, &kDefaultTopKOptions) {}
-
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
-    SelectKthMetaFunction impl;
-    const TopKOptions& opts = static_cast<const TopKOptions&>(*options);
-
-    std::vector<SortKey> sort_keys;
-    for (const auto& name : opts.keys)
-      sort_keys.emplace_back(SortKey(name, TopKOptions::order()));
-    if (args[0].kind() == Datum::ARRAY || args[0].kind() == Datum::CHUNKED_ARRAY) {
-      sort_keys.emplace_back(SortKey("not-used", TopKOptions::order()));
-    }
-    SelectKOptions select_k_options(opts.k, sort_keys, opts.kind);
-    return impl.ExecuteImpl(args, &select_k_options, ctx);
-  }
-};
-
-class BottomKMetaFunction : public MetaFunction {
- public:
-  BottomKMetaFunction()
-      : MetaFunction("bottom_k", Arity::Unary(), &bottom_k_doc, &kDefaultBottomKOptions) {
-  }
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
-    SelectKthMetaFunction impl;
-    const BottomKOptions& opts = static_cast<const BottomKOptions&>(*options);
-
-    std::vector<SortKey> sort_keys;
-    for (const auto& name : opts.keys)
-      sort_keys.emplace_back(SortKey(name, BottomKOptions::order()));
-    if (args[0].kind() == Datum::ARRAY || args[0].kind() == Datum::CHUNKED_ARRAY) {
-      sort_keys.emplace_back(SortKey("not-used", BottomKOptions::order()));
-    }
-    SelectKOptions select_k_options(opts.k, sort_keys, opts.kind);
-    return impl.ExecuteImpl(args, &select_k_options, ctx);
-  }
-};
-
 // array documentation
-
 const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
 
 const FunctionDoc array_sort_indices_doc(
@@ -2556,14 +2494,8 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   AddSortingKernels<PartitionNthToIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));
 
-  // select_k
-  DCHECK_OK(registry->AddFunction(std::make_shared<SelectKMetaFunction>()));
-
-  // top_k
-  DCHECK_OK(registry->AddFunction(std::make_shared<TopKMetaFunction>()));
-
-  // bottom_k
-  DCHECK_OK(registry->AddFunction(std::make_shared<BottomKMetaFunction>()));
+  // select_k_unstable
+  DCHECK_OK(registry->AddFunction(std::make_shared<SelectKUnstableMetaFunction>()));
 }
 
 #undef VISIT_PHYSICAL_TYPES

@@ -53,8 +53,6 @@ from pyarrow._compute import (  # noqa
     SetLookupOptions,
     SliceOptions,
     SortOptions,
-    TopKOptions,
-    BottomKOptions,
     SelectKOptions,
     SplitOptions,
     SplitPatternOptions,

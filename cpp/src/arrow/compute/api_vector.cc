@@ -113,14 +113,7 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
     DataMember("pivot", &PartitionNthOptions::pivot));
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
-    DataMember("sort_keys", &SelectKOptions::sort_keys),
-    DataMember("kind", &SelectKOptions::kind));
-static auto kTopKOptionsType = GetFunctionOptionsType<TopKOptions>(
-    DataMember("k", &TopKOptions::k), DataMember("keys", &TopKOptions::keys),
-    DataMember("kind", &TopKOptions::kind));
-static auto kBottomKOptionsType = GetFunctionOptionsType<BottomKOptions>(
-    DataMember("k", &BottomKOptions::k), DataMember("keys", &BottomKOptions::keys),
-    DataMember("kind", &BottomKOptions::kind));
+    DataMember("sort_keys", &SelectKOptions::sort_keys));
 }  // namespace
 }  // namespace internal
 
@@ -150,49 +143,28 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot)
     : FunctionOptions(internal::kPartitionNthOptionsType), pivot(pivot) {}
 constexpr char PartitionNthOptions::kTypeName[];
 
-SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys,
-                               SelectKAlgorithm kind)
+SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
     : FunctionOptions(internal::kSelectKOptionsType),
       k(k),
-      sort_keys(std::move(sort_keys)),
-      kind(kind) {}
+      sort_keys(std::move(sort_keys)) {}
 
 bool SelectKOptions::is_top_k() const {
-  SortOrder order = SortOrder::Descending;
   for (const auto& k : sort_keys) {
-    order = k.order;
-    if (order != SortOrder::Descending) {
-      break;
+    if (k.order != SortOrder::Descending) {
+      return false;
     }
   }
-  return order == SortOrder::Descending;
+  return true;
 }
 bool SelectKOptions::is_bottom_k() const {
-  SortOrder order = SortOrder::Ascending;
   for (const auto& k : sort_keys) {
-    order = k.order;
-    if (order != SortOrder::Ascending) {
-      break;
+    if (k.order != SortOrder::Ascending) {
+      return false;
     }
   }
-  return order == SortOrder::Ascending;
+  return true;
 }
 constexpr char SelectKOptions::kTypeName[];
-
-TopKOptions::TopKOptions(int64_t k, std::vector<std::string> keys, SelectKAlgorithm kind)
-    : FunctionOptions(internal::kTopKOptionsType),
-      k(k),
-      keys(std::move(keys)),
-      kind(kind) {}
-constexpr char TopKOptions::kTypeName[];
-
-BottomKOptions::BottomKOptions(int64_t k, std::vector<std::string> keys,
-                               SelectKAlgorithm kind)
-    : FunctionOptions(internal::kBottomKOptionsType),
-      k(k),
-      keys(std::move(keys)),
-      kind(kind) {}
-constexpr char BottomKOptions::kTypeName[];
 
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
@@ -203,8 +175,6 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kTopKOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kBottomKOptionsType));
 }
 }  // namespace internal
 
@@ -219,21 +189,10 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> SelectK(const Datum& datum, SelectKOptions options,
-                                       ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("select_k", {datum}, &options, ctx));
-  return result.make_array();
-}
-
-Result<std::shared_ptr<Array>> TopK(const Datum& datum, TopKOptions options,
-                                    ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("top_k", {datum}, &options, ctx));
-  return result.make_array();
-}
-
-Result<std::shared_ptr<Array>> BottomK(const Datum& datum, BottomKOptions options,
-                                       ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("bottom_k", {datum}, &options, ctx));
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum, SelectKOptions options,
+                                               ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("select_k_unstable", {datum}, &options, ctx));
   return result.make_array();
 }
 

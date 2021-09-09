@@ -53,7 +53,6 @@ add_arrow_test(utility-test
                key_value_metadata_test.cc
                hashing_test.cc
                int_util_test.cc
-               heap_internal_test.cc
                ${IO_UTIL_TEST_SOURCES}
                iterator_test.cc
                logging_test.cc
