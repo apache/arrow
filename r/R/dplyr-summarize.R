@@ -80,6 +80,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   out <- collapse.arrow_dplyr_query(.data)
   # The expressions may have been translated into
   # "first, aggregate, then transform the result further"
+  # nolint start
   # For example,
   #   summarize(mean = sum(x) / n())
   # is effectively implemented as
@@ -87,6 +88,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   #   mutate(mean = ..temp0 / ..temp1) %>%
   #   select(-starts_with("..temp"))
   # If this is the case, there will be expressions in post_mutate
+  # nolint end
   if (length(ctx$post_mutate)) {
     # Append post_mutate, and make sure order is correct
     # according to input exprs (also dropping ..temp columns)
@@ -164,7 +166,7 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
     )
     return()
   } else if (all(inner_agg_exprs)) {
-    # fun(agg(x), agg(y))
+    # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
     mutate_mask <- arrow_mask(
       list(selected_columns = make_field_refs(names(ctx$aggregations)))
