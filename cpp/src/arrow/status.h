@@ -67,6 +67,16 @@
     }                                                           \
   } while (false)
 
+// Use this when you want to change the status in else_ expr
+#define RETURN_NOT_OK_ELSE_WITH_STATUS(s, _s, else_)            \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
+    if (!_s.ok()) {                                             \
+      else_;                                                    \
+      return _s;                                                \
+    }                                                           \
+  } while (false)
+
 // This is an internal-use macro and should not be used in public headers.
 #ifndef RETURN_NOT_OK
 #define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
