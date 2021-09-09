@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <initializer_list>
 #include <sstream>
 
 #include "arrow/builder.h"
@@ -49,6 +50,7 @@ using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
 using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::years;
+using arrow_vendored::date::zoned_time;
 using arrow_vendored::date::literals::dec;
 using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
@@ -59,6 +61,7 @@ using internal::applicator::SimpleUnary;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 using StrftimeState = OptionsWrapper<StrftimeOptions>;
+using AssumeTimezoneState = OptionsWrapper<AssumeTimezoneOptions>;
 
 const std::shared_ptr<DataType>& IsoCalendarType() {
   static auto type = struct_({field("iso_year", int64()), field("iso_week", int64()),
@@ -202,6 +205,28 @@ struct TemporalComponentExtractDayOfWeek
           options.week_start);
     }
     return Base::ExecWithOptions(ctx, &options, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename Duration, typename InType,
+          typename OutType>
+struct AssumeTimezoneExtractor
+    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const AssumeTimezoneOptions& options = AssumeTimezoneState::Get(ctx);
+    const auto& timezone = GetInputTimezone(batch.values[0]);
+    if (!timezone.empty()) {
+      return Status::Invalid("Timestamps already have a timezone: '", timezone,
+                             "'. Cannot localize to '", options.timezone, "'.");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(options.timezone));
+    using ExecTemplate = Op<Duration>;
+    auto op = ExecTemplate(&options, tz);
+    applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
+        op};
+    return kernel.Exec(ctx, batch, out);
   }
 };
 
@@ -578,8 +603,7 @@ struct Strftime {
 
     Result<std::string> operator()(int64_t arg) {
       bufstream.str("");
-      const auto zt = arrow_vendored::date::zoned_time<Duration>{
-          tz, sys_time<Duration>(Duration{arg})};
+      const auto zt = zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
       try {
         arrow_vendored::date::to_stream(bufstream, format, zt);
       } catch (const std::runtime_error& ex) {
@@ -591,7 +615,6 @@ struct Strftime {
     }
   };
 };
-
 #else
 template <typename Duration, typename InType>
 struct Strftime {
@@ -605,7 +628,82 @@ struct Strftime {
 #endif
 
 // ----------------------------------------------------------------------
-// Extract ISO calendar values from temporal types
+// Convert timestamps from local timestamp without a timezone to timestamps with a
+// timezone, interpreting the local timestamp as being in the specified timezone
+
+Result<ValueDescr> ResolveAssumeTimezoneOutput(KernelContext* ctx,
+                                               const std::vector<ValueDescr>& args) {
+  auto in_type = checked_cast<const TimestampType*>(args[0].type.get());
+  auto type = timestamp(in_type->unit(), AssumeTimezoneState::Get(ctx).timezone);
+  return ValueDescr(std::move(type));
+}
+
+template <typename Duration>
+struct AssumeTimezone {
+  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const time_zone* tz)
+      : options(*options), tz_(tz) {}
+
+  template <typename T, typename Arg0>
+  T get_local_time(Arg0 arg, const time_zone* tz) const {
+    return static_cast<T>(zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}))
+                              .get_sys_time()
+                              .time_since_epoch()
+                              .count());
+  }
+
+  template <typename T, typename Arg0>
+  T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
+                   const time_zone* tz) const {
+    return static_cast<T>(
+        zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}), choose)
+            .get_sys_time()
+            .time_since_epoch()
+            .count());
+  }
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status* st) const {
+    try {
+      return get_local_time<T, Arg0>(arg, tz_);
+    } catch (const arrow_vendored::date::nonexistent_local_time& e) {
+      switch (options.nonexistent) {
+        case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE: {
+          *st = Status::Invalid("Timestamp doesn't exist in timezone '", options.timezone,
+                                "': ", e.what());
+          return arg;
+        }
+        case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST: {
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_) -
+                 1;
+        }
+        case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST: {
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+        }
+      }
+    } catch (const arrow_vendored::date::ambiguous_local_time& e) {
+      switch (options.ambiguous) {
+        case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE: {
+          *st = Status::Invalid("Timestamp is ambiguous in timezone '", options.timezone,
+                                "': ", e.what());
+          return arg;
+        }
+        case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST: {
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::earliest,
+                                         tz_);
+        }
+        case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST: {
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+        }
+      }
+    }
+    return 0;
+  }
+  AssumeTimezoneOptions options;
+  const time_zone* tz_;
+};
+
+// ----------------------------------------------------------------------
+// Extract ISO calendar values from timestamp
 
 template <typename Duration, typename Localizer>
 inline std::array<int64_t, 3> GetIsoCalendar(int64_t arg, Localizer&& localizer) {
@@ -737,102 +835,120 @@ struct ISOCalendar {
   }
 };
 
+// Which types to generate a kernel for
+enum EnabledTypes : uint8_t { WithDates, WithTimestamps };
+
 template <template <typename...> class Op,
           template <template <typename...> class OpExec, typename Duration,
                     typename InType, typename OutType>
           class ExecTemplate,
           typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporal(
-    bool enable_date, std::string name, const std::shared_ptr<arrow::DataType> out_type,
+    std::string name, std::initializer_list<EnabledTypes> in_types, OutputType out_type,
     const FunctionDoc* doc, const FunctionOptions* default_options = NULLPTR,
     KernelInit init = NULLPTR) {
+  DCHECK_NE(in_types.size(), 0);
   auto func =
       std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options);
 
-  if (enable_date) {
-    auto exec = ExecTemplate<Op, days, Date32Type, OutType>::Exec;
-    DCHECK_OK(func->AddKernel({date32()}, out_type, std::move(exec), init));
-  }
+  for (const auto in_type : in_types) {
+    switch (in_type) {
+      case WithDates: {
+        auto exec32 = ExecTemplate<Op, days, Date32Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({date32()}, out_type, std::move(exec32), init));
+        auto exec64 =
+            ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
+        break;
+      }
 
-  if (enable_date) {
-    auto exec = ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
-    DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec), init));
-  }
-
-  for (auto unit : internal::AllTimeUnits()) {
-    InputType in_type{match::TimestampTypeUnit(unit)};
-    switch (unit) {
-      case TimeUnit::SECOND: {
-        auto exec = ExecTemplate<Op, std::chrono::seconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::MILLI: {
-        auto exec =
-            ExecTemplate<Op, std::chrono::milliseconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::MICRO: {
-        auto exec =
-            ExecTemplate<Op, std::chrono::microseconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::NANO: {
-        auto exec =
-            ExecTemplate<Op, std::chrono::nanoseconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+      case WithTimestamps: {
+        for (auto unit : internal::AllTimeUnits()) {
+          InputType in_type{match::TimestampTypeUnit(unit)};
+          switch (unit) {
+            case TimeUnit::SECOND: {
+              auto exec =
+                  ExecTemplate<Op, std::chrono::seconds, TimestampType, OutType>::Exec;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MILLI: {
+              auto exec = ExecTemplate<Op, std::chrono::milliseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MICRO: {
+              auto exec = ExecTemplate<Op, std::chrono::microseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::NANO: {
+              auto exec = ExecTemplate<Op, std::chrono::nanoseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+          }
+        }
         break;
       }
     }
   }
+
   return func;
 }
 
 template <template <typename...> class Op>
 std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporal(
-    bool enable_date, std::string name, const std::shared_ptr<arrow::DataType> out_type,
-    const FunctionDoc* doc, const FunctionOptions* default_options = NULLPTR,
-    KernelInit init = NULLPTR) {
+    std::string name, std::initializer_list<EnabledTypes> in_types,
+    const std::shared_ptr<arrow::DataType> out_type, const FunctionDoc* doc,
+    const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
+  DCHECK_NE(in_types.size(), 0);
   auto func =
       std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options);
 
-  if (enable_date) {
-    auto exec = SimpleUnary<Op<days, Date32Type>>;
-    DCHECK_OK(func->AddKernel({date32()}, out_type, std::move(exec), init));
-  }
-
-  if (enable_date) {
-    auto exec = SimpleUnary<Op<std::chrono::milliseconds, Date64Type>>;
-    DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec), init));
-  }
-
-  for (auto unit : internal::AllTimeUnits()) {
-    InputType in_type{match::TimestampTypeUnit(unit)};
-    switch (unit) {
-      case TimeUnit::SECOND: {
-        auto exec = SimpleUnary<Op<std::chrono::seconds, TimestampType>>;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+  for (const auto in_type : in_types) {
+    switch (in_type) {
+      case WithDates: {
+        auto exec32 = SimpleUnary<Op<days, Date32Type>>;
+        DCHECK_OK(func->AddKernel({date32()}, out_type, std::move(exec32), init));
+        auto exec64 = SimpleUnary<Op<std::chrono::milliseconds, Date64Type>>;
+        DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
         break;
       }
-      case TimeUnit::MILLI: {
-        auto exec = SimpleUnary<Op<std::chrono::milliseconds, TimestampType>>;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::MICRO: {
-        auto exec = SimpleUnary<Op<std::chrono::microseconds, TimestampType>>;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::NANO: {
-        auto exec = SimpleUnary<Op<std::chrono::nanoseconds, TimestampType>>;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+      case WithTimestamps: {
+        for (auto unit : internal::AllTimeUnits()) {
+          InputType in_type{match::TimestampTypeUnit(unit)};
+          switch (unit) {
+            case TimeUnit::SECOND: {
+              auto exec = SimpleUnary<Op<std::chrono::seconds, TimestampType>>;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MILLI: {
+              auto exec = SimpleUnary<Op<std::chrono::milliseconds, TimestampType>>;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MICRO: {
+              auto exec = SimpleUnary<Op<std::chrono::microseconds, TimestampType>>;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::NANO: {
+              auto exec = SimpleUnary<Op<std::chrono::nanoseconds, TimestampType>>;
+              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+              break;
+            }
+          }
+        }
         break;
       }
     }
   }
+
   return func;
 }
 
@@ -980,81 +1096,107 @@ const FunctionDoc strftime_doc{
     {"timestamps"},
     "StrftimeOptions"};
 
+const FunctionDoc assume_timezone_doc{
+    "Convert naive timestamp to timezone-aware timestamp",
+    ("Input timestamps are assumed to be relative to the timezone given in the\n"
+     "`timezone` option. They are converted to UTC-relative timestamps and\n"
+     "the output type has its timezone set to the value of the `timezone`\n"
+     "option. Null values emit null.\n"
+     "This function is meant to be used when an external system produces\n"
+     "\"timezone-naive\" timestamps which need to be converted to\n"
+     "\"timezone-aware\" timestamps. An error is returned if the timestamps\n"
+     "already have a defined timezone."),
+    {"timestamps"},
+    "AssumeTimezoneOptions"};
+
 }  // namespace
 
 void RegisterScalarTemporal(FunctionRegistry* registry) {
+  // Date extractors
+
   auto year = MakeTemporal<Year, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/true, "year", int64(), &year_doc);
+      "year", {WithDates, WithTimestamps}, int64(), &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
 
   auto month = MakeTemporal<Month, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/true, "month", int64(), &month_doc);
+      "month", {WithDates, WithTimestamps}, int64(), &month_doc);
   DCHECK_OK(registry->AddFunction(std::move(month)));
 
   auto day = MakeTemporal<Day, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/true, "day", int64(), &day_doc);
+      "day", {WithDates, WithTimestamps}, int64(), &day_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
-  static auto default_day_of_week_options = DayOfWeekOptions::Defaults();
+  static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto day_of_week =
       MakeTemporal<DayOfWeek, TemporalComponentExtractDayOfWeek, Int64Type>(
-          /*enable_date=*/true, "day_of_week", int64(), &day_of_week_doc,
+          "day_of_week", {WithDates, WithTimestamps}, int64(), &day_of_week_doc,
           &default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
   auto day_of_year = MakeTemporal<DayOfYear, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/true, "day_of_year", int64(), &day_of_year_doc);
+      "day_of_year", {WithDates, WithTimestamps}, int64(), &day_of_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_of_year)));
 
   auto iso_year = MakeTemporal<ISOYear, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/true, "iso_year", int64(), &iso_year_doc);
+      "iso_year", {WithDates, WithTimestamps}, int64(), &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
   auto iso_week = MakeTemporal<ISOWeek, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/true, "iso_week", int64(), &iso_week_doc);
+      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
   auto iso_calendar = MakeSimpleUnaryTemporal<ISOCalendar>(
-      /*enable_date=*/true, "iso_calendar", IsoCalendarType(), &iso_calendar_doc);
+      "iso_calendar", {WithDates, WithTimestamps}, IsoCalendarType(), &iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
   auto quarter = MakeTemporal<Quarter, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/true, "quarter", int64(), &quarter_doc);
+      "quarter", {WithDates, WithTimestamps}, int64(), &quarter_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarter)));
 
+  // Date / time extractors
+
   auto hour = MakeTemporal<Hour, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/false, "hour", int64(), &hour_doc);
+      "hour", {WithTimestamps}, int64(), &hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
   auto minute = MakeTemporal<Minute, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/false, "minute", int64(), &minute_doc);
+      "minute", {WithTimestamps}, int64(), &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
   auto second = MakeTemporal<Second, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/false, "second", int64(), &second_doc);
+      "second", {WithTimestamps}, int64(), &second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond = MakeTemporal<Millisecond, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/false, "millisecond", int64(), &millisecond_doc);
+      "millisecond", {WithTimestamps}, int64(), &millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
   auto microsecond = MakeTemporal<Microsecond, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/false, "microsecond", int64(), &microsecond_doc);
+      "microsecond", {WithTimestamps}, int64(), &microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
   auto nanosecond = MakeTemporal<Nanosecond, TemporalComponentExtract, Int64Type>(
-      /*enable_date=*/false, "nanosecond", int64(), &nanosecond_doc);
+      "nanosecond", {WithTimestamps}, int64(), &nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond = MakeTemporal<Subsecond, TemporalComponentExtract, DoubleType>(
-      /*enable_date=*/false, "subsecond", float64(), &subsecond_doc);
+      "subsecond", {WithTimestamps}, float64(), &subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
-  static auto default_strftime_options = StrftimeOptions();
+  // Timezone-related functions
+
+  static const auto default_strftime_options = StrftimeOptions();
   auto strftime = MakeSimpleUnaryTemporal<Strftime>(
-      /*enable_date=*/false, "strftime", utf8(), &strftime_doc, &default_strftime_options,
+      "strftime", {WithTimestamps}, utf8(), &strftime_doc, &default_strftime_options,
       StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
+
+  auto assume_timezone =
+      MakeTemporal<AssumeTimezone, AssumeTimezoneExtractor, TimestampType>(
+          "assume_timezone", {WithTimestamps},
+          OutputType::Resolver(ResolveAssumeTimezoneOutput), &assume_timezone_doc,
+          nullptr, AssumeTimezoneState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
 }
 
 }  // namespace internal

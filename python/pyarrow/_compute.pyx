@@ -1005,6 +1005,41 @@ class DayOfWeekOptions(_DayOfWeekOptions):
         self._set_options(one_based_numbering, week_start)
 
 
+cdef class _AssumeTimezoneOptions(FunctionOptions):
+    def _set_options(self, timezone, ambiguous, nonexistent):
+        ambiguous_dict = {
+            'raise': CAssumeTimezoneAmbiguous_AMBIGUOUS_RAISE,
+            'earliest': CAssumeTimezoneAmbiguous_AMBIGUOUS_EARLIEST,
+            'latest': CAssumeTimezoneAmbiguous_AMBIGUOUS_LATEST,
+        }
+        nonexistent_dict = {
+            'raise': CAssumeTimezoneNonexistent_NONEXISTENT_RAISE,
+            'earliest': CAssumeTimezoneNonexistent_NONEXISTENT_EARLIEST,
+            'latest': CAssumeTimezoneNonexistent_NONEXISTENT_LATEST,
+        }
+
+        if ambiguous not in ambiguous_dict:
+            raise ValueError(
+                "{!r} is not a valid 'ambiguous' keyword".format(ambiguous)
+            )
+        if nonexistent not in nonexistent_dict:
+            raise ValueError(
+                "{!r} is not a valid 'nonexistent' keyword".format(
+                    nonexistent)
+            )
+        self.wrapped.reset(
+            new CAssumeTimezoneOptions(
+                tobytes(timezone),
+                ambiguous_dict[ambiguous],
+                nonexistent_dict[nonexistent])
+        )
+
+
+class AssumeTimezoneOptions(_AssumeTimezoneOptions):
+    def __init__(self, timezone, *, ambiguous="raise", nonexistent="raise"):
+        self._set_options(timezone, ambiguous, nonexistent)
+
+
 cdef class _NullOptions(FunctionOptions):
     def _set_options(self, nan_is_null):
         self.wrapped.reset(

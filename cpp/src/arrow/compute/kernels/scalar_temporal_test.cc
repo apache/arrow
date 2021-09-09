@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -430,7 +431,111 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                                                        /*week_start=*/8)));
 }
 
+// TODO: We should test on windows once ARROW-13168 is resolved.
 #ifndef _WIN32
+TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
+  std::string timezone_utc = "UTC";
+  std::string timezone_kolkata = "Asia/Kolkata";
+  std::string timezone_us_central = "US/Central";
+  const char* times_utc = R"(["1970-01-01T00:00:00", null])";
+  const char* times_kolkata = R"(["1970-01-01T05:30:00", null])";
+  const char* times_us_central = R"(["1969-12-31T18:00:00", null])";
+  auto options_utc = AssumeTimezoneOptions(timezone_utc);
+  auto options_kolkata = AssumeTimezoneOptions(timezone_kolkata);
+  auto options_us_central = AssumeTimezoneOptions(timezone_us_central);
+  auto options_invalid = AssumeTimezoneOptions("Europe/Brusselsss");
+
+  for (auto u : internal::AllTimeUnits()) {
+    auto unit = timestamp(u);
+    auto unit_utc = timestamp(u, timezone_utc);
+    auto unit_kolkata = timestamp(u, timezone_kolkata);
+    auto unit_us_central = timestamp(u, timezone_us_central);
+
+    CheckScalarUnary("assume_timezone", unit, times_utc, unit_utc, times_utc,
+                     &options_utc);
+    CheckScalarUnary("assume_timezone", unit, times_kolkata, unit_kolkata, times_utc,
+                     &options_kolkata);
+    CheckScalarUnary("assume_timezone", unit, times_us_central, unit_us_central,
+                     times_utc, &options_us_central);
+    ASSERT_RAISES(Invalid,
+                  AssumeTimezone(ArrayFromJSON(unit_kolkata, times_utc), options_utc));
+    ASSERT_RAISES(Invalid,
+                  AssumeTimezone(ArrayFromJSON(unit, times_utc), options_invalid));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestAssumeTimezoneAmbiguous) {
+  std::string timezone = "CET";
+  const char* times = R"(["2018-10-28 01:20:00",
+                          "2018-10-28 02:36:00",
+                          "2018-10-28 03:46:00"])";
+  const char* times_earliest = R"(["2018-10-27 23:20:00",
+                                   "2018-10-28 00:36:00",
+                                   "2018-10-28 02:46:00"])";
+  const char* times_latest = R"(["2018-10-27 23:20:00",
+                                 "2018-10-28 01:36:00",
+                                 "2018-10-28 02:46:00"])";
+
+  auto options_earliest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_EARLIEST);
+  auto options_latest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_LATEST);
+  auto options_raise =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE);
+
+  for (auto u : internal::AllTimeUnits()) {
+    auto unit = timestamp(u);
+    auto unit_local = timestamp(u, timezone);
+    ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));
+    CheckScalarUnary("assume_timezone", unit, times, unit_local, times_earliest,
+                     &options_earliest);
+    CheckScalarUnary("assume_timezone", unit, times, unit_local, times_latest,
+                     &options_latest);
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
+  std::string timezone = "Europe/Warsaw";
+  const char* times = R"(["2015-03-29 02:30:00", "2015-03-29 03:30:00"])";
+  const char* times_latest = R"(["2015-03-29 01:00:00", "2015-03-29 01:30:00"])";
+  const char* times_earliest = R"(["2015-03-29 00:59:59", "2015-03-29 01:30:00"])";
+  const char* times_earliest_milli =
+      R"(["2015-03-29 00:59:59.999", "2015-03-29 01:30:00"])";
+  const char* times_earliest_micro =
+      R"(["2015-03-29 00:59:59.999999", "2015-03-29 01:30:00"])";
+  const char* times_earliest_nano =
+      R"(["2015-03-29 00:59:59.999999999", "2015-03-29 01:30:00"])";
+
+  auto options_raise =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
+                            AssumeTimezoneOptions::NONEXISTENT_RAISE);
+  auto options_latest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
+                            AssumeTimezoneOptions::NONEXISTENT_LATEST);
+  auto options_earliest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
+                            AssumeTimezoneOptions::NONEXISTENT_EARLIEST);
+
+  for (auto u : internal::AllTimeUnits()) {
+    auto unit = timestamp(u);
+    auto unit_local = timestamp(u, timezone);
+    ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));
+    CheckScalarUnary("assume_timezone", unit, times, unit_local, times_latest,
+                     &options_latest);
+  }
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::SECOND), times,
+                   timestamp(TimeUnit::SECOND, timezone), times_earliest,
+                   &options_earliest);
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::MILLI), times,
+                   timestamp(TimeUnit::MILLI, timezone), times_earliest_milli,
+                   &options_earliest);
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::MICRO), times,
+                   timestamp(TimeUnit::MICRO, timezone), times_earliest_micro,
+                   &options_earliest);
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::NANO), times,
+                   timestamp(TimeUnit::NANO, timezone), times_earliest_nano,
+                   &options_earliest);
+}
 
 TEST_F(ScalarTemporalTest, Strftime) {
   auto options_default = StrftimeOptions();
@@ -542,8 +647,7 @@ TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
                                   testing::HasSubstr("Cannot find locale 'non-existent'"),
                                   Strftime(arr, options));
 }
-
-#endif
+#endif  // !_WIN32
 
 }  // namespace compute
 }  // namespace arrow
