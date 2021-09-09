@@ -37,6 +37,10 @@ TEST(TestScalarNested, ListValueLength) {
     CheckScalarUnary("list_value_length", ty, "[[0, null, 1], null, [2, 3], []]",
                      GetOffsetType(*ty), "[3, null, 2, 0]");
   }
+
+  CheckScalarUnary("list_value_length", fixed_size_list(int32(), 3),
+                   "[[0, null, 1], null, [2, 3, 4], [1, 2, null]]", int32(),
+                   "[3, null, 3, 3]");
 }
 
 struct {

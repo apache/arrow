@@ -1173,7 +1173,8 @@ Structural transforms
 +--------------------------+------------+----------------+-------------------+------------------------------+---------+
 
 * \(1) Each output element is the length of the corresponding input element
-  (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
+  (null if input is null).  Output type is Int32 for List and FixedSizeList,
+  Int64 for LargeList.
 
 * \(2) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`MakeStructOptions`.
@@ -1488,7 +1489,8 @@ Structural transforms
 
 * \(2) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
-  are discarded.
+  are discarded.  Output type is Int32 for List and FixedSizeList, Int64 for
+  LargeList.
 
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.

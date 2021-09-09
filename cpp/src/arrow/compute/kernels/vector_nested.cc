@@ -76,6 +76,23 @@ struct ListParentIndicesArray {
 
   Status Visit(const LargeListType& type) { return VisitList(type); }
 
+  Status Visit(const FixedSizeListType& type) {
+    const int32_t slot_length = type.list_size();
+    const int64_t values_length = slot_length * (input->length - input->GetNullCount());
+    ARROW_ASSIGN_OR_RAISE(auto indices, ctx->Allocate(values_length * sizeof(int32_t)));
+    int32_t* out_indices = reinterpret_cast<int32_t*>(indices->mutable_data());
+    const uint8_t* bitmap = input->GetValues<uint8_t>(0, 0);
+    for (int32_t i = 0; i < input->length; i++) {
+      if (!bitmap || BitUtil::GetBit(bitmap, input->offset + i)) {
+        std::fill(out_indices, out_indices + slot_length, base_output_offset + i);
+        out_indices += slot_length;
+      }
+    }
+    out = ArrayData::Make(int32(), values_length, {nullptr, std::move(indices)},
+                          /*null_count=*/0);
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::TypeError("Function 'list_parent_indices' expects list input, got ",
                              type.ToString());
@@ -99,6 +116,7 @@ Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>&
 Result<std::shared_ptr<DataType>> ListParentIndicesType(const DataType& input_type) {
   switch (input_type.id()) {
     case Type::LIST:
+    case Type::FIXED_SIZE_LIST:
       return int32();
     case Type::LARGE_LIST:
       return int64();
@@ -164,6 +182,9 @@ void RegisterVectorNested(FunctionRegistry* registry) {
       std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), &list_flatten_doc);
   DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LIST)}, OutputType(ListValuesType),
                                ListFlatten<ListType>));
+  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::FIXED_SIZE_LIST)},
+                               OutputType(ListValuesType),
+                               ListFlatten<FixedSizeListType>));
   DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LARGE_LIST)},
                                OutputType(ListValuesType), ListFlatten<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(flatten)));
