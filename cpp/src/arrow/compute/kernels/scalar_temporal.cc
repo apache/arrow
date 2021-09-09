@@ -706,7 +706,7 @@ struct AssumeTimezone {
 // Extract ISO calendar values from timestamp
 
 template <typename Duration, typename Localizer>
-inline std::array<int64_t, 3> GetIsoCalendar(int64_t arg, Localizer&& localizer) {
+std::array<int64_t, 3> GetIsoCalendar(int64_t arg, Localizer&& localizer) {
   const auto t = floor<days>(localizer.template ConvertTimePoint<Duration>(arg));
   const auto ymd = year_month_day(t);
   auto y = year_month_day{t + days{3}}.year();
@@ -722,69 +722,64 @@ inline std::array<int64_t, 3> GetIsoCalendar(int64_t arg, Localizer&& localizer)
 
 template <typename Duration, typename InType>
 struct ISOCalendarWrapper {
-  static Status Get(const Scalar& in, std::array<int64_t, 3>& iso_calendar) {
+  static Result<std::array<int64_t, 3>> Get(const Scalar& in) {
     const auto& in_val = internal::UnboxScalar<const InType>::Unbox(in);
-    iso_calendar = GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
-    return Status::OK();
+    return GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
   }
 };
 
 template <typename Duration>
 struct ISOCalendarWrapper<Duration, TimestampType> {
-  static Status Get(const Scalar& in, std::array<int64_t, 3>& iso_calendar) {
+  static Result<std::array<int64_t, 3>> Get(const Scalar& in) {
     const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
-      iso_calendar = GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
+      return GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      iso_calendar = GetIsoCalendar<Duration>(in_val, ZonedLocalizer{tz});
+      return GetIsoCalendar<Duration>(in_val, ZonedLocalizer{tz});
     }
-    return Status::OK();
   }
 };
 
 template <typename Duration, typename InType, typename BuilderType>
 struct ISOCalendarVisitValueFunction {
-  static Status Get(std::vector<BuilderType*>& field_builders, const ArrayData&,
-                    StructBuilder* struct_builder,
-                    std::function<Status(typename InType::c_type arg)>& visit_value) {
-    visit_value = [=](typename InType::c_type arg) {
+  static Result<std::function<Status(typename InType::c_type arg)>> Get(
+      const std::vector<BuilderType*>& field_builders, const ArrayData&,
+      StructBuilder* struct_builder) {
+    return [=](typename InType::c_type arg) {
       const auto iso_calendar = GetIsoCalendar<Duration>(arg, NonZonedLocalizer{});
       field_builders[0]->UnsafeAppend(iso_calendar[0]);
       field_builders[1]->UnsafeAppend(iso_calendar[1]);
       field_builders[2]->UnsafeAppend(iso_calendar[2]);
       return struct_builder->Append();
     };
-    return Status::OK();
   }
 };
 
 template <typename Duration, typename BuilderType>
 struct ISOCalendarVisitValueFunction<Duration, TimestampType, BuilderType> {
-  static Status Get(std::vector<BuilderType*>& field_builders, const ArrayData& in,
-                    StructBuilder* struct_builder,
-                    std::function<Status(TimestampType::c_type arg)>& visit_value) {
+  static Result<std::function<Status(typename TimestampType::c_type arg)>> Get(
+      const std::vector<BuilderType*>& field_builders, const ArrayData& in,
+      StructBuilder* struct_builder) {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
-      visit_value = [=](TimestampType::c_type arg) {
+      return [=](TimestampType::c_type arg) {
         const auto iso_calendar = GetIsoCalendar<Duration>(arg, NonZonedLocalizer{});
         field_builders[0]->UnsafeAppend(iso_calendar[0]);
         field_builders[1]->UnsafeAppend(iso_calendar[1]);
         field_builders[2]->UnsafeAppend(iso_calendar[2]);
         return struct_builder->Append();
       };
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      visit_value = [=](TimestampType::c_type arg) {
-        const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{tz});
-        field_builders[0]->UnsafeAppend(iso_calendar[0]);
-        field_builders[1]->UnsafeAppend(iso_calendar[1]);
-        field_builders[2]->UnsafeAppend(iso_calendar[2]);
-        return struct_builder->Append();
-      };
     }
-    return Status::OK();
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+    return [=](TimestampType::c_type arg) {
+      const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{tz});
+      field_builders[0]->UnsafeAppend(iso_calendar[0]);
+      field_builders[1]->UnsafeAppend(iso_calendar[1]);
+      field_builders[2]->UnsafeAppend(iso_calendar[2]);
+      return struct_builder->Append();
+    };
   }
 };
 
@@ -792,9 +787,8 @@ template <typename Duration, typename InType>
 struct ISOCalendar {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     if (in.is_valid) {
-      std::array<int64_t, 3> iso_calendar;
-      auto self = ISOCalendarWrapper<Duration, InType>::Get(in, iso_calendar);
-      RETURN_NOT_OK(self);
+      ARROW_ASSIGN_OR_RAISE(auto iso_calendar,
+                            (ISOCalendarWrapper<Duration, InType>::Get(in)));
       ScalarVector values = {std::make_shared<Int64Scalar>(iso_calendar[0]),
                              std::make_shared<Int64Scalar>(iso_calendar[1]),
                              std::make_shared<Int64Scalar>(iso_calendar[2])};
@@ -823,9 +817,9 @@ struct ISOCalendar {
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     std::function<Status(typename InType::c_type arg)> visit_value;
-    auto visitor = ISOCalendarVisitValueFunction<Duration, InType, BuilderType>::Get(
-        field_builders, in, struct_builder, visit_value);
-    RETURN_NOT_OK(visitor);
+    ARROW_ASSIGN_OR_RAISE(
+        visit_value, (ISOCalendarVisitValueFunction<Duration, InType, BuilderType>::Get(
+                         field_builders, in, struct_builder)));
     RETURN_NOT_OK(
         VisitArrayDataInline<typename InType::PhysicalType>(in, visit_value, visit_null));
     std::shared_ptr<Array> out_array;
