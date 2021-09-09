@@ -2242,27 +2242,24 @@ def test_count_distinct_options():
 def test_str_repeat():
     # Test with single value for number of repeats
     values = ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"]
-    repeat_and_expected_map = {
-        -1: ["", None, "", "", "", "", ""],
-        0: ["", None, "", "", "", "", ""],
-        1: ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"],
-        2: ["æÆ&æÆ&", None, "", "bb", "ɑɽⱤoWɑɽⱤoW", "ıIıI", "$. 3$. 3"],
-    }
-    for repeat, expected in repeat_and_expected_map.items():
-        result = pc.str_repeat(values, repeat, options=options)
+    repeat_and_expected = [
+        [-1, ["", None, "", "", "", "", ""]],
+        [0, ["", None, "", "", "", "", ""]],
+        [1, ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"]],
+        [2, ["æÆ&æÆ&", None, "", "bb", "ɑɽⱤoWɑɽⱤoW", "ıIıI", "$. 3$. 3"]],
+    ]
+    for repeat, expected in repeat_and_expected:
+        result = pc.str_repeat(values, repeat)
         assert result.equals(pa.array(expected))
 
     # Test with multiple values for number of repeats
     values = ["a", "b"]
-    repeat_and_expected_map = {
-        (-1, 2): ["", "bb"],
-        (3,): ["aaa", "bbb"],
-        (0, 0): ["", ""],
-    }
-    for repeat, expected in repeat_and_expected_map.items():
-        result = pc.str_repeat(values, repeat, options=options)
+    repeat_and_expected = [
+        [[-3, 2], ["", "bb"]],
+        [[0, 2], ["", "bb"]],
+        [3, ["aaa", "bbb"]],
+        [[0, 0], ["", ""]],
+    ]
+    for repeat, expected in repeat_and_expected:
+        result = pc.str_repeat(values, repeat)
         assert result.equals(pa.array(expected))
-
-    # Test with invalid number of values and repeats
-    with pytest.raises(ValueError, match="differ in length"):
-        pc.str_repeat(["a", "b"], [1, 2, 3])

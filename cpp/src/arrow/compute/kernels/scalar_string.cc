@@ -2738,54 +2738,23 @@ struct StrRepeatTransform : public StringBinaryTransformBase {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
-  Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
-    // TODO(edponce): Does it makes sense to validate repetition values here or make it a
-    // silent no-op? When it is an array, it should not be validated here because it would
-    // require iterating through all values.
-    if (batch[1].is_scalar()) {
-      auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*batch[1].scalar()));
-      if (nrepeats < 0) {
-        return Status::Invalid("Invalid string repetition value, has to be non-negative");
-      }
-    } else {
-      ArrayType2 array2(batch[1].array());
-      for (int i = 0; i < array2.length(); ++i) {
-        auto nrepeats =
-            static_cast<int64_t>(UnboxScalar<Type2>::Unbox(**array2.GetScalar(i)));
-        if (nrepeats < 0) {
-          return Status::Invalid(
-              "Invalid string repetition value, has to be non-negative");
-        }
-      }
-    }
-    if (batch[0].is_array() && batch[1].is_array()) {
-      ArrayType1 array1(batch[0].array());
-      ArrayType2 array2(batch[1].array());
-      if (array1.length() != array2.length()) {
-        return Status::Invalid(
-            "Number of input strings and repetitions differ in length");
-      }
-    }
-    return Status::OK();
-  }
-
   int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits,
                        const std::shared_ptr<Scalar>& input2) override {
     auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*input2));
-    return input_ncodeunits * nrepeats;
+    return std::max(input_ncodeunits * nrepeats, int64_t(0));
   }
 
   int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits,
                        const std::shared_ptr<ArrayData>& data2) override {
     ArrayType2 array2(data2);
-    // Note: Ideally, we would like to calculate the exact output size by iterating over
-    // all input strings and summing each length multiplied by the corresponding repeat
+    // Ideally, we would like to calculate the exact output size by iterating over
+    // all strings offsets and summing each length multiplied by the corresponding repeat
     // value, but this requires traversing the data twice (now and during transform).
     // The upper limit is to assume that all strings are repeated the max number of
-    // times.
+    // times knowing that a resize operation is performed at end of execution.
     auto max_nrepeats =
         static_cast<int64_t>(**std::max_element(array2.begin(), array2.end()));
-    return input_ncodeunits * max_nrepeats;
+    return std::max(input_ncodeunits * max_nrepeats, int64_t(0));
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
@@ -2793,7 +2762,7 @@ struct StrRepeatTransform : public StringBinaryTransformBase {
     auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*input2));
     uint8_t* output_start = output;
     if (nrepeats > 0) {
-      // log2(repeats) approach
+      // log2(k) approach
       std::memcpy(output, input, input_string_ncodeunits);
       output += input_string_ncodeunits;
       int64_t i = 1;
@@ -4756,8 +4725,7 @@ const FunctionDoc utf8_reverse_doc(
     {"strings"});
 
 const FunctionDoc str_repeat_doc(
-    "Repeat a string a given number of times",
-    ("For each string in `strings`, return a replicated version."),
+    "Repeat a string", ("For each string in `strings`, return a replicated version."),
     {"strings", "repeats"});
 }  // namespace
 
