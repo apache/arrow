@@ -71,9 +71,6 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context, int64_t ptr, const char*
                                        bool in2_validity, int32_t suppress_errors,
                                        bool in3_validity, bool* out_valid);
 
-const char* gdv_fn_soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
-                                int32_t* out_len);
-
 void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg);
 
 uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t data_len);

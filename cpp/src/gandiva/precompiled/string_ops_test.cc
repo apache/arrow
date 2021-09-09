@@ -2129,4 +2129,23 @@ TEST(TestStringOps, TestFromHex) {
       ::testing::HasSubstr("Error parsing hex string, one or more bytes are not valid."));
   ctx.Reset();
 }
+TEST(TestStringOps, TestSoundex) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* out;
+
+  out = soundex_utf8(ctx_ptr, "Miller", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+
+  out = soundex_utf8(ctx_ptr, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+
+  out = soundex_utf8(ctx_ptr, "test", 4, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T230");
+
+  out = soundex_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
 }  // namespace gandiva

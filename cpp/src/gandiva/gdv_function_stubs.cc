@@ -645,53 +645,6 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
   return out;
 }
 
-
-// Returns the soundex code for a given string
-const char* gdv_fn_soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
-                                int32_t* out_len) {
-  if (in_len <= 0) {
-    *out_len = 0;
-    return "";
-  }
-
-  // The soundex code is composed by one letter and three numbers
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, 4));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  // Mapping    ->   ABCDEFGHIJKLMNOPQRSTUVWXYZ
-  auto mappings = std::string("01230120022455012623010202");
-
-  int si = 1;
-  char c;
-  ret[0] = toupper(in[0]);
-  for(int i = 1, l = in_len; i < l; i++) {
-    c = toupper(in[i]) - 65;
-
-    if(c >= 0 && c <= 25) {
-      if(mappings[c] != '0') {
-        if(mappings[c] != ret[si-1]) {
-          ret[si] = mappings[c];
-          si++;
-        }
-
-        if(si > 3) break;
-      }
-    }
-  }
-
-  if(si <= 3) {
-    while(si <= 3) {
-      ret[si] = '0';
-      si++;
-    }
-  }
-  *out_len = 4;
-  return ret;
-}
-
 // Convert an utf8 string to its corresponding lowercase string
 GANDIVA_EXPORT
 const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_len,

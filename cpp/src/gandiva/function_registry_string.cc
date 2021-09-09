@@ -79,7 +79,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext),
 
       NativeFunction("soundex", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                     "gdv_fn_soundex_utf8", NativeFunction::kNeedsContext),
+                     "soundex_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "gdv_fn_upper_utf8", NativeFunction::kNeedsContext),

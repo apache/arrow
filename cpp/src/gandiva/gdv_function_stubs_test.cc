@@ -82,25 +82,6 @@ TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
   EXPECT_FALSE(ctx.has_error());
 }
 
-TEST(TestGdvFnStubs, TestSoundex) {
-  gandiva::ExecutionContext ctx;
-  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-  int32_t out_len = 0;
-  const char* out;
-
-  out = gdv_fn_soundex_utf8(ctx_ptr, "Miller", 6, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "M460");
-
-  out = gdv_fn_soundex_utf8(ctx_ptr, "abc", 3, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "A120");
-
-  out = gdv_fn_soundex_utf8(ctx_ptr, "test", 4, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "T230");
-
-  out = gdv_fn_soundex_utf8(ctx_ptr, "", 0, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "");
-}
-
 TEST(TestGdvFnStubs, TestBase64Encode) {
   gandiva::ExecutionContext ctx;
 
