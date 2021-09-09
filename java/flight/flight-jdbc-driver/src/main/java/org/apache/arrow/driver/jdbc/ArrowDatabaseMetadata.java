@@ -213,9 +213,10 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         Field.notNullable("KEY_SEQ", Types.MinorType.INT.getType()),
         Field.nullable("FK_NAME", Types.MinorType.VARCHAR.getType()),
         Field.nullable("PK_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("UPDATE_RULE", new ArrowType.Int(8, false)),
-        Field.notNullable("DELETE_RULE", new ArrowType.Int(8, false)),
-        Field.notNullable("DEFERRABILITY", new ArrowType.Int(8, false))));
+        Field.notNullable("UPDATE_RULE", new ArrowType.Int(Byte.SIZE, false)),
+        Field.notNullable("DELETE_RULE", new ArrowType.Int(Byte.SIZE, false)),
+        // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
+        Field.notNullable("DEFERRABILITY", new ArrowType.Int(Byte.SIZE, false))));
 
     private static final Schema GET_PRIMARY_KEYS = new Schema(Arrays.asList(
         Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
