@@ -229,7 +229,7 @@ endif()
 find_package(Matlab REQUIRED)
 
 # Construct the absolute path to mexfcn's souce files
-set(mexfcn_sources mexDispatcher.cc featherreadmex.cc feather_reader.cc
+set(mexfcn_sources mexfcn.cc featherreadmex.cc feather_reader.cc
                           featherwritemex.cc feather_writer.cc util/handle_status.cc
                           util/unicode_conversion.cc)
 list(TRANSFORM mexfcn_sources PREPEND ${CMAKE_SOURCE_DIR}/src/)

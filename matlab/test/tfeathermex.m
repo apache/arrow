@@ -24,11 +24,11 @@ classdef tfeathermex < matlab.unittest.TestCase
             testCase.applyFixture(PathFixture('util'));
             % Add featherread and featherwrite to the MATLAB path.
             testCase.applyFixture(PathFixture(fullfile('..', 'src')));
-            % Add mexDispatcher to the MATLAB path.
+            % Add mexfcn to the MATLAB path.
             testCase.applyFixture(PathFixture(fullfile('..', 'build')));
-            % mexDispatcher must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('mexDispatcher')), ...
-                '''mexDispatcher'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
+            % mexfcn must be on the MATLAB path.
+            testCase.assertTrue(~isempty(which('mexfcn')), ...
+                '''mexfcn'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
         end
     end
     
