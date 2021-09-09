@@ -539,7 +539,11 @@ struct FixedSizeBinaryTransformExecWithState
   }
 };
 
-struct StringBinaryTransformBase : StringTransformBase {
+struct StringBinaryTransformBase {
+  virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::OK();
+  }
+
   // Return the maximum total size of the output in codeunits (i.e. bytes)
   // given input characteristics.
   virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
@@ -552,6 +556,10 @@ struct StringBinaryTransformBase : StringTransformBase {
   virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
                                const std::shared_ptr<ArrayData>& data2) {
     return input_ncodeunits;
+  }
+
+  virtual Status InvalidStatus() {
+    return Status::Invalid("Invalid UTF8 sequence in input");
   }
 };
 
@@ -591,7 +599,6 @@ struct StringBinaryTransformExecBase {
     return Status::Invalid("Invalid ExecBatch kind for binary string transform");
   }
 
- private:
   static Status ExecScalarScalar(KernelContext* ctx, StringTransform* transform,
                                  const std::shared_ptr<Scalar>& scalar1,
                                  const std::shared_ptr<Scalar>& scalar2, Datum* out) {
