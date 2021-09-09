@@ -656,9 +656,9 @@ struct StringBinaryTransformExecBase {
       if (!input1.IsNull(i)) {
         offset_type input1_string_ncodeunits;
         auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
-        auto encoded_nbytes =
+        auto encoded_nbytes = static_cast<offset_type>(
             transform->Transform(input1_string, input1_string_ncodeunits, scalar2,
-                                 output_str + output_ncodeunits);
+                                 output_str + output_ncodeunits));
         if (encoded_nbytes < 0) {
           return transform->InvalidStatus();
         }
@@ -711,9 +711,9 @@ struct StringBinaryTransformExecBase {
         offset_type input1_string_ncodeunits;
         auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
         auto scalar2 = *input2.GetScalar(i);
-        auto encoded_nbytes =
+        auto encoded_nbytes = static_cast<offset_type>(
             transform->Transform(input1_string, input1_string_ncodeunits, scalar2,
-                                 output_str + output_ncodeunits);
+                                 output_str + output_ncodeunits));
         if (encoded_nbytes < 0) {
           return transform->InvalidStatus();
         }
