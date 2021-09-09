@@ -42,7 +42,13 @@ To use ninja, pass `-GNinja` when calling cmake and then use the `ninja` command
 
 ## Building and running tests
 
-To build Apache Arrow (Java) with this module enabled run the following from the project root directory:
+Run tests with
+
+```
+mvn test
+```
+
+To install Apache Arrow (Java) with this module enabled run the following from the project root directory:
 
 ```
 cd java
