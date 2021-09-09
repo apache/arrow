@@ -18,6 +18,7 @@ package array
 
 import (
 	"math"
+	"math/bits"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/bitutil"
@@ -26,6 +27,11 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// Concatenate creates a new array.Interface which is the concatenation of the
+// passed in arrays. Returns nil if an error is encountered.
+//
+// The passed in arrays still need to be released manually, and will not be
+// released by this function.
 func Concatenate(arrs []Interface, mem memory.Allocator) (Interface, error) {
 	if len(arrs) == 0 {
 		return nil, xerrors.New("array/concat: must pass at least one array")
@@ -50,15 +56,19 @@ func Concatenate(arrs []Interface, mem memory.Allocator) (Interface, error) {
 	return MakeFromData(out), nil
 }
 
+// simple struct to hold ranges
 type rng struct {
 	offset, len int
 }
 
+// simple bitmap struct to reference a specific slice of a bitmap where the range
+// offset and length are in bits
 type bitmap struct {
 	data []byte
 	rng  rng
 }
 
+// gather up the bitmaps from the passed in data objects
 func gatherBitmaps(data []*Data, idx int) []bitmap {
 	out := make([]bitmap, len(data))
 	for i, d := range data {
@@ -71,10 +81,10 @@ func gatherBitmaps(data []*Data, idx int) []bitmap {
 	return out
 }
 
-func gatherBuffers(data []*Data, idx int) []*memory.Buffer {
-	return gatherFixedBuffers(data, idx, 1)
-}
-
+// gatherFixedBuffers gathers up the buffer objects of the given index, specifically
+// returning only the slices of the buffers which are relevant to the passed in arrays
+// in case they are themselves slices of other arrays. nil buffers are ignored and not
+// in the output slice.
 func gatherFixedBuffers(data []*Data, idx, byteWidth int) []*memory.Buffer {
 	out := make([]*memory.Buffer, 0, len(data))
 	for _, d := range data {
@@ -88,10 +98,15 @@ func gatherFixedBuffers(data []*Data, idx, byteWidth int) []*memory.Buffer {
 	return out
 }
 
+// gatherBuffersFixedWidthType is like gatherFixedBuffers, but uses a datatype to determine the size
+// to use for determining the byte slice rather than a passed in bytewidth.
 func gatherBuffersFixedWidthType(data []*Data, idx int, fixed arrow.FixedWidthDataType) []*memory.Buffer {
 	return gatherFixedBuffers(data, idx, fixed.BitWidth()/8)
 }
 
+// gatherBufferRanges requires that len(ranges) == len(data) and returns a list of buffers
+// which represent the corresponding range of each buffer in the specified index of each
+// data object.
 func gatherBufferRanges(data []*Data, idx int, ranges []rng) []*memory.Buffer {
 	out := make([]*memory.Buffer, 0, len(data))
 	for i, d := range data {
@@ -106,10 +121,14 @@ func gatherBufferRanges(data []*Data, idx int, ranges []rng) []*memory.Buffer {
 	return out
 }
 
+// gatherChildren gathers the children data objects for child of index idx for all of the data objects.
 func gatherChildren(data []*Data, idx int) []*Data {
 	return gatherChildrenMultiplier(data, idx, 1)
 }
 
+// gatherChildrenMultiplier gathers the full data slice of the underlying values from the children data objects
+// such as the values data for a list array so that it can return a slice of the buffer for a given
+// index into the children.
 func gatherChildrenMultiplier(data []*Data, idx, multiplier int) []*Data {
 	out := make([]*Data, len(data))
 	for i, d := range data {
@@ -118,6 +137,8 @@ func gatherChildrenMultiplier(data []*Data, idx, multiplier int) []*Data {
 	return out
 }
 
+// gatherChildrenRanges returns a slice of Data objects which each represent slices of the given ranges from the
+// child in the specified index from each data object.
 func gatherChildrenRanges(data []*Data, idx int, ranges []rng) []*Data {
 	debug.Assert(len(data) == len(ranges), "mismatched children ranges for concat")
 	out := make([]*Data, len(data))
@@ -127,6 +148,8 @@ func gatherChildrenRanges(data []*Data, idx int, ranges []rng) []*Data {
 	return out
 }
 
+// creates a single contiguous buffer which contains the concatenation of all of the passed
+// in buffer objects.
 func concatBuffers(bufs []*memory.Buffer, mem memory.Allocator) *memory.Buffer {
 	outLen := 0
 	for _, b := range bufs {
@@ -143,6 +166,11 @@ func concatBuffers(bufs []*memory.Buffer, mem memory.Allocator) *memory.Buffer {
 	return out
 }
 
+// concatOffsets creates a single offset buffer which represents the concatenation of all of the
+// offsets buffers, adjusting the offsets appropriately to their new relative locations.
+//
+// It also returns the list of ranges that need to be fetched for the corresponding value buffers
+// to construct the final concatenated value buffer.
 func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buffer, []rng, error) {
 	outLen := 0
 	for _, b := range buffers {
@@ -163,28 +191,38 @@ func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buff
 			continue
 		}
 
+		// when we gather our buffers, we sliced off the last offset from the buffer
+		// so that we could count the lengths accurately
 		src := arrow.Int32Traits.CastFromBytes(b.Bytes())
 		valuesRanges[i].offset = int(src[0])
+		// expand our slice to see that final offset
 		expand := src[:len(src)+1]
+		// compute the length of this range by taking the final offset and subtracting where we started.
 		valuesRanges[i].len = int(expand[len(src)]) - valuesRanges[i].offset
 
 		if nextOffset > math.MaxInt32-int32(valuesRanges[i].len) {
 			return nil, nil, xerrors.New("offset overflow while concatenating arrays")
 		}
 
+		// adjust each offset by the difference between our last ending point and our starting point
 		adj := nextOffset - src[0]
 		for j, o := range src {
 			dst[nextElem+j] = adj + o
 		}
 
+		// the next index for an element in the output buffer
 		nextElem += b.Len() / arrow.Int32SizeBytes
+		// update our offset counter to be the total current length of our output
 		nextOffset += int32(valuesRanges[i].len)
 	}
 
+	// final offset should point to the end of the data
 	dst[outLen] = nextOffset
 	return out, valuesRanges, nil
 }
 
+// concat is the implementation for actually performing the concatenation of the *array.Data
+// objects that we can call internally for nested types.
 func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 	out := &Data{refCount: 1, dtype: data[0].dtype, nulls: 0}
 	for _, d := range data {
@@ -269,11 +307,20 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 	return out, nil
 }
 
+// check overflow in the addition, taken from bits.Add but adapted for signed integers
+// rather than unsigned integers. bits.UintSize will be either 32 or 64 based on
+// whether our architecture is 32 bit or 64. The operation is the same for both cases,
+// the only difference is how much we need to shift by 30 for 32 bit and 62 for 64 bit.
+// Thus, bits.UintSize - 2 is how much we shift right by to check if we had an overflow
+// in the signed addition.
+//
+// First return is the result of the sum, the second return is true if there was an overflow
 func addOvf(x, y int) (int, bool) {
 	sum := x + y
-	return sum, ((x&y)|((x|y)&^sum))>>62 == 1
+	return sum, ((x&y)|((x|y)&^sum))>>(bits.UintSize-2) == 1
 }
 
+// concatenate bitmaps together and return a buffer with the combined bitmaps
 func concatBitmaps(bitmaps []bitmap, mem memory.Allocator) (*memory.Buffer, error) {
 	var (
 		outlen   int
@@ -292,7 +339,7 @@ func concatBitmaps(bitmaps []bitmap, mem memory.Allocator) (*memory.Buffer, erro
 
 	offset := 0
 	for _, bm := range bitmaps {
-		if bm.data == nil {
+		if bm.data == nil { // if the bitmap is nil, that implies that the value is true for all elements
 			bitutil.SetBitsTo(out.Bytes(), int64(offset), int64(bm.rng.len), true)
 		} else {
 			bitutil.CopyBitmap(bm.data, bm.rng.offset, bm.rng.len, dst, offset)
