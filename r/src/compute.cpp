@@ -345,7 +345,6 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<uint32_t>(options["week_start"]));
   }
 
-<<<<<<< 6fa024b0ea28d5d97efeb6b8cee073ed1f930041
   if (func_name == "iso_week") {
     return std::make_shared<arrow::compute::WeekOptions>(
         arrow::compute::WeekOptions::ISODefaults());
