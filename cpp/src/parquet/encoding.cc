@@ -2354,7 +2354,10 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
     prefix_len_decoder_.SetDecoder(num_values, decoder_);
 
+    // get the number of encoded prefix lengths
     int num_prefix = prefix_len_decoder_.ValidValuesCount();
+    // call prefix_len_decoder_.Decode to decode all the prefix lengths.
+    // all the prefix lengths are buffered in buffered_prefix_length_.
     PARQUET_THROW_NOT_OK(buffered_prefix_length_->Resize(num_prefix * sizeof(int32_t)));
     int ret = prefix_len_decoder_.Decode(
         reinterpret_cast<int32_t*>(buffered_prefix_length_->mutable_data()), num_prefix);
@@ -2362,10 +2365,12 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     prefix_len_offset_ = 0;
     num_valid_values_ = num_prefix;
 
+    // at this time, the decoder_ will be at the start of the encoded suffix data.
     suffix_decoder_.SetDecoder(num_values, decoder_);
+
     // TODO: read corrupted files written with bug(PARQUET-246). last_value_ should be set
     // to last_value_in_previous_page_ when decoding a new page(except the first page)
-    last_value_ = ByteArray(0, nullptr);
+    last_value_ = "";
   }
 
   int Decode(ByteArray* buffer, int max_values) override {
@@ -2404,22 +2409,21 @@ class DeltaByteArrayDecoder : public DecoderImpl,
 
     uint8_t* data_ptr = buffered_data_->mutable_data();
     for (int i = 0; i < max_values; ++i) {
-      if (ARROW_PREDICT_TRUE(last_value_.ptr)) {
-        memcpy(data_ptr, last_value_.ptr, prefix_len_ptr[i]);
-      }
+      DCHECK_LE(static_cast<const size_t>(prefix_len_ptr[i]), last_value_.length());
+      memcpy(data_ptr, last_value_.data(), prefix_len_ptr[i]);
       memcpy(data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
       buffer[i].ptr = data_ptr;
       buffer[i].len += prefix_len_ptr[i];
       data_ptr += buffer[i].len;
-      last_value_ = buffer[i];
+      last_value_ =
+          std::string(reinterpret_cast<const char*>(buffer[i].ptr), buffer[i].len);
     }
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
     num_valid_values_ -= max_values;
 
     if (num_valid_values_ == 0) {
-      last_value_in_previous_page_ =
-          std::string(reinterpret_cast<const char*>(last_value_.ptr), last_value_.len);
+      last_value_in_previous_page_ = last_value_;
     }
     return max_values;
   }
@@ -2432,7 +2436,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
 
     std::vector<ByteArray> values(num_values);
-    int num_valid_values = GetInternal(values.data(), num_values);
+    int num_valid_values = GetInternal(values.data(), num_values - null_count);
     DCHECK_EQ(num_values - null_count, num_valid_values);
 
     auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
@@ -2462,7 +2466,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
   std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
   DeltaLengthByteArrayDecoder suffix_decoder_;
-  ByteArray last_value_;
+  std::string last_value_;
   // string buffer for last value in previous page
   std::string last_value_in_previous_page_;
   int num_valid_values_;
