@@ -26,9 +26,6 @@
 #include <cpp11/altrep.hpp>
 #if defined(HAS_ALTREP)
 
-// defined in array_to_vector.cpp
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-
 #if R_VERSION < R_Version(3, 6, 0)
 
 // workaround because R's <R_ext/Altrep.h> not so conveniently uses `class`
