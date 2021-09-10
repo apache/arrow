@@ -1040,7 +1040,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     current_value_encoder_ = dynamic_cast<TypedEncoder<DType>*>(current_encoder_.get());
     // will be null if not using dictionary, but that's ok
     current_dict_encoder_ = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
- 
+
     if (properties->statistics_enabled(descr_->path()) &&
         (SortOrder::UNKNOWN != descr_->sort_order())) {
       page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
@@ -1164,7 +1164,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   void WriteDictionaryPage() override {
     DCHECK(current_dict_encoder_);
     std::shared_ptr<ResizableBuffer> buffer =
-        AllocateBuffer(properties_->memory_pool(), current_dict_encoder_->dict_encoded_size());
+        AllocateBuffer(properties_->memory_pool(),
+                       current_dict_encoder_->dict_encoded_size());
     current_dict_encoder_->WriteDict(buffer->mutable_data());
 
     DictionaryPage page(buffer, current_dict_encoder_->num_entries(),
@@ -1382,7 +1383,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       return;
     }
 
-    if (current_dict_encoder_->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
+    if (current_dict_encoder_->dict_encoded_size() >=
+        properties_->dictionary_pagesize_limit()) {
       FallbackToPlainEncoding();
     }
   }
