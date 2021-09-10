@@ -23,7 +23,7 @@ function featherwrite(filename, t)
 % specific language governing permissions and limitations
 % under the License.
 
-import mlarrow.util.table2mlarrow;
+import arrow.util.table2mlarrow;
 
 % Validate input arguments.
 narginchk(2, 2);

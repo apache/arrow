@@ -23,7 +23,7 @@ function t = featherread(filename)
 % specific language governing permissions and limitations
 % under the License.
 
-import mlarrow.util.*;
+import arrow.util.*;
 
 % Validate input arguments.
 narginchk(1, 1);

@@ -54,10 +54,10 @@ classdef tfeathermex < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.feather');
             
             % Create a table with an invalid MATLAB table variable name.
-            invalidVariable = mlarrow.util.createVariableStruct('double', 1, true, '@');
-            validVariable = mlarrow.util.createVariableStruct('double', 1, true, 'Valid');
+            invalidVariable = arrow.util.createVariableStruct('double', 1, true, '@');
+            validVariable = arrow.util.createVariableStruct('double', 1, true, 'Valid');
             variables = [invalidVariable, validVariable];
-            metadata = mlarrow.util.createMetadataStruct(1, 2);
+            metadata = arrow.util.createMetadataStruct(1, 2);
             mexfcn('featherwrite', filename, variables, metadata);
             t = featherread(filename);
             
