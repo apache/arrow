@@ -123,6 +123,7 @@ def test_option_class_equality():
         pc.SetLookupOptions(value_set=pa.array([1])),
         pc.SliceOptions(start=0, stop=1, step=1),
         pc.SplitPatternOptions(pattern="pattern"),
+        pc.SelectKOptions(k=0, sort_keys=[("b", "ascending")]),
         pc.StrptimeOptions("%Y", "s"),
         pc.TrimOptions(" "),
         pc.StrftimeOptions(),
@@ -1778,6 +1779,69 @@ def test_partition_nth():
                for i in range(pivot))
     assert all(data[indices[i]] >= data[indices[pivot]]
                for i in range(pivot, len(data)))
+
+
+def test_select_k_array():
+    def validate_select_k(select_k_indices, arr, order, stable_sort=False):
+        sorted_indices = pc.sort_indices(arr, sort_keys=[("dummy", order)])
+        head_k_indices = sorted_indices.slice(0, len(select_k_indices))
+        if stable_sort:
+            assert select_k_indices == head_k_indices
+        else:
+            expected = pc.take(arr, head_k_indices)
+            actual = pc.take(arr, select_k_indices)
+            assert actual == expected
+
+    arr = pa.array([1, 2, None, 0])
+    for order in ["descending", "ascending"]:
+        for k in [0, 2, 4]:
+            result = pc.select_k_unstable(
+                arr, k=k, sort_keys=[("dummy", order)])
+            validate_select_k(result, arr, order)
+
+    result = pc.select_k_unstable(arr, options=pc.SelectKOptions(
+        k=2, sort_keys=[("dummy", "descending")]))
+    validate_select_k(result, arr, "descending")
+
+    result = pc.select_k_unstable(arr, options=pc.SelectKOptions(
+        k=2, sort_keys=[("dummy", "ascending")]))
+    validate_select_k(result, arr, "ascending")
+
+
+def test_select_k_table():
+    table = pa.table({"a": [1, 2, 0], "b": [1, 0, 1]})
+
+    def validate_select_k(select_k_indices, table, sort_keys,
+                          stable_sort=False):
+        sorted_indices = pc.sort_indices(table, sort_keys=sort_keys)
+        head_k_indices = sorted_indices.slice(0, len(select_k_indices))
+        if stable_sort:
+            assert select_k_indices == head_k_indices
+        else:
+            expected = pc.take(table, head_k_indices)
+            actual = pc.take(table, select_k_indices)
+            assert actual == expected
+
+    for k in [0, 2, 4]:
+        result = pc.select_k_unstable(
+            table, k=k, sort_keys=[("a", "ascending")])
+        validate_select_k(result, table, sort_keys=[("a", "ascending")])
+
+        result = pc.select_k_unstable(
+            table, k=k, sort_keys=[("a", "ascending"), ("b", "ascending")]
+        )
+        validate_select_k(result, table, sort_keys=[
+                          ("a", "ascending"), ("b", "ascending")])
+
+    with pytest.raises(ValueError,
+                       match="SelectK requires a nonnegative `k`"):
+        pc.select_k_unstable(table)
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
+
+    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+        pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending")])
 
 
 def test_array_sort_indices():

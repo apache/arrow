@@ -1130,6 +1130,35 @@ class SortOptions(_SortOptions):
         self._set_options(sort_keys)
 
 
+cdef class _SelectKOptions(FunctionOptions):
+    def _set_options(self, k, sort_keys):
+        cdef:
+            c_string c_name
+            vector[CSortKey] c_sort_keys
+            CSortOrder c_order
+
+        for name, order in sort_keys:
+            if order == "ascending":
+                c_order = CSortOrder_Ascending
+            elif order == "descending":
+                c_order = CSortOrder_Descending
+            else:
+                raise ValueError(
+                    "{!r} is not a valid order".format(order)
+                )
+            c_name = tobytes(name)
+            c_sort_keys.push_back(CSortKey(c_name, c_order))
+
+        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
+
+
+class SelectKOptions(_SelectKOptions):
+    def __init__(self, k, sort_keys=None):
+        if sort_keys is None:
+            sort_keys = []
+        self._set_options(k, sort_keys)
+
+
 cdef class _QuantileOptions(FunctionOptions):
     def _set_options(self, quantiles, interp, skip_nulls, min_count):
         interp_dict = {

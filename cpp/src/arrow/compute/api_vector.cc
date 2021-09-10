@@ -111,6 +111,9 @@ static auto kSortOptionsType =
     GetFunctionOptionsType<SortOptions>(DataMember("sort_keys", &SortOptions::sort_keys));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot));
+static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
+    DataMember("k", &SelectKOptions::k),
+    DataMember("sort_keys", &SelectKOptions::sort_keys));
 }  // namespace
 }  // namespace internal
 
@@ -140,6 +143,29 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot)
     : FunctionOptions(internal::kPartitionNthOptionsType), pivot(pivot) {}
 constexpr char PartitionNthOptions::kTypeName[];
 
+SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
+    : FunctionOptions(internal::kSelectKOptionsType),
+      k(k),
+      sort_keys(std::move(sort_keys)) {}
+
+bool SelectKOptions::is_top_k() const {
+  for (const auto& k : sort_keys) {
+    if (k.order != SortOrder::Descending) {
+      return false;
+    }
+  }
+  return true;
+}
+bool SelectKOptions::is_bottom_k() const {
+  for (const auto& k : sort_keys) {
+    if (k.order != SortOrder::Ascending) {
+      return false;
+    }
+  }
+  return true;
+}
+constexpr char SelectKOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -148,6 +174,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
 }
 }  // namespace internal
 
@@ -159,6 +186,13 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   PartitionNthOptions options(/*pivot=*/n);
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("partition_nth_indices",
                                                    {Datum(values)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum, SelectKOptions options,
+                                               ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("select_k_unstable", {datum}, &options, ctx));
   return result.make_array();
 }
 

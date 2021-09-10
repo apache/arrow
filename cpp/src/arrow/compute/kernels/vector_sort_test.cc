@@ -38,34 +38,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
-
-// Convert arrow::Type to arrow::DataType. If arrow::Type isn't
-// parameter free, this returns an arrow::DataType with the default
-// parameter.
-template <typename ArrowType>
-enable_if_t<TypeTraits<ArrowType>::is_parameter_free, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return TypeTraits<ArrowType>::type_singleton();
-}
-
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, TimestampType>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return timestamp(TimeUnit::MILLI);
-}
-
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, Time32Type>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return time32(TimeUnit::MILLI);
-}
-
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, Time64Type>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return time64(TimeUnit::NANO);
-}
-
 // ----------------------------------------------------------------------
 // Tests for NthToIndices
 
@@ -169,7 +141,9 @@ class TestNthToIndicesBase : public TestBase {
 template <typename ArrowType>
 class TestNthToIndices : public TestNthToIndicesBase<ArrowType> {
  protected:
-  std::shared_ptr<DataType> GetType() override { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> GetType() override {
+    return default_type_instance<ArrowType>();
+  }
 };
 
 template <typename ArrowType>
@@ -269,79 +243,6 @@ using NthToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Decimal128Type,
                      StringType>;
-
-class RandomImpl {
- protected:
-  random::RandomArrayGenerator generator_;
-  std::shared_ptr<DataType> type_;
-
-  explicit RandomImpl(random::SeedType seed, std::shared_ptr<DataType> type)
-      : generator_(seed), type_(std::move(type)) {}
-
- public:
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
-    return generator_.ArrayOf(type_, count, null_prob);
-  }
-};
-
-template <typename ArrowType>
-class Random : public RandomImpl {
- public:
-  explicit Random(random::SeedType seed)
-      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
-};
-
-template <>
-class Random<FloatType> : public RandomImpl {
-  using CType = float;
-
- public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed, float32()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator_.Float32(count, std::numeric_limits<CType>::min(),
-                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
-  }
-};
-
-template <>
-class Random<DoubleType> : public RandomImpl {
-  using CType = double;
-
- public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed, float64()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator_.Float64(count, std::numeric_limits<CType>::min(),
-                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
-  }
-};
-
-template <>
-class Random<Decimal128Type> : public RandomImpl {
- public:
-  explicit Random(random::SeedType seed,
-                  std::shared_ptr<DataType> type = decimal128(18, 5))
-      : RandomImpl(seed, std::move(type)) {}
-};
-
-template <typename ArrowType>
-class RandomRange : public RandomImpl {
-  using CType = typename TypeTraits<ArrowType>::CType;
-
- public:
-  explicit RandomRange(random::SeedType seed)
-      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, int range, double null_prob) {
-    CType min = std::numeric_limits<CType>::min();
-    CType max = min + range;
-    if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
-      max = std::numeric_limits<CType>::max();
-    }
-    return generator_.Numeric<ArrowType>(count, min, max, null_prob);
-  }
-};
 
 TYPED_TEST_SUITE(TestNthToIndicesRandom, NthToIndicesableTypes);
 
@@ -686,7 +587,7 @@ TEST_F(TestChunkedArraySortIndices, NaN) {
 template <typename ArrowType>
 class TestChunkedArraySortIndicesForTemporal : public TestChunkedArraySortIndices {
  protected:
-  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> GetType() { return default_type_instance<ArrowType>(); }
 };
 TYPED_TEST_SUITE(TestChunkedArraySortIndicesForTemporal, TemporalArrowTypes);
 
@@ -1097,7 +998,7 @@ TEST_F(TestTableSortIndices, Decimal) {
 template <typename ArrowType>
 class TestTableSortIndicesForTemporal : public TestTableSortIndices {
  protected:
-  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> GetType() { return default_type_instance<ArrowType>(); }
 };
 TYPED_TEST_SUITE(TestTableSortIndicesForTemporal, TemporalArrowTypes);
 

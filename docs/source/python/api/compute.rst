@@ -349,6 +349,7 @@ Sorts and partitions
    :toctree: ../generated/
 
    partition_nth_indices
+   select_k_unstable
    sort_indices
 
 Structural Transforms

@@ -35,6 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 // IWYU pragma: end_exports
 
@@ -141,6 +142,85 @@ template <typename T>
 enable_if_decimal<T, std::shared_ptr<DataType>> default_type_instance() {
   return std::make_shared<T>(5, 2);
 }
+
+// Random Generator Helpers
+class RandomImpl {
+ protected:
+  random::RandomArrayGenerator generator_;
+  std::shared_ptr<DataType> type_;
+
+  explicit RandomImpl(random::SeedType seed, std::shared_ptr<DataType> type)
+      : generator_(seed), type_(std::move(type)) {}
+
+ public:
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
+    return generator_.ArrayOf(type_, count, null_prob);
+  }
+
+  std::shared_ptr<Int32Array> Offsets(int32_t length, int32_t slice_count) {
+    return arrow::internal::checked_pointer_cast<Int32Array>(
+        generator_.Offsets(slice_count, 0, length));
+  }
+};
+
+template <typename ArrowType>
+class Random : public RandomImpl {
+ public:
+  explicit Random(random::SeedType seed)
+      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
+};
+
+template <>
+class Random<FloatType> : public RandomImpl {
+  using CType = float;
+
+ public:
+  explicit Random(random::SeedType seed) : RandomImpl(seed, float32()) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
+    return generator_.Float32(count, std::numeric_limits<CType>::min(),
+                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
+  }
+};
+
+template <>
+class Random<DoubleType> : public RandomImpl {
+  using CType = double;
+
+ public:
+  explicit Random(random::SeedType seed) : RandomImpl(seed, float64()) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
+    return generator_.Float64(count, std::numeric_limits<CType>::min(),
+                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
+  }
+};
+
+template <>
+class Random<Decimal128Type> : public RandomImpl {
+ public:
+  explicit Random(random::SeedType seed,
+                  std::shared_ptr<DataType> type = decimal128(18, 5))
+      : RandomImpl(seed, std::move(type)) {}
+};
+
+template <typename ArrowType>
+class RandomRange : public RandomImpl {
+  using CType = typename TypeTraits<ArrowType>::CType;
+
+ public:
+  explicit RandomRange(random::SeedType seed)
+      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, int range, double null_prob) {
+    CType min = std::numeric_limits<CType>::min();
+    CType max = min + range;
+    if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
+      max = std::numeric_limits<CType>::max();
+    }
+    return generator_.Numeric<ArrowType>(count, min, max, null_prob);
+  }
+};
 
 }  // namespace compute
 }  // namespace arrow
