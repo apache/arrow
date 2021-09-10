@@ -289,12 +289,14 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices of the first k elements ordered by `options.sort_keys`.
+/// \brief Returns the indices that would select the first `k` elements of the array in
+/// the specified order.
 ///
-/// Select an array of indices of the sorted array with its elements rearranged in such
-/// a way that the value of the element in k-th position (options.k) is in the position it
-/// would be in a sorted datum ordered by `options.sort_keys`. Null like values will be
-/// not part of the output. Output is not guaranteed to be stable.
+// Perform an indirect sort of the datum, keeping only the first `k` elements. The output
+// array will contain indices such that the item indicated by the k-th index will be in
+// the position it would be if the datum were sorted by `options.sort_keys`. However,
+// indices of null values will not be part of the output. The sort is not guaranteed to be
+// stable.
 ///
 /// \param[in] datum datum to be partitioned
 /// \param[in] options options

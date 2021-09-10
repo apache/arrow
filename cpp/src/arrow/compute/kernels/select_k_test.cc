@@ -63,11 +63,6 @@ Result<std::shared_ptr<Array>> SelectK(const Datum& values, int64_t k) {
   }
 }
 
-Result<std::shared_ptr<Array>> SelectK(const Datum& values,
-                                       const SelectKOptions& options) {
-  return SelectKUnstable(Datum(values), options);
-}
-
 void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder order,
                      bool stable_sort = false) {
   ASSERT_TRUE(datum.is_arraylike());
@@ -372,7 +367,7 @@ class TestSelectKWithRecordBatch : public ::testing::Test {
   Status DoSelectK(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                    const SelectKOptions& options, std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK(Datum(*batch), options));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectKUnstable(Datum(*batch), options));
 
     ValidateOutput(*indices);
     ARROW_ASSIGN_OR_RAISE(
@@ -615,7 +610,7 @@ struct TestSelectKWithTable : public ::testing::Test {
                    const std::vector<std::string>& input_json,
                    const SelectKOptions& options, std::shared_ptr<Table>* out) {
     auto table = TableFromJSON(schm, input_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK(Datum(*table), options));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectKUnstable(Datum(*table), options));
     ValidateOutput(*indices);
 
     ARROW_ASSIGN_OR_RAISE(
