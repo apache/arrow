@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
@@ -72,35 +73,36 @@ public class ArrowDatabaseMetadataTest {
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> format("catalog #%d", i))
+          .map(Text::new)
           .map(Object.class::cast)
           .map(Collections::singletonList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_TABLE_TYPES_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> format("table_type #%d", i))
+          .map(Text::new)
           .map(Object.class::cast)
           .map(Collections::singletonList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_TABLES_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
-              format("catalog_name #%d", i),
-              format("schema_name #%d", i),
-              format("table_name #%d", i),
-              format("table_type #%d", i),
+              new Text(format("catalog_name #%d", i)),
+              new Text(format("schema_name #%d", i)),
+              new Text(format("table_name #%d", i)),
+              new Text(format("table_type #%d", i)),
               // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
               null, null, null, null, null, null})
           .map(Arrays::asList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_SCHEMAS_RESULTS =
       range(0, ROW_COUNT)
-          .mapToObj(i -> new Object[] {
-              format("catalog_name #%d", i),
+          .mapToObj(i -> new String[] {
               format("schema_name #%d", i),
-              format("table_name #%d", i),
-              format("column_name #%d", i),
-              i,
-              format("key_name #%d", i)})
+              format("catalog_name #%d", i)})
+          .map(Arrays::stream)
+          .map(fields -> fields.map(Text::new))
+          .map(Stream::toArray)
           .map(Arrays::asList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS =
@@ -117,23 +119,31 @@ public class ArrowDatabaseMetadataTest {
               i,
               format("fk_key_name #%d", i),
               format("pk_key_name #%d", i),
-              i,
-              i,
-              // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
+              (byte) i,
+              (byte) i,
+              // TODO Add this field to FlightSQL, as it's currently not possible to fetch it.
               null})
           .map(Arrays::asList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_PRIMARY_KEYS_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
-              format("catalog_name #%d", i),
-              format("schema_name #%d", i),
-              format("table_name #%d", i),
-              format("column_name #%d", i),
-              String.valueOf(i),
-              format("key_name #%d", i)})
+              new Text(format("catalog_name #%d", i)),
+              new Text(format("schema_name #%d", i)),
+              new Text(format("table_name #%d", i)),
+              new Text(format("column_name #%d", i)),
+              i,
+              new Text(format("key_name #%d", i))})
           .map(Arrays::asList)
           .collect(toList());
+
+  private static final List<String> FIELDS_GET_IMPORTED_EXPORTED_KEYS = ImmutableList.of(
+      "PKTABLE_CAT", "PKTABLE_SCHEM", "PKTABLE_NAME",
+      "PKCOLUMN_NAME", "FKTABLE_CAT", "FKTABLE_SCHEM",
+      "FKTABLE_NAME", "FKCOLUMN_NAME", "KEY_SEQ",
+      "FK_NAME", "PK_NAME", "UPDATE_RULE", "DELETE_RULE",
+      "DEFERRABILITY");
+  private static final String TARGET_TABLE = "TARGET_TABLE";
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
@@ -221,8 +231,8 @@ public class ArrowDatabaseMetadataTest {
     };
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetSchemas, commandGetSchemasResultProducer);
 
-    final Message commandGetExportedKeys = CommandGetExportedKeys.newBuilder().setTable("Test").build();
-    final Message commandGetImportedKeys = CommandGetImportedKeys.newBuilder().setTable("Test").build();
+    final Message commandGetExportedKeys = CommandGetExportedKeys.newBuilder().setTable(TARGET_TABLE).build();
+    final Message commandGetImportedKeys = CommandGetImportedKeys.newBuilder().setTable(TARGET_TABLE).build();
     final Consumer<ServerStreamListener> commandGetExportedAndImportedKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA,
@@ -266,7 +276,7 @@ public class ArrowDatabaseMetadataTest {
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetExportedKeys, commandGetExportedAndImportedKeysResultProducer);
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetImportedKeys, commandGetExportedAndImportedKeysResultProducer);
 
-    final Message commandGetPrimaryKeys = CommandGetPrimaryKeys.newBuilder().setTable("Test").build();
+    final Message commandGetPrimaryKeys = CommandGetPrimaryKeys.newBuilder().setTable(TARGET_TABLE).build();
     final Consumer<ServerStreamListener> commandGetPrimaryKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_PRIMARY_KEYS_SCHEMA, allocator)) {
@@ -342,10 +352,7 @@ public class ArrowDatabaseMetadataTest {
     try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
       resultSetTestUtils.testData(
           resultSet,
-          ImmutableList.of(
-              "TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME",
-              "TABLE_TYPE", "REMARKS", "TYPE_CAT", "TYPE_SCHEM",
-              "TYPE_NAME", "SELF_REFERENCING_COL_NAME", "REF_GENERATION"),
+          FIELDS_GET_IMPORTED_EXPORTED_KEYS,
           EXPECTED_GET_TABLES_RESULTS
       );
     }
@@ -368,68 +375,47 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetExportedKeysCanBeAccessedByIndices() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, "Test")) {
+    try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetExportedKeysCanBeAccessedByNames() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, "Test")) {
+    try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(
-          resultSet,
-          ImmutableList.of(
-              "PKTABLE_CAT",
-              "PKTABLE_NAME",
-              "FKTABLE_CAT",
-              "FKTABLE_NAME",
-              "KEY_SEQ",
-              "PK_NAME",
-              "DELETE_RULE"),
-          EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS
-      );
+          resultSet, FIELDS_GET_IMPORTED_EXPORTED_KEYS, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetImportedKeysCanBeAccessedByIndices() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, "Test")) {
+    try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetImportedKeysCanBeAccessedByNames() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, "Test")) {
-      resultSetTestUtils.testData(resultSet,
-          ImmutableList.of("PKTABLE_CAT",
-              "PKTABLE_NAME",
-              "FKTABLE_CAT",
-              "FKTABLE_NAME",
-              "KEY_SEQ",
-              "PK_NAME",
-              "DELETE_RULE"),
-          EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS
-      );
+    try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, TARGET_TABLE)) {
+      resultSetTestUtils.testData(
+          resultSet, FIELDS_GET_IMPORTED_EXPORTED_KEYS, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testPrimaryKeysCanBeAccessedByIndices() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, "Test")) {
+    try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(resultSet, EXPECTED_PRIMARY_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testPrimaryKeysCanBeAccessedByNames() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, "Test")) {
-      resultSetTestUtils.testData(resultSet,
-          ImmutableList.of(
-              "PKTABLE_CAT",
-              "TABLE_CAT",
-              "TABLE_NAME",
-              "KEY_SEQ"),
+    try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, TARGET_TABLE)) {
+      resultSetTestUtils.testData(
+          resultSet,
+          ImmutableList.of("PKTABLE_CAT", "TABLE_CAT", "TABLE_NAME", "KEY_SEQ"),
           EXPECTED_PRIMARY_KEYS_RESULTS
       );
     }
