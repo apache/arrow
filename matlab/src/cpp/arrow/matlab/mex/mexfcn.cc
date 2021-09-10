@@ -16,6 +16,7 @@
 // under the License.
 
 #include <string>
+#include <functional>
 #include <unordered_map>
 
 #include <mex.h>
