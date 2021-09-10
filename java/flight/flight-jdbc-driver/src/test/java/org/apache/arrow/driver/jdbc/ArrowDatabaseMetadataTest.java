@@ -21,20 +21,18 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-import static org.hamcrest.CoreMatchers.is;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.utils.ResultSetTestUtils;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
@@ -139,7 +137,7 @@ public class ArrowDatabaseMetadataTest {
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
-
+  public final ResultSetTestUtils resultSetTestUtils = new ResultSetTestUtils(collector);
   private static Connection connection;
 
   @BeforeClass
@@ -307,42 +305,42 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testGetCatalogsCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-      testData(resultSet, EXPECTED_GET_CATALOGS_RESULTS);
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_CATALOGS_RESULTS);
     }
   }
 
   @Test
   public void testGetCatalogsCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-      testData(resultSet, singletonList("TABLE_CAT"), EXPECTED_GET_CATALOGS_RESULTS);
+      resultSetTestUtils.testData(resultSet, singletonList("TABLE_CAT"), EXPECTED_GET_CATALOGS_RESULTS);
     }
   }
 
   @Test
   public void testTableTypesCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getTableTypes()) {
-      testData(resultSet, EXPECTED_GET_TABLE_TYPES_RESULTS);
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_TABLE_TYPES_RESULTS);
     }
   }
 
   @Test
   public void testTableTypesCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getTableTypes()) {
-      testData(resultSet, singletonList("TABLE_TYPE"), EXPECTED_GET_TABLE_TYPES_RESULTS);
+      resultSetTestUtils.testData(resultSet, singletonList("TABLE_TYPE"), EXPECTED_GET_TABLE_TYPES_RESULTS);
     }
   }
 
   @Test
   public void testGetTablesCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getTables(null, null, null, null)) {
-      testData(resultSet, EXPECTED_GET_TABLES_RESULTS);
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_TABLES_RESULTS);
     }
   }
 
   @Test
   public void testGetTablesCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-      testData(
+      resultSetTestUtils.testData(
           resultSet,
           ImmutableList.of(
               "TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME",
@@ -356,28 +354,29 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testGetSchemasCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getSchemas()) {
-      testData(resultSet, EXPECTED_GET_SCHEMAS_RESULTS);
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_SCHEMAS_RESULTS);
     }
   }
 
   @Test
   public void testGetSchemasCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getSchemas()) {
-      testData(resultSet, ImmutableList.of("TABLE_SCHEM", "TABLE_CAT"), EXPECTED_GET_SCHEMAS_RESULTS);
+      resultSetTestUtils.testData(resultSet, ImmutableList.of("TABLE_SCHEM", "TABLE_CAT"),
+          EXPECTED_GET_SCHEMAS_RESULTS);
     }
   }
 
   @Test
   public void testGetExportedKeysCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, "Test")) {
-      testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetExportedKeysCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, "Test")) {
-      testData(
+      resultSetTestUtils.testData(
           resultSet,
           ImmutableList.of(
               "PKTABLE_CAT",
@@ -395,14 +394,14 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testGetImportedKeysCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, "Test")) {
-      testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetImportedKeysCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, "Test")) {
-      testData(resultSet,
+      resultSetTestUtils.testData(resultSet,
           ImmutableList.of("PKTABLE_CAT",
               "PKTABLE_NAME",
               "FKTABLE_CAT",
@@ -418,14 +417,14 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testPrimaryKeysCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, "Test")) {
-      testData(resultSet, EXPECTED_PRIMARY_KEYS_RESULTS);
+      resultSetTestUtils.testData(resultSet, EXPECTED_PRIMARY_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testPrimaryKeysCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, "Test")) {
-      testData(resultSet,
+      resultSetTestUtils.testData(resultSet,
           ImmutableList.of(
               "PKTABLE_CAT",
               "TABLE_CAT",
@@ -434,57 +433,6 @@ public class ArrowDatabaseMetadataTest {
           EXPECTED_PRIMARY_KEYS_RESULTS
       );
     }
-  }
-
-  private <T> void testData(final ResultSet resultSet, final List<List<T>> expectedResults) throws SQLException {
-    testData(resultSet, range(0, resultSet.getMetaData().getColumnCount()).toArray(), expectedResults);
-  }
-
-  @SuppressWarnings("unchecked")
-  private <T> void testData(final ResultSet resultSet, final List<String> columnNames,
-                            final List<List<T>> expectedResults) throws SQLException {
-    testData(
-        resultSet,
-        data -> {
-          final List<T> columns = new ArrayList<>();
-          for (final String columnName : columnNames) {
-            try {
-              columns.add((T) resultSet.getObject(columnName));
-            } catch (final SQLException e) {
-              collector.addError(e);
-            }
-          }
-          return columns;
-        },
-        expectedResults);
-  }
-
-  @SuppressWarnings("unchecked")
-  private <T> void testData(final ResultSet resultSet, final int[] columnIndices,
-                            final List<List<T>> expectedResults) throws SQLException {
-    testData(
-        resultSet,
-        data -> {
-          final List<T> columns = new ArrayList<>();
-          for (final int columnIndex : columnIndices) {
-            try {
-              columns.add((T) resultSet.getObject(columnIndex));
-            } catch (final SQLException e) {
-              collector.addError(e);
-            }
-          }
-          return columns;
-        },
-        expectedResults);
-  }
-
-  private <T> void testData(final ResultSet resultSet, final Function<ResultSet, List<T>> dataConsumer,
-                            final List<List<T>> expectedResults) throws SQLException {
-    final List<List<T>> actualResults = new ArrayList<>();
-    while (resultSet.next()) {
-      actualResults.add(dataConsumer.apply(resultSet));
-    }
-    collector.checkThat(actualResults, is(expectedResults));
   }
 }
 
