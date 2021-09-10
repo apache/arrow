@@ -28,6 +28,7 @@
 #endif
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 
@@ -51,19 +52,6 @@ class BaseTestStringKernels : public ::testing::Test {
                   std::shared_ptr<DataType> out_ty, std::string json_expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
-  }
-
-  void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
-                  std::shared_ptr<DataType> out_ty, std::string json_expected,
-                  const FunctionOptions* options = nullptr) {
-    CheckScalar(func_name, {Datum(input)}, Datum(ArrayFromJSON(out_ty, json_expected)),
-                options);
-  }
-
-  void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
-                  const std::shared_ptr<Array>& expected,
-                  const FunctionOptions* options = nullptr) {
-    CheckScalar(func_name, {Datum(input)}, Datum(expected), options);
   }
 
   void CheckBinaryScalar(std::string func_name, std::string json_left_input,
@@ -1061,18 +1049,24 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
   for (const auto& pair : repeats_and_expected) {
     auto repeat = pair.first;
     auto expected = pair.second;
-    this->CheckVarArgs("str_repeat", {values, Datum(repeat)}, this->type(), expected);
+    auto repeat_types = (repeat < 0) ? internal::SignedIntTypes() : internal::IntTypes();
+    for (const auto& ty : repeat_types) {
+      this->CheckVarArgs("str_repeat", {values, Datum(*arrow::MakeScalar(ty, repeat))},
+                         this->type(), expected);
+    }
   }
 }
 
 TYPED_TEST(TestStringKernels, StrRepeats) {
-  auto repeats = ArrayFromJSON(int64(), R"([1, 2, 4, 2, 0, 1, 3, 2, 3, -1])");
-  auto values = ArrayFromJSON(
-      this->type(),
-      R"(["aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow", "one"])");
-  std::string expected =
-      R"(["aAazZæÆ&", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow", ""])";
-  this->CheckVarArgs("str_repeat", {values, repeats}, this->type(), expected);
+  for (const auto& ty : internal::SignedIntTypes()) {
+    auto repeats = ArrayFromJSON(ty, R"([100, 1, 2, 4, 2, 0, 1, 3, 2, 3, -1])");
+    auto values = ArrayFromJSON(
+        this->type(),
+        R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow", "one"])");
+    std::string expected =
+        R"([null, "aAazZæÆ&", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow", ""])";
+    this->CheckVarArgs("str_repeat", {values, repeats}, this->type(), expected);
+  }
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {

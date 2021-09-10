@@ -547,29 +547,20 @@ struct StringBinaryTransformBase {
   // Return the maximum total size of the output in codeunits (i.e. bytes)
   // given input characteristics.
   virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
-                               const std::shared_ptr<Scalar>& input2) {
-    return input_ncodeunits;
-  }
+                               const std::shared_ptr<Scalar>& input2) = 0;
 
   // Return the maximum total size of the output in codeunits (i.e. bytes)
   // given input characteristics.
   virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
-                               const std::shared_ptr<ArrayData>& data2) {
-    return input_ncodeunits;
-  }
+                               const std::shared_ptr<ArrayData>& data2) = 0;
 
   virtual Status InvalidStatus() {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
 };
 
-/// Kernel exec generator for binary string transforms.
-/// The first parameter is expected to always be a string type while the second parameter
-/// is generic. It supports executions of the form:
-///   * Scalar, Scalar
-///   * Array, Scalar - scalar is broadcasted and paired with all values of array
-///   * Array, Array - arrays are processed element-wise
-///   * Scalar, Array - not supported by default
+/// Kernel exec generator for binary string transforms.  The first parameter is expected
+/// to always be a string type while the second parameter is generic.
 template <typename Type1, typename Type2, typename StringTransform>
 struct StringBinaryTransformExecBase {
   using offset_type = typename Type1::offset_type;
@@ -677,15 +668,60 @@ struct StringBinaryTransformExecBase {
 
     // Trim the codepoint buffer, since we allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
-    return Status::OK();
   }
 
   static Status ExecScalarArray(KernelContext* ctx, StringTransform* transform,
                                 const std::shared_ptr<Scalar>& scalar1,
                                 const std::shared_ptr<ArrayData>& data2, Datum* out) {
-    return Status::NotImplemented(
-        "Binary string transforms with (scalar, array) inputs are not supported for the "
-        "general case");
+    if (!scalar1->is_valid) {
+      return Status::OK();
+    }
+
+    return Status::OK();
+    // ArrayType2 input2(data2);
+    //
+    // const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
+    // auto input1_ncodeunits = input1.value->size();
+    // auto input1_nstrings = 1;
+    // auto output_ncodeunits_max =
+    //     transform->MaxCodeunits(input1_nstrings, input1_ncodeunits, data2);
+    // if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+    //   return Status::CapacityError(
+    //       "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+    // }
+    //
+    // ArrayData* output = out->mutable_array();
+    // ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
+    // output->buffers[2] = values_buffer;
+    //
+    //
+    //
+    //
+    //
+    // // String offsets are preallocated
+    // auto output_string_offsets = output->GetMutableValues<offset_type>(1);
+    // auto output_str = output->buffers[2]->mutable_data();
+    // output_string_offsets[0] = 0;
+    //
+    // offset_type output_ncodeunits = 0;
+    // for (int64_t i = 0; i < input1_nstrings; ++i) {
+    //   if (!input1.IsNull(i)) {
+    //     offset_type input1_string_ncodeunits;
+    //     auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
+    //     auto encoded_nbytes = static_cast<offset_type>(
+    //         transform->Transform(input1_string, input1_string_ncodeunits, scalar2,
+    //                              output_str + output_ncodeunits));
+    //     if (encoded_nbytes < 0) {
+    //       return transform->InvalidStatus();
+    //     }
+    //     output_ncodeunits += encoded_nbytes;
+    //   }
+    //   output_string_offsets[i + 1] = output_ncodeunits;
+    // }
+    // DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
+    //
+    // // Trim the codepoint buffer, since we allocated too much
+    // return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
   static Status ExecArrayArray(KernelContext* ctx, StringTransform* transform,
@@ -2768,8 +2804,13 @@ struct StrRepeatTransform : public StringBinaryTransformBase {
                     const std::shared_ptr<Scalar>& input2, uint8_t* output) {
     auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*input2));
     uint8_t* output_start = output;
-    if (nrepeats > 0) {
-      // log2(k) approach
+    if (nrepeats < 4) {
+      for (int64_t i = 0; i < nrepeats; ++i) {
+        std::memcpy(output, input, input_string_ncodeunits);
+        output += input_string_ncodeunits;
+      }
+    } else {
+      // Repeated doubling of string
       std::memcpy(output, input, input_string_ncodeunits);
       output += input_string_ncodeunits;
       int64_t i = 1;
