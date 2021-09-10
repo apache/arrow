@@ -1035,6 +1035,7 @@ test_that("log functions", {
     df
   )
 
+  # test log(, base = (length-1))
   expect_dplyr_equal(
     input %>%
       mutate(y = log(x, base = 5)) %>%
@@ -1042,13 +1043,33 @@ test_that("log functions", {
     df
   )
 
+  # test log(, base = Expression)
   expect_dplyr_equal(
     input %>%
-      # suppress 'NaNs produced' warning on the first row of df
-      # that evaluates to NaN (R raises warning but Arrow does not)
-      suppressWarnings(mutate(., y = log(x, base = x))) %>%
+      # test cases where base = 1 below
+      filter(x != 1) %>%
+      mutate(y = log(x, base = x)) %>%
       collect(),
     df
+  )
+
+  # log(1, base = 1) is NaN in both R and Arrow
+  # suppress the R warning because R warns but Arrow does not
+  suppressWarnings(
+    expect_dplyr_equal(
+      input %>%
+        mutate(y = log(x, base = y)) %>%
+        collect(),
+      tibble(x = 1, y = 1)
+    )
+  )
+
+  # log(n != 1, base = 1) is Inf in R and Arrow
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = y)) %>%
+      collect(),
+    tibble(x = 10, y = 1)
   )
 
   expect_dplyr_equal(
