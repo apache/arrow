@@ -453,6 +453,54 @@ TEST(TestCompareTimestamps, Basics) {
   CheckArrayCase(seconds_utc, CompareOperator::EQUAL, "[false, false, true]");
 }
 
+template <typename ArrowType>
+class TestCompareDecimal : public ::testing::Test {};
+TYPED_TEST_SUITE(TestCompareDecimal, DecimalArrowTypes);
+
+TYPED_TEST(TestCompareDecimal, ArrayScalar) {}
+
+TYPED_TEST(TestCompareDecimal, ScalarArray) {}
+
+TYPED_TEST(TestCompareDecimal, ArrayArray) {
+  auto ty = std::make_shared<TypeParam>(3, 2);
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      std::make_pair("equal", "[1, 0, 0, 1, 0, 0, null, null]"),
+      std::make_pair("not_equal", "[0, 1, 1, 0, 1, 1, null, null]"),
+      std::make_pair("less", "[0, 1, 0, 0, 1, 0, null, null]"),
+      std::make_pair("less_equal", "[1, 1, 0, 1, 1, 0, null, null]"),
+      std::make_pair("greater", "[0, 0, 1, 0, 0, 1, null, null]"),
+      std::make_pair("greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"),
+  };
+
+  auto lhs = ArrayFromJSON(
+      ty, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23", "1.23", null])");
+  auto lhs_float =
+      ArrayFromJSON(float64(), "[1.23, 1.23, 2.34, -1.23, -1.23, 1.23, 1.23, null]");
+  auto rhs = ArrayFromJSON(
+      ty, R"(["1.23", "2.34", "1.23", "-1.23", "1.23", "-1.23", null, "1.23"])");
+  auto rhs_float =
+      ArrayFromJSON(float64(), "[1.23, 2.34, 1.23, -1.23, 1.23, -1.23, null, 1.23]");
+  auto lhs_intlike = ArrayFromJSON(
+      ty, R"(["1.00", "1.00", "2.00", "-1.00", "-1.00", "1.00", "1.00", null])");
+  auto rhs_int = ArrayFromJSON(ty, R"([1, 2, 1, -1, 1, -1, null, 1])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+
+    CheckScalarBinary(function, ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
+                      ArrayFromJSON(boolean(), "[]"));
+    CheckScalarBinary(function, ArrayFromJSON(ty, R"([null])"),
+                      ArrayFromJSON(ty, R"([null])"), ArrayFromJSON(boolean(), "[null]"));
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_float, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs, rhs_float, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_intlike, rhs_int, ArrayFromJSON(boolean(), expected));
+  }
+}
+
 TEST(TestCompareKernel, DispatchBest) {
   for (std::string name :
        {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
@@ -490,6 +538,17 @@ TEST(TestCompareKernel, DispatchBest) {
 
     CheckDispatchBest(name, {utf8(), binary()}, {binary(), binary()});
     CheckDispatchBest(name, {large_utf8(), binary()}, {large_binary(), large_binary()});
+
+    CheckDispatchBest(name, {decimal128(3, 2), decimal128(6, 3)},
+                      {decimal128(4, 3), decimal128(6, 3)});
+    CheckDispatchBest(name, {decimal128(3, 2), decimal256(3, 2)},
+                      {decimal256(3, 2), decimal256(3, 2)});
+    CheckDispatchBest(name, {decimal128(3, 2), float64()}, {float64(), float64()});
+    CheckDispatchBest(name, {float64(), decimal128(3, 2)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal128(3, 2), int64()},
+                      {decimal128(3, 2), decimal128(3, 2)});
+    CheckDispatchBest(name, {int64(), decimal128(3, 2)},
+                      {decimal128(3, 2), decimal128(3, 2)});
   }
 }
 

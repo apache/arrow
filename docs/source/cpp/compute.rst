@@ -542,16 +542,17 @@ cast to the :ref:`common numeric type <common-numeric-type>` before comparison),
 or two inputs of Binary- or String-like types, or two inputs of Temporal types.
 If any input is dictionary encoded it will be expanded for the purposes of
 comparison. If any of the input elements in a pair is null, the corresponding
-output element is null.
+output element is null. Decimal arguments will be promoted in the same way as
+for ``add`` and ``subtract``.
 
-+--------------------------+------------+---------------------------------------------+---------------------+
-| Function names           | Arity      | Input types                                 | Output type         |
-+==========================+============+=============================================+=====================+
-| equal, not_equal         | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+--------------------------+------------+---------------------------------------------+---------------------+
-| greater, greater_equal,  | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-| less, less_equal         |            |                                             |                     |
-+--------------------------+------------+---------------------------------------------+---------------------+
++--------------------------+------------+------------------------------------------------------+---------------------+
+| Function names           | Arity      | Input types                                          | Output type         |
++==========================+============+======================================================+=====================+
+| equal, not_equal         | Binary     | Numeric, Temporal, Decimal, Binary- and String-like  | Boolean             |
++--------------------------+------------+------------------------------------------------------+---------------------+
+| greater, greater_equal,  | Binary     | Numeric, Temporal, Decimal, Binary- and String-like  | Boolean             |
+| less, less_equal         |            |                                                      |                     |
++--------------------------+------------+------------------------------------------------------+---------------------+
 
 These functions take any number of inputs of numeric type (in which case they
 will be cast to the :ref:`common numeric type <common-numeric-type>` before
