@@ -82,6 +82,39 @@ TEST(TestStringOps, TestChr) {
 
   out = chr_int32(ctx_ptr, 256, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
+
+  out = chr_int32(ctx_ptr, 33, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "!");
+
+  out = chr_int32(ctx_ptr, 46, &out_len);
+  EXPECT_EQ(std::string(out, out_len), ".");
+
+  out = chr_int32(ctx_ptr, 63, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "?");
+
+  //€
+  out = chr_int32(ctx_ptr, 128, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x80");
+
+  //œ
+  out = chr_int32(ctx_ptr, 156, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x9C");
+
+  //ÿ
+  out = chr_int32(ctx_ptr, 255, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xFF");
+
+  //BACKSPACE
+  out = chr_int32(ctx_ptr, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\b");
+
+  //DEVICE CONTROL 3 (DC3)
+  out = chr_int32(ctx_ptr, 19, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x13");
+
+  //ESCAPE (ESC)
+  out = chr_int32(ctx_ptr, 27, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x1B");
 }
 
 TEST(TestStringOps, TestBeginsEnds) {

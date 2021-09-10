@@ -1367,7 +1367,7 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
 // If A is larger than 256 the result is equivalent to chr(A % 256).
 GANDIVA_EXPORT
 const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
-  in = in > 255 ? in % 256 : in;
+  in = in % 256;
   if (in <= 0) {
     *out_len = 0;
     return "";
