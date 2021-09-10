@@ -27,7 +27,6 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.dictionary.Dictionary;
@@ -45,7 +44,7 @@ final class ArrayImporter {
   private final FieldVector vector;
   private final DictionaryProvider dictionaryProvider;
 
-  private ReferenceManager referenceManager;
+  private FFIReferenceManager referenceManager;
   private int recursionLevel;
 
   ArrayImporter(BufferAllocator allocator, FieldVector vector, DictionaryProvider dictionaryProvider) {
@@ -69,12 +68,11 @@ final class ArrayImporter {
     // This keeps the array alive as long as there are any buffers that need it
     referenceManager = new FFIReferenceManager(ownedArray);
     try {
-      referenceManager.retain();
+      referenceManager.increment();
       doImport(snapshot);
     } finally {
       referenceManager.release();
     }
-
   }
 
   private void importChild(ArrayImporter parent, ArrowArray src) {
@@ -110,7 +108,7 @@ final class ArrayImporter {
 
       Dictionary dictionary = dictionaryProvider.lookup(encoding.getId());
       checkNotNull(dictionary, "Dictionary lookup failed on import of ArrowArray with dictionary");
-      
+
       // reset the dictionary vector to the initial state
       dictionary.getVector().clear();
 

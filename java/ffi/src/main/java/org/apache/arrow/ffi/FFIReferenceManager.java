@@ -50,6 +50,13 @@ final class FFIReferenceManager implements ReferenceManager {
     return release(1);
   }
 
+  /**
+   * Increment the reference count without any safety checks.
+   */
+  void increment() {
+    bufRefCnt.incrementAndGet();
+  }
+  
   @Override
   public boolean release(int decrement) {
     Preconditions.checkState(decrement >= 1, "ref count decrement should be greater than or equal to 1");
@@ -76,7 +83,8 @@ final class FFIReferenceManager implements ReferenceManager {
   @Override
   public void retain(int increment) {
     Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
-    bufRefCnt.addAndGet(increment);
+    final int originalReferenceCount = bufRefCnt.getAndAdd(increment);
+    Preconditions.checkArgument(originalReferenceCount > 0);
   }
 
   @Override
