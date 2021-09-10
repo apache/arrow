@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
@@ -72,22 +73,24 @@ public class ArrowDatabaseMetadataTest {
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> format("catalog #%d", i))
+          .map(Text::new)
           .map(Object.class::cast)
           .map(Collections::singletonList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_TABLE_TYPES_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> format("table_type #%d", i))
+          .map(Text::new)
           .map(Object.class::cast)
           .map(Collections::singletonList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_TABLES_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
-              format("catalog_name #%d", i),
-              format("schema_name #%d", i),
-              format("table_name #%d", i),
-              format("table_type #%d", i),
+              new Text(format("catalog_name #%d", i)),
+              new Text(format("schema_name #%d", i)),
+              new Text(format("table_name #%d", i)),
+              new Text(format("table_type #%d", i)),
               // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
               null, null, null, null, null, null})
           .map(Arrays::asList)
