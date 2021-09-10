@@ -638,12 +638,6 @@ struct ArraySortIndices {
   }
 };
 
-// Sort indices kernels implemented for
-//
-// * Boolean type
-// * Number types
-// * Base binary types
-
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   // bool type
