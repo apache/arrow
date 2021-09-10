@@ -23,7 +23,7 @@ classdef tfeather < matlab.unittest.TestCase
             % Add Feather test utilities to the MATLAB path.
             testCase.applyFixture(PathFixture('util'));
             % Add featherread and featherwrite to the MATLAB path.
-            testCase.applyFixture(PathFixture(fullfile('..', 'src')));
+            testCase.applyFixture(PathFixture(fullfile('..', 'src', 'matlab')));
             % Add mexfcn to the MATLAB path.
             testCase.applyFixture(PathFixture(fullfile('..', 'build')));
             % mexfcn must be on the MATLAB path.
