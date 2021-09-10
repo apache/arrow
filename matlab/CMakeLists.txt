@@ -229,10 +229,10 @@ endif()
 find_package(Matlab REQUIRED)
 
 # Construct the absolute path to mexfcn's souce files
-set(mexfcn_sources mexfcn.cc featherreadmex.cc feather_reader.cc
-                          featherwritemex.cc feather_writer.cc util/handle_status.cc
-                          util/unicode_conversion.cc)
-list(TRANSFORM mexfcn_sources PREPEND ${CMAKE_SOURCE_DIR}/src/)
+set(mexfcn_sources mex/mexfcn.cc feather/featherreadmex.cc feather/feather_reader.cc
+                          feather/featherwritemex.cc feather/feather_writer.cc feather/util/handle_status.cc
+                          feather/util/unicode_conversion.cc)
+list(TRANSFORM mexfcn_sources PREPEND ${CMAKE_SOURCE_DIR}/src/cpp/matlab/arrow/)
 
 # Build mexDispatcher MEX binary
 matlab_add_mex(R2018a
