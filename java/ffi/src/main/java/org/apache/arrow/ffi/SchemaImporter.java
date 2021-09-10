@@ -98,7 +98,7 @@ final class SchemaImporter {
 
     List<Field> children = null;
     long[] childrenIds = NativeUtil.toJavaArray(snapshot.children, checkedCastToInt(snapshot.n_children));
-    if (childrenIds != null) {
+    if (childrenIds != null && childrenIds.length > 0) {
       children = new ArrayList<>(childrenIds.length);
       for (long childAddress : childrenIds) {
         ArrowSchema childSchema = ArrowSchema.wrap(childAddress);

@@ -92,7 +92,7 @@ final class ArrayImporter {
   private void doImport(ArrowArray.Snapshot snapshot) {
     // First import children (required for reconstituting parent array data)
     long[] children = NativeUtil.toJavaArray(snapshot.children, checkedCastToInt(snapshot.n_children));
-    if (children != null) {
+    if (children != null && children.length > 0) {
       List<FieldVector> childVectors = vector.getChildrenFromFields();
       checkState(children.length == childVectors.size(), "ArrowArray struct has %s children (expected %s)",
           children.length, childVectors.size());
@@ -131,7 +131,7 @@ final class ArrayImporter {
 
   private List<ArrowBuf> importBuffers(ArrowArray.Snapshot snapshot) {
     long[] buffers = NativeUtil.toJavaArray(snapshot.buffers, checkedCastToInt(snapshot.n_buffers));
-    if (buffers == null) {
+    if (buffers == null || buffers.length == 0) {
       return new ArrayList<>();
     }
 

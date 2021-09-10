@@ -64,7 +64,7 @@ public final class NativeUtil {
    * @return Array of pointer values as longs
    */
   public static long[] toJavaArray(long arrayPtr, int size) {
-    if (size == 0 || arrayPtr == NULL) {
+    if (arrayPtr == NULL) {
       return null;
     }
     if (size < 0) {
