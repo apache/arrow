@@ -232,7 +232,7 @@ find_package(Matlab REQUIRED)
 set(mexfcn_sources mex/mexfcn.cc feather/featherreadmex.cc feather/feather_reader.cc
                           feather/featherwritemex.cc feather/feather_writer.cc feather/util/handle_status.cc
                           feather/util/unicode_conversion.cc)
-list(TRANSFORM mexfcn_sources PREPEND ${CMAKE_SOURCE_DIR}/src/cpp/matlab/arrow/)
+list(TRANSFORM mexfcn_sources PREPEND ${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/)
 
 # Build mexDispatcher MEX binary
 matlab_add_mex(R2018a
