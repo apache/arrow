@@ -21,14 +21,13 @@
 
 #include <mex.h>
 
-#include "../feather/featherreadmex.h"
-#include "../feather/featherwritemex.h"
+#include "../feather/feather_functions.h"
 
 using mex_fcn_t = std::function<void(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])>;
 
 static const std::unordered_map<std::string, mex_fcn_t> FUNCTION_MAP =
 {
-    {"featherread", featherreadmex},
+    {"featherread", featherread},
     {"featherwrite", featherwrite}
 };
 
