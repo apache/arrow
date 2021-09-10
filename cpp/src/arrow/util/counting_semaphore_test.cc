@@ -64,7 +64,7 @@ TEST(CountingSemaphore, CloseAborts) {
 }
 
 TEST(CountingSemaphore, Stress) {
-  constexpr uint32_t NTHREADS = 100;
+  constexpr uint32_t NTHREADS = 10;
   CountingSemaphore semaphore;
   std::vector<uint32_t> max_allowed_cases = {1, 3};
   std::atomic<uint32_t> count{0};
@@ -77,7 +77,6 @@ TEST(CountingSemaphore, Stress) {
         ASSERT_OK(semaphore.Acquire(1));
         uint32_t last_count = count.fetch_add(1);
         if (last_count >= max_allowed) {
-          std::cout << last_count << std::endl;
           max_exceeded.store(true);
         }
         SleepABit();
@@ -85,10 +84,11 @@ TEST(CountingSemaphore, Stress) {
         ASSERT_OK(semaphore.Release(1));
       });
     }
+    for (auto& thread : threads) {
+      thread.join();
+    }
+    threads.clear();
     ASSERT_OK(semaphore.Acquire(max_allowed));
-  }
-  for (auto& thread : threads) {
-    thread.join();
   }
   ASSERT_OK(semaphore.Close());
   ASSERT_FALSE(max_exceeded.load());

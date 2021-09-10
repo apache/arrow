@@ -37,7 +37,7 @@ constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 64 * 1024 * 1024;
 ///
 /// The dataset writer enforces its own back pressure based on the # of rows (as opposed
 /// to # of batches which is how it is typically enforced elsewhere) and # of files.
-class ARROW_EXPORT DatasetWriter {
+class ARROW_DS_EXPORT DatasetWriter {
  public:
   /// \brief Creates a dataset writer
   ///
