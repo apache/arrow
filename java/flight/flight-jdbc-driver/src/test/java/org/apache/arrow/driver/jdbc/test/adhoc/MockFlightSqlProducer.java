@@ -68,7 +68,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
-import com.google.protobuf.StringValue;
 
 /**
  * An ad-hoc {@link FlightSqlProducer} for tests.
