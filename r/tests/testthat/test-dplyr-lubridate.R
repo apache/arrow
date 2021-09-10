@@ -34,8 +34,8 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
 }
 
 test_df <- tibble::tibble(
-  datetime = test_date,
-  date = as.Date("2021-09-09")
+  datetime = c(test_date, NA),
+  date = c(as.Date("2021-09-09"), NA)
 )
 
 test_that("extract year from timestamp", {
