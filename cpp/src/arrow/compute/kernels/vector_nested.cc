@@ -77,11 +77,12 @@ struct ListParentIndicesArray {
   Status Visit(const LargeListType& type) { return VisitList(type); }
 
   Status Visit(const FixedSizeListType& type) {
-    const int32_t slot_length = type.list_size();
+    using offset_type = typename FixedSizeListType::offset_type;
+    const offset_type slot_length = type.list_size();
     const int64_t values_length = slot_length * (input->length - input->GetNullCount());
     ARROW_ASSIGN_OR_RAISE(auto indices, ctx->Allocate(values_length * sizeof(int32_t)));
-    int32_t* out_indices = reinterpret_cast<int32_t*>(indices->mutable_data());
-    const uint8_t* bitmap = input->GetValues<uint8_t>(0, 0);
+    auto* out_indices = reinterpret_cast<offset_type*>(indices->mutable_data());
+    const auto* bitmap = input->GetValues<uint8_t>(0, 0);
     for (int32_t i = 0; i < input->length; i++) {
       if (!bitmap || BitUtil::GetBit(bitmap, input->offset + i)) {
         std::fill(out_indices, out_indices + slot_length,
