@@ -147,23 +147,6 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
     : FunctionOptions(internal::kSelectKOptionsType),
       k(k),
       sort_keys(std::move(sort_keys)) {}
-
-bool SelectKOptions::is_top_k() const {
-  for (const auto& k : sort_keys) {
-    if (k.order != SortOrder::Descending) {
-      return false;
-    }
-  }
-  return true;
-}
-bool SelectKOptions::is_bottom_k() const {
-  for (const auto& k : sort_keys) {
-    if (k.order != SortOrder::Ascending) {
-      return false;
-    }
-  }
-  return true;
-}
 constexpr char SelectKOptions::kTypeName[];
 
 namespace internal {
@@ -189,7 +172,8 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum, SelectKOptions options,
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
+                                               const SelectKOptions& options,
                                                ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("select_k_unstable", {datum}, &options, ctx));
