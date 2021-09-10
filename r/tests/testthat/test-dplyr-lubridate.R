@@ -38,6 +38,8 @@ test_df <- tibble::tibble(
   date = c(as.Date("2021-09-09"), NA)
 )
 
+# These tests test component extraction from timestamp objects
+
 test_that("extract year from timestamp", {
   expect_dplyr_equal(
     input %>%
@@ -160,6 +162,8 @@ test_that("extract second from timestamp", {
     tolerance = 1e-6
   )
 })
+
+# These tests test extraction of components from date32 objects
 
 test_that("extract year from date", {
   expect_dplyr_equal(
