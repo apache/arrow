@@ -705,8 +705,8 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
   if (base == 10) {
     return(Expression$create("log10_checked", x))
   }
-  # ARROW-13345
-  arrow_not_supported("`base` values other than exp(1), 2 and 10")
+
+  Expression$create("logb_checked", x, Expression$scalar(base))
 }
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
