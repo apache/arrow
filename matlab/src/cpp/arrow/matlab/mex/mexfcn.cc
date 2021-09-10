@@ -36,7 +36,7 @@ std::string get_function_name(const mxArray* input)
 {
     std::string opname;
     if (!mxIsChar(input)) {
-        mexErrMsgIdAndTxt("MATLAB:arrow:OperationNameDataType",
+        mexErrMsgIdAndTxt("MATLAB:arrow:FunctionNameDataType",
                           "The first input argument to 'mexfcn' must be a character vector.");
     }
     const char* c_str = mxArrayToUTF8String(input);
