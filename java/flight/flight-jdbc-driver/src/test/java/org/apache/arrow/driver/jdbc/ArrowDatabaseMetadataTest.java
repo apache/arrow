@@ -31,7 +31,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
@@ -210,7 +209,7 @@ public class ArrowDatabaseMetadataTest {
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetExportedKeys, commandGetExportedAndImportedKeysResultProducer);
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetImportedKeys, commandGetExportedAndImportedKeysResultProducer);
 
-    final Message commandGetPrimaryKeys = FlightSql.CommandGetPrimaryKeys.getDefaultInstance();
+    final Message commandGetPrimaryKeys = FlightSql.CommandGetPrimaryKeys.newBuilder().setTable("Test").build();
     final Consumer<ServerStreamListener> commandGetPrimaryKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_PRIMARY_KEYS_SCHEMA, allocator)) {
@@ -399,17 +398,18 @@ public class ArrowDatabaseMetadataTest {
   }
 
   @Test
-  @Ignore // FIXME TODO
   public void testPrimaryKeys() throws SQLException {
-    final List<ArrayList<?>> expectedSchemas =
-        range(0, 10).mapToObj(i -> new ArrayList<>(Arrays.asList(
-            format("catalog_name #%d", i),
-            format("schema_name #%d", i),
-            format("table_name #%d", i),
-            format("column_name #%d", i),
-            i,
-            format("key_name #%d", i)
-        ))).collect(toList());
+    final List<List<String>> expectedSchemas =
+        range(0, 10)
+            .mapToObj(i -> new String[] {
+                format("catalog_name #%d", i),
+                format("schema_name #%d", i),
+                format("table_name #%d", i),
+                format("column_name #%d", i),
+                String.valueOf(i),
+                format("key_name #%d", i)})
+            .map(Arrays::asList)
+            .collect(toList());
     final List<List<String>> actualSchemas = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, "Test")) {
       while (resultSet.next()) {
