@@ -36,97 +36,49 @@ namespace {
 
 constexpr util::string_view kIntegerToken = "{i}";
 
-class DatasetWriterStatistics {
+class Throttle {
  public:
-  DatasetWriterStatistics(uint64_t max_rows_in_flight, uint32_t max_files_in_flight)
-      : max_rows_in_flight_(max_rows_in_flight),
-        max_files_in_flight_(max_files_in_flight) {}
+  explicit Throttle(uint64_t max_value) : max_value_(max_value) {}
 
-  bool CanWrite(const std::shared_ptr<RecordBatch>& record_batch,
-                const std::string& filename) {
-    std::lock_guard<std::mutex> lg(mutex_);
-    uint64_t rows = record_batch->num_rows();
-    DCHECK_LT(rows, max_rows_in_flight_);
+  bool Unthrottled() const { return max_value_ <= 0; }
 
-    if (rows_in_flight_ + rows > max_rows_in_flight_) {
-      rows_in_waiting_ = rows;
-      backpressure_ = Future<>::Make();
-      return false;
+  Future<> Acquire(uint64_t values) {
+    if (Unthrottled()) {
+      return Future<>::MakeFinished();
     }
-    return true;
-  }
-
-  bool CanOpenFile() {
     std::lock_guard<std::mutex> lg(mutex_);
-    if (files_in_flight_ == max_files_in_flight_) {
-      waiting_on_file_ = true;
+    if (values + current_value_ > max_value_) {
+      in_waiting_ = values;
       backpressure_ = Future<>::Make();
-      return false;
+    } else {
+      current_value_ += values;
     }
-    return true;
-  }
-
-  void RecordWriteStart(uint64_t num_rows) {
-    std::lock_guard<std::mutex> lg(mutex_);
-    rows_in_flight_ += num_rows;
-  }
-
-  void RecordFileStart() {
-    std::lock_guard<std::mutex> lg(mutex_);
-    files_in_flight_++;
-  }
-
-  void RecordFileFinished() {
-    std::unique_lock<std::mutex> lk(mutex_);
-    files_in_flight_--;
-    FreeBackpressureIfPossible(std::move(lk));
-  }
-
-  void RecordWriteFinish(uint64_t num_rows) {
-    std::unique_lock<std::mutex> lk(mutex_);
-    rows_in_flight_ -= num_rows;
-    FreeBackpressureIfPossible(std::move(lk));
-  }
-
-  Future<> backpressure() {
-    std::lock_guard<std::mutex> lg(mutex_);
     return backpressure_;
   }
 
- private:
-  void FreeBackpressureIfPossible(std::unique_lock<std::mutex>&& lk) {
-    if (waiting_on_file_) {
-      if (files_in_flight_ < max_files_in_flight_) {
-        waiting_on_file_ = false;
+  void Release(uint64_t values) {
+    if (Unthrottled()) {
+      return;
+    }
+    Future<> to_complete;
+    {
+      std::lock_guard<std::mutex> lg(mutex_);
+      current_value_ -= values;
+      if (in_waiting_ > 0 && in_waiting_ + current_value_ <= max_value_) {
+        in_waiting_ = 0;
+        to_complete = backpressure_;
       }
     }
-
-    bool waiting_on_rows = true;
-    if (rows_in_flight_ > 0) {
-      if (rows_in_flight_ + rows_in_waiting_ < max_rows_in_flight_) {
-        rows_in_waiting_ = 0;
-        waiting_on_rows = false;
-      }
-    } else {
-      waiting_on_rows = false;
-    }
-
-    if (backpressure_.is_valid() && !waiting_on_rows && !waiting_on_file_) {
-      Future<> old_backpressure = backpressure_;
-      backpressure_ = Future<>();
-      lk.unlock();
-      old_backpressure.MarkFinished();
+    if (to_complete.is_valid()) {
+      to_complete.MarkFinished();
     }
   }
 
-  uint64_t max_rows_in_flight_;
-  uint32_t max_files_in_flight_;
-
-  Future<> backpressure_;
-  uint64_t rows_in_flight_ = 0;
-  uint64_t rows_in_waiting_ = 0;
-  uint32_t files_in_flight_ = 0;
-  bool waiting_on_file_ = false;
+ private:
+  Future<> backpressure_ = Future<>::MakeFinished();
+  uint64_t max_value_;
+  uint64_t in_waiting_ = 0;
+  uint64_t current_value_ = 0;
   std::mutex mutex_;
 };
 
@@ -263,12 +215,11 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
  public:
   DatasetWriterDirectoryQueue(std::string directory, std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
-                              DatasetWriterStatistics* write_statistics,
-                              std::mutex* visitors_mutex)
+                              Throttle* open_files_throttle, std::mutex* visitors_mutex)
       : directory_(std::move(directory)),
         schema_(std::move(schema)),
         write_options_(write_options),
-        write_statistics_(write_statistics),
+        open_files_throttle_(open_files_throttle),
         visitors_mutex_(visitors_mutex) {}
 
   Result<std::shared_ptr<RecordBatch>> NextWritableChunk(
@@ -328,7 +279,6 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
 
   Result<std::shared_ptr<DatasetWriterFileQueue>> OpenFileQueue(
       const std::string& filename) {
-    write_statistics_->RecordFileStart();
     Future<std::shared_ptr<FileWriter>> file_writer_fut =
         init_future_.Then([this, filename] {
           ::arrow::internal::Executor* io_executor =
@@ -338,12 +288,11 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
         });
     auto file_queue = util::MakeSharedAsync<DatasetWriterFileQueue>(
         file_writer_fut, write_options_, visitors_mutex_);
-    RETURN_NOT_OK(task_group_.AddTask(file_queue->on_closed().Then(
-        [this] { write_statistics_->RecordFileFinished(); })));
+    RETURN_NOT_OK(task_group_.AddTask(
+        file_queue->on_closed().Then([this] { open_files_throttle_->Release(1); })));
     return file_queue;
   }
 
-  const std::string& current_filename() const { return current_filename_; }
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
@@ -363,11 +312,10 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue,
                                 util::DestroyingDeleter<DatasetWriterDirectoryQueue>>>
   Make(util::AsyncTaskGroup* task_group,
-       const FileSystemDatasetWriteOptions& write_options,
-       DatasetWriterStatistics* write_statistics, std::shared_ptr<Schema> schema,
-       std::string dir, std::mutex* visitors_mutex) {
+       const FileSystemDatasetWriteOptions& write_options, Throttle* open_files_throttle,
+       std::shared_ptr<Schema> schema, std::string dir, std::mutex* visitors_mutex) {
     auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
-        std::move(dir), std::move(schema), write_options, write_statistics,
+        std::move(dir), std::move(schema), write_options, open_files_throttle,
         visitors_mutex);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
     dir_queue->PrepareDirectory();
@@ -385,7 +333,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   std::string directory_;
   std::shared_ptr<Schema> schema_;
   const FileSystemDatasetWriteOptions& write_options_;
-  DatasetWriterStatistics* write_statistics_;
+  Throttle* open_files_throttle_;
   std::mutex* visitors_mutex_;
   Future<> init_future_;
   std::string current_filename_;
@@ -431,7 +379,8 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
  public:
   DatasetWriterImpl(FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued)
       : write_options_(std::move(write_options)),
-        statistics_(max_rows_queued, write_options.max_open_files) {}
+        rows_in_flight_throttle_(max_rows_queued),
+        open_files_throttle_(write_options.max_open_files) {}
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory) {
@@ -465,13 +414,13 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
         auto dir_queue_itr,
         ::arrow::internal::GetOrInsertGenerated(
             &directory_queues_, directory, [this, &batch](const std::string& dir) {
-              return DatasetWriterDirectoryQueue::Make(&task_group_, write_options_,
-                                                       &statistics_, batch->schema(), dir,
-                                                       &visitors_mutex_);
+              return DatasetWriterDirectoryQueue::Make(
+                  &task_group_, write_options_, &open_files_throttle_, batch->schema(),
+                  dir, &visitors_mutex_);
             }));
     std::shared_ptr<DatasetWriterDirectoryQueue> dir_queue = dir_queue_itr->second;
     std::vector<Future<WriteTask>> scheduled_writes;
-    bool hit_backpressure = false;
+    Future<> backpressure;
     while (batch) {
       // Keep opening new files until batch is done.
       std::shared_ptr<RecordBatch> remainder;
@@ -479,20 +428,21 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
       ARROW_ASSIGN_OR_RAISE(auto next_chunk, dir_queue->NextWritableChunk(
                                                  batch, &remainder, &will_open_file));
 
-      if (statistics_.CanWrite(next_chunk, dir_queue->current_filename()) &&
-          (!will_open_file || statistics_.CanOpenFile())) {
-        statistics_.RecordWriteStart(next_chunk->num_rows());
-        scheduled_writes.push_back(dir_queue->StartWrite(next_chunk));
-        batch = std::move(remainder);
-        if (batch) {
-          ARROW_RETURN_NOT_OK(dir_queue->FinishCurrentFile());
-        }
-      } else {
-        if (!statistics_.CanOpenFile()) {
-          ARROW_RETURN_NOT_OK(CloseLargestFile());
-        }
-        hit_backpressure = true;
+      backpressure = rows_in_flight_throttle_.Acquire(next_chunk->num_rows());
+      if (!backpressure.is_finished()) {
         break;
+      }
+      if (will_open_file) {
+        backpressure = open_files_throttle_.Acquire(1);
+        if (!backpressure.is_finished()) {
+          RETURN_NOT_OK(CloseLargestFile());
+          break;
+        }
+      }
+      scheduled_writes.push_back(dir_queue->StartWrite(next_chunk));
+      batch = std::move(remainder);
+      if (batch) {
+        RETURN_NOT_OK(dir_queue->FinishCurrentFile());
       }
     }
 
@@ -502,19 +452,13 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
       RETURN_NOT_OK(CheckError());
       RETURN_NOT_OK(task_group_.AddTask(scheduled_write.Then(
           [this](const WriteTask& write) {
-            statistics_.RecordWriteFinish(write.num_rows);
+            rows_in_flight_throttle_.Release(write.num_rows);
           },
           [this](const Status& err) { SetError(err); })));
     }
-    if (hit_backpressure) {
-      Future<> maybe_backpressure = statistics_.backpressure();
-      // It's possible the backpressure was relieved since we last checked
-      if (maybe_backpressure.is_valid()) {
-        return maybe_backpressure.Then(
-            [this, batch, directory] { return DoWriteRecordBatch(batch, directory); });
-      } else {
-        return DoWriteRecordBatch(batch, directory);
-      }
+    if (batch) {
+      return backpressure.Then(
+          [this, batch, directory] { return DoWriteRecordBatch(batch, directory); });
     }
     return Future<>::MakeFinished();
   }
@@ -536,7 +480,8 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
 
   util::AsyncTaskGroup task_group_;
   FileSystemDatasetWriteOptions write_options_;
-  DatasetWriterStatistics statistics_;
+  Throttle rows_in_flight_throttle_;
+  Throttle open_files_throttle_;
   std::unordered_map<std::string, std::shared_ptr<DatasetWriterDirectoryQueue>>
       directory_queues_;
   std::mutex mutex_;
