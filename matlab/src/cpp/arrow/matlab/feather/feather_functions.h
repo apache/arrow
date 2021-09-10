@@ -19,4 +19,4 @@
 
 void featherwrite(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
 
-void featherreadmex(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
+void featherread(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
