@@ -22,6 +22,8 @@
 #include "feather_functions.h"
 #include "util/handle_status.h"
 
+namespace arrow::matlab::feather {
+
 void featherwrite(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
   const std::string filename{mxArrayToUTF8String(prhs[0])};
 
@@ -46,3 +48,5 @@ void featherread(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
   plhs[0] = feather_reader->ReadVariables();
   plhs[1] = feather_reader->ReadMetadata();
 }
+
+} // namespace arrow::matlab::feather

@@ -25,8 +25,7 @@
 #include <arrow/type.h>
 #include <matrix.h>
 
-namespace arrow {
-namespace matlab {
+namespace arrow::matlab::feather {
 
 class FeatherReader {
  public:
@@ -71,5 +70,4 @@ class FeatherReader {
   std::string description_;
 };
 
-}  // namespace matlab
-}  // namespace arrow
+}  // namespace arrow::matlab::feather

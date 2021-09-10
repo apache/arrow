@@ -36,8 +36,7 @@
 #include "matlab_traits.h"
 #include "util/handle_status.h"
 
-namespace arrow {
-namespace matlab {
+namespace arrow::matlab::feather {
 namespace internal {
 
 // Returns the arrow::DataType that corresponds to the input type string
@@ -362,5 +361,4 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
   return ipc::feather::WriteTable(*table, file_output_stream_.get(), write_props);
 }
 
-}  // namespace matlab
-}  // namespace arrow
+}  // namespace arrow::matlab::feather

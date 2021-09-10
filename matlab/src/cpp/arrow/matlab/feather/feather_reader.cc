@@ -37,8 +37,7 @@
 #include "util/handle_status.h"
 #include "util/unicode_conversion.h"
 
-namespace arrow {
-namespace matlab {
+namespace arrow::matlab::feather {
 namespace internal {
 
 // Read the name of variable i from the Feather file as a mxArray*.
@@ -273,5 +272,4 @@ mxArray* FeatherReader::ReadVariables() {
   return variables;
 }
 
-}  // namespace matlab
-}  // namespace arrow
+}  // namespace arrow::matlab::feather

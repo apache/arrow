@@ -20,13 +20,11 @@
 #include <string>
 #include <mex.h>
 
-namespace arrow {
-namespace matlab {
-namespace util {
+namespace arrow::matlab::feather::util {
+
 // Converts a UTF-8 encoded std::string to a heap-allocated UTF-16 encoded
 // mxCharArray.
 mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string);
-}  // namespace util
-}  // namespace matlab
-}  // namespace arrow
+
+}  // namespace arrow::matlab::feather::util
 

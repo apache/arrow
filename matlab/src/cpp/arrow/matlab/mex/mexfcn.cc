@@ -27,8 +27,8 @@ using mex_fcn_t = std::function<void(int nlhs, mxArray* plhs[], int nrhs, const 
 
 static const std::unordered_map<std::string, mex_fcn_t> FUNCTION_MAP =
 {
-    {"featherread", featherread},
-    {"featherwrite", featherwrite}
+    {"featherread", arrow::matlab::feather::featherread},
+    {"featherwrite", arrow::matlab::feather::featherwrite}
 };
 
 std::string get_function_name(const mxArray* input)

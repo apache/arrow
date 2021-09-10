@@ -17,6 +17,10 @@
 
 #include <mex.h>
 
+namespace arrow::matlab::feather {
+
 void featherwrite(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
 
 void featherread(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
+
+} // namespace arrow::matlab::father

@@ -25,8 +25,7 @@
 #include <arrow/type.h>
 #include <matrix.h>
 
-namespace arrow {
-namespace matlab {
+namespace arrow::matlab::feather {
 
 class FeatherWriter {
  public:
@@ -64,5 +63,4 @@ class FeatherWriter {
   std::shared_ptr<arrow::io::OutputStream> file_output_stream_;
 };
 
-}  // namespace matlab
-}  // namespace arrow
+}  // namespace arrow::matlab::feather

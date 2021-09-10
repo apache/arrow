@@ -20,9 +20,7 @@
 
 #include "unicode_conversion.h"
 
-namespace arrow {
-namespace matlab {
-namespace util {
+namespace namespace arrow::matlab::feather::util {
 
 mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
   // Get pointers to the start and end of the std::string data.
@@ -58,6 +56,4 @@ mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
   return character_matrix;
 }
 
-}  // namespace util
-}  // namespace matlab
-}  // namespace arrow
+} // namespace arrow::matlab::feather::util
