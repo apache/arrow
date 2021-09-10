@@ -1044,6 +1044,15 @@ test_that("log functions", {
 
   expect_dplyr_equal(
     input %>%
+      # suppress 'NaNs produced' warning on the first row of df
+      # that evaluates to NaN (R raises warning but Arrow does not)
+      suppressWarnings(mutate(., y = log(x, base = x))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
       mutate(y = logb(x)) %>%
       collect(),
     df

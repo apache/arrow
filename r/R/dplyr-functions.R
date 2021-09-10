@@ -694,6 +694,10 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
+  if (inherits(base, "Expression")) {
+    return(Expression$create("logb_checked", x, base))
+  }
+
   if (base == exp(1)) {
     return(Expression$create("ln_checked", x))
   }
