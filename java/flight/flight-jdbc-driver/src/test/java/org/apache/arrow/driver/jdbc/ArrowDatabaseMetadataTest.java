@@ -17,8 +17,22 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Message;
+import static java.lang.String.format;
+import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
+import static org.hamcrest.CoreMatchers.is;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
@@ -45,30 +59,83 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.function.Consumer;
-
-import static java.lang.String.format;
-import static java.util.Collections.singletonList;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.IntStream.range;
-import static org.hamcrest.CoreMatchers.is;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 
 /**
  * Class containing the tests from the {@link ArrowDatabaseMetadata}.
  */
 public class ArrowDatabaseMetadataTest {
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
-
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
       FlightServerTestRule.createNewTestRule(FLIGHT_SQL_PRODUCER);
+  private static final int ROW_COUNT = 10;
+  private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
+      range(0, ROW_COUNT)
+          .mapToObj(i -> format("catalog #%d", i))
+          .map(Object.class::cast)
+          .map(Collections::singletonList)
+          .collect(toList());
+  private static final List<List<Object>> EXPECTED_GET_TABLE_TYPES_RESULTS =
+      range(0, ROW_COUNT)
+          .mapToObj(i -> format("table_type #%d", i))
+          .map(Object.class::cast)
+          .map(Collections::singletonList)
+          .collect(toList());
+  private static final List<List<Object>> EXPECTED_GET_TABLES_RESULTS =
+      range(0, ROW_COUNT)
+          .mapToObj(i -> new Object[] {
+              format("catalog_name #%d", i),
+              format("schema_name #%d", i),
+              format("table_name #%d", i),
+              format("table_type #%d", i),
+              // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
+              null, null, null, null, null, null})
+          .map(Arrays::asList)
+          .collect(toList());
+  private static final List<List<Object>> EXPECTED_GET_SCHEMAS_RESULTS =
+      range(0, ROW_COUNT)
+          .mapToObj(i -> new Object[] {
+              format("catalog_name #%d", i),
+              format("schema_name #%d", i),
+              format("table_name #%d", i),
+              format("column_name #%d", i),
+              i,
+              format("key_name #%d", i)})
+          .map(Arrays::asList)
+          .collect(toList());
+  private static final List<List<Object>> EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS =
+      range(0, ROW_COUNT)
+          .mapToObj(i -> new Object[] {
+              format("pk_catalog_name #%d", i),
+              format("pk_schema_name #%d", i),
+              format("pk_table_name #%d", i),
+              format("pk_column_name #%d", i),
+              format("fk_catalog_name #%d", i),
+              format("fk_schema_name #%d", i),
+              format("fk_table_name #%d", i),
+              format("fk_column_name #%d", i),
+              i,
+              format("fk_key_name #%d", i),
+              format("pk_key_name #%d", i),
+              i,
+              i,
+              // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
+              null})
+          .map(Arrays::asList)
+          .collect(toList());
+  private static final List<List<Object>> EXPECTED_PRIMARY_KEYS_RESULTS =
+      range(0, ROW_COUNT)
+          .mapToObj(i -> new Object[] {
+              format("catalog_name #%d", i),
+              format("schema_name #%d", i),
+              format("table_name #%d", i),
+              format("column_name #%d", i),
+              String.valueOf(i),
+              format("key_name #%d", i)})
+          .map(Arrays::asList)
+          .collect(toList());
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
@@ -83,9 +150,8 @@ public class ArrowDatabaseMetadataTest {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_CATALOGS_SCHEMA, allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
-        final int rows = 10;
-        range(0, rows).forEach(i -> catalogName.setSafe(i, new Text(format("catalog #%d", i))));
-        root.setRowCount(rows);
+        range(0, ROW_COUNT).forEach(i -> catalogName.setSafe(i, new Text(format("catalog #%d", i))));
+        root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
       } catch (final Throwable throwable) {
@@ -101,9 +167,8 @@ public class ArrowDatabaseMetadataTest {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLE_TYPES_SCHEMA, allocator)) {
         final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
-        final int rows = 10;
-        range(0, rows).forEach(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
-        root.setRowCount(rows);
+        range(0, ROW_COUNT).forEach(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
+        root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
       } catch (final Throwable throwable) {
@@ -122,13 +187,12 @@ public class ArrowDatabaseMetadataTest {
         final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
         final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
         final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
-        final int rows = 10;
-        range(0, rows)
+        range(0, ROW_COUNT)
             .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
             .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
             .peek(i -> tableName.setSafe(i, new Text(format("table_name #%d", i))))
             .forEach(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
-        root.setRowCount(rows);
+        root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
       } catch (final Throwable throwable) {
@@ -145,11 +209,10 @@ public class ArrowDatabaseMetadataTest {
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SCHEMAS_SCHEMA, allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
         final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
-        final int rows = 10;
-        range(0, rows)
+        range(0, ROW_COUNT)
             .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
             .forEach(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))));
-        root.setRowCount(rows);
+        root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
       } catch (final Throwable throwable) {
@@ -179,8 +242,7 @@ public class ArrowDatabaseMetadataTest {
         final VarCharVector pkKeyName = (VarCharVector) root.getVector("pk_key_name");
         final UInt1Vector updateRule = (UInt1Vector) root.getVector("update_rule");
         final UInt1Vector deleteRule = (UInt1Vector) root.getVector("delete_rule");
-        final int rows = 10;
-        range(0, rows)
+        range(0, ROW_COUNT)
             .peek(i -> pkCatalogName.setSafe(i, new Text(format("pk_catalog_name #%d", i))))
             .peek(i -> pkSchemaName.setSafe(i, new Text(format("pk_schema_name #%d", i))))
             .peek(i -> pkTableName.setSafe(i, new Text(format("pk_table_name #%d", i))))
@@ -194,7 +256,7 @@ public class ArrowDatabaseMetadataTest {
             .peek(i -> pkKeyName.setSafe(i, new Text(format("pk_key_name #%d", i))))
             .peek(i -> updateRule.setSafe(i, i))
             .forEach(i -> deleteRule.setSafe(i, i));
-        root.setRowCount(rows);
+        root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
       } catch (final Throwable throwable) {
@@ -216,15 +278,14 @@ public class ArrowDatabaseMetadataTest {
         final VarCharVector columnName = (VarCharVector) root.getVector("column_name");
         final IntVector keySequence = (IntVector) root.getVector("key_sequence");
         final VarCharVector keyName = (VarCharVector) root.getVector("key_name");
-        final int rows = 10;
-        range(0, rows)
+        range(0, ROW_COUNT)
             .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
             .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
             .peek(i -> tableName.setSafe(i, new Text(format("table_name #%d", i))))
             .peek(i -> columnName.setSafe(i, new Text(format("column_name #%d", i))))
             .peek(i -> keySequence.setSafe(i, i))
             .forEach(i -> keyName.setSafe(i, new Text(format("key_name #%d", i))));
-        root.setRowCount(rows);
+        root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
       } catch (final Throwable throwable) {
@@ -242,367 +303,188 @@ public class ArrowDatabaseMetadataTest {
     AutoCloseables.close(connection, FLIGHT_SERVER_TEST_RULE, FLIGHT_SQL_PRODUCER);
   }
 
+
   @Test
   public void testGetCatalogsCanBeAccessedByIndices() throws SQLException {
-    final List<List<String>> expectedCatalogs =
-        range(0, 10)
-            .mapToObj(i -> format("catalog #%d", i))
-            .map(Collections::singletonList)
-            .collect(toList());
-    final List<List<String>> actualCatalogs = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-      while (resultSet.next()) {
-        final List<String> columns = new ArrayList<>();
-        for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
-          columns.add(resultSet.getString(column + 1));
-        }
-        actualCatalogs.add(columns);
-      }
+      testData(resultSet, EXPECTED_GET_CATALOGS_RESULTS);
     }
-    collector.checkThat(actualCatalogs, is(expectedCatalogs));
   }
 
   @Test
   public void testGetCatalogsCanBeAccessedByNames() throws SQLException {
-    final List<List<String>> expectedCatalogs =
-        range(0, 10)
-            .mapToObj(i -> format("catalog #%d", i))
-            .map(Collections::singletonList)
-            .collect(toList());
-    final List<List<String>> actualCatalogs = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-      while (resultSet.next()) {
-        actualCatalogs.add(singletonList(resultSet.getString("TABLE_CAT")));
-      }
+      testData(resultSet, singletonList("TABLE_CAT"), EXPECTED_GET_CATALOGS_RESULTS);
     }
-    collector.checkThat(actualCatalogs, is(expectedCatalogs));
   }
 
   @Test
   public void testTableTypesCanBeAccessedByIndices() throws SQLException {
-    final List<List<String>> expectedTableTypes =
-        range(0, 10)
-            .mapToObj(i -> format("table_type #%d", i))
-            .map(Collections::singletonList)
-            .collect(toList());
-    final List<List<String>> actualTableTypes = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getTableTypes()) {
-      while (resultSet.next()) {
-        final List<String> columns = new ArrayList<>();
-        for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
-          columns.add(resultSet.getString(column + 1));
-        }
-        actualTableTypes.add(columns);
-      }
+      testData(resultSet, EXPECTED_GET_TABLE_TYPES_RESULTS);
     }
-    collector.checkThat(actualTableTypes, is(expectedTableTypes));
   }
 
   @Test
   public void testTableTypesCanBeAccessedByNames() throws SQLException {
-    final List<List<String>> expectedTableTypes =
-        range(0, 10).mapToObj(i -> format("table_type #%d", i)).map(Collections::singletonList).collect(toList());
-    final List<List<String>> actualTableTypes = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getTableTypes()) {
-      while (resultSet.next()) {
-        actualTableTypes.add(singletonList(resultSet.getString("TABLE_TYPE")));
-      }
+      testData(resultSet, singletonList("TABLE_TYPE"), EXPECTED_GET_TABLE_TYPES_RESULTS);
     }
-    collector.checkThat(actualTableTypes, is(expectedTableTypes));
   }
 
   @Test
   public void testGetTablesCanBeAccessedByIndices() throws SQLException {
-    final List<List<String>> expectedTables =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("catalog_name #%d", i),
-                format("schema_name #%d", i),
-                format("table_name #%d", i),
-                format("table_type #%d", i),
-                // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
-                null, null, null, null, null, null})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualTables = new ArrayList<>();
-    // FIXME Seems to be broken. Should accept null results...
     try (final ResultSet resultSet = connection.getMetaData().getTables(null, null, null, null)) {
-      while (resultSet.next()) {
-        final List<String> tables = new ArrayList<>();
-        for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
-          tables.add(resultSet.getString(column + 1));
-        }
-        actualTables.add(tables);
-      }
+      testData(resultSet, EXPECTED_GET_TABLES_RESULTS);
     }
-    collector.checkThat(actualTables, is(expectedTables));
   }
 
   @Test
   public void testGetTablesCanBeAccessedByNames() throws SQLException {
-    final List<List<String>> expectedTables =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("catalog_name #%d", i),
-                format("schema_name #%d", i),
-                format("table_name #%d", i),
-                format("table_type #%d", i),
-                // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
-                null, null, null, null, null, null})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualTables = new ArrayList<>();
-    try (final ResultSet resultSet = connection.getMetaData().getTables(null, null, null, null)) {
-      while (resultSet.next()) {
-        actualTables.add(
-            ImmutableList.of(
-                resultSet.getString("TABLE_CAT"), resultSet.getString("TABLE_SCHEM"),
-                resultSet.getString("TABLE_NAME"), resultSet.getString("TABLE_TYPE"),
-                resultSet.getString("REMARKS"), resultSet.getString("TYPE_CAT"),
-                resultSet.getString("TYPE_SCHEM"), resultSet.getString("TYPE_NAME"),
-                resultSet.getString("SELF_REFERENCING_COL_NAME"), resultSet.getString("REF_GENERATION")));
-      }
+    try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+      testData(
+          resultSet,
+          ImmutableList.of(
+              "TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME",
+              "TABLE_TYPE", "REMARKS", "TYPE_CAT", "TYPE_SCHEM",
+              "TYPE_NAME", "SELF_REFERENCING_COL_NAME", "REF_GENERATION"),
+          EXPECTED_GET_TABLES_RESULTS
+      );
     }
-    collector.checkThat(actualTables, is(expectedTables));
   }
 
   @Test
   public void testGetSchemasCanBeAccessedByIndices() throws SQLException {
-    final List<List<String>> expectedSchemas =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("schema_name #%d", i), format("catalog_name #%d", i)})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualSchemas = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getSchemas()) {
-      while (resultSet.next()) {
-        final List<String> columns = new ArrayList<>();
-        for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
-          columns.add(resultSet.getString(column + 1));
-        }
-        actualSchemas.add(columns);
-      }
+      testData(resultSet, EXPECTED_GET_SCHEMAS_RESULTS);
     }
-    collector.checkThat(actualSchemas, is(expectedSchemas));
   }
 
   @Test
   public void testGetSchemasCanBeAccessedByNames() throws SQLException {
-    final List<List<String>> expectedSchemas =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("schema_name #%d", i), format("catalog_name #%d", i)})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualSchemas = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getSchemas()) {
-      while (resultSet.next()) {
-        actualSchemas.add(
-            ImmutableList.of(resultSet.getString("TABLE_SCHEM"), resultSet.getString("TABLE_CATALOG")));
-      }
+      testData(resultSet, ImmutableList.of("TABLE_SCHEM", "TABLE_CAT"), EXPECTED_GET_SCHEMAS_RESULTS);
     }
-    collector.checkThat(actualSchemas, is(expectedSchemas));
   }
 
   @Test
   public void testGetExportedKeysCanBeAccessedByIndices() throws SQLException {
-    final List<List<String>> expectedKeys =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("pk_catalog_name #%d", i),
-                format("pk_schema_name #%d", i),
-                format("pk_table_name #%d", i),
-                format("pk_column_name #%d", i),
-                format("fk_catalog_name #%d", i),
-                format("fk_schema_name #%d", i),
-                format("fk_table_name #%d", i),
-                format("fk_column_name #%d", i),
-                String.valueOf(i),
-                format("fk_key_name #%d", i),
-                format("pk_key_name #%d", i),
-                String.valueOf(i),
-                String.valueOf(i),
-                // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
-                null})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, "Test")) {
-      while (resultSet.next()) {
-        final List<String> columns = new ArrayList<>();
-        for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
-          columns.add(resultSet.getString(column + 1));
-        }
-        actualKeys.add(columns);
-      }
+      testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
-    collector.checkThat(actualKeys, is(expectedKeys));
   }
 
   @Test
   public void testGetExportedKeysCanBeAccessedByNames() throws SQLException {
-    final List<List<String>> expectedKeys =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("pk_catalog_name #%d", i),
-                format("pk_schema_name #%d", i),
-                format("pk_table_name #%d", i),
-                format("pk_column_name #%d", i),
-                format("fk_catalog_name #%d", i),
-                format("fk_schema_name #%d", i),
-                format("fk_table_name #%d", i),
-                format("fk_column_name #%d", i),
-                String.valueOf(i),
-                format("fk_key_name #%d", i),
-                format("pk_key_name #%d", i),
-                String.valueOf(i),
-                String.valueOf(i),
-                // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
-                null})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, "Test")) {
-      while (resultSet.next()) {
-        actualKeys.add(
-            ImmutableList.of(
-                resultSet.getString("PKTABLE_CAT"), resultSet.getString("PKTABLE_SCHEM"),
-                resultSet.getString("PKTABLE_NAME"), resultSet.getString("PKCOLUMN_NAME"),
-                resultSet.getString("FKTABLE_CAT"), resultSet.getString("FKTABLE_SCHEM"),
-                resultSet.getString("FKTABLE_NAME"), resultSet.getString("FKCOLUMN_NAME"),
-                resultSet.getString("KEY_SEQ"), resultSet.getString("FK_NAME"),
-                resultSet.getString("PK_NAME"), resultSet.getString("UPDATE_RULE"),
-                resultSet.getString("DELETE_RULE"), resultSet.getString("DEFERRABILITY")));
-      }
+      testData(
+          resultSet,
+          ImmutableList.of(
+              "PKTABLE_CAT",
+              "PKTABLE_NAME",
+              "FKTABLE_CAT",
+              "FKTABLE_NAME",
+              "KEY_SEQ",
+              "PK_NAME",
+              "DELETE_RULE"),
+          EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS
+      );
     }
-    collector.checkThat(actualKeys, is(expectedKeys));
   }
 
   @Test
   public void testGetImportedKeysCanBeAccessedByIndices() throws SQLException {
-    final List<List<String>> expectedKeys =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("pk_catalog_name #%d", i),
-                format("pk_schema_name #%d", i),
-                format("pk_table_name #%d", i),
-                format("pk_column_name #%d", i),
-                format("fk_catalog_name #%d", i),
-                format("fk_schema_name #%d", i),
-                format("fk_table_name #%d", i),
-                format("fk_column_name #%d", i),
-                String.valueOf(i),
-                format("fk_key_name #%d", i),
-                format("pk_key_name #%d", i),
-                String.valueOf(i),
-                String.valueOf(i),
-                // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
-                null})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, "Test")) {
-      while (resultSet.next()) {
-        final List<String> columns = new ArrayList<>();
-        for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
-          columns.add(resultSet.getString(column + 1));
-        }
-        actualKeys.add(columns);
-      }
+      testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
-    collector.checkThat(actualKeys, is(expectedKeys));
   }
 
   @Test
   public void testGetImportedKeysCanBeAccessedByNames() throws SQLException {
-    final List<List<String>> expectedKeys =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("pk_catalog_name #%d", i),
-                format("pk_schema_name #%d", i),
-                format("pk_table_name #%d", i),
-                format("pk_column_name #%d", i),
-                format("fk_catalog_name #%d", i),
-                format("fk_schema_name #%d", i),
-                format("fk_table_name #%d", i),
-                format("fk_column_name #%d", i),
-                String.valueOf(i),
-                format("fk_key_name #%d", i),
-                format("pk_key_name #%d", i),
-                String.valueOf(i),
-                String.valueOf(i),
-                // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
-                null})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, "Test")) {
-      while (resultSet.next()) {
-        actualKeys.add(
-            ImmutableList.of(
-                resultSet.getString("PKTABLE_CAT"), resultSet.getString("PKTABLE_SCHEM"),
-                resultSet.getString("PKTABLE_NAME"), resultSet.getString("PKCOLUMN_NAME"),
-                resultSet.getString("FKTABLE_CAT"), resultSet.getString("FKTABLE_SCHEM"),
-                resultSet.getString("FKTABLE_NAME"), resultSet.getString("FKCOLUMN_NAME"),
-                resultSet.getString("KEY_SEQ"), resultSet.getString("FK_NAME"),
-                resultSet.getString("PK_NAME"), resultSet.getString("UPDATE_RULE"),
-                resultSet.getString("DELETE_RULE"), resultSet.getString("DEFERRABILITY")));
-      }
+      testData(resultSet,
+          ImmutableList.of("PKTABLE_CAT",
+              "PKTABLE_NAME",
+              "FKTABLE_CAT",
+              "FKTABLE_NAME",
+              "KEY_SEQ",
+              "PK_NAME",
+              "DELETE_RULE"),
+          EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS
+      );
     }
-    collector.checkThat(actualKeys, is(expectedKeys));
   }
 
   @Test
   public void testPrimaryKeysCanBeAccessedByIndices() throws SQLException {
-    final List<List<String>> expectedSchemas =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("catalog_name #%d", i),
-                format("schema_name #%d", i),
-                format("table_name #%d", i),
-                format("column_name #%d", i),
-                String.valueOf(i),
-                format("key_name #%d", i)})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, "Test")) {
-      while (resultSet.next()) {
-        final List<String> columns = new ArrayList<>();
-        for (int column = 0; column < resultSet.getMetaData().getColumnCount(); column++) {
-          columns.add(resultSet.getString(column + 1));
-        }
-        actualKeys.add(columns);
-      }
+      testData(resultSet, EXPECTED_PRIMARY_KEYS_RESULTS);
     }
-    collector.checkThat(actualKeys, is(expectedSchemas));
   }
 
   @Test
   public void testPrimaryKeysCanBeAccessedByNames() throws SQLException {
-    final List<List<String>> expectedSchemas =
-        range(0, 10)
-            .mapToObj(i -> new String[]{
-                format("catalog_name #%d", i),
-                format("schema_name #%d", i),
-                format("table_name #%d", i),
-                format("column_name #%d", i),
-                String.valueOf(i),
-                format("key_name #%d", i)})
-            .map(Arrays::asList)
-            .collect(toList());
-    final List<List<String>> actualKeys = new ArrayList<>();
     try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, "Test")) {
-      while (resultSet.next()) {
-        actualKeys.add(
-            ImmutableList.of(
-                resultSet.getString("TABLE_CAT"), resultSet.getString("TABLE_SCHEM"),
-                resultSet.getString("TABLE_NAME"), resultSet.getString("COLUMN_NAME"),
-                resultSet.getString("KEY_SEQ"), resultSet.getString("PK_NAME")));
-      }
+      testData(resultSet,
+          ImmutableList.of(
+              "PKTABLE_CAT",
+              "TABLE_CAT",
+              "TABLE_NAME",
+              "KEY_SEQ"),
+          EXPECTED_PRIMARY_KEYS_RESULTS
+      );
     }
-    collector.checkThat(actualKeys, is(expectedSchemas));
+  }
+
+  private <T> void testData(final ResultSet resultSet, final List<List<T>> expectedResults) throws SQLException {
+    testData(resultSet, range(0, resultSet.getMetaData().getColumnCount()).toArray(), expectedResults);
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T> void testData(final ResultSet resultSet, final List<String> columnNames,
+                            final List<List<T>> expectedResults) throws SQLException {
+    testData(
+        resultSet,
+        data -> {
+          final List<T> columns = new ArrayList<>();
+          for (final String columnName : columnNames) {
+            try {
+              columns.add((T) resultSet.getObject(columnName));
+            } catch (final SQLException e) {
+              collector.addError(e);
+            }
+          }
+          return columns;
+        },
+        expectedResults);
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T> void testData(final ResultSet resultSet, final int[] columnIndices,
+                            final List<List<T>> expectedResults) throws SQLException {
+    testData(
+        resultSet,
+        data -> {
+          final List<T> columns = new ArrayList<>();
+          for (final int columnIndex : columnIndices) {
+            try {
+              columns.add((T) resultSet.getObject(columnIndex));
+            } catch (final SQLException e) {
+              collector.addError(e);
+            }
+          }
+          return columns;
+        },
+        expectedResults);
+  }
+
+  private <T> void testData(final ResultSet resultSet, final Function<ResultSet, List<T>> dataConsumer,
+                            final List<List<T>> expectedResults) throws SQLException {
+    final List<List<T>> actualResults = new ArrayList<>();
+    while (resultSet.next()) {
+      actualResults.add(dataConsumer.apply(resultSet));
+    }
+    collector.checkThat(actualResults, is(expectedResults));
   }
 }
 
