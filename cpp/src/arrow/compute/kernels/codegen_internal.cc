@@ -367,7 +367,7 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
     s1 = decimal->scale();
   } else {
     DCHECK(is_integer(left_type->id()));
-    p1 = static_cast<int32_t>(std::ceil(std::log10(bit_width(left_type->id()))));
+    ARROW_ASSIGN_OR_RAISE(p1, MaxDecimalDigitsForInteger(left_type->id()));
     s1 = 0;
   }
   if (is_decimal(right_type->id())) {
@@ -376,7 +376,7 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
     s2 = decimal->scale();
   } else {
     DCHECK(is_integer(right_type->id()));
-    p2 = static_cast<int32_t>(std::ceil(std::log10(bit_width(right_type->id()))));
+    ARROW_ASSIGN_OR_RAISE(p2, MaxDecimalDigitsForInteger(right_type->id()));
     s2 = 0;
   }
   if (s1 < 0 || s2 < 0) {
