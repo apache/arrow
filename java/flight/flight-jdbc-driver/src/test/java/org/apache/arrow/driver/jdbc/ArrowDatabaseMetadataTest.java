@@ -361,7 +361,7 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testGetSchemasCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getSchemas()) {
-      resultSetTestUtils.testData(resultSet, ImmutableList.of("TABLE_SCHEM", "TABLE_CAT"),
+      resultSetTestUtils.testData(resultSet, ImmutableList.of("TABLE_SCHEM", "TABLE_CATALOG"),
           EXPECTED_GET_SCHEMAS_RESULTS);
     }
   }
