@@ -368,6 +368,12 @@ then typically wraps around).  Most functions are also available in an
 overflow-checking variant, suffixed ``_checked``, which returns
 an ``Invalid`` :class:`Status` when overflow is detected.
 
+For functions which support decimal inputs (currently ``add``, ``subtract``,
+``multiply``, and ``divide`` and their checked variants), decimals of different
+precisions/scales will be promoted appropriately. Mixed decimal and
+floating-point arguments will cast all arguments to floating-point, while mixed
+decimal and integer arguments will cast all arguments to decimals.
+
 +------------------+--------+----------------+----------------------+-------+
 | Function name    | Arity  | Input types    | Output type          | Notes |
 +==================+========+================+======================+=======+
@@ -545,14 +551,14 @@ comparison. If any of the input elements in a pair is null, the corresponding
 output element is null. Decimal arguments will be promoted in the same way as
 for ``add`` and ``subtract``.
 
-+--------------------------+------------+------------------------------------------------------+---------------------+
-| Function names           | Arity      | Input types                                          | Output type         |
-+==========================+============+======================================================+=====================+
-| equal, not_equal         | Binary     | Numeric, Temporal, Decimal, Binary- and String-like  | Boolean             |
-+--------------------------+------------+------------------------------------------------------+---------------------+
-| greater, greater_equal,  | Binary     | Numeric, Temporal, Decimal, Binary- and String-like  | Boolean             |
-| less, less_equal         |            |                                                      |                     |
-+--------------------------+------------+------------------------------------------------------+---------------------+
++--------------------------+------------+---------------------------------------------+---------------------+
+| Function names           | Arity      | Input types                                 | Output type         |
++==========================+============+=============================================+=====================+
+| equal, not_equal         | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
++--------------------------+------------+---------------------------------------------+---------------------+
+| greater, greater_equal,  | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
+| less, less_equal         |            |                                             |                     |
++--------------------------+------------+---------------------------------------------+---------------------+
 
 These functions take any number of inputs of numeric type (in which case they
 will be cast to the :ref:`common numeric type <common-numeric-type>` before
