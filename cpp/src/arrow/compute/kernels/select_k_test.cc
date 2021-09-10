@@ -73,24 +73,23 @@ Result<std::shared_ptr<Array>> SelectK(const Datum& values,
   }
 }
 
-void ValidateSelectK(const Datum& datum, int64_t k, Array& select_k_indices,
-                     SortOrder order, bool stable_sort = false) {
+void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder order,
+                     bool stable_sort = false) {
   ASSERT_TRUE(datum.is_arraylike());
   ASSERT_OK_AND_ASSIGN(auto sorted_indices,
                        SortIndices(datum, SortOptions({SortKey("unused", order)})));
 
-  if (k < datum.length()) {
-    // head(k)
-    auto head_k_indices = sorted_indices->Slice(0, select_k_indices.length());
-    if (stable_sort) {
-      AssertDatumsEqual(*head_k_indices, select_k_indices);
-    } else {
-      ASSERT_OK_AND_ASSIGN(auto expected,
-                           Take(datum, *head_k_indices, TakeOptions::NoBoundsCheck()));
-      ASSERT_OK_AND_ASSIGN(auto actual,
-                           Take(datum, select_k_indices, TakeOptions::NoBoundsCheck()));
-      AssertDatumsEqual(Datum(expected), Datum(actual));
-    }
+  int64_t k = select_k_indices.length();
+  // head(k)
+  auto head_k_indices = sorted_indices->Slice(0, k);
+  if (stable_sort) {
+    AssertDatumsEqual(*head_k_indices, select_k_indices);
+  } else {
+    ASSERT_OK_AND_ASSIGN(auto expected,
+                         Take(datum, *head_k_indices, TakeOptions::NoBoundsCheck()));
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         Take(datum, select_k_indices, TakeOptions::NoBoundsCheck()));
+    AssertDatumsEqual(Datum(expected), Datum(actual));
   }
 }
 
@@ -100,12 +99,12 @@ class TestSelectKBase : public TestBase {
 
  protected:
   template <SortOrder order>
-  void AssertSelectKArray(const std::shared_ptr<Array> values, int n) {
+  void AssertSelectKArray(const std::shared_ptr<Array> values, int k) {
     std::shared_ptr<Array> select_k;
-    ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(Datum(*values), n));
+    ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(Datum(*values), k));
     ASSERT_EQ(select_k->data()->null_count, 0);
     ValidateOutput(*select_k);
-    ValidateSelectK(Datum(*values), n, *select_k, order);
+    ValidateSelectK(Datum(*values), *select_k, order);
   }
 
   void AssertTopKArray(const std::shared_ptr<Array> values, int n) {
@@ -266,7 +265,7 @@ struct TestSelectKWithChunkedArray : public ::testing::Test {
   template <SortOrder order = SortOrder::Descending>
   void AssertSelectK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {
     ASSERT_OK_AND_ASSIGN(auto select_k_array, SelectK<order>(Datum(*chunked_array), k));
-    ValidateSelectK(Datum(*chunked_array), k, *select_k_array, order);
+    ValidateSelectK(Datum(*chunked_array), *select_k_array, order);
   }
 
   void AssertTopK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {

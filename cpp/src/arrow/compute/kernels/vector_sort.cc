@@ -1814,14 +1814,11 @@ const FunctionDoc select_k_doc(
      "other non-null value, but smaller than null values."),
     {"input"}, "SelectKOptions");
 
-Result<std::shared_ptr<ArrayData>> MakeMutableArrayForNumericBasedType(
+Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
-  auto buffer_size = BitUtil::BytesForBits(
-      length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
-  std::vector<std::shared_ptr<Buffer>> buffers(2);
-  ARROW_ASSIGN_OR_RAISE(buffers[1], AllocateResizableBuffer(buffer_size, memory_pool));
-  auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
-  return out;
+  auto buffer_size = length * sizeof(uint64_t);
+  ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(buffer_size, memory_pool));
+  return ArrayData::Make(uint64(), length, {nullptr, std::move(data)}, /*null_count=*/0);
 }
 
 template <SortOrder order>
@@ -1907,9 +1904,8 @@ class ArraySelecter : public TypeVisitor {
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(
-        auto take_indices,
-        MakeMutableArrayForNumericBasedType(uint64(), out_size, ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
+                                                                    ctx_->memory_pool()));
 
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
@@ -2020,9 +2016,8 @@ class ChunkedArraySelecter : public TypeVisitor {
     }
 
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(
-        auto take_indices,
-        MakeMutableArrayForNumericBasedType(uint64(), out_size, ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
+                                                                    ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       auto top_item = heap.top();
@@ -2133,9 +2128,8 @@ class RecordBatchSelecter : public TypeVisitor {
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(
-        auto take_indices,
-        MakeMutableArrayForNumericBasedType(uint64(), out_size, ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
+                                                                    ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();
@@ -2207,7 +2201,8 @@ class TableSelecter : public TypeVisitor {
     StablePartitioner partitioner;
     auto nulls_begin =
         partitioner(indices_begin, indices_end, [&first_sort_key](uint64_t index) {
-          const auto chunk = first_sort_key.GetChunk<ArrayType>((int64_t)index);
+          const auto chunk =
+              first_sort_key.GetChunk<ArrayType>(static_cast<int64_t>(index));
           return !chunk.IsNull();
         });
     DCHECK_EQ(indices_end - nulls_begin, first_sort_key.null_count);
@@ -2303,9 +2298,8 @@ class TableSelecter : public TypeVisitor {
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(
-        auto take_indices,
-        MakeMutableArrayForNumericBasedType(uint64(), out_size, ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
+                                                                    ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();

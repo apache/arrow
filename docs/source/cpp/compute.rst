@@ -1352,25 +1352,17 @@ In these functions, nulls are considered greater than any other value
 Floating-point NaN values are considered greater than any other non-null
 value, but smaller than nulls.
 
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| Function name         | Arity      | Input types                 | Output type       | Options class                  | Notes          |
-+=======================+============+=============================+===================+================================+================+
-| partition_nth_indices | Unary      | Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)      |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| partition_nth_indices | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`PartitionNthOptions`  | \(1)           |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| array_sort_indices    | Unary      | Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(2) \(3) \(4) |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| array_sort_indices    | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`ArraySortOptions`     | \(2) \(4)      |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(2) \(3) \(5) |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`SortOptions`          | \(2) \(5)      |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| select_k              | Unary      | Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(5) \(3) \(6) |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
-| select_k              | Unary      | Boolean, Numeric, Temporal  | UInt64            | :struct:`SelectKOptions`       | \(5) \(6)      |
-+-----------------------+------------+-----------------------------+-------------------+--------------------------------+----------------+
++-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
+| Function name         | Arity      | Input types                                             | Output type       | Options class                  | Notes          |
++=======================+============+=========================================================+===================+================================+================+
+| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
+| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(2) \(4) \(3) |
++-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
+| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(5) \(6) \(3) |
++-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
+| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(2) \(5) \(3) |
++-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 
 * \(1) The output is an array of indices into the input array, that define
   a partial non-stable sort such that the *N*'th index points to the *N*'th
