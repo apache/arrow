@@ -52,7 +52,11 @@ public final class ResultSetTestUtils {
   public static <T> void testData(final ResultSet resultSet, final List<List<T>> expectedResults,
                                   final ErrorCollector collector)
       throws SQLException {
-    testData(resultSet, range(0, resultSet.getMetaData().getColumnCount()).toArray(), expectedResults, collector);
+    testData(
+        resultSet,
+        range(1, resultSet.getMetaData().getColumnCount() + 1).toArray(),
+        expectedResults,
+        collector);
   }
 
   /**
