@@ -66,8 +66,6 @@
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/s3/model/UploadPartRequest.h>
 
-#include "arrow/util/windows_fixup.h"
-
 #include "arrow/buffer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
@@ -87,6 +85,7 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
@@ -1530,6 +1529,23 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     }
   }
 
+  // Tests to see if a bucket exists
+  Result<bool> BucketExists(const std::string& bucket) {
+    S3Model::HeadBucketRequest req;
+    req.SetBucket(ToAwsString(bucket));
+
+    auto outcome = client_->HeadBucket(req);
+    if (!outcome.IsSuccess()) {
+      if (!IsNotFound(outcome.GetError())) {
+        return ErrorToStatus(
+            std::forward_as_tuple("When testing for bucket existence '", bucket, "': "),
+            outcome.GetError());
+      }
+      return false;
+    }
+    return true;
+  }
+
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
     S3Model::CreateBucketConfiguration config;
@@ -2159,7 +2175,10 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
   // Create object
   if (recursive) {
     // Ensure bucket exists
-    RETURN_NOT_OK(impl_->CreateBucket(path.bucket));
+    ARROW_ASSIGN_OR_RAISE(bool bucket_exists, impl_->BucketExists(path.bucket));
+    if (!bucket_exists) {
+      RETURN_NOT_OK(impl_->CreateBucket(path.bucket));
+    }
     // Ensure that all parents exist, then the directory itself
     std::string parent_key;
     for (const auto& part : path.key_parts) {
