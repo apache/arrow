@@ -320,7 +320,8 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
     dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
-    return dir_queue;
+    // std::move required to make RTools 3.5 mingw compiler happy
+    return std::move(dir_queue);
   }
 
   Future<> DoDestroy() override {
