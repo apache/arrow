@@ -1035,12 +1035,19 @@ test_that("log functions", {
     df
   )
 
-  # test log(, base = (length-1))
+  # test log(, base = (length == 1))
   expect_dplyr_equal(
     input %>%
       mutate(y = log(x, base = 5)) %>%
       collect(),
     df
+  )
+
+  # test log(, base = (length != 1))
+  expect_error(
+    nse_funcs$log(Expression$scalar(10), base = 5:6),
+    "base with length != 1 not supported by Arrow",
+    fixed = TRUE
   )
 
   # test log(, base = Expression)

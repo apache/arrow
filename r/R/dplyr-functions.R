@@ -698,6 +698,10 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
     return(Expression$create("logb_checked", x, base))
   }
 
+  if (!is.numeric(base) || length(base) != 1) {
+    arrow_not_supported("base with length != 1")
+  }
+
   if (base == exp(1)) {
     return(Expression$create("ln_checked", x))
   }
