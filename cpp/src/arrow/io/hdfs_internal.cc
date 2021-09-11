@@ -215,7 +215,7 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
       }));
   ARROW_ASSIGN_OR_RAISE(search_suffixes,
                         MakeFilenameVector({"", "/jre/lib/amd64/server",
-                                            "/lib/amd64/server", "/lib/server"}));
+                                            "/lib/amd64/server", "/lib/server","/jre/lib/aarch64/server"}));
   file_name = "libjvm.so";
 #endif
 
