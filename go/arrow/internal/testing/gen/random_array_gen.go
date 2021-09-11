@@ -69,10 +69,12 @@ func (r *RandomArrayGenerator) Boolean(size int64, prob, nullProb float64) array
 
 	buffers[0] = memory.NewResizableBuffer(r.mem)
 	buffers[0].Resize(int(bitutil.BytesForBits(size)))
+	defer buffers[0].Release()
 	nullcount = r.GenerateBitmap(buffers[0].Bytes(), size, nullProb)
 
 	buffers[1] = memory.NewResizableBuffer(r.mem)
 	buffers[1].Resize(int(bitutil.BytesForBits(size)))
+	defer buffers[1].Release()
 	r.GenerateBitmap(buffers[1].Bytes(), size, prob)
 
 	data := array.NewData(arrow.FixedWidthTypes.Boolean, int(size), buffers, nil, int(nullcount), 0)
@@ -96,6 +98,10 @@ func (r *RandomArrayGenerator) baseGenPrimitive(size int64, prob float64, byteWi
 
 func (r *RandomArrayGenerator) Int8(size int64, min, max int8, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int8SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Int8Traits.CastFromBytes(buffers[1].Bytes())
@@ -110,6 +116,10 @@ func (r *RandomArrayGenerator) Int8(size int64, min, max int8, prob float64) arr
 
 func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint8SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint8Traits.CastFromBytes(buffers[1].Bytes())
@@ -124,6 +134,10 @@ func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) a
 
 func (r *RandomArrayGenerator) Int16(size int64, min, max int16, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int16SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Int16Traits.CastFromBytes(buffers[1].Bytes())
@@ -138,6 +152,10 @@ func (r *RandomArrayGenerator) Int16(size int64, min, max int16, prob float64) a
 
 func (r *RandomArrayGenerator) Uint16(size int64, min, max uint16, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint16SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint16Traits.CastFromBytes(buffers[1].Bytes())
@@ -152,6 +170,10 @@ func (r *RandomArrayGenerator) Uint16(size int64, min, max uint16, prob float64)
 
 func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int32SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Int32Traits.CastFromBytes(buffers[1].Bytes())
@@ -166,6 +188,10 @@ func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) a
 
 func (r *RandomArrayGenerator) Uint32(size int64, min, max uint32, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint32SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint32Traits.CastFromBytes(buffers[1].Bytes())
@@ -180,6 +206,10 @@ func (r *RandomArrayGenerator) Uint32(size int64, min, max uint32, prob float64)
 
 func (r *RandomArrayGenerator) Int64(size int64, min, max int64, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int64SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Int64Traits.CastFromBytes(buffers[1].Bytes())
@@ -194,6 +224,10 @@ func (r *RandomArrayGenerator) Int64(size int64, min, max int64, prob float64) a
 
 func (r *RandomArrayGenerator) Uint64(size int64, min, max uint64, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint64SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint64Traits.CastFromBytes(buffers[1].Bytes())
@@ -208,6 +242,10 @@ func (r *RandomArrayGenerator) Uint64(size int64, min, max uint64, prob float64)
 
 func (r *RandomArrayGenerator) Float32(size int64, min, max float32, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Float32SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Float32Traits.CastFromBytes(buffers[1].Bytes())
@@ -222,6 +260,10 @@ func (r *RandomArrayGenerator) Float32(size int64, min, max float32, prob float6
 
 func (r *RandomArrayGenerator) Float64(size int64, min, max float64, prob float64) array.Interface {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Float64SizeBytes)
+	for _, b := range buffers {
+		defer b.Release()
+	}
+
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Float64Traits.CastFromBytes(buffers[1].Bytes())

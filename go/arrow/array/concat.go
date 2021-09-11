@@ -266,6 +266,10 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 			return nil, err
 		}
 		childData := gatherChildrenRanges(data, 0, valueRanges)
+		for _, c := range childData {
+			defer c.Release()
+		}
+
 		out.buffers[1] = offsetBuffer
 		out.childData = make([]*Data, 1)
 		out.childData[0], err = concat(childData, mem)
@@ -274,6 +278,10 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		}
 	case *arrow.FixedSizeListType:
 		childData := gatherChildrenMultiplier(data, 0, int(dt.Len()))
+		for _, c := range childData {
+			defer c.Release()
+		}
+
 		children, err := concat(childData, mem)
 		if err != nil {
 			return nil, err
@@ -282,7 +290,12 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 	case *arrow.StructType:
 		out.childData = make([]*Data, len(dt.Fields()))
 		for i := range dt.Fields() {
-			childData, err := concat(gatherChildren(data, i), mem)
+			children := gatherChildren(data, i)
+			for _, c := range children {
+				defer c.Release()
+			}
+
+			childData, err := concat(children, mem)
 			if err != nil {
 				return nil, err
 			}
@@ -294,6 +307,10 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 			return nil, err
 		}
 		childData := gatherChildrenRanges(data, 0, valueRanges)
+		for _, c := range childData {
+			defer c.Release()
+		}
+
 		out.buffers[1] = offsetBuffer
 		out.childData = make([]*Data, 1)
 		out.childData[0], err = concat(childData, mem)

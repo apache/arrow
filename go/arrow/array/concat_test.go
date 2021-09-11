@@ -33,9 +33,12 @@ import (
 )
 
 func TestConcatenateValueBuffersNull(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
 	inputs := make([]array.Interface, 0)
 
-	bldr := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.Binary)
+	bldr := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
 	defer bldr.Release()
 
 	arr := bldr.NewArray()
@@ -47,8 +50,9 @@ func TestConcatenateValueBuffersNull(t *testing.T) {
 	defer arr.Release()
 	inputs = append(inputs, arr)
 
-	actual, err := array.Concatenate(inputs, memory.DefaultAllocator)
+	actual, err := array.Concatenate(inputs, mem)
 	assert.NoError(t, err)
+	defer actual.Release()
 
 	assert.True(t, array.ArrayEqual(actual, inputs[1]))
 }
@@ -81,7 +85,7 @@ func TestConcatenate(t *testing.T) {
 				seed:      0xdeadbeef,
 				dt:        tt.dt,
 				nullProbs: []float64{0.0, 0.1, 0.5, 0.9, 1.0},
-				sizes:     []int32{0, 1, 2, 4, 16, 31, 1234},
+				sizes:     []int32{ /*0,*/ 1, 2, 4, 16, 31, 1234},
 			})
 		})
 	}
@@ -96,10 +100,17 @@ type ConcatTestSuite struct {
 
 	nullProbs []float64
 	sizes     []int32
+
+	mem *memory.CheckedAllocator
 }
 
 func (cts *ConcatTestSuite) SetupSuite() {
-	cts.rng = gen.NewRandomArrayGenerator(cts.seed, memory.DefaultAllocator)
+	cts.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+	cts.rng = gen.NewRandomArrayGenerator(cts.seed, cts.mem)
+}
+
+func (cts *ConcatTestSuite) TearDownSuite() {
+	cts.mem.AssertSize(cts.T(), 0)
 }
 
 func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) array.Interface {
@@ -247,14 +258,22 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 			offsets := cts.offsets(sz, 3)
 			for _, np := range cts.nullProbs {
 				cts.Run(fmt.Sprintf("nullprob %0.2f", np), func() {
+					scopedMem := memory.NewCheckedAllocatorScope(cts.mem)
+					defer scopedMem.CheckSize(cts.T())
+
 					arr := cts.generateArr(int64(sz), np)
 					defer arr.Release()
 					expected := array.NewSlice(arr, int64(offsets[0]), int64(offsets[len(offsets)-1]))
 					defer expected.Release()
 
 					slices := cts.slices(arr, offsets)
-					actual, err := array.Concatenate(slices, memory.DefaultAllocator)
+					for _, s := range slices {
+						defer s.Release()
+					}
+
+					actual, err := array.Concatenate(slices, cts.mem)
 					cts.NoError(err)
+					defer actual.Release()
 
 					cts.True(array.ArrayEqual(expected, actual))
 					if len(actual.Data().Buffers()) > 0 {
