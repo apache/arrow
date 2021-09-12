@@ -126,5 +126,98 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
   SortOptions sort_options;
 };
 
+enum class JoinType {
+  LEFT_SEMI,
+  RIGHT_SEMI,
+  LEFT_ANTI,
+  RIGHT_ANTI,
+  INNER,
+  LEFT_OUTER,
+  RIGHT_OUTER,
+  FULL_OUTER
+};
+
+enum class JoinKeyCmp { EQ, IS };
+
+/// \brief Make a node which implements join operation using hash join strategy.
+class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr const char* default_output_prefix_for_left = "";
+  static constexpr const char* default_output_prefix_for_right = "";
+  HashJoinNodeOptions(
+      JoinType in_join_type, std::vector<FieldRef> in_left_keys,
+      std::vector<FieldRef> in_right_keys,
+      std::string output_prefix_for_left = default_output_prefix_for_left,
+      std::string output_prefix_for_right = default_output_prefix_for_right)
+      : join_type(in_join_type),
+        left_keys(std::move(in_left_keys)),
+        right_keys(std::move(in_right_keys)),
+        output_all(true),
+        output_prefix_for_left(std::move(output_prefix_for_left)),
+        output_prefix_for_right(std::move(output_prefix_for_right)) {
+    key_cmp.resize(left_keys.size());
+    for (size_t i = 0; i < left_keys.size(); ++i) {
+      key_cmp[i] = JoinKeyCmp::EQ;
+    }
+  }
+  HashJoinNodeOptions(
+      JoinType join_type, std::vector<FieldRef> left_keys,
+      std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+      std::vector<FieldRef> right_output,
+      std::string output_prefix_for_left = default_output_prefix_for_left,
+      std::string output_prefix_for_right = default_output_prefix_for_right)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)),
+        output_all(false),
+        left_output(std::move(left_output)),
+        right_output(std::move(right_output)),
+        output_prefix_for_left(std::move(output_prefix_for_left)),
+        output_prefix_for_right(std::move(output_prefix_for_right)) {
+    key_cmp.resize(left_keys.size());
+    for (size_t i = 0; i < left_keys.size(); ++i) {
+      key_cmp[i] = JoinKeyCmp::EQ;
+    }
+  }
+  HashJoinNodeOptions(
+      JoinType join_type, std::vector<FieldRef> left_keys,
+      std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+      std::vector<FieldRef> right_output, std::vector<JoinKeyCmp> key_cmp,
+      std::string output_prefix_for_left = default_output_prefix_for_left,
+      std::string output_prefix_for_right = default_output_prefix_for_right)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)),
+        output_all(false),
+        left_output(std::move(left_output)),
+        right_output(std::move(right_output)),
+        key_cmp(std::move(key_cmp)),
+        output_prefix_for_left(std::move(output_prefix_for_left)),
+        output_prefix_for_right(std::move(output_prefix_for_right)) {}
+
+  // type of join (inner, left, semi...)
+  JoinType join_type;
+  // key fields from left input
+  std::vector<FieldRef> left_keys;
+  // key fields from right input
+  std::vector<FieldRef> right_keys;
+  // if set all valid fields from both left and right input will be output
+  // (and field ref vectors for output fields will be ignored)
+  bool output_all;
+  // output fields passed from left input
+  std::vector<FieldRef> left_output;
+  // output fields passed from right input
+  std::vector<FieldRef> right_output;
+  // key comparison function (determines whether a null key is equal another null key or
+  // not)
+  std::vector<JoinKeyCmp> key_cmp;
+  // prefix added to names of output fields coming from left input (used to distinguish,
+  // if necessary, between fields of the same name in left and right input and can be left
+  // empty if there are no name collisions)
+  std::string output_prefix_for_left;
+  // prefix added to names of output fields coming from right input
+  std::string output_prefix_for_right;
+};
+
 }  // namespace compute
 }  // namespace arrow
