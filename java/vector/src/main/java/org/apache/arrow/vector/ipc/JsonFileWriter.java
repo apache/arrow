@@ -232,7 +232,7 @@ public class JsonFileWriter implements AutoCloseable {
             ArrowBuf vectorBufferTmp = vector.getAllocator().buffer(4);
             vectorBufferTmp.setInt(0, 0);
             writeValueToGenerator(bufferType, vectorBufferTmp, null, vector, i);
-            vectorBufferTmp.release();
+            vectorBufferTmp.close();
           } else {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);
           }
