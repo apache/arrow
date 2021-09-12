@@ -19,6 +19,7 @@ package scalar
 import "github.com/apache/arrow/go/arrow"
 
 //TODO(zeroshade): approxequals
+// tracked in https://issues.apache.org/jira/browse/ARROW-13980
 
 // Equals returns true if two scalars are equal, which means they have the same
 // datatype, validity and value.
