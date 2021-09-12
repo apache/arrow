@@ -127,7 +127,7 @@ public final class AutoCloseables {
       public Iterator<AutoCloseable> iterator() {
         return Arrays.stream(closeables)
             .flatMap((Iterable<? extends AutoCloseable> i)
-                -> StreamSupport.stream(((Iterable<AutoCloseable>) i).spliterator(), false))
+                -> StreamSupport.stream(((Iterable<AutoCloseable>) i).spliterator(), /*parallel=*/false))
             .iterator();
       }
     };
