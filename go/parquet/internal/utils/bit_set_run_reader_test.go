@@ -94,9 +94,6 @@ func TestBitSetRunReader(t *testing.T) {
 
 func (br *BitSetRunReaderSuite) SetupSuite() {
 	br.testOffsets = []int64{0, 1, 6, 7, 8, 33, 63, 64, 65, 71}
-}
-
-func (br *BitSetRunReaderSuite) SetupTest() {
 	br.T().Parallel()
 }
 
