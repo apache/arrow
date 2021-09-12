@@ -218,6 +218,10 @@ func (s *statistics) merge(other TypedStatistics) {
 		s.stats.NullCount += other.NullCount()
 	}
 	if other.HasDistinctCount() {
+		// this isn't technically correct as it should be keeping an actual set
+		// of the distinct values and then combining the sets to get a new count
+		// but for now we'll do this to match the C++ implementation at the current
+		// time.
 		s.stats.DistinctCount += other.DistinctCount()
 	}
 }
@@ -464,6 +468,9 @@ func (Int96Statistics) cleanStat(minMax minmaxPairInt96) *minmaxPairInt96       
 // - if any of min/max is NaN, return nothing
 // - if min is 0.0f replace with -0.0f
 // - if max is -0.0f replace with 0.0f
+//
+// https://issues.apache.org/jira/browse/PARQUET-1222 tracks the official documenting of
+// a well-defined order for floats and doubles.
 func (Float32Statistics) cleanStat(minMax minmaxPairFloat32) *minmaxPairFloat32 {
 	if math.IsNaN(float64(minMax[0])) || math.IsNaN(float64(minMax[1])) {
 		return nil
