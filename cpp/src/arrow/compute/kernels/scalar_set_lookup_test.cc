@@ -803,6 +803,24 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
   CheckIndexIn(fixed_size_binary(0), R"([])", R"([])", R"([])");
 }
 
+TEST_F(TestIndexInKernel, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+
+  CheckIndexIn(type,
+               /*input=*/R"([[5, -1, 5], null, [4, 5, 6], [5, -1, 5], [1, 2, 3]])",
+               /*value_set=*/R"([null, [4, 5, 6], [5, -1, 5]])",
+               /*expected=*/R"([2, 0, 1, 2, null])",
+               /*skip_nulls=*/false);
+
+  // Duplicates in value_set
+  CheckIndexIn(
+      type,
+      /*input=*/R"([[7, 8, 0], null, [0, 0, 0], [7, 8, 0], [0, 0, 1]])",
+      /*value_set=*/R"([null, null, [0, 0, 0], [0, 0, 0], [7, 8, 0], [7, 8, 0]])",
+      /*expected=*/R"([4, 0, 2, 4, null])",
+      /*skip_nulls=*/false);
+}
+
 TEST_F(TestIndexInKernel, Decimal) {
   auto type = decimal(2, 0);
 

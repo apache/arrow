@@ -784,44 +784,72 @@ agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(
     fun = "sum",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$any <- function(x, na.rm = FALSE) {
   list(
     fun = "any",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$all <- function(x, na.rm = FALSE) {
   list(
     fun = "all",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-
 agg_funcs$mean <- function(x, na.rm = FALSE) {
   list(
     fun = "mean",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-# na.rm not currently passed in due to ARROW-13691
 agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "stddev",
     data = x,
-    options = list(ddof = ddof)
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
-# na.rm not currently passed in due to ARROW-13691
 agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "variance",
     data = x,
-    options = list(ddof = ddof)
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
+}
+
+agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+  list(
+    fun = "count_distinct",
+    data = x,
+    options = list(na.rm = na.rm)
+  )
+}
+
+agg_funcs$n <- function() {
+  list(
+    fun = "sum",
+    data = Expression$scalar(1L),
+    options = list()
+  )
+}
+
+output_type <- function(fun, input_type) {
+  # These are quick and dirty heuristics.
+  if (fun %in% c("any", "all")) {
+    bool()
+  } else if (fun %in% "sum") {
+    # It may upcast to a bigger type but this is close enough
+    input_type
+  } else if (fun %in% c("mean", "stddev", "variance")) {
+    float64()
+  } else {
+    # Just so things don't error, assume the resulting type is the same
+    input_type
+  }
 }

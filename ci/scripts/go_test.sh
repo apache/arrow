@@ -21,6 +21,14 @@ set -ex
 
 source_dir=${1}/go
 
+testargs="-race"
+case "$(uname)" in
+    MINGW*)
+        # -race doesn't work on windows currently
+        testargs=""
+        ;;
+esac
+
 pushd ${source_dir}/arrow
 
 # the cgo implementation of the c data interface requires the "test"
@@ -28,7 +36,7 @@ pushd ${source_dir}/arrow
 # in .c files don't get included in non-test builds.
 
 for d in $(go list ./... | grep -v vendor); do
-    go test -tags "test" $d
+    go test $testargs -tags "test" $d
 done
 
 popd
@@ -36,7 +44,7 @@ popd
 pushd ${source_dir}/parquet
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $d
+    go test $testargs  $d
 done
 
 popd

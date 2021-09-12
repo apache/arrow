@@ -23,6 +23,47 @@
 
 G_BEGIN_DECLS
 
+#define GADATASET_TYPE_FILE_WRITE_OPTIONS       \
+  (gadataset_file_write_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFileWriteOptions,
+                         gadataset_file_write_options,
+                         GADATASET,
+                         FILE_WRITE_OPTIONS,
+                         GObject)
+struct _GADatasetFileWriteOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+
+#define GADATASET_TYPE_FILE_WRITER              \
+  (gadataset_file_writer_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFileWriter,
+                         gadataset_file_writer,
+                         GADATASET,
+                         FILE_WRITER,
+                         GObject)
+struct _GADatasetFileWriterClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+gboolean
+gadataset_file_writer_write_record_batch(GADatasetFileWriter *writer,
+                                         GArrowRecordBatch *record_batch,
+                                         GError **error);
+GARROW_AVAILABLE_IN_6_0
+gboolean
+gadataset_file_writer_write_record_batch_reader(GADatasetFileWriter *writer,
+                                                GArrowRecordBatchReader *reader,
+                                                GError **error);
+GARROW_AVAILABLE_IN_6_0
+gboolean
+gadataset_file_writer_finish(GADatasetFileWriter *writer,
+                             GError **error);
+
+
 #define GADATASET_TYPE_FILE_FORMAT (gadataset_file_format_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileFormat,
                          gadataset_file_format,
@@ -36,12 +77,24 @@ struct _GADatasetFileFormatClass
 
 GARROW_AVAILABLE_IN_3_0
 gchar *
-gadataset_file_format_get_type_name(GADatasetFileFormat *file_format);
+gadataset_file_format_get_type_name(GADatasetFileFormat *format);
+GARROW_AVAILABLE_IN_6_0
+GADatasetFileWriteOptions *
+gadataset_file_format_get_default_write_options(GADatasetFileFormat *format);
+GARROW_AVAILABLE_IN_6_0
+GADatasetFileWriter *
+gadataset_file_format_open_writer(GADatasetFileFormat *format,
+                                  GArrowOutputStream *destination,
+                                  GArrowFileSystem *file_system,
+                                  const gchar *path,
+                                  GArrowSchema *schema,
+                                  GADatasetFileWriteOptions *options,
+                                  GError **error);
 
 GARROW_AVAILABLE_IN_3_0
 gboolean
-gadataset_file_format_equal(GADatasetFileFormat *file_format,
-                            GADatasetFileFormat *other_file_format);
+gadataset_file_format_equal(GADatasetFileFormat *format,
+                            GADatasetFileFormat *other_format);
 
 
 #define GADATASET_TYPE_CSV_FILE_FORMAT (gadataset_csv_file_format_get_type())

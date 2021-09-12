@@ -120,6 +120,46 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   std::vector<SortKey> sort_keys;
 };
 
+/// \brief SelectK options
+class ARROW_EXPORT SelectKOptions : public FunctionOptions {
+ public:
+  explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
+
+  constexpr static char const kTypeName[] = "SelectKOptions";
+
+  static SelectKOptions Defaults() { return SelectKOptions{-1, {}}; }
+
+  static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names) {
+      keys.emplace_back(SortKey(name, SortOrder::Descending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Descending));
+    }
+    return SelectKOptions{k, keys};
+  }
+  static SelectKOptions BottomKDefault(int64_t k,
+                                       std::vector<std::string> key_names = {}) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names) {
+      keys.emplace_back(SortKey(name, SortOrder::Ascending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Ascending));
+    }
+    return SelectKOptions{k, keys};
+  }
+  bool is_top_k() const;
+
+  bool is_bottom_k() const;
+
+  /// The number of `k` elements to keep.
+  int64_t k;
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+};
+
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
@@ -251,6 +291,21 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = 
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
+
+/// \brief Returns the first k elements ordered by `options.keys`.
+///
+/// Return a sorted array with its elements rearranged in such
+/// a way that the value of the element in k-th position (options.k) is in the position it
+/// would be in a sorted datum ordered by `options.keys`. Null like values will be not
+/// part of the output. Output is not guaranteed to be stable.
+///
+/// \param[in] datum datum to be partitioned
+/// \param[in] options options
+/// \param[in] ctx the function execution context, optional
+/// \return a datum with the same schema as the input
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum, SelectKOptions options,
+                                               ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array in the
 /// specified order.

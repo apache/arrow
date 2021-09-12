@@ -451,11 +451,10 @@ cdef class ConvertOptions(_Weakrefable):
         string columns.
         If false, then all strings are valid string values.
     quoted_strings_can_be_null: bool, optional (default True)
-        Whether string / binary columns can have quoted null values.
-        If true *and* strings_can_be_null is true, then strings in
-        null_values are considered null for string columns, even when
-        quoted.
-        Otherwise, then all quoted strings are valid string values.
+        Whether quoted values can be null.
+        If true, then strings in "null_values" are also considered null
+        when they appear quoted in the CSV file. Otherwise, quoted values
+        are never considered null.
     auto_dict_encode: bool, optional (default False)
         Whether to try to automatically dict-encode string / binary data.
         If true, then when type inference detects a string or binary column,
@@ -543,7 +542,7 @@ cdef class ConvertOptions(_Weakrefable):
     @property
     def quoted_strings_can_be_null(self):
         """
-        Whether string / binary columns can have quoted null values.
+        Whether quoted values can be null.
         """
         return deref(self.options).quoted_strings_can_be_null
 

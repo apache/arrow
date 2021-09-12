@@ -22,6 +22,7 @@
 #include <mach-o/dyld.h>
 #endif
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 

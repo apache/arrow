@@ -19,10 +19,9 @@ class TestArrowTable < Test::Unit::TestCase
   def setup
     Dir.mktmpdir do |tmpdir|
       @dir = tmpdir
-      @path = File.join(@dir, "table.arrow")
+      @path = File.join(@dir, "data", "table.arrow")
       @table = Arrow::Table.new(visible: [true, false, true],
                                 point: [1, 2, 3])
-      @table.save(@path)
       yield
     end
   end
@@ -40,12 +39,14 @@ class TestArrowTable < Test::Unit::TestCase
     def test_no_scheme
       Dir.chdir(@dir) do
         uri = URI(File.basename(@path))
+        @table.save(uri)
         assert_equal(@table, Arrow::Table.load(uri))
       end
     end
 
     def test_file
       uri = build_file_uri(@path)
+      @table.save(uri)
       assert_equal(@table, Arrow::Table.load(uri))
     end
   end

@@ -16,16 +16,7 @@
 // under the License.
 
 const fs = require("fs");
-
-function haveJIRAID(title) {
-  if (!title) {
-    return false;
-  }
-  if (title.startsWith("MINOR: ")) {
-    return true;
-  }
-  return /^(WIP:?\s*)?(ARROW|PARQUET)-\d+/.test(title);
-}
+const helpers = require("./helpers.js");
 
 async function commentOpenJIRAIssue(github, context, pullRequestNumber) {
   const {data: comments} = await github.issues.listComments({
@@ -50,7 +41,7 @@ async function commentOpenJIRAIssue(github, context, pullRequestNumber) {
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  if (!haveJIRAID(title)) {
+  if (!helpers.haveJIRAID(title)) {
     await commentOpenJIRAIssue(github, context, pullRequestNumber);
   }
 };

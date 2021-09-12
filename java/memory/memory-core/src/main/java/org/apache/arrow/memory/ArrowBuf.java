@@ -1195,51 +1195,8 @@ public final class ArrowBuf implements AutoCloseable {
     }
   }
 
-  /**
-   * Following are wrapper methods to keep this backward compatible.
-   */
-  @Deprecated
-  public void release() {
-    referenceManager.release();
-  }
-
-  @Deprecated
-  public void release(int decrement) {
-    referenceManager.release(decrement);
-  }
-
-  @Deprecated
-  public void retain() {
-    referenceManager.retain();
-  }
-
-  @Deprecated
-  public void retain(int increment) {
-    referenceManager.retain(increment);
-  }
-
-  @Deprecated
   public ArrowBuf clear() {
     this.readerIndex = this.writerIndex = 0;
     return this;
   }
-
-  /**
-   * Initialize the reader and writer index.
-   * @param readerIndex index to read from
-   * @param writerIndex index to write to
-   * @return this
-   */
-  @Deprecated
-  public ArrowBuf setIndex(int readerIndex, int writerIndex) {
-    if (readerIndex >= 0 && readerIndex <= writerIndex && writerIndex <= this.capacity()) {
-      this.readerIndex = readerIndex;
-      this.writerIndex = writerIndex;
-      return this;
-    } else {
-      throw new IndexOutOfBoundsException(String.format("readerIndex: %d, writerIndex: %d " +
-       "(expected:0 <= readerIndex <= writerIndex <= capacity(%d))", readerIndex, writerIndex, this.capacity()));
-    }
-  }
-
 }

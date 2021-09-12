@@ -413,6 +413,14 @@ TYPED_TEST(TestStringKernels, AsciiCapitalize) {
                    "\"!hello, world!\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiTitle) {
+  this->CheckUnary(
+      "ascii_title",
+      R"([null, "", "b", "aAaz;ZeA&", "arRoW", "iI", "a.a.a..A", "hEllO, WoRld!", "foo   baR;heHe0zOP", "!%$^.,;"])",
+      this->type(),
+      R"([null, "", "B", "Aaaz;Zea&", "Arrow", "Ii", "A.A.A..A", "Hello, World!", "Foo   Bar;Hehe0Zop", "!%$^.,;"])");
+}
+
 TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", "[]", this->type(), "[]");
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
@@ -522,7 +530,7 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
   // test maximum buffer growth
   this->CheckUnary("utf8_swapcase", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
 
-  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+  this->CheckUnary("utf8_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
                    "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
 
   // Test invalid data
@@ -532,13 +540,21 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
 }
 
 TYPED_TEST(TestStringKernels, Utf8Capitalize) {
-  this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
+  this->CheckUnary("utf8_capitalize", "[]", this->type(), "[]");
   this->CheckUnary("utf8_capitalize",
                    "[\"aAazZæÆ&\", null, \"\", \"b\", \"ɑɽⱤoW\", \"ıI\", \"ⱥⱥⱥȺ\", "
                    "\"hEllO, WoRld!\", \"$. A3\", \"!ɑⱤⱤow\"]",
                    this->type(),
                    "[\"Aaazzææ&\", null, \"\", \"B\", \"Ɑɽɽow\", \"Ii\", \"Ⱥⱥⱥⱥ\", "
                    "\"Hello, world!\", \"$. a3\", \"!ɑɽɽow\"]");
+}
+
+TYPED_TEST(TestStringKernels, Utf8Title) {
+  this->CheckUnary(
+      "utf8_title",
+      R"([null, "", "b", "aAaz;ZæÆ&", "ɑɽⱤoW", "ıI", "ⱥ.ⱥ.ⱥ..Ⱥ", "hEllO, WoRld!", "foo   baR;héHé0zOP", "!%$^.,;"])",
+      this->type(),
+      R"([null, "", "B", "Aaaz;Zææ&", "Ɑɽɽow", "Ii", "Ⱥ.Ⱥ.Ⱥ..Ⱥ", "Hello, World!", "Foo   Bar;Héhé0Zop", "!%$^.,;"])");
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
@@ -684,7 +700,6 @@ TYPED_TEST(TestStringKernels, IsPrintableAscii) {
 
 TYPED_TEST(TestStringKernels, IsSpaceAscii) {
   // \xe2\x80\x88 is punctuation space
-  // Note: for ascii version, the non-ascii chars are seen as non-cased
   this->CheckUnary("ascii_is_space", "[\" \", null, \"  \", \"\\t\\r\"]", boolean(),
                    "[true, null, true, true]");
   this->CheckUnary("ascii_is_space", "[\" a\", null, \"a \", \"~\", \"\xe2\x80\x88\"]",
@@ -692,8 +707,7 @@ TYPED_TEST(TestStringKernels, IsSpaceAscii) {
 }
 
 TYPED_TEST(TestStringKernels, IsTitleAscii) {
-  // ٣ is arabic 3 (decimal), Φ capital
-  // Note: for ascii version, the non-ascii chars are seen as non-cased
+  // ٣ is Arabic 3 (decimal), Φ capital
   this->CheckUnary("ascii_is_title",
                    "[\"Is\", null, \"Is Title\", \"Is٣Title\", \"Is_Ǆ\", \"Φ\", \"Ǆ\"]",
                    boolean(), "[true, null, true, true, true, false, false]");

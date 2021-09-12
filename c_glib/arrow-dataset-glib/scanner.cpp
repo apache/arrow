@@ -18,6 +18,7 @@
  */
 
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/reader.hpp>
 #include <arrow-glib/table.hpp>
 
 #include <arrow-dataset-glib/dataset.hpp>
@@ -223,6 +224,24 @@ gadataset_scanner_builder_new(GADatasetDataset *dataset, GError **error)
   } else {
     return NULL;
   }
+}
+
+/**
+ * gadataset_scanner_builder_new_record_batch_reader:
+ * @reader: A #GArrowRecordBatchReader that produces record batches.
+ *
+ * Returns: (nullable): A newly created #GADatasetScannerBuilder.
+ *
+ * Since: 6.0.0
+ */
+GADatasetScannerBuilder *
+gadataset_scanner_builder_new_record_batch_reader(
+  GArrowRecordBatchReader *reader)
+{
+  auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
+  auto arrow_scanner_builder =
+    arrow::dataset::ScannerBuilder::FromRecordBatchReader(arrow_reader);
+  return gadataset_scanner_builder_new_raw(&arrow_scanner_builder);
 }
 
 /**

@@ -60,7 +60,7 @@ to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),
                       auto_disconnect = TRUE) {
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
   duckdb::duckdb_register_arrow(con, table_name, .data)
 
   tbl <- tbl(con, table_name)

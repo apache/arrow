@@ -153,7 +153,7 @@ public class TestVectorReset {
 
   @Test
   public void testUnionTypeReset() {
-    try (final UnionVector vector = new UnionVector("Union", allocator, null);
+    try (final UnionVector vector = new UnionVector("Union", allocator, /* field type */ null, /* call-back */ null);
          final IntVector dataVector = new IntVector("Int", allocator)
     ) {
       vector.getBufferSize();

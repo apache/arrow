@@ -98,6 +98,44 @@ struct EnumTraits<compute::CompareOperator>
     return "<INVALID>";
   }
 };
+template <>
+struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
+    : BasicEnumTraits<compute::AssumeTimezoneOptions::Ambiguous,
+                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE,
+                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST,
+                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST> {
+  static std::string name() { return "AssumeTimezoneOptions::Ambiguous"; }
+  static std::string value_name(compute::AssumeTimezoneOptions::Ambiguous value) {
+    switch (value) {
+      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE:
+        return "AMBIGUOUS_RAISE";
+      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST:
+        return "AMBIGUOUS_EARLIEST";
+      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST:
+        return "AMBIGUOUS_LATEST";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<compute::AssumeTimezoneOptions::Nonexistent>
+    : BasicEnumTraits<compute::AssumeTimezoneOptions::Nonexistent,
+                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE,
+                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST,
+                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST> {
+  static std::string name() { return "AssumeTimezoneOptions::Nonexistent"; }
+  static std::string value_name(compute::AssumeTimezoneOptions::Nonexistent value) {
+    switch (value) {
+      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE:
+        return "NONEXISTENT_RAISE";
+      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST:
+        return "NONEXISTENT_EARLIEST";
+      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST:
+        return "NONEXISTENT_LATEST";
+    }
+    return "<INVALID>";
+  }
+};
 }  // namespace internal
 
 namespace compute {
@@ -147,6 +185,10 @@ static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("unit", &StrptimeOptions::unit));
 static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
     DataMember("format", &StrftimeOptions::format));
+static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOptions>(
+    DataMember("timezone", &AssumeTimezoneOptions::timezone),
+    DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
+    DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
     DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -250,6 +292,15 @@ StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
 constexpr char StrftimeOptions::kTypeName[];
 constexpr const char* StrftimeOptions::kDefaultFormat;
 
+AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous ambiguous,
+                                             Nonexistent nonexistent)
+    : FunctionOptions(internal::kAssumeTimezoneOptionsType),
+      timezone(std::move(timezone)),
+      ambiguous(ambiguous),
+      nonexistent(nonexistent) {}
+AssumeTimezoneOptions::AssumeTimezoneOptions() : AssumeTimezoneOptions("UTC") {}
+constexpr char AssumeTimezoneOptions::kTypeName[];
+
 PadOptions::PadOptions(int64_t width, std::string padding)
     : FunctionOptions(internal::kPadOptionsType),
       width(width),
@@ -311,6 +362,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kAssumeTimezoneOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
@@ -510,6 +562,11 @@ SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
+                             ExecContext* ctx) {
+  return CallFunction("assume_timezone", {arg}, &options, ctx);
 }
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {

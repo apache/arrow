@@ -23,7 +23,7 @@ group_by.arrow_dplyr_query <- function(.data,
                                        .add = FALSE,
                                        add = .add,
                                        .drop = dplyr::group_by_drop_default(.data)) {
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
   new_groups <- enquos(...)
   # ... can contain expressions (i.e. can add (or rename?) columns) and so we
   # need to identify those and add them on to the query with mutate. Specifically,

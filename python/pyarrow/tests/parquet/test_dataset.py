@@ -55,7 +55,7 @@ def test_parquet_piece_read(tempdir):
     table = pa.Table.from_pandas(df)
 
     path = tempdir / 'parquet_piece_read.parquet'
-    _write_table(table, path, version='2.0')
+    _write_table(table, path, version='2.6')
 
     with pytest.warns(DeprecationWarning):
         piece1 = pq.ParquetDatasetPiece(path)
@@ -70,7 +70,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     table = pa.Table.from_pandas(df)
 
     path = tempdir / 'parquet_piece_read.parquet'
-    _write_table(table, path, version='2.0')
+    _write_table(table, path, version='2.6')
 
     with pytest.warns(DeprecationWarning):
         piece = pq.ParquetDatasetPiece(path)
@@ -997,7 +997,7 @@ def test_dataset_memory_map(tempdir, use_legacy_dataset):
     df = _test_dataframe(10, seed=0)
     path = dirpath / '{}.parquet'.format(0)
     table = pa.Table.from_pandas(df)
-    _write_table(table, path, version='2.0')
+    _write_table(table, path, version='2.6')
 
     dataset = pq.ParquetDataset(
         dirpath, memory_map=True, use_legacy_dataset=use_legacy_dataset)
@@ -1015,7 +1015,7 @@ def test_dataset_enable_buffered_stream(tempdir, use_legacy_dataset):
     df = _test_dataframe(10, seed=0)
     path = dirpath / '{}.parquet'.format(0)
     table = pa.Table.from_pandas(df)
-    _write_table(table, path, version='2.0')
+    _write_table(table, path, version='2.6')
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(
@@ -1038,7 +1038,7 @@ def test_dataset_enable_pre_buffer(tempdir, use_legacy_dataset):
     df = _test_dataframe(10, seed=0)
     path = dirpath / '{}.parquet'.format(0)
     table = pa.Table.from_pandas(df)
-    _write_table(table, path, version='2.0')
+    _write_table(table, path, version='2.6')
 
     for pre_buffer in (True, False):
         dataset = pq.ParquetDataset(

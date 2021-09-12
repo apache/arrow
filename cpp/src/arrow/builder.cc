@@ -129,6 +129,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(Timestamp);
       BUILDER_CASE(MonthInterval);
       BUILDER_CASE(DayTimeInterval);
+      BUILDER_CASE(MonthDayNanoInterval);
       BUILDER_CASE(Boolean);
       BUILDER_CASE(HalfFloat);
       BUILDER_CASE(Float);

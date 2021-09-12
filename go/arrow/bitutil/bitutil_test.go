@@ -197,6 +197,39 @@ func TestCountSetBitsOffset(t *testing.T) {
 	}
 }
 
+func TestSetBitsTo(t *testing.T) {
+	for _, fillByte := range []byte{0x00, 0xFF} {
+		{
+			// set within a byte
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 2, 2, true)
+			bitutil.SetBitsTo(bm, 4, 2, false)
+			assert.Equal(t, []byte{(fillByte &^ 0x3C) | 0xC}, bm[:1])
+		}
+		{
+			// test straddling a single byte boundary
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 4, 7, true)
+			bitutil.SetBitsTo(bm, 11, 7, false)
+			assert.Equal(t, []byte{(fillByte & 0xF) | 0xF0, 0x7, fillByte &^ 0x3}, bm[:3])
+		}
+		{
+			// test byte aligned end
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 4, 4, true)
+			bitutil.SetBitsTo(bm, 8, 8, false)
+			assert.Equal(t, []byte{(fillByte & 0xF) | 0xF0, 0x00, fillByte}, bm[:3])
+		}
+		{
+			// test byte aligned end, multiple bytes
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 0, 24, false)
+			falseByte := byte(0)
+			assert.Equal(t, []byte{falseByte, falseByte, falseByte, fillByte}, bm)
+		}
+	}
+}
+
 func bbits(v ...int32) []byte {
 	return tools.IntsToBitsLSB(v...)
 }
