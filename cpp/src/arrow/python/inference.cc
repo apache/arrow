@@ -39,6 +39,16 @@
 
 namespace arrow {
 namespace py {
+namespace internal {
+
+Status ImportDequeType(OwnedRef* deque_type) {
+  OwnedRef collections_module;
+  RETURN_NOT_OK(ImportModule("collections", &collections_module));
+  RETURN_NOT_OK(ImportFromModule(collections_module.obj(), "deque", deque_type));
+  return Status::OK();
+}
+
+}  // namespace internal
 
 #define _NUMPY_UNIFY_NOOP(DTYPE) \
   case NPY_##DTYPE:              \
@@ -308,6 +318,7 @@ class TypeInferrer {
                               std::numeric_limits<int32_t>::min()),
         decimal_type_() {
     ARROW_CHECK_OK(internal::ImportDecimalType(&decimal_type_));
+    ARROW_CHECK_OK(internal::ImportDequeType(&deque_type_));
   }
 
   /// \param[in] obj a Python object in the sequence
@@ -360,10 +371,8 @@ class TypeInferrer {
       RETURN_NOT_OK(VisitNdarray(obj, keep_going));
     } else if (PyDict_Check(obj)) {
       RETURN_NOT_OK(VisitDict(obj));
-    } else if (PySequence_Check(obj)) {
-      // Deals with generic sequences. Including list and tuple.
-      // Must be the last in if/else chain as more specific types might
-      // figure as sequences too.
+    } else if (PyList_Check(obj) || PyTuple_Check(obj) ||
+               PyObject_IsInstance(obj, deque_type_.obj())) {
       RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
@@ -646,6 +655,7 @@ class TypeInferrer {
   // Place to accumulate errors
   // std::vector<Status> errors_;
   OwnedRefNoGIL decimal_type_;
+  OwnedRefNoGIL deque_type_;
 };
 
 // Non-exhaustive type inference
