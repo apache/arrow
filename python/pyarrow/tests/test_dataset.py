@@ -700,9 +700,11 @@ def test_file_format_pickling():
         ds.ParquetFileFormat(
             use_buffered_stream=True,
             buffer_size=4096,
-        ),
-        ds.OrcFileFormat(),
+        )
     ]
+    if hasattr(ds, "OrcFileFormat"):
+        formats.append(ds.OrcFileFormat())
+
     for file_format in formats:
         assert pickle.loads(pickle.dumps(file_format)) == file_format
 
