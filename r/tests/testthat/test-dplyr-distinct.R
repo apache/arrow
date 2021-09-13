@@ -23,151 +23,42 @@ library(stringr)
 tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)
 
-# group by var not working properly
-test_that("groups are retained when calling distinct", {
+test_that("distinct()", {
   expect_dplyr_equal(
     input %>%
-      group_by(some_grouping) %>%
-      distinct(lgl),
+      distinct(some_grouping, lgl) %>%
+      collect(),
     tbl
   )
 })
 
-# currently gets wiped at summarize as no vars
-test_that("distinct works without any variables", {
+test_that("distinct() works without any variables", {
   expect_dplyr_equal(
     input %>%
-      distinct(),
+      distinct() %>%
+      collect(),
     tbl
   )
 })
 
-test_that("distinct", {
+test_that("distinct() can retain groups", {
   expect_dplyr_equal(
     input %>%
-      distinct(some_grouping, lgl),
+      group_by(some_grouping, false) %>%
+      distinct(lgl) %>%
+      collect() %>%
+      arrange(lgl, some_grouping),
     tbl
   )
 })
 
-# test_that("group_by groupings are recorded", {
-  # expect_dplyr_equal(
-  #   input %>%
-  #     group_by(chr) %>%
-  #     select(int, chr) %>%
-  #     filter(int > 5) %>%
-  #     summarize(min_int = min(int)),
-  #   tbl,
-  #   warning = TRUE
-  # )
-# })
-#
-# test_that("group_by supports creating/renaming", {
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(chr, numbers = int) %>%
-#       collect(),
-#     tbl
-#   )
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(chr, numbers = int * 4) %>%
-#       collect(),
-#     tbl
-#   )
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(int > 4, lgl, foo = int > 5) %>%
-#       collect(),
-#     tbl
-#   )
-# })
-#
-# test_that("ungroup", {
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(chr) %>%
-#       select(int, chr) %>%
-#       ungroup() %>%
-#       filter(int > 5) %>%
-#       summarize(min_int = min(int)),
-#     tbl,
-#     warning = TRUE
-#   )
-# })
-#
-# test_that("group_by then rename", {
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(chr) %>%
-#       select(string = chr, int) %>%
-#       collect(),
-#     tbl
-#   )
-# })
-#
-# test_that("group_by with .drop", {
-#   test_groups <- c("starting_a_fight", "consoling_a_child", "petting_a_dog")
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(!!!syms(test_groups), .drop = TRUE) %>%
-#       collect(),
-#     example_with_logical_factors
-#   )
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(!!!syms(test_groups), .drop = FALSE) %>%
-#       collect(),
-#     example_with_logical_factors
-#   )
-#   expect_equal(
-#     example_with_logical_factors %>%
-#       group_by(!!!syms(test_groups), .drop = TRUE) %>%
-#       collect() %>%
-#       n_groups(),
-#     4L
-#   )
-#   expect_equal(
-#     example_with_logical_factors %>%
-#       group_by(!!!syms(test_groups), .drop = FALSE) %>%
-#       collect() %>%
-#       n_groups(),
-#     8L
-#   )
-#   expect_equal(
-#     example_with_logical_factors %>%
-#       group_by(!!!syms(test_groups), .drop = FALSE) %>%
-#       group_by_drop_default(),
-#     FALSE
-#   )
-#   expect_equal(
-#     example_with_logical_factors %>%
-#       group_by(!!!syms(test_groups), .drop = TRUE) %>%
-#       group_by_drop_default(),
-#     TRUE
-#   )
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(.drop = FALSE) %>% # no group by vars
-#       group_by_drop_default(),
-#     example_with_logical_factors
-#   )
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by_drop_default(),
-#     example_with_logical_factors
-#   )
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(!!!syms(test_groups)) %>%
-#       group_by_drop_default(),
-#     example_with_logical_factors
-#   )
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(!!!syms(test_groups), .drop = FALSE) %>%
-#       ungroup() %>%
-#       group_by_drop_default(),
-#     example_with_logical_factors
-#   )
-# })
+test_that("distinct() can name columns", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping, false) %>%
+      distinct(x = lgl) %>%
+      collect(),
+    tbl
+  )
+})
+
