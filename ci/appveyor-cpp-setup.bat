@@ -70,6 +70,10 @@ if "%JOB%" NEQ "Build_Debug" (
     "fsspec" ^
     "python=%PYTHON%" ^
     || exit /B
+
+  if "%JOB%" == "Toolchain" (
+    conda uninstall -n arrow -q -y -c conda-forge gtest
+  )
 )
 
 @rem
