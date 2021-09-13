@@ -368,6 +368,12 @@ then typically wraps around).  Most functions are also available in an
 overflow-checking variant, suffixed ``_checked``, which returns
 an ``Invalid`` :class:`Status` when overflow is detected.
 
+For functions which support decimal inputs (currently ``add``, ``subtract``,
+``multiply``, and ``divide`` and their checked variants), decimals of different
+precisions/scales will be promoted appropriately. Mixed decimal and
+floating-point arguments will cast all arguments to floating-point, while mixed
+decimal and integer arguments will cast all arguments to decimals.
+
 +------------------+--------+----------------+----------------------+-------+
 | Function name    | Arity  | Input types    | Output type          | Notes |
 +==================+========+================+======================+=======+
@@ -542,7 +548,8 @@ cast to the :ref:`common numeric type <common-numeric-type>` before comparison),
 or two inputs of Binary- or String-like types, or two inputs of Temporal types.
 If any input is dictionary encoded it will be expanded for the purposes of
 comparison. If any of the input elements in a pair is null, the corresponding
-output element is null.
+output element is null. Decimal arguments will be promoted in the same way as
+for ``add`` and ``subtract``.
 
 +--------------------------+------------+---------------------------------------------+---------------------+
 | Function names           | Arity      | Input types                                 | Output type         |

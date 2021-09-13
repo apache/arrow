@@ -965,78 +965,6 @@ ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
   }
 }
 
-Status CastBinaryDecimalArgs(const std::string& func_name,
-                             std::vector<ValueDescr>* values) {
-  auto& left_type = (*values)[0].type;
-  auto& right_type = (*values)[1].type;
-  DCHECK(is_decimal(left_type->id()) || is_decimal(right_type->id()));
-
-  // decimal + float = float
-  if (is_floating(left_type->id())) {
-    right_type = left_type;
-    return Status::OK();
-  } else if (is_floating(right_type->id())) {
-    left_type = right_type;
-    return Status::OK();
-  }
-
-  // precision, scale of left and right args
-  int32_t p1, s1, p2, s2;
-
-  // decimal + integer = decimal
-  if (is_decimal(left_type->id())) {
-    auto decimal = checked_cast<const DecimalType*>(left_type.get());
-    p1 = decimal->precision();
-    s1 = decimal->scale();
-  } else {
-    DCHECK(is_integer(left_type->id()));
-    p1 = static_cast<int32_t>(std::ceil(std::log10(bit_width(left_type->id()))));
-    s1 = 0;
-  }
-  if (is_decimal(right_type->id())) {
-    auto decimal = checked_cast<const DecimalType*>(right_type.get());
-    p2 = decimal->precision();
-    s2 = decimal->scale();
-  } else {
-    DCHECK(is_integer(right_type->id()));
-    p2 = static_cast<int32_t>(std::ceil(std::log10(bit_width(right_type->id()))));
-    s2 = 0;
-  }
-  if (s1 < 0 || s2 < 0) {
-    return Status::NotImplemented("Decimals with negative scales not supported");
-  }
-
-  // decimal128 + decimal256 = decimal256
-  Type::type casted_type_id = Type::DECIMAL128;
-  if (left_type->id() == Type::DECIMAL256 || right_type->id() == Type::DECIMAL256) {
-    casted_type_id = Type::DECIMAL256;
-  }
-
-  // decimal promotion rules compatible with amazon redshift
-  // https://docs.aws.amazon.com/redshift/latest/dg/r_numeric_computations201.html
-  int32_t left_scaleup, right_scaleup;
-
-  // "add_checked" -> "add"
-  const std::string op = func_name.substr(0, func_name.find("_"));
-  if (op == "add" || op == "subtract") {
-    left_scaleup = std::max(s1, s2) - s1;
-    right_scaleup = std::max(s1, s2) - s2;
-  } else if (op == "multiply") {
-    left_scaleup = right_scaleup = 0;
-  } else if (op == "divide") {
-    left_scaleup = std::max(4, s1 + p2 - s2 + 1) + s2 - s1;
-    right_scaleup = 0;
-  } else {
-    return Status::Invalid("Invalid decimal function: ", func_name);
-  }
-
-  ARROW_ASSIGN_OR_RAISE(
-      left_type, DecimalType::Make(casted_type_id, p1 + left_scaleup, s1 + left_scaleup));
-  ARROW_ASSIGN_OR_RAISE(right_type, DecimalType::Make(casted_type_id, p2 + right_scaleup,
-                                                      s2 + right_scaleup));
-  return Status::OK();
-}
-
 // resolve decimal binary operation output type per *casted* args
 template <typename OutputGetter>
 Result<ValueDescr> ResolveDecimalBinaryOperationOutput(
@@ -1166,17 +1094,21 @@ struct ArithmeticFunction : ScalarFunction {
   }
 
   Status CheckDecimals(std::vector<ValueDescr>* values) const {
-    bool has_decimal = false;
-    for (const auto& value : *values) {
-      if (is_decimal(value.type->id())) {
-        has_decimal = true;
-        break;
-      }
-    }
-    if (!has_decimal) return Status::OK();
+    if (!HasDecimal(*values)) return Status::OK();
 
     if (values->size() == 2) {
-      return CastBinaryDecimalArgs(name(), values);
+      // "add_checked" -> "add"
+      const auto func_name = name();
+      const std::string op = func_name.substr(0, func_name.find("_"));
+      if (op == "add" || op == "subtract") {
+        return CastBinaryDecimalArgs(DecimalPromotion::kAdd, values);
+      } else if (op == "multiply") {
+        return CastBinaryDecimalArgs(DecimalPromotion::kMultiply, values);
+      } else if (op == "divide") {
+        return CastBinaryDecimalArgs(DecimalPromotion::kDivide, values);
+      } else {
+        return Status::Invalid("Invalid decimal function: ", func_name);
+      }
     }
     return Status::OK();
   }

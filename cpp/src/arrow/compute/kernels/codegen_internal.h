@@ -1313,6 +1313,19 @@ std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs)
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
 
+/// How to promote decimal precision/scale in CastBinaryDecimalArgs.
+enum class DecimalPromotion : uint8_t {
+  kAdd,
+  kMultiply,
+  kDivide,
+};
+
+ARROW_EXPORT
+Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
+bool HasDecimal(const std::vector<ValueDescr>& descrs);
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/codegen_internal.h"
 
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -339,6 +340,91 @@ std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
 
   if (all_offset32) return binary();
   return large_binary();
+}
+
+Status CastBinaryDecimalArgs(DecimalPromotion promotion,
+                             std::vector<ValueDescr>* descrs) {
+  auto& left_type = (*descrs)[0].type;
+  auto& right_type = (*descrs)[1].type;
+  DCHECK(is_decimal(left_type->id()) || is_decimal(right_type->id()));
+
+  // decimal + float = float
+  if (is_floating(left_type->id())) {
+    right_type = left_type;
+    return Status::OK();
+  } else if (is_floating(right_type->id())) {
+    left_type = right_type;
+    return Status::OK();
+  }
+
+  // precision, scale of left and right args
+  int32_t p1, s1, p2, s2;
+
+  // decimal + integer = decimal
+  if (is_decimal(left_type->id())) {
+    auto decimal = checked_cast<const DecimalType*>(left_type.get());
+    p1 = decimal->precision();
+    s1 = decimal->scale();
+  } else {
+    DCHECK(is_integer(left_type->id()));
+    ARROW_ASSIGN_OR_RAISE(p1, MaxDecimalDigitsForInteger(left_type->id()));
+    s1 = 0;
+  }
+  if (is_decimal(right_type->id())) {
+    auto decimal = checked_cast<const DecimalType*>(right_type.get());
+    p2 = decimal->precision();
+    s2 = decimal->scale();
+  } else {
+    DCHECK(is_integer(right_type->id()));
+    ARROW_ASSIGN_OR_RAISE(p2, MaxDecimalDigitsForInteger(right_type->id()));
+    s2 = 0;
+  }
+  if (s1 < 0 || s2 < 0) {
+    return Status::NotImplemented("Decimals with negative scales not supported");
+  }
+
+  // decimal128 + decimal256 = decimal256
+  Type::type casted_type_id = Type::DECIMAL128;
+  if (left_type->id() == Type::DECIMAL256 || right_type->id() == Type::DECIMAL256) {
+    casted_type_id = Type::DECIMAL256;
+  }
+
+  // decimal promotion rules compatible with amazon redshift
+  // https://docs.aws.amazon.com/redshift/latest/dg/r_numeric_computations201.html
+  int32_t left_scaleup, right_scaleup;
+
+  switch (promotion) {
+    case DecimalPromotion::kAdd: {
+      left_scaleup = std::max(s1, s2) - s1;
+      right_scaleup = std::max(s1, s2) - s2;
+      break;
+    }
+    case DecimalPromotion::kMultiply: {
+      left_scaleup = right_scaleup = 0;
+      break;
+    }
+    case DecimalPromotion::kDivide: {
+      left_scaleup = std::max(4, s1 + p2 - s2 + 1) + s2 - s1;
+      right_scaleup = 0;
+      break;
+    }
+    default:
+      DCHECK(false) << "Invalid DecimalPromotion value " << static_cast<int>(promotion);
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      left_type, DecimalType::Make(casted_type_id, p1 + left_scaleup, s1 + left_scaleup));
+  ARROW_ASSIGN_OR_RAISE(right_type, DecimalType::Make(casted_type_id, p2 + right_scaleup,
+                                                      s2 + right_scaleup));
+  return Status::OK();
+}
+
+bool HasDecimal(const std::vector<ValueDescr>& descrs) {
+  for (const auto& descr : descrs) {
+    if (is_decimal(descr.type->id())) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace internal
