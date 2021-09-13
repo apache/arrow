@@ -36,9 +36,7 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
  * Accessor for the arrow types: TinyIntVector, SmallIntVector, IntVector, BigIntVector,
