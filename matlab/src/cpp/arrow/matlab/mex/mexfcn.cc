@@ -23,12 +23,17 @@
 
 #include "../feather/feather_functions.h"
 
+namespace arrow {
+namespace matlab {
+namespace mex {
+
+using namespace feather;
+
 using mex_fcn_t =
     std::function<void(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])>;
 
 static const std::unordered_map<std::string, mex_fcn_t> FUNCTION_MAP = {
-    {"featherread", arrow::matlab::feather::featherread},
-    {"featherwrite", arrow::matlab::feather::featherwrite}};
+    {"featherread", featherread}, {"featherwrite", featherwrite}};
 
 std::string get_function_name(const mxArray* input) {
   std::string opname;
@@ -57,8 +62,14 @@ mex_fcn_t lookup_function(const std::string& function_name) {
   return kv_pair->second;
 }
 
+}  // namespace mex
+}  // namespace matlab
+}  // namespace arrow
+
 // MEX gateway function.
 void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
+  using namespace arrow::matlab::mex;
+
   checkNumArgs(nrhs);
   auto fcn = lookup_function(get_function_name(prhs[0]));
   fcn(nlhs, plhs, nrhs - 1, ++prhs);
