@@ -448,6 +448,16 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
     const std::shared_ptr<ScanOptions>& options) {
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
+  ArrayVector columns;
+  for (const auto& field : options->dataset_schema->fields()) {
+    // TODO(ARROW-7051): use helper to make empty batch
+    ARROW_ASSIGN_OR_RAISE(auto array,
+                          MakeArrayOfNull(field->type(), /*length=*/0, options->pool));
+    columns.push_back(std::move(array));
+  }
+  batch_gen = MakeOrGenerator(
+      std::move(batch_gen),
+      RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
   auto combine_fn =

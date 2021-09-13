@@ -1611,4 +1611,43 @@ AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token
   return CancellableGenerator<T>{std::move(source), std::move(stop_token)};
 }
 
+template <typename T>
+class OrGenerator {
+ public:
+  OrGenerator(AsyncGenerator<T> source, T or_value)
+      : source_(std::move(source)), or_value_(std::move(or_value)), first_(true) {}
+
+  Future<T> operator()() {
+    if (first_) {
+      first_ = false;
+      struct {
+        T or_value;
+
+        Result<T> operator()(const T& value) {
+          if (IterationTraits<T>::IsEnd(value)) {
+            return std::move(or_value);
+          }
+          return value;
+        }
+      } Continuation;
+      Continuation.or_value = std::move(or_value_);
+      return source_().Then(std::move(Continuation));
+    }
+    return source_();
+  }
+
+ private:
+  AsyncGenerator<T> source_;
+  T or_value_;
+  bool first_;
+};
+
+/// \brief If the generator is empty, return the given value, else
+/// forward the values from the generator.
+///
+/// This generator is async-reentrant.
+template <typename T>
+AsyncGenerator<T> MakeOrGenerator(AsyncGenerator<T> source, T or_value) {
+  return OrGenerator<T>(std::move(source), std::move(or_value));
+}
 }  // namespace arrow

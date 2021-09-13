@@ -351,6 +351,37 @@ TEST_P(TestScanner, CountRows) {
   ASSERT_EQ(rows, num_datasets * num_batches * (items_per_batch - 64));
 }
 
+TEST_P(TestScanner, EmptyFragment) {
+  // Regression test for ARROW-13982
+  if (!GetParam().use_async) GTEST_SKIP() << "Test only applies to async scanner";
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto empty_batch = ConstantArrayGenerator::Zeroes(0, schema_);
+  std::vector<std::shared_ptr<RecordBatch>> batches{
+      static_cast<std::size_t>(GetParam().num_batches * GetParam().num_child_datasets),
+      batch};
+
+  FragmentVector fragments{
+      std::make_shared<InMemoryFragment>(RecordBatchVector{empty_batch}),
+      std::make_shared<InMemoryFragment>(batches)};
+  auto dataset = std::make_shared<FragmentDataset>(schema_, fragments);
+  auto scanner = MakeScanner(dataset);
+
+  // There is no guarantee on the ordering when using multiple threads, but
+  // since the RecordBatch is always the same (or empty) it will pass.
+  ASSERT_OK_AND_ASSIGN(auto gen, scanner->ScanBatchesAsync());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto tagged, CollectAsyncGenerator(gen));
+  RecordBatchVector actual_batches;
+  for (const auto& batch : tagged) {
+    actual_batches.push_back(batch.record_batch);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
+  ASSERT_OK_AND_ASSIGN(auto actual, Table::FromRecordBatches(std::move(actual_batches)));
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+}
+
 class CountRowsOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
