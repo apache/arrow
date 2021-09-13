@@ -638,17 +638,16 @@ struct ArraySortIndices {
   }
 };
 
-// Sort indices kernels implemented for
-//
-// * Boolean type
-// * Number types
-// * Base binary types
-
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   // bool type
   base.signature = KernelSignature::Make({InputType::Array(boolean())}, uint64());
   base.exec = ExecTemplate<UInt64Type, BooleanType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+
+  // duration type
+  base.signature = KernelSignature::Make({InputType::Array(Type::DURATION)}, uint64());
+  base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*int64());
   DCHECK_OK(func->AddKernel(base));
 
   for (const auto& ty : NumericTypes()) {
@@ -659,7 +658,7 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   }
   for (const auto& ty : TemporalTypes()) {
     auto physical_type = GetPhysicalType(ty);
-    base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    base.signature = KernelSignature::Make({InputType::Array(ty->id())}, uint64());
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
