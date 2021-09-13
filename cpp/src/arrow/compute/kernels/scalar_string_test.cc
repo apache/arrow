@@ -1038,7 +1038,6 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
       this->type(),
       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   std::vector<std::pair<int64_t, std::string>> repeats_and_expected_map({
-      {-1, R"(["", null, "", "", "", "", "", "", "", ""])"},
       {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
       {1,
        R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])"},
@@ -1059,12 +1058,12 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
 
 TYPED_TEST(TestStringKernels, StrRepeats) {
   for (const auto& ty : internal::SignedIntTypes()) {
-    auto repeats = ArrayFromJSON(ty, R"([100, 1, 2, 4, 2, 0, 1, 3, 2, 3, -1])");
+    auto repeats = ArrayFromJSON(ty, R"([100, 1, 2, 4, 2, 0, 1, 3, 2, 3])");
     auto values = ArrayFromJSON(
         this->type(),
-        R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow", "one"])");
+        R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
     std::string expected =
-        R"([null, "aAazZæÆ&", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow", ""])";
+        R"([null, "aAazZæÆ&", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
     this->CheckVarArgs("str_repeat", {values, repeats}, this->type(), expected);
   }
 }
