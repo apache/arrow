@@ -17,33 +17,36 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-distinct.arrow_dplyr_query <- function(.data, ..., keep_all = FALSE) {
-  browser()
-  .data <- as_adq(.data)
+distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
 
-  gv <- dplyr::group_vars(.data)
-  distinct_groups <- quos(...)
-
-  vars_to_group <- unique(c(
-    unlist(lapply(distinct_groups, all.vars)), # vars referenced in summarise
-    gv # vars needed for grouping
-  ))
-
-  # if there are any group_by vars, we need to add them to things to group the
-  # data by
-
-  # this grouping knackers it up
-  if (length(vars_to_group) == 0) {
-    .data <- dplyr::group_by(.data, !!!vars_to_group)
-  } else {
-    cols <- names(.data)
-    .data <- dplyr::group_by(.data, !!!cols)
+  if (.keep_all == TRUE) {
+    # After ARROW-13767 is merged, we can implement this via e.g.
+    # iris %>% group_by(Species) %>% slice(1) %>% ungroup()
+    abort("`distinct()` with `keep_all = TRUE` argument not supported in Arrow")
   }
 
-  # df %>% select(x, y) %>% distinct() or df %>% distinct(x, y) is equivalent to
-  # df %>% group_by(x, y) %>% summarize()
+  distinct_groups <- quos(...)
 
-  .data <- summarize(.data)
+  # Get grouping in the data as the call to summarize() will remove it
+  gv <- dplyr::group_vars(.data)
+
+  vars_to_group <- unique(c(
+    unlist(lapply(distinct_groups, all.vars)),
+    gv
+  ))
+
+  if (length(vars_to_group) == 0) {
+    return(.data)
+  }
+
+  .data <- dplyr::group_by(.data, column_select(!!!enquos(vars_to_group)))
+
+  .data <- dplyr::summarize(.data)
+
+  # Add back in any grouping which existed in the data previously
+  if (length(gv) > 0) {
+    .data <- dplyr::group_by(.data, intersect(gv, names(.data)))
+  }
 
   .data
 }
