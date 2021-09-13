@@ -653,13 +653,11 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   }
 
   Status AppendIterable(PyObject* value) {
-    int64_t current_size = 0;
     PyObject* iterator = PyObject_GetIter(value);
     OwnedRef iter_ref(iterator);
     while (PyObject* item = PyIter_Next(iterator)) {
-      current_size += 1;
       OwnedRef item_ref(item);
-      RETURN_NOT_OK(this->value_converter_->Reserve(current_size));
+      RETURN_NOT_OK(this->value_converter_->Reserve(1));
       RETURN_NOT_OK(this->value_converter_->Append(item));
     }
     return Status::OK();
