@@ -1615,11 +1615,11 @@ template <typename T>
 class OrGenerator {
  public:
   OrGenerator(AsyncGenerator<T> source, T or_value)
-      : source_(std::move(source)), or_value_(std::move(or_value)), first_(true) {}
+      : state_(std::make_shared<State>(std::move(source), std::move(or_value))) {}
 
   Future<T> operator()() {
-    if (first_) {
-      first_ = false;
+    if (state_->first) {
+      state_->first = false;
       struct {
         T or_value;
 
@@ -1630,16 +1630,21 @@ class OrGenerator {
           return value;
         }
       } Continuation;
-      Continuation.or_value = std::move(or_value_);
-      return source_().Then(std::move(Continuation));
+      Continuation.or_value = std::move(state_->or_value);
+      return state_->source().Then(std::move(Continuation));
     }
-    return source_();
+    return state_->source();
   }
 
  private:
-  AsyncGenerator<T> source_;
-  T or_value_;
-  bool first_;
+  struct State {
+    AsyncGenerator<T> source;
+    T or_value;
+    bool first;
+    State(AsyncGenerator<T> source_, T or_value_)
+        : source(std::move(source_)), or_value(std::move(or_value_)), first(true) {}
+  };
+  std::shared_ptr<State> state_;
 };
 
 /// \brief If the generator is empty, return the given value, else
