@@ -20,6 +20,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
