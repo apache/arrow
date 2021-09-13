@@ -70,26 +70,26 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
     return Text.class;
   }
 
-  @Override
-  public Object getObject() {
-    Text text = this.getter.get(getCurrentRow());
+  private Text getText() {
+    final Text text = this.getter.get(getCurrentRow());
     this.wasNull = text == null;
-
     return text;
   }
 
   @Override
+  public String getObject() {
+    final Text text = getText();
+    return text == null ? null : text.toString();
+  }
+
+  @Override
   public String getString() {
-    Text value = (Text) this.getObject();
-    if (value == null) {
-      return null;
-    }
-    return value.toString();
+    return getObject();
   }
 
   @Override
   public byte[] getBytes() {
-    return ((Text) this.getObject()).copyBytes();
+    return this.getText().copyBytes();
   }
 
   @Override
@@ -140,7 +140,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public InputStream getAsciiStream() {
-    Text value = (Text) this.getObject();
+    Text value = this.getText();
     return new ByteArrayInputStream(value.getBytes(), 0, value.getLength());
   }
 
