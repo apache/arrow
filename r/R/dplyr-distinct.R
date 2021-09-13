@@ -35,19 +35,23 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     gv
   ))
 
+  # Ensure vars are in the same order they are in the dataset
+  ordered_vars_to_group <- intersect(names(.data), vars_to_group)
+
   if (length(vars_to_group) == 0) {
     return(.data)
   }
 
-  .data <- dplyr::group_by(.data, column_select(!!!enquos(vars_to_group)))
+  .data <- dplyr::group_by(.data, !!!syms(ordered_vars_to_group))
 
   .data <- dplyr::summarize(.data)
 
   # Add back in any grouping which existed in the data previously
   if (length(gv) > 0) {
-    .data <- dplyr::group_by(.data, intersect(gv, names(.data)))
+    .data$group_by_vars <- gv
   }
 
+  # Need to deal with naming here
   .data
 }
 
