@@ -2243,7 +2243,6 @@ def test_str_repeat():
     # Test with single value for number of repeats
     values = ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"]
     repeat_and_expected = [
-        [-1, ["", None, "", "", "", "", ""]],
         [0, ["", None, "", "", "", "", ""]],
         [1, ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"]],
         [2, ["æÆ&æÆ&", None, "", "bb", "ɑɽⱤoWɑɽⱤoW", "ıIıI", "$. 3$. 3"]],
@@ -2255,7 +2254,7 @@ def test_str_repeat():
     # Test with multiple values for number of repeats
     values = ["a", "b"]
     repeat_and_expected = [
-        [[-3, 2], ["", "bb"]],
+        [[5, 2], ["aaaaa", "bb"]],
         [[0, 2], ["", "bb"]],
         [3, ["aaa", "bbb"]],
         [[0, 0], ["", ""]],
