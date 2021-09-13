@@ -15,15 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <mex.h>
+
+#include "arrow/matlab/api/visibility.h"
 
 namespace arrow {
 namespace matlab {
 namespace feather {
 
-void featherwrite(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
+ARROW_MATLAB_EXPORT void featherwrite(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
 
-void featherread(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
+ARROW_MATLAB_EXPORT void featherread(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]);
 
 }  // namespace feather
 }  // namespace matlab

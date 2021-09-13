@@ -17,26 +17,12 @@
 
 #pragma once
 
-#include <string>
-#include <functional>
-#include <unordered_map>
-
-#include <mex.h>
-
-#include "mex_functions.h"
-
-#include "arrow/matlab/api/visibility.h"
-
-namespace arrow {
-namespace matlab {
-namespace mex {
-
-ARROW_MATLAB_EXPORT void checkNumArgs(int nrhs);
-    
-ARROW_MATLAB_EXPORT std::string get_function_name(const mxArray* input);
-    
-ARROW_MATLAB_EXPORT mex_fcn_t lookup_function(const std::string& function_name);
-    
-} // namespace mex
-} // namespace matlab
-} // namespace arrow
+#if defined(_WIN32) || defined(__CYGWIN__)
+#ifdef ARROW_MATLAB_EXPORTING
+#define ARROW_MATLAB_EXPORT __declspec(dllexport)
+#else
+#define ARROW_MATLAB_EXPORT __declspec(dllimport)
+#endif
+#else // Not Windows
+#define ARROW_MATLAB_EXPORT __attribute__((visibility("default")))
+#endif

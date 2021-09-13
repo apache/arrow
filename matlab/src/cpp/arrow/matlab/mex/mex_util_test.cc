@@ -22,10 +22,8 @@
 namespace arrow {
 namespace matlab {
 namespace mex {
-// TODO: Remove this placeholder test.
 TEST(CheckNumArgsTests, TooFewArgsError) {
-    mxArray* input = nullptr;
-    EXPECT_THROW(checkNumArgs(input), std::exception);
+    EXPECT_THROW(checkNumArgs(0), std::exception);
 }
 }  // namespace mex
 }  // namespace matlab

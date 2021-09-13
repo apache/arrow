@@ -231,22 +231,34 @@ find_package(Matlab REQUIRED)
 set(CPP_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp)
 set(MATLAB_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab)
 
-# Construct the absolute path to mexfcn's souce files
-set(mexfcn_sources
-    mex/mexfcn.cc
+set(arrow_matlab_sources
     mex/mex_util.cc
     feather/feather_reader.cc
     feather/feather_writer.cc
     feather/feather_functions.cc
     feather/util/handle_status.cc
     feather/util/unicode_conversion.cc)
-list(TRANSFORM mexfcn_sources PREPEND ${MATLAB_SOURCE_DIR}/)
+list(TRANSFORM arrow_matlab_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
 
-# Build mexDispatcher MEX binary
+add_library(arrow_matlab SHARED ${arrow_matlab_sources})
+# Declare a dependency on the MEX shared library (libmex.so).
+target_link_libraries(arrow_matlab ${Matlab_MEX_LIBRARY})
+target_link_libraries(arrow_matlab arrow_shared)
+# Include the MATLAB MEX headers.
+target_include_directories(arrow_matlab PRIVATE ${Matlab_INCLUDE_DIRS})
+target_include_directories(arrow_matlab PRIVATE ${CPP_SOURCE_DIR})
+target_include_directories(arrow_matlab PRIVATE ${ARROW_INCLUDE_DIR})
+target_compile_definitions(arrow_matlab PRIVATE ARROW_MATLAB_EXPORTING)
+
+set(mexfcn_sources
+    mex/mexfcn.cc)
+list(TRANSFORM mexfcn_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
+
+# Build mexfcn MEX binary
 matlab_add_mex(R2018a
                NAME mexfcn
                SRC ${mexfcn_sources}
-               LINK_TO arrow_shared)
+               LINK_TO arrow_matlab)
 
 target_include_directories(mexfcn PRIVATE ${CPP_SOURCE_DIR})
 
@@ -265,7 +277,16 @@ if(MATLAB_BUILD_TESTS)
   # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
   # targets.
   target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
+
+  # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
+  # targets.
   target_link_libraries(mex_util_test GTest::gtest GTest::gtest_main)
+  target_link_libraries(mex_util_test arrow_matlab)
+
+  # Include the MATLAB MEX headers.
+  target_include_directories(mex_util_test PRIVATE ${Matlab_INCLUDE_DIRS})
+  # Include the C++ source headers.
+  target_include_directories(mex_util_test PRIVATE ${CPP_SOURCE_DIR})
 
   # Add a test target.
   add_test(PlaceholderTestTarget placeholder_test)
