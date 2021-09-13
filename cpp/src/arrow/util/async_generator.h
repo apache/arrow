@@ -1612,9 +1612,9 @@ AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token
 }
 
 template <typename T>
-class OrGenerator {
+class DefaultIfEmptyGenerator {
  public:
-  OrGenerator(AsyncGenerator<T> source, T or_value)
+  DefaultIfEmptyGenerator(AsyncGenerator<T> source, T or_value)
       : state_(std::make_shared<State>(std::move(source), std::move(or_value))) {}
 
   Future<T> operator()() {
@@ -1652,7 +1652,7 @@ class OrGenerator {
 ///
 /// This generator is async-reentrant.
 template <typename T>
-AsyncGenerator<T> MakeOrGenerator(AsyncGenerator<T> source, T or_value) {
-  return OrGenerator<T>(std::move(source), std::move(or_value));
+AsyncGenerator<T> MakeDefaultIfEmptyGenerator(AsyncGenerator<T> source, T or_value) {
+  return DefaultIfEmptyGenerator<T>(std::move(source), std::move(or_value));
 }
 }  // namespace arrow
