@@ -420,7 +420,7 @@ struct StringTransformExecBase {
     return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
   }
 
-  // Unary derived classes should define this method:
+  // StringTransform type should define this method:
   //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
   //                     uint8_t* output);
 };
@@ -544,26 +544,53 @@ struct StringBinaryTransformBase {
     return Status::OK();
   }
 
-  // Return the maximum total size of the output in codeunits (i.e. bytes)
-  // given input characteristics.
-  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
-                               const std::shared_ptr<Scalar>& input2) = 0;
-
-  // Return the maximum total size of the output in codeunits (i.e. bytes)
-  // given input characteristics.
-  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits,
-                               const std::shared_ptr<ArrayData>& data2) = 0;
-
-  virtual Status InvalidStatus() {
+  virtual Status InvalidStatus() const {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
+
+  // Not all combinations of input shapes are meaningful to string binary transforms, so
+  // these flags serve as toggles for enabling/disabling the corresponding ones. These
+  // flags should be set in the PreExec() method.
+  bool EnableScalarScalar = true;
+  bool EnableScalarArray = true;
+  bool EnableArrayScalar = true;
+  bool EnableArrayArray = true;
+
+  // Derived classes need to define all the MaxCodeunits methods even if they are not used
+  // due to disabling the corresponding "EnableXXX" flag. Unfortunately, these methods
+  // cannot be virtual predefined in this base class because C++ does not supports
+  // creating vtables from templetized methods. using ViewType2 = typename
+  // GetViewType<Type2>::T; using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
+  // using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+
+  // Return the maximum total size of the output in codeunits (i.e. bytes)
+  // given input characteristics for Scalar-Scalar, Scalar-Array, Array-Scalar, and
+  // Array-Array inputs. int64_t MaxCodeunits(const int64_t input1_ncodeunits, const
+  // ViewType2 value2) const { return 0; }
+  //
+  // int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2& input2) const
+  // { return 0; }
+  //
+  // int64_t MaxCodeunits(const ArrayType1& input1, const ViewType2 value2) const { return
+  // 0; }
+  //
+  // int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) const {
+  // return 0; }
 };
 
 /// Kernel exec generator for binary string transforms.  The first parameter is expected
 /// to always be a string type while the second parameter is generic.
+// TODO(edponce): This approach currently does not works for FixedSizeBinaryArray:
+//   * because its GetValue() does not return the string size. To circumvent, we could use
+//   GetView() on first input (always a util::string_view) and get its length via
+//   str.length() method.
+// TODO(edponce): Refactor common parts out and make use VisitorArrayValuesInline from
+// codegen_internal.h (assuming LogicalValue always matches the type returned by GetView()
+// which seems the case).
 template <typename Type1, typename Type2, typename StringTransform>
 struct StringBinaryTransformExecBase {
   using offset_type = typename Type1::offset_type;
+  using ViewType2 = typename GetViewType<Type2>::T;
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
@@ -573,18 +600,28 @@ struct StringBinaryTransformExecBase {
       return Status::Invalid("Invalid arity for binary string transform");
     }
 
-    if (batch[0].is_array()) {
-      if (batch[1].is_array()) {
-        return ExecArrayArray(ctx, transform, batch[0].array(), batch[1].array(), out);
-      } else if (batch[1].is_scalar()) {
-        return ExecArrayScalar(ctx, transform, batch[0].array(), batch[1].scalar(), out);
+    if (batch[0].is_scalar()) {
+      if (batch[1].is_scalar()) {
+        if (transform->EnableScalarScalar) {
+          return ExecScalarScalar(ctx, transform, batch[0].scalar(), batch[1].scalar(),
+                                  out);
+        }
+      } else if (batch[1].is_array()) {
+        if (transform->EnableScalarArray) {
+          return ExecScalarArray(ctx, transform, batch[0].scalar(), batch[1].array(),
+                                 out);
+        }
       }
-    } else if (batch[0].is_scalar()) {
+    } else if (batch[0].is_array()) {
       if (batch[1].is_array()) {
-        return ExecScalarArray(ctx, transform, batch[0].scalar(), batch[1].array(), out);
+        if (transform->EnableArrayArray) {
+          return ExecArrayArray(ctx, transform, batch[0].array(), batch[1].array(), out);
+        }
       } else if (batch[1].is_scalar()) {
-        return ExecScalarScalar(ctx, transform, batch[0].scalar(), batch[1].scalar(),
-                                out);
+        if (transform->EnableArrayScalar) {
+          return ExecArrayScalar(ctx, transform, batch[0].array(), batch[1].scalar(),
+                                 out);
+        }
       }
     }
     return Status::Invalid("Invalid ExecBatch kind for binary string transform");
@@ -598,10 +635,9 @@ struct StringBinaryTransformExecBase {
     }
 
     const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
+    auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
     auto input_ncodeunits = input1.value->size();
-    auto input_nstrings = 1;
-    auto output_ncodeunits_max =
-        transform->MaxCodeunits(input_nstrings, input_ncodeunits, scalar2);
+    auto output_ncodeunits_max = transform->MaxCodeunits(input_ncodeunits, value2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -615,7 +651,7 @@ struct StringBinaryTransformExecBase {
 
     auto input1_string = input1.value->data();
     auto encoded_nbytes = static_cast<offset_type>(
-        transform->Transform(input1_string, input_ncodeunits, scalar2, output_str));
+        transform->Transform(input1_string, input_ncodeunits, value2, output_str));
     if (encoded_nbytes < 0) {
       return transform->InvalidStatus();
     }
@@ -631,10 +667,8 @@ struct StringBinaryTransformExecBase {
     }
 
     ArrayType1 input1(data1);
-    auto input1_ncodeunits = input1.total_values_length();
-    auto input1_nstrings = input1.length();
-    auto output_ncodeunits_max =
-        transform->MaxCodeunits(input1_nstrings, input1_ncodeunits, scalar2);
+    auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
+    auto output_ncodeunits_max = transform->MaxCodeunits(input1, value2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -649,13 +683,14 @@ struct StringBinaryTransformExecBase {
     auto output_str = output->buffers[2]->mutable_data();
     output_string_offsets[0] = 0;
 
+    auto input1_nstrings = input1.length();
     offset_type output_ncodeunits = 0;
     for (int64_t i = 0; i < input1_nstrings; ++i) {
       if (!input1.IsNull(i)) {
         offset_type input1_string_ncodeunits;
         auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
         auto encoded_nbytes = static_cast<offset_type>(
-            transform->Transform(input1_string, input1_string_ncodeunits, scalar2,
+            transform->Transform(input1_string, input1_string_ncodeunits, value2,
                                  output_str + output_ncodeunits));
         if (encoded_nbytes < 0) {
           return transform->InvalidStatus();
@@ -677,51 +712,47 @@ struct StringBinaryTransformExecBase {
       return Status::OK();
     }
 
-    return Status::OK();
-    // ArrayType2 input2(data2);
-    //
-    // const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
-    // auto input1_ncodeunits = input1.value->size();
-    // auto input1_nstrings = 1;
-    // auto output_ncodeunits_max =
-    //     transform->MaxCodeunits(input1_nstrings, input1_ncodeunits, data2);
-    // if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-    //   return Status::CapacityError(
-    //       "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-    // }
-    //
-    // ArrayData* output = out->mutable_array();
-    // ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
-    // output->buffers[2] = values_buffer;
-    //
-    //
-    //
-    //
-    //
-    // // String offsets are preallocated
-    // auto output_string_offsets = output->GetMutableValues<offset_type>(1);
-    // auto output_str = output->buffers[2]->mutable_data();
-    // output_string_offsets[0] = 0;
-    //
-    // offset_type output_ncodeunits = 0;
-    // for (int64_t i = 0; i < input1_nstrings; ++i) {
-    //   if (!input1.IsNull(i)) {
-    //     offset_type input1_string_ncodeunits;
-    //     auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
-    //     auto encoded_nbytes = static_cast<offset_type>(
-    //         transform->Transform(input1_string, input1_string_ncodeunits, scalar2,
-    //                              output_str + output_ncodeunits));
-    //     if (encoded_nbytes < 0) {
-    //       return transform->InvalidStatus();
-    //     }
-    //     output_ncodeunits += encoded_nbytes;
-    //   }
-    //   output_string_offsets[i + 1] = output_ncodeunits;
-    // }
-    // DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
-    //
-    // // Trim the codepoint buffer, since we allocated too much
-    // return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
+    const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
+    auto input1_string = input1.value->data();
+    auto input1_ncodeunits = input1.value->size();
+
+    ArrayType2 input2(data2);
+    auto input2_nvalues = input2.length();
+
+    auto output_ncodeunits_max = transform->MaxCodeunits(input1_ncodeunits, input2);
+    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+    }
+
+    ArrayData* output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
+    output->buffers[2] = values_buffer;
+
+    // String offsets are preallocated
+    // TODO(edponce): Check that string offsets have been preallocated
+    // because the input string is a Scalar.
+    auto output_string_offsets = output->GetMutableValues<offset_type>(1);
+    auto output_str = output->buffers[2]->mutable_data();
+    output_string_offsets[0] = 0;
+
+    offset_type output_ncodeunits = 0;
+    for (int64_t i = 0; i < input2_nvalues; ++i) {
+      if (!input2.IsNull(i)) {
+        auto value2 = input2.GetView(i);
+        auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
+            input1_string, input1_ncodeunits, value2, output_str + output_ncodeunits));
+        if (encoded_nbytes < 0) {
+          return transform->InvalidStatus();
+        }
+        output_ncodeunits += encoded_nbytes;
+      }
+      output_string_offsets[i + 1] = output_ncodeunits;
+    }
+    DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
+
+    // Trim the codepoint buffer, since we allocated too much
+    return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
   static Status ExecArrayArray(KernelContext* ctx, StringTransform* transform,
@@ -730,10 +761,8 @@ struct StringBinaryTransformExecBase {
     ArrayType1 input1(data1);
     ArrayType2 input2(data2);
 
-    auto input1_ncodeunits = input1.total_values_length();
     auto input1_nstrings = input1.length();
-    auto output_ncodeunits_max =
-        transform->MaxCodeunits(input1_nstrings, input1_ncodeunits, data2);
+    auto output_ncodeunits_max = transform->MaxCodeunits(input1, input2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -753,9 +782,9 @@ struct StringBinaryTransformExecBase {
       if (!input1.IsNull(i) || !input2.IsNull(i)) {
         offset_type input1_string_ncodeunits;
         auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
-        auto scalar2 = *input2.GetScalar(i);
+        auto value2 = input2.GetView(i);
         auto encoded_nbytes = static_cast<offset_type>(
-            transform->Transform(input1_string, input1_string_ncodeunits, scalar2,
+            transform->Transform(input1_string, input1_string_ncodeunits, value2,
                                  output_str + output_ncodeunits));
         if (encoded_nbytes < 0) {
           return transform->InvalidStatus();
@@ -770,9 +799,9 @@ struct StringBinaryTransformExecBase {
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
-  // Binary derived classes should define this method:
-  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits, const
-  //   std::shared_ptr<Scalar>& input2, uint8_t* output);
+  // StringTransform type should define this method:
+  //   int64_t Transform(const uint8_t* input, const int64_t input_string_ncodeunits,
+  //   const ViewType2 value2, uint8_t* output) const;
 };
 
 template <typename Type1, typename Type2, typename StringTransform>
@@ -815,7 +844,7 @@ struct FunctionalCaseMappingTransform : public StringTransformBase {
     // in bytes is actually only at max 3/2 (as covered by the unittest).
     // Note that rounding down the 3/2 is ok, since only codepoints encoded by
     // two code units (even) can grow to 3 code units.
-    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
+    return input_ncodeunits * 3 / 2;
   }
 };
 
@@ -2781,28 +2810,46 @@ struct StrRepeatTransform : public StringBinaryTransformBase {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
-  int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits,
-                       const std::shared_ptr<Scalar>& input2) override {
-    auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*input2));
-    return std::max(input_ncodeunits * nrepeats, int64_t(0));
+  // TODO(edponce): Should we validate nrepeats (it will fail when trying to allocate
+  // output data)? It is not an option, so do other compute functions validate their
+  // inputs or let them fail when they fail?
+
+  // TODO(edponce): This is just an example of how to disable function arguments of
+  // specific input shapes. Status PreExec(KernelContext* ctx, const ExecBatch& batch,
+  // Datum* out) override {
+  //   EnableScalarArray = false;
+  //   return StringBinaryTransformBase::PreExec(ctx, batch, out);
+  // }
+  //
+  // int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2& input2) const
+  // { return 0; }
+
+  int64_t MaxCodeunits(const int64_t input1_ncodeunits, const int64_t nrepeats) const {
+    return input1_ncodeunits * nrepeats;
   }
 
-  int64_t MaxCodeunits(int64_t inputs, int64_t input_ncodeunits,
-                       const std::shared_ptr<ArrayData>& data2) override {
-    ArrayType2 array2(data2);
-    // Ideally, we would like to calculate the exact output size by iterating over
-    // all strings offsets and summing each length multiplied by the corresponding repeat
-    // value, but this requires traversing the data twice (now and during transform).
-    // The upper limit is to assume that all strings are repeated the max number of
-    // times knowing that a resize operation is performed at end of execution.
-    auto max_nrepeats =
-        static_cast<int64_t>(**std::max_element(array2.begin(), array2.end()));
-    return std::max(input_ncodeunits * max_nrepeats, int64_t(0));
+  int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2& input2) const {
+    int64_t total_nrepeats = 0;
+    for (int64_t i = 0; i < input2.length(); ++i) {
+      total_nrepeats += input2.GetView(i);
+    }
+    return input1_ncodeunits * total_nrepeats;
   }
 
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    const std::shared_ptr<Scalar>& input2, uint8_t* output) {
-    auto nrepeats = static_cast<int64_t>(UnboxScalar<Type2>::Unbox(*input2));
+  int64_t MaxCodeunits(const ArrayType1& input1, const int64_t nrepeats) const {
+    return input1.total_values_length() * nrepeats;
+  }
+
+  int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) const {
+    int64_t total_codeunits = 0;
+    for (int64_t i = 0; i < input2.length(); ++i) {
+      total_codeunits += input1.GetView(i).length() * input2.GetView(i);
+    }
+    return total_codeunits;
+  }
+
+  int64_t Transform(const uint8_t* input, const int64_t input_string_ncodeunits,
+                    const int64_t nrepeats, uint8_t* output) {
     uint8_t* output_start = output;
     if (nrepeats < 4) {
       for (int64_t i = 0; i < nrepeats; ++i) {
