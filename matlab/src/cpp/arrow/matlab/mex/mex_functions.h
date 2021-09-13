@@ -15,14 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string>
+#include <functional>
+#include <unordered_map>
+
 #include <mex.h>
 
-#include "mex_util.h"
+#include "arrow/matlab/feather/feather_functions.h"
 
-void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
-  using namespace arrow::matlab::mex;
+namespace arrow {
+namespace matlab {
+namespace mex {
+    
+using namespace arrow::matlab::feather;
 
-  checkNumArgs(nrhs);
-  auto fcn = lookup_function(get_function_name(prhs[0]));
-  fcn(nlhs, plhs, nrhs - 1, ++prhs);
-}
+using mex_fcn_t =
+    std::function<void(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])>;
+
+static const std::unordered_map<std::string, mex_fcn_t> FUNCTION_MAP = {
+    {"featherread", featherread}, {"featherwrite", featherwrite}};
+
+} // namespace mex
+} // namespace matlab
+} // namespace arrow

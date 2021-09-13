@@ -15,14 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string>
+#include <functional>
+#include <unordered_map>
+
 #include <mex.h>
 
-#include "mex_util.h"
+#include "mex_functions.h"
 
-void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
-  using namespace arrow::matlab::mex;
+namespace arrow {
+namespace matlab {
+namespace mex {
 
-  checkNumArgs(nrhs);
-  auto fcn = lookup_function(get_function_name(prhs[0]));
-  fcn(nlhs, plhs, nrhs - 1, ++prhs);
-}
+void checkNumArgs(int nrhs);
+    
+std::string get_function_name(const mxArray* input);
+    
+mex_fcn_t lookup_function(const std::string& function_name);
+    
+} // namespace mex
+} // namespace matlab
+} // namespace arrow

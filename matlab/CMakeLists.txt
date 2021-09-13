@@ -228,21 +228,27 @@ endif()
 # MATLAB is Required
 find_package(Matlab REQUIRED)
 
+set(CPP_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp)
+set(MATLAB_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab)
+
 # Construct the absolute path to mexfcn's souce files
 set(mexfcn_sources
     mex/mexfcn.cc
+    mex/mex_util.cc
     feather/feather_reader.cc
     feather/feather_writer.cc
     feather/feather_functions.cc
     feather/util/handle_status.cc
     feather/util/unicode_conversion.cc)
-list(TRANSFORM mexfcn_sources PREPEND ${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/)
+list(TRANSFORM mexfcn_sources PREPEND ${MATLAB_SOURCE_DIR}/)
 
 # Build mexDispatcher MEX binary
 matlab_add_mex(R2018a
                NAME mexfcn
                SRC ${mexfcn_sources}
                LINK_TO arrow_shared)
+
+target_include_directories(mexfcn PRIVATE ${CPP_SOURCE_DIR})
 
 # ##############################################################################
 # C++ Tests
