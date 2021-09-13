@@ -50,8 +50,56 @@ class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
   explicit ElementWiseAggregateOptions(bool skip_nulls = true);
   constexpr static char const kTypeName[] = "ElementWiseAggregateOptions";
   static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
-
   bool skip_nulls;
+};
+
+/// Rounding and tie-breaking modes for round compute functions.
+/// Additional details and examples are provided in compute.rst.
+enum class RoundMode : int8_t {
+  /// Round to nearest integer less than or equal in magnitude (aka "floor")
+  DOWN,
+  /// Round to nearest integer greater than or equal in magnitude (aka "ceil")
+  UP,
+  /// Get the integral part without fractional digits (aka "trunc")
+  TOWARDS_ZERO,
+  /// Round negative values with DOWN rule and positive values with UP rule
+  TOWARDS_INFINITY,
+  /// Round ties with DOWN rule
+  HALF_DOWN,
+  /// Round ties with UP rule
+  HALF_UP,
+  /// Round ties with TOWARDS_ZERO rule
+  HALF_TOWARDS_ZERO,
+  /// Round ties with TOWARDS_INFINITY rule
+  HALF_TOWARDS_INFINITY,
+  /// Round ties to nearest even integer
+  HALF_TO_EVEN,
+  /// Round ties to nearest odd integer
+  HALF_TO_ODD,
+};
+
+class ARROW_EXPORT RoundOptions : public FunctionOptions {
+ public:
+  explicit RoundOptions(int64_t ndigits = 0,
+                        RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  constexpr static char const kTypeName[] = "RoundOptions";
+  static RoundOptions Defaults() { return RoundOptions(); }
+  /// Rounding precision (number of digits to round to)
+  int64_t ndigits;
+  /// Rounding and tie-breaking mode
+  RoundMode round_mode;
+};
+
+class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
+ public:
+  explicit RoundToMultipleOptions(double multiple = 1.0,
+                                  RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  constexpr static char const kTypeName[] = "RoundToMultipleOptions";
+  static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
+  /// Rounding scale (multiple to round to)
+  double multiple;
+  /// Rounding and tie-breaking mode
+  RoundMode round_mode;
 };
 
 /// Options for var_args_join.
@@ -559,8 +607,9 @@ Result<Datum> Logb(const Datum& arg, const Datum& base,
                    ExecContext* ctx = NULLPTR);
 
 /// \brief Round to the nearest integer less than or equal in magnitude to the
-/// argument. Array values can be of arbitrary length. If argument is null the
-/// result will be null.
+/// argument.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value to round
 /// \param[in] ctx the function execution context, optional
@@ -569,8 +618,9 @@ ARROW_EXPORT
 Result<Datum> Floor(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Round to the nearest integer greater than or equal in magnitude to the
-/// argument. Array values can be of arbitrary length. If argument is null the
-/// result will be null.
+/// argument.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value to round
 /// \param[in] ctx the function execution context, optional
@@ -578,8 +628,9 @@ Result<Datum> Floor(const Datum& arg, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Ceil(const Datum& arg, ExecContext* ctx = NULLPTR);
 
-/// \brief Get the integral part without fractional digits. Array values can be
-/// of arbitrary length. If argument is null the result will be null.
+/// \brief Get the integral part without fractional digits.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value to truncate
 /// \param[in] ctx the function execution context, optional
@@ -618,9 +669,34 @@ Result<Datum> MinElementWise(
 ///
 /// \param[in] arg the value to extract sign from
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise sign function
+/// \return the element-wise sign function
 ARROW_EXPORT
 Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Round a value to a given precision.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the value rounded
+/// \param[in] options rounding options (rounding mode and number of digits), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+ARROW_EXPORT
+Result<Datum> Round(const Datum& arg, RoundOptions options = RoundOptions::Defaults(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Round a value to a given multiple.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the value to round
+/// \param[in] options rounding options (rounding mode and multiple), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+ARROW_EXPORT
+Result<Datum> RoundToMultiple(
+    const Datum& arg, RoundToMultipleOptions options = RoundToMultipleOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///

@@ -1827,6 +1827,41 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CElementWiseAggregateOptions(c_bool skip_nulls)
         c_bool skip_nulls
 
+    ctypedef enum CRoundMode \
+            "arrow::compute::RoundMode":
+        CRoundMode_DOWN \
+            "arrow::compute::RoundMode::DOWN"
+        CRoundMode_UP \
+            "arrow::compute::RoundMode::UP"
+        CRoundMode_TOWARDS_ZERO \
+            "arrow::compute::RoundMode::TOWARDS_ZERO"
+        CRoundMode_TOWARDS_INFINITY \
+            "arrow::compute::RoundMode::TOWARDS_INFINITY"
+        CRoundMode_HALF_DOWN \
+            "arrow::compute::RoundMode::HALF_DOWN"
+        CRoundMode_HALF_UP \
+            "arrow::compute::RoundMode::HALF_UP"
+        CRoundMode_HALF_TOWARDS_ZERO \
+            "arrow::compute::RoundMode::HALF_TOWARDS_ZERO"
+        CRoundMode_HALF_TOWARDS_INFINITY \
+            "arrow::compute::RoundMode::HALF_TOWARDS_INFINITY"
+        CRoundMode_HALF_TO_EVEN \
+            "arrow::compute::RoundMode::HALF_TO_EVEN"
+        CRoundMode_HALF_TO_ODD \
+            "arrow::compute::RoundMode::HALF_TO_ODD"
+
+    cdef cppclass CRoundOptions \
+            "arrow::compute::RoundOptions"(CFunctionOptions):
+        CRoundOptions(int64_t ndigits, CRoundMode round_mode)
+        int64_t ndigits
+        CRoundMode round_mode
+
+    cdef cppclass CRoundToMultipleOptions \
+            "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
+        CRoundToMultipleOptions(double multiple, CRoundMode round_mode)
+        double multiple
+        CRoundMode round_mode
+
     enum CJoinNullHandlingBehavior \
             "arrow::compute::JoinOptions::NullHandlingBehavior":
         CJoinNullHandlingBehavior_EMIT_NULL \

@@ -699,6 +699,57 @@ class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
         self._set_options(skip_nulls)
 
 
+cdef CRoundMode unwrap_round_mode(round_mode) except *:
+    if round_mode == 'down':
+        return CRoundMode_DOWN
+    elif round_mode == 'up':
+        return CRoundMode_UP
+    elif round_mode == 'towards_zero':
+        return CRoundMode_TOWARDS_ZERO
+    elif round_mode == 'towards_infinity':
+        return CRoundMode_TOWARDS_INFINITY
+    elif round_mode == 'half_down':
+        return CRoundMode_HALF_DOWN
+    elif round_mode == 'half_up':
+        return CRoundMode_HALF_UP
+    elif round_mode == 'half_towards_zero':
+        return CRoundMode_HALF_TOWARDS_ZERO
+    elif round_mode == 'half_towards_infinity':
+        return CRoundMode_HALF_TOWARDS_INFINITY
+    elif round_mode == 'half_to_even':
+        return CRoundMode_HALF_TO_EVEN
+    elif round_mode == 'half_to_odd':
+        return CRoundMode_HALF_TO_ODD
+    else:
+        raise ValueError('"{}" is not a valid round mode'.format(round_mode))
+
+
+cdef class _RoundOptions(FunctionOptions):
+    def _set_options(self, int64_t ndigits, round_mode):
+        cdef:
+            CRoundMode c_round_mode = CRoundMode_HALF_TO_EVEN
+        c_round_mode = unwrap_round_mode(round_mode)
+        self.wrapped.reset(new CRoundOptions(ndigits, c_round_mode))
+
+
+class RoundOptions(_RoundOptions):
+    def __init__(self, ndigits=0, round_mode='half_to_even'):
+        self._set_options(ndigits, round_mode)
+
+
+cdef class _RoundToMultipleOptions(FunctionOptions):
+    def _set_options(self, double multiple, round_mode):
+        cdef:
+            CRoundMode c_round_mode = CRoundMode_HALF_TO_EVEN
+        c_round_mode = unwrap_round_mode(round_mode)
+        self.wrapped.reset(new CRoundToMultipleOptions(multiple, c_round_mode))
+
+
+class RoundToMultipleOptions(_RoundToMultipleOptions):
+    def __init__(self, multiple=1.0, round_mode='half_to_even'):
+        self._set_options(multiple, round_mode)
+
+
 cdef class _JoinOptions(FunctionOptions):
     def _set_options(self, null_handling, null_replacement):
         cdef:
