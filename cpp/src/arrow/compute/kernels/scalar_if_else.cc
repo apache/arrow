@@ -1726,10 +1726,8 @@ struct CaseWhenFunctor<DictionaryType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthArrayCaseWhen(
-        ctx, batch, out,
-        // ReserveData
-        [&](ArrayBuilder* raw_builder) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
   }
 };
 
