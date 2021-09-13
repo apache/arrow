@@ -267,12 +267,29 @@ class ReadableFile::ReadableFileImpl : public OSFile {
   }
 
   Status WillNeed(const std::vector<ReadRange>& ranges) {
+    auto report_error = [](int errnum, const char* msg) -> Status {
+      if (errnum == EBADF || errnum == EINVAL) {
+        // These are logic errors, so raise them
+        return IOErrorFromErrno(errnum, msg);
+      }
+#ifndef NDEBUG
+      // Other errors may be encountered if the target device or filesystem
+      // does not support fadvise advisory (for example, macOS can return
+      // ENOTTY on macOS: ARROW-13983).  Log the error for diagnosis
+      // on debug builds, but avoid bothering the user otherwise.
+      ARROW_LOG(WARNING) << IOErrorFromErrno(errnum, msg).ToString();
+#else
+      ARROW_UNUSED(msg);
+#endif
+      return Status::OK();
+    };
     RETURN_NOT_OK(CheckClosed());
     for (const auto& range : ranges) {
       RETURN_NOT_OK(internal::ValidateRange(range.offset, range.length));
 #if defined(POSIX_FADV_WILLNEED)
-      if (posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_WILLNEED)) {
-        return IOErrorFromErrno(errno, "posix_fadvise failed");
+      int ret = posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_WILLNEED);
+      if (ret) {
+        RETURN_NOT_OK(report_error(ret, "posix_fadvise failed"));
       }
 #elif defined(F_RDADVISE)  // macOS, BSD?
       struct {
@@ -280,7 +297,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
         int ra_count;
       } radvisory{range.offset, static_cast<int>(range.length)};
       if (radvisory.ra_count > 0 && fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
-        return IOErrorFromErrno(errno, "fcntl(fd, F_RDADVISE, ...) failed");
+        RETURN_NOT_OK(report_error(errno, "fcntl(fd, F_RDADVISE, ...) failed"));
       }
 #endif
     }
