@@ -1364,7 +1364,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
                                      properties_->memory_pool());
       current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
-      current_dict_encoder_ = 0;  // not using dict
+      current_dict_encoder_ = nullptr;  // not using dict
       encoding_ = Encoding::PLAIN;
     }
   }
