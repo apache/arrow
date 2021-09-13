@@ -150,9 +150,6 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
     }
     return SelectKOptions{k, keys};
   }
-  bool is_top_k() const;
-
-  bool is_bottom_k() const;
 
   /// The number of `k` elements to keep.
   int64_t k;
@@ -292,19 +289,22 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the first k elements ordered by `options.keys`.
+/// \brief Returns the indices that would select the first `k` elements of the array in
+/// the specified order.
 ///
-/// Return a sorted array with its elements rearranged in such
-/// a way that the value of the element in k-th position (options.k) is in the position it
-/// would be in a sorted datum ordered by `options.keys`. Null like values will be not
-/// part of the output. Output is not guaranteed to be stable.
+// Perform an indirect sort of the datum, keeping only the first `k` elements. The output
+// array will contain indices such that the item indicated by the k-th index will be in
+// the position it would be if the datum were sorted by `options.sort_keys`. However,
+// indices of null values will not be part of the output. The sort is not guaranteed to be
+// stable.
 ///
 /// \param[in] datum datum to be partitioned
 /// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum, SelectKOptions options,
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
+                                               const SelectKOptions& options,
                                                ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array in the

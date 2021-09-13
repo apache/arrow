@@ -42,7 +42,7 @@ using internal::checked_pointer_cast;
 namespace compute {
 
 template <typename ArrayType, SortOrder order>
-class SelectKComparator {
+class SelectKCompareForResult {
  public:
   template <typename Type>
   bool operator()(const Type& lval, const Type& rval) {
@@ -60,16 +60,6 @@ Result<std::shared_ptr<Array>> SelectK(const Datum& values, int64_t k) {
     return SelectKUnstable(values, SelectKOptions::TopKDefault(k));
   } else {
     return SelectKUnstable(values, SelectKOptions::BottomKDefault(k));
-  }
-}
-
-template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const Datum& values,
-                                       const SelectKOptions& options) {
-  if (order == SortOrder::Descending) {
-    return SelectKUnstable(Datum(values), options);
-  } else {
-    return SelectKUnstable(Datum(values), options);
   }
 }
 
@@ -298,7 +288,7 @@ template <typename ArrayType, SortOrder order>
 void ValidateSelectKIndices(const ArrayType& array) {
   ValidateOutput(array);
 
-  SelectKComparator<ArrayType, order> compare;
+  SelectKCompareForResult<ArrayType, order> compare;
   for (uint64_t i = 1; i < static_cast<uint64_t>(array.length()); i++) {
     using ArrowType = typename ArrayType::TypeClass;
     using GetView = internal::GetViewType<ArrowType>;
@@ -365,7 +355,6 @@ TYPED_TEST_SUITE(TestBottomKChunkedArrayRandom, SelectKableTypes);
 TYPED_TEST(TestBottomKChunkedArrayRandom, BottomK) { this->TestSelectK(1000); }
 
 // // Test basic cases for record batch.
-template <SortOrder order>
 class TestSelectKWithRecordBatch : public ::testing::Test {
  public:
   void Check(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
@@ -378,7 +367,7 @@ class TestSelectKWithRecordBatch : public ::testing::Test {
   Status DoSelectK(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                    const SelectKOptions& options, std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(Datum(*batch), options));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectKUnstable(Datum(*batch), options));
 
     ValidateOutput(*indices);
     ARROW_ASSIGN_OR_RAISE(
@@ -388,9 +377,7 @@ class TestSelectKWithRecordBatch : public ::testing::Test {
   }
 };
 
-struct TestTopKWithRecordBatch : TestSelectKWithRecordBatch<SortOrder::Descending> {};
-
-TEST_F(TestTopKWithRecordBatch, NoNull) {
+TEST_F(TestSelectKWithRecordBatch, TopKNoNull) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
@@ -417,7 +404,7 @@ TEST_F(TestTopKWithRecordBatch, NoNull) {
   Check(schema, batch_input, options, expected_batch);
 }
 
-TEST_F(TestTopKWithRecordBatch, Null) {
+TEST_F(TestSelectKWithRecordBatch, TopKNull) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
@@ -444,7 +431,7 @@ TEST_F(TestTopKWithRecordBatch, Null) {
   Check(schema, batch_input, options, expected_batch);
 }
 
-TEST_F(TestTopKWithRecordBatch, OneColumnKey) {
+TEST_F(TestSelectKWithRecordBatch, TopKOneColumnKey) {
   auto schema = ::arrow::schema({
       {field("country", utf8())},
       {field("population", uint64())},
@@ -473,7 +460,7 @@ TEST_F(TestTopKWithRecordBatch, OneColumnKey) {
   this->Check(schema, batch_input, options, expected_batch);
 }
 
-TEST_F(TestTopKWithRecordBatch, MultipleColumnKeys) {
+TEST_F(TestSelectKWithRecordBatch, TopKMultipleColumnKeys) {
   auto schema = ::arrow::schema({{field("country", utf8())},
                                  {field("population", uint64())},
                                  {field("GDP", uint64())}});
@@ -499,9 +486,7 @@ TEST_F(TestTopKWithRecordBatch, MultipleColumnKeys) {
   this->Check(schema, batch_input, options, expected_batch);
 }
 
-struct TestBottomKWithRecordBatch : TestSelectKWithRecordBatch<SortOrder::Ascending> {};
-
-TEST_F(TestBottomKWithRecordBatch, NoNull) {
+TEST_F(TestSelectKWithRecordBatch, BottomKNoNull) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
@@ -528,7 +513,7 @@ TEST_F(TestBottomKWithRecordBatch, NoNull) {
   Check(schema, batch_input, options, expected_batch);
 }
 
-TEST_F(TestBottomKWithRecordBatch, Null) {
+TEST_F(TestSelectKWithRecordBatch, BottomKNull) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
@@ -555,7 +540,7 @@ TEST_F(TestBottomKWithRecordBatch, Null) {
   Check(schema, batch_input, options, expected_batch);
 }
 
-TEST_F(TestBottomKWithRecordBatch, OneColumnKey) {
+TEST_F(TestSelectKWithRecordBatch, BottomKOneColumnKey) {
   auto schema = ::arrow::schema({
       {field("country", utf8())},
       {field("population", uint64())},
@@ -584,7 +569,7 @@ TEST_F(TestBottomKWithRecordBatch, OneColumnKey) {
   this->Check(schema, batch_input, options, expected_batch);
 }
 
-TEST_F(TestBottomKWithRecordBatch, MultipleColumnKeys) {
+TEST_F(TestSelectKWithRecordBatch, BottomKMultipleColumnKeys) {
   auto schema = ::arrow::schema({{field("country", utf8())},
                                  {field("population", uint64())},
                                  {field("GDP", uint64())}});
@@ -612,7 +597,6 @@ TEST_F(TestBottomKWithRecordBatch, MultipleColumnKeys) {
 }
 
 // Test basic cases for table.
-template <SortOrder order>
 struct TestSelectKWithTable : public ::testing::Test {
   void Check(const std::shared_ptr<Schema>& schm,
              const std::vector<std::string>& input_json, const SelectKOptions& options,
@@ -626,7 +610,7 @@ struct TestSelectKWithTable : public ::testing::Test {
                    const std::vector<std::string>& input_json,
                    const SelectKOptions& options, std::shared_ptr<Table>* out) {
     auto table = TableFromJSON(schm, input_json);
-    ARROW_ASSIGN_OR_RAISE(auto indices, SelectK<order>(Datum(*table), options));
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectKUnstable(Datum(*table), options));
     ValidateOutput(*indices);
 
     ARROW_ASSIGN_OR_RAISE(
@@ -636,9 +620,7 @@ struct TestSelectKWithTable : public ::testing::Test {
   }
 };
 
-struct TestTopKWithTable : TestSelectKWithTable<SortOrder::Descending> {};
-
-TEST_F(TestTopKWithTable, OneColumnKey) {
+TEST_F(TestSelectKWithTable, TopKOneColumnKey) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
@@ -661,7 +643,7 @@ TEST_F(TestTopKWithTable, OneColumnKey) {
   Check(schema, input, options, expected);
 }
 
-TEST_F(TestTopKWithTable, MultipleColumnKeys) {
+TEST_F(TestSelectKWithTable, TopKMultipleColumnKeys) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
@@ -684,9 +666,7 @@ TEST_F(TestTopKWithTable, MultipleColumnKeys) {
   Check(schema, input, options, expected);
 }
 
-struct TestBottomKWithTable : TestSelectKWithTable<SortOrder::Ascending> {};
-
-TEST_F(TestBottomKWithTable, OneColumnKey) {
+TEST_F(TestSelectKWithTable, BottomKOneColumnKey) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
@@ -709,7 +689,7 @@ TEST_F(TestBottomKWithTable, OneColumnKey) {
   Check(schema, input, options, expected);
 }
 
-TEST_F(TestBottomKWithTable, MultipleColumnKeys) {
+TEST_F(TestSelectKWithTable, BottomKMultipleColumnKeys) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
