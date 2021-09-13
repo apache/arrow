@@ -702,8 +702,10 @@ def test_file_format_pickling():
             buffer_size=4096,
         )
     ]
-    if hasattr(ds, "OrcFileFormat"):
+    try:
         formats.append(ds.OrcFileFormat())
+    except ImportError:
+        pass
 
     for file_format in formats:
         assert pickle.loads(pickle.dumps(file_format)) == file_format
@@ -2685,6 +2687,17 @@ def test_orc_scan_options(tempdir, dataset_reader):
     # assert result[0].equals(table.slice(0, 2).to_batches()[0])
     # assert result[1].num_rows == 1
     # assert result[1].equals(table.slice(2, 1).to_batches()[0])
+
+
+def test_orc_format_not_supported(tempdir, dataset_reader):
+    try:
+        from pyarrow.dataset import OrcFileFormat  # noqa
+    except ImportError:
+        # ORC is not available, test error message
+        with pytest.raises(
+            ValueError, match="not built with support for the ORC file"
+        ):
+            ds.dataset(".", format="orc")
 
 
 @pytest.mark.pandas
