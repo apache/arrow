@@ -19,6 +19,7 @@
 #include <cmath>
 #include <limits>
 #include <utility>
+#include <vector>
 
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common.h"
@@ -78,24 +79,27 @@ using enable_if_decimal_value =
 
 struct AbsoluteValue {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, T arg, Status*) {
+  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+                                                         Status*) {
     return std::fabs(arg);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, T arg, Status*) {
+  static constexpr enable_if_unsigned_c_integer<Arg, T> Call(KernelContext*, Arg arg,
+                                                             Status*) {
     return arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, T arg, Status* st) {
+  static constexpr enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg,
+                                                           Status* st) {
     return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
   }
 };
 
 struct AbsoluteValueChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_c_integer<T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == std::numeric_limits<Arg>::min()) {
       *st = Status::Invalid("overflow");
@@ -105,13 +109,15 @@ struct AbsoluteValueChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_c_integer<T> Call(KernelContext* ctx, Arg arg, Status* st) {
+  static enable_if_unsigned_c_integer<Arg, T> Call(KernelContext* ctx, Arg arg,
+                                                   Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
+  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+                                                         Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::fabs(arg);
   }
@@ -378,7 +384,7 @@ struct Negate {
 
 struct NegateChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_c_integer<T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(NegateWithOverflow(arg, &result))) {
@@ -388,7 +394,8 @@ struct NegateChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_c_integer<T> Call(KernelContext* ctx, Arg arg, Status* st) {
+  static enable_if_unsigned_c_integer<Arg, T> Call(KernelContext* ctx, Arg arg,
+                                                   Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     DCHECK(false) << "This is included only for the purposes of instantiability from the "
                      "arithmetic kernel generator";
@@ -396,7 +403,8 @@ struct NegateChecked {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
+  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+                                                         Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
   }
@@ -466,18 +474,20 @@ struct PowerChecked {
 
 struct Sign {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+                                                         Status*) {
     return std::isnan(arg) ? arg : ((arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1));
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
-    return arg > 0;
+  static constexpr enable_if_unsigned_c_integer<Arg, T> Call(KernelContext*, Arg arg,
+                                                             Status*) {
+    return (arg > 0) ? 1 : 0;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg,
+                                                           Status*) {
     return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 };
@@ -854,21 +864,24 @@ struct LogbChecked {
 
 struct Floor {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+                                                         Status*) {
     return std::floor(arg);
   }
 };
 
 struct Ceil {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+                                                         Status*) {
     return std::ceil(arg);
   }
 };
 
 struct Trunc {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+                                                         Status*) {
     return std::trunc(arg);
   }
 };
