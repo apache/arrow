@@ -18,14 +18,19 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
+using internal::AllTimeUnits;
 using internal::StringFormatter;
+
+namespace compute {
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
@@ -135,8 +140,6 @@ class ScalarTemporalTest : public ::testing::Test {
   std::string zeros = "[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]";
 };
 
-namespace compute {
-
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
   std::vector<std::shared_ptr<DataType>> units = {date32(), date64(),
                                                   timestamp(TimeUnit::NANO)};
@@ -167,7 +170,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto unit = timestamp(u);
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
@@ -295,7 +298,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
 }
 
 TEST_F(ScalarTemporalTest, TestZoned2) {
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
     auto iso_calendar_type =
         struct_({field("iso_year", int64()), field("iso_week", int64()),
@@ -358,7 +361,7 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
   auto data_buffer = Buffer::Wrap(std::vector<int32_t>{1, 2, 3});
   auto null_buffer = Buffer::FromString("\xff");
 
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto ts_type = timestamp(u, "Mars/Mariner_Valley");
     auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
         ts_type, 2, data_buffer, null_buffer, 0);
@@ -445,7 +448,7 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   auto options_us_central = AssumeTimezoneOptions(timezone_us_central);
   auto options_invalid = AssumeTimezoneOptions("Europe/Brusselsss");
 
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto unit = timestamp(u);
     auto unit_utc = timestamp(u, timezone_utc);
     auto unit_kolkata = timestamp(u, timezone_kolkata);
@@ -483,7 +486,7 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneAmbiguous) {
   auto options_raise =
       AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE);
 
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto unit = timestamp(u);
     auto unit_local = timestamp(u, timezone);
     ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));
@@ -516,7 +519,7 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
       AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
                             AssumeTimezoneOptions::NONEXISTENT_EARLIEST);
 
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto unit = timestamp(u);
     auto unit_local = timestamp(u, timezone);
     ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));

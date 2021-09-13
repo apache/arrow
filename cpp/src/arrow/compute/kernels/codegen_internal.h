@@ -415,9 +415,6 @@ const std::vector<std::shared_ptr<DataType>>& IntTypes();
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
 const std::vector<Type::type>& DecimalTypeIds();
 
-ARROW_EXPORT
-const std::vector<TimeUnit::type>& AllTimeUnits();
-
 // Returns a vector of example instances of parametric types such as
 //
 // * Decimal

@@ -16,7 +16,6 @@
 // under the License.
 
 #include <algorithm>
-#define _USE_MATH_DEFINES
 #include <cmath>
 #include <memory>
 #include <string>
@@ -28,12 +27,12 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/math_constants.h"
 #include "arrow/util/string.h"
 
 #include "arrow/testing/gtest_common.h"
@@ -515,7 +514,7 @@ TEST(TestBinaryArithmetic, SubtractTimestamps) {
   auto rhs = rand.Int64(length, 0, 100000000);
   auto expected_int64 = (*Subtract(lhs, rhs)).make_array();
 
-  for (auto unit : internal::AllTimeUnits()) {
+  for (auto unit : ::arrow::internal::AllTimeUnits()) {
     auto timestamp_ty = timestamp(unit);
     auto duration_ty = duration(unit);
 
