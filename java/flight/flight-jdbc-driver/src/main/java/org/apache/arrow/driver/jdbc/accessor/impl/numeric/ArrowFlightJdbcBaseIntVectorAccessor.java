@@ -36,6 +36,9 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
  * Accessor for the arrow types: TinyIntVector, SmallIntVector, IntVector, BigIntVector,
@@ -43,6 +46,7 @@ import org.apache.arrow.vector.UInt8Vector;
  */
 public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccessor {
 
+  private final MinorType type;
   private final boolean isUnsigned;
   private final int bytesToAllocate;
   private final Getter getter;
@@ -93,6 +97,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
                                                boolean isUnsigned,
                                                int bytesToAllocate) {
     super(currentRowSupplier);
+    this.type = vector.getMinorType();
     this.holder = new NumericHolder();
     this.getter = createGetter(vector);
     this.isUnsigned = isUnsigned;
@@ -185,9 +190,33 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public Object getObject() {
-    long value = getLong();
-    return this.wasNull ? null : value;
+  public Number getObject() {
+    final Number number;
+    switch (type) {
+      case TINYINT:
+      case UINT1:
+        number = getByte();
+        break;
+      case SMALLINT:
+      case UINT2:
+        number = getShort();
+        break;
+      case INT:
+      case UINT4:
+        number = getInt();
+        break;
+      case BIGINT:
+      case UINT8:
+        number = getLong();
+        break;
+      case DECIMAL:
+      case DECIMAL256:
+        number = getBigDecimal();
+        break;
+      default:
+        throw new IllegalStateException();
+    }
+    return wasNull ? null : number;
   }
 
   @Override
