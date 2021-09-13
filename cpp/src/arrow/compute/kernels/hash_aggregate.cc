@@ -1840,7 +1840,8 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
     auto other_raw_maxes = other->maxes_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
-    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
+         ++other_g, ++g) {
       GetSet::Set(
           raw_mins, *g,
           std::min(GetSet::Get(raw_mins, *g), GetSet::Get(other_raw_mins, other_g)));
