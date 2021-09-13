@@ -16,11 +16,11 @@
 // under the License.
 
 #include <arrow/status.h>
-
 #include <mex.h>
 
 namespace arrow {
 namespace matlab {
+namespace feather {
 namespace util {
 
 void HandleStatus(const Status& status) {
@@ -86,6 +86,8 @@ void HandleStatus(const Status& status) {
     }
   }
 }
+
 }  // namespace util
+}  // namespace feather
 }  // namespace matlab
 }  // namespace arrow

@@ -19,13 +19,17 @@
 
 #include <arrow/status.h>
 
-namespace arrow::matlab::feather::util {
+namespace arrow {
+namespace matlab {
+namespace feather {
+namespace util {
 
 // Terminates execution and returns to the MATLAB prompt,
 // displaying an error message if the given status
 // indicates that an error has occurred.
 void HandleStatus(const Status& status);
 
-}  // namespace arrow::matlab::feather::util
-
-
+}  // namespace util
+}  // namespace feather
+}  // namespace matlab
+}  // namespace arrow

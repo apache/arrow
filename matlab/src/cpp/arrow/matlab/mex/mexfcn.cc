@@ -15,55 +15,51 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <string>
-#include <functional>
-#include <unordered_map>
-
 #include <mex.h>
+
+#include <functional>
+#include <string>
+#include <unordered_map>
 
 #include "../feather/feather_functions.h"
 
-using mex_fcn_t = std::function<void(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])>;
+using mex_fcn_t =
+    std::function<void(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])>;
 
-static const std::unordered_map<std::string, mex_fcn_t> FUNCTION_MAP =
-{
+static const std::unordered_map<std::string, mex_fcn_t> FUNCTION_MAP = {
     {"featherread", arrow::matlab::feather::featherread},
-    {"featherwrite", arrow::matlab::feather::featherwrite}
-};
+    {"featherwrite", arrow::matlab::feather::featherwrite}};
 
-std::string get_function_name(const mxArray* input)
-{
-    std::string opname;
-    if (!mxIsChar(input)) {
-        mexErrMsgIdAndTxt("MATLAB:arrow:FunctionNameDataType",
-                          "The first input argument to 'mexfcn' must be a character vector.");
-    }
-    const char* c_str = mxArrayToUTF8String(input);
-    return std::string{c_str};
+std::string get_function_name(const mxArray* input) {
+  std::string opname;
+  if (!mxIsChar(input)) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:FunctionNameDataType",
+                      "The first input argument to 'mexfcn' must be a character vector.");
+  }
+  const char* c_str = mxArrayToUTF8String(input);
+  return std::string{c_str};
 }
 
-void checkNumArgs(int nrhs)
-{
-    if (nrhs < 1) {
-        mexErrMsgIdAndTxt("MATLAB:arrow:minrhs",
-                          "'mexfcn' requires at least one input argument, which must be the name of the C++ MEX to invoke.");
-    }
+void checkNumArgs(int nrhs) {
+  if (nrhs < 1) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:minrhs",
+                      "'mexfcn' requires at least one input argument, which must be the "
+                      "name of the C++ MEX to invoke.");
+  }
 }
 
-mex_fcn_t lookup_function(const std::string& function_name)
-{
-    auto kv_pair = FUNCTION_MAP.find(function_name);
-    if (kv_pair == FUNCTION_MAP.end()) {
-        mexErrMsgIdAndTxt("MATLAB:arrow:UnknownMEXFunction",
-                          "Unrecognized MEX function '%s'", function_name.c_str());
-    }
-    return kv_pair->second;
+mex_fcn_t lookup_function(const std::string& function_name) {
+  auto kv_pair = FUNCTION_MAP.find(function_name);
+  if (kv_pair == FUNCTION_MAP.end()) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:UnknownMEXFunction", "Unrecognized MEX function '%s'",
+                      function_name.c_str());
+  }
+  return kv_pair->second;
 }
 
 // MEX gateway function.
-void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
-{
-    checkNumArgs(nrhs);
-    auto fcn = lookup_function(get_function_name(prhs[0]));
-    fcn(nlhs, plhs, nrhs - 1, ++prhs);
+void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
+  checkNumArgs(nrhs);
+  auto fcn = lookup_function(get_function_name(prhs[0]));
+  fcn(nlhs, plhs, nrhs - 1, ++prhs);
 }
