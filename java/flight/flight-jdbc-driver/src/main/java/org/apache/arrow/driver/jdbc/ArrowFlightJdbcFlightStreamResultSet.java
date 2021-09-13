@@ -55,6 +55,16 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
     this.connection = (ArrowFlightConnection) statement.connection;
   }
 
+  ArrowFlightJdbcFlightStreamResultSet(final ArrowFlightConnection connection,
+                                       final QueryState state,
+                                       final Meta.Signature signature,
+                                       final ResultSetMetaData resultSetMetaData,
+                                       final TimeZone timeZone,
+                                       final Meta.Frame firstFrame) throws SQLException {
+    super(null, state, signature, resultSetMetaData, timeZone, firstFrame);
+    this.connection = connection;
+  }
+
   /**
    * Create a {@link ResultSet} which pulls data from given {@link FlightInfo}.
    *
@@ -76,7 +86,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
 
     final AvaticaResultSetMetaData resultSetMetaData = new AvaticaResultSetMetaData(null, null, signature);
     final ArrowFlightJdbcFlightStreamResultSet resultSet =
-        new ArrowFlightJdbcFlightStreamResultSet(null, state, signature, resultSetMetaData, timeZone, null, connection);
+        new ArrowFlightJdbcFlightStreamResultSet(connection, state, signature, resultSetMetaData, timeZone, null);
 
     resultSet.transformer = transformer;
 
@@ -84,7 +94,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
     return resultSet;
   }
 
-  protected FlightStreamQueue getFlightStreamQueue() {
+  FlightStreamQueue getFlightStreamQueue() {
     return flightStreamQueue;
   }
 
