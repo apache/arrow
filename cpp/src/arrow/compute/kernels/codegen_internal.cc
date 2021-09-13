@@ -146,12 +146,6 @@ const std::vector<Type::type>& DecimalTypeIds() {
   return g_decimal_type_ids;
 }
 
-const std::vector<TimeUnit::type>& AllTimeUnits() {
-  static std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI,
-                                              TimeUnit::MICRO, TimeUnit::NANO};
-  return units;
-}
-
 const std::vector<std::shared_ptr<DataType>>& NumericTypes() {
   std::call_once(codegen_static_initialized, InitStaticData);
   return g_numeric_types;

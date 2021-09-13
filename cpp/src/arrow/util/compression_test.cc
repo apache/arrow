@@ -584,12 +584,8 @@ TEST_P(CodecTest, StreamingMultiFlush) {
   ASSERT_FALSE(result.should_retry);
 }
 
-#if !defined ARROW_WITH_ZLIB \
-  && !defined ARROW_WITH_SNAPPY \
-  && !defined ARROW_WITH_LZ4 \
-  && !defined ARROW_WITH_BROTLI \
-  && !defined ARROW_WITH_BZ2 \
-  && !defined ARROW_WITH_ZSTD
+#if !defined ARROW_WITH_ZLIB && !defined ARROW_WITH_SNAPPY && !defined ARROW_WITH_LZ4 && \
+    !defined ARROW_WITH_BROTLI && !defined ARROW_WITH_BZ2 && !defined ARROW_WITH_ZSTD
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CodecTest);
 #endif
 

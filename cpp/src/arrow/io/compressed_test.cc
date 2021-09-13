@@ -273,10 +273,8 @@ TEST(TestSnappyOutputStream, NotImplemented) {
 }
 #endif
 
-#if !defined ARROW_WITH_ZLIB \
-  && !defined ARROW_WITH_BROTLI \
-  && !defined ARROW_WITH_LZ4 \
-  && !defined ARROW_WITH_ZSTD
+#if !defined ARROW_WITH_ZLIB && !defined ARROW_WITH_BROTLI && !defined ARROW_WITH_LZ4 && \
+    !defined ARROW_WITH_ZSTD
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompressedInputStreamTest);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompressedOutputStreamTest);
 #endif

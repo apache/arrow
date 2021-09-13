@@ -18,14 +18,18 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
+using internal::AllTimeUnits;
 using internal::StringFormatter;
+
+namespace compute {
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
@@ -134,8 +138,6 @@ class ScalarTemporalTest : public ::testing::Test {
       "0.005321, 0.006163, 0, 0, 0, 0, 0, 0, null]";
   std::string zeros = "[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]";
 };
-
-namespace compute {
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
   std::vector<std::shared_ptr<DataType>> units = {date32(), date64(),
