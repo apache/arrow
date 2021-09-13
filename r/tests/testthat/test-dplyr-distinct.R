@@ -60,5 +60,14 @@ test_that("distinct() can name columns", {
       collect(),
     tbl
   )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping, false, lgl) %>%
+      distinct(x = lgl) %>%
+      collect(),
+    tbl
+  )
+
 })
 
