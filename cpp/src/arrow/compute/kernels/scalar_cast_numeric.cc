@@ -420,11 +420,8 @@ struct CastFunctor<O, I,
     if (out_scale < 0) {
       return Status::Invalid("Scale must be non-negative");
     }
-    // maximal number of decimal digits for int8/16/32/64
-    constexpr std::array<int, 4> decimal_digits{3, 5, 10, 19};
-    using ctype = typename I::c_type;
-    static_assert(sizeof(ctype) <= 8, "");
-    const int precision = decimal_digits[BitUtil::Log2(sizeof(ctype))] + out_scale;
+    ARROW_ASSIGN_OR_RAISE(int32_t precision, MaxDecimalDigitsForInteger(I::type_id));
+    precision += out_scale;
     if (out_precision < precision) {
       return Status::Invalid(
           "Precision is not great enough for the result. "

@@ -148,7 +148,6 @@ test_that("arrange() on datetime columns", {
       collect(),
     tbl
   )
-  skip("Sorting by only a single timestamp column fails (ARROW-12087)")
   expect_dplyr_equal(
     input %>%
       arrange(dttm) %>%

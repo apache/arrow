@@ -100,6 +100,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
 
   options->use_async = true;
+  options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
 
   options->dataset_schema = dataset->schema();
 

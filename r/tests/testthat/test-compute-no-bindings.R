@@ -19,37 +19,65 @@
 test_that("non-bound compute kernels using TrimOptions", {
 skip_if_not_available("utf8proc")
   expect_equal(
-    call_function("utf8_trim", Scalar$create("abracadabra"), options = list(characters = "ab")),
+    call_function(
+      "utf8_trim",
+      Scalar$create("abracadabra"),
+      options = list(characters = "ab")
+    ),
     Scalar$create("racadabr")
   )
 
   expect_equal(
-    call_function("utf8_ltrim", Scalar$create("abracadabra"), options = list(characters = "ab")),
+    call_function(
+      "utf8_ltrim",
+      Scalar$create("abracadabra"),
+      options = list(characters = "ab")
+    ),
     Scalar$create("racadabra")
   )
 
   expect_equal(
-    call_function("utf8_rtrim", Scalar$create("abracadabra"), options = list(characters = "ab")),
+    call_function(
+      "utf8_rtrim",
+      Scalar$create("abracadabra"),
+      options = list(characters = "ab")
+    ),
     Scalar$create("abracadabr")
   )
 
   expect_equal(
-    call_function("utf8_rtrim", Scalar$create("abracadabra"), options = list(characters = "ab")),
+    call_function(
+      "utf8_rtrim",
+      Scalar$create("abracadabra"),
+      options = list(characters = "ab")
+    ),
     Scalar$create("abracadabr")
   )
 
   expect_equal(
-    call_function("ascii_ltrim", Scalar$create("abracadabra"), options = list(characters = "ab")),
+    call_function(
+      "ascii_ltrim",
+      Scalar$create("abracadabra"),
+      options = list(characters = "ab")
+    ),
     Scalar$create("racadabra")
   )
 
   expect_equal(
-    call_function("ascii_rtrim", Scalar$create("abracadabra"), options = list(characters = "ab")),
+    call_function(
+      "ascii_rtrim",
+      Scalar$create("abracadabra"),
+      options = list(characters = "ab")
+    ),
     Scalar$create("abracadabr")
   )
 
   expect_equal(
-    call_function("ascii_rtrim", Scalar$create("abracadabra"), options = list(characters = "ab")),
+    call_function(
+      "ascii_rtrim",
+      Scalar$create("abracadabra"),
+      options = list(characters = "ab")
+    ),
     Scalar$create("abracadabr")
   )
 })
@@ -66,7 +94,7 @@ test_that("non-bound compute kernels using ReplaceSliceOptions", {
     ),
     Array$create("I don't need to fix this string")
   )
-
+})
   expect_equal(
     call_function(
       "utf8_replace_slice",
@@ -74,5 +102,19 @@ test_that("non-bound compute kernels using ReplaceSliceOptions", {
       options = list(start = 1, stop = 1, replacement = " don't")
     ),
     Array$create("I don't need to fix this string")
+
+test_that("non-bound compute kernels using ModeOptions", {
+  expect_equal(
+    as.vector(
+      call_function("mode", Array$create(c(1:10, 10, 9, NA)), options = list(n = 3))
+    ),
+    tibble::tibble("mode" = c(9, 10, 1), "count" = c(2L, 2L, 1L))
+  )
+
+  expect_equal(
+    as.vector(
+      call_function("mode", Array$create(c(1:10, 10, 9, NA)), options = list(n = 3, skip_nulls = FALSE))
+    ),
+    tibble::tibble("mode" = numeric(), "count" = integer())
   )
 })

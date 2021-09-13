@@ -70,6 +70,12 @@ if "%JOB%" NEQ "Build_Debug" (
     "fsspec" ^
     "python=%PYTHON%" ^
     || exit /B
+
+  @rem On Windows, GTest is always bundled from source instead of using
+  @rem conda binaries, avoid any interference between the two versions.
+  if "%JOB%" == "Toolchain" (
+    conda uninstall -n arrow -q -y -c conda-forge gtest
+  )
 )
 
 @rem

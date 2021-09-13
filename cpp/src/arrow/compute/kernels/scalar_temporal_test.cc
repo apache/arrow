@@ -16,18 +16,62 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
+using internal::AllTimeUnits;
 using internal::StringFormatter;
+
+namespace compute {
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
+  const char* date32s =
+      R"([0,
+      11016,
+      -25932,
+      23148,
+      18262,
+      18261,
+      18260,
+      14609,
+      14610,
+      14612,
+      14613,
+      13149,
+      13148,
+      14241,
+      14242,
+      15340,
+      null])";
+
+  const char* date64s =
+      R"([0,
+      951782400000,
+      -2240524800000,
+      1999987200000,
+      1577836800000,
+      1577750400000,
+      1577664000000,
+      1262217600000,
+      1262304000000,
+      1262476800000,
+      1262563200000,
+      1136073600000,
+      1135987200000,
+      1230422400000,
+      1230508800000,
+      1325376000000,
+      null])";
+
   const char* times =
       R"(["1970-01-01T00:00:59.123456789","2000-02-29T23:23:23.999999999",
           "1899-01-01T00:59:20.001001001","2033-05-18T03:33:20.000000000",
@@ -96,30 +140,37 @@ class ScalarTemporalTest : public ::testing::Test {
   std::string zeros = "[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]";
 };
 
-namespace compute {
-
-TEST_F(ScalarTemporalTest, TestTemporalComponentExtraction) {
-  auto unit = timestamp(TimeUnit::NANO);
-  CheckScalarUnary("year", unit, times, int64(), year);
-  CheckScalarUnary("month", unit, times, int64(), month);
-  CheckScalarUnary("day", unit, times, int64(), day);
-  CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
-  CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
-  CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
-  CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
-  CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times), iso_calendar);
-  CheckScalarUnary("quarter", unit, times, int64(), quarter);
-  CheckScalarUnary("hour", unit, times, int64(), hour);
-  CheckScalarUnary("minute", unit, times, int64(), minute);
-  CheckScalarUnary("second", unit, times, int64(), second);
-  CheckScalarUnary("millisecond", unit, times, int64(), millisecond);
-  CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
-  CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
-  CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
+TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
+  std::vector<std::shared_ptr<DataType>> units = {date32(), date64(),
+                                                  timestamp(TimeUnit::NANO)};
+  std::vector<const char*> samples = {date32s, date64s, times};
+  DCHECK_EQ(units.size(), samples.size());
+  for (size_t i = 0; i < samples.size(); ++i) {
+    auto unit = units[i];
+    auto sample = samples[i];
+    CheckScalarUnary("year", unit, sample, int64(), year);
+    CheckScalarUnary("month", unit, sample, int64(), month);
+    CheckScalarUnary("day", unit, sample, int64(), day);
+    CheckScalarUnary("day_of_week", unit, sample, int64(), day_of_week);
+    CheckScalarUnary("day_of_year", unit, sample, int64(), day_of_year);
+    CheckScalarUnary("iso_year", unit, sample, int64(), iso_year);
+    CheckScalarUnary("iso_week", unit, sample, int64(), iso_week);
+    CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, sample), iso_calendar);
+    CheckScalarUnary("quarter", unit, sample, int64(), quarter);
+    if (unit->id() == Type::TIMESTAMP) {
+      CheckScalarUnary("hour", unit, sample, int64(), hour);
+      CheckScalarUnary("minute", unit, sample, int64(), minute);
+      CheckScalarUnary("second", unit, sample, int64(), second);
+      CheckScalarUnary("millisecond", unit, sample, int64(), millisecond);
+      CheckScalarUnary("microsecond", unit, sample, int64(), microsecond);
+      CheckScalarUnary("nanosecond", unit, sample, int64(), nanosecond);
+      CheckScalarUnary("subsecond", unit, sample, float64(), subsecond);
+    }
+  }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto unit = timestamp(u);
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
@@ -247,7 +298,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
 }
 
 TEST_F(ScalarTemporalTest, TestZoned2) {
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
     auto iso_calendar_type =
         struct_({field("iso_year", int64()), field("iso_week", int64()),
@@ -310,7 +361,7 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
   auto data_buffer = Buffer::Wrap(std::vector<int32_t>{1, 2, 3});
   auto null_buffer = Buffer::FromString("\xff");
 
-  for (auto u : internal::AllTimeUnits()) {
+  for (auto u : AllTimeUnits()) {
     auto ts_type = timestamp(u, "Mars/Mariner_Valley");
     auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
         ts_type, 2, data_buffer, null_buffer, 0);
@@ -383,7 +434,112 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                                                        /*week_start=*/8)));
 }
 
+// TODO: We should test on windows once ARROW-13168 is resolved.
 #ifndef _WIN32
+TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
+  std::string timezone_utc = "UTC";
+  std::string timezone_kolkata = "Asia/Kolkata";
+  std::string timezone_us_central = "US/Central";
+  const char* times_utc = R"(["1970-01-01T00:00:00", null])";
+  const char* times_kolkata = R"(["1970-01-01T05:30:00", null])";
+  const char* times_us_central = R"(["1969-12-31T18:00:00", null])";
+  auto options_utc = AssumeTimezoneOptions(timezone_utc);
+  auto options_kolkata = AssumeTimezoneOptions(timezone_kolkata);
+  auto options_us_central = AssumeTimezoneOptions(timezone_us_central);
+  auto options_invalid = AssumeTimezoneOptions("Europe/Brusselsss");
+
+  for (auto u : AllTimeUnits()) {
+    auto unit = timestamp(u);
+    auto unit_utc = timestamp(u, timezone_utc);
+    auto unit_kolkata = timestamp(u, timezone_kolkata);
+    auto unit_us_central = timestamp(u, timezone_us_central);
+
+    CheckScalarUnary("assume_timezone", unit, times_utc, unit_utc, times_utc,
+                     &options_utc);
+    CheckScalarUnary("assume_timezone", unit, times_kolkata, unit_kolkata, times_utc,
+                     &options_kolkata);
+    CheckScalarUnary("assume_timezone", unit, times_us_central, unit_us_central,
+                     times_utc, &options_us_central);
+    ASSERT_RAISES(Invalid,
+                  AssumeTimezone(ArrayFromJSON(unit_kolkata, times_utc), options_utc));
+    ASSERT_RAISES(Invalid,
+                  AssumeTimezone(ArrayFromJSON(unit, times_utc), options_invalid));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestAssumeTimezoneAmbiguous) {
+  std::string timezone = "CET";
+  const char* times = R"(["2018-10-28 01:20:00",
+                          "2018-10-28 02:36:00",
+                          "2018-10-28 03:46:00"])";
+  const char* times_earliest = R"(["2018-10-27 23:20:00",
+                                   "2018-10-28 00:36:00",
+                                   "2018-10-28 02:46:00"])";
+  const char* times_latest = R"(["2018-10-27 23:20:00",
+                                 "2018-10-28 01:36:00",
+                                 "2018-10-28 02:46:00"])";
+
+  auto options_earliest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_EARLIEST);
+  auto options_latest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_LATEST);
+  auto options_raise =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE);
+
+  for (auto u : AllTimeUnits()) {
+    auto unit = timestamp(u);
+    auto unit_local = timestamp(u, timezone);
+    ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));
+    CheckScalarUnary("assume_timezone", unit, times, unit_local, times_earliest,
+                     &options_earliest);
+    CheckScalarUnary("assume_timezone", unit, times, unit_local, times_latest,
+                     &options_latest);
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
+  std::string timezone = "Europe/Warsaw";
+  const char* times = R"(["2015-03-29 02:30:00", "2015-03-29 03:30:00"])";
+  const char* times_latest = R"(["2015-03-29 01:00:00", "2015-03-29 01:30:00"])";
+  const char* times_earliest = R"(["2015-03-29 00:59:59", "2015-03-29 01:30:00"])";
+  const char* times_earliest_milli =
+      R"(["2015-03-29 00:59:59.999", "2015-03-29 01:30:00"])";
+  const char* times_earliest_micro =
+      R"(["2015-03-29 00:59:59.999999", "2015-03-29 01:30:00"])";
+  const char* times_earliest_nano =
+      R"(["2015-03-29 00:59:59.999999999", "2015-03-29 01:30:00"])";
+
+  auto options_raise =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
+                            AssumeTimezoneOptions::NONEXISTENT_RAISE);
+  auto options_latest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
+                            AssumeTimezoneOptions::NONEXISTENT_LATEST);
+  auto options_earliest =
+      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
+                            AssumeTimezoneOptions::NONEXISTENT_EARLIEST);
+
+  for (auto u : AllTimeUnits()) {
+    auto unit = timestamp(u);
+    auto unit_local = timestamp(u, timezone);
+    ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));
+    CheckScalarUnary("assume_timezone", unit, times, unit_local, times_latest,
+                     &options_latest);
+  }
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::SECOND), times,
+                   timestamp(TimeUnit::SECOND, timezone), times_earliest,
+                   &options_earliest);
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::MILLI), times,
+                   timestamp(TimeUnit::MILLI, timezone), times_earliest_milli,
+                   &options_earliest);
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::MICRO), times,
+                   timestamp(TimeUnit::MICRO, timezone), times_earliest_micro,
+                   &options_earliest);
+  CheckScalarUnary("assume_timezone", timestamp(TimeUnit::NANO), times,
+                   timestamp(TimeUnit::NANO, timezone), times_earliest_nano,
+                   &options_earliest);
+}
+
 TEST_F(ScalarTemporalTest, Strftime) {
   auto options_default = StrftimeOptions();
   auto options = StrftimeOptions("%Y-%m-%dT%H:%M:%S%z");
@@ -394,7 +550,7 @@ TEST_F(ScalarTemporalTest, Strftime) {
   const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
 
   const char* default_seconds = R"(
-      ["1970-01-01T00:00:59Z", "2021-08-18T15:11:50Z", null])";
+      ["1970-01-01T00:00:59", "2021-08-18T15:11:50", null])";
   const char* string_seconds = R"(
       ["1970-01-01T00:00:59+0000", "2021-08-18T15:11:50+0000", null])";
   const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
@@ -414,12 +570,20 @@ TEST_F(ScalarTemporalTest, Strftime) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
+  auto options_default = StrftimeOptions();
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), seconds);
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), seconds, utf8(), seconds,
+                   &options_default);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      testing::HasSubstr("Timestamps without a time zone cannot be reliably formatted"),
-      Strftime(arr, StrftimeOptions()));
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%z")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidTimezone) {
@@ -440,7 +604,7 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
   const char* microseconds = R"(["1970-01-01T00:00:59.123456", null])";
   const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
 
-  const char* default_seconds = R"(["1970-01-01T00:00:59Z", null])";
+  const char* default_seconds = R"(["1970-01-01T00:00:59", null])";
   const char* string_seconds = R"(["1970-01-01T00:00:59+0000", null])";
   const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
   const char* string_microseconds = R"(["1970-01-01T05:30:59.123456+0530", null])";
@@ -486,8 +650,7 @@ TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
                                   testing::HasSubstr("Cannot find locale 'non-existent'"),
                                   Strftime(arr, options));
 }
-
-#endif
+#endif  // !_WIN32
 
 }  // namespace compute
 }  // namespace arrow

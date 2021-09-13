@@ -21,10 +21,18 @@ set -ex
 
 source_dir=${1}/go
 
+testargs="-race"
+case "$(uname)" in
+    MINGW*)
+        # -race doesn't work on windows currently
+        testargs=""
+        ;;
+esac
+
 pushd ${source_dir}/arrow
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $d
+    go test $testargs -tags "test" $d
 done
 
 popd
@@ -32,7 +40,7 @@ popd
 pushd ${source_dir}/parquet
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $d
+    go test $testargs  $d
 done
 
 popd

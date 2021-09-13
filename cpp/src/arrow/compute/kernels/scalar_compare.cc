@@ -24,6 +24,7 @@
 
 namespace arrow {
 
+using internal::AllTimeUnits;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using util::string_view;
@@ -172,6 +173,8 @@ struct CompareFunction : ScalarFunction {
       ReplaceTypes(type, values);
     } else if (auto type = CommonBinary(*values)) {
       ReplaceTypes(type, values);
+    } else if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, values));
     }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -257,6 +260,12 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+  }
+
+  for (const auto id : DecimalTypeIds()) {
+    auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+    DCHECK_OK(
+        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
   }
 
   return func;

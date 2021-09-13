@@ -16,7 +16,7 @@
 # under the License.
 
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, partial
 import inspect
 import pickle
 import pytest
@@ -33,7 +33,6 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.compute as pc
-
 
 all_array_types = [
     ('bool', [True, False, False, True, True]),
@@ -53,21 +52,18 @@ all_array_types = [
     (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
     (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
     (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
-     {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
+        {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
 ]
-
 
 exported_functions = [
     func for (name, func) in sorted(pc.__dict__.items())
     if hasattr(func, '__arrow_compute_function__')]
-
 
 exported_option_classes = [
     cls for (name, cls) in sorted(pc.__dict__.items())
     if (isinstance(cls, type) and
         cls is not pc.FunctionOptions and
         issubclass(cls, pc.FunctionOptions))]
-
 
 numerical_arrow_types = [
     pa.int8(),
@@ -127,13 +123,23 @@ def test_option_class_equality():
         pc.SetLookupOptions(value_set=pa.array([1])),
         pc.SliceOptions(start=0, stop=1, step=1),
         pc.SplitPatternOptions(pattern="pattern"),
+        pc.SelectKOptions(k=0, sort_keys=[("b", "ascending")]),
         pc.StrptimeOptions("%Y", "s"),
         pc.TrimOptions(" "),
         pc.StrftimeOptions(),
+        pc.RoundOptions(ndigits=2, round_mode="towards_infinity"),
+        pc.RoundToMultipleOptions(multiple=100, round_mode="towards_infinity"),
     ]
+    # TODO: We should test on windows once ARROW-13168 is resolved.
+    # Timezone database is not available on Windows yet
+    if sys.platform != 'win32':
+        options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
+
     classes = {type(option) for option in options}
     for cls in exported_option_classes:
-        if cls not in classes:
+        # Timezone database is not available on Windows yet
+        if cls not in classes and sys.platform != 'win32' and \
+                cls != pc.AssumeTimezoneOptions:
             try:
                 options.append(cls())
             except TypeError:
@@ -775,7 +781,7 @@ codepoints_ignore = {
 def test_string_py_compat_boolean(function_name, variant):
     arrow_name = variant + "_" + function_name
     py_name = function_name.replace('_', '')
-    ignore = codepoints_ignore.get(function_name, set()) |\
+    ignore = codepoints_ignore.get(function_name, set()) | \
         find_new_unicode_codepoints()
     for i in range(128 if ascii else 0x11000):
         if i in range(0xD800, 0xE000):
@@ -1181,9 +1187,11 @@ def test_filter_null_type():
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_array(typ):
     if typ == "array":
-        def con(values): return pa.array(values)
+        def con(values):
+            return pa.array(values)
     else:
-        def con(values): return pa.chunked_array([values])
+        def con(values):
+            return pa.chunked_array([values])
 
     arr1 = con([1, 2, 3, 4, None])
     arr2 = con([1, 1, 4, None, 4])
@@ -1210,9 +1218,11 @@ def test_compare_array(typ):
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_string_scalar(typ):
     if typ == "array":
-        def con(values): return pa.array(values)
+        def con(values):
+            return pa.array(values)
     else:
-        def con(values): return pa.chunked_array([values])
+        def con(values):
+            return pa.chunked_array([values])
 
     arr = con(['a', 'b', 'c', None])
     scalar = pa.scalar('b')
@@ -1245,9 +1255,11 @@ def test_compare_string_scalar(typ):
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_scalar(typ):
     if typ == "array":
-        def con(values): return pa.array(values)
+        def con(values):
+            return pa.array(values)
     else:
-        def con(values): return pa.chunked_array([values])
+        def con(values):
+            return pa.chunked_array([values])
 
     arr = con([1, 2, 3, None])
     scalar = pa.scalar(2)
@@ -1314,6 +1326,70 @@ def test_arithmetic_multiply():
     result = pc.multiply(left, right)
     expected = pa.array([0, -2, 3, 8, 15])
     assert result.equals(expected)
+
+
+@pytest.mark.parametrize("ty", ["round", "round_to_multiple"])
+def test_round_to_integer(ty):
+    if ty == "round":
+        round = pc.round
+        RoundOptions = partial(pc.RoundOptions, ndigits=0)
+    elif ty == "round_to_multiple":
+        round = pc.round_to_multiple
+        RoundOptions = partial(pc.RoundToMultipleOptions, multiple=1)
+
+    values = [3.2, 3.5, 3.7, 4.5, -3.2, -3.5, -3.7, None]
+    rmode_and_expected = {
+        "down": [3, 3, 3, 4, -4, -4, -4, None],
+        "up": [4, 4, 4, 5, -3, -3, -3, None],
+        "towards_zero": [3, 3, 3, 4, -3, -3, -3, None],
+        "towards_infinity": [4, 4, 4, 5, -4, -4, -4, None],
+        "half_down": [3, 3, 4, 4, -3, -4, -4, None],
+        "half_up": [3, 4, 4, 5, -3, -3, -4, None],
+        "half_towards_zero": [3, 3, 4, 4, -3, -3, -4, None],
+        "half_towards_infinity": [3, 4, 4, 5, -3, -4, -4, None],
+        "half_to_even": [3, 4, 4, 4, -3, -4, -4, None],
+        "half_to_odd": [3, 3, 4, 5, -3, -3, -4, None],
+    }
+    for round_mode, expected in rmode_and_expected.items():
+        options = RoundOptions(round_mode=round_mode)
+        result = round(values, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+
+def test_round():
+    values = [320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045, None]
+    ndigits_and_expected = {
+        -2: [300, 0, 0, 0, -0, -0, -0, None],
+        -1: [320, 0, 0, 0, -0, -40, -0, None],
+        0: [320, 4, 3, 5, -3, -35, -3, None],
+        1: [320, 3.5, 3.1, 4.5, -3.2, -35.1, -3, None],
+        2: [320, 3.5, 3.08, 4.5, -3.21, -35.12, -3.05, None],
+    }
+    for ndigits, expected in ndigits_and_expected.items():
+        options = pc.RoundOptions(
+            ndigits=ndigits, round_mode="half_towards_infinity")
+        result = pc.round(values, options=options)
+        np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)
+
+
+def test_round_to_multiple():
+    values = [320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045, None]
+    multiple_and_expected = {
+        2: [320, 4, 4, 4, -4, -36, -4, None],
+        0.05: [320, 3.5, 3.1, 4.5, -3.2, -35.1, -3.05, None],
+        0.1: [320, 3.5, 3.1, 4.5, -3.2, -35.1, -3, None],
+        10: [320, 0, 0, 0, -0, -40, -0, None],
+        100: [300, 0, 0, 0, -0, -0, -0, None],
+    }
+    for multiple, expected in multiple_and_expected.items():
+        options = pc.RoundToMultipleOptions(
+            multiple=multiple, round_mode="half_towards_infinity")
+        result = pc.round_to_multiple(values, options=options)
+        np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="multiple has to be a positive value"):
+        pc.round_to_multiple(values, multiple=-2)
 
 
 def test_is_null():
@@ -1440,7 +1516,7 @@ def test_logical():
 
 
 def test_cast():
-    arr = pa.array([2**63 - 1], type='int64')
+    arr = pa.array([2 ** 63 - 1], type='int64')
 
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32')
@@ -1496,10 +1572,18 @@ def test_strftime():
                 expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
                 assert result.equals(expected)
 
+        fmt = "%Y-%m-%dT%H:%M:%S"
+
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        assert result.equals(expected)
+
+        # Default format plus timezone
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt + "%Z")))
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
@@ -1518,18 +1602,27 @@ def test_strftime():
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
-        options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C")
+        options = pc.StrftimeOptions(fmt, "C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
         assert result.equals(expected)
 
-    for unit in ["s", "ms", "us", "ns"]:
-        tsa = pa.array(ts, type=pa.timestamp(unit))
-        for fmt in formats:
-            with pytest.raises(pa.ArrowInvalid,
-                               match="Timestamps without a time zone "
-                                     "cannot be reliably formatted"):
-                pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
+    # Test timestamps without timezone
+    fmt = "%Y-%m-%dT%H:%M:%S"
+    ts = pd.to_datetime(times)
+    tsa = pa.array(ts, type=pa.timestamp("s"))
+    result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
+    expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+
+    assert result.equals(expected)
+    with pytest.raises(
+            pa.ArrowInvalid,
+            match="Timezone not present, cannot convert to string"):
+        pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
+    with pytest.raises(
+            pa.ArrowInvalid,
+            match="Timezone not present, cannot convert to string"):
+        pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%z"))
 
 
 def _check_datetime_components(timestamps, timezone=None):
@@ -1539,8 +1632,8 @@ def _check_datetime_components(timestamps, timezone=None):
         "UTC").tz_convert(timezone).to_series()
     tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
 
-    subseconds = ((ts.dt.microsecond * 10**3 +
-                   ts.dt.nanosecond) * 10**-9).round(9)
+    subseconds = ((ts.dt.microsecond * 10 ** 3 +
+                   ts.dt.nanosecond) * 10 ** -9).round(9)
     iso_calendar_fields = [
         pa.field('iso_year', pa.int64()),
         pa.field('iso_week', pa.int64()),
@@ -1575,8 +1668,8 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.hour(tsa).equals(pa.array(ts.dt.hour))
     assert pc.minute(tsa).equals(pa.array(ts.dt.minute))
     assert pc.second(tsa).equals(pa.array(ts.dt.second.values))
-    assert pc.millisecond(tsa).equals(pa.array(ts.dt.microsecond // 10**3))
-    assert pc.microsecond(tsa).equals(pa.array(ts.dt.microsecond % 10**3))
+    assert pc.millisecond(tsa).equals(pa.array(ts.dt.microsecond // 10 ** 3))
+    assert pc.microsecond(tsa).equals(pa.array(ts.dt.microsecond % 10 ** 3))
     assert pc.nanosecond(tsa).equals(pa.array(ts.dt.nanosecond))
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
 
@@ -1622,6 +1715,103 @@ def test_extract_datetime_components():
             _check_datetime_components(timestamps, timezone)
 
 
+# TODO: We should test on windows once ARROW-13168 is resolved.
+@pytest.mark.pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Timezone database is not available on Windows yet")
+def test_assume_timezone():
+    from pyarrow.vendored.version import Version
+
+    ts_type = pa.timestamp("ns")
+    timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
+                                 "2000-02-29T23:23:23.999999999",
+                                 "2033-05-18T03:33:20.000000000",
+                                 "2020-01-01T01:05:05.001",
+                                 "2019-12-31T02:10:10.002",
+                                 "2019-12-30T03:15:15.003",
+                                 "2009-12-31T04:20:20.004132",
+                                 "2010-01-01T05:25:25.005321",
+                                 "2010-01-03T06:30:30.006163",
+                                 "2010-01-04T07:35:35",
+                                 "2006-01-01T08:40:40",
+                                 "2005-12-31T09:45:45",
+                                 "2008-12-28",
+                                 "2008-12-29",
+                                 "2012-01-01 01:02:03"])
+    nonexistent = pd.to_datetime(["2015-03-29 02:30:00",
+                                  "2015-03-29 03:30:00"])
+    ambiguous = pd.to_datetime(["2018-10-28 01:20:00",
+                                "2018-10-28 02:36:00",
+                                "2018-10-28 03:46:00"])
+    ambiguous_array = pa.array(ambiguous, type=ts_type)
+    nonexistent_array = pa.array(nonexistent, type=ts_type)
+
+    for timezone in ["UTC", "US/Central", "Asia/Kolkata"]:
+        options = pc.AssumeTimezoneOptions(timezone)
+        ta = pa.array(timestamps, type=ts_type)
+        expected = timestamps.tz_localize(timezone)
+        result = pc.assume_timezone(ta, options=options)
+        assert result.equals(pa.array(expected))
+
+        ta_zoned = pa.array(timestamps, type=pa.timestamp("ns", timezone))
+        with pytest.raises(pa.ArrowInvalid,
+                           match="already have a timezone:"):
+            pc.assume_timezone(ta_zoned, options=options)
+
+    invalid_options = pc.AssumeTimezoneOptions("Europe/Brusselsss")
+    with pytest.raises(ValueError, match="not found in timezone database"):
+        pc.assume_timezone(ta, options=invalid_options)
+
+    timezone = "Europe/Brussels"
+
+    # nonexistent parameter was introduced in Pandas 0.24.0
+    if Version(pd.__version__) >= Version("0.24.0"):
+        options_nonexistent_raise = pc.AssumeTimezoneOptions(timezone)
+        options_nonexistent_earliest = pc.AssumeTimezoneOptions(
+            timezone, ambiguous="raise", nonexistent="earliest")
+        options_nonexistent_latest = pc.AssumeTimezoneOptions(
+            timezone, ambiguous="raise", nonexistent="latest")
+
+        with pytest.raises(
+                ValueError,
+                match=f"Timestamp doesn't exist in timezone '{timezone}'"):
+            pc.assume_timezone(nonexistent_array,
+                               options=options_nonexistent_raise)
+
+        expected = pa.array(nonexistent.tz_localize(
+            timezone, nonexistent="shift_forward"))
+        result = pc.assume_timezone(
+            nonexistent_array, options=options_nonexistent_latest)
+        expected.equals(result)
+
+        expected = pa.array(nonexistent.tz_localize(
+            timezone, nonexistent="shift_backward"))
+        result = pc.assume_timezone(
+            nonexistent_array, options=options_nonexistent_earliest)
+        expected.equals(result)
+
+    options_ambiguous_raise = pc.AssumeTimezoneOptions(timezone)
+    options_ambiguous_latest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="latest", nonexistent="raise")
+    options_ambiguous_earliest = pc.AssumeTimezoneOptions(
+        timezone, ambiguous="earliest", nonexistent="raise")
+
+    with pytest.raises(
+            ValueError,
+            match=f"Timestamp is ambiguous in timezone '{timezone}'"):
+        pc.assume_timezone(ambiguous_array, options=options_ambiguous_raise)
+
+    expected = ambiguous.tz_localize(timezone, ambiguous=[True, True, True])
+    result = pc.assume_timezone(
+        ambiguous_array, options=options_ambiguous_earliest)
+    result.equals(pa.array(expected))
+
+    expected = ambiguous.tz_localize(timezone, ambiguous=[False, False, False])
+    result = pc.assume_timezone(
+        ambiguous_array, options=options_ambiguous_latest)
+    result.equals(pa.array(expected))
+
+
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
@@ -1655,6 +1845,69 @@ def test_partition_nth():
                for i in range(pivot))
     assert all(data[indices[i]] >= data[indices[pivot]]
                for i in range(pivot, len(data)))
+
+
+def test_select_k_array():
+    def validate_select_k(select_k_indices, arr, order, stable_sort=False):
+        sorted_indices = pc.sort_indices(arr, sort_keys=[("dummy", order)])
+        head_k_indices = sorted_indices.slice(0, len(select_k_indices))
+        if stable_sort:
+            assert select_k_indices == head_k_indices
+        else:
+            expected = pc.take(arr, head_k_indices)
+            actual = pc.take(arr, select_k_indices)
+            assert actual == expected
+
+    arr = pa.array([1, 2, None, 0])
+    for order in ["descending", "ascending"]:
+        for k in [0, 2, 4]:
+            result = pc.select_k_unstable(
+                arr, k=k, sort_keys=[("dummy", order)])
+            validate_select_k(result, arr, order)
+
+    result = pc.select_k_unstable(arr, options=pc.SelectKOptions(
+        k=2, sort_keys=[("dummy", "descending")]))
+    validate_select_k(result, arr, "descending")
+
+    result = pc.select_k_unstable(arr, options=pc.SelectKOptions(
+        k=2, sort_keys=[("dummy", "ascending")]))
+    validate_select_k(result, arr, "ascending")
+
+
+def test_select_k_table():
+    table = pa.table({"a": [1, 2, 0], "b": [1, 0, 1]})
+
+    def validate_select_k(select_k_indices, table, sort_keys,
+                          stable_sort=False):
+        sorted_indices = pc.sort_indices(table, sort_keys=sort_keys)
+        head_k_indices = sorted_indices.slice(0, len(select_k_indices))
+        if stable_sort:
+            assert select_k_indices == head_k_indices
+        else:
+            expected = pc.take(table, head_k_indices)
+            actual = pc.take(table, select_k_indices)
+            assert actual == expected
+
+    for k in [0, 2, 4]:
+        result = pc.select_k_unstable(
+            table, k=k, sort_keys=[("a", "ascending")])
+        validate_select_k(result, table, sort_keys=[("a", "ascending")])
+
+        result = pc.select_k_unstable(
+            table, k=k, sort_keys=[("a", "ascending"), ("b", "ascending")]
+        )
+        validate_select_k(result, table, sort_keys=[
+                          ("a", "ascending"), ("b", "ascending")])
+
+    with pytest.raises(ValueError,
+                       match="SelectK requires a nonnegative `k`"):
+        pc.select_k_unstable(table)
+
+    with pytest.raises(ValueError, match="not a valid order"):
+        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
+
+    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+        pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending")])
 
 
 def test_array_sort_indices():

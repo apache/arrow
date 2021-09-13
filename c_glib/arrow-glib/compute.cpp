@@ -126,6 +126,8 @@ G_BEGIN_DECLS
  * #GArrowFunctionOptions is a base class for all function options
  * classes such as #GArrowCastOptions.
  *
+ * #GArrowFunctionDoc is a class for function document.
+ *
  * #GArrowFunction is a class to process data.
  *
  * #GArrowExecuteNodeOptions is a base class for all execute node
@@ -257,6 +259,145 @@ garrow_function_options_class_init(GArrowFunctionOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->finalize = garrow_function_options_finalize;
+}
+
+
+typedef struct GArrowFunctionDocPrivate_ {
+  arrow::compute::FunctionDoc *doc;
+} GArrowFunctionDocPrivate;
+
+enum {
+  PROP_DOC = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowFunctionDoc,
+                           garrow_function_doc,
+                           G_TYPE_OBJECT)
+
+#define GARROW_FUNCTION_DOC_GET_PRIVATE(object) \
+  static_cast<GArrowFunctionDocPrivate *>(      \
+    garrow_function_doc_get_instance_private(   \
+      GARROW_FUNCTION_DOC(object)))
+
+static void
+garrow_function_doc_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GARROW_FUNCTION_DOC_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_DOC:
+    priv->doc =
+      static_cast<arrow::compute::FunctionDoc *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_function_doc_init(GArrowFunctionDoc *object)
+{
+}
+
+static void
+garrow_function_doc_class_init(GArrowFunctionDocClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->set_property = garrow_function_doc_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("doc",
+                              "Doc",
+                              "The raw arrow::compute::FunctionDoc *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_DOC, spec);
+}
+
+/**
+ * garrow_function_doc_get_summary:
+ * @doc: A #GArrowFunctionDoc.
+ *
+ * Returns: A one-line summary of the function, using a verb.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gchar *
+garrow_function_doc_get_summary(GArrowFunctionDoc *doc)
+{
+  auto arrow_doc = garrow_function_doc_get_raw(doc);
+  return g_strndup(arrow_doc->summary.data(),
+                   arrow_doc->summary.size());
+}
+
+/**
+ * garrow_function_doc_get_description:
+ * @doc: A #GArrowFunctionDoc.
+ *
+ * Returns: A detailed description of the function, meant to follow
+ *   the summary.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gchar *
+garrow_function_doc_get_description(GArrowFunctionDoc *doc)
+{
+  auto arrow_doc = garrow_function_doc_get_raw(doc);
+  return g_strndup(arrow_doc->description.data(),
+                   arrow_doc->description.size());
+}
+
+/**
+ * garrow_function_doc_get_arg_names:
+ * @doc: A #GArrowFunctionDoc.
+ *
+ * Returns: (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   Symbolic names (identifiers) for the function arguments.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gchar **
+garrow_function_doc_get_arg_names(GArrowFunctionDoc *doc)
+{
+  auto arrow_doc = garrow_function_doc_get_raw(doc);
+  const auto &arrow_arg_names = arrow_doc->arg_names;
+  auto n = arrow_arg_names.size();
+  auto arg_names = g_new(gchar *, n + 1);
+  for (size_t i = 0; i < n; ++i) {
+    arg_names[i] = g_strndup(arrow_arg_names[i].data(),
+                             arrow_arg_names[i].size());
+  }
+  arg_names[n] = NULL;
+  return arg_names;
+}
+
+/**
+ * garrow_function_doc_get_options_class_name:
+ * @doc: A #GArrowFunctionDoc.
+ *
+ * Returns: Name of the options class, if any.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gchar *
+garrow_function_doc_get_options_class_name(GArrowFunctionDoc *doc)
+{
+  auto arrow_doc = garrow_function_doc_get_raw(doc);
+  return g_strndup(arrow_doc->options_class.data(),
+                   arrow_doc->options_class.size());
 }
 
 
@@ -401,6 +542,22 @@ garrow_function_execute(GArrowFunction *function,
   } else {
     return NULL;
   }
+}
+
+/**
+ * garrow_function_get_doc:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: (transfer full): The function documentation.
+ *
+ * Since: 6.0.0
+ */
+GArrowFunctionDoc *
+garrow_function_get_doc(GArrowFunction *function)
+{
+  auto arrow_function = garrow_function_get_raw(function);
+  const auto &arrow_doc = arrow_function->doc();
+  return garrow_function_doc_new_raw(&arrow_doc);
 }
 
 
@@ -3921,6 +4078,23 @@ garrow_function_options_get_raw(GArrowFunctionOptions *options)
   auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(options);
   return priv->options;
 }
+
+
+GArrowFunctionDoc *
+garrow_function_doc_new_raw(const arrow::compute::FunctionDoc *arrow_doc)
+{
+  return GARROW_FUNCTION_DOC(g_object_new(GARROW_TYPE_FUNCTION_DOC,
+                                          "doc", arrow_doc,
+                                          NULL));
+}
+
+arrow::compute::FunctionDoc *
+garrow_function_doc_get_raw(GArrowFunctionDoc *doc)
+{
+  auto priv = GARROW_FUNCTION_DOC_GET_PRIVATE(doc);
+  return priv->doc;
+}
+
 
 GArrowFunction *
 garrow_function_new_raw(std::shared_ptr<arrow::compute::Function> *arrow_function)

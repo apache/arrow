@@ -784,44 +784,42 @@ agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(
     fun = "sum",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$any <- function(x, na.rm = FALSE) {
   list(
     fun = "any",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$all <- function(x, na.rm = FALSE) {
   list(
     fun = "all",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$mean <- function(x, na.rm = FALSE) {
   list(
     fun = "mean",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-# na.rm not currently passed in due to ARROW-13691
 agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "stddev",
     data = x,
-    options = list(ddof = ddof)
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
-# na.rm not currently passed in due to ARROW-13691
 agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "variance",
     data = x,
-    options = list(ddof = ddof)
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
 

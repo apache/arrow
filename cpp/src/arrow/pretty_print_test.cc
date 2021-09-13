@@ -451,9 +451,9 @@ TEST_F(TestPrettyPrint, DateTimeTypesWithOutOfRangeValues) {
     CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO), {0, 10}, is_valid,
                                            values, expected);
   }
-#ifndef ARROW_UBSAN
-  // While the values below are legal and correct, they trigger an internal
-  // signed overflow inside the arrow_vendored::date library.
+  // Note that while the values below are legal and correct, they used to
+  // trigger an internal signed overflow inside the vendored "date" library
+  // (https://github.com/HowardHinnant/date/issues/696).
   {
     std::vector<int64_t> values = {min_int64, max_int64};
     static const char* expected = R"expected([
@@ -463,7 +463,6 @@ TEST_F(TestPrettyPrint, DateTimeTypesWithOutOfRangeValues) {
     CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::NANO), {0, 10},
                                            {true, true}, values, expected);
   }
-#endif
 }
 
 TEST_F(TestPrettyPrint, StructTypeBasic) {
