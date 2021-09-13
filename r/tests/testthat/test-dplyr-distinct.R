@@ -21,18 +21,45 @@ library(dplyr)
 library(stringr)
 
 tbl <- example_data
+tbl$some_grouping <- rep(c(1, 2), 5)
 
+# group by var not working properly
+test_that("groups are retained when calling distinct", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      distinct(lgl),
+    tbl
+  )
+})
+
+# currently gets wiped at summarize as no vars
+test_that("distinct works without any variables", {
+  expect_dplyr_equal(
+    input %>%
+      distinct(),
+    tbl
+  )
+})
+
+test_that("distinct", {
+  expect_dplyr_equal(
+    input %>%
+      distinct(some_grouping, lgl),
+    tbl
+  )
+})
 
 # test_that("group_by groupings are recorded", {
-#   expect_dplyr_equal(
-#     input %>%
-#       group_by(chr) %>%
-#       select(int, chr) %>%
-#       filter(int > 5) %>%
-#       summarize(min_int = min(int)),
-#     tbl,
-#     warning = TRUE
-#   )
+  # expect_dplyr_equal(
+  #   input %>%
+  #     group_by(chr) %>%
+  #     select(int, chr) %>%
+  #     filter(int > 5) %>%
+  #     summarize(min_int = min(int)),
+  #   tbl,
+  #   warning = TRUE
+  # )
 # })
 #
 # test_that("group_by supports creating/renaming", {
