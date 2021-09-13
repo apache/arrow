@@ -422,7 +422,6 @@ cdef class MetaFunction(Function):
         self.func = <const CMetaFunction*> sp_func.get()
 
     # Since num_kernels is exposed, also expose a kernels property
-
     @property
     def kernels(self):
         """
@@ -587,7 +586,8 @@ cdef class _CastOptions(FunctionOptions):
 
     def _set_options(self, DataType target_type, allow_int_overflow,
                      allow_time_truncate, allow_time_overflow,
-                     allow_float_truncate, allow_invalid_utf8):
+                     allow_decimal_truncate, allow_float_truncate,
+                     allow_invalid_utf8):
         self.init(unique_ptr[CFunctionOptions](new CCastOptions()))
         self._set_type(target_type)
         if allow_int_overflow is not None:
@@ -596,6 +596,8 @@ cdef class _CastOptions(FunctionOptions):
             self.allow_time_truncate = allow_time_truncate
         if allow_time_overflow is not None:
             self.allow_time_overflow = allow_time_overflow
+        if allow_decimal_truncate is not None:
+            self.allow_decimal_truncate = allow_decimal_truncate
         if allow_float_truncate is not None:
             self.allow_float_truncate = allow_float_truncate
         if allow_invalid_utf8 is not None:
@@ -620,6 +622,7 @@ cdef class _CastOptions(FunctionOptions):
             deref(self.options).allow_int_overflow or
             deref(self.options).allow_time_truncate or
             deref(self.options).allow_time_overflow or
+            deref(self.options).allow_decimal_truncate or
             deref(self.options).allow_float_truncate or
             deref(self.options).allow_invalid_utf8
         )
@@ -629,7 +632,7 @@ cdef class _CastOptions(FunctionOptions):
         return deref(self.options).allow_int_overflow
 
     @allow_int_overflow.setter
-    def allow_int_overflow(self, bint flag):
+    def allow_int_overflow(self, c_bool flag):
         deref(self.options).allow_int_overflow = flag
 
     @property
@@ -637,7 +640,7 @@ cdef class _CastOptions(FunctionOptions):
         return deref(self.options).allow_time_truncate
 
     @allow_time_truncate.setter
-    def allow_time_truncate(self, bint flag):
+    def allow_time_truncate(self, c_bool flag):
         deref(self.options).allow_time_truncate = flag
 
     @property
@@ -645,15 +648,23 @@ cdef class _CastOptions(FunctionOptions):
         return deref(self.options).allow_time_overflow
 
     @allow_time_overflow.setter
-    def allow_time_overflow(self, bint flag):
+    def allow_time_overflow(self, c_bool flag):
         deref(self.options).allow_time_overflow = flag
+
+    @property
+    def allow_decimal_truncate(self):
+        return deref(self.options).allow_decimal_truncate
+
+    @allow_decimal_truncate.setter
+    def allow_decimal_truncate(self, c_bool flag):
+        deref(self.options).allow_decimal_truncate = flag
 
     @property
     def allow_float_truncate(self):
         return deref(self.options).allow_float_truncate
 
     @allow_float_truncate.setter
-    def allow_float_truncate(self, bint flag):
+    def allow_float_truncate(self, c_bool flag):
         deref(self.options).allow_float_truncate = flag
 
     @property
@@ -661,7 +672,7 @@ cdef class _CastOptions(FunctionOptions):
         return deref(self.options).allow_invalid_utf8
 
     @allow_invalid_utf8.setter
-    def allow_invalid_utf8(self, bint flag):
+    def allow_invalid_utf8(self, c_bool flag):
         deref(self.options).allow_invalid_utf8 = flag
 
 
@@ -669,9 +680,10 @@ class CastOptions(_CastOptions):
 
     def __init__(self, target_type=None, *, allow_int_overflow=None,
                  allow_time_truncate=None, allow_time_overflow=None,
-                 allow_float_truncate=None, allow_invalid_utf8=None):
-        self._set_options(target_type, allow_int_overflow,
-                          allow_time_truncate, allow_time_overflow,
+                 allow_decimal_truncate=None, allow_float_truncate=None,
+                 allow_invalid_utf8=None):
+        self._set_options(target_type, allow_int_overflow, allow_time_truncate,
+                          allow_time_overflow, allow_decimal_truncate,
                           allow_float_truncate, allow_invalid_utf8)
 
     @staticmethod
@@ -690,12 +702,12 @@ class CastOptions(_CastOptions):
 
 
 cdef class _ElementWiseAggregateOptions(FunctionOptions):
-    def _set_options(self, bint skip_nulls):
+    def _set_options(self, skip_nulls):
         self.wrapped.reset(new CElementWiseAggregateOptions(skip_nulls))
 
 
 class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
-    def __init__(self, bint skip_nulls=True):
+    def __init__(self, skip_nulls=True):
         self._set_options(skip_nulls)
 
 
@@ -753,9 +765,7 @@ class RoundToMultipleOptions(_RoundToMultipleOptions):
 cdef class _JoinOptions(FunctionOptions):
     def _set_options(self, null_handling, null_replacement):
         cdef:
-            CJoinNullHandlingBehavior c_null_handling = \
-                CJoinNullHandlingBehavior_EMIT_NULL
-            c_string c_null_replacement = tobytes(null_replacement)
+            CJoinNullHandlingBehavior c_null_handling
         if null_handling == 'emit_null':
             c_null_handling = CJoinNullHandlingBehavior_EMIT_NULL
         elif null_handling == 'skip':
@@ -767,7 +777,7 @@ cdef class _JoinOptions(FunctionOptions):
                 '"{}" is not a valid null_handling'
                 .format(null_handling))
         self.wrapped.reset(
-            new CJoinOptions(c_null_handling, c_null_replacement))
+            new CJoinOptions(c_null_handling, tobytes(null_replacement)))
 
 
 class JoinOptions(_JoinOptions):
@@ -776,13 +786,13 @@ class JoinOptions(_JoinOptions):
 
 
 cdef class _MatchSubstringOptions(FunctionOptions):
-    def _set_options(self, pattern, bint ignore_case):
+    def _set_options(self, pattern, ignore_case):
         self.wrapped.reset(
             new CMatchSubstringOptions(tobytes(pattern), ignore_case))
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
-    def __init__(self, pattern, bint ignore_case=False):
+    def __init__(self, pattern, ignore_case=False):
         self._set_options(pattern, ignore_case)
 
 
@@ -803,7 +813,7 @@ cdef class _TrimOptions(FunctionOptions):
 
 class TrimOptions(_TrimOptions):
     def __init__(self, characters):
-        self._set_options(characters)
+        self._set_options(tobytes(characters))
 
 
 cdef class _ReplaceSliceOptions(FunctionOptions):
@@ -844,28 +854,29 @@ class ExtractRegexOptions(_ExtractRegexOptions):
 
 
 cdef class _SliceOptions(FunctionOptions):
-    def _set_options(self, int64_t start, int64_t stop, int64_t step):
+    def _set_options(self, start, stop, step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, int64_t start, int64_t stop=sys.maxsize,
-                 int64_t step=1):
+    def __init__(self, start, stop=sys.maxsize, step=1):
         self._set_options(start, stop, step)
 
 
 cdef class _FilterOptions(FunctionOptions):
     def _set_options(self, null_selection_behavior):
+        cdef:
+            CFilterNullSelectionBehavior c_null_selection_behavior
         if null_selection_behavior == 'drop':
-            self.wrapped.reset(
-                new CFilterOptions(CFilterNullSelectionBehavior_DROP))
+            c_null_selection_behavior = CFilterNullSelectionBehavior_DROP
         elif null_selection_behavior == 'emit_null':
-            self.wrapped.reset(
-                new CFilterOptions(CFilterNullSelectionBehavior_EMIT_NULL))
+            c_null_selection_behavior = CFilterNullSelectionBehavior_EMIT_NULL
         else:
             raise ValueError(
                 '"{}" is not a valid null_selection_behavior'
                 .format(null_selection_behavior))
+
+        self.wrapped.reset(new CFilterOptions(c_null_selection_behavior))
 
 
 class FilterOptions(_FilterOptions):
@@ -874,23 +885,23 @@ class FilterOptions(_FilterOptions):
 
 
 cdef class _DictionaryEncodeOptions(FunctionOptions):
-    def _set_options(self, null_encoding_behavior):
-        if null_encoding_behavior == 'encode':
-            self.wrapped.reset(
-                new CDictionaryEncodeOptions(
-                    CDictionaryEncodeNullEncodingBehavior_ENCODE))
-        elif null_encoding_behavior == 'mask':
-            self.wrapped.reset(
-                new CDictionaryEncodeOptions(
-                    CDictionaryEncodeNullEncodingBehavior_MASK))
+    def _set_options(self, null_encoding):
+        cdef:
+            CDictionaryEncodeNullEncodingBehavior c_null_encoding
+        if null_encoding == 'encode':
+            c_null_encoding = CDictionaryEncodeNullEncodingBehavior_ENCODE
+        elif null_encoding== 'mask':
+            c_null_encoding = CDictionaryEncodeNullEncodingBehavior_MASK
         else:
-            raise ValueError('"{}" is not a valid null_encoding_behavior'
-                             .format(null_encoding_behavior))
+            raise ValueError('"{}" is not a valid null_encoding'
+                             .format(null_encoding))
+
+        self.wrapped.reset(new CDictionaryEncodeOptions(c_null_encoding))
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
-    def __init__(self, null_encoding_behavior='mask'):
-        self._set_options(null_encoding_behavior)
+    def __init__(self, null_encoding='mask'):
+        self._set_options(null_encoding)
 
 
 cdef class _TakeOptions(FunctionOptions):

@@ -1950,6 +1950,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_int_overflow
         c_bool allow_time_truncate
         c_bool allow_time_overflow
+        c_bool allow_decimal_truncate
         c_bool allow_float_truncate
         c_bool allow_invalid_utf8
 
@@ -1975,7 +1976,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CDictionaryEncodeOptions \
             "arrow::compute::DictionaryEncodeOptions"(CFunctionOptions):
-        CDictionaryEncodeOptions()
         CDictionaryEncodeOptions(
             CDictionaryEncodeNullEncodingBehavior null_encoding)
         CDictionaryEncodeNullEncodingBehavior null_encoding
