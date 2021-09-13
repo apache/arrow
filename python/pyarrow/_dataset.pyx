@@ -57,9 +57,9 @@ _orc_fileformat = None
 _orc_imported = False
 
 
-def _get_orc_filesystem():
+def _get_orc_fileformat():
     """
-    Import OrcFileSystem on first usage (to avoid circular import issue
+    Import OrcFileFormat on first usage (to avoid circular import issue
     when `pyarrow._dataset_orc` would be imported first)
     """
     global _orc_fileformat
@@ -70,6 +70,8 @@ def _get_orc_filesystem():
             _orc_fileformat = OrcFileFormat
         except ImportError as e:
             _orc_fileformat = None
+        finally:
+            _orc_imported = True
     return _orc_fileformat
 
 
@@ -857,7 +859,7 @@ cdef class FileFormat(_Weakrefable):
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
             'parquet': ParquetFileFormat,
-            'orc': _get_orc_filesystem(),
+            'orc': _get_orc_fileformat(),
         }
 
         class_ = classes.get(type_name, None)
