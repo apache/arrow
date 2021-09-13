@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
@@ -73,36 +72,31 @@ public class ArrowDatabaseMetadataTest {
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> format("catalog #%d", i))
-          .map(Text::new)
           .map(Object.class::cast)
           .map(Collections::singletonList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_TABLE_TYPES_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> format("table_type #%d", i))
-          .map(Text::new)
           .map(Object.class::cast)
           .map(Collections::singletonList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_TABLES_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
-              new Text(format("catalog_name #%d", i)),
-              new Text(format("schema_name #%d", i)),
-              new Text(format("table_name #%d", i)),
-              new Text(format("table_type #%d", i)),
+              format("catalog_name #%d", i),
+              format("schema_name #%d", i),
+              format("table_name #%d", i),
+              format("table_type #%d", i),
               // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
               null, null, null, null, null, null})
           .map(Arrays::asList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_SCHEMAS_RESULTS =
       range(0, ROW_COUNT)
-          .mapToObj(i -> new String[] {
+          .mapToObj(i -> new Object[] {
               format("schema_name #%d", i),
               format("catalog_name #%d", i)})
-          .map(Arrays::stream)
-          .map(fields -> fields.map(Text::new))
-          .map(Stream::toArray)
           .map(Arrays::asList)
           .collect(toList());
   private static final List<List<Object>> EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS =
@@ -128,12 +122,12 @@ public class ArrowDatabaseMetadataTest {
   private static final List<List<Object>> EXPECTED_PRIMARY_KEYS_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
-              new Text(format("catalog_name #%d", i)),
-              new Text(format("schema_name #%d", i)),
-              new Text(format("table_name #%d", i)),
-              new Text(format("column_name #%d", i)),
+              format("catalog_name #%d", i),
+              format("schema_name #%d", i),
+              format("table_name #%d", i),
+              format("column_name #%d", i),
               i,
-              new Text(format("key_name #%d", i))})
+              format("key_name #%d", i)})
           .map(Arrays::asList)
           .collect(toList());
 
@@ -349,10 +343,20 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetTablesCanBeAccessedByNames() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+    try (final ResultSet resultSet = connection.getMetaData().getTables(null, null, null, null)) {
       resultSetTestUtils.testData(
           resultSet,
-          FIELDS_GET_IMPORTED_EXPORTED_KEYS,
+          ImmutableList.of(
+              "TABLE_CAT",
+              "TABLE_SCHEM",
+              "TABLE_NAME",
+              "TABLE_TYPE",
+              "REMARKS",
+              "TYPE_CAT",
+              "TYPE_SCHEM",
+              "TYPE_NAME",
+              "SELF_REFERENCING_COL_NAME",
+              "REF_GENERATION"),
           EXPECTED_GET_TABLES_RESULTS
       );
     }
@@ -415,7 +419,13 @@ public class ArrowDatabaseMetadataTest {
     try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(
           resultSet,
-          ImmutableList.of("PKTABLE_CAT", "TABLE_CAT", "TABLE_NAME", "KEY_SEQ"),
+          ImmutableList.of(
+              "TABLE_CAT",
+              "TABLE_SCHEM",
+              "TABLE_NAME",
+              "COLUMN_NAME",
+              "KEY_SEQ",
+              "PK_NAME"),
           EXPECTED_PRIMARY_KEYS_RESULTS
       );
     }
