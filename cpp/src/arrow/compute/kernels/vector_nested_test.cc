@@ -61,11 +61,6 @@ TEST(TestVectorNested, ListFlattenFixedSizeList) {
       auto input = ArrayFromJSON(ty, "[[0, null], null, [2, 3], [0, 42]]");
       auto expected = ArrayFromJSON(out_ty, "[0, null, 2, 3, 0, 42]");
       CheckVectorUnary("list_flatten", input, expected);
-
-      // Construct a list with a non-empty null slot
-      TweakValidityBit(input, 0, false);
-      expected = ArrayFromJSON(out_ty, "[2, 3, 0, 42]");
-      CheckVectorUnary("list_flatten", input, expected);
     }
 
     {
@@ -117,11 +112,6 @@ TEST(TestVectorNested, ListParentIndicesFixedSizeList) {
     {
       auto input = ArrayFromJSON(ty, "[[0, null], null, [1, 2], [3, 4], [null, 5]]");
       auto expected = ArrayFromJSON(int32(), "[0, 0, 2, 2, 3, 3, 4, 4]");
-      CheckVectorUnary("list_parent_indices", input, expected);
-
-      // Construct a list with a non-empty null slot
-      input = TweakValidityBit(input, 2, false);
-      expected = ArrayFromJSON(int32(), "[0, 0, 3, 3, 4, 4]");
       CheckVectorUnary("list_parent_indices", input, expected);
     }
     {
