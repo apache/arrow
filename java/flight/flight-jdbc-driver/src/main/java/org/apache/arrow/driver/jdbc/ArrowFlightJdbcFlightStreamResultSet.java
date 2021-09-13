@@ -27,10 +27,13 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
+import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.calcite.avatica.AvaticaResultSet;
+import org.apache.calcite.avatica.AvaticaResultSetMetaData;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.QueryState;
@@ -44,6 +47,9 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
   private final ArrowFlightConnection connection;
   private FlightStream currentFlightStream;
   private FlightStreamQueue flightStreamQueue;
+
+  private VectorSchemaRootTransformer transformer;
+  private VectorSchemaRoot currentVectorSchemaRoot;
 
   ArrowFlightJdbcFlightStreamResultSet(final AvaticaStatement statement,
                                        final QueryState state,
@@ -122,9 +128,20 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
 
     // Ownership of the root will be passed onto the cursor.
     if (currentFlightStream != null) {
-      execute(currentFlightStream.getRoot());
+      executeForCurrentFlightStream();
     }
     return this;
+  }
+
+  private void executeForCurrentFlightStream() {
+    final VectorSchemaRoot originalRoot = currentFlightStream.getRoot();
+
+    if (transformer != null) {
+      currentVectorSchemaRoot = transformer.transform(originalRoot, currentVectorSchemaRoot);
+    } else {
+      currentVectorSchemaRoot = originalRoot;
+    }
+    execute(currentVectorSchemaRoot);
   }
 
   @Override
@@ -146,7 +163,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
       if (currentFlightStream != null) {
         currentFlightStream.getRoot().clear();
         if (currentFlightStream.next()) {
-          execute(currentFlightStream.getRoot());
+          executeForCurrentFlightStream();
           continue;
         }
 
@@ -156,7 +173,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
       currentFlightStream = getNextFlightStream(false);
 
       if (currentFlightStream != null) {
-        execute(currentFlightStream.getRoot());
+        executeForCurrentFlightStream();
         continue;
       }
 
@@ -189,7 +206,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
   @Override
   public synchronized void close() {
     try {
-      AutoCloseables.close(currentFlightStream, getFlightStreamQueue());
+      AutoCloseables.close(currentVectorSchemaRoot, currentFlightStream, getFlightStreamQueue());
     } catch (final Exception e) {
       throw new RuntimeException(e);
     } finally {
