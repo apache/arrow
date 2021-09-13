@@ -260,10 +260,15 @@ if(MATLAB_BUILD_TESTS)
   # Define a test executable target. TODO: Remove the placeholder test. This is
   # just for testing GoogleTest integration.
   add_executable(placeholder_test ${CMAKE_SOURCE_DIR}/src/placeholder_test.cc)
+  add_executable(mex_util_test ${CPP_SOURCE_DIR}/arrow/matlab/mex/mex_util_test.cc)
+
   # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
   # targets.
   target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
+  target_link_libraries(mex_util_test GTest::gtest GTest::gtest_main)
 
   # Add a test target.
   add_test(PlaceholderTestTarget placeholder_test)
+  add_test(CheckNumArgsTestTarget mex_util_test)
+
 endif()
