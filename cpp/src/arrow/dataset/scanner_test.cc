@@ -249,7 +249,7 @@ TEST_P(TestScanner, ToTable) {
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
   ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 TEST_P(TestScanner, ScanWithVisitor) {
@@ -257,7 +257,7 @@ TEST_P(TestScanner, ScanWithVisitor) {
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto scanner = MakeScanner(batch);
   ASSERT_OK(scanner->Scan([batch](TaggedRecordBatch scanned_batch) {
-    AssertBatchesEqual(*batch, *scanned_batch.record_batch);
+    AssertBatchesEqual(*batch, *scanned_batch.record_batch, /*same_chunk_layout=*/false);
     return Status::OK();
   }));
 }
@@ -280,7 +280,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
     ASSERT_EQ(expected->num_rows(), batch_size);
-    AssertTablesEqual(*expected, *taken);
+    AssertTablesEqual(*expected, *taken, /*same_chunk_layout=*/false);
   }
   {
     ArrayFromVector<Int64Type>({7, 5, 3, 1}, &indices);
@@ -288,7 +288,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 4);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   if (num_batches > 1) {
     ArrayFromVector<Int64Type>({batch_size + 2, batch_size + 1}, &indices);
@@ -296,7 +296,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 2);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   if (num_batches > 1) {
     ArrayFromVector<Int64Type>({1, 3, 5, 7, batch_size + 1, 2 * batch_size + 2},
@@ -305,7 +305,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 6);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   {
     auto base = num_datasets * num_batches * batch_size;
@@ -510,7 +510,7 @@ TEST_P(TestScanner, ToRecordBatchReader) {
   ASSERT_OK_AND_ASSIGN(auto reader, scanner->ToRecordBatchReader());
   scanner.reset();
   ASSERT_OK(reader->ReadAll(&actual));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 class FailingFragment : public InMemoryFragment {
@@ -675,31 +675,31 @@ TEST_P(TestScanner, Head) {
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(0));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch->Slice(0, 1)}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(1));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   if (num_batches > 1) {
     ASSERT_OK_AND_ASSIGN(expected,
                          Table::FromRecordBatches(schema_, {batch, batch->Slice(0, 1)}));
     ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size + 1));
-    AssertTablesEqual(*expected, *actual);
+    AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
   }
 
   ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size * num_batches * num_datasets));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
   ASSERT_OK_AND_ASSIGN(actual,
                        scanner->Head(batch_size * num_batches * num_datasets + 100));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 TEST_P(TestScanner, FromReader) {
