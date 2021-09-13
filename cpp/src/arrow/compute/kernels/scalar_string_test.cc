@@ -1048,8 +1048,7 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
   for (const auto& pair : repeats_and_expected) {
     auto repeat = pair.first;
     auto expected = pair.second;
-    auto repeat_types = (repeat < 0) ? internal::SignedIntTypes() : internal::IntTypes();
-    for (const auto& ty : repeat_types) {
+    for (const auto& ty : internal::IntTypes()) {
       this->CheckVarArgs("str_repeat", {values, Datum(*arrow::MakeScalar(ty, repeat))},
                          this->type(), expected);
     }
@@ -1057,7 +1056,7 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
 }
 
 TYPED_TEST(TestStringKernels, StrRepeats) {
-  for (const auto& ty : internal::SignedIntTypes()) {
+  for (const auto& ty : internal::IntTypes()) {
     auto repeats = ArrayFromJSON(ty, R"([100, 1, 2, 4, 2, 0, 1, 3, 2, 3])");
     auto values = ArrayFromJSON(
         this->type(),
