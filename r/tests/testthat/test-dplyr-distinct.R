@@ -61,6 +61,8 @@ test_that("distinct() can name columns", {
     tbl
   )
 
+  skip("ARROW-13985 - we could implement this or raise an error
+       depending on what we decide to do on this ticket.")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping, false, lgl) %>%
