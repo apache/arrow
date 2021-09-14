@@ -21,13 +21,13 @@ include "Expression.fbs";
 
 namespace org.apache.arrow.computeir.flatbuf;
 
-/// A data type indicating a different mapping of columns
+/// A data type indicating that a different mapping of columns
 /// should occur in the output.
 ///
 /// For example:
 ///
-/// Given a query `SELECT a, b FROM t` where `t` has columns a, b, c
-/// the mapping value for the projection would equal [0, 1].
+/// Given a query `SELECT b, a FROM t` where `t` has columns a, b, c
+/// the mapping value for the projection would equal [1, 0].
 table Remap {
   mapping: [uint32] (required);
 }
@@ -43,7 +43,7 @@ union Emit {
 
 /// Fields common to every relational operator
 table RelBase {
-  /// Output remapping of ordinals for a given operation
+  /// Output remapping of ordinal columns for a given operation
   output_mapping: Emit (required);
 }
 
@@ -183,9 +183,9 @@ table LiteralRelation {
 }
 
 /// A table read
-table Read {
+table Table {
   base: RelBase (required);
-  resource: string (required);
+  name: string (required);
   schema: org.apache.arrow.flatbuf.Schema (required);
 }
 
@@ -198,7 +198,7 @@ union RelationImpl {
   LiteralRelation,
   OrderBy,
   Project,
-  Read,
+  Table,
 }
 
 /// A table holding an instance of the possible relation types.
