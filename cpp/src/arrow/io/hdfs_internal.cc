@@ -188,11 +188,11 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
 // expecting users to set an environment variable
 #else
   #if defined(__aarch64__)
-  const std::string prefix_arch{"arm64"};
-  const std::string suffix_arch{"aarch64"};
+    const std::string prefix_arch{"arm64"};
+    const std::string suffix_arch{"aarch64"};
   #else
-  const std::string prefix_arch{"amd64"};
-  const std::string suffix_arch{"amd64"};
+    const std::string prefix_arch{"amd64"};
+    const std::string suffix_arch{"amd64"};
   #endif
   ARROW_ASSIGN_OR_RAISE(
       search_prefixes,
