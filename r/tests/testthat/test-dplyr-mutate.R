@@ -340,14 +340,25 @@ test_that("dplyr::mutate's examples", {
   # The mutate operation may yield different results on grouped
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
-  # TODO: ARROW-11702
+  # TODO: ARROW-13926
   expect_dplyr_equal(
     input %>%
       select(name, mass, species) %>%
       mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
       collect(),
     starwars,
-    warning = TRUE
+    warning = "window function"
+  )
+})
+
+test_that("Can mutate after group_by as long as there are no aggregations", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(int = int + 6L) %>%
+      collect(),
+    tbl
   )
 })
 
