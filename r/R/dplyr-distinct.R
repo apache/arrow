@@ -30,7 +30,10 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   # Get grouping in the data as the call to summarize() will remove it
   gv <- dplyr::group_vars(.data)
 
+  browser()
+
   vars_to_group <- unique(c(
+    # THIS IS WRONG AS IT STRIPS OUT EXPRESSIONS
     unlist(lapply(distinct_groups, all.vars)),
     gv
   ))
@@ -51,7 +54,19 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     .data$group_by_vars <- gv
   }
 
-  # Need to deal with naming here
+
+  # # Need to deal with naming here
+  # old_vars <- names(.data$selected_columns)
+  # # Note that this is names(exprs) not names(results):
+  # # if results$new_var is NULL, that means we are supposed to remove it
+  # new_vars <- names(distinct_groups)
+  #
+  # # Assign the new columns into the .data$selected_columns
+  # for (new_var in new_vars) {
+  #   .data$selected_columns[[new_var]] <- results[[new_var]]
+  # }
+
+
   .data
 }
 

@@ -53,16 +53,9 @@ test_that("distinct() can retain groups", {
 })
 
 test_that("distinct() can name columns", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(some_grouping, false) %>%
-      distinct(x = lgl) %>%
-      collect(),
-    tbl
-  )
-
-  skip("ARROW-13985 - we could implement this or raise an error
-       depending on what we decide to do on this ticket.")
+  # I think that implementing expressions inside distinct should fix this
+  # skip("ARROW-13985 - we could implement this or raise an error
+  #      depending on what we decide to do on this ticket.")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping, false, lgl) %>%
@@ -70,6 +63,14 @@ test_that("distinct() can name columns", {
       collect(),
     tbl
   )
-
 })
 
+test_that("distinct() can contain expressions", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(lgl) %>%
+      distinct(x = some_grouping + 1) %>%
+      collect(),
+    tbl
+  )
+})
