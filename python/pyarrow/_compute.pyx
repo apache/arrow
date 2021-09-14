@@ -91,19 +91,18 @@ cdef wrap_function(const shared_ptr[CFunction]& sp_func):
     if sp_func.get() == NULL:
         raise ValueError('Function was NULL')
 
+    kind_dict = {
+        FunctionKind_SCALAR: wrap_scalar_function,
+        FunctionKind_VECTOR: wrap_vector_function,
+        FunctionKind_SCALAR_AGGREGATE: wrap_scalar_aggregate_function,
+        FunctionKind_HASH_AGGREGATE: wrap_hash_aggregate_function,
+        FunctionKind_META: wrap_meta_function,
+    }
+
     cdef FunctionKind c_kind = sp_func.get().kind()
-    if c_kind == FunctionKind_SCALAR:
-        return wrap_scalar_function(sp_func)
-    elif c_kind == FunctionKind_VECTOR:
-        return wrap_vector_function(sp_func)
-    elif c_kind == FunctionKind_SCALAR_AGGREGATE:
-        return wrap_scalar_aggregate_function(sp_func)
-    elif c_kind == FunctionKind_HASH_AGGREGATE:
-        return wrap_hash_aggregate_function(sp_func)
-    elif c_kind == FunctionKind_META:
-        return wrap_meta_function(sp_func)
-    else:
+    if c_kind not in kind_dict:
         raise NotImplementedError("Unknown Function::Kind")
+    return kind_dict[c_kind](sp_func)
 
 
 cdef wrap_scalar_kernel(const CScalarKernel* c_kernel):
@@ -240,6 +239,14 @@ cdef class Function(_Weakrefable):
         shared_ptr[CFunction] sp_func
         CFunction* base_func
 
+    kind_dict = {
+        FunctionKind_SCALAR: "scalar",
+        FunctionKind_VECTOR: "vector",
+        FunctionKind_SCALAR_AGGREGATE: "scalar_aggregate",
+        FunctionKind_HASH_AGGREGATE: "hash_aggregate",
+        FunctionKind_META: "meta",
+    }
+
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly"
                         .format(self.__class__.__name__))
@@ -284,18 +291,9 @@ cdef class Function(_Weakrefable):
         The function kind.
         """
         cdef FunctionKind c_kind = self.base_func.kind()
-        if c_kind == FunctionKind_SCALAR:
-            return 'scalar'
-        elif c_kind == FunctionKind_VECTOR:
-            return 'vector'
-        elif c_kind == FunctionKind_SCALAR_AGGREGATE:
-            return 'scalar_aggregate'
-        elif c_kind == FunctionKind_HASH_AGGREGATE:
-            return 'hash_aggregate'
-        elif c_kind == FunctionKind_META:
-            return 'meta'
-        else:
+        if c_kind not in kind_dict:
             raise NotImplementedError("Unknown Function::Kind")
+        return kind_dict[c_kind]
 
     @property
     def _doc(self):
@@ -712,76 +710,70 @@ class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
 
 
 cdef CRoundMode unwrap_round_mode(round_mode) except *:
-    if round_mode == 'down':
-        return CRoundMode_DOWN
-    elif round_mode == 'up':
-        return CRoundMode_UP
-    elif round_mode == 'towards_zero':
-        return CRoundMode_TOWARDS_ZERO
-    elif round_mode == 'towards_infinity':
-        return CRoundMode_TOWARDS_INFINITY
-    elif round_mode == 'half_down':
-        return CRoundMode_HALF_DOWN
-    elif round_mode == 'half_up':
-        return CRoundMode_HALF_UP
-    elif round_mode == 'half_towards_zero':
-        return CRoundMode_HALF_TOWARDS_ZERO
-    elif round_mode == 'half_towards_infinity':
-        return CRoundMode_HALF_TOWARDS_INFINITY
-    elif round_mode == 'half_to_even':
-        return CRoundMode_HALF_TO_EVEN
-    elif round_mode == 'half_to_odd':
-        return CRoundMode_HALF_TO_ODD
-    else:
-        raise ValueError('"{}" is not a valid round mode'.format(round_mode))
+    round_mode_dict = {
+        "down": CRoundMode_DOWN,
+        "up": CRoundMode_UP,
+        "towards_zero": CRoundMode_TOWARDS_ZERO,
+        "towards_infinity": CRoundMode_TOWARDS_INFINITY,
+        "half_down": CRoundMode_HALF_DOWN,
+        "half_up": CRoundMode_HALF_UP,
+        "half_towards_zero": CRoundMode_HALF_TOWARDS_ZERO,
+        "half_towards_infinity": CRoundMode_HALF_TOWARDS_INFINITY,
+        "half_to_even": CRoundMode_HALF_TO_EVEN,
+        "half_to_odd": CRoundMode_HALF_TO_ODD,
+    }
+
+    if round_mode not in round_mode_dict:
+        raise ValueError(f'"{round_mode}" is not a valid round mode')
 
 
 cdef class _RoundOptions(FunctionOptions):
     def _set_options(self, int64_t ndigits, round_mode):
-        cdef:
-            CRoundMode c_round_mode = CRoundMode_HALF_TO_EVEN
-        c_round_mode = unwrap_round_mode(round_mode)
-        self.wrapped.reset(new CRoundOptions(ndigits, c_round_mode))
+        self.wrapped.reset(
+            new CRoundOptions(
+                ndigits,
+                unwrap_round_mode(round_mode))
+        )
 
 
 class RoundOptions(_RoundOptions):
-    def __init__(self, ndigits=0, round_mode='half_to_even'):
+    def __init__(self, ndigits=0, round_mode="half_to_even"):
         self._set_options(ndigits, round_mode)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, double multiple, round_mode):
-        cdef:
-            CRoundMode c_round_mode = CRoundMode_HALF_TO_EVEN
-        c_round_mode = unwrap_round_mode(round_mode)
-        self.wrapped.reset(new CRoundToMultipleOptions(multiple, c_round_mode))
+        self.wrapped.reset(
+            new CRoundToMultipleOptions(
+                multiple,
+                unwrap_round_mode(round_mode))
+        )
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
-    def __init__(self, multiple=1.0, round_mode='half_to_even'):
+    def __init__(self, multiple=1.0, round_mode="half_to_even"):
         self._set_options(multiple, round_mode)
 
 
 cdef class _JoinOptions(FunctionOptions):
+    null_handling_dict = {
+        "emit_null": CJoinNullHandlingBehavior_EMIT_NULL,
+        "skip": CJoinNullHandlingBehavior_SKIP,
+        "replace": CJoinNullHandlingBehavior_REPLACE,
+    }
+
     def _set_options(self, null_handling, null_replacement):
-        cdef:
-            CJoinNullHandlingBehavior c_null_handling
-        if null_handling == 'emit_null':
-            c_null_handling = CJoinNullHandlingBehavior_EMIT_NULL
-        elif null_handling == 'skip':
-            c_null_handling = CJoinNullHandlingBehavior_SKIP
-        elif null_handling == 'replace':
-            c_null_handling = CJoinNullHandlingBehavior_REPLACE
-        else:
-            raise ValueError(
-                '"{}" is not a valid null_handling'
-                .format(null_handling))
+        if null_handling not in null_handling_dict:
+            raise ValueError(f'"{null_handling}" is not a valid null_handling')
         self.wrapped.reset(
-            new CJoinOptions(c_null_handling, tobytes(null_replacement)))
+            new CJoinOptions(
+                null_handling_dict[null_handling],
+                tobytes(null_replacement))
+        )
 
 
 class JoinOptions(_JoinOptions):
-    def __init__(self, null_handling='emit_null', null_replacement=''):
+    def __init__(self, null_handling="emit_null", null_replacement=""):
         self._set_options(null_handling, null_replacement)
 
 
@@ -802,7 +794,7 @@ cdef class _PadOptions(FunctionOptions):
 
 
 class PadOptions(_PadOptions):
-    def __init__(self, width, padding=' '):
+    def __init__(self, width, padding=" "):
         self._set_options(width, padding)
 
 
@@ -831,9 +823,10 @@ class ReplaceSliceOptions(_ReplaceSliceOptions):
 cdef class _ReplaceSubstringOptions(FunctionOptions):
     def _set_options(self, pattern, replacement, max_replacements):
         self.wrapped.reset(
-            new CReplaceSubstringOptions(tobytes(pattern),
-                                         tobytes(replacement),
-                                         max_replacements)
+            new CReplaceSubstringOptions(
+                tobytes(pattern),
+                tobytes(replacement),
+                max_replacements)
         )
 
 
@@ -844,8 +837,7 @@ class ReplaceSubstringOptions(_ReplaceSubstringOptions):
 
 cdef class _ExtractRegexOptions(FunctionOptions):
     def _set_options(self, pattern):
-        self.wrapped.reset(
-            new CExtractRegexOptions(tobytes(pattern)))
+        self.wrapped.reset(new CExtractRegexOptions(tobytes(pattern)))
 
 
 class ExtractRegexOptions(_ExtractRegexOptions):
@@ -864,43 +856,41 @@ class SliceOptions(_SliceOptions):
 
 
 cdef class _FilterOptions(FunctionOptions):
-    def _set_options(self, null_selection_behavior):
-        cdef:
-            CFilterNullSelectionBehavior c_null_selection_behavior
-        if null_selection_behavior == 'drop':
-            c_null_selection_behavior = CFilterNullSelectionBehavior_DROP
-        elif null_selection_behavior == 'emit_null':
-            c_null_selection_behavior = CFilterNullSelectionBehavior_EMIT_NULL
-        else:
-            raise ValueError(
-                '"{}" is not a valid null_selection_behavior'
-                .format(null_selection_behavior))
+    null_selection_dict = {
+        "drop": CFilterNullSelectionBehavior_DROP,
+        "emit_null": CFilterNullSelectionBehavior_EMIT_NULL,
+    }
 
-        self.wrapped.reset(new CFilterOptions(c_null_selection_behavior))
+    def _set_options(self, null_selection):
+        if null_selection not in null_selection_dict:
+            raise ValueError(
+                f'"{null_selection}" is not a valid null_selection_behavior')
+        self.wrapped.reset(
+            new CFilterOptions(null_selection_dict[null_selection])
+        )
 
 
 class FilterOptions(_FilterOptions):
-    def __init__(self, null_selection_behavior='drop'):
-        self._set_options(null_selection_behavior)
+    def __init__(self, null_selection="drop"):
+        self._set_options(null_selection)
 
 
 cdef class _DictionaryEncodeOptions(FunctionOptions):
-    def _set_options(self, null_encoding):
-        cdef:
-            CDictionaryEncodeNullEncodingBehavior c_null_encoding
-        if null_encoding == 'encode':
-            c_null_encoding = CDictionaryEncodeNullEncodingBehavior_ENCODE
-        elif null_encoding== 'mask':
-            c_null_encoding = CDictionaryEncodeNullEncodingBehavior_MASK
-        else:
-            raise ValueError('"{}" is not a valid null_encoding'
-                             .format(null_encoding))
+    null_encoding_dict = {
+        "encode": CDictionaryEncodeNullEncodingBehavior_ENCODE,
+        "mask": CDictionaryEncodeNullEncodingBehavior_MASK,
+    }
 
-        self.wrapped.reset(new CDictionaryEncodeOptions(c_null_encoding))
+    def _set_options(self, null_encoding):
+        if null_encoding not in null_encoding_dict:
+            raise ValueError(f'"{null_encoding}" is not a valid null_encoding')
+        self.wrapped.reset(
+            new CDictionaryEncodeOptions(null_encoding_dict[null_encoding])
+        )
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
-    def __init__(self, null_encoding='mask'):
+    def __init__(self, null_encoding="mask"):
         self._set_options(null_encoding)
 
 
@@ -910,17 +900,17 @@ cdef class _TakeOptions(FunctionOptions):
 
 
 class TakeOptions(_TakeOptions):
-    def __init__(self, *, boundscheck=True):
+    def __init__(self, boundscheck=True):
         self._set_options(boundscheck)
 
 
 cdef class _PartitionNthOptions(FunctionOptions):
-    def _set_options(self, int64_t pivot):
+    def _set_options(self, pivot):
         self.wrapped.reset(new CPartitionNthOptions(pivot))
 
 
 class PartitionNthOptions(_PartitionNthOptions):
-    def __init__(self, int64_t pivot):
+    def __init__(self, pivot):
         self._set_options(pivot)
 
 
@@ -928,8 +918,8 @@ cdef class _MakeStructOptions(FunctionOptions):
     def _set_options(self, field_names):
         cdef:
             vector[c_string] c_field_names
-        for n in field_names:
-            c_field_names.push_back(tobytes(n))
+        for name in field_names:
+            c_field_names.push_back(tobytes(name))
         self.wrapped.reset(new CMakeStructOptions(c_field_names))
 
 
@@ -940,8 +930,7 @@ class MakeStructOptions(_MakeStructOptions):
 
 cdef class _ScalarAggregateOptions(FunctionOptions):
     def _set_options(self, skip_nulls, min_count):
-        self.wrapped.reset(
-            new CScalarAggregateOptions(skip_nulls, min_count))
+        self.wrapped.reset(new CScalarAggregateOptions(skip_nulls, min_count))
 
 
 class ScalarAggregateOptions(_ScalarAggregateOptions):
@@ -950,19 +939,20 @@ class ScalarAggregateOptions(_ScalarAggregateOptions):
 
 
 cdef class _CountOptions(FunctionOptions):
+    mode_dict = {
+        "only_valid": CCountMode_ONLY_VALID,
+        "only_null": CCountMode_ONLY_NULL,
+        "all": CCountMode_ALL,
+    }
+
     def _set_options(self, mode):
-        if mode == 'only_valid':
-            self.wrapped.reset(new CCountOptions(CCountMode_ONLY_VALID))
-        elif mode == 'only_null':
-            self.wrapped.reset(new CCountOptions(CCountMode_ONLY_NULL))
-        elif mode == 'all':
-            self.wrapped.reset(new CCountOptions(CCountMode_ALL))
-        else:
+        if mode not in mode_dict:
             raise ValueError(f'"{mode}" is not a valid mode')
+        self.wrapped.reset(new CCountOptions(mode_dict[mode]))
 
 
 class CountOptions(_CountOptions):
-    def __init__(self, mode='only_valid'):
+    def __init__(self, mode="only_valid"):
         self._set_options(mode)
 
 
@@ -996,45 +986,39 @@ class ModeOptions(_ModeOptions):
 
 
 cdef class _SetLookupOptions(FunctionOptions):
-    cdef:
-        unique_ptr[CDatum] valset
-
     def _set_options(self, value_set, c_bool skip_nulls):
+        cdef:
+            unique_ptr[CDatum] valset
         if isinstance(value_set, Array):
-            self.valset.reset(new CDatum((<Array> value_set).sp_array))
+            valset.reset(new CDatum((<Array> value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
-            self.valset.reset(
-                new CDatum((<ChunkedArray> value_set).sp_chunked_array)
-            )
+            valset.reset(
+                new CDatum((<ChunkedArray> value_set).sp_chunked_array))
         elif isinstance(value_set, Scalar):
-            self.valset.reset(new CDatum((<Scalar> value_set).unwrap()))
+            valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
-            raise ValueError('"{}" is not a valid value_set'.format(value_set))
-
-        self.wrapped.reset(
-            new CSetLookupOptions(deref(self.valset), skip_nulls))
+            raise ValueError(f'"{value_set}" is not a valid value_set')
+        self.wrapped.reset(new CSetLookupOptions(deref(valset), skip_nulls))
 
 
 class SetLookupOptions(_SetLookupOptions):
-    def __init__(self, *, value_set, skip_nulls=False):
+    def __init__(self, value_set, skip_nulls=False):
         self._set_options(value_set, skip_nulls)
 
 
 cdef class _StrptimeOptions(FunctionOptions):
-    def _set_options(self, format, unit):
-        if unit == 's':
-            time_unit = TimeUnit_SECOND
-        elif unit == 'ms':
-            time_unit = TimeUnit_MILLI
-        elif unit == 'us':
-            time_unit = TimeUnit_MICRO
-        elif unit == 'ns':
-            time_unit = TimeUnit_NANO
-        else:
-            raise ValueError('"{}" is not a valid time unit'.format(unit))
+    unit_dict = {
+        "s": TimeUnit_SECOND,
+        "ms": TimeUnit_MILLI,
+        "us": TimeUnit_MICRO,
+        "ns": TimeUnit_NANO,
+    }
 
+    def _set_options(self, format, unit):
+        if unit not in unit_dict:
+            raise ValueError(f'"{unit}" is not a valid time unit')
         self.wrapped.reset(
-            new CStrptimeOptions(tobytes(format), time_unit)
+            new CStrptimeOptions(tobytes(format), unit_dict[unit])
         )
 
 
@@ -1070,25 +1054,23 @@ class DayOfWeekOptions(_DayOfWeekOptions):
 cdef class _AssumeTimezoneOptions(FunctionOptions):
     def _set_options(self, timezone, ambiguous, nonexistent):
         ambiguous_dict = {
-            'raise': CAssumeTimezoneAmbiguous_AMBIGUOUS_RAISE,
-            'earliest': CAssumeTimezoneAmbiguous_AMBIGUOUS_EARLIEST,
-            'latest': CAssumeTimezoneAmbiguous_AMBIGUOUS_LATEST,
+            "raise": CAssumeTimezoneAmbiguous_AMBIGUOUS_RAISE,
+            "earliest": CAssumeTimezoneAmbiguous_AMBIGUOUS_EARLIEST,
+            "latest": CAssumeTimezoneAmbiguous_AMBIGUOUS_LATEST,
         }
         nonexistent_dict = {
-            'raise': CAssumeTimezoneNonexistent_NONEXISTENT_RAISE,
-            'earliest': CAssumeTimezoneNonexistent_NONEXISTENT_EARLIEST,
-            'latest': CAssumeTimezoneNonexistent_NONEXISTENT_LATEST,
+            "raise": CAssumeTimezoneNonexistent_NONEXISTENT_RAISE,
+            "earliest": CAssumeTimezoneNonexistent_NONEXISTENT_EARLIEST,
+            "latest": CAssumeTimezoneNonexistent_NONEXISTENT_LATEST,
         }
 
         if ambiguous not in ambiguous_dict:
             raise ValueError(
-                "{!r} is not a valid 'ambiguous' keyword".format(ambiguous)
-            )
+                f"{ambiguous!r} is not a valid 'ambiguous' keyword")
         if nonexistent not in nonexistent_dict:
             raise ValueError(
-                "{!r} is not a valid 'nonexistent' keyword".format(
-                    nonexistent)
-            )
+                f"{nonexistent!r} is not a valid 'nonexistent' keyword")
+
         self.wrapped.reset(
             new CAssumeTimezoneOptions(
                 tobytes(timezone),
@@ -1098,15 +1080,13 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
 
 
 class AssumeTimezoneOptions(_AssumeTimezoneOptions):
-    def __init__(self, timezone, *, ambiguous="raise", nonexistent="raise"):
+    def __init__(self, timezone, ambiguous="raise", nonexistent="raise"):
         self._set_options(timezone, ambiguous, nonexistent)
 
 
 cdef class _NullOptions(FunctionOptions):
     def _set_options(self, nan_is_null):
-        self.wrapped.reset(
-            new CNullOptions(nan_is_null)
-        )
+        self.wrapped.reset(new CNullOptions(nan_is_null))
 
 
 class NullOptions(_NullOptions):
@@ -1120,68 +1100,62 @@ cdef class _VarianceOptions(FunctionOptions):
 
 
 class VarianceOptions(_VarianceOptions):
-    def __init__(self, *, ddof=0, skip_nulls=True, min_count=0):
+    def __init__(self, ddof=0, skip_nulls=True, min_count=0):
         self._set_options(ddof, skip_nulls, min_count)
 
 
 cdef class _SplitOptions(FunctionOptions):
     def _set_options(self, max_splits, reverse):
-        self.wrapped.reset(
-            new CSplitOptions(max_splits, reverse))
+        self.wrapped.reset(new CSplitOptions(max_splits, reverse))
 
 
 class SplitOptions(_SplitOptions):
-    def __init__(self, *, max_splits=-1, reverse=False):
+    def __init__(self, max_splits=-1, reverse=False):
         self._set_options(max_splits, reverse)
 
 
 cdef class _SplitPatternOptions(FunctionOptions):
     def _set_options(self, pattern, max_splits, reverse):
         self.wrapped.reset(
-            new CSplitPatternOptions(tobytes(pattern), max_splits, reverse))
+            new CSplitPatternOptions(tobytes(pattern), max_splits, reverse)
+        )
 
 
 class SplitPatternOptions(_SplitPatternOptions):
-    def __init__(self, *, pattern, max_splits=-1, reverse=False):
+    def __init__(self, pattern, max_splits=-1, reverse=False):
         self._set_options(pattern, max_splits, reverse)
 
 
 cdef class _ArraySortOptions(FunctionOptions):
+    order_dict = {
+        "ascending": CSortOrder_Ascending,
+        "descending": CSortOrder_Descending,
+    }
+
     def _set_options(self, order):
-        if order == "ascending":
-            self.wrapped.reset(new CArraySortOptions(CSortOrder_Ascending))
-        elif order == "descending":
-            self.wrapped.reset(new CArraySortOptions(CSortOrder_Descending))
-        else:
-            raise ValueError(
-                "{!r} is not a valid order".format(order)
-            )
+        if order not in order_dict:
+            raise ValueError(f"{order!r} is not a valid order")
+        self.wrapped.reset(new CArraySortOptions(order_dict[order]))
 
 
 class ArraySortOptions(_ArraySortOptions):
-    def __init__(self, *, order='ascending'):
+    def __init__(self, order="ascending"):
         self._set_options(order)
 
 
 cdef class _SortOptions(FunctionOptions):
+    order_dict = {
+        "ascending": CSortOrder_Ascending,
+        "descending": CSortOrder_Descending,
+    }
+
     def _set_options(self, sort_keys):
         cdef:
             vector[CSortKey] c_sort_keys
-            c_string c_name
-            CSortOrder c_order
-
         for name, order in sort_keys:
-            if order == "ascending":
-                c_order = CSortOrder_Ascending
-            elif order == "descending":
-                c_order = CSortOrder_Descending
-            else:
-                raise ValueError(
-                    "{!r} is not a valid order".format(order)
-                )
-            c_name = tobytes(name)
-            c_sort_keys.push_back(CSortKey(c_name, c_order))
-
+            if order not in order_dict:
+                raise ValueError(f"{order!r} is not a valid order")
+            c_sort_keys.push_back(CSortKey(tobytes(name), order_dict[order]))
         self.wrapped.reset(new CSortOptions(c_sort_keys))
 
 
@@ -1193,24 +1167,18 @@ class SortOptions(_SortOptions):
 
 
 cdef class _SelectKOptions(FunctionOptions):
+    order_dict = {
+        "ascending": CSortOrder_Ascending,
+        "descending": CSortOrder_Descending,
+    }
+
     def _set_options(self, k, sort_keys):
         cdef:
-            c_string c_name
             vector[CSortKey] c_sort_keys
-            CSortOrder c_order
-
         for name, order in sort_keys:
-            if order == "ascending":
-                c_order = CSortOrder_Ascending
-            elif order == "descending":
-                c_order = CSortOrder_Descending
-            else:
-                raise ValueError(
-                    "{!r} is not a valid order".format(order)
-                )
-            c_name = tobytes(name)
-            c_sort_keys.push_back(CSortKey(c_name, c_order))
-
+            if order not in order_dict:
+                raise ValueError(f"{order!r} is not a valid order")
+            c_sort_keys.push_back(CSortKey(tobytes(c_name), order_dict[order]))
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
 
@@ -1222,25 +1190,28 @@ class SelectKOptions(_SelectKOptions):
 
 
 cdef class _QuantileOptions(FunctionOptions):
+    interp_dict = {
+        "linear": CQuantileInterp_LINEAR,
+        "lower": CQuantileInterp_LOWER,
+        "higher": CQuantileInterp_HIGHER,
+        "nearest": CQuantileInterp_NEAREST,
+        "midpoint": CQuantileInterp_MIDPOINT,
+    }
+
     def _set_options(self, quantiles, interp, skip_nulls, min_count):
-        interp_dict = {
-            'linear': CQuantileInterp_LINEAR,
-            'lower': CQuantileInterp_LOWER,
-            'higher': CQuantileInterp_HIGHER,
-            'nearest': CQuantileInterp_NEAREST,
-            'midpoint': CQuantileInterp_MIDPOINT,
-        }
         if interp not in interp_dict:
-            raise ValueError(
-                '{!r} is not a valid interpolation'
-                .format(interp))
+            raise ValueError(f"{interp!r} is not a valid interpolation")
         self.wrapped.reset(
-            new CQuantileOptions(quantiles, interp_dict[interp],
-                                 skip_nulls, min_count))
+            new CQuantileOptions(
+                quantiles,
+                interp_dict[interp],
+                skip_nulls,
+                min_count)
+        )
 
 
 class QuantileOptions(_QuantileOptions):
-    def __init__(self, *, q=0.5, interpolation='linear',
+    def __init__(self, q=0.5, interpolation="linear",
                  skip_nulls=True, min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
@@ -1251,12 +1222,16 @@ cdef class _TDigestOptions(FunctionOptions):
     def _set_options(self, quantiles, delta, buffer_size,
                      skip_nulls, min_count):
         self.wrapped.reset(
-            new CTDigestOptions(quantiles, delta, buffer_size,
-                                skip_nulls, min_count))
+            new CTDigestOptions(
+                quantiles,
+                delta,
+                buffer_size,
+                skip_nulls, min_count)
+        )
 
 
 class TDigestOptions(_TDigestOptions):
-    def __init__(self, *, q=0.5, delta=100, buffer_size=500,
+    def __init__(self, q=0.5, delta=100, buffer_size=500,
                  skip_nulls=True, min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]

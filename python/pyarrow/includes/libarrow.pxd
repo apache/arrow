@@ -1071,7 +1071,7 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CBooleanBuilder" arrow::BooleanBuilder"(CArrayBuilder):
         CBooleanBuilder(CMemoryPool* pool)
-        CStatus Append(const bint val)
+        CStatus Append(const c_bool val)
         CStatus Append(const uint8_t val)
 
     cdef cppclass CInt8Builder" arrow::Int8Builder"(CArrayBuilder):
@@ -1965,7 +1965,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             " arrow::compute::FilterOptions"(CFunctionOptions):
         CFilterOptions()
         CFilterOptions(CFilterNullSelectionBehavior null_selection)
-        CFilterNullSelectionBehavior null_selection_behavior
+        CFilterNullSelectionBehavior null_selection
 
     enum CDictionaryEncodeNullEncodingBehavior \
             "arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior":
@@ -2515,7 +2515,7 @@ cdef extern from 'arrow/util/iterator.h' namespace 'arrow' nogil:
         cppclass RangeIterator:
             CResult[T] operator*()
             RangeIterator& operator++()
-            bint operator!=(RangeIterator) const
+            c_bool operator!=(RangeIterator) const
         RangeIterator begin()
         RangeIterator end()
     CIterator[T] MakeVectorIterator[T](vector[T] v)
