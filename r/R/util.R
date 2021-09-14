@@ -58,10 +58,22 @@ r_symbolic_constants <- c(
   "NA_integer_", "NA_real_", "NA_complex_", "NA_character_"
 )
 
+is_function <- function(expr, name) {
+  if (!is.call(expr)) {
+    return(FALSE)
+  } else {
+    if (deparse(expr[[1]]) == name) {
+      return(TRUE)
+    }
+    out <- lapply(expr, is_function, name)
+  }
+  any(vapply(out, isTRUE, TRUE))
+}
+
 all_funs <- function(expr) {
   # Don't use setdiff so that we preserve duplicates
-  out <- all.names(expr)
-  out[!(out %in% all.vars(expr))]
+  names <- all.names(expr)
+  names[vapply(names, function(name) {is_function(expr, name)}, TRUE)]
 }
 
 all_vars <- function(expr) {
