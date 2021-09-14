@@ -199,7 +199,11 @@ the input to a single output value.
 +---------------+-------+------------------+------------------------+----------------------------------+-------+
 | index         | Unary | Any              | Scalar Int64           | :struct:`IndexOptions`           |       |
 +---------------+-------+------------------+------------------------+----------------------------------+-------+
+| max           | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
++---------------+-------+------------------+------------------------+----------------------------------+-------+
 | mean          | Unary | Numeric          | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
++---------------+-------+------------------+------------------------+----------------------------------+-------+
+| min           | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+------------------+------------------------+----------------------------------+-------+
 | min_max       | Unary | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
 +---------------+-------+------------------+------------------------+----------------------------------+-------+
@@ -307,7 +311,11 @@ equivalents above and reflects how they are implemented internally.
 +---------------------+-------+------------------------------------+-----------------+----------------------------------+-------+
 | hash_distinct       | Unary | Any                                | Input type      | :struct:`CountOptions`           | \(2)  |
 +---------------------+-------+------------------------------------+-----------------+----------------------------------+-------+
+| hash_max            | Unary | Non-nested, non-binary/string-like | Input type      | :struct:`ScalarAggregateOptions` |       |
++---------------------+-------+------------------------------------+-----------------+----------------------------------+-------+
 | hash_mean           | Unary | Numeric                            | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
++---------------------+-------+------------------------------------+-----------------+----------------------------------+-------+
+| hash_min            | Unary | Non-nested, non-binary/string-like | Input type      | :struct:`ScalarAggregateOptions` |       |
 +---------------------+-------+------------------------------------+-----------------+----------------------------------+-------+
 | hash_min_max        | Unary | Non-nested, non-binary/string-like | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
 +---------------------+-------+------------------------------------+-----------------+----------------------------------+-------+

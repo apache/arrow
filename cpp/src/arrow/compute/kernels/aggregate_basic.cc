@@ -282,6 +282,43 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
   return visitor.Create();
 }
 
+// For "min" and "max" functions: override finalize and return the actual value
+template <MinOrMax min_or_max>
+void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
+                          ScalarAggregateFunction* min_max_func) {
+  auto sig = KernelSignature::Make(
+      {InputType(ValueDescr::ANY)},
+      OutputType([](KernelContext*,
+                    const std::vector<ValueDescr>& descrs) -> Result<ValueDescr> {
+        // any[T] -> scalar[T]
+        return ValueDescr::Scalar(descrs.front().type);
+      }));
+
+  auto init = [min_max_func](
+                  KernelContext* ctx,
+                  const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
+    std::vector<ValueDescr> inputs = args.inputs;
+    ARROW_ASSIGN_OR_RAISE(auto kernel, min_max_func->DispatchBest(&inputs));
+    KernelInitArgs new_args{kernel, inputs, args.options};
+    return kernel->init(ctx, new_args);
+  };
+
+  auto finalize = [](KernelContext* ctx, Datum* out) -> Status {
+    Datum temp;
+    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(ctx->state())->Finalize(ctx, &temp));
+    const auto& result = temp.scalar_as<StructScalar>();
+    DCHECK(result.is_valid);
+    *out = result.value[static_cast<uint8_t>(min_or_max)];
+    return Status::OK();
+  };
+
+  // Note SIMD level is always NONE, but the convenience kernel will
+  // dispatch to an appropriate implementation
+  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
+                               AggregateMerge, std::move(finalize));
+  DCHECK_OK(func->AddKernel(kernel));
+}
+
 // ----------------------------------------------------------------------
 // Any implementation
 
@@ -663,6 +700,13 @@ const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numer
                               {"array"},
                               "ScalarAggregateOptions"};
 
+const FunctionDoc min_or_max_doc{
+    "Compute the minimum or maximum values of a numeric array",
+    ("Null values are ignored by default.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array"},
+    "ScalarAggregateOptions"};
+
 const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
                           ("Null values are ignored by default.\n"
                            "If null values are taken into account by setting "
@@ -781,6 +825,18 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   }
 #endif
 
+  auto min_max_func = func.get();
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // Add min/max as convenience functions
+  func = std::make_shared<ScalarAggregateFunction>("min", Arity::Unary(), &min_or_max_doc,
+                                                   &default_scalar_aggregate_options);
+  aggregate::AddMinOrMaxAggKernel<MinOrMax::Min>(func.get(), min_max_func);
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  func = std::make_shared<ScalarAggregateFunction>("max", Arity::Unary(), &min_or_max_doc,
+                                                   &default_scalar_aggregate_options);
+  aggregate::AddMinOrMaxAggKernel<MinOrMax::Max>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>(

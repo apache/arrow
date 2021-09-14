@@ -1177,11 +1177,23 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
     const StructScalar& value = out.scalar_as<StructScalar>();
 
-    const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
-    ASSERT_EQ(expected_min, out_min.value);
+    {
+      const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
+      ASSERT_EQ(expected_min, out_min.value);
 
-    const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
-    ASSERT_EQ(expected_max, out_max.value);
+      const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
+      ASSERT_EQ(expected_max, out_max.value);
+    }
+
+    {
+      ASSERT_OK_AND_ASSIGN(out, CallFunction("min", {array}, &options));
+      const auto& out_min = out.scalar_as<ScalarType>();
+      ASSERT_EQ(expected_min, out_min.value);
+
+      ASSERT_OK_AND_ASSIGN(out, CallFunction("max", {array}, &options));
+      const auto& out_max = out.scalar_as<ScalarType>();
+      ASSERT_EQ(expected_max, out_max.value);
+    }
   }
 
   void AssertMinMaxIs(const std::string& json, c_type expected_min, c_type expected_max,
@@ -1426,6 +1438,11 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
                 ResultWith(ScalarFromJSON(ty, R"({"min": "1.01", "max": "9.42"})")));
     EXPECT_THAT(MinMax(chunked_input3, options),
                 ResultWith(ScalarFromJSON(ty, R"({"min": "1.01", "max": "9.42"})")));
+
+    EXPECT_THAT(CallFunction("min", {chunked_input1}, &options),
+                ResultWith(ScalarFromJSON(item_ty, R"("1.01")")));
+    EXPECT_THAT(CallFunction("max", {chunked_input1}, &options),
+                ResultWith(ScalarFromJSON(item_ty, R"("9.42")")));
 
     EXPECT_THAT(MinMax(ScalarFromJSON(item_ty, "null"), options),
                 ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));

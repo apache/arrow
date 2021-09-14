@@ -1499,6 +1499,59 @@ TEST(GroupBy, MinMaxDecimal) {
   }
 }
 
+TEST(GroupBy, MinOrMax) {
+  auto table =
+      TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    [1.0,   1],
+    [null,  1]
+])",
+                                                                                    R"([
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2]
+])",
+                                                                                    R"([
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+])",
+                                                                                    R"([
+    [NaN,   4],
+    [null,  4],
+    [Inf,   4],
+    [-Inf,  4],
+    [0.0,   4]
+])"});
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       GroupByTest({table->GetColumnByName("argument"),
+                                    table->GetColumnByName("argument")},
+                                   {table->GetColumnByName("key")},
+                                   {
+                                       {"hash_min", nullptr},
+                                       {"hash_max", nullptr},
+                                   },
+                                   /*use_threads=*/true, /*use_exec_plan=*/true));
+  SortBy({"key_0"}, &aggregated_and_grouped);
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_min", float64()),
+                                      field("hash_max", float64()),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [1.0,   3.25,  1],
+    [-0.25, 0.125, 2],
+    [null,  null,  3],
+    [-Inf,  Inf,   4],
+    [0.75,  4.0,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 TEST(GroupBy, MinMaxScalar) {
   BatchesWithSchema input;
   input.batches = {
