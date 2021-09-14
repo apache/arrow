@@ -92,7 +92,8 @@ groups:
     - test-*kartothek*
     - test-*pandas*
     - test-*spark*
-    - test-*turbodbc*
+    # TEMP disable because those are failing due to needing upstream fix (ARROW-13594)
+    # - test-*turbodbc*
 
   example:
     - example-*
