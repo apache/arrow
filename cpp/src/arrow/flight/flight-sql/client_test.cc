@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 namespace pb = arrow::flight::protocol;
+using ::testing::_;
 using ::testing::Ref;
 
 
@@ -35,15 +36,35 @@ using internal::FlightSqlClientT;
 
 class FlightClientMock {
  public:
-  MOCK_METHOD(Status, GetFlightInfo, (const FlightCallOptions&, const FlightDescriptor&,
-          std::unique_ptr<FlightInfo>*));
+  MOCK_METHOD(Status, GetFlightInfo,
+              (const FlightCallOptions&, const FlightDescriptor&,
+               std::unique_ptr<FlightInfo>*));
+  MOCK_METHOD(Status, DoPut,
+              (const FlightCallOptions&, const FlightDescriptor&,
+               const std::shared_ptr<Schema>& schema,
+               std::unique_ptr<FlightStreamWriter>*,
+               std::unique_ptr<FlightMetadataReader>*));
 };
 
-FlightDescriptor getDescriptor(google::protobuf::Message &command) {
+class FlightMetadataReaderMock : public FlightMetadataReader {
+ public:
+  std::shared_ptr<Buffer>* buffer;
+
+  explicit FlightMetadataReaderMock(std::shared_ptr<Buffer>* buffer) {
+    this->buffer = buffer;
+  }
+
+  Status ReadMetadata(std::shared_ptr<Buffer>* out) override {
+    *out = *buffer;
+    return Status::OK();
+  }
+};
+
+FlightDescriptor getDescriptor(google::protobuf::Message& command) {
   google::protobuf::Any any;
   any.PackFrom(command);
 
-  const std::string &string = any.SerializeAsString();
+  const std::string& string = any.SerializeAsString();
   return FlightDescriptor::Command(string);
 }
 
@@ -217,6 +238,53 @@ TEST(TestFlightSql, TestExecute) {
               GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
   (void) sqlClient.Execute(call_options, &flight_info, query);
+}
+
+TEST(TestFlightSql, TestExecuteUpdate) {
+  auto *client_mock = new FlightClientMock();
+  std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
+  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightCallOptions call_options;
+
+  std::string query = "query";
+
+  pb::sql::CommandStatementUpdate command;
+
+  command.set_query(query);
+
+  google::protobuf::Any any;
+  any.PackFrom(command);
+
+  const FlightDescriptor& descriptor = FlightDescriptor::Command(any.SerializeAsString());
+
+  pb::sql::DoPutUpdateResult doPutUpdateResult;
+  doPutUpdateResult.set_record_count(100);
+  const std::string& string = doPutUpdateResult.SerializeAsString();
+
+  auto buffer_ptr = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(string.data()), doPutUpdateResult.ByteSizeLong());
+
+  ON_CALL(*client_mock, DoPut)
+      .WillByDefault([&buffer_ptr](const FlightCallOptions& options,
+                                   const FlightDescriptor& descriptor1,
+                                   const std::shared_ptr<Schema>& schema,
+                                   std::unique_ptr<FlightStreamWriter>* writer,
+                                   std::unique_ptr<FlightMetadataReader>* reader) {
+        reader->reset(new FlightMetadataReaderMock(&buffer_ptr));
+
+        return Status::OK();
+      });
+
+  std::unique_ptr<FlightInfo> flight_info;
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  EXPECT_CALL(*client_mock, DoPut(Ref(call_options), descriptor, _, _, _));
+
+  int64_t num_rows = 0;
+
+  (void) sqlClient.ExecuteUpdate(call_options, &num_rows, query);
+
+  ASSERT_EQ(num_rows, 100);
 }
 
 }  // namespace sql
