@@ -17,9 +17,14 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+MAKE="make"
+if [ -n "$MSYSTEM" ]; then
+  MAKE="mingw32-make"
+fi
+
 export CFLAGS="${CFLAGS} -O3 -fPIC"
 if [ -z "$MAKELEVEL" ]; then
-  make -j4 CFLAGS="$CFLAGS" "$@"
+  "$MAKE" -j4 CFLAGS="$CFLAGS" "$@"
 else
-  make CFLAGS="$CFLAGS" "$@"
+  "$MAKE" CFLAGS="$CFLAGS" "$@"
 fi
