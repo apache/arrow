@@ -437,6 +437,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "partition_nth_indices") {
+    using Options = arrow::compute::PartitionNthOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["pivot"]));
+  }
+
   return nullptr;
 }
 
