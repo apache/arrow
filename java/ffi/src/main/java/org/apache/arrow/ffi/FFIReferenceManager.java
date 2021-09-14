@@ -67,10 +67,8 @@ final class FFIReferenceManager implements ReferenceManager {
     if (refCnt == 0) {
       // refcount of this reference manager has dropped to 0
       // release the underlying memory
-      synchronized (this) {
-        struct.release();
-        struct.close();
-      }
+      struct.release();
+      struct.close();
     }
     return refCnt == 0;
   }
