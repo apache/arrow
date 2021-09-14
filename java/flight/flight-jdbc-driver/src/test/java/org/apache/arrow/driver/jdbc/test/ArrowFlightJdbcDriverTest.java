@@ -117,7 +117,7 @@ public class ArrowFlightJdbcDriverTest {
    * @throws SQLException
    *           If the test passes.
    */
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = SQLException.class)
   public void testShouldDeclineUrlWithUnsupportedPrefix() throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
@@ -150,22 +150,13 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception
-   *           If an error occurs.
    */
-  @Test
-  public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl()
-      throws Exception {
+  @Test(expected = SQLException.class)
+  public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl() throws SQLException {
     final Driver driver = new ArrowFlightJdbcDriver();
     final String malformedUri = "yes:??/chainsaw.i=T333";
-    Exception exception = null;
-    try {
-      driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
-    } catch (final IllegalArgumentException e) {
-      exception = e;
-    }
-    assert exception != null &&
-        exception.getMessage().equals("URL is invalid: does not start with <jdbc:arrow-flight://>.");
+
+    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
 
   /**
@@ -175,19 +166,12 @@ public class ArrowFlightJdbcDriverTest {
    * @throws Exception
    *           If an error occurs.
    */
-  @Test
-  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix()
-      throws Exception {
+  @Test(expected = SQLException.class)
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix() throws SQLException {
     final Driver driver = new ArrowFlightJdbcDriver();
     final String malformedUri = server.getLocation().getUri().toString();
-    Exception exception = null;
-    try {
-      driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
-    } catch (final IllegalArgumentException e) {
-      exception = e;
-    }
-    assert exception != null &&
-        exception.getMessage().equals("URL is invalid: does not start with <jdbc:arrow-flight://>.");
+
+    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
 
   /**

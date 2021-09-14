@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
+
 import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -28,7 +30,6 @@ import javax.sql.DataSource;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.PropertiesUtils;
 import org.apache.arrow.util.Preconditions;
-import org.apache.calcite.avatica.BuiltInConnectionProperty;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -67,8 +68,8 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     return PropertiesUtils.copyReplace(
         properties,
         ImmutableMap.of(
-            BuiltInConnectionProperty.AVATICA_USER, username,
-            BuiltInConnectionProperty.AVATICA_PASSWORD, password));
+            ArrowFlightConnectionProperty.USER, username,
+            ArrowFlightConnectionProperty.PASSWORD, password));
   }
 
   /**
@@ -83,17 +84,15 @@ public class ArrowFlightJdbcDataSource implements DataSource {
 
   @Override
   public ArrowFlightConnection getConnection() throws SQLException {
-    return getConnection(config.avaticaUser(), config.avaticaPassword());
+    return getConnection(config.getUser(), config.getPassword());
   }
 
   @Override
   public ArrowFlightConnection getConnection(final String username, final String password) throws SQLException {
     final Properties properties = new Properties();
-    final BuiltInConnectionProperty user = BuiltInConnectionProperty.AVATICA_USER;
-    final BuiltInConnectionProperty pass = BuiltInConnectionProperty.AVATICA_PASSWORD;
     properties.putAll(this.properties);
-    properties.replace(user.camelName(), username == null ? user.defaultValue() : username);
-    properties.replace(pass.camelName(), password == null ? pass.defaultValue() : password);
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(), username);
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), password);
     return new ArrowFlightJdbcDriver().connect(config.url(), properties);
   }
 

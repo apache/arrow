@@ -17,8 +17,6 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static java.lang.String.format;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -57,11 +55,13 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   @Override
   public ArrowFlightConnection connect(final String url, final Properties info) throws SQLException {
-    final String expectedUrlPrefix = getConnectStringPrefix();
-    Preconditions.checkArgument(url == null || acceptsURL(url),
-        format("URL is invalid: does not start with <%s>.", expectedUrlPrefix));
     final Properties properties = new Properties(info);
     properties.putAll(info);
+
+    if (url != null) {
+      final Map<Object, Object> propertiesFromUrl = getUrlsArgs(url);
+      properties.putAll(propertiesFromUrl);
+    }
 
     try {
       return ArrowFlightConnection.createNewConnection(
@@ -212,12 +212,12 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     // It's necessary to use a string without "jdbc:" at the beginning to be parsed as a valid URL.
     url = url.substring(5);
 
-    URI uri;
+    final URI uri;
 
     try {
       uri = URI.create(url);
-    } catch (IllegalArgumentException e) {
-      throw new SQLException("Malformed/invalid URL!");
+    } catch (final IllegalArgumentException e) {
+      throw new SQLException("Malformed/invalid URL!", e);
     }
 
     if (!Objects.equals(uri.getScheme(), "arrow-flight")) {

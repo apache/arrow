@@ -198,7 +198,10 @@ public final class CoreMockedSqlProducers {
   private static void addLegacyCancellationSqlCmdSupport(final MockFlightSqlProducer producer) {
     producer.addQuery(
         LEGACY_CANCELLATION_SQL_CMD,
-        new Schema(Collections.emptyList()),
+        new Schema(Collections.singletonList(new Field(
+            "integer0",
+            new FieldType(true, new ArrowType.Int(64, true), null),
+            null))),
         Collections.singletonList(listener -> {
           // Should keep hanging until canceled.
         }));
