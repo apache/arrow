@@ -239,10 +239,9 @@ For example::
    # using this to read a partitioned dataset
    import pyarrow.dataset as ds
    ds.dataset("data/", filesystem=fs)
+   
+Similarly for Azure Blob Storage::
 
-::
-
-   # Similarly for Azure Blob Storage
    import adlfs
    # ... load your credentials and configure the filesystem
    fs = adlfs.AzureBlobFileSystem(account_name=account_name, account_key=account_key)
