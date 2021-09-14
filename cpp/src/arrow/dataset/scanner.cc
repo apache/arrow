@@ -775,9 +775,8 @@ Result<int64_t> AsyncScanner::CountRows() {
               if (fast_count) {
                 // fast path: got row count directly; skip scanning this fragment
                 total += *fast_count;
-                return std::make_shared<OneShotFragment>(
-                    options->dataset_schema,
-                    MakeEmptyIterator<std::shared_ptr<RecordBatch>>());
+                return std::make_shared<InMemoryFragment>(options->dataset_schema,
+                                                          RecordBatchVector{});
               }
 
               // slow path: actually filter this fragment's batches
