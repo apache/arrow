@@ -61,6 +61,24 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   }
 
   /**
+   * Gets the host.
+   *
+   * @return the host.
+   */
+  public String getUser() {
+    return (String) ArrowFlightConnectionProperty.USER.get(properties);
+  }
+
+  /**
+   * Gets the host.
+   *
+   * @return the host.
+   */
+  public String getPassword() {
+    return (String) ArrowFlightConnectionProperty.PASSWORD.get(properties);
+  }
+
+  /**
    * Gets the KeyStore path.
    *
    * @return the path.
@@ -132,6 +150,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   public enum ArrowFlightConnectionProperty implements ConnectionProperty {
     HOST("host", null, Type.STRING, true),
     PORT("port", null, Type.NUMBER, true),
+    USER("user", null, Type.STRING, false),
+    PASSWORD("password", null, Type.STRING, false),
     USE_TLS("useTls", false, Type.BOOLEAN, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false);
 
@@ -143,8 +163,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     ArrowFlightConnectionProperty(final String camelName, final Object defaultValue,
                                   final Type type, final boolean required) {
       this.camelName = Preconditions.checkNotNull(camelName);
-      this.defaultValue = required ? defaultValue :
-          Preconditions.checkNotNull(defaultValue, "Optional property must have a default value.");
+      this.defaultValue = defaultValue;
       this.type = Preconditions.checkNotNull(type);
       this.required = required;
     }
@@ -160,14 +179,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
       Preconditions.checkState(
           properties.containsKey(camelName) || !required,
           format("Required property not provided: <%s>.", this));
-      final Object property = properties.getOrDefault(camelName, defaultValue);
-      final Class<?> expectedClass = valueClass();
-      final Class<?> actualClass = property.getClass();
-      Preconditions.checkState(
-          expectedClass.isAssignableFrom(actualClass),
-          format("Invalid type for property: <%s>. Expected <%s> but got <%s>.",
-              property, expectedClass.getName(), actualClass.getName()));
-      return property;
+      return properties.getOrDefault(camelName, defaultValue);
     }
 
     @Override
@@ -177,8 +189,6 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
 
     @Override
     public Object defaultValue() {
-      Preconditions.checkState(
-          !required, "No default value for required property: <%s>.", this);
       return defaultValue;
     }
 

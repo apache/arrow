@@ -220,8 +220,8 @@ public class ConnectionTlsTest {
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(), tlsServer.getPort());
-    properties.put(BuiltInConnectionProperty.AVATICA_USER.camelName(), flightTestUtils.getUsername1());
-    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName(), flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(), flightTestUtils.getUsername1());
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), flightTestUtils.getPassword1());
     properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
@@ -245,8 +245,8 @@ public class ConnectionTlsTest {
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
     properties.put(ArrowFlightConnectionProperty.PORT.camelName(), tlsServer.getPort());
-    properties.put(BuiltInConnectionProperty.AVATICA_USER.camelName(), flightTestUtils.getUsername1());
-    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName(), flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(), flightTestUtils.getUsername1());
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), flightTestUtils.getPassword1());
     properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), "badpassword");

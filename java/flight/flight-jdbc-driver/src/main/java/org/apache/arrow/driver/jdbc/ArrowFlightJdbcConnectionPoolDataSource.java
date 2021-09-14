@@ -62,7 +62,7 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   @Override
   public PooledConnection getPooledConnection() throws SQLException {
     final ArrowFlightConnectionConfigImpl config = getConfig();
-    return this.getPooledConnection(config.avaticaUser(), config.avaticaPassword());
+    return this.getPooledConnection(config.getUser(), config.getPassword());
   }
 
   @Override
@@ -82,7 +82,7 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   private ArrowFlightJdbcPooledConnection createPooledConnection(final ArrowFlightConnectionConfigImpl config)
       throws SQLException {
     ArrowFlightJdbcPooledConnection pooledConnection =
-        new ArrowFlightJdbcPooledConnection(getConnection(config.avaticaUser(), config.avaticaPassword()));
+        new ArrowFlightJdbcPooledConnection(getConnection(config.getUser(), config.getPassword()));
     pooledConnection.addConnectionEventListener(this);
     return pooledConnection;
   }

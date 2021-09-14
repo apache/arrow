@@ -284,7 +284,7 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
           options.add(ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
-      } catch (final GeneralSecurityException | IOException e) {
+      } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {
         throw new SQLException(e);
       }
     }

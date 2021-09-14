@@ -42,7 +42,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
-import org.apache.calcite.avatica.BuiltInConnectionProperty;
 import org.apache.calcite.avatica.ConnectionProperty;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -85,16 +84,16 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     final Map<ConnectionProperty, Object> configs = new HashMap<>();
     configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST, "localhost");
     configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT, FreePortFinder.findFreeLocalPort());
-    configs.put(BuiltInConnectionProperty.AVATICA_USER, "flight-test-user");
-    configs.put(BuiltInConnectionProperty.AVATICA_PASSWORD, "flight-test-password");
+    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER, "flight-test-user");
+    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD, "flight-test-password");
 
     final Properties properties = new Properties();
     configs.forEach((key, value) -> properties.put(key.camelName(), value == null ? key.defaultValue() : value));
     final FlightServerTestRule rule = new FlightServerTestRule(
         properties, new ArrowFlightConnectionConfigImpl(properties), new RootAllocator(Long.MAX_VALUE), producer);
     rule.validCredentials.put(
-        properties.getProperty(BuiltInConnectionProperty.AVATICA_USER.camelName()),
-        properties.getProperty(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName()));
+        properties.getProperty(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName()),
+        properties.getProperty(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName()));
     return rule;
   }
 
