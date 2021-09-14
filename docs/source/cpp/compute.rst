@@ -360,7 +360,8 @@ Arithmetic functions
 These functions expect inputs of numeric type and apply a given arithmetic
 operation to each element(s) gathered from the input(s).  If any of the
 input element(s) is null, the corresponding output element is null.
-Input(s) will be cast to the :ref:`common numeric type <common-numeric-type>`
+For binary functions, input(s) will be cast to the
+:ref:`common numeric type <common-numeric-type>`
 (and dictionary decoded, if applicable) before the operation is applied.
 
 The default variant of these functions does not detect overflow (the result
@@ -463,18 +464,94 @@ Bit-wise functions
 Rounding functions
 ~~~~~~~~~~~~~~~~~~
 
-Rounding functions convert a numeric input into an approximate value with a
-simpler representation based on the rounding strategy.
+Rounding functions displace numeric inputs to an approximate value with a simpler
+representation based on the rounding criterion.
 
-+------------------+--------+----------------+-----------------+-------+
-| Function name    | Arity  | Input types    | Output type     | Notes |
-+==================+========+================+=================+=======+
-| floor            | Unary  | Numeric        | Float32/Float64 |       |
-+------------------+--------+----------------+-----------------+-------+
-| ceil             | Unary  | Numeric        | Float32/Float64 |       |
-+------------------+--------+----------------+-----------------+-------+
-| trunc            | Unary  | Numeric        | Float32/Float64 |       |
-+------------------+--------+----------------+-----------------+-------+
++-------------------+------------+-------------+------------------+----------------------------------+--------+
+| Function name     | Arity      | Input types | Output type      | Options class                    | Notes  |
++===================+============+=============+==================+==================================+========+
+| ceil              | Unary      | Numeric     | Float32/Float64  |                                  |        |
++-------------------+------------+-------------+------------------+----------------------------------+--------+
+| floor             | Unary      | Numeric     | Float32/Float64  |                                  |        |
++-------------------+------------+-------------+------------------+----------------------------------+--------+
+| round             | Unary      | Numeric     | Float32/Float64  | :struct:`RoundOptions`           | (1)(2) |
++-------------------+------------+-------------+------------------+----------------------------------+--------+
+| round_to_multiple | Unary      | Numeric     | Float32/Float64  | :struct:`RoundToMultipleOptions` | (1)(3) |
++-------------------+------------+-------------+------------------+----------------------------------+--------+
+| trunc             | Unary      | Numeric     | Float32/Float64  |                                  |        |
++-------------------+------------+-------------+------------------+----------------------------------+--------+
+
+* \(1) Output value is a 64-bit floating-point for integral inputs and the
+  retains the same type for floating-point inputs.  By default rounding
+  functions displace a value to the nearest integer using HALF_TO_EVEN
+  to resolve ties.  Options are available to control the rounding criterion.
+  Both ``round`` and ``round_to_multiple`` have the ``round_mode`` option to set
+  the rounding mode.
+* \(2) Round to a number of digits where the ``ndigits`` option of
+  :struct:`RoundOptions` specifies the rounding precision in terms of number of
+  digits.  A negative value corresponds to digits in the non-fractional part.
+  For example, -2 corresponds to rounding to the nearest multiple of 100
+  (zeroing the ones and tens digits).  Default value of ``ndigits`` is 0 which
+  rounds to the nearest integer.
+* \(3) Round to a multiple where the ``multiple`` option of :struct:`RoundToMultipleOptions`
+  specifies the rounding scale.  The rounding multiple has to be a positive value.
+  For example, 100 corresponds to rounding to the nearest multiple of 100
+  (zeroing the ones and tens digits).  Default value of ``multiple`` is 1 which
+  rounds to the nearest integer.
+
+For ``round`` and ``round_to_multiple``, the following rounding modes are available.
+Tie-breaking modes are prefixed with HALF and round non-ties to the nearest integer.
+The example values are given for default values of ``ndigits`` and ``multiple``.
+
++-----------------------+--------------------------------------------------------------+---------------------------+
+| ``round_mode``        | Operation performed                                          | Example values            |
++=======================+==============================================================+===========================+
+| DOWN                  | Round to nearest integer less than or equal in magnitude;    | 3.2 -> 3, 3.7 -> 3,       |
+|                       | also known as ``floor(x)``                                   | -3.2 -> -4, -3.7 -> -4    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| UP                    | Round to nearest integer greater than or equal in magnitude; | 3.2 -> 4, 3.7 -> 4,       |
+|                       | also known as ``ceil(x)``                                    | -3.2 -> -3, -3.7 -> -3    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| TOWARDS_ZERO          | Get the integral part without fractional digits;             | 3.2 -> 3, 3.7 -> 3,       |
+|                       | also known as ``trunc(x)``                                   | -3.2 -> -3, -3.7 -> -3    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| TOWARDS_INFINITY      | Round negative values with ``DOWN`` rule,                    | 3.2 -> 4, 3.7 -> 4,       |
+|                       | round positive values with ``UP`` rule                       | -3.2 -> -4, -3.7 -> -4    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| HALF_DOWN             | Round ties with ``DOWN`` rule                                | 3.5 -> 3, 4.5 -> 4,       |
+|                       |                                                              | -3.5 -> -4, -3.5 -> -5    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| HALF_UP               | Round ties with ``UP`` rule                                  | 3.5 -> 4, 4.5 -> 5,       |
+|                       |                                                              | -3.5 -> -3, -3.5 -> -4    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| HALF_TOWARDS_ZERO     | Round ties with ``TOWARDS_ZERO`` rule                        | 3.5 -> 3, 4.5 -> 4,       |
+|                       |                                                              | -3.5 -> -3, -3.5 -> -4    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| HALF_TOWARDS_INFINITY | Round ties with ``TOWARDS_INFINITY`` rule                    | 3.5 -> 4, 4.5 -> 5,       |
+|                       |                                                              | -3.5 -> -4, -3.5 -> -5    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| HALF_TO_EVEN          | Round ties to nearest even integer                           | 3.5 -> 5, 4.5 -> 4,       |
+|                       |                                                              | -3.5 -> -4, -3.5 -> -4    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+| HALF_TO_ODD           | Round ties to nearest odd integer                            | 3.5 -> 3, 4.5 -> 5,       |
+|                       |                                                              | -3.5 -> -3, -3.5 -> -5    |
++-----------------------+--------------------------------------------------------------+---------------------------+
+
+The following table gives examples of how ``ndigits`` (for the ``round``
+function) and ``multiple`` (for ``round_to_multiple``) influence the operance
+performed, respectively.
+
++--------------------+-------------------+---------------------------+
+| Round ``multiple`` | Round ``ndigits`` | Operation performed       |
++====================+===================+===========================+
+| 1                  | 0                 | Round to integer          |
++--------------------+-------------------+---------------------------+
+| 0.001              | 3                 | Round to 3 decimal places |
++--------------------+-------------------+---------------------------+
+| 10                 | -1                | Round to multiple of 10   |
++--------------------+-------------------+---------------------------+
+| 2                  | NA                | Round to multiple of 2    |
++--------------------+-------------------+---------------------------+
 
 Logarithmic functions
 ~~~~~~~~~~~~~~~~~~~~~
@@ -740,7 +817,6 @@ String transforms
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
 | utf8_upper              | Unary | String-like            | String-like            |                                   | \(8)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-
 
 * \(1) Each ASCII character in the input is converted to lowercase or
   uppercase.  Non-ASCII characters are left untouched.
@@ -1029,7 +1105,7 @@ Categorizations
 * \(3) Output is true iff the corresponding input element is NaN.
 
 * \(4) Output is true iff the corresponding input element is null. NaN values
-  can also be considered null by setting :struct:`NullOptions::nan_is_null`.
+  can also be considered null by setting :member:`NullOptions::nan_is_null`.
 
 * \(5) Output is true iff the corresponding input element is non-null.
 

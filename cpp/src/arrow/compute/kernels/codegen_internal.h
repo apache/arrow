@@ -94,8 +94,8 @@ struct OptionsWrapper : public KernelState {
 /// KernelContext and the FunctionOptions as argument
 template <typename StateType, typename OptionsType>
 struct KernelStateFromFunctionOptions : public KernelState {
-  explicit KernelStateFromFunctionOptions(KernelContext* ctx, OptionsType state)
-      : state(StateType(ctx, std::move(state))) {}
+  explicit KernelStateFromFunctionOptions(KernelContext* ctx, OptionsType options)
+      : state(StateType(ctx, std::move(options))) {}
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
@@ -414,9 +414,6 @@ const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
 const std::vector<Type::type>& DecimalTypeIds();
-
-ARROW_EXPORT
-const std::vector<TimeUnit::type>& AllTimeUnits();
 
 // Returns a vector of example instances of parametric types such as
 //

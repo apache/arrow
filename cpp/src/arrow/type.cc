@@ -187,6 +187,12 @@ int GetByteWidth(const DataType& type) {
   return fw_type.bit_width() / CHAR_BIT;
 }
 
+const std::vector<TimeUnit::type>& AllTimeUnits() {
+  static std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI,
+                                              TimeUnit::MICRO, TimeUnit::NANO};
+  return units;
+}
+
 }  // namespace internal
 
 namespace {

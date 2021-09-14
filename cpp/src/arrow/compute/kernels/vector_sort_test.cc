@@ -470,6 +470,43 @@ TYPED_TEST(TestArraySortIndicesForDecimal, DecimalSortTestTypes) {
                           SortOrder::Descending, "[3, 0, 2, 4, 1]");
 }
 
+TEST(TestArraySortIndices, TemporalTypeParameters) {
+  std::vector<std::shared_ptr<DataType>> types;
+  for (auto unit : {TimeUnit::NANO, TimeUnit::MICRO, TimeUnit::MILLI, TimeUnit::SECOND}) {
+    types.push_back(duration(unit));
+    types.push_back(timestamp(unit));
+    types.push_back(timestamp(unit, "America/Phoenix"));
+  }
+  types.push_back(time64(TimeUnit::NANO));
+  types.push_back(time64(TimeUnit::MICRO));
+  types.push_back(time32(TimeUnit::MILLI));
+  types.push_back(time32(TimeUnit::SECOND));
+  for (const auto& ty : types) {
+    AssertSortIndices(ArrayFromJSON(ty, "[]"), SortOrder::Ascending,
+                      ArrayFromJSON(uint64(), "[]"));
+
+    AssertSortIndices(ArrayFromJSON(ty, "[3, 2, 6]"), SortOrder::Ascending,
+                      ArrayFromJSON(uint64(), "[1, 0, 2]"));
+    AssertSortIndices(ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6, 7]"), SortOrder::Ascending,
+                      ArrayFromJSON(uint64(), "[0, 1, 2, 3, 4, 5, 6]"));
+    AssertSortIndices(ArrayFromJSON(ty, "[7, 6, 5, 4, 3, 2, 1]"), SortOrder::Ascending,
+                      ArrayFromJSON(uint64(), "[6, 5, 4, 3, 2, 1, 0]"));
+
+    AssertSortIndices(ArrayFromJSON(ty, "[10, 12, 4, 50, 50, 32, 11]"),
+                      SortOrder::Ascending,
+                      ArrayFromJSON(uint64(), "[2, 0, 6, 1, 5, 3, 4]"));
+    AssertSortIndices(ArrayFromJSON(ty, "[10, 12, 4, 50, 50, 32, 11]"),
+                      SortOrder::Descending,
+                      ArrayFromJSON(uint64(), "[3, 4, 5, 1, 6, 0, 2]"));
+
+    AssertSortIndices(ArrayFromJSON(ty, "[null, 1, 3, null, 2, 5]"), SortOrder::Ascending,
+                      ArrayFromJSON(uint64(), "[1, 4, 2, 5, 0, 3]"));
+    AssertSortIndices(ArrayFromJSON(ty, "[null, 1, 3, null, 2, 5]"),
+                      SortOrder::Descending,
+                      ArrayFromJSON(uint64(), "[5, 2, 4, 1, 0, 3]"));
+  }
+}
+
 template <typename ArrowType>
 class TestArraySortIndicesRandom : public TestBase {};
 

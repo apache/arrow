@@ -1955,6 +1955,9 @@ std::string ToString(TimeUnit::type unit);
 ARROW_EXPORT
 int GetByteWidth(const DataType& type);
 
+ARROW_EXPORT
+const std::vector<TimeUnit::type>& AllTimeUnits();
+
 }  // namespace internal
 
 }  // namespace arrow

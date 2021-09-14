@@ -58,6 +58,12 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new IndexOptions(ScalarFromJSON(boolean(), "null")));
   options.emplace_back(new ArithmeticOptions());
   options.emplace_back(new ArithmeticOptions(/*check_overflow=*/true));
+  options.emplace_back(new RoundOptions());
+  options.emplace_back(
+      new RoundOptions(/*ndigits=*/2, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
+  options.emplace_back(new RoundToMultipleOptions());
+  options.emplace_back(new RoundToMultipleOptions(
+      /*multiple=*/100, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
   options.emplace_back(new ElementWiseAggregateOptions());
   options.emplace_back(new ElementWiseAggregateOptions(/*skip_nulls=*/false));
   options.emplace_back(new JoinOptions());

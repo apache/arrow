@@ -53,6 +53,7 @@ struct EnumTraits<compute::JoinOptions::NullHandlingBehavior>
     return "<INVALID>";
   }
 };
+
 template <>
 struct EnumTraits<TimeUnit::type>
     : BasicEnumTraits<TimeUnit::type, TimeUnit::type::SECOND, TimeUnit::type::MILLI,
@@ -72,6 +73,7 @@ struct EnumTraits<TimeUnit::type>
     return "<INVALID>";
   }
 };
+
 template <>
 struct EnumTraits<compute::CompareOperator>
     : BasicEnumTraits<
@@ -136,6 +138,42 @@ struct EnumTraits<compute::AssumeTimezoneOptions::Nonexistent>
     return "<INVALID>";
   }
 };
+
+template <>
+struct EnumTraits<compute::RoundMode>
+    : BasicEnumTraits<compute::RoundMode, compute::RoundMode::DOWN,
+                      compute::RoundMode::UP, compute::RoundMode::TOWARDS_ZERO,
+                      compute::RoundMode::TOWARDS_INFINITY, compute::RoundMode::HALF_DOWN,
+                      compute::RoundMode::HALF_UP, compute::RoundMode::HALF_TOWARDS_ZERO,
+                      compute::RoundMode::HALF_TOWARDS_INFINITY,
+                      compute::RoundMode::HALF_TO_EVEN, compute::RoundMode::HALF_TO_ODD> {
+  static std::string name() { return "compute::RoundMode"; }
+  static std::string value_name(compute::RoundMode value) {
+    switch (value) {
+      case compute::RoundMode::DOWN:
+        return "DOWN";
+      case compute::RoundMode::UP:
+        return "UP";
+      case compute::RoundMode::TOWARDS_ZERO:
+        return "TOWARDS_ZERO";
+      case compute::RoundMode::TOWARDS_INFINITY:
+        return "TOWARDS_INFINITY";
+      case compute::RoundMode::HALF_DOWN:
+        return "HALF_DOWN";
+      case compute::RoundMode::HALF_UP:
+        return "HALF_UP";
+      case compute::RoundMode::HALF_TOWARDS_ZERO:
+        return "HALF_TOWARDS_ZERO";
+      case compute::RoundMode::HALF_TOWARDS_INFINITY:
+        return "HALF_TOWARDS_INFINITY";
+      case compute::RoundMode::HALF_TO_EVEN:
+        return "HALF_TO_EVEN";
+      case compute::RoundMode::HALF_TO_ODD:
+        return "HALF_TO_ODD";
+    }
+    return "<INVALID>";
+  }
+};
 }  // namespace internal
 
 namespace compute {
@@ -153,6 +191,12 @@ static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
 static auto kElementWiseAggregateOptionsType =
     GetFunctionOptionsType<ElementWiseAggregateOptions>(
         DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
+static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
+    DataMember("ndigits", &RoundOptions::ndigits),
+    DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
+    DataMember("multiple", &RoundToMultipleOptions::multiple),
+    DataMember("round_mode", &RoundToMultipleOptions::round_mode));
 static auto kJoinOptionsType = GetFunctionOptionsType<JoinOptions>(
     DataMember("null_handling", &JoinOptions::null_handling),
     DataMember("null_replacement", &JoinOptions::null_replacement));
@@ -216,6 +260,30 @@ ElementWiseAggregateOptions::ElementWiseAggregateOptions(bool skip_nulls)
     : FunctionOptions(internal::kElementWiseAggregateOptionsType),
       skip_nulls(skip_nulls) {}
 constexpr char ElementWiseAggregateOptions::kTypeName[];
+
+RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
+    : FunctionOptions(internal::kRoundOptionsType),
+      ndigits(ndigits),
+      round_mode(round_mode) {
+  static_assert(RoundMode::HALF_DOWN > RoundMode::DOWN &&
+                    RoundMode::HALF_DOWN > RoundMode::UP &&
+                    RoundMode::HALF_DOWN > RoundMode::TOWARDS_ZERO &&
+                    RoundMode::HALF_DOWN > RoundMode::TOWARDS_INFINITY &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_UP &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TOWARDS_ZERO &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TOWARDS_INFINITY &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TO_EVEN &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TO_ODD,
+                "Invalid order of round modes. Modes prefixed with HALF need to be "
+                "enumerated last with HALF_DOWN being the first among them.");
+}
+constexpr char RoundOptions::kTypeName[];
+
+RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
+    : FunctionOptions(internal::kRoundToMultipleOptionsType),
+      multiple(multiple),
+      round_mode(round_mode) {}
+constexpr char RoundToMultipleOptions::kTypeName[];
 
 JoinOptions::JoinOptions(NullHandlingBehavior null_handling, std::string null_replacement)
     : FunctionOptions(internal::kJoinOptionsType),
@@ -352,6 +420,8 @@ namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kElementWiseAggregateOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSplitOptionsType));
@@ -404,6 +474,15 @@ SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
 SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
 SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
 SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
+
+Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {
+  return CallFunction("round", {arg}, &options, ctx);
+}
+
+Result<Datum> RoundToMultiple(const Datum& arg, RoundToMultipleOptions options,
+                              ExecContext* ctx) {
+  return CallFunction("round_to_multiple", {arg}, &options, ctx);
+}
 
 #define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
   Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options, \
