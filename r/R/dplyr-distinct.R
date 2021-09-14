@@ -22,7 +22,7 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   if (.keep_all == TRUE) {
     # After ARROW-13767 is merged, we can implement this via e.g.
     # iris %>% group_by(Species) %>% slice(1) %>% ungroup()
-    abort("`distinct()` with `keep_all = TRUE` argument not supported in Arrow")
+    arrow_not_supported("`distinct()` with `.keep_all = TRUE`")
   }
 
   distinct_groups <- ensure_named_exprs(quos(...))
