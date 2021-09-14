@@ -400,6 +400,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      step);
   }
 
+  if (func_name == "utf8_replace_slice" || func_name == "binary_replace_slice") {
+    using Options = arrow::compute::ReplaceSliceOptions;
+
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["start"]),
+                                     cpp11::as_cpp<int64_t>(options["stop"]),
+                                     cpp11::as_cpp<std::string>(options["replacement"]));
+  }
+
   if (func_name == "variance" || func_name == "stddev" || func_name == "hash_variance" ||
       func_name == "hash_stddev") {
     using Options = arrow::compute::VarianceOptions;

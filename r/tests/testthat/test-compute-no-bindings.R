@@ -17,7 +17,7 @@
 
 
 test_that("non-bound compute kernels using TrimOptions", {
-skip_if_not_available("utf8proc")
+  skip_if_not_available("utf8proc")
   expect_equal(
     call_function(
       "utf8_trim",
@@ -82,6 +82,27 @@ skip_if_not_available("utf8proc")
   )
 })
 
+test_that("non-bound compute kernels using ReplaceSliceOptions", {
+  skip_if_not_available("utf8proc")
+
+  expect_equal(
+    call_function(
+      "binary_replace_slice",
+      Array$create("I need to fix this string"),
+      options = list(start = 1, stop = 1, replacement = " don't")
+    ),
+    Array$create("I don't need to fix this string")
+  )
+
+  expect_equal(
+    call_function(
+      "utf8_replace_slice",
+      Array$create("I need to fix this string"),
+      options = list(start = 1, stop = 1, replacement = " don't")
+    ),
+    Array$create("I don't need to fix this string")
+  )
+})
 test_that("non-bound compute kernels using ModeOptions", {
   expect_equal(
     as.vector(
