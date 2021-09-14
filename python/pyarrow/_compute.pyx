@@ -722,9 +722,9 @@ cdef CRoundMode unwrap_round_mode(round_mode) except *:
         "half_to_even": CRoundMode_HALF_TO_EVEN,
         "half_to_odd": CRoundMode_HALF_TO_ODD,
     }
-
     if round_mode not in round_mode_dict:
         raise ValueError(f'"{round_mode}" is not a valid round mode')
+    return round_mode_dict[round_mode]
 
 
 cdef class _RoundOptions(FunctionOptions):
