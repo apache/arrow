@@ -371,6 +371,7 @@ Structural Transforms
    is_nan
    is_null
    is_valid
-   list_value_length
+   list_element
    list_flatten
    list_parent_indices
+   list_value_length

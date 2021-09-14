@@ -395,6 +395,7 @@ static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& ar
 // Reusable type resolvers
 
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
+Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
 
 // ----------------------------------------------------------------------
 // Generate an array kernel given template classes

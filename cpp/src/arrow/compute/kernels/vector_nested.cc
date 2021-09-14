@@ -110,11 +110,6 @@ struct ListParentIndicesArray {
   }
 };
 
-Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
-  const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
-  return ValueDescr::Array(list_type.value_type());
-}
-
 Result<std::shared_ptr<DataType>> ListParentIndicesType(const DataType& input_type) {
   switch (input_type.id()) {
     case Type::LIST:

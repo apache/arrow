@@ -66,6 +66,11 @@ Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& desc
   return result;
 }
 
+Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
+  const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
+  return ValueDescr(list_type.value_type(), GetBroadcastShape(args));
+}
+
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
   for (ValueDescr& descr : *descrs) {
     if (descr.type->id() == Type::DICTIONARY) {

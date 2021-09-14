@@ -80,6 +80,114 @@ const FunctionDoc list_value_length_doc{
      "Null values emit a null in the output."),
     {"lists"}};
 
+template <typename Type, typename IndexType>
+struct ListElementArray {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    using ListArrayType = typename TypeTraits<Type>::ArrayType;
+    using IndexScalarType = typename TypeTraits<IndexType>::ScalarType;
+    const auto& index_scalar = batch[1].scalar_as<IndexScalarType>();
+    if (ARROW_PREDICT_FALSE(!index_scalar.is_valid)) {
+      return Status::Invalid("Index must not be null");
+    }
+    ListArrayType list_array(batch[0].array());
+    auto index = index_scalar.value;
+    if (ARROW_PREDICT_FALSE(index < 0)) {
+      return Status::Invalid("Index ", index,
+                             " is out of bounds: should be greater than or equal to 0");
+    }
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list_array.value_type(), &builder));
+    RETURN_NOT_OK(builder->Reserve(list_array.length()));
+    for (int i = 0; i < list_array.length(); ++i) {
+      if (list_array.IsNull(i)) {
+        RETURN_NOT_OK(builder->AppendNull());
+        continue;
+      }
+      std::shared_ptr<arrow::Array> value_array = list_array.value_slice(i);
+      auto len = value_array->length();
+      if (ARROW_PREDICT_FALSE(index >= static_cast<typename IndexType::c_type>(len))) {
+        return Status::Invalid("Index ", index, " is out of bounds: should be in [0, ",
+                               len, ")");
+      }
+      RETURN_NOT_OK(builder->AppendArraySlice(*value_array->data(), index, 1));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+    out->value = result->data();
+    return Status::OK();
+  }
+};
+
+template <typename, typename IndexType>
+struct ListElementScalar {
+  static Status Exec(KernelContext* /*ctx*/, const ExecBatch& batch, Datum* out) {
+    using IndexScalarType = typename TypeTraits<IndexType>::ScalarType;
+    const auto& index_scalar = batch[1].scalar_as<IndexScalarType>();
+    if (ARROW_PREDICT_FALSE(!index_scalar.is_valid)) {
+      return Status::Invalid("Index must not be null");
+    }
+    const auto& list_scalar = batch[0].scalar_as<BaseListScalar>();
+    if (ARROW_PREDICT_FALSE(!list_scalar.is_valid)) {
+      out->value = MakeNullScalar(
+          checked_cast<const BaseListType&>(*batch[0].type()).value_type());
+      return Status::OK();
+    }
+    auto list = list_scalar.value;
+    auto index = index_scalar.value;
+    auto len = list->length();
+    if (ARROW_PREDICT_FALSE(index < 0 ||
+                            index >= static_cast<typename IndexType::c_type>(len))) {
+      return Status::Invalid("Index ", index, " is out of bounds: should be in [0, ", len,
+                             ")");
+    }
+    ARROW_ASSIGN_OR_RAISE(out->value, list->GetScalar(index));
+    return Status::OK();
+  }
+};
+
+template <typename InListType>
+void AddListElementArrayKernels(ScalarFunction* func) {
+  for (const auto& index_type : IntTypes()) {
+    auto inputs = {InputType::Array(InListType::type_id), InputType::Scalar(index_type)};
+    auto output = OutputType{ListValuesType};
+    auto sig = KernelSignature::Make(std::move(inputs), std::move(output),
+                                     /*is_varargs=*/false);
+    auto scalar_exec = GenerateInteger<ListElementArray, InListType>({index_type->id()});
+    ScalarKernel kernel{std::move(sig), std::move(scalar_exec)};
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+}
+
+void AddListElementArrayKernels(ScalarFunction* func) {
+  AddListElementArrayKernels<ListType>(func);
+  AddListElementArrayKernels<LargeListType>(func);
+  AddListElementArrayKernels<FixedSizeListType>(func);
+}
+
+void AddListElementScalarKernels(ScalarFunction* func) {
+  for (const auto list_type_id : {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST}) {
+    for (const auto& index_type : IntTypes()) {
+      auto inputs = {InputType::Scalar(list_type_id), InputType::Scalar(index_type)};
+      auto output = OutputType{ListValuesType};
+      auto sig = KernelSignature::Make(std::move(inputs), std::move(output),
+                                       /*is_varargs=*/false);
+      auto scalar_exec = GenerateInteger<ListElementScalar, void>({index_type->id()});
+      ScalarKernel kernel{std::move(sig), std::move(scalar_exec)};
+      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+  }
+}
+
+const FunctionDoc list_element_doc(
+    "Compute elements using of nested list values using an index",
+    ("`lists` must have a list-like type.\n"
+     "For each value in each list of `lists`, the element at `index`\n"
+     "is emitted. Null values emit a null in the output."),
+    {"lists", "index"});
+
 Result<ValueDescr> MakeStructResolve(KernelContext* ctx,
                                      const std::vector<ValueDescr>& descrs) {
   auto names = OptionsWrapper<MakeStructOptions>::Get(ctx).field_names;
@@ -184,6 +292,12 @@ void RegisterScalarNested(FunctionRegistry* registry) {
   DCHECK_OK(list_value_length->AddKernel({InputType(Type::LARGE_LIST)}, int64(),
                                          ListValueLength<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(list_value_length)));
+
+  auto list_element = std::make_shared<ScalarFunction>("list_element", Arity::Binary(),
+                                                       &list_element_doc);
+  AddListElementArrayKernels(list_element.get());
+  AddListElementScalarKernels(list_element.get());
+  DCHECK_OK(registry->AddFunction(std::move(list_element)));
 
   static MakeStructOptions kDefaultMakeStructOptions;
   auto make_struct_function = std::make_shared<ScalarFunction>(
