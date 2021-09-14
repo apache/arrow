@@ -228,6 +228,9 @@ endif()
 # MATLAB is Required
 find_package(Matlab REQUIRED)
 
+message(STATUS "Mex Library: ${Matlab_MEX_LIBRARY}")
+message(STATUS "Mex Include Folder: ${Matlab_INCLUDE_DIRS}")
+
 set(CPP_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp)
 set(MATLAB_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab)
 
@@ -242,6 +245,7 @@ list(TRANSFORM arrow_matlab_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
 
 add_library(arrow_matlab SHARED ${arrow_matlab_sources})
 # Declare a dependency on the MEX shared library (libmex.so).
+target_link_libraries(arrow_matlab ${Matlab_MX_LIBRARY})
 target_link_libraries(arrow_matlab ${Matlab_MEX_LIBRARY})
 target_link_libraries(arrow_matlab arrow_shared)
 # Include the MATLAB MEX headers.
@@ -253,6 +257,15 @@ target_compile_definitions(arrow_matlab PRIVATE ARROW_MATLAB_EXPORTING)
 set(mexfcn_sources
     mex/mexfcn.cc)
 list(TRANSFORM mexfcn_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
+
+# Store the CMake Configuration Type for multi-configuration generators so
+# that we can reference it later to automatically add the correct build
+# folder to the MATLAB Search Path
+get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(is_multi_config)
+    add_custom_command(TARGET arrow_matlab POST_BUILD
+                       COMMAND "${CMAKE_COMMAND}" -E echo $<CONFIG> > ${CMAKE_BINARY_DIR}/is_multi_config.txt)
+endif()
 
 # Build mexfcn MEX binary
 matlab_add_mex(R2018a
