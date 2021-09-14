@@ -71,7 +71,9 @@ is_function <- function(expr, name) {
 }
 
 all_funs <- function(expr) {
-  # Don't use setdiff so that we preserve duplicates
+  # It is not sufficient to simply do something like `setdiff(all.names, all.vars)` here
+  # because that would fail to return the names of functions that share names with
+  # variables. To preserve duplicates, call `all.names()` not `all_names()` here.
   names <- all.names(expr)
   names[map_lgl(names, ~ is_function(expr, .))]
 }
