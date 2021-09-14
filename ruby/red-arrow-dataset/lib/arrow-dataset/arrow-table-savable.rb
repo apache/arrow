@@ -39,6 +39,7 @@ module ArrowDataset
         options.base_name_template = File.basename(path)
         options.partitioning = Partitioning.resolve(@options[:partitioning])
         scanner_builder = ScannerBuilder.new(@table)
+        scanner_builder.use_async(true)
         scanner = scanner_builder.finish
         FileSystemDataset.write_scanner(scanner, options)
       else
