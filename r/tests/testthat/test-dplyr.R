@@ -1062,7 +1062,10 @@ test_that("log functions", {
     input %>%
       # test cases where base = 1 below
       filter(x != 1) %>%
-      mutate(y = log(x, base = x)) %>%
+      mutate(
+        y = log(x, base = x),
+        z = log(2, base = x)
+      ) %>%
       collect(),
     df
   )
