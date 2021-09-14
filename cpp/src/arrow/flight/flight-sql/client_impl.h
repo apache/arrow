@@ -18,6 +18,8 @@
 #include <arrow/flight/flight-sql/FlightSql.pb.h>
 #include <arrow/flight/types.h>
 #include <google/protobuf/any.pb.h>
+#include <google/protobuf/message_lite.h>
+#include <arrow/buffer.h>
 
 namespace pb = arrow::flight::protocol;
 
@@ -62,7 +64,34 @@ template<class T>
 Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
                                          int64_t* rows,
                                          const std::string& query) const {
-  return Status::NotImplemented("ExecuteUpdate");
+    pb::sql::CommandStatementUpdate command;
+
+    command.set_query(query);
+
+    google::protobuf::Any any;
+    any.PackFrom(command);
+
+    const FlightDescriptor &descriptor =
+            FlightDescriptor::Command(any.SerializeAsString());
+
+    std::unique_ptr<FlightStreamWriter> writer;
+    std::unique_ptr<FlightMetadataReader> reader;
+
+    const Status &put = client->DoPut(options, descriptor, NULL, &writer, &reader);
+
+    std::shared_ptr<Buffer> metadata;
+
+    const Status &status = reader->ReadMetadata(&metadata);
+
+    pb::sql::DoPutUpdateResult doPutUpdateResult;
+
+    Buffer *pBuffer = metadata.get();
+
+    const std::string &string = pBuffer->ToString();
+
+    doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(string);
+    *rows = doPutUpdateResult.record_count();
+    return put;
 }
 
 template<class T>
