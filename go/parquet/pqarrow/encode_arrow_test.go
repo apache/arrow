@@ -462,11 +462,6 @@ const (
 	smallSize = 100
 )
 
-var (
-	binTestVal  = []byte{0, 1, 2, 3}
-	flbaTestVal = []byte("Fixed")
-)
-
 type ParquetIOTestSuite struct {
 	suite.Suite
 }

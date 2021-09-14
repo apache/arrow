@@ -283,7 +283,6 @@ type pathInfo struct {
 	primitiveArr   array.Interface
 	maxDefLevel    int16
 	maxRepLevel    int16
-	hasDict        bool
 	leafIsNullable bool
 }
 

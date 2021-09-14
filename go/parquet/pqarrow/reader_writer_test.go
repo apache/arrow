@@ -75,66 +75,6 @@ func randomInt32(size, truePct int, sampleVals [2]int32, seed uint64) []int32 {
 	return ret
 }
 
-func randomInt64(size, truePct int, sampleVals [2]int64, seed uint64) []int64 {
-	ret := make([]int64, size)
-	if truePct == alternateOrNA {
-		for idx := range ret {
-			ret[idx] = int64(idx % 2)
-		}
-		return ret
-	}
-
-	dist := distuv.Bernoulli{
-		P:   float64(truePct) / 100.0,
-		Src: rand.NewSource(seed),
-	}
-
-	for idx := range ret {
-		ret[idx] = sampleVals[int(dist.Rand())]
-	}
-	return ret
-}
-
-func randomFloat32(size, truePct int, sampleVals [2]float32, seed uint64) []float32 {
-	ret := make([]float32, size)
-	if truePct == alternateOrNA {
-		for idx := range ret {
-			ret[idx] = float32(idx % 2)
-		}
-		return ret
-	}
-
-	dist := distuv.Bernoulli{
-		P:   float64(truePct) / 100.0,
-		Src: rand.NewSource(seed),
-	}
-
-	for idx := range ret {
-		ret[idx] = sampleVals[int(dist.Rand())]
-	}
-	return ret
-}
-
-func randomFloat64(size, truePct int, sampleVals [2]float64, seed uint64) []float64 {
-	ret := make([]float64, size)
-	if truePct == alternateOrNA {
-		for idx := range ret {
-			ret[idx] = float64(idx % 2)
-		}
-		return ret
-	}
-
-	dist := distuv.Bernoulli{
-		P:   float64(truePct) / 100.0,
-		Src: rand.NewSource(seed),
-	}
-
-	for idx := range ret {
-		ret[idx] = sampleVals[int(dist.Rand())]
-	}
-	return ret
-}
-
 func tableFromVec(dt arrow.DataType, size int, data interface{}, nullable bool, nullPct int) array.Table {
 	if !nullable && nullPct != alternateOrNA {
 		panic("bad check")
