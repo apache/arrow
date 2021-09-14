@@ -63,7 +63,9 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   // column metadata
   col1_builder->SetStatistics(stats_int);
   col2_builder->SetStatistics(stats_float);
-  col1_builder->Finish(nrows / 2, 6, 0, 10, 512, 600, true, false, dict_encoding_stats,
+  dict_encoding_stats.clear();
+  col1_builder->Finish(nrows / 2, /*dictionary_page_offset=*/0, 0, 10, 512, 600,
+                       /*has_dictionary=*/false, false, dict_encoding_stats,
                        data_encoding_stats);
   col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, true, false, dict_encoding_stats,
                        data_encoding_stats);
@@ -136,6 +138,8 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(nrows / 2, rg1_accessor->num_rows());
     ASSERT_EQ(1024, rg1_accessor->total_byte_size());
     ASSERT_EQ(1024, rg1_accessor->total_compressed_size());
+    EXPECT_EQ(rg1_accessor->file_offset(),
+              rg1_accessor->ColumnChunk(0)->dictionary_page_offset());
 
     auto rg1_column1 = rg1_accessor->ColumnChunk(0);
     auto rg1_column2 = rg1_accessor->ColumnChunk(1);
@@ -171,6 +175,8 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(nrows / 2, rg2_accessor->num_rows());
     ASSERT_EQ(1024, rg2_accessor->total_byte_size());
     ASSERT_EQ(1024, rg2_accessor->total_compressed_size());
+    EXPECT_EQ(rg2_accessor->file_offset(),
+              rg2_accessor->ColumnChunk(0)->data_page_offset());
 
     auto rg2_column1 = rg2_accessor->ColumnChunk(0);
     auto rg2_column2 = rg2_accessor->ColumnChunk(1);
@@ -188,18 +194,19 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(nrows / 2, rg2_column2->num_values());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column2->compression());
-    ASSERT_EQ(3, rg2_column1->encodings().size());
+    ASSERT_EQ(2, rg2_column1->encodings().size());
     ASSERT_EQ(3, rg2_column2->encodings().size());
     ASSERT_EQ(512, rg2_column1->total_compressed_size());
     ASSERT_EQ(512, rg2_column2->total_compressed_size());
     ASSERT_EQ(600, rg2_column1->total_uncompressed_size());
     ASSERT_EQ(600, rg2_column2->total_uncompressed_size());
-    ASSERT_EQ(6, rg2_column1->dictionary_page_offset());
+    EXPECT_FALSE(rg2_column1->has_dictionary_page());
+    ASSERT_EQ(0, rg2_column1->dictionary_page_offset());
     ASSERT_EQ(16, rg2_column2->dictionary_page_offset());
     ASSERT_EQ(10, rg2_column1->data_page_offset());
     ASSERT_EQ(26, rg2_column2->data_page_offset());
-    ASSERT_EQ(3, rg2_column1->encoding_stats().size());
-    ASSERT_EQ(3, rg2_column2->encoding_stats().size());
+    ASSERT_EQ(2, rg2_column1->encoding_stats().size());
+    ASSERT_EQ(2, rg2_column2->encoding_stats().size());
 
     // Test FileMetaData::set_file_path
     ASSERT_TRUE(rg2_column1->file_path().empty());
