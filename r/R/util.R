@@ -73,7 +73,7 @@ is_function <- function(expr, name) {
 all_funs <- function(expr) {
   # Don't use setdiff so that we preserve duplicates
   names <- all.names(expr)
-  names[vapply(names, function(name) {is_function(expr, name)}, TRUE)]
+  names[map_lgl(names, ~ is_function(expr, .))]
 }
 
 all_vars <- function(expr) {
