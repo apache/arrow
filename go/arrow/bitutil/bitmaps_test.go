@@ -116,9 +116,23 @@ func TestBitmapWriter(t *testing.T) {
 		}
 		{
 			bitmap := []byte{fillByte, fillByte, fillByte, fillByte}
+			wr := bitutil.NewBitmapWriter(bitmap, 0, 12)
+			wr.AppendBools([]bool{false, true, true, false, true, true, false, false, false, true, false, true})
+			assert.Equal(t, []byte{0x36, (0x0A | (fillByte & 0xF0)), fillByte, fillByte}, bitmap)
+		}
+		{
+			bitmap := []byte{fillByte, fillByte, fillByte, fillByte}
 			wr := bitutil.NewBitmapWriter(bitmap, 3, 12)
 			writeToWriter([]int{0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1}, wr)
 			// {0b10110..., 0b.1010001, ........, ........}
+			assert.Equal(t, []byte{0xb0 | (fillByte & 0x07), 0x51 | (fillByte & 0x80), fillByte, fillByte}, bitmap)
+		}
+		{
+			bitmap := []byte{fillByte, fillByte, fillByte, fillByte}
+			wr := bitutil.NewBitmapWriter(bitmap, 3, 12)
+			wr.AppendBools([]bool{false, true, true, false})
+			wr.AppendBools([]bool{true, true, false, false})
+			wr.AppendBools([]bool{false, true, false, true})
 			assert.Equal(t, []byte{0xb0 | (fillByte & 0x07), 0x51 | (fillByte & 0x80), fillByte, fillByte}, bitmap)
 		}
 		{
