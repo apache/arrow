@@ -44,7 +44,7 @@ mutate.arrow_dplyr_query <- function(.data,
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
-    return(abandon_ship(call, .data, "window functions not supported in Arrow"))
+    return(abandon_ship(call, .data, "window functions not currently supported in Arrow"))
   }
 
   mask <- arrow_mask(.data)

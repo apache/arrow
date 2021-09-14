@@ -377,7 +377,7 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       group_by(chr) %>%
       mutate(avg_int = mean(int)) %>%
       collect(),
-    "window functions not supported in Arrow; pulling data into R",
+    "window functions not currently supported in Arrow; pulling data into R",
     fixed = TRUE
   )
   expect_warning(
@@ -389,7 +389,7 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       group_by(chr) %>%
       mutate(avg_int = mean(mean)) %>%
       collect(),
-    "window functions not supported in Arrow; pulling data into R",
+    "window functions not currently supported in Arrow; pulling data into R",
     fixed = TRUE
   )
 })

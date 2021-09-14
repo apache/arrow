@@ -71,9 +71,14 @@ is_function <- function(expr, name) {
 }
 
 all_funs <- function(expr) {
-  # It is not sufficient to simply do something like `setdiff(all.names, all.vars)` here
-  # because that would fail to return the names of functions that share names with
-  # variables. To preserve duplicates, call `all.names()` not `all_names()` here.
+  # It is not sufficient to simply do something like
+  #   setdiff(all.names, all.vars)
+  # here because that would fail to return the names of functions that
+  # share names with variables.
+  # To preserve duplicates, call `all.names()` not `all_names()` here.
+  if (is_quosure(expr)) {
+    expr <- quo_get_expr(expr)
+  }
   names <- all.names(expr)
   names[map_lgl(names, ~ is_function(expr, .))]
 }
