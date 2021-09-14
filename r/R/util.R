@@ -67,7 +67,7 @@ is_function <- function(expr, name) {
     }
     out <- lapply(expr, is_function, name)
   }
-  any(vapply(out, isTRUE, TRUE))
+  any(map_lgl(out, isTRUE))
 }
 
 all_funs <- function(expr) {
