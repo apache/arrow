@@ -19,6 +19,8 @@ add_custom_target(arrow_flight_sql)
 
 arrow_install_all_headers("arrow/flight/flight-sql")
 
+set(ARROW_FLIGHT_SQL_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+
 set(FLIGHT_SQL_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
 
@@ -49,7 +51,7 @@ set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
 string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-set(ARROW_FLIGHT_SQL_SRCS client.cc)
+set(ARROW_FLIGHT_SQL_SRCS protocol_internal.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -61,20 +63,31 @@ add_arrow_lib(arrow_flight_sql
               SOURCES
               ${ARROW_FLIGHT_SQL_SRCS}
               PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/flight-sql/pch.h>"
               DEPENDENCIES
               flight_sql_grpc_gen
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_shared
-              ${ARROW_FLIGHT_LINK_LIBS}
+              arrow_flight_shared
+              ${ARROW_FLIGHT_SQL_LINK_LIBS}
               STATIC_LINK_LIBS
-              arrow_static
-              ${ARROW_FLIGHT_LINK_LIBS})
+              arrow_flight_static
+              ${ARROW_FLIGHT_SQL_LINK_LIBS})
+
+if(ARROW_TEST_LINKAGE STREQUAL "static")
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS
+      arrow_flight_sql_static ${ARROW_FLIGHT_STATIC_LINK_LIBS} ${ARROW_TEST_LINK_LIBS})
+else()
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared ${ARROW_TEST_LINK_LIBS})
+endif()
 
 add_arrow_test(flight_sql_test
                SOURCES
                client_test.cc
+               STATIC_LINK_LIBS
+               ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+               GTest::gtest
+               GTest::gmock
                LABELS
                "arrow_flight_sql")

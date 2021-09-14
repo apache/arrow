@@ -13,9 +13,13 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License.
 
-#include "arrow/flight/flight-sql/client.h"
-#include "arrow/flight/flight-sql/FlightSql.pb.h"
+#pragma once
 
-// TODO: Implement
+// This header holds the Flight protobuf definitions.
+
+// Need to include this first to get our gRPC customizations
+#include "arrow/flight/customize_protobuf.h"  // IWYU pragma: export
+
+#include "arrow/flight/flight-sql/FlightSql.grpc.pb.h"  // IWYU pragma: export
+#include "arrow/flight/flight-sql/FlightSql.pb.h"       // IWYU pragma: export
