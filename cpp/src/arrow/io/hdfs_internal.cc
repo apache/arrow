@@ -220,8 +220,9 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
           "/usr/lib/jvm/java-1.6.0-openjdk-arm64",        // debian distros / arm64 architecture
       }));
   ARROW_ASSIGN_OR_RAISE(search_suffixes,
-                        MakeFilenameVector({"", "/jre/lib/amd64/server",
-                                            "/lib/amd64/server", "/lib/server","/jre/lib/aarch64/server"}));
+                        MakeFilenameVector({"", "/lib/server",
+                                            "/jre/lib/amd64/server","/lib/amd64/server", 
+                                            "/jre/lib/aarch64/server","/lib/aarch64/server"}));
   file_name = "libjvm.so";
 #endif
 
