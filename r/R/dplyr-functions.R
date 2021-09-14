@@ -694,12 +694,21 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
+  # like other binary functions, either `x` or `base` can be Expression or double(1)
+  if (is.numeric(x) && length(x) == 1) {
+    x <- Expression$scalar(x)
+  } else if (!inherits(x, "Expression")) {
+    arrow_not_supported("x must be a column or a length-1 numeric; other values")
+  }
+
+  # handle `base` differently because we use the simpler ln, log2, and log10
+  # functions for specific scalar base values
   if (inherits(base, "Expression")) {
     return(Expression$create("logb_checked", x, base))
   }
 
   if (!is.numeric(base) || length(base) != 1) {
-    arrow_not_supported("base must be either a column in the data or a length-1 scalar; other values")
+    arrow_not_supported("base must be a column or a length-1 numeric; other values")
   }
 
   if (base == exp(1)) {
