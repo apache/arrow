@@ -222,10 +222,12 @@ TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
 
   // Ungate the writes to relieve the pressure, testdir/part0 should be closed
   ASSERT_OK(gated_fs->WaitForOpenOutputStream(2));
-  ASSERT_OK(gated_fs->UnlockOpenOutputStream(4));
+  ASSERT_OK(gated_fs->UnlockOpenOutputStream(5));
   ASSERT_FINISHES_OK(fut);
 
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part0"));
+  // Following call should resume existing write but, on slow test systems, the old
+  // write may have already been finished
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part1"));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part0/part-0.arrow", 0, 10},
