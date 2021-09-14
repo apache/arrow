@@ -1964,8 +1964,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CFilterOptions \
             " arrow::compute::FilterOptions"(CFunctionOptions):
         CFilterOptions()
-        CFilterOptions(CFilterNullSelectionBehavior null_selection)
-        CFilterNullSelectionBehavior null_selection
+        CFilterOptions(CFilterNullSelectionBehavior null_selection_behavior)
+        CFilterNullSelectionBehavior null_selection_behavior
 
     enum CDictionaryEncodeNullEncodingBehavior \
             "arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior":
@@ -2119,11 +2119,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CTDigestOptions \
             "arrow::compute::TDigestOptions"(CFunctionOptions):
         CTDigestOptions(vector[double] q,
-                        unsigned int delta, unsigned int buffer_size,
+                        uint32_t delta, uint32_t buffer_size,
                         c_bool skip_nulls, uint32_t min_count)
         vector[double] q
-        unsigned int delta
-        unsigned int buffer_size
+        uint32_t delta
+        uint32_t buffer_size
         c_bool skip_nulls
         uint32_t min_count
 
