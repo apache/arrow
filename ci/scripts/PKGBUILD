@@ -80,9 +80,11 @@ build() {
     export LIBS="-L${MINGW_PREFIX}/libs"
     export ARROW_S3=OFF
     export ARROW_WITH_RE2=OFF
+    export CMAKE_UNITY_BUILD=ON
   else
     export ARROW_S3=ON
     export ARROW_WITH_RE2=ON
+    export CMAKE_UNITY_BUILD=OFF
   fi
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
@@ -115,6 +117,7 @@ build() {
     -DARROW_CXXFLAGS="${CPPFLAGS}" \
     -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
+    -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
     -DCMAKE_VERBOSE_MAKEFILE=ON
 
   make -j3
