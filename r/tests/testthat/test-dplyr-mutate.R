@@ -360,6 +360,38 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       collect(),
     tbl
   )
+  expect_dplyr_equal(
+    input %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean` in `mutate()` to test that
+      # `all_funs()` does not incorrectly identify it as an aggregate function
+      group_by(chr) %>%
+      mutate(mean = mean + 6L) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(avg_int = mean(int)) %>%
+      collect(),
+    "window functions not supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean(mean)` in `mutate()` to test that
+      # `all_funs()` detects `mean()` despite the collision with a column name
+      group_by(chr) %>%
+      mutate(avg_int = mean(mean)) %>%
+      collect(),
+    "window functions not supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
 })
 
 test_that("handle bad expressions", {
