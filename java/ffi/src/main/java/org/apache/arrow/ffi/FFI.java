@@ -35,7 +35,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
  * Functions for working with the C data interface.
- * This API is EXPERIMENTAL.
+ * <p>
+ * This API is EXPERIMENTAL. Note that currently only 64bit systems are
+ * supported.
  */
 public final class FFI {
 
