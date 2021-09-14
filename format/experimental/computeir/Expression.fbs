@@ -74,69 +74,17 @@ table FieldRef {
   relation_index: int = 0;
 }
 
-/// A canonical (probably SQL equivalent) function
-//
-// TODO: variadics
-enum CanonicalFunctionId : uint32 {
-  // logical
-  And,
-  Not,
-  Or,
-
-  // arithmetic
-  Add,
-  Subtract,
-  Multiply,
-  Divide,
-  Power,
-  AbsoluteValue,
-  Negate,
-  Sign,
-
-  // date/time/timestamp operations
-  DateSub,
-  DateAdd,
-  DateDiff,
-  TimeAdd,
-  TimeSub,
-  TimeDiff,
-  TimestampAdd,
-  TimestampSub,
-  TimestampDiff,
-
-  // comparison
-  Equals,
-  NotEquals,
-  Greater,
-  GreaterEqual,
-  Less,
-  LessEqual,
-
-  // aggregates
-  All,
-  Any,
-  Count,
-  CountTable,
-  Mean,
-  Min,
-  Max,
-  Product,
-  Sum,
-  Variance,
-  StandardDev,
-}
-
 /// A function call expression
 table Call {
   /// The function to call
-  kind: CanonicalFunctionId;
+  name: string (required);
 
-  /// The arguments passed to `function_name`.
+  /// The arguments passed to `name`.
   arguments: [Expression] (required);
 
   /// Possible ordering of input. These are useful
-  /// in some aggregates where ordering may be meaninful,
-  /// such as string concatenation
+  /// in aggregates where ordering in meaningful such as
+  /// string concatenation
   orderings: [SortKey];
 }
 
