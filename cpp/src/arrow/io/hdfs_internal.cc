@@ -218,13 +218,7 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
           "/usr/local/lib/jvm/java-8-oracle",         // alt ubuntu
           "/usr/local/lib/jvm/java-6-oracle",         // alt ubuntu
           "/usr/lib/jvm/default",                     // alt centos
-          "/usr/java/latest",                         // alt centos
-          "/usr/local/lib/jvm/java-1.8.0-openjdk-"+prefix_arch,  // debian distros / arm64 architecture
-          "/usr/lib/jvm/java-1.8.0-openjdk-"+prefix_arch,        // debian distros / arm64 architecture
-          "/usr/local/lib/jvm/java-1.7.0-openjdk-"+prefix_arch,  // debian distros / arm64 architecture
-          "/usr/lib/jvm/java-1.7.0-openjdk-"+prefix_arch,        // debian distros / arm64 architecture
-          "/usr/local/lib/jvm/java-1.6.0-openjdk-"+prefix_arch,  // debian distros / arm64 architecture
-          "/usr/lib/jvm/java-1.6.0-openjdk-"+prefix_arch        // debian distros / arm64 architecture
+          "/usr/java/latest"                         // alt centos
       }));
   ARROW_ASSIGN_OR_RAISE(search_suffixes,
                         MakeFilenameVector({"", "/lib/server",
