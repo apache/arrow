@@ -124,9 +124,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
   explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
-
   constexpr static char const kTypeName[] = "SelectKOptions";
-
   static SelectKOptions Defaults() { return SelectKOptions{-1, {}}; }
 
   static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {

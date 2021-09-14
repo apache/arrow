@@ -131,7 +131,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
   /// Whether to perform a case-insensitive match.
-  bool ignore_case = false;
+  bool ignore_case;
 };
 
 class ARROW_EXPORT SplitOptions : public FunctionOptions {
