@@ -187,6 +187,13 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
 // SFrame uses /usr/libexec/java_home to find JAVA_HOME; for now we are
 // expecting users to set an environment variable
 #else
+  #if defined(__aarch64__)
+  const std::string prefix_arch{"arm64"};
+  const std::string suffix_arch{"aarch64"};
+  #else
+  const std::string prefix_arch{"amd64"};
+  const std::string suffix_arch{"amd64"};
+  #endif
   ARROW_ASSIGN_OR_RAISE(
       search_prefixes,
       MakeFilenameVector({
@@ -198,12 +205,12 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
           "/usr/local/lib/jvm/java",                  // alt rhel6
           "/usr/local/lib/jvm",                       // alt centos6
           "/usr/local/lib64/jvm",                     // alt opensuse 13
-          "/usr/local/lib/jvm/java-8-openjdk-amd64",  // alt ubuntu / debian distros
-          "/usr/lib/jvm/java-8-openjdk-amd64",        // alt ubuntu / debian distros
-          "/usr/local/lib/jvm/java-7-openjdk-amd64",  // alt ubuntu / debian distros
-          "/usr/lib/jvm/java-7-openjdk-amd64",        // alt ubuntu / debian distros
-          "/usr/local/lib/jvm/java-6-openjdk-amd64",  // alt ubuntu / debian distros
-          "/usr/lib/jvm/java-6-openjdk-amd64",        // alt ubuntu / debian distros
+          "/usr/local/lib/jvm/java-8-openjdk-"+prefix_arch,  // alt ubuntu / debian distros
+          "/usr/lib/jvm/java-8-openjdk-"+prefix_arch,        // alt ubuntu / debian distros
+          "/usr/local/lib/jvm/java-7-openjdk-"+prefix_arch,  // alt ubuntu / debian distros
+          "/usr/lib/jvm/java-7-openjdk-"+prefix_arch,        // alt ubuntu / debian distros
+          "/usr/local/lib/jvm/java-6-openjdk-"+prefix_arch,  // alt ubuntu / debian distros
+          "/usr/lib/jvm/java-6-openjdk-"+prefix_arch,        // alt ubuntu / debian distros
           "/usr/lib/jvm/java-7-oracle",               // alt ubuntu
           "/usr/lib/jvm/java-8-oracle",               // alt ubuntu
           "/usr/lib/jvm/java-6-oracle",               // alt ubuntu
@@ -212,17 +219,16 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
           "/usr/local/lib/jvm/java-6-oracle",         // alt ubuntu
           "/usr/lib/jvm/default",                     // alt centos
           "/usr/java/latest",                         // alt centos
-          "/usr/local/lib/jvm/java-1.8.0-openjdk-arm64",  // debian distros / arm64 architecture
-          "/usr/lib/jvm/java-1.8.0-openjdk-arm64",        // debian distros / arm64 architecture
-          "/usr/local/lib/jvm/java-1.7.0-openjdk-arm64",  // debian distros / arm64 architecture
-          "/usr/lib/jvm/java-1.7.0-openjdk-arm64",        // debian distros / arm64 architecture
-          "/usr/local/lib/jvm/java-1.6.0-openjdk-arm64",  // debian distros / arm64 architecture
-          "/usr/lib/jvm/java-1.6.0-openjdk-arm64",        // debian distros / arm64 architecture
+          "/usr/local/lib/jvm/java-1.8.0-openjdk-"+prefix_arch,  // debian distros / arm64 architecture
+          "/usr/lib/jvm/java-1.8.0-openjdk-"+prefix_arch,        // debian distros / arm64 architecture
+          "/usr/local/lib/jvm/java-1.7.0-openjdk-"+prefix_arch,  // debian distros / arm64 architecture
+          "/usr/lib/jvm/java-1.7.0-openjdk-"+prefix_arch,        // debian distros / arm64 architecture
+          "/usr/local/lib/jvm/java-1.6.0-openjdk-"+prefix_arch,  // debian distros / arm64 architecture
+          "/usr/lib/jvm/java-1.6.0-openjdk-"+prefix_arch        // debian distros / arm64 architecture
       }));
   ARROW_ASSIGN_OR_RAISE(search_suffixes,
                         MakeFilenameVector({"", "/lib/server",
-                                            "/jre/lib/amd64/server","/lib/amd64/server", 
-                                            "/jre/lib/aarch64/server","/lib/aarch64/server"}));
+                                            "/jre/lib/"+suffix_arch+"/server","/lib/"+suffix_arch+"/server"}));
   file_name = "libjvm.so";
 #endif
 
