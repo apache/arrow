@@ -248,7 +248,7 @@ For example::
    fs = adlfs.AzureBlobFileSystem(account_name=account_name, account_key=account_key)
 
    import pyarrow.dataset as ds
-   ds.dataset("data/", filesystem=fs)
+   ds.dataset("mycontainer/data/", filesystem=fs)
 
 Under the hood, the fsspec filesystem object is wrapped into a python-based
 PyArrow filesystem (:class:`PyFileSystem`) using :class:`FSSpecHandler`.
