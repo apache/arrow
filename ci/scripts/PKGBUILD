@@ -80,10 +80,12 @@ build() {
     export LIBS="-L${MINGW_PREFIX}/libs"
     export ARROW_S3=OFF
     export ARROW_WITH_RE2=OFF
+    # Without this, some dataset functionality segfaults
     export CMAKE_UNITY_BUILD=ON
   else
     export ARROW_S3=ON
     export ARROW_WITH_RE2=ON
+    # Without this, some compute functionality segfaults
     export CMAKE_UNITY_BUILD=OFF
   fi
 
