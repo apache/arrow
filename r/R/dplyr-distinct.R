@@ -18,45 +18,37 @@
 # The following S3 methods are registered on load if dplyr is present
 
 distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
-
   if (.keep_all == TRUE) {
-    # After ARROW-13767 is merged, we can implement this via e.g.
-    # iris %>% group_by(Species) %>% slice(1) %>% ungroup()
+    # After ARROW-13993 is merged, we can implement this
     arrow_not_supported("`distinct()` with `.keep_all = TRUE`")
   }
 
   distinct_groups <- ensure_named_exprs(quos(...))
 
-  # Get ordering to use when returning data
-  cols_in_order <- intersect(
-    unique(c(names(.data), names(distinct_groups))),
-    names(distinct_groups)
-  )
-
-  # Get grouping in the data to add back in later, as the call to summarize()
-  # will remove it
   gv <- dplyr::group_vars(.data)
 
-  vars_to_group <- unique(c(
-    names(distinct_groups),
-    gv
-  ))
-
-  if (length(vars_to_group) == 0) {
-    return(.data)
+  # Get ordering to use when returning data
+  # We need to do this as `data %>% group_by() %>% summarise()` returns cols in
+  # the order supplied, whereas distinct() returns cols in dataset order.
+  cols_in_order <- intersect(
+    unique(c(names(.data), names(distinct_groups))),
+    unique(c(names(distinct_groups), gv))
+  )
+  # If there are no group_by vars or cols for distinct, return all cols
+  if (length(cols_in_order) == 0) {
+    cols_in_order <- names(.data)
   }
 
-  # Call mutate in case any columns are expressions
-  .data <- dplyr::mutate(.data, ...)
+  # If there are no cols supplied, group by everything so that
+  # later call to `summarise()`` returns everything and not empty table
+  if (length(distinct_groups) == 0) {
+    .data <- dplyr::group_by(.data, !!!syms(names(.data)), .add = TRUE)
+  }
 
   # This works as distinct(data, x, y) == summarise(group_by(data, x, y))
-  .data <- dplyr::group_by(.data, !!!syms(vars_to_group))
+  .data <- dplyr::group_by(.data, !!!distinct_groups, .add = TRUE)
+  # After ARROW-13550 is merged, update this to use .groups = "keep"
   .data <- dplyr::summarize(.data)
-
-  # Add back in any grouping which existed in the data previously
-  if (length(gv) > 0) {
-    .data$group_by_vars <- gv
-  }
 
   # Select the columns to return in the correct order
   ordered_selected_cols <- intersect(

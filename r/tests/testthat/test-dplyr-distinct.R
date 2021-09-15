@@ -35,13 +35,14 @@ test_that("distinct() works without any variables", {
   expect_dplyr_equal(
     input %>%
       distinct() %>%
+      arrange(int) %>%
       collect(),
     tbl
   )
 })
 
 test_that("distinct() can retain groups", {
-  skip("ARROW-13777 - internally uses mutate on grouped data; should work after this is merged")
+  skip("ARROW-13550 - summarise can't retain groups")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping, false) %>%
@@ -53,7 +54,6 @@ test_that("distinct() can retain groups", {
 })
 
 test_that("distinct() can contain expressions", {
-
   expect_dplyr_equal(
     input %>%
       distinct(lgl, x = some_grouping + 1) %>%
@@ -61,11 +61,21 @@ test_that("distinct() can contain expressions", {
     tbl
   )
 
-  skip("ARROW-13777 - internally uses mutate on grouped data; should work after this is merged")
   expect_dplyr_equal(
     input %>%
-      group_by(lgl) %>%
+      group_by(lgl, int) %>%
       distinct(x = some_grouping + 1) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("distinct() can return all columns", {
+  skip("ARROW-13993 - need this to return correct rows from other cols")
+
+  expect_dplyr_equal(
+    input %>%
+      distinct(lgl, .keep_all = TRUE) %>%
       collect(),
     tbl
   )
