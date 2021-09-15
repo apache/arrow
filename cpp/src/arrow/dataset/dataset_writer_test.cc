@@ -24,6 +24,9 @@
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/optional.h"
@@ -73,14 +76,19 @@ class DatasetWriterTestFixture : public testing::Test {
     return fs;
   }
 
-  std::shared_ptr<RecordBatch> MakeBatch(uint64_t num_rows) {
+  std::shared_ptr<RecordBatch> MakeBatch(uint64_t start, uint64_t num_rows) {
     Int64Builder builder;
-    for (uint64_t i = counter_; i < counter_ + num_rows; i++) {
-      ARROW_EXPECT_OK(builder.Append(i));
+    for (uint64_t i = 0; i < num_rows; i++) {
+      ARROW_EXPECT_OK(builder.Append(i + start));
     }
     EXPECT_OK_AND_ASSIGN(std::shared_ptr<Array> arr, builder.Finish());
-    counter_ += num_rows;
     return RecordBatch::Make(schema_, static_cast<int64_t>(num_rows), {std::move(arr)});
+  }
+
+  std::shared_ptr<RecordBatch> MakeBatch(uint64_t num_rows) {
+    std::shared_ptr<RecordBatch> batch = MakeBatch(counter_, num_rows);
+    counter_ += num_rows;
+    return batch;
   }
 
   util::optional<MockFileInfo> FindFile(const std::string& filename) {
@@ -100,7 +108,27 @@ class DatasetWriterTestFixture : public testing::Test {
         << "The file " << expected_path << " was not in the list of files visited";
   }
 
-  void AssertFiles(const std::vector<ExpectedFile>& expected_files) {
+  std::shared_ptr<RecordBatch> ReadAsBatch(util::string_view data) {
+    std::shared_ptr<io::RandomAccessFile> in_stream =
+        std::make_shared<io::BufferReader>(data);
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<ipc::RecordBatchFileReader> reader,
+                         ipc::RecordBatchFileReader::Open(std::move(in_stream)));
+    RecordBatchVector batches;
+    for (int i = 0; i < reader->num_record_batches(); i++) {
+      EXPECT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> next_batch,
+                           reader->ReadRecordBatch(i));
+      batches.push_back(next_batch);
+    }
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<Table> table, Table::FromRecordBatches(batches));
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<Table> combined_table, table->CombineChunks());
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> batch,
+                         TableBatchReader(*combined_table).Next());
+    return batch;
+  }
+
+  void AssertFiles(const std::vector<ExpectedFile>& expected_files,
+                   bool verify_content = true) {
+    counter_ = 0;
     for (const auto& expected_file : expected_files) {
       util::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
       ASSERT_TRUE(written_file.has_value())
@@ -113,7 +141,10 @@ class DatasetWriterTestFixture : public testing::Test {
         SCOPED_TRACE("post_finish");
         AssertVisited(post_finish_visited_, expected_file.filename);
       }
-      // FIXME Check contents
+      if (verify_content) {
+        AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
+                           *ReadAsBatch(written_file->data));
+      }
     }
   }
 
@@ -155,9 +186,9 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   AssertFinished(queue_fut);
   ASSERT_FINISHES_OK(dataset_writer->Finish());
   AssertFiles({{"testdir/part-0.arrow", 0, 10},
-               {"testdir/part-1.arrow", 10, 20},
-               {"testdir/part-2.arrow", 20, 30},
-               {"testdir/part-3.arrow", 30, 35}});
+               {"testdir/part-1.arrow", 10, 10},
+               {"testdir/part-2.arrow", 20, 10},
+               {"testdir/part-3.arrow", 30, 5}});
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
@@ -196,8 +227,7 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
   for (int i = 0; i < NBATCHES; i++) {
     std::string i_str = std::to_string(i);
     expected_files.push_back(ExpectedFile{"testdir/part" + i_str + "/part-0.arrow",
-                                          static_cast<uint64_t>(i) * 10,
-                                          (static_cast<uint64_t>(i + 1) * 10)});
+                                          static_cast<uint64_t>(i) * 10, 10});
     Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(10), "part" + i_str);
     AssertFinished(queue_fut);
     ASSERT_FINISHES_OK(queue_fut);
@@ -235,7 +265,8 @@ TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
                {"testdir/part0/part-1.arrow", 40, 10},
                {"testdir/part1/part-0.arrow", 10, 10},
                {"testdir/part1/part-0.arrow", 50, 10},
-               {"testdir/part2/part-0.arrow", 30, 10}});
+               {"testdir/part2/part-0.arrow", 30, 10}},
+              /*verify_content=*/false);
 }
 
 TEST_F(DatasetWriterTestFixture, DeleteExistingData) {
