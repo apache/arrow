@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -29,6 +27,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"

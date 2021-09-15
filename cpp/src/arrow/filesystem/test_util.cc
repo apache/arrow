@@ -15,22 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
-// Can't import test_util.h before gtest.h because it depends on ASSERT_GE but clang
-// wants the "related import" to come first so we need to disable here
-// clang-format off
-#include "arrow/filesystem/test_util.h"
-// clang-format on
-
 #include <algorithm>
 #include <chrono>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include "arrow/filesystem/mockfs.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
