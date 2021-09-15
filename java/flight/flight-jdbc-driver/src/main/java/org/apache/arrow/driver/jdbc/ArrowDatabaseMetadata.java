@@ -30,6 +30,7 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 
 /**
@@ -37,7 +38,7 @@ import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
  */
 public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
-  protected ArrowDatabaseMetadata(final ArrowFlightConnection connection) {
+  protected ArrowDatabaseMetadata(final AvaticaConnection connection) {
     super(connection);
   }
 
