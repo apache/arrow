@@ -86,7 +86,6 @@ public class TestFlightSql {
   private static final String LOCALHOST = "localhost";
   private static BufferAllocator allocator;
   private static FlightServer server;
-  private static FlightClient client;
   private static FlightSqlClient sqlClient;
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
@@ -101,8 +100,7 @@ public class TestFlightSql {
         .start();
 
     final Location clientLocation = Location.forGrpcInsecure(LOCALHOST, server.getPort());
-    client = FlightClient.builder(allocator, clientLocation).build();
-    sqlClient = new FlightSqlClient(client);
+    sqlClient = new FlightSqlClient(FlightClient.builder(allocator, clientLocation).build());
 
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
         .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE), "Apache Derby");
@@ -128,7 +126,7 @@ public class TestFlightSql {
 
   @AfterClass
   public static void tearDown() throws Exception {
-    close(client, server, allocator);
+    close(sqlClient, server, allocator);
   }
 
   private static List<List<String>> getNonConformingResultsForGetSqlInfo(final List<? extends List<String>> results) {

@@ -57,6 +57,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -69,7 +70,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 /**
  * Flight client with Flight SQL semantics.
  */
-public class FlightSqlClient {
+public class FlightSqlClient implements AutoCloseable {
   private final FlightClient client;
 
   public FlightSqlClient(final FlightClient client) {
@@ -369,6 +370,15 @@ public class FlightSqlClient {
    */
   public PreparedStatement prepare(final String query, final CallOption... options) {
     return new PreparedStatement(client, query, options);
+  }
+
+  @Override
+  public void close() throws SQLException {
+    try {
+      AutoCloseables.close(client);
+    } catch (final Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   /**
