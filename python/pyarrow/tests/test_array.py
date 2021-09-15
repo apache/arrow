@@ -1956,7 +1956,16 @@ def test_uuid_to_binary():
     values = [uuid.uuid4() for _ in range(32)]
     values_bytes = [value.bytes for value in values]
     arrow_values = pa.array(values)
+    assert arrow_values.type == pa.binary(16)
     assert arrow_values.to_pylist() == values_bytes
+
+
+def test_uuid_mixed_to_binary():
+    values = [uuid.uuid4() for _ in range(16)] + ['xyz']
+    values_bytes = [value.bytes for value in values[0:16]]
+    arrow_values = pa.array(values)
+    assert arrow_values.type == pa.binary()
+    assert arrow_values.to_pylist()[0:16] == values_bytes
 
 
 def test_binary_string_pandas_null_sentinels():

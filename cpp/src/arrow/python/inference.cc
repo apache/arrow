@@ -298,6 +298,7 @@ class TypeInferrer {
         timestamp_micro_count_(0),
         duration_count_(0),
         float_count_(0),
+        uuid_count_(0),
         binary_count_(0),
         unicode_count_(0),
         decimal_count_(0),
@@ -346,6 +347,8 @@ class TypeInferrer {
     } else if (PyTime_Check(obj)) {
       ++time_count_;
       *keep_going = make_unions_;
+    } else if (internal::IsUuid(obj)) {
+      uuid_count_++;
     } else if (internal::IsPyBinary(obj)) {
       ++binary_count_;
       *keep_going = make_unions_;
@@ -480,6 +483,8 @@ class TypeInferrer {
       *out = binary();
     } else if (unicode_count_) {
       *out = utf8();
+    } else if (uuid_count_) {
+      *out = fixed_size_binary(16);
     } else {
       *out = null();
     }
@@ -607,6 +612,7 @@ class TypeInferrer {
   std::string timezone_;
   int64_t duration_count_;
   int64_t float_count_;
+  int64_t uuid_count_;
   int64_t binary_count_;
   int64_t unicode_count_;
   int64_t decimal_count_;

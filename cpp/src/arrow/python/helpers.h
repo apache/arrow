@@ -98,8 +98,7 @@ ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
 
 inline bool IsPyBinary(PyObject* obj) {
-  return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj) ||
-         IsUuid(obj);
+  return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
 }
 
 // \brief Convert a Python integer into a C integer
