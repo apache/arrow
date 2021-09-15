@@ -146,6 +146,572 @@ enum SqlInfo {
    */
   SQL_QUOTED_IDENTIFIER_CASE = 505;
 
+  SQL_ALL_TABLES_ARE_SELECTABLE = 506;
+
+  /*
+   * Retrieves the null ordering.
+   *
+   * Returns a uint32 ordinal for the null ordering being used, as described in
+   * `arrow.flight.protocol.sql.SqlNullOrdering`.
+   */
+  SQL_NULL_ORDERING = 507;
+
+  // Retrieves a comma-separated list of all supported SQL keywords that are NOT also SQL:2003 keywords.
+  SQL_KEYWORDS = 508;
+
+  /*
+   * Retrieves a comma-separated list of the available math functions.
+   * These are the Open/Open CLI math function names used in the JDBC function escape clause.
+   */
+  SQL_NUMERIC_FUNCTIONS = 509;
+
+  // Retrieves a comma-separated list of the available string functions.
+  SQL_STRING_FUNCTIONS = 510;
+
+  // Retrieves a comma-separated list of the available system functions.
+  SQL_SYSTEM_FUNCTIONS = 511;
+
+  // Retrieves a comma-separated list of the available time and date functions.
+  SQL_TIME_DATE_FUNCTIONS = 512;
+
+  /*
+   * Retrieves the string that can be used to escape wildcard characters.
+   * This is the string that can be used to escape '_' or '%' in the catalog search parameters that are a pattern
+   * (and therefore use one of the wildcard characters).
+   * The '_' character represents any single character; the '%' character represents any sequence of zero or more
+   * characters.
+   */
+  SQL_SEARCH_STRING_ESCAPE = 513;
+
+  /*
+   * Retrieves all the "extra" characters that can be used in unquoted identifier names
+   * (those beyond a-z, A-Z, 0-9 and _).
+   */
+  SQL_EXTRA_NAME_CHARACTERS = 514;
+
+  /*
+   * Retrieves whether column aliasing is supported.
+   * If so, the SQL AS clause can be used to provide names for computed columns or to provide alias names for columns
+   * as required.
+   */
+  SQL_SUPPORTS_COLUMN_ALIASING = 515;
+
+  // Retrieves whether concatenations between null and non-null values being null are supported.
+  SQL_NULL_PLUS_NULL_IS_NULL = 516;
+
+  /*
+   * Retrieves whether the JDBC scalar function CONVERT for the conversion of one JDBC
+   * type to another is supported.
+   */
+  SQL_SUPPORTS_CONVERT = 517;
+
+  /*
+   * Retrieves whether, when table correlation names are supported, they are restricted to being different
+   * from the names of the tables.
+   */
+  SQL_SUPPORTS_TABLE_CORRELATION_NAMES = 518;
+
+  /*
+   * Retrieves whether, when table correlation names are supported, they are restricted to being different
+   * from the names of the tables.
+   */
+  SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES = 519;
+
+  // Retrieves whether expressions in ORDER BY lists are supported.
+  SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY = 520;
+
+  // Retrieves whether using a column that is not in the SELECT statement in a GROUP BY clause is supported.
+  SQL_SUPPORTS_ORDER_BY_UNRELATED = 521;
+
+  /*
+   * Retrieves the supported GROUP BY commands;
+   *
+   * Returns an int32 bitmask value representing the supported commands.
+   * The returned bitmask should be parsed in order to retrieve the supported commands.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (GROUP BY is unsupported);
+   * - return 1 (\b1)   => [SQL_GROUP_BY_UNRELATED];
+   * - return 2 (\b10)  => [SQL_GROUP_BY_BEYOND_SELECT];
+   * - return 3 (\b11)  => [SQL_GROUP_BY_UNRELATED, SQL_GROUP_BY_BEYOND_SELECT].
+   * Valid GROUP BY types are described under `arrow.flight.protocol.sql.SqlSupportedGroupBy`.
+   */
+  SQL_SUPPORTED_GROUP_BY = 522;
+
+  // Retrieves whether specifying a LIKE escape clause is supported.
+  SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE = 523;
+
+  // Retrieves whether columns may be defined as non-nullable.
+  SQL_SUPPORTS_NON_NULLABLE_COLUMNS = 524;
+
+  /*
+   * Retrieves the supported SQL grammar level as per the ODBC specification.
+   *
+   * Returns an int32 bitmask value representing the supported SQL grammar level.
+   * The returned bitmask should be parsed in order to retrieve the supported grammar levels.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (SQL grammar is unsupported);
+   * - return 1 (\b1)   => [SQL_MINIMUM_GRAMMAR];
+   * - return 2 (\b10)  => [SQL_CORE_GRAMMAR];
+   * - return 3 (\b11)  => [SQL_MINIMUM_GRAMMAR, SQL_CORE_GRAMMAR];
+   * - return 4 (\b100) => [SQL_EXTENDED_GRAMMAR];
+   * - return 5 (\b101) => [SQL_MINIMUM_GRAMMAR, SQL_EXTENDED_GRAMMAR];
+   * - return 6 (\b110) => [SQL_CORE_GRAMMAR, SQL_EXTENDED_GRAMMAR];
+   * - return 7 (\b111) => [SQL_MINIMUM_GRAMMAR, SQL_CORE_GRAMMAR, SQL_EXTENDED_GRAMMAR].
+   * Valid SQL grammar levels are described under `arrow.flight.protocol.sql.SupportedSqlGrammar`.
+   */
+  SQL_SUPPORTED_GRAMMAR = 525;
+
+  /*
+   * Retrieves the supported ANSI92 SQL grammar level.
+   *
+   * Returns an int32 bitmask value representing the supported ANSI92 SQL grammar level.
+   * The returned bitmask should be parsed in order to retrieve the supported commands.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (ANSI92 SQL grammar is unsupported);
+   * - return 1 (\b1)   => [ANSI92_ENTRY_SQL];
+   * - return 2 (\b10)  => [ANSI92_INTERMEDIATE_SQL];
+   * - return 3 (\b11)  => [ANSI92_ENTRY_SQL, ANSI92_INTERMEDIATE_SQL];
+   * - return 4 (\b100) => [ANSI92_FULL_SQL];
+   * - return 5 (\b101) => [ANSI92_ENTRY_SQL, ANSI92_FULL_SQL];
+   * - return 6 (\b110) => [ANSI92_INTERMEDIATE_SQL, ANSI92_FULL_SQL];
+   * - return 7 (\b111) => [ANSI92_ENTRY_SQL, ANSI92_INTERMEDIATE_SQL, ANSI92_FULL_SQL].
+   * Valid ANSI92 SQL grammar levels are described under `arrow.flight.protocol.sql.SupportedAnsi92SqlGrammarLevel`.
+   */
+  SQL_ANSI92_SUPPORTED_LEVEL = 526;
+
+  // Retrieves whether the SQL Integrity Enhancement Facility is supported.
+  SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY = 527;
+
+  /*
+   * Retrieves the support level for SQL JOINs.
+   *
+   * Returns a uint32 ordinal for the SQL ordering being used, as described in
+   * `arrow.flight.protocol.sql.SqlJoinsSupportLevel`.
+   */
+  SQL_JOINS_SUPPORT_LEVEL = 528;
+
+  // Retrieves the preferred term for "schema".
+  SQL_SCHEMA_TERM = 529;
+
+  // Retrieves the preferred term for "procedure".
+  SQL_PROCEDURE_TERM = 530;
+
+  // Retrieves the preferred term for "catalog".
+  SQL_CATALOG_TERM = 531;
+
+  // Retrieves whether a catalog appears at the start of a fully qualified table name.
+  SQL_CATALOG_AT_START = 532;
+
+  /*
+   * Retrieves the supported actions for a SQL schema.
+   *
+   * Returns an int32 bitmask value representing the supported actions for a SQL schema.
+   * The returned bitmask should be parsed in order to retrieve the supported actions for a SQL schema.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported actions for SQL schema);
+   * - return 1 (\b1)   => [SQL_ELEMENT_IN_PROCEDURE_CALLS];
+   * - return 2 (\b10)  => [SQL_ELEMENT_IN_INDEX_DEFINITIONS];
+   * - return 3 (\b11)  => [SQL_ELEMENT_IN_PROCEDURE_CALLS, SQL_ELEMENT_IN_INDEX_DEFINITIONS];
+   * - return 4 (\b100) => [SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS];
+   * - return 5 (\b101) => [SQL_ELEMENT_IN_PROCEDURE_CALLS, SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS];
+   * - return 6 (\b110) => [SQL_ELEMENT_IN_INDEX_DEFINITIONS, SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS];
+   * - return 7 (\b111) => [SQL_ELEMENT_IN_PROCEDURE_CALLS, SQL_ELEMENT_IN_INDEX_DEFINITIONS, SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS].
+   * Valid actions for a SQL schema described under `arrow.flight.protocol.sql.SqlSupportedElementActions`.
+   */
+  SQL_SCHEMAS_SUPPORTED_ACTIONS = 533;
+
+  /*
+   * Retrieves the supported actions for a SQL schema.
+   *
+   * Returns an int32 bitmask value representing the supported actions for a SQL catalog.
+   * The returned bitmask should be parsed in order to retrieve the supported actions for a SQL catalog.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported actions for SQL catalog);
+   * - return 1 (\b1)   => [SQL_ELEMENT_IN_PROCEDURE_CALLS];
+   * - return 2 (\b10)  => [SQL_ELEMENT_IN_INDEX_DEFINITIONS];
+   * - return 3 (\b11)  => [SQL_ELEMENT_IN_PROCEDURE_CALLS, SQL_ELEMENT_IN_INDEX_DEFINITIONS];
+   * - return 4 (\b100) => [SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS];
+   * - return 5 (\b101) => [SQL_ELEMENT_IN_PROCEDURE_CALLS, SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS];
+   * - return 6 (\b110) => [SQL_ELEMENT_IN_INDEX_DEFINITIONS, SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS];
+   * - return 7 (\b111) => [SQL_ELEMENT_IN_PROCEDURE_CALLS, SQL_ELEMENT_IN_INDEX_DEFINITIONS, SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS].
+   * Valid actions for a SQL catalog are described under `arrow.flight.protocol.sql.SqlSupportedElementActions`.
+   */
+  SQL_CATALOGS_SUPPORTED_ACTIONS = 534;
+
+  /*
+   * Retrieves the supported SQL positioned commands.
+   *
+   * Returns an int32 bitmask value representing the supported SQL positioned commands.
+   * The returned bitmask should be parsed in order to retrieve the supported SQL positioned commands.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported SQL positioned commands);
+   * - return 1 (\b1)   => [SQL_POSITIONED_DELETE];
+   * - return 2 (\b10)  => [SQL_POSITIONED_UPDATE];
+   * - return 3 (\b11)  => [SQL_POSITIONED_DELETE, SQL_POSITIONED_UPDATE].
+   * Valid SQL positioned commands are described under `arrow.flight.protocol.sql.SqlSupportedPositionedCommands`.
+   */
+  SQL_SUPPORTED_POSITIONED_COMMANDS = 535;
+
+  // Retrieves whether SELECT FOR UPDATE statements are supported.
+  SQL_SELECT_FOR_UPDATE_SUPPORTED = 536;
+
+  // Retrieves whether stored procedure calls that use the stored procedure escape syntax are supported.
+  SQL_STORED_PROCEDURES_SUPPORTED = 537;
+
+  /*
+   * Retrieves the supported SQL subqueries.
+   *
+   * Returns an int32 bitmask value representing the supported SQL subqueries.
+   * The returned bitmask should be parsed in order to retrieve the supported SQL subqueries.
+   *
+   * For instance:
+   * - return 0   (\b0)     => [] (no supported SQL subqueries);
+   * - return 1   (\b1)     => [SQL_SUBQUERIES_IN_COMPARISONS];
+   * - return 2   (\b10)    => [SQL_SUBQUERIES_IN_EXISTS];
+   * - return 3   (\b11)    => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_EXISTS];
+   * - return 4   (\b100)   => [SQL_SUBQUERIES_IN_INS];
+   * - return 5   (\b101)   => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_INS];
+   * - return 6   (\b110)   => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_EXISTS];
+   * - return 7   (\b111)   => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_EXISTS, SQL_SUBQUERIES_IN_INS];
+   * - return 8   (\b1000)  => [SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - return 9   (\b1001)  => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - return 10  (\b1010)  => [SQL_SUBQUERIES_IN_EXISTS, SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - return 11  (\b1011)  => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_EXISTS, SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - return 12  (\b1100)  => [SQL_SUBQUERIES_IN_INS, SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - return 13  (\b1101)  => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_INS, SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - return 14  (\b1110)  => [SQL_SUBQUERIES_IN_EXISTS, SQL_SUBQUERIES_IN_INS, SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - return 15  (\b1111)  => [SQL_SUBQUERIES_IN_COMPARISONS, SQL_SUBQUERIES_IN_EXISTS, SQL_SUBQUERIES_IN_INS, SQL_SUBQUERIES_IN_QUANTIFIEDS];
+   * - ...
+   * Valid SQL subqueries are described under `arrow.flight.protocol.sql.SqlSupportedSubqueries`.
+   */
+  SQL_SUPPORTED_SUBQUERIES = 538;
+
+  // Retrieves whether correlated subqueries are supported.
+  SQL_CORRELATED_SUBQUERIES_SUPPORTED = 539;
+
+  /*
+   * Retrieves the supported SQL UNIONs.
+   *
+   * Returns an int32 bitmask value representing the supported SQL UNIONs.
+   * The returned bitmask should be parsed in order to retrieve the supported SQL UNIONs.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported SQL positioned commands);
+   * - return 1 (\b1)   => [SQL_UNION];
+   * - return 2 (\b10)  => [SQL_UNION_ALL];
+   * - return 3 (\b11)  => [SQL_UNION, SQL_UNION_ALL].
+   * Valid SQL positioned commands are described under `arrow.flight.protocol.sql.SqlSupportedUnions`.
+   */
+  SQL_SUPPORTED_UNIONS = 540;
+
+  // Retrieves the maximum number of hex characters allowed in an inline binary literal.
+  SQL_MAX_BINARY_LITERAL_LENGTH = 541;
+
+  // Retrieves the maximum number of characters allowed for a character literal.
+  SQL_MAX_CHAR_LITERAL_LENGTH = 542;
+
+  // Retrieves the maximum number of characters allowed for a column name.
+  SQL_MAX_COLUMN_NAME_LENGTH = 543;
+
+  // Retrieves the maximum number of columns allowed in a GROUP BY clause.
+  SQL_MAX_COLUMNS_IN_GROUP_BY = 544;
+
+  // Retrieves the maximum number of columns allowed in an index.
+  SQL_MAX_COLUMNS_IN_INDEX = 545;
+
+  // Retrieves the maximum number of columns allowed in an ORDER BY clause.
+  SQL_MAX_COLUMNS_IN_ORDER_BY = 546;
+
+  // Retrieves the maximum number of columns allowed in a SELECT list.
+  SQL_MAX_COLUMNS_IN_SELECT = 547;
+
+  // Retrieves the maximum number of columns allowed in a table.
+  SQL_MAX_COLUMNS_IN_TABLE = 548;
+
+  // Retrieves the maximum number of concurrent connections possible.
+  SQL_MAX_CONNECTIONS = 549;
+
+  // Retrieves the maximum number of characters allowed in a cursor name.
+  SQL_MAX_CURSOR_NAME_LENGTH = 550;
+
+  // Retrieves the maximum number of bytes allowed for an index, including all of the parts of the index.
+  SQL_MAX_INDEX_LENGTH = 551;
+
+  // Retrieves the maximum number of characters allowed in a procedure name.
+  SQL_SCHEMA_NAME_LENGTH = 552;
+
+  // Retrieves the maximum number of bytes allowed in a single row.
+  SQL_MAX_PROCEDURE_NAME_LENGTH = 553;
+
+  // Retrieves the maximum number of characters allowed in a catalog name.
+  SQL_MAX_CATALOG_NAME_LENGTH = 554;
+
+  // Retrieves the maximum number of bytes allowed in a single row.
+  SQL_MAX_ROW_SIZE = 555;
+
+  /*
+   * Retrieves whether the return value for the method getMaxRowSize includes the SQL data types
+   * LONGVARCHAR and LONGVARBINARY.
+   */
+  SQL_MAX_ROW_SIZE_INCLUDES_BLOBS = 556;
+
+  /*
+   * The maximum number of characters allowed for an SQL statement;
+   * a result of zero means that there is no limit or the limit is not known.
+   */
+  SQL_MAX_STATEMENT_LENGTH = 557;
+
+  // Retrieves the maximum number of active statements to this database that can be open at the same time.
+  SQL_MAX_STATEMENTS = 558;
+
+  // Retrieves the maximum number of characters allowed in a table name.
+  SQL_MAX_TABLE_NAME_LENGTH = 559;
+
+  // Retrieves the maximum number of tables allowed in a SELECT statement.
+  SQL_MAX_TABLES_IN_SELECT = 560;
+
+  // Retrieves the maximum number of characters allowed in a user name.
+  SQL_MAX_USERNAME_LENGTH = 561;
+
+  /*
+   * Retrieves this database's default transaction isolation level as described in
+   * `arrow.flight.protocol.sql.SqlTransactionIsolationLevel`.
+   */
+  SQL_DEFAULT_TRANSACTION_ISOLATION = 562;
+
+  /*
+   * Retrieves whether transactions are supported. If not, invoking the method commit is a noop,
+   * and the isolation level is `arrow.flight.protocol.sql.SqlTransactionIsolationLevel.TRANSACTION_NONE`.
+   */
+  SQL_TRANSACTIONS_SUPPORTED = 563;
+
+  /*
+   * Retrieves the supported transactions isolation levels.
+   *
+   * Returns an int32 bitmask value representing the supported transactions isolation levels.
+   * The returned bitmask should be parsed in order to retrieve the supported transactions isolation levels.
+   *
+   * For instance:
+   * - return 0   (\b0)     => [] (no supported SQL transactions isolation levels);
+   * - return 1   (\b1)     => [SQL_TRANSACTION_NONE];
+   * - return 2   (\b10)    => [SQL_TRANSACTION_READ_UNCOMMITTED];
+   * - return 3   (\b11)    => [SQL_TRANSACTION_NONE, SQL_TRANSACTION_READ_UNCOMMITTED];
+   * - return 4   (\b100)   => [SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 5   (\b101)   => [SQL_TRANSACTION_NONE, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 6   (\b110)   => [SQL_TRANSACTION_READ_UNCOMMITTED, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 7   (\b111)   => [SQL_TRANSACTION_NONE, SQL_TRANSACTION_READ_UNCOMMITTED, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 8   (\b1000)  => [SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 9   (\b1001)  => [SQL_TRANSACTION_NONE, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 10  (\b1010)  => [SQL_TRANSACTION_READ_UNCOMMITTED, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 11  (\b1011)  => [SQL_TRANSACTION_NONE, SQL_TRANSACTION_READ_UNCOMMITTED, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 12  (\b1100)  => [SQL_TRANSACTION_REPEATABLE_READ, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 13  (\b1101)  => [SQL_TRANSACTION_NONE, SQL_TRANSACTION_REPEATABLE_READ, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 14  (\b1110)  => [SQL_TRANSACTION_READ_UNCOMMITTED, SQL_TRANSACTION_REPEATABLE_READ, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 15  (\b1111)  => [SQL_TRANSACTION_NONE, SQL_TRANSACTION_READ_UNCOMMITTED, SQL_TRANSACTION_REPEATABLE_READ, SQL_TRANSACTION_REPEATABLE_READ];
+   * - return 16  (\b10000) => [SQL_TRANSACTION_SERIALIZABLE];
+   * - ...
+   * Valid SQL positioned commands are described under `arrow.flight.protocol.sql.SqlTransactionIsolationLevel`.
+   */
+  SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS = 564;
+
+  // Retrieves whether a data definition statement within a transaction forces the transaction to commit.
+  SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT = 565;
+
+  // Retrieves whether a data definition statement within a transaction is ignored.
+  SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED = 566;
+
+  /*
+   * Retrieves an int32 bitmask value representing the supported result set types.
+   * The returned bitmask should be parsed in order to retrieve the supported result set types.
+   *
+   * For instance:
+   * - return 0   (\b0)     => [] (no supported result set types);
+   * - return 1   (\b1)     => [SQL_RESULT_SET_TYPE_UNSPECIFIED];
+   * - return 2   (\b10)    => [SQL_RESULT_SET_TYPE_FORWARD_ONLY];
+   * - return 3   (\b11)    => [SQL_RESULT_SET_TYPE_UNSPECIFIED, SQL_RESULT_SET_TYPE_FORWARD_ONLY];
+   * - return 4   (\b100)   => [SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE];
+   * - return 5   (\b101)   => [SQL_RESULT_SET_TYPE_UNSPECIFIED, SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE];
+   * - return 6   (\b110)   => [SQL_RESULT_SET_TYPE_FORWARD_ONLY, SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE];
+   * - return 7   (\b111)   => [SQL_RESULT_SET_TYPE_UNSPECIFIED, SQL_RESULT_SET_TYPE_FORWARD_ONLY, SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE];
+   * - return 8   (\b1000)  => [SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE];
+   * - ...
+   * Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetType`.
+   */
+  SQL_SUPPORTED_RESULT_SET_TYPES = 567;
+
+  /*
+   * Returns an int32 bitmask value concurrency types supported for
+   * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_UNSPECIFIED`.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported concurrency types for this result set type)
+   * - return 1 (\b1)   => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED]
+   * - return 2 (\b10)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 3 (\b11)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 4 (\b100) => [SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 5 (\b101) => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 6 (\b110)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 7 (\b111)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetConcurrency`.
+   */
+  SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_UNSPECIFIED = 568;
+
+  /*
+   * Returns an int32 bitmask value concurrency types supported for
+   * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY`.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported concurrency types for this result set type)
+   * - return 1 (\b1)   => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED]
+   * - return 2 (\b10)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 3 (\b11)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 4 (\b100) => [SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 5 (\b101) => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 6 (\b110)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 7 (\b111)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetConcurrency`.
+   */
+  SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_FORWARD_ONLY = 569;
+
+  /*
+   * Returns an int32 bitmask value concurrency types supported for
+   * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE`.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported concurrency types for this result set type)
+   * - return 1 (\b1)   => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED]
+   * - return 2 (\b10)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 3 (\b11)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 4 (\b100) => [SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 5 (\b101) => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 6 (\b110)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 7 (\b111)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetConcurrency`.
+   */
+  SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_SENSITIVE = 570;
+
+  /*
+   * Returns an int32 bitmask value concurrency types supported for
+   * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE`.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no supported concurrency types for this result set type)
+   * - return 1 (\b1)   => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED]
+   * - return 2 (\b10)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 3 (\b11)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY]
+   * - return 4 (\b100) => [SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 5 (\b101) => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 6 (\b110)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * - return 7 (\b111)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
+   * Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetConcurrency`.
+   */
+  SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE = 571;
+
+  // Retrieves whether this database supports batch updates.
+  SQL_BATCH_UPDATES_SUPPORTED = 572;
+
+  // Retrieves whether this database supports savepoints.
+  SQL_SAVEPOINTS_SUPPORTED = 573;
+
+  // Retrieves whether named parameters are supported to callable statements.
+  SQL_NAMED_PARAMETERS_SUPPORTED = 574;
+
+  // Indicates whether updates made to a LOB are made on a copy or directly to the LOB.
+  SQL_LOCATORS_UPDATE_COPY = 575;
+
+  // Retrieves whether invoking user-defined or vendor functions using the stored procedure escape syntax is supported.
+  SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
+}
+
+// The sorting of null values.
+enum SqlNullOrdering {
+  // Null values are sorted at the end regardless of sort order.
+  SQL_NULLS_SORTED_HIGH = 0;
+  // Null values are sorted low.
+  SQL_NULLS_SORTED_LOW = 1;
+  // Null values are sorted at the start regardless of sort order.
+  SQL_NULLS_SORTED_AT_START = 2;
+  // Null values are sorted at the end regardless of sort order.
+  SQL_NULLS_SORTED_AT_END = 3;
+}
+
+enum SupportedSqlGrammar {
+  SQL_MINIMUM_GRAMMAR = 0;
+  SQL_CORE_GRAMMAR = 1;
+  SQL_EXTENDED_GRAMMAR = 2;
+}
+
+enum SupportedAnsi92SqlGrammarLevel {
+  ANSI92_ENTRY_SQL = 0;
+  ANSI92_INTERMEDIATE_SQL = 1;
+  ANSI92_FULL_SQL = 2;
+}
+
+enum SqlJoinsSupportLevel {
+  SQL_JOINS_UNSUPPORTED = 0;
+  SQL_LIMITED_JOINS = 1;
+  SQL_FULL_OUTER_JOINS = 2;
+}
+
+enum SqlSupportedGroupBy {
+  SQL_GROUP_BY_UNRELATED = 0;
+  SQL_GROUP_BY_BEYOND_SELECT = 1;
+}
+
+enum SqlSupportedElementActions {
+  SQL_ELEMENT_IN_PROCEDURE_CALLS = 0;
+  SQL_ELEMENT_IN_INDEX_DEFINITIONS = 1;
+  SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS = 2;
+}
+
+enum SqlSupportedPositionedCommands {
+  SQL_POSITIONED_DELETE = 0;
+  SQL_POSITIONED_UPDATE = 1;
+}
+
+enum SqlSupportedSubqueries {
+  SQL_SUBQUERIES_IN_COMPARISONS = 0;
+  SQL_SUBQUERIES_IN_EXISTS = 1;
+  SQL_SUBQUERIES_IN_INS = 2;
+  SQL_SUBQUERIES_IN_QUANTIFIEDS = 3;
+}
+
+enum SqlSupportedUnions {
+  SQL_UNION = 0;
+  SQL_UNION_ALL = 1;
+}
+
+enum SqlTransactionIsolationLevel {
+  SQL_TRANSACTION_NONE = 0;
+  SQL_TRANSACTION_READ_UNCOMMITTED = 1;
+  SQL_TRANSACTION_READ_COMMITTED = 2;
+  SQL_TRANSACTION_REPEATABLE_READ = 3;
+  SQL_TRANSACTION_SERIALIZABLE = 4;
+}
+
+enum SqlSupportedTransactions {
+  SQL_TRANSACTION_UNSPECIFIED = 0;
+  SQL_DATA_DEFINITION_TRANSACTIONS = 1;
+  SQL_DATA_MANIPULATION_TRANSACTIONS = 2;
+}
+
+enum SqlSupportedResultSetType {
+  SQL_RESULT_SET_TYPE_UNSPECIFIED = 0;
+  SQL_RESULT_SET_TYPE_FORWARD_ONLY = 1003;
+  SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE = 1004;
+  SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE = 1005;
+}
+
+enum SqlSupportedResultSetConcurrency {
+  SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED = 0;
+  SQL_RESULT_SET_CONCURRENCY_READ_ONLY = 1007;
+  SQL_RESULT_SET_CONCURRENCY_UPDATABLE = 1008;
 }
 
 /*
