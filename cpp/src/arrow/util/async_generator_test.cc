@@ -1479,4 +1479,16 @@ TEST(FailingGenerator, Basics) {
   ASSERT_FINISHES_OK_AND_EQ(std::vector<TestInt>{}, collect_fut);
 }
 
+TEST(DefaultIfEmptyGenerator, Basics) {
+  std::vector<TestInt> values{1, 2, 3, 4};
+  auto gen = MakeVectorGenerator(values);
+  ASSERT_FINISHES_OK_AND_ASSIGN(
+      auto actual, CollectAsyncGenerator(MakeDefaultIfEmptyGenerator(gen, TestInt(42))));
+  EXPECT_EQ(values, actual);
+
+  gen = MakeVectorGenerator<TestInt>({});
+  ASSERT_FINISHES_OK_AND_ASSIGN(
+      actual, CollectAsyncGenerator(MakeDefaultIfEmptyGenerator(gen, TestInt(42))));
+  EXPECT_EQ(std::vector<TestInt>{42}, actual);
+}
 }  // namespace arrow
