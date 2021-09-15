@@ -772,7 +772,7 @@ test_that("mutate() features not yet implemented", {
     ds %>%
       group_by(int) %>%
       mutate(avg = mean(int)),
-    "mutate() on grouped data not supported in Arrow\nCall collect() first to pull data into R.",
+    "window functions not currently supported in Arrow\nCall collect() first to pull data into R.",
     fixed = TRUE
   )
 })

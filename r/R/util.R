@@ -58,10 +58,29 @@ r_symbolic_constants <- c(
   "NA_integer_", "NA_real_", "NA_complex_", "NA_character_"
 )
 
+is_function <- function(expr, name) {
+  if (!is.call(expr)) {
+    return(FALSE)
+  } else {
+    if (deparse(expr[[1]]) == name) {
+      return(TRUE)
+    }
+    out <- lapply(expr, is_function, name)
+  }
+  any(map_lgl(out, isTRUE))
+}
+
 all_funs <- function(expr) {
-  # Don't use setdiff so that we preserve duplicates
-  out <- all.names(expr)
-  out[!(out %in% all.vars(expr))]
+  # It is not sufficient to simply do something like
+  #   setdiff(all.names, all.vars)
+  # here because that would fail to return the names of functions that
+  # share names with variables.
+  # To preserve duplicates, call `all.names()` not `all_names()` here.
+  if (is_quosure(expr)) {
+    expr <- quo_get_expr(expr)
+  }
+  names <- all.names(expr)
+  names[map_lgl(names, ~ is_function(expr, .))]
 }
 
 all_vars <- function(expr) {
