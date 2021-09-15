@@ -35,7 +35,7 @@
     c(
       "select", "filter", "collect", "summarise", "group_by", "groups",
       "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
-      "arrange", "rename", "pull", "relocate", "compute", "collapse", 
+      "arrange", "rename", "pull", "relocate", "compute", "collapse",
       "distinct"
     )
   )
