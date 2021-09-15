@@ -309,11 +309,6 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
-      - uses: actions/upload-artifact@v1
-        if: failure()
-        with:
-          name: CPP Build Artifacts
-          path: build/cpp
       - name: Download MinIO
         shell: msys2 {0}
         run: |

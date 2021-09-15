@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
+# mingw-w64-x86_64-make installs mingw32-make, not make
 MAKE="make"
 if [ -n "$MSYSTEM" ]; then
   MAKE="mingw32-make"
