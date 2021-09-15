@@ -158,7 +158,11 @@ func (r *RowGroupMetaDataBuilder) Finish(totalBytesWritten int64, ordinal int16)
 			return xerrors.Errorf("parquet: Column %d is not complete", idx)
 		}
 		if idx == 0 {
-			fileOffset = col.FileOffset
+			if col.MetaData.IsSetDictionaryPageOffset() && col.MetaData.GetDictionaryPageOffset() > 0 {
+				fileOffset = col.MetaData.GetDictionaryPageOffset()
+			} else {
+				fileOffset = col.MetaData.DataPageOffset
+			}
 		}
 		// sometimes column metadata is encrypted and not available to read
 		// so we must get total compressed size from column builder
