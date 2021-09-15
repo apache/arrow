@@ -106,6 +106,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "concat_ws_utf8_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("elt", {}, DataTypeVector{int32(), utf8()}, utf8(), kResultNullIfNull,
+                     "gdv_fn_elt_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("castBIT", {"castBOOLEAN"}, DataTypeVector{utf8()}, boolean(),
                      kResultNullIfNull, "castBIT_utf8", NativeFunction::kNeedsContext),
 
