@@ -114,10 +114,10 @@ def test_option_class_equality():
         pc.ExtractRegexOptions("pattern"),
         pc.IndexOptions(pa.scalar(1)),
         pc.MatchSubstringOptions("pattern"),
-        pc.PadOptions(5, " "),
+        pc.PadOptions(5, padding=" "),
         pc.PartitionNthOptions(1),
         pc.MakeStructOptions(["field", "names"]),
-        pc.DayOfWeekOptions(False, 0),
+        pc.DayOfWeekOptions(one_based_numbering=False, week_start=0),
         pc.ReplaceSliceOptions(start=0, stop=1, replacement="a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.SetLookupOptions(value_set=pa.array([1])),
@@ -304,7 +304,7 @@ def test_mode_array():
     assert len(mode) == 1
     assert mode[0].as_py() == {"mode": 1, "count": 2}
 
-    mode = pc.mode(arr, 2)
+    mode = pc.mode(arr, n=2)
     assert len(mode) == 2
     assert mode[0].as_py() == {"mode": 1, "count": 2}
     assert mode[1].as_py() == {"mode": 3, "count": 2}
@@ -328,7 +328,7 @@ def test_mode_chunked_array():
     assert len(mode) == 1
     assert mode[0].as_py() == {"mode": 1, "count": 2}
 
-    mode = pc.mode(arr, 2)
+    mode = pc.mode(arr, n=2)
     assert len(mode) == 2
     assert mode[0].as_py() == {"mode": 1, "count": 2}
     assert mode[1].as_py() == {"mode": 3, "count": 2}
@@ -872,7 +872,7 @@ def test_binary_join_element_wise():
     assert pc.binary_join_element_wise('a', null, '-').as_py() is None
     assert pc.binary_join_element_wise('a', 'b', null).as_py() is None
 
-    skip = pc.JoinOptions('skip')
+    skip = pc.JoinOptions(null_handling='skip')
     assert pc.binary_join_element_wise(*arrs, options=skip).to_pylist() == \
         [None, 'a', 'b--d']
     assert pc.binary_join_element_wise(
@@ -882,7 +882,7 @@ def test_binary_join_element_wise():
     assert pc.binary_join_element_wise(
         'a', 'b', null, options=skip).as_py() is None
 
-    replace = pc.JoinOptions('replace', null_replacement='spam')
+    replace = pc.JoinOptions(null_handling='replace', null_replacement='spam')
     assert pc.binary_join_element_wise(*arrs, options=replace).to_pylist() == \
         [None, 'a-spam', 'b--d']
     assert pc.binary_join_element_wise(
@@ -1602,7 +1602,7 @@ def test_strftime():
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
-        options = pc.StrftimeOptions(fmt, "C")
+        options = pc.StrftimeOptions(fmt, locale="C")
         result = pc.strftime(tsa, options=options)
         expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
         assert result.equals(expected)

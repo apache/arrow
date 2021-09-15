@@ -40,22 +40,22 @@ from pyarrow._compute import (  # noqa
     FilterOptions,
     IndexOptions,
     JoinOptions,
+    MakeStructOptions,
     MatchSubstringOptions,
     ModeOptions,
+    NullOptions,
     PadOptions,
     PartitionNthOptions,
-    MakeStructOptions,
-    NullOptions,
     QuantileOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
     RoundOptions,
     RoundToMultipleOptions,
     ScalarAggregateOptions,
+    SelectKOptions,
     SetLookupOptions,
     SliceOptions,
     SortOptions,
-    SelectKOptions,
     SplitOptions,
     SplitPatternOptions,
     StrftimeOptions,
@@ -65,8 +65,8 @@ from pyarrow._compute import (  # noqa
     TrimOptions,
     VarianceOptions,
     # Functions
-    function_registry,
     call_function,
+    function_registry,
     get_function,
     list_functions,
 )
@@ -320,7 +320,8 @@ def count_substring(array, pattern, *, ignore_case=False):
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("count_substring", [array],
-                         MatchSubstringOptions(pattern, ignore_case))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
 def count_substring_regex(array, pattern, *, ignore_case=False):
@@ -339,7 +340,8 @@ def count_substring_regex(array, pattern, *, ignore_case=False):
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("count_substring_regex", [array],
-                         MatchSubstringOptions(pattern, ignore_case))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
 def find_substring(array, pattern, *, ignore_case=False):
@@ -360,7 +362,8 @@ def find_substring(array, pattern, *, ignore_case=False):
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("find_substring", [array],
-                         MatchSubstringOptions(pattern, ignore_case))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
 def find_substring_regex(array, pattern, *, ignore_case=False):
@@ -381,7 +384,8 @@ def find_substring_regex(array, pattern, *, ignore_case=False):
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("find_substring_regex", [array],
-                         MatchSubstringOptions(pattern, ignore_case))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
 def match_like(array, pattern, *, ignore_case=False):
@@ -406,7 +410,8 @@ def match_like(array, pattern, *, ignore_case=False):
 
     """
     return call_function("match_like", [array],
-                         MatchSubstringOptions(pattern, ignore_case))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
 def match_substring(array, pattern, *, ignore_case=False):
@@ -426,7 +431,8 @@ def match_substring(array, pattern, *, ignore_case=False):
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("match_substring", [array],
-                         MatchSubstringOptions(pattern, ignore_case))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
 def match_substring_regex(array, pattern, *, ignore_case=False):
@@ -446,10 +452,11 @@ def match_substring_regex(array, pattern, *, ignore_case=False):
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("match_substring_regex", [array],
-                         MatchSubstringOptions(pattern, ignore_case))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
-def mode(array, n=1, skip_nulls=True, min_count=0):
+def mode(array, *, n=1, skip_nulls=True, min_count=0):
     """
     Return top-n most common values and number of times they occur in a passed
     numerical (chunked) array, in descending order of occurance. If there are
@@ -484,7 +491,7 @@ def mode(array, n=1, skip_nulls=True, min_count=0):
     return call_function("mode", [array], options)
 
 
-def filter(data, mask, null_selection_behavior='drop'):
+def filter(data, mask, *, null_selection_behavior='drop'):
     """
     Select values (or records) from array- or table-like data given boolean
     filter, where true values are selected.
@@ -524,7 +531,7 @@ def filter(data, mask, null_selection_behavior='drop'):
       "e"
     ]
     """
-    options = FilterOptions(null_selection_behavior)
+    options = FilterOptions(null_selection_behavior=null_selection_behavior)
     return call_function('filter', [data, mask], options)
 
 

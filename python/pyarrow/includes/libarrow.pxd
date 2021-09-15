@@ -1777,13 +1777,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
         const CFunctionOptionsType* options_type() const
         const char* type_name() const
-        c_bool Equals(const CFunctionOptions& other)
-        c_string ToString()
+        c_bool Equals(const CFunctionOptions& other) const
+        c_string ToString() const
+        unique_ptr[CFunctionOptions] Copy() const
         CResult[shared_ptr[CBuffer]] Serialize() const
 
         @staticmethod
         CResult[unique_ptr[CFunctionOptions]] Deserialize(
-            const c_string& type_name, const CBuffer&)
+            const c_string& type_name, const CBuffer& buffer)
 
     cdef cppclass CFunction" arrow::compute::Function":
         const c_string& name() const
@@ -1793,7 +1794,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int num_kernels() const
         CResult[CDatum] Execute(const vector[CDatum]& args,
                                 const CFunctionOptions* options,
-                                CExecContext* ctx)
+                                CExecContext* ctx) const
 
     cdef cppclass CScalarFunction" arrow::compute::ScalarFunction"(CFunction):
         vector[const CScalarKernel*] kernels() const
@@ -1801,14 +1802,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CVectorFunction" arrow::compute::VectorFunction"(CFunction):
         vector[const CVectorKernel*] kernels() const
 
-    cdef cppclass CScalarAggregateFunction\
-            " arrow::compute::ScalarAggregateFunction"\
-            (CFunction):
+    cdef cppclass CScalarAggregateFunction \
+            " arrow::compute::ScalarAggregateFunction"(CFunction):
         vector[const CScalarAggregateKernel*] kernels() const
 
-    cdef cppclass CHashAggregateFunction\
-            " arrow::compute::HashAggregateFunction"\
-            (CFunction):
+    cdef cppclass CHashAggregateFunction \
+            " arrow::compute::HashAggregateFunction"(CFunction):
         vector[const CHashAggregateKernel*] kernels() const
 
     cdef cppclass CMetaFunction" arrow::compute::MetaFunction"(CFunction):
@@ -1988,10 +1987,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CStrptimeOptions \
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
         CStrptimeOptions(c_string format, TimeUnit unit)
+        c_string format
+        TimeUnit unit
 
     cdef cppclass CStrftimeOptions \
             "arrow::compute::StrftimeOptions"(CFunctionOptions):
         CStrftimeOptions(c_string format, c_string locale)
+        c_string format
+        c_string locale
 
     cdef cppclass CDayOfWeekOptions \
             "arrow::compute::DayOfWeekOptions"(CFunctionOptions):
@@ -2019,9 +2022,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CAssumeTimezoneOptions \
             "arrow::compute::AssumeTimezoneOptions"(CFunctionOptions):
-        CAssumeTimezoneOptions(
-            c_string timezone, CAssumeTimezoneAmbiguous ambiguous,
-            CAssumeTimezoneNonexistent nonexistent)
+        CAssumeTimezoneOptions(c_string timezone,
+                               CAssumeTimezoneAmbiguous ambiguous,
+                               CAssumeTimezoneNonexistent nonexistent)
+        c_string timezone
+        CAssumeTimezoneAmbiguous ambiguous
+        CAssumeTimezoneNonexistent nonexistent
 
     cdef cppclass CNullOptions \
             "arrow::compute::NullOptions"(CFunctionOptions):
@@ -2061,6 +2067,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CIndexOptions \
             "arrow::compute::IndexOptions"(CFunctionOptions):
         CIndexOptions(shared_ptr[CScalar] value)
+        shared_ptr[CScalar] value
 
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):

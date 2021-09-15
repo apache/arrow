@@ -183,7 +183,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         array : boolean Array or ChunkedArray
         """
-        options = _pc().NullOptions(nan_is_null)
+        options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
@@ -385,12 +385,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return pyarrow_wrap_chunked_array(result)
 
-    def filter(self, mask, object null_selection_behavior="drop"):
+    def filter(self, mask, *, object null_selection_behavior="drop"):
         """
         Select values from a chunked array. See pyarrow.compute.filter for full
         usage.
         """
-        return _pc().filter(self, mask, null_selection_behavior)
+        return _pc().filter(self, mask,
+                            null_selection_behavior=null_selection_behavior)
 
     def index(self, value, start=None, end=None, *, memory_pool=None):
         """
@@ -931,12 +932,13 @@ cdef class RecordBatch(_PandasConvertible):
 
         return pyarrow_wrap_batch(result)
 
-    def filter(self, Array mask, object null_selection_behavior="drop"):
+    def filter(self, mask, *, object null_selection_behavior="drop"):
         """
         Select record from a record batch. See pyarrow.compute.filter for full
         usage.
         """
-        return _pc().filter(self, mask, null_selection_behavior)
+        return _pc().filter(self, mask,
+                            null_selection_behavior=null_selection_behavior)
 
     def equals(self, object other, bint check_metadata=False):
         """
@@ -1333,12 +1335,13 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(result)
 
-    def filter(self, mask, object null_selection_behavior="drop"):
+    def filter(self, mask, *, object null_selection_behavior="drop"):
         """
         Select records from a Table. See :func:`pyarrow.compute.filter` for
         full usage.
         """
-        return _pc().filter(self, mask, null_selection_behavior)
+        return _pc().filter(self, mask,
+                            null_selection_behavior=null_selection_behavior)
 
     def take(self, object indices):
         """

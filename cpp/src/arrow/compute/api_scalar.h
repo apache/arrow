@@ -279,7 +279,7 @@ class ARROW_EXPORT NullOptions : public FunctionOptions {
   constexpr static char const kTypeName[] = "NullOptions";
   static NullOptions Defaults() { return NullOptions{}; }
 
-  bool nan_is_null = false;
+  bool nan_is_null;
 };
 
 enum CompareOperator : int8_t {
@@ -319,7 +319,7 @@ struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
   explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1);
   constexpr static char const kTypeName[] = "DayOfWeekOptions";
-  static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
+  static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
   /// Number days from 1 if true and from 0 if false
   bool one_based_numbering;

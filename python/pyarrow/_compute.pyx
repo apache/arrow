@@ -683,7 +683,7 @@ cdef class _ElementWiseAggregateOptions(FunctionOptions):
 
 
 class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
-    def __init__(self, skip_nulls=True):
+    def __init__(self, *, skip_nulls=True):
         self._set_options(skip_nulls)
 
 
@@ -721,7 +721,7 @@ cdef class _RoundOptions(FunctionOptions):
 
 
 class RoundOptions(_RoundOptions):
-    def __init__(self, ndigits=0, round_mode="half_to_even"):
+    def __init__(self, *, ndigits=0, round_mode="half_to_even"):
         self._set_options(ndigits, round_mode)
 
 
@@ -733,7 +733,7 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
-    def __init__(self, multiple=1.0, round_mode="half_to_even"):
+    def __init__(self, *, multiple=1.0, round_mode="half_to_even"):
         self._set_options(multiple, round_mode)
 
 
@@ -754,7 +754,7 @@ cdef class _JoinOptions(FunctionOptions):
 
 
 class JoinOptions(_JoinOptions):
-    def __init__(self, null_handling="emit_null", null_replacement=""):
+    def __init__(self, *, null_handling="emit_null", null_replacement=""):
         self._set_options(null_handling, null_replacement)
 
 
@@ -765,7 +765,7 @@ cdef class _MatchSubstringOptions(FunctionOptions):
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
-    def __init__(self, pattern, ignore_case=False):
+    def __init__(self, pattern, *, ignore_case=False):
         self._set_options(pattern, ignore_case)
 
 
@@ -775,7 +775,7 @@ cdef class _PadOptions(FunctionOptions):
 
 
 class PadOptions(_PadOptions):
-    def __init__(self, width, padding=" "):
+    def __init__(self, width, *, padding=" "):
         self._set_options(width, padding)
 
 
@@ -808,7 +808,7 @@ cdef class _ReplaceSubstringOptions(FunctionOptions):
 
 
 class ReplaceSubstringOptions(_ReplaceSubstringOptions):
-    def __init__(self, pattern, replacement, max_replacements=-1):
+    def __init__(self, pattern, replacement, *, max_replacements=-1):
         self._set_options(pattern, replacement, max_replacements)
 
 
@@ -828,7 +828,7 @@ cdef class _SliceOptions(FunctionOptions):
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, start, stop=sys.maxsize, step=1):
+    def __init__(self, start, *, stop=sys.maxsize, step=1):
         self._set_options(start, stop, step)
 
 
@@ -848,7 +848,7 @@ cdef class _FilterOptions(FunctionOptions):
 
 
 class FilterOptions(_FilterOptions):
-    def __init__(self, null_selection_behavior="drop"):
+    def __init__(self, *, null_selection_behavior="drop"):
         self._set_options(null_selection_behavior)
 
 
@@ -868,7 +868,7 @@ cdef class _DictionaryEncodeOptions(FunctionOptions):
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
-    def __init__(self, null_encoding="mask"):
+    def __init__(self, *, null_encoding="mask"):
         self._set_options(null_encoding)
 
 
@@ -878,7 +878,7 @@ cdef class _TakeOptions(FunctionOptions):
 
 
 class TakeOptions(_TakeOptions):
-    def __init__(self, boundscheck=True):
+    def __init__(self, *, boundscheck=True):
         self._set_options(boundscheck)
 
 
@@ -911,7 +911,7 @@ cdef class _ScalarAggregateOptions(FunctionOptions):
 
 
 class ScalarAggregateOptions(_ScalarAggregateOptions):
-    def __init__(self, skip_nulls=True, min_count=1):
+    def __init__(self, *, skip_nulls=True, min_count=1):
         self._set_options(skip_nulls, min_count)
 
 
@@ -929,12 +929,12 @@ cdef class _CountOptions(FunctionOptions):
 
 
 class CountOptions(_CountOptions):
-    def __init__(self, mode="only_valid"):
+    def __init__(self, *, mode="only_valid"):
         self._set_options(mode)
 
 
 cdef class _IndexOptions(FunctionOptions):
-    def _set_options(self, Scalar scalar):
+    def _set_options(self, scalar):
         self.wrapped.reset(new CIndexOptions(pyarrow_unwrap_scalar(scalar)))
 
 
@@ -958,7 +958,7 @@ cdef class _ModeOptions(FunctionOptions):
 
 
 class ModeOptions(_ModeOptions):
-    def __init__(self, n=1, skip_nulls=True, min_count=0):
+    def __init__(self, *, n=1, skip_nulls=True, min_count=0):
         self._set_options(n, skip_nulls, min_count)
 
 
@@ -978,7 +978,7 @@ cdef class _SetLookupOptions(FunctionOptions):
 
 
 class SetLookupOptions(_SetLookupOptions):
-    def __init__(self, value_set, skip_nulls=False):
+    def __init__(self, value_set, *, skip_nulls=False):
         self._set_options(value_set, skip_nulls)
 
 
@@ -1009,7 +1009,7 @@ cdef class _StrftimeOptions(FunctionOptions):
 
 
 class StrftimeOptions(_StrftimeOptions):
-    def __init__(self, format="%Y-%m-%dT%H:%M:%S", locale="C"):
+    def __init__(self, format="%Y-%m-%dT%H:%M:%S", *, locale="C"):
         self._set_options(format, locale)
 
 
@@ -1020,7 +1020,7 @@ cdef class _DayOfWeekOptions(FunctionOptions):
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
-    def __init__(self, one_based_numbering=False, week_start=1):
+    def __init__(self, *, one_based_numbering=False, week_start=1):
         self._set_options(one_based_numbering, week_start)
 
 
@@ -1051,7 +1051,7 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
 
 
 class AssumeTimezoneOptions(_AssumeTimezoneOptions):
-    def __init__(self, timezone, ambiguous="raise", nonexistent="raise"):
+    def __init__(self, timezone, *, ambiguous="raise", nonexistent="raise"):
         self._set_options(timezone, ambiguous, nonexistent)
 
 
@@ -1061,7 +1061,7 @@ cdef class _NullOptions(FunctionOptions):
 
 
 class NullOptions(_NullOptions):
-    def __init__(self, nan_is_null=False):
+    def __init__(self, *, nan_is_null=False):
         self._set_options(nan_is_null)
 
 
@@ -1071,7 +1071,7 @@ cdef class _VarianceOptions(FunctionOptions):
 
 
 class VarianceOptions(_VarianceOptions):
-    def __init__(self, ddof=0, skip_nulls=True, min_count=0):
+    def __init__(self, *, ddof=0, skip_nulls=True, min_count=0):
         self._set_options(ddof, skip_nulls, min_count)
 
 
@@ -1081,7 +1081,7 @@ cdef class _SplitOptions(FunctionOptions):
 
 
 class SplitOptions(_SplitOptions):
-    def __init__(self, max_splits=-1, reverse=False):
+    def __init__(self, *, max_splits=-1, reverse=False):
         self._set_options(max_splits, reverse)
 
 
@@ -1092,7 +1092,7 @@ cdef class _SplitPatternOptions(FunctionOptions):
 
 
 class SplitPatternOptions(_SplitPatternOptions):
-    def __init__(self, pattern, max_splits=-1, reverse=False):
+    def __init__(self, pattern, *, max_splits=-1, reverse=False):
         self._set_options(pattern, max_splits, reverse)
 
 
@@ -1113,7 +1113,7 @@ cdef class _ArraySortOptions(FunctionOptions):
 
 
 class ArraySortOptions(_ArraySortOptions):
-    def __init__(self, order="ascending"):
+    def __init__(self, *, order="ascending"):
         self._set_options(order)
 
 
@@ -1127,7 +1127,7 @@ cdef class _SortOptions(FunctionOptions):
 
 
 class SortOptions(_SortOptions):
-    def __init__(self, sort_keys=None):
+    def __init__(self, *, sort_keys=None):
         if sort_keys is None:
             sort_keys = []
         self._set_options(sort_keys)
@@ -1143,7 +1143,7 @@ cdef class _SelectKOptions(FunctionOptions):
 
 
 class SelectKOptions(_SelectKOptions):
-    def __init__(self, k, sort_keys=None):
+    def __init__(self, *, k=-1, sort_keys=None):
         if sort_keys is None:
             sort_keys = []
         self._set_options(k, sort_keys)
@@ -1182,7 +1182,7 @@ cdef class _TDigestOptions(FunctionOptions):
 
 
 class TDigestOptions(_TDigestOptions):
-    def __init__(self, q=0.5, delta=100, buffer_size=500, skip_nulls=True,
+    def __init__(self, *, q=0.5, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
