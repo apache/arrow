@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "arrow/util/logging.h"
 
 #include "gandiva/execution_context.h"
 
@@ -764,6 +765,27 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Failed to cast the string e to double"));
   ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestEltFunction) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  gdv_int32 out_len = 0;
+
+  auto out_string = gdv_fn_elt_utf8(ctx_ptr, 1, "john", strlen("john"), &out_len);
+  EXPECT_EQ("john", std::string(out_string, out_len));
+
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 2, "hello, world", strlen("hello, world"), &out_len);
+  EXPECT_EQ("world", std::string(out_string, out_len));
+
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 4, "goodbye, world", strlen("goodbye, world"), &out_len);
+  EXPECT_EQ("", std::string(out_string, out_len));
+
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 0, "hi, yeah", strlen("hi, yeah"), &out_len);
+  EXPECT_EQ("", std::string(out_string, out_len));
+
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 2, "", strlen(""), &out_len);
+  EXPECT_EQ("", std::string(out_string, out_len));
 }
 
 }  // namespace gandiva
