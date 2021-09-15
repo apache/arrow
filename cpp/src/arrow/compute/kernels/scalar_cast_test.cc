@@ -1499,17 +1499,14 @@ TEST(Cast, StringToInt) {
     CheckCast(ArrayFromJSON(string_type,
                             R"(["9223372036854775807", null, "-9223372036854775808", "0", 
                     "0x0", "0x7FFFFFFFFFFFFFFf", "0XF000000000000001"])"),
-               ArrayFromJSON(int64(),
+              ArrayFromJSON(int64(),
                             "[9223372036854775807, null, -9223372036854775808, 0, 0, "
                             "9223372036854775807, -1152921504606846975]"));
-
-
 
     for (auto unsigned_type : {uint8(), uint16(), uint32(), uint64()}) {
       CheckCast(ArrayFromJSON(string_type,
                               R"(["0", null, "127", "255", "0", "0X0", "0xff", "0x7f"])"),
                 ArrayFromJSON(unsigned_type, "[0, null, 127, 255, 0, 0, 255, 127]"));
-
     }
 
     CheckCast(
@@ -1521,10 +1518,9 @@ TEST(Cast, StringToInt) {
     CheckCast(ArrayFromJSON(string_type,
                             R"(["9223372036854775807", null, "18446744073709551615", "0", 
                     "0x0", "0x7FFFFFFFFFFFFFFf", "0xfFFFFFFFFFFFFFFf"])"),
-               ArrayFromJSON(uint64(),
+              ArrayFromJSON(uint64(),
                             "[9223372036854775807, null, 18446744073709551615, 0, 0, "
                             "9223372036854775807, 18446744073709551615]"));
-
 
     for (std::string not_int8 : {
              "z",

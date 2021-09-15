@@ -175,7 +175,7 @@ TEST(StringConversion, ToInt16) {
   AssertConversionFails<Int16Type>("-");
   AssertConversionFails<Int16Type>("0.0");
   AssertConversionFails<Int16Type>("e");
-  
+
   // Hex
   AssertConversion<Int16Type>("0x0", 0);
   AssertConversion<Int16Type>("0X1aA", 426);
