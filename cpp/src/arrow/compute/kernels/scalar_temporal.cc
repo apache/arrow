@@ -316,7 +316,7 @@ struct DayOfWeek {
     for (int i = 0; i < 7; i++) {
       lookup_table[i] = i + 8 - options->week_start;
       lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
-      lookup_table[i] += options->one_based_numbering;
+      lookup_table[i] += !options->count_from_zero;
     }
   }
 
@@ -1053,7 +1053,7 @@ const FunctionDoc day_of_week_doc{
      "represented by 6.\n"
      "`DayOfWeekOptions.week_start` can be used to set another starting day using\n"
      "the ISO numbering convention (1=start week on Monday, 7=start week on Sunday).\n"
-     "Day numbers can start at 0 or 1 based on `DayOfWeekOptions.one_based_numbering`.\n"
+     "Day numbers can start at 0 or 1 based on `DayOfWeekOptions.count_from_zero`.\n"
      "Null values emit null.\n"
      "An error is returned if the timestamps have a defined timezone but it\n"
      "cannot be found in the timezone database."),
@@ -1089,8 +1089,9 @@ const FunctionDoc week_doc{
     "Extract week of year number",
     ("First week has the majority (4 or more) of its days in January.\n"
      "Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using "
-     "DayOfWeekOptions.one_based_numbering.\n"
-     "Returns an error if timestamp has a defined timezone. Null values return null."),
+     "DayOfWeekOptions.count_from_zero.\n"
+     "An error is returned if the timestamps have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
     {"values"},
     "WeekOptions"};
 

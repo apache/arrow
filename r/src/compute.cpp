@@ -331,11 +331,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "day_of_week") {
     using Options = arrow::compute::DayOfWeekOptions;
-    bool one_based_numbering = true;
-    if (!Rf_isNull(options["one_based_numbering"])) {
-      one_based_numbering = cpp11::as_cpp<bool>(options["one_based_numbering"]);
+    bool count_from_zero = false;
+    if (!Rf_isNull(options["count_from_zero"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["count_from_zero"]);
     }
-    return std::make_shared<Options>(one_based_numbering,
+    return std::make_shared<Options>(count_from_zero,
                                      cpp11::as_cpp<uint32_t>(options["week_start"]));
   }
 

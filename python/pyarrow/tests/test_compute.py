@@ -1691,7 +1691,7 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
 
     day_of_week_options = pc.DayOfWeekOptions(
-        one_based_numbering=True, week_start=1)
+        count_from_zero=False, week_start=1)
     assert pc.day_of_week(tsa, options=day_of_week_options).equals(
         pa.array(ts.dt.dayofweek + 1))
 

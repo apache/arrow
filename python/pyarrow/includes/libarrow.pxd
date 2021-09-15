@@ -1998,8 +1998,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CDayOfWeekOptions \
             "arrow::compute::DayOfWeekOptions"(CFunctionOptions):
-        CDayOfWeekOptions(c_bool one_based_numbering, uint32_t week_start)
-        c_bool one_based_numbering
+        CDayOfWeekOptions(c_bool count_from_zero, uint32_t week_start)
+        c_bool count_from_zero
         uint32_t week_start
 
     cdef enum CAssumeTimezoneAmbiguous \

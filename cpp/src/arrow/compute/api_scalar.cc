@@ -245,7 +245,7 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
     DataMember("field_nullability", &MakeStructOptions::field_nullability),
     DataMember("field_metadata", &MakeStructOptions::field_metadata));
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
-    DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
+    DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
     DataMember("week_start", &DayOfWeekOptions::week_start));
 static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
     DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
@@ -410,9 +410,9 @@ MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
 MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
 constexpr char MakeStructOptions::kTypeName[];
 
-DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
+DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)
     : FunctionOptions(internal::kDayOfWeekOptionsType),
-      one_based_numbering(one_based_numbering),
+      count_from_zero(count_from_zero),
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
