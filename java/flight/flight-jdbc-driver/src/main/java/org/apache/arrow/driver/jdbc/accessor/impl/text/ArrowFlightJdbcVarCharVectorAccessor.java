@@ -89,7 +89,8 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public byte[] getBytes() {
-    return this.getText().copyBytes();
+    final Text value = this.getText();
+    return value == null ? null : value.copyBytes();
   }
 
   @Override
@@ -141,7 +142,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public InputStream getAsciiStream() {
     Text value = this.getText();
-    return new ByteArrayInputStream(value.getBytes(), 0, value.getLength());
+    return value == null ? null : new ByteArrayInputStream(value.getBytes(), 0, value.getLength());
   }
 
   @Override

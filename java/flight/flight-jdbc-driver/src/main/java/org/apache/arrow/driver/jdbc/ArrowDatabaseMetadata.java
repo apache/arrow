@@ -182,7 +182,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
         Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
         Field.notNullable("TABLE_TYPE", Types.MinorType.VARCHAR.getType()),
-        // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
+        // TODO It's currently not possible to fetch this fields, evaluate if makes sense to add to FlightSQL.
         Field.nullable("REMARKS", Types.MinorType.VARBINARY.getType()),
         Field.nullable("TYPE_CAT", Types.MinorType.VARBINARY.getType()),
         Field.nullable("TYPE_SCHEM", Types.MinorType.VARBINARY.getType()),
@@ -215,7 +215,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         Field.nullable("PK_NAME", Types.MinorType.VARCHAR.getType()),
         Field.notNullable("UPDATE_RULE", new ArrowType.Int(Byte.SIZE, false)),
         Field.notNullable("DELETE_RULE", new ArrowType.Int(Byte.SIZE, false)),
-        // TODO Add this field to FlightSQL, as it's currently not possible to fetch them.
+        // TODO It's currently not possible to fetch this fields, evaluate if makes sense to add to FlightSQL.
         Field.notNullable("DEFERRABILITY", new ArrowType.Int(Byte.SIZE, false))));
 
     private static final Schema GET_PRIMARY_KEYS = new Schema(Arrays.asList(
