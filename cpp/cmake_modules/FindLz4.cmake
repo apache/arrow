@@ -56,7 +56,13 @@ else()
   pkg_check_modules(LZ4_PC liblz4)
   if(LZ4_PC_FOUND)
     set(LZ4_INCLUDE_DIR "${LZ4_PC_INCLUDEDIR}")
-    set(LZ4_LIB "${LZ4_PC_LINK_LIBRARIES}")
+
+    list(APPEND LZ4_PC_LIBRARY_DIRS "${LZ4_PC_LIBDIR}")
+    find_library(LZ4_LIB
+                 NAMES ${LZ4_LIB_NAMES}
+                 PATHS ${LZ4_PC_LIBRARY_DIRS}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
   else()
     find_library(LZ4_LIB
                  NAMES ${LZ4_LIB_NAMES}
