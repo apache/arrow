@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-include "../../Schema.fbs";
+include "../../format/Schema.fbs";
 include "Literal.fbs";
 
 namespace org.apache.arrow.computeir.flatbuf;

@@ -20,37 +20,31 @@
 
 # Run this from cpp/ directory. flatc is expected to be in your path
 
-set -o pipefail
-set -o errexit
-set -o nounset
+set -euo pipefail
 
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SOURCE_DIR=$CWD/../src
-PYTHON_SOURCE_DIR=$CWD/../../python
-FORMAT_DIR=$CWD/../../format
+SOURCE_DIR="$CWD/../src"
+PYTHON_SOURCE_DIR="$CWD/../../python"
+FORMAT_DIR="$CWD/../../format"
+TOP="$FORMAT_DIR/.."
 FLATC="flatc"
 
 OUT_DIR="$SOURCE_DIR/generated"
 FILES=($(find $FORMAT_DIR -name '*.fbs'))
-FILES+=($SOURCE_DIR/arrow/ipc/feather.fbs)
+FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
-COMPUTE_IR_FILES=($(find $FORMAT_DIR/experimental/computeir -name '*.fbs'))
-COMPUTE_IR_FILES+=($FORMAT_DIR/Schema.fbs)
+# add compute ir files
+FILES+=($(find "$TOP/experimental/computeir" -name '*.fbs'))
 
 $FLATC --cpp --cpp-std c++11 \
   --scoped-enums \
-  -o $SOURCE_DIR/generated \
+  -o "$OUT_DIR" \
   "${FILES[@]}"
 
-# Only generate compute IR files for Python for now
-$FLATC --python \
-  -o $PYTHON_SOURCE_DIR/generated \
-  "${COMPUTE_IR_FILES[@]}"
-
-PLASMA_FBS=($SOURCE_DIR/plasma/{plasma,common}.fbs)
+PLASMA_FBS=("$SOURCE_DIR"/plasma/{plasma,common}.fbs)
 
 $FLATC --cpp --cpp-std c++11 \
-  -o $SOURCE_DIR/plasma \
+  -o "$SOURCE_DIR/plasma" \
   --gen-object-api \
   --scoped-enums \
   "${PLASMA_FBS[@]}"
