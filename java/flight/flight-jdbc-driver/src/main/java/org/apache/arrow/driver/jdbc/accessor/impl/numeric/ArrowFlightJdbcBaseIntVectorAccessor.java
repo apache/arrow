@@ -207,10 +207,6 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
       case UINT8:
         number = getLong();
         break;
-      case DECIMAL:
-      case DECIMAL256:
-        number = getBigDecimal();
-        break;
       default:
         throw new IllegalStateException();
     }
