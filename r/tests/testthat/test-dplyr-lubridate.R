@@ -32,99 +32,138 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
 } else {
   test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
 }
-test_df <- tibble::tibble(date = test_date)
-test_date_df <- tibble::tibble(date = as.Date(as.character(test_date)))
 
-test_that("extract year from date32 objects", {
-  expect_equivalent(
-    test_date_df %>%
-      mutate(x = year(date)) %>%
-      collect() %>%
-      select(x),
-    test_df %>%
-      mutate(x = year(date)) %>%
-      collect() %>%
-      select(x)
+test_df <- tibble::tibble(
+  datetime = c(test_date, NA),
+  date = c(as.Date("2021-09-09"), NA)
+)
+
+# These tests test component extraction from timestamp objects
+
+test_that("extract year from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = year(datetime)) %>%
+      collect(),
+    test_df
   )
 })
 
-test_that("extract isoyear from date32 objects", {
-  expect_equivalent(
-    test_date_df %>%
-      mutate(x = isoyear(date)) %>%
-      collect() %>%
-      select(x),
-    test_df %>%
-      mutate(x = isoyear(date)) %>%
-      collect() %>%
-      select(x)
+test_that("extract isoyear from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = isoyear(datetime)) %>%
+      collect(),
+    test_df
   )
 })
 
-test_that("extract quarter from date32 objects", {
-  expect_equivalent(
-    test_date_df %>%
-      mutate(x = quarter(date)) %>%
-      collect() %>%
-      select(x),
-    test_df %>%
-      mutate(x = quarter(date)) %>%
-      collect() %>%
-      select(x)
+test_that("extract quarter from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = quarter(datetime)) %>%
+      collect(),
+    test_df
   )
 })
 
-test_that("extract month from date32 objects", {
-  expect_equivalent(
-    test_date_df %>%
-      mutate(x = month(date)) %>%
-      collect() %>%
-      select(x),
-    test_df %>%
-      mutate(x = month(date)) %>%
-      collect() %>%
-      select(x)
+test_that("extract month from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = month(datetime)) %>%
+      collect(),
+    test_df
   )
 })
 
-test_that("extract isoweek from date32 objects", {
-  expect_equivalent(
-    test_date_df %>%
-      mutate(x = isoweek(date)) %>%
-      collect() %>%
-      select(x),
-    test_df %>%
-      mutate(x = isoweek(date)) %>%
-      collect() %>%
-      select(x)
+test_that("extract isoweek from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = isoweek(datetime)) %>%
+      collect(),
+    test_df
   )
 })
 
-test_that("extract day from date32 objects", {
-  expect_equivalent(
-    test_date_df %>%
-      mutate(x = day(date)) %>%
-      collect() %>%
-      select(x),
-    test_df %>%
-      mutate(x = day(date)) %>%
-      collect() %>%
-      select(x)
+test_that("extract day from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = day(datetime)) %>%
+      collect(),
+    test_df
   )
 })
 
-test_that("extract yday from date32 objects", {
-  expect_equivalent(
-    test_date_df %>%
-      mutate(x = yday(date)) %>%
-      collect() %>%
-      select(x),
-    test_df %>%
-      mutate(x = yday(date)) %>%
-      collect() %>%
-      select(x)
+test_that("extract wday from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(datetime)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, week_start = 3)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, week_start = 1)) %>%
+      collect(),
+    test_df
+  )
+
+  # We should be able to support the label argument after this ticket is resolved:
+  # https://issues.apache.org/jira/browse/ARROW-13133
+  x <- Expression$field_ref("x")
+  expect_error(
+    nse_funcs$wday(x, label = TRUE),
+    "Label argument not supported by Arrow"
   )
 })
+
+test_that("extract yday from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = yday(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract hour from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = hour(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract minute from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = minute(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract second from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = second(datetime)) %>%
+      collect(),
+    test_df,
+    # arrow supports nanosecond resolution but lubridate does not
+    tolerance = 1e-6
+  )
+})
+
+# These tests test extraction of components from date32 objects
 
 test_that("extract year from date", {
   expect_dplyr_equal(
@@ -217,34 +256,5 @@ test_that("extract yday from date", {
       mutate(x = yday(date)) %>%
       collect(),
     test_df
-  )
-})
-
-test_that("extract hour from date", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = hour(date)) %>%
-      collect(),
-    test_df
-  )
-})
-
-test_that("extract minute from date", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = minute(date)) %>%
-      collect(),
-    test_df
-  )
-})
-
-test_that("extract second from date", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = second(date)) %>%
-      collect(),
-    test_df,
-    # arrow supports nanosecond resolution but lubridate does not
-    tolerance = 1e-6
   )
 })
