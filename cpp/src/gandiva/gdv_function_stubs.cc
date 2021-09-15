@@ -19,6 +19,7 @@
 
 #include <utf8proc.h>
 
+#include <list>
 #include <string>
 #include <vector>
 
@@ -792,6 +793,66 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   }
 
   *out_len = out_idx;
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
+                            int32_t data_len, int32_t* out_len) {
+  if (pos < 1) {
+    *out_len = 0;
+    return "";
+  }
+
+  if (data_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  std::vector<char*> words;
+  char tokenizable_data[strlen(data)];
+  strcpy(tokenizable_data, data);
+  char* token;
+
+  token = std::strtok(tokenizable_data, ",");
+
+  while (token != NULL) {
+    //    ARROW_LOG(INFO) << token;
+    words.push_back(token);
+    token = strtok(NULL, ",");
+  }
+
+  if (static_cast<int32_t>(words.size()) < pos) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* word = words.at(pos - 1);
+
+  // start trim whitespaces
+  char* end;
+
+  // trim leading space
+  while (isspace((unsigned char)*word)) word++;
+
+  if (*word != 0) {
+    // trim trailing space
+    end = word + strlen(word) - 1;
+    while (end > word && isspace((unsigned char)*end)) end--;
+    // write new null terminator character
+    end[1] = '\0';
+  }
+  // finish trim whitespaces
+
+  *out_len = static_cast<int32_t>(strlen(word));
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  strcpy(out, word);
   return out;
 }
 }
@@ -1599,5 +1660,18 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_initcap_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
+
+  // gdv_fn_elt_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i32_type(),      // position
+      types->i8_ptr_type(),   // data
+      types->i32_type(),      // data_len
+      types->i32_ptr_type(),  // out_length
+
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_elt_utf8", types->i8_ptr_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_fn_elt_utf8));
 }
 }  // namespace gandiva
