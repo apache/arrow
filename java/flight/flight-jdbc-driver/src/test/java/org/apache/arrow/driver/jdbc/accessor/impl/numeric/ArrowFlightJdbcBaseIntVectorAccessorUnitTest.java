@@ -145,6 +145,36 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
+  public void testShouldGetObjectFromInt() throws Exception {
+    accessorIterator.assertAccessorGetter(intVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+        equalTo(0xAABBCCDD));
+  }
+
+  @Test
+  public void testShouldGetObjectFromTinyInt() throws Exception {
+    accessorIterator.assertAccessorGetter(tinyIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+        equalTo(0xAA));
+  }
+
+  @Test
+  public void testShouldGetObjectFromSmallInt() throws Exception {
+    accessorIterator.assertAccessorGetter(tinyIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+        equalTo(0xAABB));
+  }
+
+  @Test
+  public void testShouldGetObjectFromBigInt() throws Exception {
+    accessorIterator.assertAccessorGetter(tinyIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+        equalTo(0xAABBCCDDEEFFAABBL));
+  }
+
+  @Test
+  public void testShouldGetObjectFromUnsignedInt() throws Exception {
+    accessorIterator.assertAccessorGetter(tinyIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+        equalTo(0xFFFFFFFFFFFFFFFFL));
+  }
+
+  @Test
   public void testShouldGetObjectFromIntVectorWithNull() throws Exception {
     accessorIterator.assertAccessorGetter(intVectorWithNull, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
         CoreMatchers.nullValue());
