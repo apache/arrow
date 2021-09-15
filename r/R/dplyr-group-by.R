@@ -31,8 +31,12 @@ group_by.arrow_dplyr_query <- function(.data,
   #   * expressions (named or otherwise)
   #   * variables that have new names
   # All others (i.e. simple references to variables) should not be (re)-added
+
+  # Identify any groups with names which aren't in names of .data
   new_group_ind <- map_lgl(new_groups, ~ !(quo_name(.x) %in% names(.data)))
+  # Identify any groups which don't have names
   named_group_ind <- map_lgl(names(new_groups), nzchar)
+  # Retain any new groups identified above
   new_groups <- new_groups[new_group_ind | named_group_ind]
   if (length(new_groups)) {
     # now either use the name that was given in ... or if that is "" then use the expr
