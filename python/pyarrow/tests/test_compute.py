@@ -2046,7 +2046,7 @@ def test_quantile():
 
     with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
         pc.quantile(arr, q=1.1)
-    with pytest.raises(ValueError, match="'zzz' is not a valid interpolation"):
+    with pytest.raises(ValueError, match="not a valid interpolation"):
         pc.quantile(arr, interpolation='zzz')
 
 

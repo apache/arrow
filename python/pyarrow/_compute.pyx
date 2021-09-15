@@ -87,18 +87,19 @@ cdef wrap_function(const shared_ptr[CFunction]& sp_func):
     if sp_func.get() == NULL:
         raise ValueError("Function was NULL")
 
-    kind_dict = {
-        FunctionKind_SCALAR: wrap_scalar_function,
-        FunctionKind_VECTOR: wrap_vector_function,
-        FunctionKind_SCALAR_AGGREGATE: wrap_scalar_aggregate_function,
-        FunctionKind_HASH_AGGREGATE: wrap_hash_aggregate_function,
-        FunctionKind_META: wrap_meta_function,
-    }
-
     cdef FunctionKind c_kind = sp_func.get().kind()
-    if c_kind not in kind_dict:
+    if c_kind == FunctionKind_SCALAR:
+        return wrap_scalar_function(sp_func)
+    elif c_kind == FunctionKind_VECTOR:
+        return wrap_vector_function(sp_func)
+    elif c_kind == FunctionKind_SCALAR_AGGREGATE:
+        return wrap_scalar_aggregate_function(sp_func)
+    elif c_kind == FunctionKind_HASH_AGGREGATE:
+        return wrap_hash_aggregate_function(sp_func)
+    elif c_kind == FunctionKind_META:
+        return wrap_meta_function(sp_func)
+    else:
         raise NotImplementedError("Unknown Function::Kind")
-    return kind_dict[c_kind](sp_func)
 
 
 cdef wrap_scalar_kernel(const CScalarKernel* c_kernel):
@@ -148,8 +149,7 @@ cdef class Kernel(_Weakrefable):
 
 
 cdef class ScalarKernel(Kernel):
-    cdef:
-        const CScalarKernel* kernel
+    cdef const CScalarKernel* kernel
 
     cdef void init(self, const CScalarKernel* kernel) except *:
         self.kernel = kernel
@@ -160,8 +160,7 @@ cdef class ScalarKernel(Kernel):
 
 
 cdef class VectorKernel(Kernel):
-    cdef:
-        const CVectorKernel* kernel
+    cdef const CVectorKernel* kernel
 
     cdef void init(self, const CVectorKernel* kernel) except *:
         self.kernel = kernel
@@ -172,8 +171,7 @@ cdef class VectorKernel(Kernel):
 
 
 cdef class ScalarAggregateKernel(Kernel):
-    cdef:
-        const CScalarAggregateKernel* kernel
+    cdef const CScalarAggregateKernel* kernel
 
     cdef void init(self, const CScalarAggregateKernel* kernel) except *:
         self.kernel = kernel
@@ -184,8 +182,7 @@ cdef class ScalarAggregateKernel(Kernel):
 
 
 cdef class HashAggregateKernel(Kernel):
-    cdef:
-        const CHashAggregateKernel* kernel
+    cdef const CHashAggregateKernel* kernel
 
     cdef void init(self, const CHashAggregateKernel* kernel) except *:
         self.kernel = kernel
@@ -286,9 +283,9 @@ cdef class Function(_Weakrefable):
         The function kind.
         """
         cdef FunctionKind c_kind = self.base_func.kind()
-        if c_kind not in kind_dict:
+        if c_kind not in type(self).kind_dict:
             raise NotImplementedError("Unknown Function::Kind")
-        return kind_dict[c_kind]
+        return type(self).kind_dict[c_kind]
 
     @property
     def _doc(self):
@@ -334,8 +331,7 @@ cdef class Function(_Weakrefable):
 
 
 cdef class ScalarFunction(Function):
-    cdef:
-        const CScalarFunction* func
+    cdef const CScalarFunction* func
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         Function.init(self, sp_func)
@@ -351,8 +347,7 @@ cdef class ScalarFunction(Function):
 
 
 cdef class VectorFunction(Function):
-    cdef:
-        const CVectorFunction* func
+    cdef const CVectorFunction* func
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         Function.init(self, sp_func)
@@ -367,9 +362,8 @@ cdef class VectorFunction(Function):
         return [wrap_vector_kernel(k) for k in kernels]
 
 
-cdef class ScalarAggregateFunction(Fdunction):
-    cdef:
-        const CScalarAggregateFunction* func
+cdef class ScalarAggregateFunction(Function):
+    cdef const CScalarAggregateFunction* func
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         Function.init(self, sp_func)
@@ -386,8 +380,7 @@ cdef class ScalarAggregateFunction(Fdunction):
 
 
 cdef class HashAggregateFunction(Function):
-    cdef:
-        const CHashAggregateFunction* func
+    cdef const CHashAggregateFunction* func
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         Function.init(self, sp_func)
@@ -403,8 +396,7 @@ cdef class HashAggregateFunction(Function):
 
 
 cdef class MetaFunction(Function):
-    cdef:
-        const CMetaFunction* func
+    cdef const CMetaFunction* func
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         Function.init(self, sp_func)
@@ -451,12 +443,11 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
                 continue
 
         raise TypeError(
-            f'Got unexpected argument type "{type(val)}" for compute function')
+            f'Got unexpected argument type {type(val)} for compute function')
 
 
 cdef class FunctionRegistry(_Weakrefable):
-    cdef:
-        CFunctionRegistry* registry
+    cdef CFunctionRegistry* registry
 
     def __init__(self):
         self.registry = GetFunctionRegistry()
@@ -501,7 +492,7 @@ def list_functions():
     """
     Return all function names in the global registry.
     """
-    return _global_func_registry.list_fundctions()
+    return _global_func_registry.list_functions()
 
 
 def call_function(name, args, options=None, memory_pool=None):
@@ -566,8 +557,7 @@ cdef class FunctionOptions(_Weakrefable):
 # 2. a Python derived class that implements the constructor
 
 cdef class _CastOptions(FunctionOptions):
-    cdef:
-        CCastOptions* options
+    cdef CCastOptions* options
 
     cdef void init(self, unique_ptr[CFunctionOptions] options):
         FunctionOptions.init(self, move(options))
@@ -698,21 +688,30 @@ class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
 
 
 cdef CRoundMode unwrap_round_mode(round_mode) except *:
-    round_mode_dict = {
-        "down": CRoundMode_DOWN,
-        "up": CRoundMode_UP,
-        "towards_zero": CRoundMode_TOWARDS_ZERO,
-        "towards_infinity": CRoundMode_TOWARDS_INFINITY,
-        "half_down": CRoundMode_HALF_DOWN,
-        "half_up": CRoundMode_HALF_UP,
-        "half_towards_zero": CRoundMode_HALF_TOWARDS_ZERO,
-        "half_towards_infinity": CRoundMode_HALF_TOWARDS_INFINITY,
-        "half_to_even": CRoundMode_HALF_TO_EVEN,
-        "half_to_odd": CRoundMode_HALF_TO_ODD,
-    }
-    if round_mode not in round_mode_dict:
+    # Explicit if-else since Cython does not supports storing C++ enum classes
+    # as dictionary values because they do not resolve to integers.
+    if round_mode == "down":
+        return CRoundMode_DOWN
+    elif round_mode == "up":
+        return CRoundMode_UP
+    elif round_mode == "towards_zero":
+        return CRoundMode_TOWARDS_ZERO
+    elif round_mode == "towards_infinity":
+        return CRoundMode_TOWARDS_INFINITY
+    elif round_mode == "half_down":
+        return CRoundMode_HALF_DOWN
+    elif round_mode == "half_up":
+        return CRoundMode_HALF_UP
+    elif round_mode == "half_towards_zero":
+        return CRoundMode_HALF_TOWARDS_ZERO
+    elif round_mode == "half_towards_infinity":
+        return CRoundMode_HALF_TOWARDS_INFINITY
+    elif round_mode == "half_to_even":
+        return CRoundMode_HALF_TO_EVEN
+    elif round_mode == "half_to_odd":
+        return CRoundMode_HALF_TO_ODD
+    else:
         raise ValueError(f"\"{round_mode}\" is not a valid 'round mode'")
-    return round_mode_dict[round_mode]
 
 
 cdef class _RoundOptions(FunctionOptions):
@@ -746,11 +745,12 @@ cdef class _JoinOptions(FunctionOptions):
     }
 
     def _set_options(self, null_handling, null_replacement):
-        if null_handling not in null_handling_dict:
+        if null_handling not in type(self).null_handling_dict:
             raise ValueError(
                 f"\"{null_handling}\" is not a valid 'null handling'")
-        self.wrapped.reset(new CJoinOptions(null_handling_dict[null_handling],
-                                            tobytes(null_replacement)))
+        self.wrapped.reset(
+            new CJoinOptions(type(self).null_handling_dict[null_handling],
+                             tobytes(null_replacement)))
 
 
 class JoinOptions(_JoinOptions):
@@ -839,11 +839,12 @@ cdef class _FilterOptions(FunctionOptions):
     }
 
     def _set_options(self, null_selection_behavior):
-        if null_selection_behavior not in null_selection_dict:
+        if null_selection_behavior not in type(self).null_selection_dict:
             raise ValueError(f"\"{null_selection_behavior}\""
                              "is not a valid 'null selection behavior'")
         self.wrapped.reset(
-            new CFilterOptions(null_selection_dict[null_selection_behavior]))
+            new CFilterOptions(
+                type(self).null_selection_dict[null_selection_behavior]))
 
 
 class FilterOptions(_FilterOptions):
@@ -858,11 +859,12 @@ cdef class _DictionaryEncodeOptions(FunctionOptions):
     }
 
     def _set_options(self, null_encoding):
-        if null_encoding not in null_encoding_dict:
+        if null_encoding not in type(self).null_encoding_dict:
             raise ValueError(
                 f"\"{null_encoding}\" is not a valid 'null encoding'")
         self.wrapped.reset(
-            new CDictionaryEncodeOptions(null_encoding_dict[null_encoding]))
+            new CDictionaryEncodeOptions(
+                type(self).null_encoding_dict[null_encoding]))
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
@@ -892,8 +894,7 @@ class PartitionNthOptions(_PartitionNthOptions):
 
 cdef class _MakeStructOptions(FunctionOptions):
     def _set_options(self, field_names):
-        cdef:
-            vector[c_string] c_field_names
+        cdef vector[c_string] c_field_names
         for name in field_names:
             c_field_names.push_back(tobytes(name))
         self.wrapped.reset(new CMakeStructOptions(c_field_names))
@@ -922,9 +923,9 @@ cdef class _CountOptions(FunctionOptions):
     }
 
     def _set_options(self, mode):
-        if mode not in mode_dict:
+        if mode not in type(self).mode_dict:
             raise ValueError(f"\"{mode}\" is not a valid 'count mode'")
-        self.wrapped.reset(new CCountOptions(mode_dict[mode]))
+        self.wrapped.reset(new CCountOptions(type(self).mode_dict[mode]))
 
 
 class CountOptions(_CountOptions):
@@ -963,8 +964,7 @@ class ModeOptions(_ModeOptions):
 
 cdef class _SetLookupOptions(FunctionOptions):
     def _set_options(self, value_set, c_bool skip_nulls):
-        cdef:
-            unique_ptr[CDatum] valset
+        cdef unique_ptr[CDatum] valset
         if isinstance(value_set, Array):
             valset.reset(new CDatum((<Array> value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
@@ -991,10 +991,10 @@ cdef class _StrptimeOptions(FunctionOptions):
     }
 
     def _set_options(self, format, unit):
-        if unit not in unit_dict:
+        if unit not in type(self).unit_dict:
             raise ValueError(f'"{unit}" is not a valid time unit')
         self.wrapped.reset(
-            new CStrptimeOptions(tobytes(format), unit_dict[unit]))
+            new CStrptimeOptions(tobytes(format), type(self).unit_dict[unit]))
 
 
 class StrptimeOptions(_StrptimeOptions):
@@ -1096,16 +1096,20 @@ class SplitPatternOptions(_SplitPatternOptions):
         self._set_options(pattern, max_splits, reverse)
 
 
-cdef class _ArraySortOptions(FunctionOptions):
-    order_dict = {
-        "ascending": CSortOrder_Ascending,
-        "descending": CSortOrder_Descending,
-    }
+cdef CSortOrder unwrap_sort_order(order) except *:
+    # Explicit if-else since Cython does not supports storing C++ enum classes
+    # as dictionary values because they do not resolve to integers.
+    if order == "ascending":
+        return CSortOrder_Ascending
+    elif order == "descending":
+        return CSortOrder_Descending
+    else:
+        raise ValueError(f'"{order}" is not a valid order')
 
+
+cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order):
-        if order not in order_dict:
-            raise ValueError(f'"{order}" is not a valid order')
-        self.wrapped.reset(new CArraySortOptions(order_dict[order]))
+        self.wrapped.reset(new CArraySortOptions(unwrap_sort_order(order)))
 
 
 class ArraySortOptions(_ArraySortOptions):
@@ -1114,18 +1118,11 @@ class ArraySortOptions(_ArraySortOptions):
 
 
 cdef class _SortOptions(FunctionOptions):
-    order_dict = {
-        "ascending": CSortOrder_Ascending,
-        "descending": CSortOrder_Descending,
-    }
-
     def _set_options(self, sort_keys):
-        cdef:
-            vector[CSortKey] c_sort_keys
+        cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
-            if order not in order_dict:
-                raise ValueError(f'"{order}" is not a valid order')
-            c_sort_keys.push_back(CSortKey(tobytes(name), order_dict[order]))
+            c_sort_keys.push_back(CSortKey(tobytes(name),
+                                  unwrap_sort_order(order)))
         self.wrapped.reset(new CSortOptions(c_sort_keys))
 
 
@@ -1137,18 +1134,11 @@ class SortOptions(_SortOptions):
 
 
 cdef class _SelectKOptions(FunctionOptions):
-    order_dict = {
-        "ascending": CSortOrder_Ascending,
-        "descending": CSortOrder_Descending,
-    }
-
     def _set_options(self, k, sort_keys):
-        cdef:
-            vector[CSortKey] c_sort_keys
+        cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
-            if order not in order_dict:
-                raise ValueError(f'"{order}" is not a valid order')
-            c_sort_keys.push_back(CSortKey(tobytes(c_name), order_dict[order]))
+            c_sort_keys.push_back(CSortKey(tobytes(name),
+                                  unwrap_sort_order(order)))
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
 
@@ -1169,15 +1159,16 @@ cdef class _QuantileOptions(FunctionOptions):
     }
 
     def _set_options(self, quantiles, interp, skip_nulls, min_count):
-        if interp not in interp_dict:
+        if interp not in type(self).interp_dict:
             raise ValueError(f'"{interp}" is not a valid interpolation')
-        self.wrapped.reset(new CQuantileOptions(quantiles, interp_dict[interp],
+        self.wrapped.reset(new CQuantileOptions(quantiles,
+                                                type(self).interp_dict[interp],
                                                 skip_nulls, min_count))
 
 
 class QuantileOptions(_QuantileOptions):
-    def __init__(self, q=0.5, interpolation="linear",
-                 skip_nulls=True, min_count=0):
+    def __init__(self, *, q=0.5, interpolation="linear", skip_nulls=True,
+                 min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, interpolation, skip_nulls, min_count)
@@ -1191,8 +1182,8 @@ cdef class _TDigestOptions(FunctionOptions):
 
 
 class TDigestOptions(_TDigestOptions):
-    def __init__(self, q=0.5, delta=100, buffer_size=500,
-                 skip_nulls=True, min_count=0):
+    def __init__(self, q=0.5, delta=100, buffer_size=500, skip_nulls=True,
+                 min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
