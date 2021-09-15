@@ -26,7 +26,8 @@ test_that("distinct()", {
   expect_dplyr_equal(
     input %>%
       distinct(some_grouping, lgl) %>%
-      collect(),
+      collect() %>%
+      arrange(some_grouping, lgl),
     tbl
   )
 })
@@ -57,7 +58,8 @@ test_that("distinct() can contain expressions", {
   expect_dplyr_equal(
     input %>%
       distinct(lgl, x = some_grouping + 1) %>%
-      collect(),
+      collect() %>%
+      arrange(lgl, x),
     tbl
   )
 
@@ -65,7 +67,8 @@ test_that("distinct() can contain expressions", {
     input %>%
       group_by(lgl, int) %>%
       distinct(x = some_grouping + 1) %>%
-      collect(),
+      collect() %>%
+      arrange(int),
     tbl
   )
 })
@@ -76,7 +79,8 @@ test_that("distinct() can return all columns", {
   expect_dplyr_equal(
     input %>%
       distinct(lgl, .keep_all = TRUE) %>%
-      collect(),
+      collect() %>%
+      arrange(int),
     tbl
   )
 })
