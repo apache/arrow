@@ -239,7 +239,8 @@ jobs:
         shell: Rscript {0}
         run: |
           options(pkgType="win.binary")
-          install.packages(c("remotes", "rcmdcheck"))
+          install.packages(c("remotes"))
+          remotes::install_github("r-lib/rcmdcheck")
           remotes::install_deps("r", dependencies = TRUE)
       - name: Check
         shell: Rscript {0}
