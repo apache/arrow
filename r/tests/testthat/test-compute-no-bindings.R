@@ -127,7 +127,8 @@ test_that("non-bound compute kernels using PartitionNthOptions", {
     Array$create(c(11:20)),
     options = list(pivot = 3)
   )
-
+  # Order of indices on either side of the pivot is not deterministic
+  # (depends on C++ standard library implementation)
   expect_true(all(as.vector(result[1:3]) < 3))
   expect_true(all(as.vector(result[4:10]) >= 3))
 
