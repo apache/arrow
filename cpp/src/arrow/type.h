@@ -1955,9 +1955,6 @@ std::string ToString(TimeUnit::type unit);
 ARROW_EXPORT
 int GetByteWidth(const DataType& type);
 
-ARROW_EXPORT
-const std::vector<TimeUnit::type>& AllTimeUnits();
-
 }  // namespace internal
 
 // Helpers to get instances of data types based on general categories

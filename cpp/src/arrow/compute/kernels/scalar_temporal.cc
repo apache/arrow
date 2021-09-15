@@ -28,7 +28,6 @@
 
 namespace arrow {
 
-using internal::AllTimeUnits;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 

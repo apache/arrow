@@ -27,7 +27,6 @@
 
 namespace arrow {
 
-using internal::AllTimeUnits;
 using internal::StringFormatter;
 
 namespace compute {
