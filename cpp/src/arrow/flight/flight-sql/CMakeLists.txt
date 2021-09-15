@@ -91,3 +91,7 @@ add_arrow_test(flight_sql_test
                GTest::gmock
                LABELS
                "arrow_flight_sql")
+
+add_executable(flight_sql_test_app test_app.cc)
+target_link_libraries(flight_sql_test_app PRIVATE arrow_flight_sql_static
+                                                  ${GFLAGS_LIBRARIES})

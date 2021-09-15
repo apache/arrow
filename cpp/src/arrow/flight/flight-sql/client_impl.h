@@ -27,15 +27,15 @@ namespace sql {
 namespace internal {
 
 template<class T>
-FlightSqlClientT<T>::FlightSqlClientT(T *client) {
-  this->client = client;
+FlightSqlClientT<T>::FlightSqlClientT(std::unique_ptr<T> &client) {
+  this->client = std::move(client);
 }
 
 template<class T>
 FlightSqlClientT<T>::~FlightSqlClientT() = default;
 
 template<class T>
-Status GetFlightInfoForCommand(T* client,
+Status GetFlightInfoForCommand(const std::unique_ptr<T> &client,
                                const FlightCallOptions &options,
                                std::unique_ptr<FlightInfo> *flight_info,
                                const google::protobuf::Message &command) {
@@ -51,7 +51,7 @@ Status GetFlightInfoForCommand(T* client,
 template<class T>
 Status FlightSqlClientT<T>::Execute(const FlightCallOptions& options,
                                    std::unique_ptr<FlightInfo>* flight_info,
-                                   const std::string& query) {
+                                   const std::string& query) const {
   pb::sql::CommandStatementQuery command;
   command.set_query(query);
 
@@ -61,13 +61,13 @@ Status FlightSqlClientT<T>::Execute(const FlightCallOptions& options,
 template<class T>
 Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
                                          int64_t* rows,
-                                         const std::string& query) {
+                                         const std::string& query) const {
   return Status::NotImplemented("ExecuteUpdate");
 }
 
 template<class T>
 Status FlightSqlClientT<T>::GetCatalogs(const FlightCallOptions& options,
-                                       std::unique_ptr<FlightInfo>* flight_info) {
+                                       std::unique_ptr<FlightInfo>* flight_info) const {
   pb::sql::CommandGetCatalogs command;
 
   return GetFlightInfoForCommand(client, options, flight_info, command);
@@ -77,7 +77,7 @@ template<class T>
 Status FlightSqlClientT<T>::GetSchemas(const FlightCallOptions& options,
                                       std::unique_ptr<FlightInfo>* flight_info,
                                       std::string* catalog,
-                                      std::string* schema_filter_pattern) {
+                                      std::string* schema_filter_pattern) const {
   pb::sql::CommandGetSchemas command;
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
@@ -96,7 +96,7 @@ Status FlightSqlClientT<T>::GetTables(const FlightCallOptions& options,
                                      const std::string* schema_filter_pattern,
                                      const std::string* table_filter_pattern,
                                      bool include_schema,
-                                     std::vector<std::string>& table_types) {
+                                     std::vector<std::string>& table_types) const {
   pb::sql::CommandGetTables command;
 
   if (catalog != NULLPTR) {
@@ -125,7 +125,7 @@ Status FlightSqlClientT<T>::GetPrimaryKeys(const FlightCallOptions& options,
                                           std::unique_ptr<FlightInfo>* flight_info,
                                           const std::string* catalog,
                                           const std::string* schema,
-                                          const std::string& table) {
+                                          const std::string& table) const {
   pb::sql::CommandGetPrimaryKeys command;
 
   if (catalog != NULLPTR) {
@@ -146,7 +146,7 @@ Status FlightSqlClientT<T>::GetExportedKeys(const FlightCallOptions& options,
                                            std::unique_ptr<FlightInfo>* flight_info,
                                            const std::string* catalog,
                                            const std::string* schema,
-                                           const std::string& table) {
+                                           const std::string& table) const {
   pb::sql::CommandGetExportedKeys command;
 
   if (catalog != NULLPTR) {
@@ -167,7 +167,7 @@ Status FlightSqlClientT<T>::GetImportedKeys(const FlightCallOptions& options,
                                            std::unique_ptr<FlightInfo>* flight_info,
                                            const std::string* catalog,
                                            const std::string* schema,
-                                           const std::string& table) {
+                                           const std::string& table) const {
   pb::sql::CommandGetImportedKeys command;
 
   if (catalog != NULLPTR) {
@@ -185,7 +185,7 @@ Status FlightSqlClientT<T>::GetImportedKeys(const FlightCallOptions& options,
 
 template<class T>
 Status FlightSqlClientT<T>::GetTableTypes(const FlightCallOptions& options,
-                                         std::unique_ptr<FlightInfo>* flight_info) {
+                                         std::unique_ptr<FlightInfo>* flight_info) const {
   pb::sql::CommandGetTableTypes command;
 
   return GetFlightInfoForCommand(client, options, flight_info, command);
@@ -194,7 +194,7 @@ Status FlightSqlClientT<T>::GetTableTypes(const FlightCallOptions& options,
 template<class T>
 Status FlightSqlClientT<T>::DoGet(const FlightCallOptions& options,
                                  const Ticket& ticket,
-                                 std::unique_ptr<FlightStreamReader>* stream) {
+                                 std::unique_ptr<FlightStreamReader>* stream) const {
   return client->DoGet(options, ticket, stream);
 }
 
