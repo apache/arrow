@@ -315,42 +315,43 @@ class TestCast : public TestBase {
     CastOptions options;
     auto src_type = TypeTraits<SourceType>::type_singleton();
 
-    std::vector<bool> is_valid = {true, false, true, true, true};
+    std::vector<bool> is_valid = {true, false, true, true, true, true, true, true};
 
     // string to int
-    std::vector<std::string> v_int = {"0", "1", "127", "-1", "0"};
-    std::vector<int8_t> e_int8 = {0, 1, 127, -1, 0};
-    std::vector<int16_t> e_int16 = {0, 1, 127, -1, 0};
-    std::vector<int32_t> e_int32 = {0, 1, 127, -1, 0};
-    std::vector<int64_t> e_int64 = {0, 1, 127, -1, 0};
+    std::vector<std::string> v_int = {"0", "1", "127", "-1", "0", "0x0", "0x7f", "0XFF"};
+    std::vector<int8_t> e_int8 = {0, 1, 127, -1, 0, 0, 127, -1};
+    std::vector<int16_t> e_int16 = {0, 1, 127, -1, 0, 0, 127, -1};
+    std::vector<int32_t> e_int32 = {0, 1, 127, -1, 0, 0, 127, -1};
+    std::vector<int64_t> e_int64 = {0, 1, 127, -1, 0, 0, 127, -1};
     CheckCase<SourceType, Int8Type>(v_int, is_valid, e_int8, options);
     CheckCase<SourceType, Int16Type>(v_int, is_valid, e_int16, options);
     CheckCase<SourceType, Int32Type>(v_int, is_valid, e_int32, options);
     CheckCase<SourceType, Int64Type>(v_int, is_valid, e_int64, options);
 
-    v_int = {"2147483647", "0", "-2147483648", "0", "0"};
-    e_int32 = {2147483647, 0, -2147483648LL, 0, 0};
+    v_int = {"2147483647", "0", "-2147483648", "0", "0", "0x7fff", "0X0", "0xF000"};
+    e_int32 = {2147483647, 0, -2147483648LL, 0, 0, 2147483647, 0, -2147483648LL};
     CheckCase<SourceType, Int32Type>(v_int, is_valid, e_int32, options);
-    v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0"};
-    e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0};
+    v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0", "0x7FFFFFFF", "0x0", "0Xffffffff"};
+    e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0, 
+      9223372036854775807LL, 0, (-9223372036854775807LL - 1)};
     CheckCase<SourceType, Int64Type>(v_int, is_valid, e_int64, options);
 
     // string to uint
-    std::vector<std::string> v_uint = {"0", "1", "127", "255", "0"};
-    std::vector<uint8_t> e_uint8 = {0, 1, 127, 255, 0};
-    std::vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0};
-    std::vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0};
-    std::vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0};
+    std::vector<std::string> v_uint = {"0", "1", "127", "255", "0", "0x0", "0x7f", "0XFF"};
+    std::vector<uint8_t> e_uint8 = {0, 1, 127, 255, 0, 0, 127, 255};
+    std::vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0, 0, 127, 255};
+    std::vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0, 0, 127, 255};
+    std::vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0, 0, 127, 255};
     CheckCase<SourceType, UInt8Type>(v_uint, is_valid, e_uint8, options);
     CheckCase<SourceType, UInt16Type>(v_uint, is_valid, e_uint16, options);
     CheckCase<SourceType, UInt32Type>(v_uint, is_valid, e_uint32, options);
     CheckCase<SourceType, UInt64Type>(v_uint, is_valid, e_uint64, options);
 
-    v_uint = {"4294967295", "0", "0", "0", "0"};
-    e_uint32 = {4294967295, 0, 0, 0, 0};
+    v_uint = {"4294967295", "0", "0", "0", "0", "0xFFFF", "0x0", "0x1"};
+    e_uint32 = {4294967295, 0, 0, 0, 0, 4294967295, 0, 1};
     CheckCase<SourceType, UInt32Type>(v_uint, is_valid, e_uint32, options);
-    v_uint = {"18446744073709551615", "0", "0", "0", "0"};
-    e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0};
+    v_uint = {"18446744073709551615", "0", "0", "0", "0", "0xffffFFFF", "0x0", "0x1"};
+    e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0, 18446744073709551615ULL, 0, 1};
     CheckCase<SourceType, UInt64Type>(v_uint, is_valid, e_uint64, options);
 
     // string to float
@@ -1554,6 +1555,10 @@ TEST_F(TestCast, StringToNumberErrors) {
   CheckFails<StringType>({"128"}, is_valid, int8(), options);
   CheckFails<StringType>({"-129"}, is_valid, int8(), options);
   CheckFails<StringType>({"0.5"}, is_valid, int8(), options);
+  CheckFails<StringType>({"0x"}, is_valid, int8(), options);
+  CheckFails<StringType>({"0x12r"}, is_valid, int32(), options);
+  CheckFails<StringType>({"0x1ffff"}, is_valid, int32(), options);
+  CheckFails<StringType>({"-0x123"}, is_valid, int32(), options);
 
   CheckFails<StringType>({"256"}, is_valid, uint8(), options);
   CheckFails<StringType>({"-1"}, is_valid, uint8(), options);
