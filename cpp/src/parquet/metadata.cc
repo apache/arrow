@@ -653,9 +653,10 @@ class FileMetaData::FileMetaDataImpl {
       throw ParquetException("AppendRowGroups requires equal schemas.");
     }
 
-    format::RowGroup other_rg;
-    for (int i = 0; i < other->num_row_groups(); i++) {
-      other_rg = other->row_group(i);
+    // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
+    const int n = other->num_row_groups();
+    for (int i = 0; i < n; i++) {
+      const auto& other_rg = other->row_group(i);
       metadata_->row_groups.push_back(other_rg);
       metadata_->num_rows += other_rg.num_rows;
     }

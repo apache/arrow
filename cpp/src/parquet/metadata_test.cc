@@ -217,6 +217,12 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());
   ASSERT_EQ(3, f_accessor->num_schema_elements());
 
+  // Test AppendRowGroups from self (ARROW-13654)
+  f_accessor->AppendRowGroups(*f_accessor);
+  ASSERT_EQ(8, f_accessor->num_row_groups());
+  ASSERT_EQ(nrows * 4, f_accessor->num_rows());
+  ASSERT_EQ(3, f_accessor->num_schema_elements());
+
   // Test Subset
   auto f_accessor_1 = f_accessor->Subset({2, 3});
   ASSERT_TRUE(f_accessor_1->Equals(*f_accessor_2));
