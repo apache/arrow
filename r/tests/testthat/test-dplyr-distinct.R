@@ -61,6 +61,18 @@ test_that("distinct() can retain groups", {
       arrange(lgl, int),
     tbl
   )
+
+  # With expressions here
+  expect_dplyr_equal(
+    input %>%
+      group_by(y = some_grouping, int) %>%
+      distinct(x = lgl) %>%
+      collect() %>%
+      arrange(lgl, int),
+    tbl
+  )
+
+
 })
 
 test_that("distinct() can contain expressions", {
