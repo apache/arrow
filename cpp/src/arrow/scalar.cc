@@ -923,9 +923,8 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
 Status CastImpl(const UnionScalar& from, StringScalar* to) {
   const auto& union_ty = checked_cast<const UnionType&>(*from.type);
   std::stringstream ss;
-  ss << '(' << static_cast<int>(from.type_code) << ": "
-     << union_ty.field(union_ty.child_ids()[from.type_code])->ToString() << " = "
-     << from.value->ToString() << ')';
+  ss << "union{" << union_ty.field(union_ty.child_ids()[from.type_code])->ToString()
+     << " = " << from.value->ToString() << '}';
   to->value = Buffer::FromString(ss.str());
   return Status::OK();
 }

@@ -1912,6 +1912,17 @@ TYPED_TEST(TestCoalesceList, ListOfListOfInt) {
   CheckScalar("coalesce", {values1, scalar_null}, values1);
 }
 
+TYPED_TEST(TestCoalesceList, Errors) {
+  auto type1 = std::make_shared<TypeParam>(int64());
+  auto type2 = std::make_shared<TypeParam>(utf8());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, ::testing::HasSubstr("coalesce: all types must be identical"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type1, "[null]"),
+                                   ArrayFromJSON(type2, "[null]"),
+                               }));
+}
+
 TEST(TestCoalesce, Null) {
   auto type = null();
   auto scalar_null = ScalarFromJSON(type, "null");
@@ -2005,6 +2016,13 @@ TEST(TestCoalesce, Decimal) {
     CheckScalar("coalesce", {scalar1, values1},
                 ArrayFromJSON(type, R"(["1.23", "1.23", "1.23", "1.23"])"));
   }
+  // Ensure promotion
+  CheckScalar("coalesce",
+              {
+                  ArrayFromJSON(decimal128(3, 2), R"(["1.23", null])"),
+                  ArrayFromJSON(decimal128(4, 1), R"([null, "1.0"])"),
+              },
+              ArrayFromJSON(decimal128(5, 2), R"(["1.23", "1.00"])"));
 }
 
 TEST(TestCoalesce, FixedSizeBinary) {
@@ -2033,6 +2051,15 @@ TEST(TestCoalesce, FixedSizeBinary) {
               ArrayFromJSON(type, R"(["mno", "def", "ghi", "jkl"])"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, R"(["abc", "abc", "abc", "abc"])"));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("coalesce: all types must be identical, expected: "
+                           "fixed_size_binary[3], but got: fixed_size_binary[2]"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type, "[null]"),
+                                   ArrayFromJSON(fixed_size_binary(2), "[null]"),
+                               }));
 }
 
 TEST(TestCoalesce, FixedSizeListOfInt) {
@@ -2061,6 +2088,16 @@ TEST(TestCoalesce, FixedSizeListOfInt) {
               ArrayFromJSON(type, R"([[1, 5], [2, null], [4, 8], [null, null]])"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, R"([[42, null], [42, null], [42, null], [42, null]])"));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "coalesce: all types must be identical, expected: fixed_size_list<item: "
+          "uint8>[2], but got: fixed_size_list<item: uint8>[3]"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type, "[null]"),
+                                   ArrayFromJSON(fixed_size_list(uint8(), 3), "[null]"),
+                               }));
 }
 
 TEST(TestCoalesce, FixedSizeListOfString) {
@@ -2128,6 +2165,15 @@ TEST(TestCoalesce, Map) {
       "coalesce", {values1, values2},
       ArrayFromJSON(type, R"([[[1, "b"]], [[2, "foo"], [4, null]], [[3, "test"]], []])"));
   CheckScalar("coalesce", {scalar1, values1}, *MakeArrayFromScalar(*scalar1, 4));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("coalesce: all types must be identical, expected: map<int64, "
+                           "string>, but got: map<int64, int32>"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type, "[null]"),
+                                   ArrayFromJSON(map(int64(), int32()), "[null]"),
+                               }));
 }
 
 TEST(TestCoalesce, Struct) {
@@ -2161,6 +2207,16 @@ TEST(TestCoalesce, Struct) {
           type,
           R"([[21, "foobar", [1, null, 2]], [null, "eggs", []], [0, "", [null]], [32, "abc", [1, 2, 3]]])"));
   CheckScalar("coalesce", {scalar1, values1}, *MakeArrayFromScalar(*scalar1, 4));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("coalesce: all types must be identical, expected: struct<str: "
+                           "string>, but got: struct<int: uint16>"),
+      CallFunction("coalesce",
+                   {
+                       ArrayFromJSON(struct_({field("str", utf8())}), "[null]"),
+                       ArrayFromJSON(struct_({field("int", uint16())}), "[null]"),
+                   }));
 }
 
 TEST(TestCoalesce, UnionBoolString) {
@@ -2191,6 +2247,38 @@ TEST(TestCoalesce, UnionBoolString) {
         ArrayFromJSON(type, R"([[2, true], [2, false], [7, "bar"], [7, "baz"]])"));
     CheckScalar("coalesce", {scalar1, values1}, *MakeArrayFromScalar(*scalar1, 4));
   }
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("coalesce: all types must be identical, expected: "
+                           "sparse_union<a: bool=0>, but got: sparse_union<a: int64=0>"),
+      CallFunction(
+          "coalesce",
+          {
+              ArrayFromJSON(sparse_union({field("a", boolean())}), "[[0, true]]"),
+              ArrayFromJSON(sparse_union({field("a", int64())}), "[[0, 1]]"),
+          }));
+}
+
+TEST(TestCoalesce, DispatchBest) {
+  CheckDispatchBest("coalesce", {int8(), float64()}, {float64(), float64()});
+  CheckDispatchBest("coalesce", {int8(), uint32()}, {int64(), int64()});
+  CheckDispatchBest("coalesce", {binary(), utf8()}, {binary(), binary()});
+  CheckDispatchBest("coalesce", {binary(), large_binary()},
+                    {large_binary(), large_binary()});
+  CheckDispatchBest("coalesce", {int32(), decimal128(3, 2)},
+                    {decimal128(12, 2), decimal128(12, 2)});
+  CheckDispatchBest("coalesce", {float32(), decimal128(3, 2)}, {float64(), float64()});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal256(3, 2)},
+                    {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), date32()},
+                    {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND)});
+  CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MILLI)},
+                    {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MILLI)});
+  CheckDispatchFails("coalesce", {
+                                     sparse_union({field("a", boolean())}),
+                                     dense_union({field("a", boolean())}),
+                                 });
 }
 
 template <typename Type>

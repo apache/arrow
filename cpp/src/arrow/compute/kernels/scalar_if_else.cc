@@ -1737,10 +1737,19 @@ struct CoalesceFunction : ScalarFunction {
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    // Do not DispatchExact here since we want to rescale decimals if necessary
     EnsureDictionaryDecoded(values);
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
+    }
+    if (auto type = CommonBinary(*values)) {
+      ReplaceTypes(type, values);
+    }
+    if (auto type = CommonTimestamp(*values)) {
+      ReplaceTypes(type, values);
+    }
+    if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastDecimalArgs(values->data(), values->size()));
     }
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);
@@ -2077,9 +2086,24 @@ static Status ExecVarWidthCoalesce(KernelContext* ctx, const ExecBatch& batch, D
                                   });
 }
 
+// Ensure parameterized types are identical.
+static Status CheckIdenticalTypes(const ExecBatch& batch) {
+  auto ty = batch[0].type();
+  for (auto it = batch.values.begin() + 1; it != batch.values.end(); ++it) {
+    if (!ty->Equals(*it->type())) {
+      return Status::TypeError("coalesce: all types must be identical, expected: ", *ty,
+                               ", but got: ", *it->type());
+    }
+  }
+  return Status::OK();
+}
+
 template <typename Type, typename Enable = void>
 struct CoalesceFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (!TypeTraits<Type>::is_parameter_free) {
+      RETURN_NOT_OK(CheckIdenticalTypes(batch));
+    }
     // Special case for two arguments (since "fill_null" is a common operation)
     if (batch.num_values() == 2) {
       return ExecBinaryCoalesce<Type>(ctx, batch[0], batch[1], batch.length, out);
@@ -2180,6 +2204,7 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
 template <>
 struct CoalesceFunctor<FixedSizeListType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(CheckIdenticalTypes(batch));
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
@@ -2197,6 +2222,7 @@ struct CoalesceFunctor<FixedSizeListType> {
 template <typename Type>
 struct CoalesceFunctor<Type, enable_if_var_size_list<Type>> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(CheckIdenticalTypes(batch));
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
@@ -2214,6 +2240,7 @@ struct CoalesceFunctor<Type, enable_if_var_size_list<Type>> {
 template <>
 struct CoalesceFunctor<MapType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(CheckIdenticalTypes(batch));
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
@@ -2231,6 +2258,7 @@ struct CoalesceFunctor<MapType> {
 template <>
 struct CoalesceFunctor<StructType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(CheckIdenticalTypes(batch));
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
@@ -2249,6 +2277,8 @@ template <typename Type>
 struct CoalesceFunctor<Type, enable_if_union<Type>> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // Unions don't have top-level nulls, so a specialized implementation is needed
+    RETURN_NOT_OK(CheckIdenticalTypes(batch));
+
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
@@ -2263,7 +2293,6 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
     RETURN_NOT_OK(raw_builder->Reserve(batch.length));
 
-    // TODO: make sure differing union types are rejected
     const UnionType& type = checked_cast<const UnionType&>(*out->type());
     for (int64_t i = 0; i < batch.length; i++) {
       bool set = false;
