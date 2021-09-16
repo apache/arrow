@@ -176,9 +176,10 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
   /// \brief Move every element of this iterator into a vector.
   Result<std::vector<T>> ToVector() {
     std::vector<T> out;
-    for (auto maybe_element : *this) {
-      ARROW_ASSIGN_OR_RAISE(auto element, maybe_element);
-      out.push_back(std::move(element));
+    for (;;) {
+      ARROW_ASSIGN_OR_RAISE(auto value, Next());
+      if (IsIterationEnd(value)) break;
+      out.push_back(std::move(value));
     }
     // ARROW-8193: On gcc-4.8 without the explicit move it tries to use the
     // copy constructor, which may be deleted on the elements of type T
