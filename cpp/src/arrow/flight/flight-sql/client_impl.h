@@ -36,16 +36,20 @@ FlightSqlClientT<T>::FlightSqlClientT(std::unique_ptr<T> &client) {
 template<class T>
 FlightSqlClientT<T>::~FlightSqlClientT() = default;
 
+FlightDescriptor GetFlightDescriptorForCommand(const google::protobuf::Message &command) {
+  google::protobuf::Any any;
+  any.PackFrom(command);
+
+  const std::string& string = any.SerializeAsString();
+  return FlightDescriptor::Command(string);
+}
+
 template<class T>
 Status GetFlightInfoForCommand(const std::unique_ptr<T> &client,
                                const FlightCallOptions &options,
                                std::unique_ptr<FlightInfo> *flight_info,
                                const google::protobuf::Message &command) {
-  google::protobuf::Any any;
-  any.PackFrom(command);
-
-  const std::string& string = any.SerializeAsString();
-  const FlightDescriptor& descriptor = FlightDescriptor::Command(string);
+  const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
 
   return client->GetFlightInfo(options, descriptor, flight_info);
 }
@@ -65,14 +69,9 @@ Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
                                          int64_t* rows,
                                          const std::string& query) const {
   pb::sql::CommandStatementUpdate command;
-
   command.set_query(query);
 
-  google::protobuf::Any any;
-  any.PackFrom(command);
-
-  const FlightDescriptor &descriptor =
-          FlightDescriptor::Command(any.SerializeAsString());
+  const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
 
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
