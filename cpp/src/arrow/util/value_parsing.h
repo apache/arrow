@@ -311,7 +311,6 @@ struct StringToUnsignedIntConverterMixin {
       s += 2;
 
       return ARROW_PREDICT_TRUE(ParseHex(s, length, out));
-
     }
     // Skip leading zeros
     while (length > 0 && *s == '0') {
