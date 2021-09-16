@@ -1929,7 +1929,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   AddDecimalBinaryKernels<Subtract>("subtract", &subtract);
 
   // Add subtract(timestamp, timestamp) -> duration
-  for (auto unit : ::arrow::internal::AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));

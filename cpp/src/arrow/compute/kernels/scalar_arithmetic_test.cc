@@ -562,7 +562,7 @@ TEST(TestBinaryArithmetic, SubtractTimestamps) {
   auto rhs = rand.Int64(length, 0, 100000000);
   auto expected_int64 = (*Subtract(lhs, rhs)).make_array();
 
-  for (auto unit : ::arrow::internal::AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     auto timestamp_ty = timestamp(unit);
     auto duration_ty = duration(unit);
 

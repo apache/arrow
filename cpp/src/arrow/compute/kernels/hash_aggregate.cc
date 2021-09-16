@@ -816,6 +816,26 @@ Status AddHashAggKernels(
   return Status::OK();
 }
 
+// ----------------------------------------------------------------------
+// Helpers for more easily implementing hash aggregates
+
+template <typename T>
+struct GroupedValueTraits {
+  using CType = typename TypeTraits<T>::CType;
+
+  static CType Get(const CType* values, uint32_t g) { return values[g]; }
+  static void Set(CType* values, uint32_t g, CType v) { values[g] = v; }
+};
+template <>
+struct GroupedValueTraits<BooleanType> {
+  static bool Get(const uint8_t* values, uint32_t g) {
+    return BitUtil::GetBit(values, g);
+  }
+  static void Set(uint8_t* values, uint32_t g, bool v) {
+    BitUtil::SetBitTo(values, g, v);
+  }
+};
+
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
 void VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
                         ConsumeNull&& null_func) {
@@ -1738,6 +1758,12 @@ struct AntiExtrema {
 };
 
 template <>
+struct AntiExtrema<bool> {
+  static constexpr bool anti_min() { return true; }
+  static constexpr bool anti_max() { return false; }
+};
+
+template <>
 struct AntiExtrema<float> {
   static constexpr float anti_min() { return std::numeric_limits<float>::infinity(); }
   static constexpr float anti_max() { return -std::numeric_limits<float>::infinity(); }
@@ -1762,8 +1788,11 @@ struct AntiExtrema<Decimal256> {
 };
 
 template <typename Type>
-struct GroupedMinMaxImpl : public GroupedAggregator {
+struct GroupedMinMaxImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
+  using GetSet = GroupedValueTraits<Type>;
+  using ArrType =
+      typename std::conditional<is_boolean_type<Type>::value, uint8_t, CType>::type;
 
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
     options_ = *checked_cast<const ScalarAggregateOptions*>(options);
@@ -1786,14 +1815,14 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
-    auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
+    auto raw_mins = mins_.mutable_data();
+    auto raw_maxes = maxes_.mutable_data();
 
     VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, CType val) {
-          raw_maxes[g] = std::max(raw_maxes[g], val);
-          raw_mins[g] = std::min(raw_mins[g], val);
+          GetSet::Set(raw_mins, g, std::min(GetSet::Get(raw_mins, g), val));
+          GetSet::Set(raw_maxes, g, std::max(GetSet::Get(raw_maxes, g), val));
           BitUtil::SetBit(has_values_.mutable_data(), g);
         },
         [&](uint32_t g) { BitUtil::SetBit(has_nulls_.mutable_data(), g); });
@@ -1804,16 +1833,21 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedMinMaxImpl*>(&raw_other);
 
-    auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
-    auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
+    auto raw_mins = mins_.mutable_data();
+    auto raw_maxes = maxes_.mutable_data();
 
-    auto other_raw_mins = reinterpret_cast<const CType*>(other->mins_.mutable_data());
-    auto other_raw_maxes = reinterpret_cast<const CType*>(other->maxes_.mutable_data());
+    auto other_raw_mins = other->mins_.mutable_data();
+    auto other_raw_maxes = other->maxes_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
-    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      raw_mins[*g] = std::min(raw_mins[*g], other_raw_mins[other_g]);
-      raw_maxes[*g] = std::max(raw_maxes[*g], other_raw_maxes[other_g]);
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
+         ++other_g, ++g) {
+      GetSet::Set(
+          raw_mins, *g,
+          std::min(GetSet::Get(raw_mins, *g), GetSet::Get(other_raw_mins, other_g)));
+      GetSet::Set(
+          raw_maxes, *g,
+          std::max(GetSet::Get(raw_maxes, *g), GetSet::Get(other_raw_maxes, other_g)));
 
       if (BitUtil::GetBit(other->has_values_.data(), other_g)) {
         BitUtil::SetBit(has_values_.mutable_data(), *g);
@@ -1856,6 +1890,37 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   ScalarAggregateOptions options_;
 };
 
+struct GroupedNullMinMaxImpl final : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const FunctionOptions*) override { return Status::OK(); }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    return ArrayData::Make(
+        out_type(), num_groups_, {nullptr},
+        {
+            ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
+            ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_),
+        });
+  }
+
+  std::shared_ptr<DataType> out_type() const override {
+    return struct_({field("min", null()), field("max", null())});
+  }
+
+  int64_t num_groups_;
+};
+
 template <typename T>
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
@@ -1866,14 +1931,38 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
 
 struct GroupedMinMaxFactory {
   template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
-    kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
+  enable_if_physical_integer<T, Status> Visit(const T&) {
+    using PhysicalType = typename T::PhysicalType;
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<PhysicalType>);
+    return Status::OK();
+  }
+
+  // MSVC2015 apparently doesn't compile this properly if we use
+  // enable_if_floating_point
+  Status Visit(const FloatType&) {
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<FloatType>);
+    return Status::OK();
+  }
+
+  Status Visit(const DoubleType&) {
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<DoubleType>);
     return Status::OK();
   }
 
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<BooleanType>);
+    return Status::OK();
+  }
+
+  Status Visit(const NullType&) {
+    kernel =
+        MakeKernel(std::move(argument_type), HashAggregateInit<GroupedNullMinMaxImpl>);
     return Status::OK();
   }
 
@@ -2666,9 +2755,11 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_min_max", Arity::Binary(), &hash_min_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedMinMaxFactory::Make, func.get()));
     // Type parameters are ignored
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedMinMaxFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(
+        {null(), boolean(), decimal128(1, 1), decimal256(1, 1), month_interval()},
+        GroupedMinMaxFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 

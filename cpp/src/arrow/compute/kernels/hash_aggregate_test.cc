@@ -1305,35 +1305,48 @@ TEST(GroupBy, VarianceOptions) {
 }
 
 TEST(GroupBy, MinMaxOnly) {
+  auto in_schema = schema({
+      field("argument", float64()),
+      field("argument1", null()),
+      field("argument2", boolean()),
+      field("key", int64()),
+  });
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-      auto table = TableFromJSON(
-          schema({field("argument", float64()), field("key", int64())}), {R"([
-    [1.0,   1],
-    [null,  1]
-                        ])",
-                                                                          R"([
-    [0.0,   2],
-    [null,  3],
-    [4.0,   null],
-    [3.25,  1],
-    [0.125, 2]
-                        ])",
-                                                                          R"([
-    [-0.25, 2],
-    [0.75,  null],
-    [null,  3]
-                        ])"});
+      auto table = TableFromJSON(in_schema, {R"([
+    [1.0,   null, true, 1],
+    [null,  null, true, 1]
+])",
+                                             R"([
+    [0.0,   null, false, 2],
+    [null,  null, false, 3],
+    [4.0,   null, null,  null],
+    [3.25,  null, true,  1],
+    [0.125, null, false, 2]
+])",
+                                             R"([
+    [-0.25, null, false, 2],
+    [0.75,  null, true,  null],
+    [null,  null, true,  3]
+])"});
 
       ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                           GroupByTest({table->GetColumnByName("argument")},
-                                       {table->GetColumnByName("key")},
-                                       {
-                                           {"hash_min_max", nullptr},
-                                       },
-                                       use_threads, use_exec_plan));
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument1"),
+                                   table->GetColumnByName("argument2"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_min_max", nullptr},
+                                   {"hash_min_max", nullptr},
+                                   {"hash_min_max", nullptr},
+                               },
+                               use_threads, use_exec_plan));
+      ValidateOutput(aggregated_and_grouped);
       SortBy({"key_0"}, &aggregated_and_grouped);
 
       AssertDatumsEqual(
@@ -1342,17 +1355,78 @@ TEST(GroupBy, MinMaxOnly) {
                                                       field("min", float64()),
                                                       field("max", float64()),
                                                   })),
+                            field("hash_min_max", struct_({
+                                                      field("min", null()),
+                                                      field("max", null()),
+                                                  })),
+                            field("hash_min_max", struct_({
+                                                      field("min", boolean()),
+                                                      field("max", boolean()),
+                                                  })),
                             field("key_0", int64()),
                         }),
                         R"([
-    [{"min": 1.0,   "max": 3.25},  1],
-    [{"min": -0.25, "max": 0.125}, 2],
-    [{"min": null,  "max": null},  3],
-    [{"min": 0.75,  "max": 4.0},   null]
+    [{"min": 1.0,   "max": 3.25},  {"min": null, "max": null}, {"min": true, "max": true},   1],
+    [{"min": -0.25, "max": 0.125}, {"min": null, "max": null}, {"min": false, "max": false}, 2],
+    [{"min": null,  "max": null},  {"min": null, "max": null}, {"min": false, "max": true},  3],
+    [{"min": 0.75,  "max": 4.0},   {"min": null, "max": null}, {"min": true, "max": true},   null]
   ])"),
           aggregated_and_grouped,
           /*verbose=*/true);
     }
+  }
+}
+
+TEST(GroupBy, MinMaxTypes) {
+  std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
+  types.push_back(month_interval());
+  for (const auto& ty : types) {
+    SCOPED_TRACE(ty->ToString());
+    auto in_schema = schema({field("argument0", ty), field("key", int64())});
+    auto table = TableFromJSON(in_schema, {R"([
+    [1,    1],
+    [null, 1]
+])",
+                                           R"([
+    [0,    2],
+    [null, 3],
+    [3,    4],
+    [5,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2]
+])",
+                                           R"([
+    [0,    2],
+    [1,    null],
+    [null, 3]
+])"});
+
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        GroupByTest({table->GetColumnByName("argument0")},
+                    {table->GetColumnByName("key")}, {{"hash_min_max", nullptr}},
+                    /*use_threads=*/true, /*use_exec_plan=*/true));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(
+        ArrayFromJSON(
+            struct_({
+                field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
+                field("key_0", int64()),
+            }),
+            R"([
+    [{"min": 1, "max": 3},       1],
+    [{"min": 0, "max": 0},       2],
+    [{"min": null, "max": null}, 3],
+    [{"min": 3, "max": 5},       4],
+    [{"min": 1, "max": 4},       null]
+  ])"),
+        aggregated_and_grouped,
+        /*verbose=*/true);
   }
 }
 

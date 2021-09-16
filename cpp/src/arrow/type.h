@@ -1287,8 +1287,8 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   struct DayMilliseconds {
     int32_t days = 0;
     int32_t milliseconds = 0;
-    DayMilliseconds() = default;
-    DayMilliseconds(int32_t days, int32_t milliseconds)
+    constexpr DayMilliseconds() = default;
+    constexpr DayMilliseconds(int32_t days, int32_t milliseconds)
         : days(days), milliseconds(milliseconds) {}
     bool operator==(DayMilliseconds other) const {
       return this->days == other.days && this->milliseconds == other.milliseconds;
@@ -1955,9 +1955,34 @@ std::string ToString(TimeUnit::type unit);
 ARROW_EXPORT
 int GetByteWidth(const DataType& type);
 
-ARROW_EXPORT
-const std::vector<TimeUnit::type>& AllTimeUnits();
-
 }  // namespace internal
+
+// Helpers to get instances of data types based on general categories
+
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+// Number types without boolean
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& NumericTypes();
+// Binary and string-like types (except fixed-size binary)
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& StringTypes();
+// Temporal types including time and timestamps for each unit
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
+// Interval types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+// Integer, floating point, base binary, and temporal
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 }  // namespace arrow
