@@ -30,12 +30,12 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   # Get ordering to use when returning data
   # We need to do this as `data %>% group_by() %>% summarise()` returns cols in
   # the order supplied, whereas distinct() returns cols in dataset order.
-  cols_in_order <- intersect(
-    unique(c(names(.data), names(distinct_groups))),
-    unique(c(names(distinct_groups), gv))
-  )
-  # If there are no group_by vars or cols for distinct, return all cols
-  if (length(cols_in_order) == 0) {
+  if (length(distinct_groups)) {
+    cols_in_order <- intersect(
+      unique(c(names(.data), names(distinct_groups))),
+      unique(c(names(distinct_groups), gv))
+    )
+  } else {
     cols_in_order <- names(.data)
   }
 
@@ -43,19 +43,29 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   # later call to `summarise()`` returns everything and not empty table
   if (length(distinct_groups) == 0) {
     .data <- dplyr::group_by(.data, !!!syms(names(.data)), .add = TRUE)
+  } else {
+    # This works as distinct(data, x, y) == summarise(group_by(data, x, y))
+    .data <- dplyr::group_by(.data, !!!distinct_groups, .add = TRUE)
   }
 
-  # This works as distinct(data, x, y) == summarise(group_by(data, x, y))
-  .data <- dplyr::group_by(.data, !!!distinct_groups, .add = TRUE)
   # After ARROW-13550 is merged, update this to use .groups = "keep"
   .data <- dplyr::summarize(.data)
 
+  # If there were no vars supplied to distinct() but there were vars supplied
+  # to group_by, we need to restore grouping which we removed earlier
+  if (!length(distinct_groups) && length(gv)) {
+    .data <- dplyr::group_by(.data, !!!syms(gv))
+  }
+
+  # If there are group_by expressions or expressions supplied to distinct(),
+  # we need to reorder the selected columns to return them in the correct order
   # Select the columns to return in the correct order
   ordered_selected_cols <- intersect(
     cols_in_order,
     names(.data$selected_columns)
   )
   .data$selected_columns <- .data$selected_columns[ordered_selected_cols]
+
 
   .data
 }
