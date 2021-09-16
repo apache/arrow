@@ -167,29 +167,26 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
     if (command.is(TicketStatementQuery.class)) {
       getStreamStatement(
-          FlightSqlUtils.unpackOrThrow(command, TicketStatementQuery.class), context, ticket, listener);
+          FlightSqlUtils.unpackOrThrow(command, TicketStatementQuery.class), context, listener);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       getStreamPreparedStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, ticket, listener);
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, listener);
     } else if (command.is(CommandGetCatalogs.class)) {
-      getStreamCatalogs(context, ticket, listener);
+      getStreamCatalogs(context, listener);
     } else if (command.is(CommandGetSchemas.class)) {
-      getStreamSchemas(FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, ticket, listener);
+      getStreamSchemas(FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, listener);
     } else if (command.is(CommandGetTables.class)) {
-      getStreamTables(FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, ticket, listener);
+      getStreamTables(FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, listener);
     } else if (command.is(CommandGetTableTypes.class)) {
-      getStreamTableTypes(context, ticket, listener);
+      getStreamTableTypes(context, listener);
     } else if (command.is(CommandGetSqlInfo.class)) {
-      getStreamSqlInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
+      getStreamSqlInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, listener);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
-      getStreamPrimaryKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class),
-          context, ticket, listener);
+      getStreamPrimaryKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class), context, listener);
     } else if (command.is(CommandGetExportedKeys.class)) {
-      getStreamExportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetExportedKeys.class),
-          context, ticket, listener);
+      getStreamExportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetExportedKeys.class), context, listener);
     } else if (command.is(CommandGetImportedKeys.class)) {
-      getStreamImportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class),
-          context, ticket, listener);
+      getStreamImportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class), context, listener);
     } else {
       throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
     }
@@ -321,23 +318,22 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Returns data for a SQL query based data stream.
    *
+   * @param ticket   Ticket message containing the statement handle
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamStatement(TicketStatementQuery ticketStatementQuery, CallContext context,
-                          Ticket ticket, ServerStreamListener listener);
+  void getStreamStatement(TicketStatementQuery ticket, CallContext context,
+                          ServerStreamListener listener);
 
   /**
    * Returns data for a particular prepared statement query instance.
    *
    * @param command  The prepared statement to generate the data stream.
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
   void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context,
-                                  Ticket ticket, ServerStreamListener listener);
+                                  ServerStreamListener listener);
 
   /**
    * Accepts uploaded data for a particular SQL query based data stream.
@@ -396,10 +392,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    *
    * @param command  The command to generate the data stream.
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamSqlInfo(CommandGetSqlInfo command, CallContext context, Ticket ticket,
+  void getStreamSqlInfo(CommandGetSqlInfo command, CallContext context,
                         ServerStreamListener listener);
 
   /**
@@ -418,11 +413,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * Returns data for catalogs based data stream.
    *
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamCatalogs(CallContext context, Ticket ticket,
-                         ServerStreamListener listener);
+  void getStreamCatalogs(CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available schemas by returning a stream of
@@ -441,11 +434,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    *
    * @param command  The command to generate the data stream.
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamSchemas(CommandGetSchemas command, CallContext context, Ticket ticket,
-                        ServerStreamListener listener);
+  void getStreamSchemas(CommandGetSchemas command, CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available tables by returning a stream of
@@ -464,11 +455,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    *
    * @param command  The command to generate the data stream.
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamTables(CommandGetTables command, CallContext context, Ticket ticket,
-                       ServerStreamListener listener);
+  void getStreamTables(CommandGetTables command, CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available table types by returning a stream of
@@ -485,10 +474,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * Returns data for table types based data stream.
    *
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamTableTypes(CallContext context, Ticket ticket, ServerStreamListener listener);
+  void getStreamTableTypes(CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available primary keys by returning a stream of
@@ -507,10 +495,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    *
    * @param command  The command to generate the data stream.
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamPrimaryKeys(CommandGetPrimaryKeys command, CallContext context, Ticket ticket,
+  void getStreamPrimaryKeys(CommandGetPrimaryKeys command, CallContext context,
                             ServerStreamListener listener);
 
   /**
@@ -542,10 +529,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    *
    * @param command  The command to generate the data stream.
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamExportedKeys(CommandGetExportedKeys command, CallContext context, Ticket ticket,
+  void getStreamExportedKeys(CommandGetExportedKeys command, CallContext context,
                              ServerStreamListener listener);
 
   /**
@@ -553,10 +539,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    *
    * @param command  The command to generate the data stream.
    * @param context  Per-call context.
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamImportedKeys(CommandGetImportedKeys command, CallContext context, Ticket ticket,
+  void getStreamImportedKeys(CommandGetImportedKeys command, CallContext context,
                              ServerStreamListener listener);
 
   /**

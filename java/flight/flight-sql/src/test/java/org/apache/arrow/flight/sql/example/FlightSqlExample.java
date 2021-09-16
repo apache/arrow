@@ -608,7 +608,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
-                                         final Ticket ticket, final ServerStreamListener listener) {
+                                         final ServerStreamListener listener) {
     final ByteString handle = command.getPreparedStatementHandle();
     StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(handle);
     Objects.requireNonNull(statementContext);
@@ -1350,7 +1350,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context, final Ticket ticket,
+  public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context,
                                final ServerStreamListener listener) {
     final List<Integer> requestedInfo =
         command.getInfoCount() == 0 ?
@@ -1382,7 +1382,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
+  public void getStreamCatalogs(final CallContext context, final ServerStreamListener listener) {
     try (final Connection connection = dataSource.getConnection();
          final ResultSet catalogs = connection.getMetaData().getCatalogs();
          final VectorSchemaRoot vectorSchemaRoot = getCatalogsRoot(catalogs, rootAllocator)) {
@@ -1403,7 +1403,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
+  public void getStreamSchemas(final CommandGetSchemas command, final CallContext context,
                                final ServerStreamListener listener) {
     final String catalog = command.hasCatalog() ? command.getCatalog() : null;
     final String schemaFilterPattern = command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern() : null;
@@ -1428,7 +1428,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   @Override
   public void getStreamTables(final CommandGetTables command, final CallContext context,
-                              final Ticket ticket, final ServerStreamListener listener) {
+                              final ServerStreamListener listener) {
     final String catalog = command.hasCatalog() ? command.getCatalog() : null;
     final String schemaFilterPattern =
         command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern() : null;
@@ -1463,7 +1463,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
+  public void getStreamTableTypes(final CallContext context, final ServerStreamListener listener) {
     try (final Connection connection = dataSource.getConnection();
          final ResultSet tableTypes = connection.getMetaData().getTableTypes();
          final VectorSchemaRoot vectorSchemaRoot = getTableTypesRoot(tableTypes, rootAllocator)) {
@@ -1484,7 +1484,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamPrimaryKeys(final CommandGetPrimaryKeys command, final CallContext context, final Ticket ticket,
+  public void getStreamPrimaryKeys(final CommandGetPrimaryKeys command, final CallContext context,
                                    final ServerStreamListener listener) {
 
     final String catalog = command.hasCatalog() ? command.getCatalog() : null;
@@ -1540,7 +1540,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   @Override
   public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context,
-                                    final Ticket ticket,
                                     final ServerStreamListener listener) {
     String catalog = command.hasCatalog() ? command.getCatalog() : null;
     String schema = command.hasSchema() ? command.getSchema() : null;
@@ -1566,7 +1565,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   @Override
   public void getStreamImportedKeys(final FlightSql.CommandGetImportedKeys command, final CallContext context,
-                                    final Ticket ticket,
                                     final ServerStreamListener listener) {
     String catalog = command.hasCatalog() ? command.getCatalog() : null;
     String schema = command.hasSchema() ? command.getSchema() : null;
@@ -1629,7 +1627,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   @Override
   public void getStreamStatement(final FlightSql.TicketStatementQuery ticketStatementQuery, final CallContext context,
-                                 Ticket ticket, final ServerStreamListener listener) {
+                                 final ServerStreamListener listener) {
     final ByteString handle = ticketStatementQuery.getStatementHandle();
     final StatementContext<Statement> statementContext =
         Objects.requireNonNull(statementLoadingCache.getIfPresent(handle));
