@@ -1570,6 +1570,14 @@ def test_partitioning_factory_segment_encoding():
         inferred_schema = factory.inspect()
 
 
+def test_dictionary_partitioning_outer_nulls_raises(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+    part = ds.partitioning(
+        pa.schema([pa.field('a', pa.string()), pa.field('b', pa.string())]))
+    with pytest.raises(pa.ArrowInvalid):
+        ds.write_dataset(table, tempdir, format='parquet', partitioning=part)
+
+
 def _has_subdirs(basedir):
     elements = os.listdir(basedir)
     return any([os.path.isdir(os.path.join(basedir, el)) for el in elements])
@@ -3222,14 +3230,6 @@ def test_write_dataset_partitioned(tempdir):
     _check_dataset_roundtrip(
         dataset, str(target), expected_paths, target,
         partitioning=partitioning_schema)
-
-
-def test_dictionary_partitioning_outer_nulls_raises(tempdir):
-    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
-    part = ds.partitioning(
-        pa.schema([pa.field('a', pa.string()), pa.field('b', pa.string())]))
-    with pytest.raises(pa.ArrowInvalid):
-        ds.write_dataset(table, tempdir, format='parquet', partitioning=part)
 
 
 def test_write_dataset_with_field_names(tempdir):
