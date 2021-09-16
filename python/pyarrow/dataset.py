@@ -734,7 +734,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         function or a list of field names.
     partitioning_flavor : str, optional
         One of the partitioning flavors supported by
-        ``pyarrow.dataset.partitioning``.
+        ``pyarrow.dataset.partitioning``. If omitted will use the
+        default of ``partitioning()`` which is directory partitioning.
     schema : Schema, optional
     filesystem : FileSystem, optional
     file_options : FileWriteOptions, optional
