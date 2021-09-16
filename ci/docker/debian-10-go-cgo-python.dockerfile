@@ -20,8 +20,7 @@ FROM ${base}
 
 ENV DEBIAN_FRONTEND noninteractive
 
-# install libarrow-dev and libarrow-python-dev so we can use pyarrow to 
-# test C Data Interface consumption
+# Install python3 and pip so we can install pyarrow to test the C data interface.
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         python3 \
