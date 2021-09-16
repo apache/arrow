@@ -713,7 +713,7 @@ def test_schema_merge():
     with pytest.raises(pa.ArrowInvalid):
         pa.unify_schemas([b, d])
 
-    # ARROW-14002: Try with tuple instead of list
+    # ARROW-14002: Try with tuple instead of list
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
 
