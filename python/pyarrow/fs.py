@@ -153,7 +153,9 @@ def _resolve_filesystem_and_path(
                 "Expected string path; path-like objects are only allowed "
                 "with a local filesystem"
             )
-        return filesystem, filesystem.normalize_path(path)
+        if not allow_legacy_filesystem:
+            path = filesystem.normalize_path(path)
+        return filesystem, path
 
     path = _stringify_path(path)
 
