@@ -1530,6 +1530,7 @@ TEST(Cast, StringToInt) {
              "0.5",
              "0x",
              "0xfff",
+             "-0xf0",
          }) {
       auto options = CastOptions::Safe(int8());
       CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_int8 + "\"]"), options);

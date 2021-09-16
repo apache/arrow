@@ -310,10 +310,8 @@ struct StringToUnsignedIntConverterMixin {
       length -= 2;
       s += 2;
 
-      if (!ARROW_PREDICT_TRUE(ParseHex(s, length, out))) {
-        return false;
-      }
-      return true;
+      return ARROW_PREDICT_TRUE(ParseHex(s, length, out));
+
     }
     // Skip leading zeros
     while (length > 0 && *s == '0') {
