@@ -730,24 +730,66 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
   array_with_nul <- Array$create(raws)$cast(utf8())
-  expect_error(
-    as.vector(array_with_nul),
-    paste0(
-      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
-      "to R, set options(arrow.skip_nul = TRUE)"
-    ),
+
+  # no error on conversion, because altrep laziness
+  v <- expect_error(as.vector(array_with_nul), NA)
+
+  # attempting materialization -> error
+
+  # TODO: this happens internally in ALTREP, and there we can't catch the error and
+  #       promote it
+  #
+  # expect_error(v[],
+  #   paste0(
+  #     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+  #     "to R, set options(arrow.skip_nul = TRUE)"
+  #   ),
+  #   fixed = TRUE
+  # )
+  expect_error(v[],
+    "embedded nul in string: 'ma\\0n'",
+    fixed = TRUE
+  )
+
+  # also error on materializing v[3]
+  # expect_error(v[3],
+  #   paste0(
+  #    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+  #    "to R, set options(arrow.skip_nul = TRUE)"
+  #   ),
+  #   fixed = TRUE
+  # )
+  expect_error(v[3],
+    "embedded nul in string",
     fixed = TRUE
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
+    # no warning yet because altrep laziness
+    v <- as.vector(array_with_nul)
+
     expect_warning(
-      expect_identical(
-        as.vector(array_with_nul),
+      expect_identical(v[],
         c("person", "woman", "man", "fan", "camera", "tv")
       ),
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[3], "man"),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[4], "fan"),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
   })
 })
 
