@@ -224,6 +224,100 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlan, ToString) {
+  auto basic_data = MakeBasicBatches();
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{basic_data.schema,
+                                                 basic_data.gen(/*parallel=*/false,
+                                                                /*slow=*/false)}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+  EXPECT_EQ(plan->sources()[0]->ToString(), R"(SourceNode{"source", outputs=["sink"]})");
+  EXPECT_EQ(plan->sinks()[0]->ToString(),
+            R"(SinkNode{"sink", inputs=[collected: "source"]})");
+  EXPECT_EQ(plan->ToString(), R"(ExecPlan with 2 nodes:
+SourceNode{"source", outputs=["sink"]}
+SinkNode{"sink", inputs=[collected: "source"]}
+)");
+
+  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
+  CountOptions options(CountOptions::ONLY_VALID);
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              {"source",
+               SourceNodeOptions{basic_data.schema,
+                                 basic_data.gen(/*parallel=*/false, /*slow=*/false)}},
+              {"filter", FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
+              {"project", ProjectNodeOptions{{
+                              field_ref("bool"),
+                              call("multiply", {field_ref("i32"), literal(2)}),
+                          }}},
+              {"aggregate",
+               AggregateNodeOptions{
+                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", &options}},
+                   /*targets=*/{"multiply(i32, 2)", "multiply(i32, 2)"},
+                   /*names=*/{"sum(multiply(i32, 2))", "count(multiply(i32, 2))"},
+                   /*keys=*/{"bool"}}},
+              {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
+                                                   literal(10))}},
+              {"order_by_sink",
+               OrderBySinkNodeOptions{
+                   SortOptions({SortKey{"sum(multiply(i32, 2))", SortOrder::Ascending}}),
+                   &sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+  EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 6 nodes:
+SourceNode{"source", outputs=["filter"]}
+FilterNode{"filter", inputs=[target: "source"], outputs=["project"], filter=(i32 >= 0)}
+ProjectNode{"project", inputs=[target: "filter"], outputs=["aggregate"], projection=[bool, multiply(i32, 2)]}
+GroupByNode{"aggregate", inputs=[groupby: "project"], outputs=["filter"], keys=["bool"], aggregates=[
+	hash_sum(multiply(i32, 2)),
+	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+]}
+FilterNode{"filter", inputs=[target: "aggregate"], outputs=["order_by_sink"], filter=(sum(multiply(i32, 2)) > 10)}
+OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[sum(multiply(i32, 2)) ASC]}}
+)a");
+
+  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
+  Declaration union_node{"union", ExecNodeOptions{}};
+  Declaration lhs{"source",
+                  SourceNodeOptions{basic_data.schema,
+                                    basic_data.gen(/*parallel=*/false, /*slow=*/false)}};
+  lhs.label = "lhs";
+  Declaration rhs{"source",
+                  SourceNodeOptions{basic_data.schema,
+                                    basic_data.gen(/*parallel=*/false, /*slow=*/false)}};
+  rhs.label = "rhs";
+  union_node.inputs.emplace_back(lhs);
+  union_node.inputs.emplace_back(rhs);
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              union_node,
+              {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count", &options}},
+                                                 /*targets=*/{"i32"},
+                                                 /*names=*/{"count(i32)"},
+                                                 /*keys=*/{}}},
+              {"sink", SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+  EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
+SourceNode{"lhs", outputs=["union"]}
+SourceNode{"rhs", outputs=["union"]}
+UnionNode{"union", inputs=[input_0_label: "lhs", input_1_label: "rhs"], outputs=["aggregate"]}
+ScalarAggregateNode{"aggregate", inputs=[target: "union"], outputs=["sink"], aggregates=[
+	count(i32, {mode=NON_NULL}),
+]}
+SinkNode{"sink", inputs=[collected: "aggregate"]}
+)a");
+}
+
 TEST(ExecPlanExecution, SourceOrderBy) {
   std::vector<ExecBatch> expected = {
       ExecBatchFromJSON({int32(), boolean()},

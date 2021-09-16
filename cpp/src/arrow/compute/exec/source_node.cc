@@ -56,7 +56,7 @@ struct SourceNode : ExecNode {
                                          source_options.generator);
   }
 
-  const char* kind_name() override { return "SourceNode"; }
+  const char* kind_name() const override { return "SourceNode"; }
 
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");

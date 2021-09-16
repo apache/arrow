@@ -85,7 +85,7 @@ class ExampleNode : public cp::ExecNode {
                  /*input_labels=*/{"ignored"},
                  /*output_schema=*/input->output_schema(), /*num_outputs=*/1) {}
 
-  const char* kind_name() override { return "ExampleNode"; }
+  const char* kind_name() const override { return "ExampleNode"; }
 
   arrow::Status StartProducing() override {
     outputs_[0]->InputFinished(this, 0);
