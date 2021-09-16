@@ -1037,8 +1037,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                          properties) {
     current_encoder_ = MakeEncoder(DType::type_num, encoding, use_dictionary, descr_,
                                    properties->memory_pool());
+    // We have to dynamic_cast as some compilers don't want to static_cast
+    // through virtual inheritance.
     current_value_encoder_ = dynamic_cast<TypedEncoder<DType>*>(current_encoder_.get());
-    // will be null if not using dictionary, but that's ok
+    // Will be null if not using dictionary, but that's ok
     current_dict_encoder_ = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
 
     if (properties->statistics_enabled(descr_->path()) &&
@@ -1207,9 +1209,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
   using TypedStats = TypedStatistics<DType>;
   std::unique_ptr<Encoder> current_encoder_;
-  // downcasted observers of current_encoder_. perform the downcast once as opposed
-  // to at every use since dynamic_cast is so expensivea, and static cast
-  // is not available due to virtual inheritance
+  // Downcasted observers of current_encoder_.
+  // The downcast is performed once as opposed to at every use since
+  // dynamic_cast is so expensive, and static_cast is not available due
+  // to virtual inheritance.
   ValueEncoderType* current_value_encoder_;
   DictEncoder<DType>* current_dict_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
