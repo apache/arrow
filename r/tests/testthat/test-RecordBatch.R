@@ -515,14 +515,25 @@ test_that("Handling string data with embedded nuls", {
   )
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
+
+  df <- as.data.frame(batch_with_nul)
+
+  # expect_error(
+  #   df[],
+  #   paste0(
+  #     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+  #     "set options(arrow.skip_nul = TRUE)"
+  #   ),
+  #   fixed = TRUE
+  # )
   expect_error(
-    as.data.frame(batch_with_nul),
-    paste0(
-      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
-      "set options(arrow.skip_nul = TRUE)"
-    ),
+    df$b[],
+    "embedded nul in string: 'ma\\0n'",
     fixed = TRUE
   )
+
+  batch_with_nul <- record_batch(a = 1:5, b = raws)
+  batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
     expect_warning(

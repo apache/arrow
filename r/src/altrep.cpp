@@ -24,6 +24,7 @@
 #include <arrow/util/bitmap_reader.h>
 
 #include <cpp11/altrep.hpp>
+#include <cpp11/declarations.hpp>
 #if defined(HAS_ALTREP)
 
 #if R_VERSION < R_Version(3, 6, 0)
@@ -279,12 +280,283 @@ struct AltrepArrayPrimitive {
   static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 
   SEXP Coerce(int type) {
-    // Just let R handle it for now
-    return NULL;
+    Materialize();
+    return Rf_coerceVector(R_altrep_data2(alt_), type);
   }
 };
 template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
+
+struct AltrepArrayString {
+  static R_altrep_class_t class_t;
+
+  static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
+  using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
+
+  static SEXP Make(const std::shared_ptr<Array>& array) {
+    SEXP alt_ = R_new_altrep(class_t, Pointer(new std::shared_ptr<Array>(array)), R_NilValue);
+    MARK_NOT_MUTABLE(alt_);
+    return alt_;
+  }
+
+  static std::shared_ptr<Array> array(SEXP alt_) {
+    SEXP data1_ = R_altrep_data1(alt_);
+    if (Rf_isNull(data1_)) {
+      return nullptr;
+    }
+    return *Pointer(data1_);
+  }
+
+  static bool IsExpanded(SEXP alt_) {
+    return !Rf_isNull(R_altrep_data2(alt_));
+  }
+
+  static bool IsComplete(SEXP alt_) {
+    return Rf_isNull(R_altrep_data1(alt_));
+  }
+
+  static void ReleaseArray(SEXP alt_) {
+    R_set_altrep_data1(alt_, R_NilValue);
+  }
+
+  static SEXP Expand(SEXP alt_) {
+    if (!IsExpanded(alt_)) {
+      auto array_ = array(alt_);
+      R_xlen_t n = array_->length();
+      SEXP data2_ = PROTECT(Rf_allocVector(STRSXP, n));
+      if (n == 0) {
+        ReleaseArray(alt_);
+      } else {
+        // set individual strings to NULL (not yet materialized)
+        memset(STDVEC_DATAPTR(data2_), 0, n * sizeof(SEXP));
+      }
+      R_set_altrep_data2(alt_, data2_);
+      UNPROTECT(1);
+    }
+
+    return R_altrep_data2(alt_);
+  }
+
+  static R_xlen_t Length(SEXP alt_) {
+    return IsExpanded(alt_) ? XLENGTH(R_altrep_data2(alt_)) : array(alt_)->length();
+  }
+
+  static int No_NA(SEXP alt_) {
+    if (!IsExpanded(alt_)) return array(alt_)->null_count() == 0;
+
+    SEXP data2_ = R_altrep_data2(alt_);
+    R_xlen_t n = XLENGTH(data2_);
+    const SEXP* data2_ptr = STRING_PTR_RO(data2_);
+
+    if (IsComplete(alt_)) {
+      for (R_xlen_t i = 0; i < n; i++) {
+        if (data2_ptr[i] == NA_STRING) return false;
+      }
+      return true;
+    } else {
+      auto array_ = array(alt_);
+      for (R_xlen_t i = 0; i < n; i++) {
+        // not yet expanded, but null in the Array
+        if (data2_ptr[i] == NULL && array_->IsNull(i)) return false;
+
+        // already expanded to NULL
+        if (data2_ptr[i] == NA_STRING) return false;
+      }
+      return true;
+    }
+  }
+
+  static int Is_sorted(SEXP alt_) {
+    return UNKNOWN_SORTEDNESS;
+  }
+
+  static SEXP Elt(SEXP alt_, R_xlen_t i) {
+    BEGIN_CPP11
+      if (IsComplete(alt_)) {
+        return STRING_ELT(R_altrep_data2(alt_), i);
+      }
+
+      // make sure data2 is initiated
+      Expand(alt_);
+      SEXP data2_ = R_altrep_data2(alt_);
+
+      // data2[i] was already generated
+      SEXP s = STRING_ELT(data2_, i);
+      if (s != NULL) {
+        return s;
+      }
+
+      // data2[i] is missing
+      auto array_ = array(alt_);
+      if (array_->IsNull(i)) {
+        SET_STRING_ELT(data2_, i, NA_STRING);
+        return NA_STRING;
+      }
+
+      // data2[i] is a string, but we need care about embedded nuls
+      auto view = static_cast<StringArray*>(array_.get())->GetView(i);
+      const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
+      bool nul_was_stripped = false;
+      std::string stripped_string;
+
+      // both cases might jump, although it's less likely when
+      // nuls are stripped, but still we need the unwind protection
+      // so that C++ objects here are correctly destructed, whilst errors
+      // properly pass through to the R side
+      cpp11::unwind_protect([&](){
+        if (strip_out_nuls) {
+          s = r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped);
+        } else {
+          s = r_string_from_view(view);
+        }
+
+        if (nul_was_stripped) {
+          cpp11::warning("Stripping '\\0' (nul) from character vector");
+        }
+
+      });
+      SET_STRING_ELT(data2_, i, s);
+      return s;
+    END_CPP11
+  }
+
+  static void* Dataptr(SEXP alt_, Rboolean writeable) {
+    return DATAPTR(Complete(alt_));
+  }
+
+  static SEXP Complete(SEXP alt_) {
+    BEGIN_CPP11
+
+      if (!IsComplete(alt_)) {
+        Expand(alt_);
+        auto array_ = array(alt_);
+        SEXP data2_ = R_altrep_data2(alt_);
+        R_xlen_t n = XLENGTH(data2_);
+
+        std::string stripped_string;
+        const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
+        bool nul_was_stripped = false;
+        auto* string_array = static_cast<StringArray*>(array_.get());
+        util::string_view view;
+
+        cpp11::unwind_protect([&](){
+          for (R_xlen_t i = 0; i < n; i++) {
+            SEXP s = STRING_ELT(data2_, i);
+            if (s != NULL) {
+              continue;
+            }
+
+            if (array_->IsNull(i)) {
+              SET_STRING_ELT(data2_, i, NA_STRING);
+              continue;
+            }
+
+            view = string_array->GetView(i);
+            if (strip_out_nuls) {
+              s = r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped);
+            } else {
+              s = r_string_from_view(view);
+            }
+            SET_STRING_ELT(data2_, i, s);
+          }
+
+          if (nul_was_stripped) {
+            cpp11::warning("Stripping '\\0' (nul) from character vector");
+          }
+
+        });
+
+        ReleaseArray(alt_);
+      }
+      return R_altrep_data2(alt_);
+
+    END_CPP11
+  }
+
+  static const void* Dataptr_or_null(SEXP alt_) {
+    if (IsComplete(alt_)) return DATAPTR(R_altrep_data2(alt_));
+    return NULL;
+  }
+
+  static SEXP Serialized_state(SEXP alt_) {
+    return Complete(alt_);
+  }
+
+  static SEXP Unserialize(SEXP /* class_ */, SEXP state) {
+    return state;
+  }
+
+  static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
+    return Rf_lazy_duplicate(Complete(alt_));
+  }
+
+  static Rboolean Inspect(SEXP alt_, int pre, int deep, int pvec,
+                   void (*inspect_subtree)(SEXP, int, int, int)) {
+    if (IsComplete(alt_)) {
+      inspect_subtree(R_altrep_data2(alt_), pre, deep, pvec);
+      return TRUE;
+    }
+
+    const auto& array_ = array(alt_);
+    Rprintf("arrow::Array<%s, %d nulls> len=%d, Array=<%p>\n",
+            array_->type()->ToString().c_str(), array_->null_count(),
+            array_->length(),
+            array_.get());
+    inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
+
+    return TRUE;
+  }
+
+  static SEXP Coerce(SEXP alt_, int type) {
+    return Rf_coerceVector(Complete(alt_), type);
+  }
+
+  // static method so that this can error without concerns of
+  // destruction for the
+  static void Set_elt(SEXP alt_, R_xlen_t i, SEXP v) {
+    Rf_error("ALTSTRING objects of type <arrow::array_string_vector> are immutable");
+  }
+
+  static SEXP r_string_from_view_strip_nul(arrow::util::string_view view, std::string& stripped_string,
+                                           bool* nul_was_stripped) {
+    const char* old_string = view.data();
+
+    size_t stripped_len = 0, nul_count = 0;
+
+    for (size_t i = 0; i < view.size(); i++) {
+      if (old_string[i] == '\0') {
+        ++nul_count;
+
+        if (nul_count == 1) {
+          // first nul spotted: allocate stripped string storage
+          stripped_string = view.to_string();
+          stripped_len = i;
+        }
+
+        // don't copy old_string[i] (which is \0) into stripped_string
+        continue;
+      }
+
+      if (nul_count > 0) {
+        stripped_string[stripped_len++] = old_string[i];
+      }
+    }
+
+    if (nul_count > 0) {
+      *nul_was_stripped = true;
+      stripped_string.resize(stripped_len);
+      return r_string_from_view(stripped_string);
+    }
+
+    return r_string_from_view(view);
+  }
+
+  static SEXP r_string_from_view(arrow::util::string_view view) {
+    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+  }
+};
+
+R_altrep_class_t AltrepArrayString::class_t;
 
 // The methods below are how R interacts with the altrep objects.
 //
@@ -493,10 +765,31 @@ void InitAltIntegerClass(DllInfo* dll, const char* name) {
   InitAltIntegerMethods<AltrepClass>(AltrepClass::class_t, dll);
 }
 
+template <typename AltrepClass>
+void InitAltStringClass(DllInfo* dll, const char* name) {
+  AltrepClass::class_t = R_make_altstring_class(name, "arrow", dll);
+  R_set_altrep_Length_method(AltrepClass::class_t, AltrepClass::Length);
+  R_set_altrep_Inspect_method(AltrepClass::class_t, AltrepClass::Inspect);
+  R_set_altrep_Duplicate_method(AltrepClass::class_t, AltrepClass::Duplicate);
+  R_set_altrep_Serialized_state_method(AltrepClass::class_t, AltrepClass::Serialized_state);
+  R_set_altrep_Unserialize_method(AltrepClass::class_t, AltrepClass::Unserialize);
+  R_set_altrep_Coerce_method(AltrepClass::class_t, AltrepClass::Coerce);
+
+  R_set_altvec_Dataptr_method(AltrepClass::class_t, AltrepClass::Dataptr);
+  R_set_altvec_Dataptr_or_null_method(AltrepClass::class_t, AltrepClass::Dataptr_or_null);
+
+  R_set_altstring_Elt_method(AltrepClass::class_t, AltrepClass::Elt);
+  R_set_altstring_Set_elt_method(AltrepClass::class_t, AltrepClass::Set_elt);
+  R_set_altstring_No_NA_method(AltrepClass::class_t, AltrepClass::No_NA);
+  R_set_altstring_Is_sorted_method(AltrepClass::class_t, AltrepClass::Is_sorted);
+}
+
 // initialize the altrep classes
 void Init_Altrep_classes(DllInfo* dll) {
-  InitAltRealClass<AltrepArrayPrimitive<REALSXP>>(dll, "array_dbl_vector");
-  InitAltIntegerClass<AltrepArrayPrimitive<INTSXP>>(dll, "array_int_vector");
+  InitAltRealClass<AltrepArrayPrimitive<REALSXP>>(dll, "arrow::array_dbl_vector");
+  InitAltIntegerClass<AltrepArrayPrimitive<INTSXP>>(dll, "arrow::array_int_vector");
+
+  InitAltStringClass<AltrepArrayString>(dll, "arrow::array_string_vector");
 }
 
 // return an altrep R vector that shadows the array if possible
@@ -507,6 +800,9 @@ SEXP MakeAltrepArrayPrimitive(const std::shared_ptr<Array>& array) {
 
     case arrow::Type::INT32:
       return altrep::AltrepArrayPrimitive<INTSXP>(array).alt_;
+
+    case arrow::Type::STRING:
+      return altrep::AltrepArrayString::Make(array);
 
     default:
       break;
@@ -528,6 +824,11 @@ bool is_altrep(SEXP x) {
 #else
   return false;
 #endif
+}
+
+// [[arrow::export]]
+void test_SET_STRING_ELT(SEXP s) {
+  SET_STRING_ELT(s, 0, Rf_mkChar("forbidden"));
 }
 
 #endif

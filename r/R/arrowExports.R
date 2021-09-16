@@ -4,6 +4,10 @@ is_altrep <- function(x) {
   .Call(`_arrow_is_altrep`, x)
 }
 
+test_SET_STRING_ELT <- function(s) {
+  invisible(.Call(`_arrow_test_SET_STRING_ELT`, s))
+}
+
 Array__Slice1 <- function(array, offset) {
   .Call(`_arrow_Array__Slice1`, array, offset)
 }
@@ -1771,3 +1775,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+
