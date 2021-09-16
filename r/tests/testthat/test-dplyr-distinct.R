@@ -40,16 +40,25 @@ test_that("distinct() works without any variables", {
       collect(),
     tbl
   )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(x = int + 1) %>%
+      distinct() %>%
+      arrange(int) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("distinct() can retain groups", {
   skip("ARROW-13550 - summarise can't retain groups")
   expect_dplyr_equal(
     input %>%
-      group_by(some_grouping, false) %>%
+      group_by(some_grouping, int) %>%
       distinct(lgl) %>%
       collect() %>%
-      arrange(lgl, some_grouping),
+      arrange(lgl, int),
     tbl
   )
 })
