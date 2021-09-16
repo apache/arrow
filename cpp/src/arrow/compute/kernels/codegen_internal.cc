@@ -257,7 +257,8 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
 
   // decimal promotion rules compatible with amazon redshift
   // https://docs.aws.amazon.com/redshift/latest/dg/r_numeric_computations201.html
-  int32_t left_scaleup, right_scaleup;
+  int32_t left_scaleup = 0;
+  int32_t right_scaleup = 0;
 
   switch (promotion) {
     case DecimalPromotion::kAdd: {
