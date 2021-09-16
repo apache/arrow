@@ -153,7 +153,7 @@ def _resolve_filesystem_and_path(
                 "Expected string path; path-like objects are only allowed "
                 "with a local filesystem"
             )
-        return filesystem, path
+        return filesystem, filesystem.normalize_path(path)
 
     path = _stringify_path(path)
 
@@ -180,6 +180,8 @@ def _resolve_filesystem_and_path(
             # instead of a more confusing scheme parsing error
             if "empty scheme" not in str(e):
                 raise
+    else:
+        path = filesystem.normalize_path(path)
 
     return filesystem, path
 
