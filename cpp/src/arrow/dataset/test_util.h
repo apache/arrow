@@ -228,7 +228,13 @@ class DatasetFixtureMixin : public ::testing::Test {
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
-    ASSERT_OK_AND_ASSIGN(auto batches, it.ToVector());
+    // ToVector does not work since EnumeratedRecordBatch is not comparable
+    std::vector<EnumeratedRecordBatch> batches;
+    for (;;) {
+      ASSERT_OK_AND_ASSIGN(auto batch, it.Next());
+      if (IsIterationEnd(batch)) break;
+      batches.push_back(std::move(batch));
+    }
     std::sort(batches.begin(), batches.end(),
               [](const EnumeratedRecordBatch& left,
                  const EnumeratedRecordBatch& right) -> bool {
