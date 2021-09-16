@@ -672,8 +672,14 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
-nse_funcs$strftime <- function(x, format = "%Y-%m-%d %H:%M:%S", locale="C") {
-  Expression$create("strftime", x, options = list(format = format, locale = locale))
+nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (tz != "") {
+    arrow_not_supported("tz argument")
+  }
+  if (usetz) {
+    format = paste(format, "%Z")
+  }
+  Expression$create("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
 
 nse_funcs$second <- function(x) {

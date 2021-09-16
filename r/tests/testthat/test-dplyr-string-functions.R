@@ -720,50 +720,35 @@ test_that("errors in strptime", {
 })
 
 test_that("strftime", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   # TODO: consider reevaluating this workaround after ARROW-12980
   withr::local_timezone("UTC")
-  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
-  t_string <- tibble(x = c("2018-10-07 19:04:05.000000", NA))
-  t_string_2 <- tibble(x = c("07 October 2018 19:04:05.000000 UTC", NA))
+  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
 
-  # TODO: remove once we have tz support on windows ARROW-13168
-  if (tolower(Sys.info()[["sysname"]]) != "windows") {
-    expect_equal(
-      t_stamp %>%
-        Table$create() %>%
-        mutate(
-          x = strftime(x)
-        ) %>%
+  formats = c("%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
+             "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
+             "%X", "%%", "%G", "%V", "%u")
+
+  for (format in formats) {
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = strftime(x, format = format)) %>%
         collect(),
-      t_string
+      times
     )
 
-    expect_equal(
-      t_stamp %>%
-        Table$create() %>%
-        mutate(
-          x = strftime(x, format = "%Y-%m-%d %H:%M:%S")
-        ) %>%
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = strftime(x, format = format, usetz = TRUE)) %>%
         collect(),
-      t_string
+      times
     )
 
-    expect_equal(
-      t_stamp %>%
-        Table$create() %>%
-        mutate(
-          x = strftime(x, format = "%d %B %Y %H:%M:%S %Z", locale = "C")
-        ) %>%
-        collect(),
-      t_string_2
-    )
-  } else {
+    x <- Expression$field_ref("x")
     expect_error(
-      t_stamp %>%
-        Table$create() %>%
-        mutate(x = strftime(x)) %>%
-        collect(),
-      "Strftime not yet implemented on windows."
+      nse_funcs$strftime(x, format = format, tz="Mars/Mariner_Valley"),
+      "tz argument not supported by Arrow"
     )
   }
 })

@@ -334,15 +334,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "strftime") {
     using Options = arrow::compute::StrftimeOptions;
-    std::string format = "%Y-%m-%dT%H:%M:%S";
-    std::string locale = "C";
-    if (!Rf_isNull(options["format"])) {
-      format = cpp11::as_cpp<std::string>(options["format"]);
-    }
-    if (!Rf_isNull(options["locale"])) {
-      locale = cpp11::as_cpp<std::string>(options["locale"]);
-    }
-    return std::make_shared<Options>(Options(format, locale));
+    return std::make_shared<Options>(
+        Options(cpp11::as_cpp<std::string>(options["format"]),
+                cpp11::as_cpp<std::string>(options["locale"])));
   }
 
   if (func_name == "assume_timezone") {
