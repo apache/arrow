@@ -187,7 +187,8 @@ def _resolve_filesystem_and_path(
 
 
 def copy_files(source, destination,
-               source_filesystem=None, destination_filesystem=None):
+               source_filesystem=None, destination_filesystem=None,
+               chunk_size=1024*1024, use_threads=True):
     """
     Copy files between FileSystems.
 
@@ -209,6 +210,12 @@ def copy_files(source, destination,
     destination_filesystem : FileSystem, optional
         Destination filesystem, needs to be specified if `destination` is not
         a URI, otherwise inferred.
+    chunk_size : int, default 1MB
+        The maximum size of block to read before flushing to the
+        destination file. A larger chunk_size will use more memory while
+        copying but may help accommodate high latency FileSystems.
+    use_threads : bool, default True
+        Whether to use multiple threads to accelerate copying.
 
     Examples
     --------
@@ -233,10 +240,12 @@ def copy_files(source, destination,
     if file_info.type == FileType.Directory:
         source_sel = FileSelector(source_path, recursive=True)
         _copy_files_selector(source_fs, source_sel,
-                             destination_fs, destination_path)
+                             destination_fs, destination_path,
+                             chunk_size, use_threads)
     else:
         _copy_files(source_fs, source_path,
-                    destination_fs, destination_path)
+                    destination_fs, destination_path,
+                    chunk_size, use_threads)
 
 
 class FSSpecHandler(FileSystemHandler):

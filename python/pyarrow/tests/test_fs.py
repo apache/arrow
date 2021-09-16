@@ -1594,6 +1594,13 @@ def test_copy_files(s3_connection, s3fs, tempdir):
     with localfs.open_input_stream(local_path4) as f:
         assert f.read() == b"test"
 
+    # copy with additional options
+    local_path5 = str(tempdir / "c_copied5.txt")
+    copy_files(source_uri, local_path5, chunk_size=1, use_threads=False)
+
+    with localfs.open_input_stream(local_path5) as f:
+        assert f.read() == b"test"
+
 
 def test_copy_files_directory(tempdir):
     localfs = LocalFileSystem()
@@ -1639,3 +1646,9 @@ def test_copy_files_directory(tempdir):
     destination_dir4.mkdir()
     copy_files(source_dir, destination_dir4)
     check_copied_files(destination_dir4)
+
+    # copy with additional non-default options
+    destination_dir5 = tempdir / "destination5"
+    destination_dir5.mkdir()
+    copy_files(source_dir, destination_dir5, chunk_size=1, use_threads=False)
+    check_copied_files(destination_dir5)
