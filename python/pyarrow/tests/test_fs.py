@@ -27,6 +27,7 @@ import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
+from pyarrow.tests.util import _filesystem_uri
 from pyarrow.vendored.version import Version
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
@@ -1581,7 +1582,7 @@ def test_copy_files(s3_connection, s3fs, tempdir):
 
     # copy to local file with URI
     local_path3 = str(tempdir / "c_copied3.txt")
-    destination_uri = "file://" + local_path3
+    destination_uri = _filesystem_uri(local_path3)  # file://
     copy_files(source_uri, destination_uri)
 
     with localfs.open_input_stream(local_path3) as f:
@@ -1636,8 +1637,8 @@ def test_copy_files_directory(tempdir):
     # Copy directory with URI
     destination_dir3 = tempdir / "destination3"
     destination_dir3.mkdir()
-    source_uri = "file://" + str(source_dir)
-    destination_uri = "file://" + str(destination_dir3)
+    source_uri = _filesystem_uri(str(source_dir))  # file://
+    destination_uri = _filesystem_uri(str(destination_dir3))
     copy_files(source_uri, destination_uri)
     check_copied_files(destination_dir3)
 
