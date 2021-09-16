@@ -39,20 +39,21 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     cols_in_order <- names(.data)
   }
 
-  # If there are no cols supplied, group by everything so that
-  # later call to `summarise()`` returns everything and not empty table
-  if (length(distinct_groups) == 0) {
-    .data <- dplyr::group_by(.data, !!!syms(names(.data)), .add = TRUE)
-  } else {
-    # This works as distinct(data, x, y) == summarise(group_by(data, x, y))
+  # This works as distinct(data, x, y) == summarise(group_by(data, x, y))
+  if (length(distinct_groups)) {
     .data <- dplyr::group_by(.data, !!!distinct_groups, .add = TRUE)
+  } else {
+    # If there are no cols supplied, group by everything so that
+    # later call to `summarise()`` returns everything and not empty table
+    .data <- dplyr::group_by(.data, !!!syms(names(.data)), .add = TRUE)
   }
 
   # After ARROW-13550 is merged, update this to use .groups = "keep"
   .data <- dplyr::summarize(.data)
 
   # If there were no vars supplied to distinct() but there were vars supplied
-  # to group_by, we need to restore grouping which we removed earlier
+  # to group_by, we need to restore grouping which we removed earlier when
+  # grouping by everything
   if (!length(distinct_groups) && length(gv)) {
     .data <- dplyr::group_by(.data, !!!syms(gv))
   }
@@ -65,7 +66,6 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     names(.data$selected_columns)
   )
   .data$selected_columns <- .data$selected_columns[ordered_selected_cols]
-
 
   .data
 }
