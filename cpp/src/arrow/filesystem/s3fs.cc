@@ -1538,9 +1538,9 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     auto outcome = client_->HeadBucket(req);
     if (!outcome.IsSuccess()) {
       if (!IsNotFound(outcome.GetError())) {
-        return ErrorToStatus(
-            std::forward_as_tuple("When testing for bucket existence '", bucket, "': "),
-            outcome.GetError());
+        return ErrorToStatus(std::forward_as_tuple(
+                                 "When testing for existence of bucket '", bucket, "': "),
+                             outcome.GetError());
       }
       return false;
     }
