@@ -410,49 +410,57 @@ test_that("strsplit and str_split", {
     input %>%
       mutate(x = strsplit(x, "and")) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, " +and +")) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and")) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and", n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, fixed("and"), n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, regex("and"), n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "Foo|bar", n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
 })
 

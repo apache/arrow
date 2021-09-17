@@ -121,7 +121,6 @@ test_that("non-bound compute kernels using ModeOptions", {
 })
 
 test_that("non-bound compute kernels using PartitionNthOptions", {
-
   result <- call_function(
     "partition_nth_indices",
     Array$create(c(11:20)),
@@ -131,7 +130,6 @@ test_that("non-bound compute kernels using PartitionNthOptions", {
   # (depends on C++ standard library implementation)
   expect_true(all(as.vector(result[1:3]) < 3))
   expect_true(all(as.vector(result[4:10]) >= 3))
-
 })
 
 
