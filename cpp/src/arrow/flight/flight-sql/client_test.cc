@@ -280,11 +280,11 @@ TEST(TestFlightSql, TestExecuteUpdate) {
   std::unique_ptr<FlightMetadataReader> reader;
   EXPECT_CALL(*client_mock, DoPut(Ref(call_options), descriptor, _, _, _));
 
-  int64_t num_rows = 0;
+  std::unique_ptr<int64_t> num_rows;
 
-  (void) sqlClient.ExecuteUpdate(call_options, &num_rows, query);
+  (void) sqlClient.ExecuteUpdate(call_options, query, &num_rows);
 
-  ASSERT_EQ(num_rows, 100);
+  ASSERT_EQ(*num_rows, 100);
 }
 
 }  // namespace sql
