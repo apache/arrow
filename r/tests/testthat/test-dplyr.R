@@ -989,7 +989,7 @@ test_that("sign()", {
   )
 })
 
-test_that("ceiling(), floor(), trunc()", {
+test_that("ceiling(), floor(), trunc(), round()", {
   df <- tibble(x = c(-1, -0.55, -0.5, -0.1, 0, 0.1, 0.5, 0.55, 1, NA, NaN))
 
   expect_dplyr_equal(
@@ -997,10 +997,67 @@ test_that("ceiling(), floor(), trunc()", {
       mutate(
         c = ceiling(x),
         f = floor(x),
-        t = trunc(x)
+        t = trunc(x),
+        r = round(x)
       ) %>%
       collect(),
     df
+  )
+
+  # digits = 1
+  expect_dplyr_equal(
+    input %>%
+      filter(x %% 0.5 == 0) %>%
+      mutate(r = round(x, 1)) %>%
+      collect(),
+    df
+  )
+
+  # digits = -1
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        rd = round(floor(x * 111), -1), # double
+        y = ifelse(is.nan(x), NA_integer_, x),
+        ri = round(as.integer(y * 111), -1) # integer (with the NaN removed)
+      ) %>%
+      collect(),
+    df
+  )
+
+  skip_on_os("windows") # float representation error might cause inconsistency
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(r = round(x, 1)) %>%
+      collect(),
+    df
+  )
+
+  # verify that round mode HALF_TO_EVEN which is what the round() binding uses
+  # yields results consistent with R...
+  expect_equal(
+    as.vector(
+      call_function(
+        "round",
+        Array$create(df$x),
+        options = list(ndigits = 1L, round_mode = RoundMode$HALF_TO_EVEN)
+      )
+    ),
+    round(df$x, 1)
+  )
+  # ... but round mode HALF_TOWARDS_ZERO does not.
+  expect_false(
+    isTRUE(all.equal(
+      as.vector(
+        call_function(
+          "round",
+          Array$create(df$x),
+          options = list(ndigits = 1L, round_mode = RoundMode$HALF_TOWARDS_ZERO)
+        )
+      ),
+      round(df$x, 1)
+    ))
   )
 })
 
