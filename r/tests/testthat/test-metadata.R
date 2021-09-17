@@ -239,8 +239,7 @@ test_that("metadata of list elements (ARROW-10386)", {
   ds <- open_dataset(dst_dir)
   expect_warning(
     df_from_ds <- collect(ds),
-    NA # TODO: ARROW-13852
-    # "Row-level metadata is not compatible with this operation and has been ignored"
+    "Row-level metadata is not compatible with this operation and has been ignored"
   )
   expect_equal(arrange(df_from_ds, int), arrange(df, int), check.attributes = FALSE)
 
@@ -248,5 +247,50 @@ test_that("metadata of list elements (ARROW-10386)", {
   expect_warning(
     df_from_ds <- ds %>% select(int) %>% collect(),
     NA
+  )
+})
+
+test_that("dplyr with metadata", {
+  skip_if_not_available("dataset")
+
+  expect_dplyr_equal(
+    input %>%
+      collect(),
+    example_with_metadata
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(a) %>%
+      collect(),
+    example_with_metadata
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(z = b * 4) %>%
+      select(z, a) %>%
+      collect(),
+    example_with_metadata
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(z = nchar(a)) %>%
+      select(z, a) %>%
+      collect(),
+    example_with_metadata
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(a) %>%
+      summarize(n()) %>%
+      collect(),
+    example_with_metadata
+  )
+  # Same name in output but different data
+  expect_dplyr_equal(
+    input %>%
+      mutate(a = nchar(a)) %>%
+      select(a) %>%
+      collect(),
+    example_with_metadata
   )
 })
