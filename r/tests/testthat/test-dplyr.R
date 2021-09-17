@@ -1025,6 +1025,18 @@ test_that("ceiling(), floor(), trunc(), round()", {
     df
   )
 
+  # round(x, -2) is equivalent to round_to_multiple(x, 100)
+  expect_equal(
+    Table$create(df) %>%
+      mutate(r = round(1111.1, -2)) %>%
+      collect(),
+    Table$create(df) %>%
+      mutate(
+        r = arrow_round_to_multiple(1111.1, options = list(multiple = 100))
+      ) %>%
+      collect()
+  )
+
   skip_on_os("windows") # float representation error might cause inconsistency
 
   expect_dplyr_equal(
