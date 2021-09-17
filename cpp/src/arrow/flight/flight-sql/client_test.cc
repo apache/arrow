@@ -102,8 +102,8 @@ TEST(TestFlightSql, TestGetSchemas) {
   EXPECT_CALL(*client_mock,
               GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
-  (void) sqlClient.GetSchemas(call_options, &flight_info, &catalog,
-                              &schema_filter_pattern);
+  (void) sqlClient.GetSchemas(call_options, &catalog,
+                              &schema_filter_pattern, &flight_info);
 }
 
 TEST(TestFlightSql, TestGetTables) {
@@ -132,8 +132,9 @@ TEST(TestFlightSql, TestGetTables) {
   EXPECT_CALL(*client_mock,
               GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
-  (void) sqlClient.GetTables(call_options, &flight_info, &catalog, &schema_filter_pattern,
-                             &table_name_filter_pattern, include_schema, table_types);
+  (void) sqlClient.GetTables(call_options, &catalog, &schema_filter_pattern,
+                             &table_name_filter_pattern, include_schema,
+                             table_types, &flight_info);
 }
 
 TEST(TestFlightSql, TestGetTableTypes) {
@@ -172,7 +173,7 @@ TEST(TestFlightSql, TestGetExported) {
   EXPECT_CALL(*client_mock,
               GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
-  (void) sqlClient.GetExportedKeys(call_options, &flight_info, &catalog, &schema, table);
+  (void) sqlClient.GetExportedKeys(call_options, &catalog, &schema, table, &flight_info);
 }
 
 TEST(TestFlightSql, TestGetImported) {
@@ -195,7 +196,7 @@ TEST(TestFlightSql, TestGetImported) {
   EXPECT_CALL(*client_mock,
               GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
-  (void) sqlClient.GetImportedKeys(call_options, &flight_info, &catalog, &schema, table);
+  (void) sqlClient.GetImportedKeys(call_options, &catalog, &schema, table, &flight_info);
 }
 
 TEST(TestFlightSql, TestGetPrimary) {
@@ -218,7 +219,7 @@ TEST(TestFlightSql, TestGetPrimary) {
   EXPECT_CALL(*client_mock,
               GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
-  (void) sqlClient.GetPrimaryKeys(call_options, &flight_info, &catalog, &schema, table);
+  (void) sqlClient.GetPrimaryKeys(call_options, &catalog, &schema, table, &flight_info);
 }
 
 TEST(TestFlightSql, TestExecute) {
@@ -237,7 +238,7 @@ TEST(TestFlightSql, TestExecute) {
   EXPECT_CALL(*client_mock,
               GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
-  (void) sqlClient.Execute(call_options, &flight_info, query);
+  (void) sqlClient.Execute(call_options, query, &flight_info);
 }
 
 TEST(TestFlightSql, TestExecuteUpdate) {

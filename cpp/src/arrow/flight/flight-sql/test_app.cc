@@ -126,42 +126,42 @@ Status RunMain() {
   std::unique_ptr<FlightInfo> info;
 
   if (fLS::FLAGS_command == "Execute") {
-    ARROW_RETURN_NOT_OK(sqlClient.Execute(call_options, &info,
-                                          fLS::FLAGS_query));
+    ARROW_RETURN_NOT_OK(sqlClient.Execute(call_options,
+                                          fLS::FLAGS_query, &info));
   } else if (fLS::FLAGS_command == "GetCatalogs") {
     ARROW_RETURN_NOT_OK(sqlClient.GetCatalogs(call_options, &info));
   } else if (fLS::FLAGS_command == "GetSchemas") {
     ARROW_RETURN_NOT_OK(sqlClient.GetSchemas(call_options,
-                                             &info,
                                              &fLS::FLAGS_catalog,
-                                             &fLS::FLAGS_schema));
+                                             &fLS::FLAGS_schema,
+                                             &info));
   } else if (fLS::FLAGS_command == "GetTableTypes") {
     ARROW_RETURN_NOT_OK(sqlClient.GetTableTypes(call_options, &info));
   } else if (fLS::FLAGS_command == "GetTables") {
     std::vector<std::string> table_types = {};
     bool include_schema = false;
 
-    ARROW_RETURN_NOT_OK(sqlClient.GetTables(call_options, &info,
+    ARROW_RETURN_NOT_OK(sqlClient.GetTables(call_options,
                                             &fLS::FLAGS_catalog,
                                             &fLS::FLAGS_schema,
                                             &fLS::FLAGS_table,
                                             include_schema,
-                                            table_types));
+                                            table_types, &info));
   } else if (fLS::FLAGS_command == "GetExportedKeys") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetExportedKeys(call_options, &info,
+    ARROW_RETURN_NOT_OK(sqlClient.GetExportedKeys(call_options,
                                                   &fLS::FLAGS_catalog,
                                                   &fLS::FLAGS_schema,
-                                                  fLS::FLAGS_table));
+                                                  fLS::FLAGS_table, &info));
   } else if (fLS::FLAGS_command == "GetImportedKeys") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetImportedKeys(call_options, &info,
+    ARROW_RETURN_NOT_OK(sqlClient.GetImportedKeys(call_options,
                                                   &fLS::FLAGS_catalog,
                                                   &fLS::FLAGS_schema,
-                                                  fLS::FLAGS_table));
+                                                  fLS::FLAGS_table, &info));
   } else if (fLS::FLAGS_command == "GetPrimaryKeys") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetPrimaryKeys(call_options, &info,
+    ARROW_RETURN_NOT_OK(sqlClient.GetPrimaryKeys(call_options,
                                                  &fLS::FLAGS_catalog,
                                                  &fLS::FLAGS_schema,
-                                                 fLS::FLAGS_table));
+                                                 fLS::FLAGS_table, &info));
   }
 
   if (info != NULLPTR) {
