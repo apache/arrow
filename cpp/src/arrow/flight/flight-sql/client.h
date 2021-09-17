@@ -32,7 +32,7 @@ namespace internal {
 template <class T = arrow::flight::FlightClient>
 class FlightSqlClientT {
  public:
-  explicit FlightSqlClientT(std::unique_ptr<T> &client);
+  explicit FlightSqlClientT(std::unique_ptr<T>& client);
 
   ~FlightSqlClientT();
 
@@ -136,7 +136,6 @@ class FlightSqlClientT {
   /// \return Status.
   Status GetTableTypes(const FlightCallOptions& options,
                        std::unique_ptr<FlightInfo>* flight_info) const;
-
 
  private:
   std::unique_ptr<T> client;
