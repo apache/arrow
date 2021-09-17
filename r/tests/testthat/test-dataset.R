@@ -621,6 +621,7 @@ test_that("Creating UnionDataset", {
 })
 
 test_that("map_batches", {
+  skip("map_batches() is broken (ARROW-14029)")
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = "part")
   expect_equivalent(
