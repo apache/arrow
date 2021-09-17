@@ -463,6 +463,20 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "round_to_multiple") {
+    using Options = arrow::compute::RoundToMultipleOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["multiple"])) {
+      out->multiple = cpp11::as_cpp<double>(options["multiple"]);
+    }
+    SEXP round_mode = options["round_mode"];
+    if (!Rf_isNull(round_mode) && TYPEOF(round_mode) == INTSXP &&
+        XLENGTH(round_mode) == 1) {
+      out->round_mode = cpp11::as_cpp<enum arrow::compute::RoundMode>(round_mode);
+    }
+    return out;
+  }
+
   return nullptr;
 }
 
