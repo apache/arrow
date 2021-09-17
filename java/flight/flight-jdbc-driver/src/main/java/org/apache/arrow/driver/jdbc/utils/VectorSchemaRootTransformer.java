@@ -19,13 +19,17 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
@@ -50,6 +54,7 @@ public interface VectorSchemaRootTransformer {
 
     private final Schema schema;
     private final BufferAllocator bufferAllocator;
+    private final List<Field> newFields = new ArrayList<>();
     private final Collection<Task> tasks = new ArrayList<>();
 
     public Builder(final Schema schema, final BufferAllocator bufferAllocator) {
@@ -59,13 +64,14 @@ public interface VectorSchemaRootTransformer {
 
     /**
      * Add task to transform a vector to a new vector renaming it.
+     * This also adds transformedVectorName to the transformed {@link VectorSchemaRoot} schema.
      *
      * @param originalVectorName Name of the original vector to be transformed.
      * @param transformedVectorName  Name of the vector that is the result of the transformation.
      * @return a VectorSchemaRoot instance with a task to rename a field vector.
      */
     public Builder renameFieldVector(final String originalVectorName, final String transformedVectorName) {
-      this.tasks.add((originalRoot, transformedRoot) -> {
+      tasks.add((originalRoot, transformedRoot) -> {
         final FieldVector originalVector = originalRoot.getVector(originalVectorName);
         final FieldVector transformedVector = transformedRoot.getVector(transformedVectorName);
 
@@ -86,13 +92,46 @@ public interface VectorSchemaRootTransformer {
         }
       });
 
+      final Field originalField = schema.findField(originalVectorName);
+      newFields.add(new Field(
+          transformedVectorName,
+          new FieldType(originalField.isNullable(), originalField.getType(), null, null),
+          originalField.getChildren())
+      );
+
+      return this;
+    }
+
+    /**
+     * Adds an empty field to the transformed {@link VectorSchemaRoot} schema.
+     *
+     * @param fieldName Name of the field to be added.
+     * @param fieldType  Type of the field to be added.
+     * @return a VectorSchemaRoot instance with the current tasks.
+     */
+    public Builder addEmptyField(final String fieldName, final Types.MinorType fieldType) {
+      newFields.add(Field.nullable(fieldName, fieldType.getType()));
+
+      return this;
+    }
+
+    /**
+     * Adds an empty field to the transformed {@link VectorSchemaRoot} schema.
+     *
+     * @param fieldName Name of the field to be added.
+     * @param fieldType  Type of the field to be added.
+     * @return a VectorSchemaRoot instance with the current tasks.
+     */
+    public Builder addEmptyField(final String fieldName, final ArrowType fieldType) {
+      newFields.add(Field.nullable(fieldName, fieldType));
+
       return this;
     }
 
     public VectorSchemaRootTransformer build() {
       return (originalRoot, transformedRoot) -> {
         if (transformedRoot == null) {
-          transformedRoot = VectorSchemaRoot.create(schema, bufferAllocator);
+          transformedRoot = VectorSchemaRoot.create(new Schema(newFields), bufferAllocator);
         }
 
         for (final Task task : tasks) {
