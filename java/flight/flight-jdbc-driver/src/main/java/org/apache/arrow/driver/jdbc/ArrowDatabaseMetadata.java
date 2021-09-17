@@ -20,16 +20,13 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collections;
 
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 
@@ -54,7 +51,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
-        new VectorSchemaRootTransformer.Builder(Schemas.GET_CATALOGS, allocator)
+        new VectorSchemaRootTransformer.Builder(Schemas.GET_CATALOGS_SCHEMA, allocator)
             .renameFieldVector("catalog_name", "TABLE_CAT")
             .build();
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoCatalogs, transformer);
@@ -66,22 +63,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final FlightInfo flightInfoImportedKeys = connection.getClientHandler().getImportedKeys(catalog, schema, table);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
-    final VectorSchemaRootTransformer transformer =
-        new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS, allocator)
-            .renameFieldVector("pk_catalog_name", "PKTABLE_CAT")
-            .renameFieldVector("pk_schema_name", "PKTABLE_SCHEM")
-            .renameFieldVector("pk_table_name", "PKTABLE_NAME")
-            .renameFieldVector("pk_column_name", "PKCOLUMN_NAME")
-            .renameFieldVector("fk_catalog_name", "FKTABLE_CAT")
-            .renameFieldVector("fk_schema_name", "FKTABLE_SCHEM")
-            .renameFieldVector("fk_table_name", "FKTABLE_NAME")
-            .renameFieldVector("fk_column_name", "FKCOLUMN_NAME")
-            .renameFieldVector("key_sequence", "KEY_SEQ")
-            .renameFieldVector("fk_key_name", "FK_NAME")
-            .renameFieldVector("pk_key_name", "PK_NAME")
-            .renameFieldVector("update_rule", "UPDATE_RULE")
-            .renameFieldVector("delete_rule", "DELETE_RULE")
-            .build();
+    final VectorSchemaRootTransformer transformer = getImportedExportedKeysTransformer(allocator);
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoImportedKeys, transformer);
   }
 
@@ -91,23 +73,28 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final FlightInfo flightInfoExportedKeys = connection.getClientHandler().getExportedKeys(catalog, schema, table);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
-    final VectorSchemaRootTransformer transformer =
-        new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS, allocator)
-            .renameFieldVector("pk_catalog_name", "PKTABLE_CAT")
-            .renameFieldVector("pk_schema_name", "PKTABLE_SCHEM")
-            .renameFieldVector("pk_table_name", "PKTABLE_NAME")
-            .renameFieldVector("pk_column_name", "PKCOLUMN_NAME")
-            .renameFieldVector("fk_catalog_name", "FKTABLE_CAT")
-            .renameFieldVector("fk_schema_name", "FKTABLE_SCHEM")
-            .renameFieldVector("fk_table_name", "FKTABLE_NAME")
-            .renameFieldVector("fk_column_name", "FKCOLUMN_NAME")
-            .renameFieldVector("key_sequence", "KEY_SEQ")
-            .renameFieldVector("fk_key_name", "FK_NAME")
-            .renameFieldVector("pk_key_name", "PK_NAME")
-            .renameFieldVector("update_rule", "UPDATE_RULE")
-            .renameFieldVector("delete_rule", "DELETE_RULE")
-            .build();
+    final VectorSchemaRootTransformer transformer = getImportedExportedKeysTransformer(allocator);
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoExportedKeys, transformer);
+  }
+
+  private VectorSchemaRootTransformer getImportedExportedKeysTransformer(final BufferAllocator allocator) {
+    return new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA,
+        allocator)
+        .renameFieldVector("pk_catalog_name", "PKTABLE_CAT")
+        .renameFieldVector("pk_schema_name", "PKTABLE_SCHEM")
+        .renameFieldVector("pk_table_name", "PKTABLE_NAME")
+        .renameFieldVector("pk_column_name", "PKCOLUMN_NAME")
+        .renameFieldVector("fk_catalog_name", "FKTABLE_CAT")
+        .renameFieldVector("fk_schema_name", "FKTABLE_SCHEM")
+        .renameFieldVector("fk_table_name", "FKTABLE_NAME")
+        .renameFieldVector("fk_column_name", "FKCOLUMN_NAME")
+        .renameFieldVector("key_sequence", "KEY_SEQ")
+        .renameFieldVector("fk_key_name", "FK_NAME")
+        .renameFieldVector("pk_key_name", "PK_NAME")
+        .renameFieldVector("update_rule", "UPDATE_RULE")
+        .renameFieldVector("delete_rule", "DELETE_RULE")
+        .addEmptyField("DEFERRABILITY", new ArrowType.Int(Byte.SIZE, false))
+        .build();
   }
 
   @Override
@@ -117,9 +104,9 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
-        new VectorSchemaRootTransformer.Builder(Schemas.GET_SCHEMAS, allocator)
-            .renameFieldVector("catalog_name", "TABLE_CATALOG")
+        new VectorSchemaRootTransformer.Builder(Schemas.GET_SCHEMAS_SCHEMA, allocator)
             .renameFieldVector("schema_name", "TABLE_SCHEM")
+            .renameFieldVector("catalog_name", "TABLE_CATALOG")
             .build();
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoSchemas, transformer);
   }
@@ -131,7 +118,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
-        new VectorSchemaRootTransformer.Builder(Schemas.GET_TABLE_TYPES, allocator)
+        new VectorSchemaRootTransformer.Builder(Schemas.GET_TABLE_TYPES_SCHEMA, allocator)
             .renameFieldVector("table_type", "TABLE_TYPE")
             .build();
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoTableTypes, transformer);
@@ -147,11 +134,17 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
-        new VectorSchemaRootTransformer.Builder(Schemas.GET_TABLES, allocator)
+        new VectorSchemaRootTransformer.Builder(Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)
             .renameFieldVector("catalog_name", "TABLE_CAT")
             .renameFieldVector("schema_name", "TABLE_SCHEM")
             .renameFieldVector("table_name", "TABLE_NAME")
             .renameFieldVector("table_type", "TABLE_TYPE")
+            .addEmptyField("REMARKS", Types.MinorType.VARBINARY)
+            .addEmptyField("TYPE_CAT", Types.MinorType.VARBINARY)
+            .addEmptyField("TYPE_SCHEM", Types.MinorType.VARBINARY)
+            .addEmptyField("TYPE_NAME", Types.MinorType.VARBINARY)
+            .addEmptyField("SELF_REFERENCING_COL_NAME", Types.MinorType.VARBINARY)
+            .addEmptyField("REF_GENERATION", Types.MinorType.VARBINARY)
             .build();
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoTables, transformer);
   }
@@ -163,7 +156,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
-        new VectorSchemaRootTransformer.Builder(Schemas.GET_PRIMARY_KEYS, allocator)
+        new VectorSchemaRootTransformer.Builder(Schemas.GET_PRIMARY_KEYS_SCHEMA, allocator)
             .renameFieldVector("catalog_name", "TABLE_CAT")
             .renameFieldVector("schema_name", "TABLE_SCHEM")
             .renameFieldVector("table_name", "TABLE_NAME")
@@ -172,59 +165,5 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
             .renameFieldVector("key_name", "PK_NAME")
             .build();
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoPrimaryKeys, transformer);
-  }
-
-  /**
-   * Base Schemas for {@link VectorSchemaRootTransformer} use.
-   */
-  private static class Schemas {
-    public static final Schema GET_TABLES = new Schema(Arrays.asList(
-        Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
-        Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("TABLE_TYPE", Types.MinorType.VARCHAR.getType()),
-        // TODO It's currently not possible to fetch this fields, evaluate if makes sense to add to FlightSQL.
-        Field.nullable("REMARKS", Types.MinorType.VARBINARY.getType()),
-        Field.nullable("TYPE_CAT", Types.MinorType.VARBINARY.getType()),
-        Field.nullable("TYPE_SCHEM", Types.MinorType.VARBINARY.getType()),
-        Field.nullable("TYPE_NAME", Types.MinorType.VARBINARY.getType()),
-        Field.nullable("SELF_REFERENCING_COL_NAME", Types.MinorType.VARBINARY.getType()),
-        Field.nullable("REF_GENERATION", Types.MinorType.VARBINARY.getType())
-    ));
-
-    private static final Schema GET_CATALOGS = new Schema(
-        Collections.singletonList(Field.notNullable("TABLE_CAT", Types.MinorType.VARCHAR.getType())));
-
-    private static final Schema GET_TABLE_TYPES =
-        new Schema(Collections.singletonList(Field.notNullable("TABLE_TYPE", Types.MinorType.VARCHAR.getType())));
-
-    private static final Schema GET_SCHEMAS = new Schema(
-        Arrays.asList(Field.notNullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
-            Field.nullable("TABLE_CATALOG", Types.MinorType.VARCHAR.getType())));
-
-    private static final Schema GET_IMPORTED_AND_EXPORTED_KEYS = new Schema(Arrays.asList(
-        Field.nullable("PKTABLE_CAT", Types.MinorType.VARCHAR.getType()),
-        Field.nullable("PKTABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("PKTABLE_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("PKCOLUMN_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.nullable("FKTABLE_CAT", Types.MinorType.VARCHAR.getType()),
-        Field.nullable("FKTABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("FKTABLE_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("FKCOLUMN_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("KEY_SEQ", Types.MinorType.INT.getType()),
-        Field.nullable("FK_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.nullable("PK_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("UPDATE_RULE", new ArrowType.Int(Byte.SIZE, false)),
-        Field.notNullable("DELETE_RULE", new ArrowType.Int(Byte.SIZE, false)),
-        // TODO It's currently not possible to fetch this fields, evaluate if makes sense to add to FlightSQL.
-        Field.notNullable("DEFERRABILITY", new ArrowType.Int(Byte.SIZE, false))));
-
-    private static final Schema GET_PRIMARY_KEYS = new Schema(Arrays.asList(
-        Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
-        Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("COLUMN_NAME", Types.MinorType.VARCHAR.getType()),
-        Field.notNullable("KEY_SEQ", Types.MinorType.INT.getType()),
-        Field.nullable("PK_NAME", Types.MinorType.VARCHAR.getType())));
   }
 }
