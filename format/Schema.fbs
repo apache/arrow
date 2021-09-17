@@ -363,17 +363,13 @@ enum IntervalUnit: short { YEAR_MONTH, DAY_TIME, MONTH_DAY_NANO}
 // DAY_TIME - Indicates the number of elapsed days and milliseconds (no leap seconds),
 //   stored as 2 contiguous 32-bit integers (8-bytes in total). Support
 //   of this IntervalUnit is not required for full arrow compatibility.
-//   DAY_TIME interval doesn't have total order due to day light savings.
 // MONTH_DAY_NANO - A triple of the number of elapsed months, days, and nanoseconds.
-//  The values are stored contiguously in 16 byte blocks. Months and
-//  days are encoded as 32 bit integers and nanoseconds is encoded as a
-//  64 bit integer. Days takes into account of leap days. Nanoseconds does not
-//  allow for leap seconds. All integers are signed. Each field is independent
-//  (e.g. there is no constraint that nanoseconds have the same sign as days or
-//  that the quantity of nanoseconds represents less than a day's worth of
-//  time).
-//  MONTH_DAY_NANO interval doesn't have total order due to leap days and day
-//  light savings.
+//  The values are stored contiguously in 16 byte blocks. Months and days are
+//  encoded as 32 bit integers and nanoseconds is encoded as a 64 bit integer.
+//  Nanoseconds does not allow for leap seconds. All integers are signed. Each
+//  field is independent (e.g. there is no constraint that nanoseconds have the
+//  same sign as days or that the quantity of nanoseconds represents less than
+//  a day's worth of time).
 table Interval {
   unit: IntervalUnit;
 }
