@@ -53,7 +53,7 @@ func TestDecimal128Type(t *testing.T) {
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			dt := arrow.Decimal128Type{Precision: tc.precision, Scale: tc.scale}
-			if got, want := dt.BitWidth(), 16; got != want {
+			if got, want := dt.BitWidth(), 128; got != want {
 				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
 			}
 
@@ -80,7 +80,7 @@ func TestFixedSizeBinaryType(t *testing.T) {
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			dt := arrow.FixedSizeBinaryType{tc.byteWidth}
-			if got, want := dt.BitWidth(), 8 * tc.byteWidth; got != want {
+			if got, want := dt.BitWidth(), 8*tc.byteWidth; got != want {
 				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
 			}
 
@@ -101,9 +101,9 @@ func TestFixedSizeBinaryType(t *testing.T) {
 
 func TestTimestampType(t *testing.T) {
 	for _, tc := range []struct {
-		unit      arrow.TimeUnit
-		timeZone  string
-		want      string
+		unit     arrow.TimeUnit
+		timeZone string
+		want     string
 	}{
 		{arrow.Nanosecond, "CST", "timestamp[ns, tz=CST]"},
 		{arrow.Microsecond, "EST", "timestamp[us, tz=EST]"},

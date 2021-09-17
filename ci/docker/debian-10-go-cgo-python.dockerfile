@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,34 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+ARG base
+FROM ${base}
 
-source_dir=${1}/go
+ENV DEBIAN_FRONTEND noninteractive
 
-testargs="-race"
-case "$(uname)" in
-    MINGW*)
-        # -race doesn't work on windows currently
-        testargs=""
-        ;;
-esac
+# Install python3 and pip so we can install pyarrow to test the C data interface.
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        python3 \
+        python3-pip && \
+    apt-get clean
 
-pushd ${source_dir}/arrow
+RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
+    ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-# the cgo implementation of the c data interface requires the "test"
-# tag in order to run its tests so that the testing functions implemented
-# in .c files don't get included in non-test builds.
+# Need a newer pip than Debian's to install manylinux201x wheels
+RUN pip install -U pip
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags "test" $d
-done
-
-popd
-
-pushd ${source_dir}/parquet
-
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs  $d
-done
-
-popd
+RUN pip install pyarrow cffi --only-binary pyarrow

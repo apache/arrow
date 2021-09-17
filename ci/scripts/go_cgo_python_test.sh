@@ -21,30 +21,25 @@ set -ex
 
 source_dir=${1}/go
 
-testargs="-race"
+pushd ${source_dir}/arrow/cdata/test
+
 case "$(uname)" in
+    Linux)
+        testlib="cgotest.so"
+        ;;
+    Darwin)
+        testlib="cgotest.so"
+        ;;
     MINGW*)
-        # -race doesn't work on windows currently
-        testargs=""
+        testlib="cgotest.dll"
         ;;
 esac
 
-pushd ${source_dir}/arrow
+go build -tags cdata_test -buildmode=c-shared -o $testlib .
 
-# the cgo implementation of the c data interface requires the "test"
-# tag in order to run its tests so that the testing functions implemented
-# in .c files don't get included in non-test builds.
+python test_export_to_cgo.py
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags "test" $d
-done
-
-popd
-
-pushd ${source_dir}/parquet
-
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs  $d
-done
+rm $testlib
+rm "${testlib%.*}.h"
 
 popd
