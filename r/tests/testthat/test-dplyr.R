@@ -1004,7 +1004,7 @@ test_that("ceiling(), floor(), trunc(), round()", {
     df
   )
 
-  # digits = 1
+  # with digits set to 1
   expect_dplyr_equal(
     input %>%
       filter(x %% 0.5 == 0) %>%
@@ -1013,7 +1013,7 @@ test_that("ceiling(), floor(), trunc(), round()", {
     df
   )
 
-  # digits = -1
+  # with digits set to -1
   expect_dplyr_equal(
     input %>%
       mutate(
