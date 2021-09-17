@@ -973,12 +973,11 @@ services:
     #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
-    #   docker-compose build conda-python-minio
     #   docker-compose run --rm conda-python-minio
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-minio
     build:
       context: .
-      dockerfile: ci/docker/conda-python-minio.dockerfile
+      dockerfile: ci/docker/conda-python.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-minio
       args:
