@@ -75,6 +75,4 @@ add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
 # ----------------------------------------------------------------------
 # Utilities
 
-add_arrow_compute_test(kernel_utility_test
-                       SOURCES
-                       codegen_internal_test.cc)
+add_arrow_compute_test(kernel_utility_test SOURCES codegen_internal_test.cc)
