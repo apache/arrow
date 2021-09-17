@@ -725,32 +725,61 @@ test_that("strftime", {
   # TODO: consider reevaluating this workaround after ARROW-12980
   withr::local_timezone("UTC")
   times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  seconds <- tibble(x = c("05.000000", NA))
+  formats_minus_c <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats <- paste(formats_minus_c, "%c")
 
-  formats = c("%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
-             "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
-             "%X", "%%", "%G", "%V", "%u")
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats)) %>%
+      collect(),
+    times
+  )
 
-  for (format in formats) {
-    expect_dplyr_equal(
+  withr::with_timezone("Pacific/Marquesas",
+   expect_dplyr_equal(
       input %>%
-        mutate(x = strftime(x, format = format)) %>%
+        mutate(x = strftime(x, format = formats)) %>%
         collect(),
       times
     )
+  )
 
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats_minus_c, tz = "Pacific/Marquesas")) %>%
+      collect(),
+    times
+  )
+
+  withr::with_locale(new = c("LC_TIME" = "C"),
     expect_dplyr_equal(
       input %>%
-        mutate(x = strftime(x, format = format, usetz = TRUE)) %>%
+        mutate(x = strftime(x, format = "%c", tz = "Pacific/Marquesas")) %>%
         collect(),
       times
     )
+  )
 
-    x <- Expression$field_ref("x")
-    expect_error(
-      nse_funcs$strftime(x, format = format, tz="Mars/Mariner_Valley"),
-      "tz argument not supported by Arrow"
-    )
-  }
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats, usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  # Output precision of %S depends on the input timestamp precision.
+  # Timestamps with second precision are represented as integers while
+  # milliseconds, microsecond and nanoseconds are represented as fixed floating
+  # point numbers with 3, 6 and 9 decimal places respectively.
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = "%S")) %>%
+      transmute(as.double(substr(x, 1, 2))) %>%
+      collect(),
+    times,
+    tolerance = 1e-6
+  )
 })
 
 test_that("arrow_find_substring and arrow_find_substring_regex", {

@@ -673,13 +673,15 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
 }
 
 nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
-  if (tz != "") {
-    arrow_not_supported("tz argument")
-  }
   if (usetz) {
-    format = paste(format, "%Z")
+    format <- paste(format, "%Z")
   }
-  Expression$create("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+  if (tz == "") {
+    tz <- Sys.timezone()
+  }
+  unit <- TimestampType__unit(x$type())
+  ts <- Expression$create("cast", x, options = list(to_type = timestamp(unit, tz)))
+  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
 
 nse_funcs$second <- function(x) {
