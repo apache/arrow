@@ -115,10 +115,10 @@ Status RunMain() {
   FlightSqlClient sqlClient(client);
 
   if (fLS::FLAGS_command == "ExecuteUpdate") {
-    int64_t rows = 0;
-    ARROW_RETURN_NOT_OK(sqlClient.ExecuteUpdate(call_options, &rows, fLS::FLAGS_query));
+    std::unique_ptr<int64_t> rows;
+    ARROW_RETURN_NOT_OK(sqlClient.ExecuteUpdate(call_options, fLS::FLAGS_query, &rows));
 
-    std::cout << "Result: " << rows << std::endl;
+    std::cout << "Result: " << *rows << std::endl;
 
     return Status::OK();
   }
