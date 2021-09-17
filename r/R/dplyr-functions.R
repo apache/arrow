@@ -895,8 +895,7 @@ agg_funcs$median <- function(x, na.rm = FALSE) {
   # TODO: after ARROW-12669 is merged, use the list_element function
   # to unnest the ListArray returned by tdigest.
 
-  # TODO: issue a warning (only once per session if possible) saying
-  # that this returns only an approximate median
+  # TODO: Bind to the Arrow function that returns an exact median (ARROW-14021)
 
   list(
     fun = "tdigest",

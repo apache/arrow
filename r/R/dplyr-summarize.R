@@ -161,6 +161,16 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
     return()
   }
 
+  # TODO: Remove this warning after median() returns an exact median
+  # (ARROW-14021)
+  if ("median" %in% funs_in_expr) {
+    warn(
+      "median() currently returns an approximate median in Arrow",
+      .frequency = ifelse(is_interactive(), "once", "always"),
+      .frequency_id = "arrow.median.approximate"
+    )
+  }
+
   # Start inspecting the expr to see what aggregations it involves
   agg_funs <- names(agg_funcs)
   outer_agg <- funs_in_expr[1] %in% agg_funs

@@ -578,7 +578,8 @@ test_that(".groups argument", {
       group_by(some_grouping, int < 6) %>%
       summarize(count = n()) %>%
       collect(),
-    tbl
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
   expect_dplyr_equal(
     input %>%
@@ -592,7 +593,8 @@ test_that(".groups argument", {
       group_by(some_grouping, int < 6) %>%
       summarize(count = n(), .groups = "keep") %>%
       collect(),
-    tbl
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
   expect_dplyr_equal(
     input %>%
