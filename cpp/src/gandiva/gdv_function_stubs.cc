@@ -799,6 +799,7 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 GANDIVA_EXPORT
 const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
                             int32_t data_len, int32_t* out_len) {
+  auto null = std::nullptr_t();
   if (pos < 1) {
     *out_len = 0;
     return "";
@@ -816,10 +817,10 @@ const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
 
   token = std::strtok(tokenizable_data, ",");
 
-  while (token != NULL) {
+  while (token != null) {
     //    ARROW_LOG(INFO) << token;
     words.push_back(token);
-    token = strtok(NULL, ",");
+    token = strtok(null, ",");
   }
 
   if (static_cast<int32_t>(words.size()) < pos) {
