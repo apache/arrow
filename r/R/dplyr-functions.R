@@ -890,12 +890,11 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
   )
 }
 
-# na.rm here doesn't work yet - see ARROW-13782
 agg_funcs$median <- function(x, na.rm = FALSE) {
   list(
     fun = "tdigest",
     data = x,
-    options = list(na.rm = na.rm, q = 0.5)
+    options = list(skip_nulls = na.rm, q = 0.5)
   )
 }
 

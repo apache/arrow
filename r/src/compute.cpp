@@ -190,7 +190,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "tdigest" || func_name == "hash_tdigest") {
     using Options = arrow::compute::TDigestOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
-    out->q = cpp11::as_cpp<std::vector<double>>(options["q"]);
+    if (!Rf_isNull(options["q"])) {
+      out->q = cpp11::as_cpp<std::vector<double>>(options["q"]);
+    }
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
+    }
     return out;
   }
 
