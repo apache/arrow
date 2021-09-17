@@ -449,6 +449,20 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["pivot"]));
   }
 
+  if (func_name == "round") {
+    using Options = arrow::compute::RoundOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["ndigits"])) {
+      out->ndigits = cpp11::as_cpp<int64_t>(options["ndigits"]);
+    }
+    SEXP round_mode = options["round_mode"];
+    if (!Rf_isNull(round_mode) && TYPEOF(round_mode) == INTSXP &&
+        XLENGTH(round_mode) == 1) {
+      out->round_mode = cpp11::as_cpp<enum arrow::compute::RoundMode>(round_mode);
+    }
+    return out;
+  }
+
   return nullptr;
 }
 

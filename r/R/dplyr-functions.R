@@ -681,6 +681,14 @@ nse_funcs$trunc <- function(x, ...) {
   build_expr("trunc", x)
 }
 
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
+}
+
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
 
   # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
