@@ -228,10 +228,30 @@ class DatasetFixtureMixin : public ::testing::Test {
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
+    // ToVector does not work since EnumeratedRecordBatch is not comparable
+    std::vector<EnumeratedRecordBatch> batches;
+    for (;;) {
+      ASSERT_OK_AND_ASSIGN(auto batch, it.Next());
+      if (IsIterationEnd(batch)) break;
+      batches.push_back(std::move(batch));
+    }
+    std::sort(batches.begin(), batches.end(),
+              [](const EnumeratedRecordBatch& left,
+                 const EnumeratedRecordBatch& right) -> bool {
+                if (left.fragment.index < right.fragment.index) {
+                  return true;
+                }
+                if (left.fragment.index > right.fragment.index) {
+                  return false;
+                }
+                return left.record_batch.index < right.record_batch.index;
+              });
+
     int fragment_counter = 0;
     bool saw_last_fragment = false;
     int batch_counter = 0;
-    auto visitor = [&](EnumeratedRecordBatch batch) -> Status {
+
+    for (const auto& batch : batches) {
       if (batch_counter == 0) {
         EXPECT_FALSE(saw_last_fragment);
       }
@@ -245,9 +265,7 @@ class DatasetFixtureMixin : public ::testing::Test {
       }
       saw_last_fragment = batch.fragment.last;
       AssertBatchEquals(expected, *batch.record_batch.value);
-      return Status::OK();
-    };
-    ARROW_EXPECT_OK(it.Visit(visitor));
+    }
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);

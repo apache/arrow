@@ -27,6 +27,7 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
@@ -69,7 +70,8 @@ struct SourceNode : ExecNode {
     DCHECK(!stop_requested_) << "Restarted SourceNode";
 
     CallbackOptions options;
-    if (auto executor = plan()->exec_context()->executor()) {
+    auto executor = plan()->exec_context()->executor();
+    if (executor) {
       // These options will transfer execution to the desired Executor if necessary.
       // This can happen for in-memory scans where batches didn't require
       // any CPU work to decode. Otherwise, parsing etc should have already
@@ -77,8 +79,7 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-
-    finished_ = Loop([this, options] {
+    finished_ = Loop([this, executor, options] {
                   std::unique_lock<std::mutex> lock(mutex_);
                   int total_batches = batch_count_++;
                   if (stop_requested_) {
@@ -95,7 +96,24 @@ struct SourceNode : ExecNode {
                         }
                         lock.unlock();
 
-                        outputs_[0]->InputReceived(this, *batch);
+                        if (executor) {
+                          auto maybe_future = executor->Submit([=]() {
+                            outputs_[0]->InputReceived(this, *batch);
+                            return Status::OK();
+                          });
+                          if (!maybe_future.ok()) {
+                            outputs_[0]->ErrorReceived(this, maybe_future.status());
+                            return Break(total_batches);
+                          }
+                          auto status =
+                              task_group_.AddTask(maybe_future.MoveValueUnsafe());
+                          if (!status.ok()) {
+                            outputs_[0]->ErrorReceived(this, std::move(status));
+                            return Break(total_batches);
+                          }
+                        } else {
+                          outputs_[0]->InputReceived(this, *batch);
+                        }
                         return Continue();
                       },
                       [=](const Status& error) -> ControlFlow<int> {
@@ -113,6 +131,7 @@ struct SourceNode : ExecNode {
                       options);
                 }).Then([&](int total_batches) {
       outputs_[0]->InputFinished(this, total_batches);
+      return task_group_.WaitForTasksToFinish();
     });
 
     return Status::OK();
@@ -139,6 +158,7 @@ struct SourceNode : ExecNode {
   bool stop_requested_{false};
   int batch_count_{0};
   Future<> finished_ = Future<>::MakeFinished();
+  util::AsyncTaskGroup task_group_;
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 
