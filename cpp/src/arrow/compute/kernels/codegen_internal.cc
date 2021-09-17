@@ -167,13 +167,20 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
 std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs) {
   TimeUnit::type finest_unit = TimeUnit::SECOND;
   const std::string* timezone = nullptr;
+  bool saw_date32 = false;
+  bool saw_date64 = false;
 
   for (const auto& descr : descrs) {
     auto id = descr.type->id();
     // a common timestamp is only possible if all types are timestamp like
     switch (id) {
       case Type::DATE32:
+        // Date32's unit is days, but the coarsest we have is seconds
+        saw_date32 = true;
+        continue;
       case Type::DATE64:
+        finest_unit = std::max(finest_unit, TimeUnit::MILLI);
+        saw_date64 = true;
         continue;
       case Type::TIMESTAMP: {
         const auto& ty = checked_cast<const TimestampType&>(*descr.type);
@@ -189,8 +196,14 @@ std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs)
     }
   }
 
-  // Don't cast if we see only dates, no timestamps
-  return timezone ? timestamp(finest_unit, *timezone) : nullptr;
+  if (timezone) {
+    // At least one timestamp seen
+    return timestamp(finest_unit, *timezone);
+  } else if (saw_date32 && saw_date64) {
+    // Saw mixed date types
+    return date64();
+  }
+  return nullptr;
 }
 
 std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
