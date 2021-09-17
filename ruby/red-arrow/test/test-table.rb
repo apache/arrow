@@ -147,6 +147,96 @@ class TableTest < Test::Unit::TestCase
       TABLE
     end
 
+    test("{key: Number}") do
+      assert_equal(<<-TABLE, @table.slice(count: 16).to_s)
+	count	visible
+0	   16	true   
+      TABLE
+    end
+
+    test("{key: String}") do
+      name_array = Arrow::StringArray.new(["a", "b", "c", "d", "e", "f", "g", "h"])
+      table_with_name = @table.merge(:name => name_array)
+      assert_equal(<<-TABLE, table_with_name.slice(name: 'e').to_s)
+	count	visible	name
+0	   16	true   	e   
+      TABLE
+    end
+
+    test("{key: TrueClass}") do
+      assert_equal(<<-TABLE, @table.slice(visible: true).to_s)
+	 count	visible
+0	     1	true   
+1	(null)	 (null)
+2	     8	true   
+3	    16	true   
+4	(null)	 (null)
+5	(null)	 (null)
+      TABLE
+    end
+
+    test("{key: FalseClass}") do
+      assert_equal(<<-TABLE, @table.slice(visible: false).to_s)
+	 count	visible
+0	     2	false  
+1	(null)	 (null)
+2	    32	false  
+3	(null)	 (null)
+4	(null)	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: beginless") do
+      assert_equal(<<-TABLE, @table.slice(count: ..8).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+      TABLE
+    end
+
+    test("{key: Range}: endless") do
+      assert_equal(<<-TABLE, @table.slice(count: 16..).to_s)
+	count	visible
+0	   16	true   
+1	   32	false  
+2	   64	 (null)
+3	  128	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: include end") do
+      assert_equal(<<-TABLE, @table.slice(count: 1..16).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+4	   16	true   
+      TABLE
+    end
+
+    test("{key: Range}: exclude end") do
+      assert_equal(<<-TABLE, @table.slice(count: 1...16).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+      TABLE
+    end
+
+    test("{key: Range, key: TrueClass}: multiple key/value pairs") do
+      assert_equal(<<-TABLE, @table.slice(count: 0..8, visible: false).to_s)
+	 count	visible
+0	     2	false  
+1	(null)	 (null)
+2	(null)	 (null)
+3	(null)	 (null)
+      TABLE
+    end
+
     sub_test_case("wrong argument") do
       test("no arguments") do
         message = "wrong number of arguments (given 0, expected 1..2)"
