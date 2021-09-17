@@ -164,6 +164,7 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
   # TODO: Remove this warning after median() returns an exact median
   # (ARROW-14021)
   if ("median" %in% funs_in_expr) {
+    expr <- wrap_median(expr)
     warn(
       "median() currently returns an approximate median in Arrow",
       .frequency = ifelse(is_interactive(), "once", "always"),
@@ -260,4 +261,19 @@ extract_aggregations <- function(expr, ctx) {
     expr <- as.symbol(tmpname)
   }
   expr
+}
+
+# This function recurses through expr and wraps each call to median() with a
+# call to arrow_list_element()
+# TODO: test that this works after ARROW-12669 is merged
+wrap_median <- function(expr) {
+  if (length(expr) == 1) {
+    return(expr)
+  } else {
+    if (is.call(expr) && expr[[1]] == quote(median)) {
+      return(str2lang(paste0("arrow_list_element(", deparse1(expr),", 0)")))
+    } else {
+      return(as.call(lapply(expr, wrap_median)))
+    }
+  }
 }
