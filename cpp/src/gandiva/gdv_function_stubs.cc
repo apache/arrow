@@ -794,6 +794,62 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   *out_len = out_idx;
   return out;
 }
+
+GANDIVA_EXPORT
+const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
+                                  int32_t separator_len, const char* data,
+                                  int32_t data_len, int32_t* out_len) {
+  if (data_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "Data can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  // Make const char* to vector
+  std::vector<char*> words;
+  char tokenizable_data[strlen(data)];
+  strcpy(tokenizable_data, data);
+  char* token;
+  token = std::strtok(tokenizable_data, ",");
+  while (token != NULL) {
+    // start trim whitespaces
+    char* end;
+    // trim leading space
+    while (isspace((unsigned char)*token)) token++;
+    if (*token != 0) {
+      // trim trailing space
+      end = token + strlen(token) - 1;
+      while (end > token && isspace((unsigned char)*end)) end--;
+      end[1] = '\0';
+    }
+    // finish trim whitespaces
+    words.push_back(token);
+    token = strtok(NULL, ",");
+  }
+
+  // Concat
+  std::string concat = "";
+  auto words_size = static_cast<uint32_t>(words.size());
+  for (uint32_t i = 0; i < words_size; ++i) {
+    if (i >= 0 && i < words_size - 1) {
+      concat.append(words[i]);
+      concat.append(separator);
+    } else {
+      concat.append(words[i]);
+    }
+  }
+
+  *out_len = static_cast<int32_t>(concat.length());
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  strcpy(out, concat.c_str());
+  return out;
+}
 }
 
 namespace gandiva {
@@ -1599,5 +1655,19 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_initcap_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
+
+  // gdv_fn_concat_ws_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // separator
+      types->i32_type(),     // separator_len
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_concat_ws_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_concat_ws_utf8));
 }
 }  // namespace gandiva

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "gandiva/visibility.h"
 
@@ -170,4 +171,9 @@ float gdv_fn_castFLOAT4_varbinary(gdv_int64 context, const char* in, int32_t in_
 
 GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
+                                  int32_t separator_len, const char* data,
+                                  int32_t data_len, int32_t* out_len);
 }
