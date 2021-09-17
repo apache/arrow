@@ -71,8 +71,7 @@ is_function <- function(expr, name) {
 }
 
 all_funs <- function(expr) {
-  # It is not sufficient to simply do something like
-  #   setdiff(all.names, all.vars)
+  # It is not sufficient to simply do: setdiff(all.names, all.vars)
   # here because that would fail to return the names of functions that
   # share names with variables.
   # To preserve duplicates, call `all.names()` not `all_names()` here.
