@@ -766,4 +766,43 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestConcatWs) {
+  gandiva::ExecutionContext ctx;
+
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* separator = "-";
+  auto sep_len = static_cast<int32_t>(strlen(separator));
+  int32_t out_len;
+  const char* words = "hey, hello";
+  int32_t words_len = static_cast<int32_t>(strlen(words));
+
+  const char* out = gdv_fn_concat_ws_utf8(ctx_ptr, separator, sep_len, words, words_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hey-hello");
+
+  separator = "#";
+  sep_len = static_cast<int32_t>(strlen(separator));
+  words = "how, are, you, today";
+  words_len = static_cast<int32_t>(strlen(words));
+
+  out = gdv_fn_concat_ws_utf8(ctx_ptr, separator, sep_len, words, words_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "how#are#you#today");
+
+  separator = "";
+  sep_len = static_cast<int32_t>(strlen(separator));
+  words = "i, am, fine";
+  words_len = static_cast<int32_t>(strlen(words));
+
+  out = gdv_fn_concat_ws_utf8(ctx_ptr, separator, sep_len, words, words_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "iamfine");
+
+  separator = "=";
+  sep_len = static_cast<int32_t>(strlen(separator));
+  words = "";
+  words_len = static_cast<int32_t>(strlen(words));
+
+  out = gdv_fn_concat_ws_utf8(ctx_ptr, separator, sep_len, words, words_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
 }  // namespace gandiva
