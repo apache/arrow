@@ -772,19 +772,29 @@ TEST(TestGdvFnStubs, TestEltFunction) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   gdv_int32 out_len = 0;
 
-  auto out_string = gdv_fn_elt_utf8(ctx_ptr, 1, "john", strlen("john"), &out_len);
+  const char* data = "john";
+  auto data_len = static_cast<int32_t>(strlen(data));
+  auto out_string = gdv_fn_elt_utf8(ctx_ptr, 1, data, data_len, &out_len);
   EXPECT_EQ("john", std::string(out_string, out_len));
 
-  out_string = gdv_fn_elt_utf8(ctx_ptr, 2, "hello, world", strlen("hello, world"), &out_len);
+  data = "hello, world";
+  data_len = static_cast<int32_t>(strlen(data));
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 2, data, data_len, &out_len);
   EXPECT_EQ("world", std::string(out_string, out_len));
 
-  out_string = gdv_fn_elt_utf8(ctx_ptr, 4, "goodbye, world", strlen("goodbye, world"), &out_len);
+  data = "goodbye, world";
+  data_len = static_cast<int32_t>(strlen(data));
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 4, data, data_len, &out_len);
   EXPECT_EQ("", std::string(out_string, out_len));
 
-  out_string = gdv_fn_elt_utf8(ctx_ptr, 0, "hi, yeah", strlen("hi, yeah"), &out_len);
+  data = "hi, yeah";
+  data_len = static_cast<int32_t>(strlen(data));
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 0, data, data_len, &out_len);
   EXPECT_EQ("", std::string(out_string, out_len));
 
-  out_string = gdv_fn_elt_utf8(ctx_ptr, 2, "", strlen(""), &out_len);
+  data = "";
+  data_len = static_cast<int32_t>(strlen(data));
+  out_string = gdv_fn_elt_utf8(ctx_ptr, 2, data, data_len, &out_len);
   EXPECT_EQ("", std::string(out_string, out_len));
 }
 
