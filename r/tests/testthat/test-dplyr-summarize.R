@@ -390,7 +390,7 @@ test_that("Expressions on aggregations", {
   )
 
   # Aggregate on an aggregate (trivial but dplyr allows)
-  skip("Not supported")
+  skip("Aggregate on an aggregate not supported")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
@@ -466,5 +466,56 @@ test_that("Not (yet) supported: implicit join", {
       collect(),
     tbl,
     warning = "Expression dbl - int not supported in Arrow; pulling data into R"
+  )
+})
+
+test_that(".groups argument", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping, int < 6) %>%
+      summarize(count = n()) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping, int < 6) %>%
+      summarize(count = n(), .groups = "drop_last") %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping, int < 6) %>%
+      summarize(count = n(), .groups = "keep") %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping, int < 6) %>%
+      summarize(count = n(), .groups = "drop") %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping, int < 6) %>%
+      summarize(count = n(), .groups = "rowwise") %>%
+      collect(),
+    tbl,
+    warning = TRUE
+  )
+
+  # abandon_ship() raises the warning, then dplyr itself errors
+  # This isn't ideal but it's fine and won't be an issue on Datasets
+  expect_error(
+    expect_warning(
+      Table$create(tbl) %>%
+        group_by(some_grouping, int < 6) %>%
+        summarize(count = n(), .groups = "NOTVALID"),
+      "Invalid .groups argument"
+    ),
+    "NOTVALID"
   )
 })
