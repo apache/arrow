@@ -271,7 +271,7 @@ wrap_median <- function(expr) {
     return(expr)
   } else {
     if (is.call(expr) && expr[[1]] == quote(median)) {
-      return(str2lang(paste0("arrow_list_element(", deparse1(expr),", 0)")))
+      return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0)")))
     } else {
       return(as.call(lapply(expr, wrap_median)))
     }
