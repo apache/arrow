@@ -155,15 +155,14 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("{key: String}") do
-      name_array = Arrow::StringArray.new(["a", "b", "c", "d", "e", "f", "g", "h"])
-      table_with_name = @table.merge(:name => name_array)
-      assert_equal(<<-TABLE, table_with_name.slice(name: 'e').to_s)
-	count	visible	name
-0	   16	true   	e   
+      table = Arrow::Table.new(name: Arrow::StringArray.new(["a", "b", "c"]))
+      assert_equal(<<-TABLE, table.slice(name: 'b').to_s)
+	name
+0	b   
       TABLE
     end
 
-    test("{key: TrueClass}") do
+    test("{key: true}") do
       assert_equal(<<-TABLE, @table.slice(visible: true).to_s)
 	 count	visible
 0	     1	true   
@@ -175,7 +174,7 @@ class TableTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("{key: FalseClass}") do
+    test("{key: false}") do
       assert_equal(<<-TABLE, @table.slice(visible: false).to_s)
 	 count	visible
 0	     2	false  
@@ -186,13 +185,22 @@ class TableTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("{key: Range}: beginless") do
+    test("{key: Range}: beginless include end") do
       assert_equal(<<-TABLE, @table.slice(count: ..8).to_s)
 	count	visible
 0	    1	true   
 1	    2	false  
 2	    4	 (null)
 3	    8	true   
+      TABLE
+    end
+
+    test("{key: Range}: beginless exclude end") do
+      assert_equal(<<-TABLE, @table.slice(count: ...8).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
       TABLE
     end
 
@@ -227,7 +235,7 @@ class TableTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("{key: Range, key: TrueClass}: multiple key/value pairs") do
+    test("{key1: Range, key2: true}") do
       assert_equal(<<-TABLE, @table.slice(count: 0..8, visible: false).to_s)
 	 count	visible
 0	     2	false  
