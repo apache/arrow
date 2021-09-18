@@ -144,6 +144,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   private static String createErrorMsg(final BufferAllocator allocator, final long rounded, final long requested) {
     return createErrorMsg(allocator, rounded, rounded, requested);
   }
+
   private static String createErrorMsg(final BufferAllocator allocator,
       final long granted, final long rounded, final long requested) {
     if (granted != rounded) {
