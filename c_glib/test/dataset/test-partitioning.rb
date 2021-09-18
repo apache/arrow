@@ -29,6 +29,6 @@ class TestDatasetPartitioning < Test::Unit::TestCase
   def test_directory
     schema = build_schema(year: Arrow::UInt16DataType.new)
     partitioning = ArrowDataset::DirectoryPartitioning.new(schema)
-    assert_equal("schema", partitioning.type_name)
+    assert_equal("directory", partitioning.type_name)
   end
 end

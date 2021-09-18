@@ -1952,7 +1952,7 @@ cdef class Partitioning(_Weakrefable):
         type_name = frombytes(sp.get().type_name())
 
         classes = {
-            'schema': DirectoryPartitioning,
+            'directory': DirectoryPartitioning,
             'hive': HivePartitioning,
         }
 
