@@ -48,6 +48,12 @@ ENV GOROOT=/opt/go \
     PATH=/opt/go/bin:$PATH
 RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
 
+ENV PATH=/opt/dotnet:$PATH
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 5.0 -InstallDir /opt/dotnet
+#RUN curl -SL --output dotnet.tar.gz https://dotnetcli.azureedge.net/dotnet/Runtime/$DOTNET_VERSION/dotnet-runtime-$DOTNET_VERSION-linux-${arch}.tar.gz \
+#    && tar -zxf dotnet.tar.gz -C /opt/dotnet \
+#    && rm dotnet.tar.gz
+    
 ENV ARROW_BUILD_INTEGRATION=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
