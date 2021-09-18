@@ -1035,7 +1035,7 @@ test_that("ceiling(), floor(), trunc(), round()", {
       collect()
   )
 
-  skip_on_os("windows") # float representation error might cause inconsistency
+  skip_on_cran() # float representation error might cause inconsistency
 
   expect_dplyr_equal(
     input %>%
