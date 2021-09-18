@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -36,6 +37,8 @@ import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
+import org.apache.arrow.memory.util.MemoryUtil;
+import org.apache.arrow.util.AutoCloseables;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -435,6 +438,99 @@ public class TestBaseAllocator {
           public ArrowBuf empty() {
             return null;
           }
+        }).build());
+  }
+
+  @Test
+  public void testAllocationManagerRequestedSizeAndGrantedSize1() {
+    // actual size is different from request size
+    final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(16, MAX_ALLOCATION);
+    final ArrowBuf arrowBuf = allocator.buffer(1024L);
+    assertEquals(16L, arrowBuf.getPossibleMemoryConsumed());
+    assertEquals(16L, arrowBuf.getActualMemoryConsumed());
+    assertEquals(16L, allocator.getAllocatedMemory());
+    assertDoesNotThrow(() -> AutoCloseables.close(arrowBuf, allocator));
+  }
+
+  @Test
+  public void testAllocationManagerRequestedSizeAndGrantedSize2() {
+    // actual size is larger than request size
+    final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(1024, MAX_ALLOCATION);
+    final ArrowBuf arrowBuf = allocator.buffer(16L);
+    assertEquals(1024L, arrowBuf.getPossibleMemoryConsumed());
+    assertEquals(1024L, arrowBuf.getActualMemoryConsumed());
+    assertEquals(1024L, allocator.getAllocatedMemory());
+    assertDoesNotThrow(() -> AutoCloseables.close(arrowBuf, allocator));
+  }
+
+  @Test
+  public void testAllocationManagerRequestedSizeAndGrantedSize3() {
+    // actual size is larger than request size, and is beyond allocation limit
+    final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(1024, 1023);
+    assertThrows(OutOfMemoryException.class, () -> {
+      allocator.buffer(16L); // should throw exception
+      fail();
+    });
+    assertEquals(0L, allocator.getAllocatedMemory());
+    assertDoesNotThrow(() -> AutoCloseables.close(allocator));
+  }
+
+  @Test
+  public void testAllocationManagerRequestedSizeAndGrantedSize4() {
+    // actual size is different from request size, then transfer balance.
+    final BaseAllocator root = createAllocatorWithFixedSizeAllocationManager(16, MAX_ALLOCATION);
+    final BufferAllocator c1 = root.newChildAllocator("child1", 0, MAX_ALLOCATION);
+    final BufferAllocator c2 = root.newChildAllocator("child2", 0, MAX_ALLOCATION);
+    final ArrowBuf arrowBuf = c1.buffer(1024L);
+    assertEquals(16L, arrowBuf.getPossibleMemoryConsumed());
+    assertEquals(16L, arrowBuf.getActualMemoryConsumed());
+    assertEquals(16L, c1.getAllocatedMemory());
+    assertEquals(16L, root.getAllocatedMemory());
+    OwnershipTransferResult r = arrowBuf.getReferenceManager().transferOwnership(arrowBuf, c2);
+    assertTrue(r.getAllocationFit());
+    final ArrowBuf transferredBuffer = r.getTransferredBuffer();
+    assertEquals(16L, arrowBuf.getPossibleMemoryConsumed());
+    assertEquals(0L, arrowBuf.getActualMemoryConsumed());
+    assertEquals(0L, c1.getAllocatedMemory());
+    assertEquals(16L, c2.getAllocatedMemory());
+    assertEquals(16L, root.getAllocatedMemory());
+    assertDoesNotThrow(() -> AutoCloseables.close(arrowBuf, transferredBuffer, c1, c2, root));
+  }
+
+  private BaseAllocator createAllocatorWithFixedSizeAllocationManager(int fixedSize, long maxAllocation) {
+    return new RootAllocator(BaseAllocator.configBuilder()
+        .maxAllocation(maxAllocation)
+        .allocationManagerFactory(new AllocationManager.Factory() {
+          @Override
+          public AllocationManager create(BufferAllocator accountingAllocator, long requestedSize) {
+            return new AllocationManager(accountingAllocator) {
+              private final Unsafe unsafe = MemoryUtil.UNSAFE;
+              private final long address = unsafe.allocateMemory(fixedSize);
+
+              @Override
+              protected long memoryAddress() {
+                return address;
+              }
+
+              @Override
+              protected void release0() {
+                unsafe.setMemory(address, fixedSize, (byte) 0);
+                unsafe.freeMemory(address);
+              }
+
+              @Override
+              public long getSize() {
+                return fixedSize;
+              }
+
+            };
+          }
+
+          @Override
+          public ArrowBuf empty() {
+            return null;
+          }
+
         }).build());
   }
 

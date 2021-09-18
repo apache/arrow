@@ -142,6 +142,15 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   private static String createErrorMsg(final BufferAllocator allocator, final long rounded, final long requested) {
+    return createErrorMsg(allocator, rounded, rounded, requested);
+  }
+  private static String createErrorMsg(final BufferAllocator allocator,
+      final long granted, final long rounded, final long requested) {
+    if (granted != rounded) {
+      return String.format(
+          "Unable to allocate buffer of size %d (rounded size: %d, request size: %d) due to memory limit. Current " +
+              "allocation: %d", granted, rounded, requested, allocator.getAllocatedMemory());
+    }
     if (rounded != requested) {
       return String.format(
         "Unable to allocate buffer of size %d (rounded from %d) due to memory limit. Current " +
@@ -272,11 +281,10 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
 
     boolean success = false;
+    final ArrowBuf buffer;
     try {
-      ArrowBuf buffer = bufferWithoutReservation(actualRequestSize, manager);
+      buffer = bufferWithoutReservation(actualRequestSize, manager);
       success = true;
-      listener.onAllocation(actualRequestSize);
-      return buffer;
     } catch (OutOfMemoryError e) {
       throw e;
     } finally {
@@ -284,6 +292,26 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         releaseBytes(actualRequestSize);
       }
     }
+
+    final long grantedSize = buffer.getReferenceManager().getSize();
+    if (grantedSize != actualRequestSize) {
+      // reallocate bytes using the actual returned chunk size
+      long diff = grantedSize - actualRequestSize;
+      if (diff > 0) {
+        AllocationOutcome reallocateOutcome = allocateBytes(diff);
+        if (!reallocateOutcome.isOk()) {
+          // forcibly allocate for remaining bytes, then release all
+          forceAllocate(diff);
+          buffer.close();
+          throw new OutOfMemoryException(createErrorMsg(this, grantedSize, actualRequestSize,
+              initialRequestSize), reallocateOutcome.getDetails());
+        }
+      } else {
+        releaseBytes(-diff);
+      }
+    }
+    listener.onAllocation(grantedSize);
+    return buffer;
   }
 
   /**
