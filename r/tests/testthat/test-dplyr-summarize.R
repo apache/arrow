@@ -331,6 +331,29 @@ test_that("min() and max() on character strings", {
   )
 })
 
+test_that("summarise() with !!sym()", {
+  test_chr_col <- "int"
+  test_dbl_col <- "dbl"
+  test_lgl_col <- "lgl"
+  expect_dplyr_equal(
+    input %>%
+      group_by(false) %>%
+      summarise(
+        sum = sum(!!sym(test_dbl_col)),
+        any = any(!!sym(test_lgl_col)),
+        all = all(!!sym(test_lgl_col)),
+        mean = mean(!!sym(test_dbl_col)),
+        sd = sd(!!sym(test_dbl_col)),
+        var = var(!!sym(test_dbl_col)),
+        n_distinct = n_distinct(!!sym(test_chr_col)),
+        min = min(!!sym(test_dbl_col)),
+        max = max(!!sym(test_dbl_col))
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Filter and aggregate", {
   expect_dplyr_equal(
     input %>%
