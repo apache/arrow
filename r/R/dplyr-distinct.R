@@ -55,7 +55,7 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   # to group_by, we need to restore grouping which we removed earlier when
   # grouping by everything
   if (!length(distinct_groups) && length(gv)) {
-    .data <- dplyr::group_by(.data, !!!syms(gv))
+    .data$group_by_vars <- gv
   }
 
   # If there are group_by expressions or expressions supplied to distinct(),
