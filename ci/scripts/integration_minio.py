@@ -16,9 +16,16 @@
 # under the License.
 
 # This file is called from the integration_minio crossbow job
+# It is intended to test S3 integration features that cannot
+# be tested in unit tests against a simple minio setup.
+
+# For example, issues which require a specific configuration
+# of API permissions to reproduce.
 
 import pyarrow.fs as fs
 
 def test_can_create_bucket():
-    filesystem = fs.S3FileSystem(access_key='limited', secret_key='limited123', endpoint_override='http://127.0.0.1:9000')
-    filesystem.create_dir('existing-bucket/foo') # This line fails without the change
+    filesystem = fs.S3FileSystem(access_key='limited',
+      secret_key='limited123',
+      endpoint_override='http://127.0.0.1:9000')
+    filesystem.create_dir('existing-bucket/foo')
