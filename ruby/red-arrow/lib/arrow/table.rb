@@ -234,6 +234,12 @@ module Arrow
     #   @return [Arrow::Table]
     #     The sub `Arrow::Table` that covers only rows of the range of indices.
     #
+    # @overload slice(conditions)
+    #
+    #   @param conditions [Hash] The conditions to select records.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows matched by condition
+    #
     # @overload slice
     #
     #   @yield [slicer] Gives slicer that constructs condition to select records.
@@ -261,12 +267,37 @@ module Arrow
         expected_n_args = nil
         case args.size
         when 1
-          if args[0].is_a?(Integer)
+          case args[0]
+          when Integer
             index = args[0]
             index += n_rows if index < 0
             return nil if index < 0
             return nil if index >= n_rows
             return Record.new(self, index)
+          when Hash
+            condition_pairs = args[0]
+            slicer = Slicer.new(self)
+            conditions = []
+            condition_pairs.each do |key, value|
+              case value
+              when Range
+                # TODO: Optimize "begin <= key <= end" case by missing "between" kernel
+                # https://issues.apache.org/jira/browse/ARROW-9843
+                unless value.begin.nil?
+                  conditions << (slicer[key] >= value.begin)
+                end
+                unless value.end.nil?
+                  if value.exclude_end?
+                    conditions << (slicer[key] < value.end)
+                  else
+                    conditions << (slicer[key] <= value.end)
+                  end
+                end
+              else
+                conditions << (slicer[key] == value)
+              end
+            end
+            slicers << conditions.inject(:&)
           else
             slicers << args[0]
           end
