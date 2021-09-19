@@ -234,6 +234,12 @@ module Arrow
     #   @return [Arrow::Table]
     #     The sub `Arrow::Table` that covers only rows of the range of indices.
     #
+    # @overload slice(conditions)
+    #
+    #   @param conditions [Hash] The conditions to select records.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows matched by condition
+    #
     # @overload slice
     #
     #   @yield [slicer] Gives slicer that constructs condition to select records.
