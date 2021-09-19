@@ -51,7 +51,13 @@ table = Arrow::Table.load("/dev/shm/data.arrow")
 table.save("/dev/shm/data-processed.arrow")
 ```
 
-## development
+## Development
+
+Note that you need to install Apache Arrow C++/GLib at master before preparing Red Arrow. See also:
+
+  * For Apache Arrow C++: https://arrow.apache.org/docs/developers/cpp/building.html
+  * For Apache Arrow GLib: https://github.com/apache/arrow/blob/master/c_glib/README.md
+
 ```
 $ cd ruby/red-arrow
 $ bundle install
