@@ -58,7 +58,7 @@ Note that you need to install Apache Arrow C++/GLib at master before preparing R
   * For Apache Arrow C++: https://arrow.apache.org/docs/developers/cpp/building.html
   * For Apache Arrow GLib: https://github.com/apache/arrow/blob/master/c_glib/README.md
 
-```
+```console
 $ cd ruby/red-arrow
 $ bundle install
 $ bundle exec rake test
