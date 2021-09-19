@@ -64,7 +64,8 @@ $ bundle install
 $ bundle exec rake test
 ```
 
-### Mac OS
+### For macOS with Homebrew
+
 ```
 $ cd ruby/red-arrow
 $ bundle install
