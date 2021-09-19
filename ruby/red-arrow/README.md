@@ -66,7 +66,7 @@ $ bundle exec rake test
 
 ### For macOS with Homebrew
 
-```
+```console
 $ cd ruby/red-arrow
 $ bundle install
 $ brew install apache-arrow --head
