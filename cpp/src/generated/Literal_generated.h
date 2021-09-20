@@ -1050,6 +1050,7 @@ struct DecimalLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SCALE = 6,
     VT_PRECISION = 8
   };
+  /// These bytes must be in little-endian order.
   const flatbuffers::Vector<int8_t> *value() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_VALUE);
   }
