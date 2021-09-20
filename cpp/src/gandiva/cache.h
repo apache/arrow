@@ -27,7 +27,7 @@
 namespace gandiva {
 
 GANDIVA_EXPORT
-int GetCapacity();
+size_t GetCapacity();
 
 GANDIVA_EXPORT
 void LogCacheSize(size_t capacity);
@@ -39,19 +39,29 @@ class Cache {
 
   Cache() : Cache(GetCapacity()) {}
 
-  ValueType GetModule(KeyType cache_key) {
+  ::std::shared_ptr<Cache> create(size_t capacity) {
+    return ::std::make_shared<Cache>(cache_(capacity));
+  }
+
+  ValueType GetObjectCode(KeyType cache_key) {
     arrow::util::optional<ValueCacheObject<ValueType>> result;
     mtx_.lock();
-    result = cache_.get(cache_key);
+    result = cache_.GetObjectCode(cache_key);
     mtx_.unlock();
     return result != arrow::util::nullopt ? (*result).module : nullptr;
   }
 
-  void PutModule(KeyType cache_key, ValueCacheObject<ValueType> valueCacheObject) {
+  void PutObjectCode(KeyType& cache_key, ValueCacheObject<ValueType> object_code) {
     mtx_.lock();
-    cache_.insert(cache_key, valueCacheObject);
+    cache_.InsertObjectCode(cache_key, object_code);
     mtx_.unlock();
   }
+
+  ::std::shared_ptr<Cache> CreateSharedCachePtr() { return Cache::create(); }
+
+  std::string ToString() { return cache_.ToString(); }
+
+  size_t GetCacheSize() { return cache_.GetCacheSize(); }
 
  private:
   GreedyDualSizeCache<KeyType, ValueType> cache_;
