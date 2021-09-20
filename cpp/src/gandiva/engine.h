@@ -22,10 +22,10 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/macros.h"
-
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "gandiva/configuration.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/visibility.h"
@@ -52,6 +52,17 @@ class GANDIVA_EXPORT Engine {
   void AddFunctionToCompile(const std::string& fname) {
     DCHECK(!module_finalized_);
     functions_to_compile_.push_back(fname);
+  }
+
+  /// Set BaseObjectCache.
+  template <class KeyType>
+  Status SetLLVMObjectCache(GandivaObjectCache<KeyType>& object_cache) {
+    execution_engine_->setObjectCache(&object_cache);
+    if (execution_engine_->hasError()) {
+      return Status::ExecutionError(
+          "[CACHE-LOG][ERROR]: Can not set custom llvm object cache");
+    }
+    return Status::OK();
   }
 
   /// Optimise and compile the module.
