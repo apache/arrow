@@ -540,6 +540,8 @@ struct FixedSizeBinaryTransformExecWithState
 };
 
 struct StringBinaryTransformBase {
+  virtual ~StringBinaryTransformBase() = default;
+
   virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Status::OK();
   }
