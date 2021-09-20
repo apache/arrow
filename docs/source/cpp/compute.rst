@@ -1492,19 +1492,24 @@ value, but smaller than nulls.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+--------------------+---------------------+---------+
-| Function name            | Arity      | Input types        | Output type         | Notes   |
-+==========================+============+====================+=====================+=========+
-| list_flatten             | Unary      | List-like          | List value type     | \(1)    |
-+--------------------------+------------+--------------------+---------------------+---------+
-| list_parent_indices      | Unary      | List-like          | Int32 or Int64      | \(2)    |
-+--------------------------+------------+--------------------+---------------------+---------+
++--------------------------+------------+------------------------------------+---------------------+---------+
+| Function name            | Arity      | Input types                        | Output type         | Notes   |
++==========================+============+====================================+=====================+=========+
+| list_element             | Binary     | List-like (Arg 0), Integral (Arg 1)| List value type     | \(1)    |
++--------------------------+------------+------------------------------------+---------------------+---------+
+| list_flatten             | Unary      | List-like                          | List value type     | \(2)    |
++--------------------------+------------+------------------------------------+---------------------+---------+
+| list_parent_indices      | Unary      | List-like                          | Int32 or Int64      | \(3)    |
++--------------------------+------------+------------------------------------+---------------------+---------+
 
-* \(1) The top level of nesting is removed: all values in the list child array,
+* \(1) Output is an array of the same length as the input list array. The
+  output values are the values at the specified index of each child list.
+
+* \(2) The top level of nesting is removed: all values in the list child array,
   including nulls, are appended to the output.  However, nulls in the parent
   list array are discarded.
 
-* \(2) For each value in the list child array, the index at which it is found
+* \(3) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.  Output type is Int32 for List and FixedSizeList, Int64 for
   LargeList.

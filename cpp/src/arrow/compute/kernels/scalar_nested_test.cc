@@ -43,6 +43,70 @@ TEST(TestScalarNested, ListValueLength) {
                    "[3, null, 3, 3]");
 }
 
+TEST(TestScalarNested, ListElementNonFixedListWithNulls) {
+  auto sample = "[[7, 5, 81], [6, null, 4, 7, 8], [3, 12, 2, 0], [1, 9], null]";
+  for (auto ty : NumericTypes()) {
+    for (auto list_type : {list(ty), large_list(ty)}) {
+      auto input = ArrayFromJSON(list_type, sample);
+      auto null_input = ArrayFromJSON(list_type, "[null]");
+      for (auto index_type : IntTypes()) {
+        auto index = ScalarFromJSON(index_type, "1");
+        auto expected = ArrayFromJSON(ty, "[5, null, 12, 9, null]");
+        auto expected_null = ArrayFromJSON(ty, "[null]");
+        CheckScalar("list_element", {input, index}, expected);
+        CheckScalar("list_element", {null_input, index}, expected_null);
+      }
+    }
+  }
+}
+
+TEST(TestScalarNested, ListElementFixedList) {
+  auto sample = "[[7, 5, 81], [6, 4, 8], [3, 12, 2], [1, 43, 87]]";
+  for (auto ty : NumericTypes()) {
+    auto input = ArrayFromJSON(fixed_size_list(ty, 3), sample);
+    for (auto index_type : IntTypes()) {
+      auto index = ScalarFromJSON(index_type, "0");
+      auto expected = ArrayFromJSON(ty, "[7, 6, 3, 1]");
+      CheckScalar("list_element", {input, index}, expected);
+    }
+  }
+}
+
+TEST(TestScalarNested, ListElementInvalid) {
+  auto input_array = ArrayFromJSON(list(float32()), "[[0.1, 1.1], [0.2, 1.2]]");
+  auto input_scalar = ScalarFromJSON(list(float32()), "[0.1, 0.2]");
+
+  // invalid index: null
+  auto index = ScalarFromJSON(int32(), "null");
+  EXPECT_THAT(CallFunction("list_element", {input_array, index}),
+              Raises(StatusCode::Invalid));
+  EXPECT_THAT(CallFunction("list_element", {input_scalar, index}),
+              Raises(StatusCode::Invalid));
+
+  // invalid index: < 0
+  index = ScalarFromJSON(int32(), "-1");
+  EXPECT_THAT(CallFunction("list_element", {input_array, index}),
+              Raises(StatusCode::Invalid));
+  EXPECT_THAT(CallFunction("list_element", {input_scalar, index}),
+              Raises(StatusCode::Invalid));
+
+  // invalid index: >= list.length
+  index = ScalarFromJSON(int32(), "2");
+  EXPECT_THAT(CallFunction("list_element", {input_array, index}),
+              Raises(StatusCode::Invalid));
+  EXPECT_THAT(CallFunction("list_element", {input_scalar, index}),
+              Raises(StatusCode::Invalid));
+
+  // invalid input
+  input_array = ArrayFromJSON(list(float32()), "[[41, 6, 93], [], [2]]");
+  input_scalar = ScalarFromJSON(list(float32()), "[]");
+  index = ScalarFromJSON(int32(), "0");
+  EXPECT_THAT(CallFunction("list_element", {input_array, index}),
+              Raises(StatusCode::Invalid));
+  EXPECT_THAT(CallFunction("list_element", {input_scalar, index}),
+              Raises(StatusCode::Invalid));
+}
+
 struct {
   Result<Datum> operator()(std::vector<Datum> args) {
     return CallFunction("make_struct", args);
