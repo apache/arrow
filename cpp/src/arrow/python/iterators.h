@@ -112,14 +112,14 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
       Ndarray1DIndexer<uint8_t> mask_values(mask);
 
       return VisitSequenceGeneric(
-          obj, offset, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
+          obj, offset,
+          [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
             return func(value, mask_values[i], keep_going);
           });
     } else {
       return Status::Invalid("Mask must be boolean dtype");
     }
-  }
-  else if (PySequence_Check(mo)) {
+  } else if (PySequence_Check(mo)) {
     if (PySequence_Size(mo) != static_cast<int64_t>(PySequence_Size(obj))) {
       return Status::Invalid("Mask was a different length from sequence being converted");
     }
@@ -130,20 +130,17 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
           auto scalar = unwrap_scalar(value_ref.obj());
           if (scalar.ok()) {
             std::shared_ptr<Scalar> x = scalar.ValueOrDie();
-            BooleanScalar *z = dynamic_cast<BooleanScalar*>(x.get());
+            BooleanScalar* z = dynamic_cast<BooleanScalar*>(x.get());
             if (z == nullptr)
               return Status::Invalid("Mask must be made of boolean values");
             return func(value, z->value, keep_going);
-          }
-          else if (PyBool_Check(value_ref.obj())) {
-              return func(value, value_ref.obj() == Py_True, keep_going);
-          }
-          else {
+          } else if (PyBool_Check(value_ref.obj())) {
+            return func(value, value_ref.obj() == Py_True, keep_going);
+          } else {
             return Status::Invalid("Mask must be made of boolean values");
           }
-    });
-  }
-  else {
+        });
+  } else {
     return Status::Invalid("Null mask must be a NumPy or Arrow array");
   }
 
