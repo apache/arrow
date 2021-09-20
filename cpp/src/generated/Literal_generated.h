@@ -6,6 +6,8 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+#include "Schema_generated.h"
+
 namespace org {
 namespace apache {
 namespace arrow {
@@ -95,72 +97,6 @@ struct StringLiteralBuilder;
 
 struct Literal;
 struct LiteralBuilder;
-
-enum class DateUnit : uint8_t {
-  DAY = 0,
-  MILLISECOND = 1,
-  MIN = DAY,
-  MAX = MILLISECOND
-};
-
-inline const DateUnit (&EnumValuesDateUnit())[2] {
-  static const DateUnit values[] = {
-    DateUnit::DAY,
-    DateUnit::MILLISECOND
-  };
-  return values;
-}
-
-inline const char * const *EnumNamesDateUnit() {
-  static const char * const names[3] = {
-    "DAY",
-    "MILLISECOND",
-    nullptr
-  };
-  return names;
-}
-
-inline const char *EnumNameDateUnit(DateUnit e) {
-  if (flatbuffers::IsOutRange(e, DateUnit::DAY, DateUnit::MILLISECOND)) return "";
-  const size_t index = static_cast<size_t>(e);
-  return EnumNamesDateUnit()[index];
-}
-
-enum class TimeUnit : uint8_t {
-  SECOND = 0,
-  MILLISECOND = 1,
-  MICROSECOND = 2,
-  NANOSECOND = 3,
-  MIN = SECOND,
-  MAX = NANOSECOND
-};
-
-inline const TimeUnit (&EnumValuesTimeUnit())[4] {
-  static const TimeUnit values[] = {
-    TimeUnit::SECOND,
-    TimeUnit::MILLISECOND,
-    TimeUnit::MICROSECOND,
-    TimeUnit::NANOSECOND
-  };
-  return values;
-}
-
-inline const char * const *EnumNamesTimeUnit() {
-  static const char * const names[5] = {
-    "SECOND",
-    "MILLISECOND",
-    "MICROSECOND",
-    "NANOSECOND",
-    nullptr
-  };
-  return names;
-}
-
-inline const char *EnumNameTimeUnit(TimeUnit e) {
-  if (flatbuffers::IsOutRange(e, TimeUnit::SECOND, TimeUnit::NANOSECOND)) return "";
-  const size_t index = static_cast<size_t>(e);
-  return EnumNamesTimeUnit()[index];
-}
 
 enum class IntervalLiteralImpl : uint8_t {
   NONE = 0,
@@ -1244,13 +1180,13 @@ struct DateLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t value() const {
     return GetField<int64_t>(VT_VALUE, 0);
   }
-  org::apache::arrow::computeir::flatbuf::DateUnit unit() const {
-    return static_cast<org::apache::arrow::computeir::flatbuf::DateUnit>(GetField<uint8_t>(VT_UNIT, 1));
+  org::apache::arrow::flatbuf::DateUnit unit() const {
+    return static_cast<org::apache::arrow::flatbuf::DateUnit>(GetField<int16_t>(VT_UNIT, 1));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_VALUE) &&
-           VerifyField<uint8_t>(verifier, VT_UNIT) &&
+           VerifyField<int16_t>(verifier, VT_UNIT) &&
            verifier.EndTable();
   }
 };
@@ -1262,8 +1198,8 @@ struct DateLiteralBuilder {
   void add_value(int64_t value) {
     fbb_.AddElement<int64_t>(DateLiteral::VT_VALUE, value, 0);
   }
-  void add_unit(org::apache::arrow::computeir::flatbuf::DateUnit unit) {
-    fbb_.AddElement<uint8_t>(DateLiteral::VT_UNIT, static_cast<uint8_t>(unit), 1);
+  void add_unit(org::apache::arrow::flatbuf::DateUnit unit) {
+    fbb_.AddElement<int16_t>(DateLiteral::VT_UNIT, static_cast<int16_t>(unit), 1);
   }
   explicit DateLiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1280,7 +1216,7 @@ struct DateLiteralBuilder {
 inline flatbuffers::Offset<DateLiteral> CreateDateLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t value = 0,
-    org::apache::arrow::computeir::flatbuf::DateUnit unit = org::apache::arrow::computeir::flatbuf::DateUnit::MILLISECOND) {
+    org::apache::arrow::flatbuf::DateUnit unit = org::apache::arrow::flatbuf::DateUnit::MILLISECOND) {
   DateLiteralBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_unit(unit);
@@ -1296,13 +1232,13 @@ struct TimeLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t value() const {
     return GetField<int64_t>(VT_VALUE, 0);
   }
-  org::apache::arrow::computeir::flatbuf::TimeUnit unit() const {
-    return static_cast<org::apache::arrow::computeir::flatbuf::TimeUnit>(GetField<uint8_t>(VT_UNIT, 1));
+  org::apache::arrow::flatbuf::TimeUnit unit() const {
+    return static_cast<org::apache::arrow::flatbuf::TimeUnit>(GetField<int16_t>(VT_UNIT, 1));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_VALUE) &&
-           VerifyField<uint8_t>(verifier, VT_UNIT) &&
+           VerifyField<int16_t>(verifier, VT_UNIT) &&
            verifier.EndTable();
   }
 };
@@ -1314,8 +1250,8 @@ struct TimeLiteralBuilder {
   void add_value(int64_t value) {
     fbb_.AddElement<int64_t>(TimeLiteral::VT_VALUE, value, 0);
   }
-  void add_unit(org::apache::arrow::computeir::flatbuf::TimeUnit unit) {
-    fbb_.AddElement<uint8_t>(TimeLiteral::VT_UNIT, static_cast<uint8_t>(unit), 1);
+  void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
+    fbb_.AddElement<int16_t>(TimeLiteral::VT_UNIT, static_cast<int16_t>(unit), 1);
   }
   explicit TimeLiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1332,7 +1268,7 @@ struct TimeLiteralBuilder {
 inline flatbuffers::Offset<TimeLiteral> CreateTimeLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t value = 0,
-    org::apache::arrow::computeir::flatbuf::TimeUnit unit = org::apache::arrow::computeir::flatbuf::TimeUnit::MILLISECOND) {
+    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit::MILLISECOND) {
   TimeLiteralBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_unit(unit);
@@ -1349,8 +1285,8 @@ struct TimestampLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t value() const {
     return GetField<int64_t>(VT_VALUE, 0);
   }
-  org::apache::arrow::computeir::flatbuf::TimeUnit unit() const {
-    return static_cast<org::apache::arrow::computeir::flatbuf::TimeUnit>(GetField<uint8_t>(VT_UNIT, 0));
+  org::apache::arrow::flatbuf::TimeUnit unit() const {
+    return static_cast<org::apache::arrow::flatbuf::TimeUnit>(GetField<int16_t>(VT_UNIT, 0));
   }
   const flatbuffers::String *timezone() const {
     return GetPointer<const flatbuffers::String *>(VT_TIMEZONE);
@@ -1358,7 +1294,7 @@ struct TimestampLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_VALUE) &&
-           VerifyField<uint8_t>(verifier, VT_UNIT) &&
+           VerifyField<int16_t>(verifier, VT_UNIT) &&
            VerifyOffset(verifier, VT_TIMEZONE) &&
            verifier.VerifyString(timezone()) &&
            verifier.EndTable();
@@ -1372,8 +1308,8 @@ struct TimestampLiteralBuilder {
   void add_value(int64_t value) {
     fbb_.AddElement<int64_t>(TimestampLiteral::VT_VALUE, value, 0);
   }
-  void add_unit(org::apache::arrow::computeir::flatbuf::TimeUnit unit) {
-    fbb_.AddElement<uint8_t>(TimestampLiteral::VT_UNIT, static_cast<uint8_t>(unit), 0);
+  void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
+    fbb_.AddElement<int16_t>(TimestampLiteral::VT_UNIT, static_cast<int16_t>(unit), 0);
   }
   void add_timezone(flatbuffers::Offset<flatbuffers::String> timezone) {
     fbb_.AddOffset(TimestampLiteral::VT_TIMEZONE, timezone);
@@ -1393,7 +1329,7 @@ struct TimestampLiteralBuilder {
 inline flatbuffers::Offset<TimestampLiteral> CreateTimestampLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t value = 0,
-    org::apache::arrow::computeir::flatbuf::TimeUnit unit = org::apache::arrow::computeir::flatbuf::TimeUnit::SECOND,
+    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit::SECOND,
     flatbuffers::Offset<flatbuffers::String> timezone = 0) {
   TimestampLiteralBuilder builder_(_fbb);
   builder_.add_value(value);
@@ -1405,7 +1341,7 @@ inline flatbuffers::Offset<TimestampLiteral> CreateTimestampLiteral(
 inline flatbuffers::Offset<TimestampLiteral> CreateTimestampLiteralDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t value = 0,
-    org::apache::arrow::computeir::flatbuf::TimeUnit unit = org::apache::arrow::computeir::flatbuf::TimeUnit::SECOND,
+    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit::SECOND,
     const char *timezone = nullptr) {
   auto timezone__ = timezone ? _fbb.CreateString(timezone) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateTimestampLiteral(
@@ -1586,13 +1522,13 @@ struct DurationLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t value() const {
     return GetField<int64_t>(VT_VALUE, 0);
   }
-  org::apache::arrow::computeir::flatbuf::TimeUnit unit() const {
-    return static_cast<org::apache::arrow::computeir::flatbuf::TimeUnit>(GetField<uint8_t>(VT_UNIT, 1));
+  org::apache::arrow::flatbuf::TimeUnit unit() const {
+    return static_cast<org::apache::arrow::flatbuf::TimeUnit>(GetField<int16_t>(VT_UNIT, 1));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_VALUE) &&
-           VerifyField<uint8_t>(verifier, VT_UNIT) &&
+           VerifyField<int16_t>(verifier, VT_UNIT) &&
            verifier.EndTable();
   }
 };
@@ -1604,8 +1540,8 @@ struct DurationLiteralBuilder {
   void add_value(int64_t value) {
     fbb_.AddElement<int64_t>(DurationLiteral::VT_VALUE, value, 0);
   }
-  void add_unit(org::apache::arrow::computeir::flatbuf::TimeUnit unit) {
-    fbb_.AddElement<uint8_t>(DurationLiteral::VT_UNIT, static_cast<uint8_t>(unit), 1);
+  void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
+    fbb_.AddElement<int16_t>(DurationLiteral::VT_UNIT, static_cast<int16_t>(unit), 1);
   }
   explicit DurationLiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1622,7 +1558,7 @@ struct DurationLiteralBuilder {
 inline flatbuffers::Offset<DurationLiteral> CreateDurationLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t value = 0,
-    org::apache::arrow::computeir::flatbuf::TimeUnit unit = org::apache::arrow::computeir::flatbuf::TimeUnit::MILLISECOND) {
+    org::apache::arrow::flatbuf::TimeUnit unit = org::apache::arrow::flatbuf::TimeUnit::MILLISECOND) {
   DurationLiteralBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_unit(unit);

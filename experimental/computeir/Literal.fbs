@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+include "../../format/Schema.fbs";
+
 namespace org.apache.arrow.computeir.flatbuf;
 
 table ListLiteral {
@@ -90,37 +92,25 @@ table BooleanLiteral {
 
 table NullLiteral {}
 
-enum DateUnit : uint8 {
-  DAY,
-  MILLISECOND,
-}
-
 table DateLiteral {
   value: int64;
 
   // unit of `value`
-  unit: DateUnit = MILLISECOND;
-}
-
-enum TimeUnit : uint8 {
-  SECOND,
-  MILLISECOND,
-  MICROSECOND,
-  NANOSECOND,
+  unit: org.apache.arrow.flatbuf.DateUnit = MILLISECOND;
 }
 
 table TimeLiteral {
   value: int64;
 
   // unit of `value`
-  unit: TimeUnit = MILLISECOND;
+  unit: org.apache.arrow.flatbuf.TimeUnit = MILLISECOND;
 }
 
 table TimestampLiteral {
   value: int64;
 
   // unit of `value`
-  unit: TimeUnit;
+  unit: org.apache.arrow.flatbuf.TimeUnit;
 
   // timezone value, same definition as used in Schema.fbs.
   timezone: string;
@@ -148,7 +138,7 @@ table DurationLiteral {
   value: int64;
 
   // unit of `value`
-  unit: TimeUnit = MILLISECOND;
+  unit: org.apache.arrow.flatbuf.TimeUnit = MILLISECOND;
 }
 
 table BinaryLiteral {
