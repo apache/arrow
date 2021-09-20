@@ -127,15 +127,15 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
     return VisitSequenceGeneric(
         obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
           OwnedRef value_ref(PySequence_ITEM(mo, i));
-          auto scalar = unwrap_scalar(value_ref.obj());
+          PyObject* value_obj = value_ref.obj();
+          auto scalar = unwrap_scalar(value_obj);
           if (scalar.ok()) {
-            std::shared_ptr<Scalar> x = scalar.ValueOrDie();
-            BooleanScalar* z = dynamic_cast<BooleanScalar*>(x.get());
+            BooleanScalar* z = dynamic_cast<BooleanScalar*>(scalar.ValueOrDie().get());
             if (z == nullptr)
               return Status::Invalid("Mask must be made of boolean values");
             return func(value, z->value, keep_going);
-          } else if (PyBool_Check(value_ref.obj())) {
-            return func(value, value_ref.obj() == Py_True, keep_going);
+          } else if (PyBool_Check(value_obj)) {
+            return func(value, value_obj == Py_True, keep_going);
           } else {
             return Status::Invalid("Mask must be made of boolean values");
           }
