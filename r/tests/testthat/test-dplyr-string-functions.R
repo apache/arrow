@@ -410,49 +410,63 @@ test_that("strsplit and str_split", {
     input %>%
       mutate(x = strsplit(x, "and")) %>%
       collect(),
-    df
+    df,
+    # Pass check.attributes = FALSE through to expect_equal
+    # (which gives you expect_equivalent() behavior).
+    # This is because the vctr that comes back from arrow (ListArray)
+    # has type information in it, but it's just a bare list from R/dplyr.
+    # Note also that whenever we bump up to testthat 3rd edition (ARROW-12871),
+    # the parameter is called `ignore_attr = TRUE`
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, " +and +")) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and")) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and", n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, fixed("and"), n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, regex("and"), n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "Foo|bar", n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
 })
 

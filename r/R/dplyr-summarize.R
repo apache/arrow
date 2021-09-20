@@ -51,10 +51,6 @@ summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
 
 # This is the Arrow summarize implementation
 do_arrow_summarize <- function(.data, ..., .groups = NULL) {
-  if (!is.null(.groups)) {
-    # ARROW-13550
-    abort("`summarize()` with `.groups` argument not supported in Arrow")
-  }
   exprs <- ensure_named_exprs(quos(...))
 
   # Create a stateful environment for recording our evaluated expressions
@@ -96,6 +92,35 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       out$selected_columns,
       ctx$post_mutate
     )[c(.data$group_by_vars, names(exprs))]
+  }
+
+  # Handle .groups argument
+  if (length(.data$group_by_vars)) {
+    if (is.null(.groups)) {
+      # dplyr docs say:
+      # When ‘.groups’ is not specified, it is chosen based on the
+      # number of rows of the results:
+      # • If all the results have 1 row, you get "drop_last".
+      # • If the number of rows varies, you get "keep".
+      #
+      # But we don't support anything that returns multiple rows now
+      .groups <- "drop_last"
+    } else {
+      assert_that(is.string(.groups))
+    }
+    if (.groups == "drop_last") {
+      out$group_by_vars <- head(.data$group_by_vars, -1)
+    } else if (.groups == "keep") {
+      out$group_by_vars <- .data$group_by_vars
+    } else if (.groups == "rowwise") {
+      stop(arrow_not_supported('.groups = "rowwise"'))
+    } else if (.groups != "drop") {
+      # Drop means don't group by anything so there's nothing to do.
+      # Anything else is invalid
+      stop(paste("Invalid .groups argument:", .groups))
+    }
+    # TODO: shouldn't we be doing something with `drop_empty_groups` in summarize? (ARROW-14044)
+    out$drop_empty_groups <- .data$drop_empty_groups
   }
   out
 }

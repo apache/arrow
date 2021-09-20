@@ -203,10 +203,12 @@ test_that("ChunkedArray supports difftime", {
 })
 
 test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
-  types <- c(int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
-            uint64(), float32(), float64(), timestamp("ns"), binary(),
-            large_binary(), fixed_size_binary(32), date32(), date64(),
-            decimal(4, 2))
+  types <- c(
+    int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
+    uint64(), float32(), float64(), timestamp("ns"), binary(),
+    large_binary(), fixed_size_binary(32), date32(), date64(),
+    decimal(4, 2)
+  )
 
   empty_filter <- ChunkedArray$create(type = bool())
   for (type in types) {
