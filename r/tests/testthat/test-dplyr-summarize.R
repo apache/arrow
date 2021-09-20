@@ -291,7 +291,7 @@ test_that("summarize() with min() and max()", {
       summarize(max_mult = max(int, dbl, dbl2)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to max\\(\\) not supported in Arrow"
+    warning = "Multiple arguments to max\\(\\) not supported by Arrow"
   )
 
   # min(logical) or max(logical) yields integer in R
