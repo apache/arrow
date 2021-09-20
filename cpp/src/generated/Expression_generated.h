@@ -143,45 +143,40 @@ bool VerifyDerefVector(flatbuffers::Verifier &verifier, const flatbuffers::Vecto
 
 /// Whether lesser values should precede greater or vice versa,
 /// also whether nulls should preced or follow values
-enum class Collation : uint8_t {
+enum class Ordering : uint8_t {
   ASCENDING_THEN_NULLS = 0,
   DESCENDING_THEN_NULLS = 1,
   NULLS_THEN_ASCENDING = 2,
   NULLS_THEN_DESCENDING = 3,
-  /// Equal values are grouped together, but not guaranteed to be
-  /// in any particular order
-  CLUSTERED = 4,
   MIN = ASCENDING_THEN_NULLS,
-  MAX = CLUSTERED
+  MAX = NULLS_THEN_DESCENDING
 };
 
-inline const Collation (&EnumValuesCollation())[5] {
-  static const Collation values[] = {
-    Collation::ASCENDING_THEN_NULLS,
-    Collation::DESCENDING_THEN_NULLS,
-    Collation::NULLS_THEN_ASCENDING,
-    Collation::NULLS_THEN_DESCENDING,
-    Collation::CLUSTERED
+inline const Ordering (&EnumValuesOrdering())[4] {
+  static const Ordering values[] = {
+    Ordering::ASCENDING_THEN_NULLS,
+    Ordering::DESCENDING_THEN_NULLS,
+    Ordering::NULLS_THEN_ASCENDING,
+    Ordering::NULLS_THEN_DESCENDING
   };
   return values;
 }
 
-inline const char * const *EnumNamesCollation() {
-  static const char * const names[6] = {
+inline const char * const *EnumNamesOrdering() {
+  static const char * const names[5] = {
     "ASCENDING_THEN_NULLS",
     "DESCENDING_THEN_NULLS",
     "NULLS_THEN_ASCENDING",
     "NULLS_THEN_DESCENDING",
-    "CLUSTERED",
     nullptr
   };
   return names;
 }
 
-inline const char *EnumNameCollation(Collation e) {
-  if (flatbuffers::IsOutRange(e, Collation::ASCENDING_THEN_NULLS, Collation::CLUSTERED)) return "";
+inline const char *EnumNameOrdering(Ordering e) {
+  if (flatbuffers::IsOutRange(e, Ordering::ASCENDING_THEN_NULLS, Ordering::NULLS_THEN_DESCENDING)) return "";
   const size_t index = static_cast<size_t>(e);
-  return EnumNamesCollation()[index];
+  return EnumNamesOrdering()[index];
 }
 
 /// A concrete bound, which can be an expression or unbounded
@@ -1058,19 +1053,19 @@ struct SortKey FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SortKeyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EXPRESSION = 4,
-    VT_COLLATION = 6
+    VT_ORDERING = 6
   };
   const org::apache::arrow::computeir::flatbuf::Expression *expression() const {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_EXPRESSION);
   }
-  org::apache::arrow::computeir::flatbuf::Collation collation() const {
-    return static_cast<org::apache::arrow::computeir::flatbuf::Collation>(GetField<uint8_t>(VT_COLLATION, 0));
+  org::apache::arrow::computeir::flatbuf::Ordering ordering() const {
+    return static_cast<org::apache::arrow::computeir::flatbuf::Ordering>(GetField<uint8_t>(VT_ORDERING, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_EXPRESSION) &&
            verifier.VerifyTable(expression()) &&
-           VerifyField<uint8_t>(verifier, VT_COLLATION) &&
+           VerifyField<uint8_t>(verifier, VT_ORDERING) &&
            verifier.EndTable();
   }
 };
@@ -1082,8 +1077,8 @@ struct SortKeyBuilder {
   void add_expression(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> expression) {
     fbb_.AddOffset(SortKey::VT_EXPRESSION, expression);
   }
-  void add_collation(org::apache::arrow::computeir::flatbuf::Collation collation) {
-    fbb_.AddElement<uint8_t>(SortKey::VT_COLLATION, static_cast<uint8_t>(collation), 0);
+  void add_ordering(org::apache::arrow::computeir::flatbuf::Ordering ordering) {
+    fbb_.AddElement<uint8_t>(SortKey::VT_ORDERING, static_cast<uint8_t>(ordering), 0);
   }
   explicit SortKeyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1101,10 +1096,10 @@ struct SortKeyBuilder {
 inline flatbuffers::Offset<SortKey> CreateSortKey(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> expression = 0,
-    org::apache::arrow::computeir::flatbuf::Collation collation = org::apache::arrow::computeir::flatbuf::Collation::ASCENDING_THEN_NULLS) {
+    org::apache::arrow::computeir::flatbuf::Ordering ordering = org::apache::arrow::computeir::flatbuf::Ordering::ASCENDING_THEN_NULLS) {
   SortKeyBuilder builder_(_fbb);
   builder_.add_expression(expression);
-  builder_.add_collation(collation);
+  builder_.add_ordering(ordering);
   return builder_.Finish();
 }
 

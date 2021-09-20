@@ -117,20 +117,17 @@ table SimpleCase {
 
 /// Whether lesser values should precede greater or vice versa,
 /// also whether nulls should preced or follow values
-enum Collation : uint8 {
+enum Ordering : uint8 {
   ASCENDING_THEN_NULLS,
   DESCENDING_THEN_NULLS,
   NULLS_THEN_ASCENDING,
   NULLS_THEN_DESCENDING,
-  /// Equal values are grouped together, but not guaranteed to be
-  /// in any particular order
-  CLUSTERED,
 }
 
 /// An expression with an order
 table SortKey {
   expression: Expression (required);
-  collation: Collation = ASCENDING_THEN_NULLS;
+  ordering: Ordering = ASCENDING_THEN_NULLS;
 }
 
 /// An unbounded window bound
