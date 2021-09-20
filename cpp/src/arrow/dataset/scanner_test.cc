@@ -1474,6 +1474,13 @@ TEST(ScanNode, MinimalEndToEnd) {
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
 
+  // Sort table
+  ASSERT_OK_AND_ASSIGN(
+      auto indices,
+      compute::SortIndices(collected, compute::SortOptions({compute::SortKey(
+                                          "a * 2", compute::SortOrder::Ascending)})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(collected, indices));
+
   // wait 1s for completion
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
@@ -1483,7 +1490,7 @@ TEST(ScanNode, MinimalEndToEnd) {
                                                {"a * 2": null},
                                                {"a * 2": null}
                                           ])"});
-  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
 TEST(ScanNode, MinimalScalarAggEndToEnd) {
@@ -1663,17 +1670,24 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
 
+  // Sort table
+  ASSERT_OK_AND_ASSIGN(
+      auto indices, compute::SortIndices(
+                        collected, compute::SortOptions({compute::SortKey(
+                                       "sum(a * 2)", compute::SortOrder::Ascending)})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(collected, indices));
+
   // wait 1s for completion
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   auto expected = TableFromJSON(
       schema({field("sum(a * 2)", int64()), field("b", boolean())}), {
                                                                          R"JSON([
-                                               {"sum(a * 2)": 12, "b": null},
                                                {"sum(a * 2)": 4,  "b": true},
+                                               {"sum(a * 2)": 12, "b": null},
                                                {"sum(a * 2)": 40, "b": false}
                                           ])JSON"});
-  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset
