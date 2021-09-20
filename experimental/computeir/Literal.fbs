@@ -23,8 +23,13 @@ table ListLiteral {
   values: [Literal] (required);
 }
 
+table StructLiteralField {
+  name: string (required);
+  value: Literal (required);
+}
+
 table StructLiteral {
-  values: [KeyValue] (required);
+  values: [StructLiteralField] (required);
 }
 
 table KeyValue {

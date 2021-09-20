@@ -17,6 +17,9 @@ namespace flatbuf {
 struct ListLiteral;
 struct ListLiteralBuilder;
 
+struct StructLiteralField;
+struct StructLiteralFieldBuilder;
+
 struct StructLiteral;
 struct StructLiteralBuilder;
 
@@ -422,13 +425,80 @@ inline flatbuffers::Offset<ListLiteral> CreateListLiteralDirect(
       values__);
 }
 
+struct StructLiteralField FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef StructLiteralFieldBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME = 4,
+    VT_VALUE = 6
+  };
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
+  const org::apache::arrow::computeir::flatbuf::Literal *value() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::Literal *>(VT_VALUE);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffsetRequired(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffsetRequired(verifier, VT_VALUE) &&
+           verifier.VerifyTable(value()) &&
+           verifier.EndTable();
+  }
+};
+
+struct StructLiteralFieldBuilder {
+  typedef StructLiteralField Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(StructLiteralField::VT_NAME, name);
+  }
+  void add_value(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> value) {
+    fbb_.AddOffset(StructLiteralField::VT_VALUE, value);
+  }
+  explicit StructLiteralFieldBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  StructLiteralFieldBuilder &operator=(const StructLiteralFieldBuilder &);
+  flatbuffers::Offset<StructLiteralField> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<StructLiteralField>(end);
+    fbb_.Required(o, StructLiteralField::VT_NAME);
+    fbb_.Required(o, StructLiteralField::VT_VALUE);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<StructLiteralField> CreateStructLiteralField(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> name = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> value = 0) {
+  StructLiteralFieldBuilder builder_(_fbb);
+  builder_.add_value(value);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<StructLiteralField> CreateStructLiteralFieldDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name = nullptr,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> value = 0) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return org::apache::arrow::computeir::flatbuf::CreateStructLiteralField(
+      _fbb,
+      name__,
+      value);
+}
+
 struct StructLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef StructLiteralBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VALUES = 4
   };
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::KeyValue>> *values() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::KeyValue>> *>(VT_VALUES);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::StructLiteralField>> *values() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::StructLiteralField>> *>(VT_VALUES);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -443,7 +513,7 @@ struct StructLiteralBuilder {
   typedef StructLiteral Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_values(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::KeyValue>>> values) {
+  void add_values(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::StructLiteralField>>> values) {
     fbb_.AddOffset(StructLiteral::VT_VALUES, values);
   }
   explicit StructLiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -461,7 +531,7 @@ struct StructLiteralBuilder {
 
 inline flatbuffers::Offset<StructLiteral> CreateStructLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::KeyValue>>> values = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::StructLiteralField>>> values = 0) {
   StructLiteralBuilder builder_(_fbb);
   builder_.add_values(values);
   return builder_.Finish();
@@ -469,8 +539,8 @@ inline flatbuffers::Offset<StructLiteral> CreateStructLiteral(
 
 inline flatbuffers::Offset<StructLiteral> CreateStructLiteralDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::KeyValue>> *values = nullptr) {
-  auto values__ = values ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::KeyValue>>(*values) : 0;
+    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::StructLiteralField>> *values = nullptr) {
+  auto values__ = values ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::StructLiteralField>>(*values) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateStructLiteral(
       _fbb,
       values__);
