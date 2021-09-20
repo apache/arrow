@@ -62,6 +62,7 @@ test_that("ungroup", {
       select(int, chr) %>%
       ungroup() %>%
       filter(int > 5) %>%
+      # TODO: ARROW-13550 - remove summarize() from here (expect_dplyr_equal will check attributes)
       collect() %>%
       summarize(min_int = min(int)),
     tbl
