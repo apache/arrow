@@ -24,6 +24,7 @@
 
 #include "arrow/util/hash_util.h"
 
+#include "gandiva/base_cache_key.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"
@@ -42,7 +43,7 @@ FilterCacheKey::FilterCacheKey(SchemaPtr schema,
   expression_as_string_ = expression.ToString();
   UpdateUniqifier(expression_as_string_);
   arrow::internal::hash_combine(result, expression_as_string_);
-  arrow::internal::hash_combine(result, configuration);
+  arrow::internal::hash_combine(result, configuration->Hash());
   arrow::internal::hash_combine(result, schema_->ToString());
   arrow::internal::hash_combine(result, uniqifier_);
   hash_code_ = result;
@@ -102,13 +103,30 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  static Cache<FilterCacheKey, std::shared_ptr<Filter>> cache;
-  FilterCacheKey cache_key(schema, configuration, *(condition.get()));
-  auto cachedFilter = cache.GetModule(cache_key);
-  if (cachedFilter != nullptr) {
-    *filter = cachedFilter;
-    return Status::OK();
+  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
+      LLVMGenerator::GetCache();
+
+  Condition conditionToKey = *(condition.get());
+
+  FilterCacheKey filter_key(schema, configuration, conditionToKey);
+  BaseCacheKey cache_key(filter_key, "filter");
+  std::unique_ptr<BaseCacheKey> base_cache_key =
+      std::make_unique<BaseCacheKey>(cache_key);
+  std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
+
+  bool llvm_flag = false;
+
+  std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
+  prev_cached_obj = shared_cache->GetObjectCode(*shared_base_cache_key);
+
+  // Verify if previous filter obj code was cached
+  if (prev_cached_obj != nullptr) {
+    ARROW_LOG(DEBUG)
+        << "[DEBUG][CACHE-LOG][INFO]: Filter object code WAS already cached!";
+    llvm_flag = true;
   }
+
+  GandivaObjectCache<BaseCacheKey> obj_cache(shared_cache, shared_base_cache_key);
 
   // Build LLVM generator, and generate code for the specified expression
   std::unique_ptr<LLVMGenerator> llvm_gen;
@@ -120,17 +138,27 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
 
   // Start measuring build time
-  auto begin = std::chrono::high_resolution_clock::now();
-  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
+  //  auto begin = std::chrono::high_resolution_clock::now();
+  //  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
   // Stop measuring time and calculate the elapsed time
-  auto end = std::chrono::high_resolution_clock::now();
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+  //  auto end = std::chrono::high_resolution_clock::now();
+  //  auto elapsed =
+  //      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+  ARROW_RETURN_NOT_OK(
+      llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE,
+                      obj_cache));  // to use when caching only the obj code
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-  ValueCacheObject<std::shared_ptr<Filter>> value_cache(*filter, elapsed);
-  cache.PutModule(cache_key, value_cache);
+  //  ValueCacheObject<std::shared_ptr<Filter>> value_cache(*filter, elapsed);
+  //  cache.PutModule(cache_key, value_cache);
+  //
+  filter->get()->SetCompiledFromCache(
+      llvm_flag);  // to use when caching only the obj code
+
+  ARROW_LOG(DEBUG)
+      << "[DEBUG][CACHE-LOG][INFO]: " +
+             shared_cache->ToString();  // to use when caching only the obj code
 
   return Status::OK();
 }
@@ -167,5 +195,9 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 }
 
 std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
+
+void Filter::SetCompiledFromCache(bool flag) { compiled_from_cache_ = flag; }
+
+bool Filter::GetCompiledFromCache() { return compiled_from_cache_; }
 
 }  // namespace gandiva
