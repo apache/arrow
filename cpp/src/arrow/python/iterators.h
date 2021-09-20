@@ -18,9 +18,11 @@
 #pragma once
 
 #include <utility>
+#include <iostream>
 
 #include "arrow/python/common.h"
 #include "arrow/python/numpy_internal.h"
+#include "arrow/scalar.h"
 
 namespace arrow {
 namespace py {
@@ -97,31 +99,51 @@ inline Status VisitSequence(PyObject* obj, int64_t offset, VisitorFunc&& func) {
 template <class VisitorFunc>
 inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
                                   VisitorFunc&& func) {
-  if (mo == nullptr || !PyArray_Check(mo)) {
-    return Status::Invalid("Null mask must be NumPy array");
-  }
 
-  PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
-  if (PyArray_NDIM(mask) != 1) {
-    return Status::Invalid("Mask must be 1D array");
-  }
+  // std::cout << "ARRAY" << unwrap_array(mo).ValueOrDie()->data() << std::endl;
 
-  const Py_ssize_t obj_size = PySequence_Size(obj);
-  if (PyArray_SIZE(mask) != static_cast<int64_t>(obj_size)) {
-    return Status::Invalid("Mask was a different length from sequence being converted");
-  }
+  if (PyArray_Check(mo)) {
+    PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
+    if (PyArray_NDIM(mask) != 1) {
+      return Status::Invalid("Mask must be 1D array");
+    }
+    if (PyArray_SIZE(mask) != static_cast<int64_t>(PySequence_Size(obj))) {
+      return Status::Invalid("Mask was a different length from sequence being converted");
+    }
 
-  const int dtype = fix_numpy_type_num(PyArray_DESCR(mask)->type_num);
-  if (dtype == NPY_BOOL) {
-    Ndarray1DIndexer<uint8_t> mask_values(mask);
+    const int dtype = fix_numpy_type_num(PyArray_DESCR(mask)->type_num);
+    if (dtype == NPY_BOOL) {
+      Ndarray1DIndexer<uint8_t> mask_values(mask);
+
+      return VisitSequenceGeneric(
+          obj, offset, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
+            return func(value, mask_values[i], keep_going);
+          });
+    } else {
+      return Status::Invalid("Mask must be boolean dtype");
+    }
+  }
+  else if (PySequence_Check(mo)) {
+    std::cout << "SEQ MASK" << std::endl;
+    if (PySequence_Size(mo) != static_cast<int64_t>(PySequence_Size(obj))) {
+      return Status::Invalid("Mask was a different length from sequence being converted");
+    }
 
     return VisitSequenceGeneric(
-        obj, offset, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
-          return func(value, mask_values[i], keep_going);
-        });
-  } else {
-    return Status::Invalid("Mask must be boolean dtype");
+        obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
+          OwnedRef value_ref(PySequence_ITEM(mo, i));
+          std::shared_ptr<Scalar> x = unwrap_scalar( value_ref.obj()).ValueOrDie();
+          BooleanScalar *z = dynamic_cast<BooleanScalar*>(x.get());
+
+          // std::cout << "CHECK " << value_ref.obj()->ob_type->tp_name << " " << PyObject_IsTrue(value_ref.obj()) << " " << z->value << std::endl;
+          return func(value, z->value, keep_going);
+    });
   }
+  else {
+    return Status::Invalid("Null mask must be a NumPy or Arrow array");
+  }
+
+  return Status::OK();
 }
 
 // Like IterateSequence, but accepts any generic iterable (including

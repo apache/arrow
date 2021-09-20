@@ -2745,6 +2745,11 @@ def test_array_masked():
                    mask=np.array([False, True, False, True]))
     assert arr.type == pa.int64()
 
+    # ARROW-13755
+    arr = pa.array([4, None, 4, 3],
+                   mask=pa.array([False, True, False, True]))
+    assert arr.to_pylist() == [4, None, 4, None]
+
 
 def test_binary_array_masked():
     # ARROW-12431
