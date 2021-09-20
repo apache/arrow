@@ -206,19 +206,25 @@ class BlockParserImpl {
     if (*(end - 1) == '\r') {
       --end;
     }
-    int32_t batch_row = batch_.num_rows_ + batch_.num_skipped_rows();
+    const int32_t batch_row_including_skipped =
+        batch_.num_rows_ + batch_.num_skipped_rows();
     InvalidRow row{batch_.num_cols_, num_cols,
-                   first_row_ < 0 ? -1 : first_row_ + batch_row,
+                   first_row_ < 0 ? -1 : first_row_ + batch_row_including_skipped,
                    util::string_view(start, end - start)};
 
-    if (options_.invalid_row_handler) {
-      if (options_.invalid_row_handler(row) == InvalidRowResult::Skip) {
-        values_writer->RollbackLine();
-        parsed_writer->RollbackLine();
-        batch_.skipped_rows_.push_back(batch_row);
-        *out_data = data;
-        return Status::OK();
+    if (options_.invalid_row_handler &&
+        options_.invalid_row_handler(row) == InvalidRowResult::Skip) {
+      values_writer->RollbackLine();
+      parsed_writer->RollbackLine();
+      if (!batch_.skipped_rows_.empty()) {
+        // Should be increasing (non-strictly)
+        DCHECK_GE(batch_.num_rows_, batch_.skipped_rows_.back());
       }
+      // Record the logical row number (not including skipped) since that
+      // is what we are going to look for later.
+      batch_.skipped_rows_.push_back(batch_.num_rows_);
+      *out_data = data;
+      return Status::OK();
     }
 
     return MismatchingColumns(row);

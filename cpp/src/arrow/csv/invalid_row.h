@@ -30,7 +30,10 @@ struct InvalidRow {
   int32_t expected_columns;
   /// \brief Actual number of columns found in the row
   int32_t actual_columns;
-  /// \brief The row number if known or -1
+  /// \brief The physical row number if known or -1
+  ///
+  /// This number is one-based and also accounts for non-data rows (such as
+  /// CSV header rows).
   int64_t number;
   /// \brief View of the entire row. Memory will be freed after callback returns
   const util::string_view text;

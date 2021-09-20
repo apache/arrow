@@ -66,9 +66,7 @@ class StreamingReaderAsTableReader : public TableReader {
   std::shared_ptr<StreamingReader> reader_;
 };
 
-using TableReaderFactory =
-    std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>;
-using TableReaderFactoryParseOpts = std::function<Result<std::shared_ptr<TableReader>>(
+using TableReaderFactory = std::function<Result<std::shared_ptr<TableReader>>(
     std::shared_ptr<io::InputStream>, ParseOptions)>;
 using StreamingReaderFactory = std::function<Result<std::shared_ptr<StreamingReader>>(
     std::shared_ptr<io::InputStream>)>;
@@ -76,7 +74,7 @@ using StreamingReaderFactory = std::function<Result<std::shared_ptr<StreamingRea
 void TestEmptyTable(TableReaderFactory reader_factory) {
   auto empty_buffer = std::make_shared<Buffer>("");
   auto empty_input = std::make_shared<io::BufferReader>(empty_buffer);
-  auto maybe_reader = reader_factory(empty_input);
+  auto maybe_reader = reader_factory(empty_input, ParseOptions::Defaults());
   // Streaming reader fails on open, table readers fail on first read
   if (maybe_reader.ok()) {
     ASSERT_FINISHES_AND_RAISES(Invalid, (*maybe_reader)->ReadAsync());
@@ -88,7 +86,7 @@ void TestEmptyTable(TableReaderFactory reader_factory) {
 void TestHeaderOnly(TableReaderFactory reader_factory) {
   auto header_only_buffer = std::make_shared<Buffer>("a,b,c\n");
   auto input = std::make_shared<io::BufferReader>(header_only_buffer);
-  ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input));
+  ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input, ParseOptions::Defaults()));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
   ASSERT_EQ(table->schema()->num_fields(), 3);
   ASSERT_EQ(table->num_rows(), 0);
@@ -116,7 +114,7 @@ void StressTableReader(TableReaderFactory reader_factory) {
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);
   for (int i = 0; i < NTASKS; i++) {
     auto input = std::make_shared<io::BufferReader>(table_buffer);
-    ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input));
+    ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input, ParseOptions::Defaults()));
     task_futures[i] = reader->ReadAsync();
   }
   auto combined_future = All(task_futures);
@@ -145,7 +143,7 @@ void StressInvalidTableReader(TableReaderFactory reader_factory) {
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);
   for (int i = 0; i < NTASKS; i++) {
     auto input = std::make_shared<io::BufferReader>(table_buffer);
-    ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input));
+    ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input, ParseOptions::Defaults()));
     task_futures[i] = reader->ReadAsync();
   }
   auto combined_future = All(task_futures);
@@ -163,7 +161,7 @@ void TestNestedParallelism(std::shared_ptr<internal::ThreadPool> thread_pool,
   const int NROWS = 1000;
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
   auto input = std::make_shared<io::BufferReader>(table_buffer);
-  ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input));
+  ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input, ParseOptions::Defaults()));
 
   Future<std::shared_ptr<Table>> table_future;
 
@@ -178,27 +176,28 @@ void TestNestedParallelism(std::shared_ptr<internal::ThreadPool> thread_pool,
   ASSERT_EQ(table->num_rows(), NROWS);
 }
 
-void TestInvalidRowsSkipped(TableReaderFactoryParseOpts reader_factory,
-                            bool rows_counted) {
+void TestInvalidRowsSkipped(TableReaderFactory reader_factory, bool rows_counted) {
   const int NROWS = 1000;
-  const int NINVALID = 5;
+  const int INVALID_EVERY = 20;
+  const int NINVALID = 50;
+
   auto opts = ParseOptions::Defaults();
   int num_invalid_rows = 0;
-  opts.invalid_row_handler = [&num_invalid_rows, rows_counted](const InvalidRow& row) {
+  opts.invalid_row_handler = [&](const InvalidRow& row) {
     ++num_invalid_rows;
     if (rows_counted) {
-      EXPECT_EQ(num_invalid_rows * 167 + 2, row.number);
+      // actual data starts at row #2 in the CSV "file"
+      EXPECT_EQ(num_invalid_rows * INVALID_EVERY + 1, row.number);
     } else {
       EXPECT_EQ(-1, row.number);
     }
     return InvalidRowResult::Skip;
   };
 
-  ASSERT_OK_AND_ASSIGN(
-      auto table_buffer, MakeSampleCsvBuffer(NROWS, [=](size_t row_num) {
-        return row_num == 0 ||
-               row_num % static_cast<size_t>(std::ceil(NROWS / (NINVALID + 1.0))) != 0;
-      }));
+  ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS, [=](size_t row_num) {
+                         // row_num is 0-based
+                         return (row_num + 1) % static_cast<size_t>(INVALID_EVERY) != 0;
+                       }));
   auto input = std::make_shared<io::BufferReader>(table_buffer);
   ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input, std::move(opts)));
   ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
@@ -206,19 +205,13 @@ void TestInvalidRowsSkipped(TableReaderFactoryParseOpts reader_factory,
   ASSERT_EQ(NINVALID, num_invalid_rows);
 }
 
-TableReaderFactoryParseOpts MakeSerialFactoryParseOpts() {
+TableReaderFactory MakeSerialFactory() {
   return [](std::shared_ptr<io::InputStream> input_stream, ParseOptions parse_options) {
     auto read_options = ReadOptions::Defaults();
     read_options.block_size = 1 << 10;
     read_options.use_threads = false;
     return TableReader::Make(io::default_io_context(), input_stream, read_options,
                              std::move(parse_options), ConvertOptions::Defaults());
-  };
-}
-
-TableReaderFactory MakeSerialFactory() {
-  return [](std::shared_ptr<io::InputStream> input_stream) {
-    return MakeSerialFactoryParseOpts()(input_stream, ParseOptions::Defaults());
   };
 }
 
@@ -231,10 +224,10 @@ TEST(SerialReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, MakeSerialFactory());
 }
 TEST(SerialReaderTests, InvalidRowsSkipped) {
-  TestInvalidRowsSkipped(MakeSerialFactoryParseOpts(), true);
+  TestInvalidRowsSkipped(MakeSerialFactory(), /*rows_counted=*/true);
 }
 
-Result<TableReaderFactoryParseOpts> MakeAsyncFactoryParseOpts(
+Result<TableReaderFactory> MakeAsyncFactory(
     std::shared_ptr<internal::ThreadPool> thread_pool = nullptr) {
   if (!thread_pool) {
     ARROW_ASSIGN_OR_RAISE(thread_pool, internal::ThreadPool::Make(1));
@@ -249,14 +242,6 @@ Result<TableReaderFactoryParseOpts> MakeAsyncFactoryParseOpts(
         TableReader::Make(io::IOContext(thread_pool.get()), input_stream, read_options,
                           std::move(parse_options), ConvertOptions::Defaults());
     return table_reader;
-  };
-}
-
-Result<TableReaderFactory> MakeAsyncFactory(
-    std::shared_ptr<internal::ThreadPool> thread_pool = nullptr) {
-  ARROW_ASSIGN_OR_RAISE(auto factory, MakeAsyncFactoryParseOpts(thread_pool));
-  return [factory](std::shared_ptr<io::InputStream> input_stream) {
-    return factory(input_stream, ParseOptions::Defaults());
   };
 }
 
@@ -282,11 +267,11 @@ TEST(AsyncReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, table_factory);
 }
 TEST(AsyncReaderTests, InvalidRowsSkipped) {
-  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactoryParseOpts());
-  TestInvalidRowsSkipped(table_factory, false);
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestInvalidRowsSkipped(table_factory, /*rows_counted=*/false);
 }
 
-TableReaderFactoryParseOpts MakeStreamingFactoryParseOpts(bool use_threads = true) {
+TableReaderFactory MakeStreamingFactory(bool use_threads = true) {
   return [use_threads](
              std::shared_ptr<io::InputStream> input_stream,
              ParseOptions parse_options) -> Result<std::shared_ptr<TableReader>> {
@@ -298,12 +283,6 @@ TableReaderFactoryParseOpts MakeStreamingFactoryParseOpts(bool use_threads = tru
         StreamingReader::Make(io::default_io_context(), input_stream, read_options,
                               std::move(parse_options), ConvertOptions::Defaults()));
     return std::make_shared<StreamingReaderAsTableReader>(std::move(streaming_reader));
-  };
-}
-
-TableReaderFactory MakeStreamingFactory() {
-  return [](std::shared_ptr<io::InputStream> input_stream) {
-    return MakeSerialFactoryParseOpts()(input_stream, ParseOptions::Defaults());
   };
 }
 
@@ -332,10 +311,11 @@ TEST(StreamingReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, MakeStreamingFactory());
 }
 TEST(StreamingReaderTests, InvalidRowsSkipped) {
-  TestInvalidRowsSkipped(MakeStreamingFactoryParseOpts(false), true);
+  TestInvalidRowsSkipped(MakeStreamingFactory(/*use_threads=*/false),
+                         /*rows_counted=*/true);
 }
 TEST(StreamingReaderTests, InvalidRowsSkippedAsync) {
-  TestInvalidRowsSkipped(MakeStreamingFactoryParseOpts(), false);
+  TestInvalidRowsSkipped(MakeStreamingFactory(), /*rows_counted=*/false);
 }
 
 TEST(StreamingReaderTests, BytesRead) {

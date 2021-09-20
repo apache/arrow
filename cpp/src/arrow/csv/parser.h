@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -56,13 +57,13 @@ class ARROW_EXPORT DataBatch {
  public:
   explicit DataBatch(int32_t num_cols) : num_cols_(num_cols) {}
 
-  /// \brief Return the number of parsed rows
+  /// \brief Return the number of parsed rows (not skipped)
   int32_t num_rows() const { return num_rows_; }
   /// \brief Return the number of parsed columns
   int32_t num_cols() const { return num_cols_; }
   /// \brief Return the total size in bytes of parsed data
   uint32_t num_bytes() const { return parsed_size_; }
-  /// \brief Return the total number of rows skipped
+  /// \brief Return the number of skipped rows
   int32_t num_skipped_rows() const { return static_cast<int32_t>(skipped_rows_.size()); }
 
   template <typename Visitor>
@@ -81,7 +82,7 @@ class ARROW_EXPORT DataBatch {
         auto quoted = values[pos + 1].quoted;
         Status status = visit(parsed_ + start, stop - start, quoted);
         if (ARROW_PREDICT_FALSE(!status.ok())) {
-          return DecorateWithRowNumber(status, first_row, batch_row);
+          return DecorateWithRowNumber(std::move(status), first_row, batch_row);
         }
       }
     }
@@ -107,20 +108,22 @@ class ARROW_EXPORT DataBatch {
   }
 
  protected:
-  Status DecorateWithRowNumber(Status& status, int64_t first_row,
+  Status DecorateWithRowNumber(Status&& status, int64_t first_row,
                                int32_t batch_row) const {
     if (first_row >= 0) {
-      for (auto iter = skipped_rows_.begin();
-           iter != skipped_rows_.end() && batch_row >= *iter; ++iter) {
-        ++batch_row;
-      }
-      status = status.WithMessage("Row #", batch_row + first_row, ": ", status.message());
+      // `skipped_rows_` is in ascending order by construction, so use bisection
+      // to find out how many rows were skipped before `batch_row`.
+      const auto skips_before =
+          std::upper_bound(skipped_rows_.begin(), skipped_rows_.end(), batch_row) -
+          skipped_rows_.begin();
+      status = status.WithMessage("Row #", batch_row + skips_before + first_row, ": ",
+                                  status.message());
     }
     // Use return_if so that when extra context is enabled it will be added
-    ARROW_RETURN_IF_(true, status, ARROW_STRINGIFY(status));
+    ARROW_RETURN_IF_(true, std::move(status), ARROW_STRINGIFY(status));
   }
 
-  // The number of rows in this batch
+  // The number of rows in this batch (not including any skipped ones)
   int32_t num_rows_ = 0;
   // The number of columns
   int32_t num_cols_ = 0;
@@ -129,9 +132,11 @@ class ARROW_EXPORT DataBatch {
   // It may help with null parsing...
   std::vector<std::shared_ptr<Buffer>> values_buffers_;
   std::shared_ptr<Buffer> parsed_buffer_;
-  std::vector<int32_t> skipped_rows_;
   const uint8_t* parsed_ = NULLPTR;
   int32_t parsed_size_ = 0;
+
+  // Record the current num_rows_ each time a row is skipped
+  std::vector<int32_t> skipped_rows_;
 
   friend class ::arrow::csv::BlockParserImpl;
 };
@@ -188,8 +193,15 @@ class ARROW_EXPORT BlockParser {
   int32_t num_cols() const { return parsed_batch().num_cols(); }
   /// \brief Return the total size in bytes of parsed data
   uint32_t num_bytes() const { return parsed_batch().num_bytes(); }
+
+  /// \brief Return the total number of rows including rows which were skipped
+  int32_t total_num_rows() const {
+    return parsed_batch().num_rows() + parsed_batch().num_skipped_rows();
+  }
+
   /// \brief Return the row number of the first row in the block or -1 if unsupported
   int64_t first_row_num() const;
+
   /// \brief Visit parsed values in a column
   ///
   /// The signature of the visitor is
@@ -198,11 +210,6 @@ class ARROW_EXPORT BlockParser {
   Status VisitColumn(int32_t col_index, Visitor&& visit) const {
     return parsed_batch().VisitColumn(col_index, first_row_num(),
                                       std::forward<Visitor>(visit));
-  }
-
-  /// \brief Return the total number of rows including rows which were skipped
-  int32_t total_num_rows() const {
-    return parsed_batch().num_rows() + parsed_batch().num_skipped_rows();
   }
 
   template <typename Visitor>

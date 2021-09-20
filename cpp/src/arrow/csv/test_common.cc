@@ -17,8 +17,6 @@
 
 #include "arrow/csv/test_common.h"
 
-#include <cmath>
-
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
