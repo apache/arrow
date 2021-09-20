@@ -62,10 +62,23 @@ test_that("ungroup", {
       select(int, chr) %>%
       ungroup() %>%
       filter(int > 5) %>%
-      # TODO: ARROW-13550 - remove summarize() from here (expect_dplyr_equal will check attributes)
-      collect() %>%
-      summarize(min_int = min(int)),
+      collect(),
     tbl
+  )
+
+  # to confirm that the above expectation is actually testing what we think it's
+  # testing, verify that expect_dplyr_equal() distinguishes between grouped and
+  # ungrouped tibbles
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        group_by(chr) %>%
+        select(int, chr) %>%
+        (function(x) if (inherits(x, "tbl_df")) ungroup(x) else x) %>%
+        filter(int > 5) %>%
+        collect(),
+      tbl
+    )
   )
 })
 
