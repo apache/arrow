@@ -222,9 +222,12 @@ using Date64Array = NumericArray<Date64Type>;
 using Date64Builder = NumericBuilder<Date64Type>;
 struct Date64Scalar;
 
-struct TimeUnit {
+struct ARROW_EXPORT TimeUnit {
   /// The unit for a time or timestamp DataType
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+
+  /// Iterate over all valid time units
+  static const std::vector<TimeUnit::type>& values();
 };
 
 class TimeType;

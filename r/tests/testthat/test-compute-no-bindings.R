@@ -121,10 +121,17 @@ test_that("non-bound compute kernels using ModeOptions", {
 })
 
 test_that("non-bound compute kernels using PartitionNthOptions", {
-  expect_equal(
-    as.vector(call_function("partition_nth_indices", Array$create(c(1:10)), options = list(pivot = 5))),
-    c(1L, 0L, 4L, 3L, 2L, 5L, 6L, 7L, 8L, 9L)
+
+  result <- call_function(
+    "partition_nth_indices",
+    Array$create(c(11:20)),
+    options = list(pivot = 3)
   )
+  # Order of indices on either side of the pivot is not deterministic
+  # (depends on C++ standard library implementation)
+  expect_true(all(as.vector(result[1:3]) < 3))
+  expect_true(all(as.vector(result[4:10]) >= 3))
+
 })
 
 

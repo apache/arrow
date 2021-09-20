@@ -662,7 +662,7 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
-  for (const auto id : DecimalTypeIds()) {
+  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     base.signature = KernelSignature::Make({InputType::Array(id)}, uint64());
     base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
     DCHECK_OK(func->AddKernel(base));
@@ -2337,8 +2337,11 @@ class SelectKUnstableMetaFunction : public MetaFunction {
                             const FunctionOptions* options, ExecContext* ctx) const {
     const SelectKOptions& select_k_options = static_cast<const SelectKOptions&>(*options);
     if (select_k_options.k < 0) {
-      return Status::Invalid("SelectK requires a nonnegative `k`, got ",
+      return Status::Invalid("select_k_unstable requires a nonnegative `k`, got ",
                              select_k_options.k);
+    }
+    if (select_k_options.sort_keys.size() == 0) {
+      return Status::Invalid("select_k_unstable requires a non-empty `sort_keys`");
     }
     switch (args[0].kind()) {
       case Datum::ARRAY: {

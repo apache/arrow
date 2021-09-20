@@ -28,7 +28,6 @@
 
 namespace arrow {
 
-using internal::AllTimeUnits;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -858,7 +857,7 @@ std::shared_ptr<ScalarFunction> MakeTemporal(
       }
 
       case WithTimestamps: {
-        for (auto unit : AllTimeUnits()) {
+        for (auto unit : TimeUnit::values()) {
           InputType in_type{match::TimestampTypeUnit(unit)};
           switch (unit) {
             case TimeUnit::SECOND: {
@@ -914,7 +913,7 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporal(
         break;
       }
       case WithTimestamps: {
-        for (auto unit : AllTimeUnits()) {
+        for (auto unit : TimeUnit::values()) {
           InputType in_type{match::TimestampTypeUnit(unit)};
           switch (unit) {
             case TimeUnit::SECOND: {

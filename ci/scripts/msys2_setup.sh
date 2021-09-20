@@ -38,6 +38,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-libxml2)
     packages+=(${MINGW_PACKAGE_PREFIX}-llvm)
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
+    packages+=(${MINGW_PACKAGE_PREFIX}-make)
     packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
     packages+=(${MINGW_PACKAGE_PREFIX}-polly)
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)

@@ -56,7 +56,8 @@ func generateTableMetaData(schema *schema.Schema, props *parquet.WriterPropertie
 	// column metadata
 	col1Builder.SetStats(statsInt)
 	col2Builder.SetStats(statsFloat)
-	col1Builder.Finish(metadata.ChunkMetaInfo{nrows / 2, 6, 0, 10, 512, 600}, true, false, metadata.EncodingStats{dictEncodingStats, dataEncodingStats}, nil)
+	dictEncodingStats = make(map[parquet.Encoding]int32)
+	col1Builder.Finish(metadata.ChunkMetaInfo{nrows / 2, 0 /*dictionary page offset*/, 0, 10, 512, 600}, false /* has dictionary */, false, metadata.EncodingStats{dictEncodingStats, dataEncodingStats}, nil)
 	col2Builder.Finish(metadata.ChunkMetaInfo{nrows / 2, 16, 0, 26, 512, 600}, true, false, metadata.EncodingStats{dictEncodingStats, dataEncodingStats}, nil)
 
 	rg2Builder.SetNumRows(nrows / 2)
@@ -117,19 +118,24 @@ func TestBuildAccess(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, accessor := range []*metadata.FileMetaData{faccessor, faccessorCopy} {
+		// file metadata
 		assert.Equal(t, nrows, accessor.NumRows)
 		assert.Len(t, accessor.RowGroups, 2)
 		assert.EqualValues(t, parquet.V2_LATEST, accessor.Version())
 		assert.Equal(t, parquet.DefaultCreatedBy, accessor.GetCreatedBy())
 		assert.Equal(t, 3, accessor.NumSchemaElements())
 
+		// row group 1 metadata
 		rg1Access := accessor.RowGroup(0)
 		assert.Equal(t, 2, rg1Access.NumColumns())
 		assert.Equal(t, nrows/2, rg1Access.NumRows())
 		assert.Equal(t, int64(1024), rg1Access.TotalByteSize())
+		assert.Equal(t, int64(1024), rg1Access.TotalCompressedSize())
 
 		rg1Col1, err := rg1Access.ColumnChunk(0)
 		assert.NoError(t, err)
+		assert.Equal(t, rg1Access.FileOffset(), rg1Col1.DictionaryPageOffset())
+
 		rg1Col2, err := rg1Access.ColumnChunk(1)
 		assert.NoError(t, err)
 		assertStatsSet(t, rg1Col1)
@@ -159,13 +165,17 @@ func TestBuildAccess(t *testing.T) {
 		assert.Len(t, rg1Col1.EncodingStats(), 3)
 		assert.Len(t, rg1Col2.EncodingStats(), 3)
 
+		// row group 2 metadata
 		rg2Access := accessor.RowGroup(1)
 		assert.Equal(t, 2, rg2Access.NumColumns())
 		assert.Equal(t, nrows/2, rg2Access.NumRows())
 		assert.EqualValues(t, 1024, rg2Access.TotalByteSize())
+		assert.EqualValues(t, 1024, rg2Access.TotalCompressedSize())
 
 		rg2Col1, err := rg2Access.ColumnChunk(0)
 		assert.NoError(t, err)
+		assert.Equal(t, rg2Access.FileOffset(), rg2Col1.DataPageOffset())
+
 		rg2Col2, err := rg2Access.ColumnChunk(1)
 		assert.NoError(t, err)
 		assertStatsSet(t, rg1Col1)
@@ -182,18 +192,18 @@ func TestBuildAccess(t *testing.T) {
 		assert.Equal(t, metadata.DefaultCompressionType, rg2Col2.Compression())
 		assert.Equal(t, nrows/2, rg2Col1.NumValues())
 		assert.Equal(t, nrows/2, rg2Col2.NumValues())
-		assert.Len(t, rg2Col1.Encodings(), 3)
+		assert.Len(t, rg2Col1.Encodings(), 2)
 		assert.Len(t, rg2Col2.Encodings(), 3)
 		assert.EqualValues(t, 512, rg2Col1.TotalCompressedSize())
 		assert.EqualValues(t, 512, rg2Col2.TotalCompressedSize())
 		assert.EqualValues(t, 600, rg2Col1.TotalUncompressedSize())
 		assert.EqualValues(t, 600, rg2Col2.TotalUncompressedSize())
-		assert.EqualValues(t, 6, rg2Col1.DictionaryPageOffset())
+		assert.EqualValues(t, 0, rg2Col1.DictionaryPageOffset())
 		assert.EqualValues(t, 16, rg2Col2.DictionaryPageOffset())
 		assert.EqualValues(t, 10, rg2Col1.DataPageOffset())
 		assert.EqualValues(t, 26, rg2Col2.DataPageOffset())
-		assert.Len(t, rg2Col1.EncodingStats(), 3)
-		assert.Len(t, rg2Col2.EncodingStats(), 3)
+		assert.Len(t, rg2Col1.EncodingStats(), 2)
+		assert.Len(t, rg2Col2.EncodingStats(), 2)
 
 		assert.Empty(t, rg2Col1.FilePath())
 		accessor.SetFilePath("/foo/bar/bar.parquet")

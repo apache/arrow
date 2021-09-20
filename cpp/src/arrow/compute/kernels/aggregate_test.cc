@@ -1177,11 +1177,23 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
     const StructScalar& value = out.scalar_as<StructScalar>();
 
-    const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
-    ASSERT_EQ(expected_min, out_min.value);
+    {
+      const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
+      ASSERT_EQ(expected_min, out_min.value);
 
-    const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
-    ASSERT_EQ(expected_max, out_max.value);
+      const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
+      ASSERT_EQ(expected_max, out_max.value);
+    }
+
+    {
+      ASSERT_OK_AND_ASSIGN(out, CallFunction("min", {array}, &options));
+      const auto& out_min = out.scalar_as<ScalarType>();
+      ASSERT_EQ(expected_min, out_min.value);
+
+      ASSERT_OK_AND_ASSIGN(out, CallFunction("max", {array}, &options));
+      const auto& out_max = out.scalar_as<ScalarType>();
+      ASSERT_EQ(expected_max, out_max.value);
+    }
   }
 
   void AssertMinMaxIs(const std::string& json, c_type expected_min, c_type expected_max,
@@ -1215,7 +1227,9 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
     AssertMinMaxIsNull(array, options);
   }
 
-  std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
+  std::shared_ptr<DataType> type_singleton() {
+    return default_type_instance<ArrowType>();
+  }
 };
 
 template <typename ArrowType>
@@ -1225,6 +1239,8 @@ template <typename ArrowType>
 class TestFloatingMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
 
 class TestBooleanMinMaxKernel : public TestPrimitiveMinMaxKernel<BooleanType> {};
+class TestDayTimeIntervalMinMaxKernel
+    : public TestPrimitiveMinMaxKernel<DayTimeIntervalType> {};
 
 TEST_F(TestBooleanMinMaxKernel, Basics) {
   ScalarAggregateOptions options;
@@ -1270,20 +1286,20 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
 
   options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2);
   EXPECT_THAT(MinMax(MakeNullScalar(boolean()), options), ResultWith(null_min_max));
-  EXPECT_THAT(MinMax(MakeScalar(true), options), ResultWith(true_min_max));
+  EXPECT_THAT(MinMax(MakeScalar(true), options), ResultWith(null_min_max));
 
   options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null]", options);
 }
 
-TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestIntegerMinMaxKernel, PhysicalIntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
   ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
-  auto item_ty = TypeTraits<TypeParam>::type_singleton();
+  auto item_ty = default_type_instance<TypeParam>();
   auto ty = struct_({field("min", item_ty), field("max", item_ty)});
 
   // SKIP nulls by default
@@ -1303,14 +1319,22 @@ TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
   EXPECT_THAT(MinMax(MakeNullScalar(item_ty)), ResultWith(null_min_max));
   EXPECT_THAT(MinMax(one_scalar), ResultWith(one_min_max));
 
-  options = ScalarAggregateOptions(/*skip_nulls=*/false);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
-  // output null
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
-  // output null
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
+  this->AssertMinMaxIs(chunked_input1, 1, 9, options);
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5);
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
+  this->AssertMinMaxIsNull(chunked_input1, options);
 }
 
 TYPED_TEST_SUITE(TestFloatingMinMaxKernel, RealArrowTypes);
@@ -1342,11 +1366,8 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   options = ScalarAggregateOptions(/*skip_nulls=*/false);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
-  // output null
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
-  // output null
   this->AssertMinMaxIsNull("[5, -Inf, null, 3, 4]", options);
-  // output null
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
@@ -1358,6 +1379,16 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null]", options);
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
+  this->AssertMinMaxIs(chunked_input1, 1, 9, options);
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5);
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
+  this->AssertMinMaxIsNull(chunked_input1, options);
 }
 
 TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
@@ -1408,6 +1439,11 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
     EXPECT_THAT(MinMax(chunked_input3, options),
                 ResultWith(ScalarFromJSON(ty, R"({"min": "1.01", "max": "9.42"})")));
 
+    EXPECT_THAT(CallFunction("min", {chunked_input1}, &options),
+                ResultWith(ScalarFromJSON(item_ty, R"("1.01")")));
+    EXPECT_THAT(CallFunction("max", {chunked_input1}, &options),
+                ResultWith(ScalarFromJSON(item_ty, R"("9.42")")));
+
     EXPECT_THAT(MinMax(ScalarFromJSON(item_ty, "null"), options),
                 ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
     EXPECT_THAT(MinMax(ScalarFromJSON(item_ty, R"("1.00")"), options),
@@ -1418,7 +1454,6 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
         MinMax(ArrayFromJSON(item_ty, R"(["5.10", "-1.23", "2.00", "3.45", "4.56"])"),
                options),
         ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "5.10"})")));
-    // output null
     EXPECT_THAT(
         MinMax(ArrayFromJSON(item_ty, R"(["5.10", null, "2.00", "3.45", "4.56"])"),
                options),
@@ -1436,12 +1471,150 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
     EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, R"([null])"), options),
                 ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
 
+    options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
+    EXPECT_THAT(MinMax(ArrayFromJSON(
+                           item_ty, R"(["5.10", "-1.23", "2.00", "3.45", "4.56", null])"),
+                       options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "5.10"})")));
+    EXPECT_THAT(
+        MinMax(ArrayFromJSON(item_ty, R"(["5.10", "-1.23", "2.00", "3.45", null])"),
+               options),
+        ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+
     options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
     EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, R"([])"), options),
                 ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
     EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, R"([null])"), options),
                 ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
   }
+}
+
+TEST(TestNullMinMaxKernel, Basics) {
+  auto item_ty = null();
+  auto ty = struct_({field("min", item_ty), field("max", item_ty)});
+  Datum result = ScalarFromJSON(ty, "[null, null]");
+  EXPECT_THAT(MinMax(ScalarFromJSON(item_ty, "null")), ResultWith(result));
+  EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, "[]")), ResultWith(result));
+  EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, "[null]")), ResultWith(result));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(item_ty, {"[null]", "[]", "[null, null]"})),
+              ResultWith(result));
+}
+
+template <typename ArrowType>
+class TestBaseBinaryMinMaxKernel : public ::testing::Test {};
+TYPED_TEST_SUITE(TestBaseBinaryMinMaxKernel, BinaryArrowTypes);
+TYPED_TEST(TestBaseBinaryMinMaxKernel, Basics) {
+  std::vector<std::string> chunked_input1 = {R"(["cc", "", "aa", "b", "c"])",
+                                             R"(["d", "", null, "b", "c"])"};
+  std::vector<std::string> chunked_input2 = {R"(["cc", null, "aa", "b", "c"])",
+                                             R"(["d", "", "aa", "b", "c"])"};
+  std::vector<std::string> chunked_input3 = {R"(["cc", "", "aa", "b", null])",
+                                             R"(["d", "", null, "b", "c"])"};
+  auto ty = std::make_shared<TypeParam>();
+  auto res_ty = struct_({field("min", ty), field("max", ty)});
+  Datum null = ScalarFromJSON(res_ty, R"([null, null])");
+
+  // SKIP nulls by default
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(res_ty, R"(["", "cc"])")));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0])),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "cc"])")));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(res_ty, R"(["", "d"])")));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input2)),
+              ResultWith(ScalarFromJSON(res_ty, R"(["", "d"])")));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(res_ty, R"(["", "d"])")));
+
+  EXPECT_THAT(MinMax(MakeNullScalar(ty)), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("one")")),
+              ResultWith(ScalarFromJSON(res_ty, R"(["one", "one"])")));
+
+  ScalarAggregateOptions options(/*skip_nulls=*/false);
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0]), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["", "cc"])")));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1), options),
+              ResultWith(null));
+  EXPECT_THAT(MinMax(MakeNullScalar(ty), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("one")"), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["one", "one"])")));
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/9);
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["", "d"])")));
+  EXPECT_THAT(MinMax(MakeNullScalar(ty), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("one")"), options), ResultWith(null));
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4);
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0]), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["", "cc"])")));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1), options),
+              ResultWith(null));
+  EXPECT_THAT(MinMax(MakeNullScalar(ty), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("one")"), options), ResultWith(null));
+}
+
+TEST(TestFixedSizeBinaryMinMaxKernel, Basics) {
+  auto ty = fixed_size_binary(2);
+  std::vector<std::string> chunked_input1 = {R"(["cd", "aa", "ab", "bb", "cc"])",
+                                             R"(["da", "aa", null, "bb", "cc"])"};
+  std::vector<std::string> chunked_input2 = {R"(["cd", null, "ab", "bb", "cc"])",
+                                             R"(["da", "aa", "ab", "bb", "cc"])"};
+  std::vector<std::string> chunked_input3 = {R"(["cd", "aa", "ab", "bb", null])",
+                                             R"(["da", "aa", null, "bb", "cc"])"};
+  auto res_ty = struct_({field("min", ty), field("max", ty)});
+  Datum null = ScalarFromJSON(res_ty, R"([null, null])");
+
+  // SKIP nulls by default
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "cd"])")));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0])),
+              ResultWith(ScalarFromJSON(res_ty, R"(["ab", "cd"])")));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "da"])")));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input2)),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "da"])")));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "da"])")));
+
+  EXPECT_THAT(MinMax(MakeNullScalar(ty)), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("aa")")),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "aa"])")));
+
+  ScalarAggregateOptions options(/*skip_nulls=*/false);
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0]), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "cd"])")));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1), options),
+              ResultWith(null));
+  EXPECT_THAT(MinMax(MakeNullScalar(ty), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("aa")"), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "aa"])")));
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/9);
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "da"])")));
+  EXPECT_THAT(MinMax(MakeNullScalar(ty), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("aa")"), options), ResultWith(null));
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4);
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input1[0]), options),
+              ResultWith(ScalarFromJSON(res_ty, R"(["aa", "cd"])")));
+  EXPECT_THAT(MinMax(ArrayFromJSON(ty, chunked_input2[0]), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ChunkedArrayFromJSON(ty, chunked_input1), options),
+              ResultWith(null));
+  EXPECT_THAT(MinMax(MakeNullScalar(ty), options), ResultWith(null));
+  EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("aa")"), options), ResultWith(null));
 }
 
 template <typename ArrowType>

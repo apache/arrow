@@ -75,6 +75,39 @@ jobs:
         continue-on-error: true
         run: archery docker push debian-go
 
+  docker_cgo_python:
+    name: AMD64 Debian 10 GO ${{ matrix.go }} - CGO Python
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.15]
+    env:
+      GO: ${{ matrix.go }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run debian-go-cgo-python
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push debian-go-cgo-python
+
   windows:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}
     runs-on: windows-latest

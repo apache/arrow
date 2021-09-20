@@ -55,6 +55,24 @@ Status ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::OK();
 }
 
+Status FixedSizeListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  using offset_type = typename FixedSizeListType::offset_type;
+  auto width = checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
+  if (batch[0].kind() == Datum::ARRAY) {
+    const auto& arr = *batch[0].array();
+    ArrayData* out_arr = out->mutable_array();
+    auto* out_values = out_arr->GetMutableValues<offset_type>(1);
+    std::fill(out_values, out_values + arr.length, width);
+  } else {
+    const auto& arg0 = batch[0].scalar_as<FixedSizeListScalar>();
+    if (arg0.is_valid) {
+      checked_cast<Int32Scalar*>(out->scalar().get())->value = width;
+    }
+  }
+
+  return Status::OK();
+}
+
 const FunctionDoc list_value_length_doc{
     "Compute list lengths",
     ("`lists` must have a list-like type.\n"
@@ -161,6 +179,8 @@ void RegisterScalarNested(FunctionRegistry* registry) {
       "list_value_length", Arity::Unary(), &list_value_length_doc);
   DCHECK_OK(list_value_length->AddKernel({InputType(Type::LIST)}, int32(),
                                          ListValueLength<ListType>));
+  DCHECK_OK(list_value_length->AddKernel({InputType(Type::FIXED_SIZE_LIST)}, int32(),
+                                         FixedSizeListValueLength));
   DCHECK_OK(list_value_length->AddKernel({InputType(Type::LARGE_LIST)}, int64(),
                                          ListValueLength<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(list_value_length)));

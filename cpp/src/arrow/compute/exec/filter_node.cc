@@ -66,7 +66,7 @@ class FilterNode : public ExecNode {
                                          std::move(filter_expression));
   }
 
-  const char* kind_name() override { return "FilterNode"; }
+  const char* kind_name() const override { return "FilterNode"; }
 
   Result<ExecBatch> DoFilter(const ExecBatch& target) {
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
@@ -130,6 +130,9 @@ class FilterNode : public ExecNode {
   void StopProducing() override { inputs_[0]->StopProducing(this); }
 
   Future<> finished() override { return inputs_[0]->finished(); }
+
+ protected:
+  std::string ToStringExtra() const override { return "filter=" + filter_.ToString(); }
 
  private:
   Expression filter_;

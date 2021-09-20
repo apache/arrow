@@ -450,8 +450,9 @@ cdef class TimestampScalar(Scalar):
 
     def as_py(self):
         """
-        Return this value as a Pandas Timestamp instance (if available),
-        otherwise as a Python datetime.timedelta instance.
+        Return this value as a Pandas Timestamp instance (if units are
+        nanoseconds and pandas is available), otherwise as a Python
+        datetime.datetime instance.
         """
         cdef:
             CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
@@ -480,8 +481,9 @@ cdef class DurationScalar(Scalar):
 
     def as_py(self):
         """
-        Return this value as a Pandas Timestamp instance (if available),
-        otherwise as a Python datetime.timedelta instance.
+        Return this value as a Pandas Timedelta instance (if units are
+        nanoseconds and pandas is available), otherwise as a Python
+        datetime.timedelta instance.
         """
         cdef:
             CDurationScalar* sp = <CDurationScalar*> self.wrapped.get()

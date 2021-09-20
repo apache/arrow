@@ -1037,6 +1037,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                          properties) {
     current_encoder_ = MakeEncoder(DType::type_num, encoding, use_dictionary, descr_,
                                    properties->memory_pool());
+    // We have to dynamic_cast as some compilers don't want to static_cast
+    // through virtual inheritance.
+    current_value_encoder_ = dynamic_cast<TypedEncoder<DType>*>(current_encoder_.get());
+    // Will be null if not using dictionary, but that's ok
+    current_dict_encoder_ = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
 
     if (properties->statistics_enabled(descr_->path()) &&
         (SortOrder::UNKNOWN != descr_->sort_order())) {
@@ -1159,15 +1164,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                          ArrowWriteContext* context, bool maybe_parent_nulls);
 
   void WriteDictionaryPage() override {
-    // We have to dynamic cast here because of TypedEncoder<Type> as
-    // some compilers don't want to cast through virtual inheritance
-    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-    DCHECK(dict_encoder);
-    std::shared_ptr<ResizableBuffer> buffer =
-        AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
-    dict_encoder->WriteDict(buffer->mutable_data());
+    DCHECK(current_dict_encoder_);
+    std::shared_ptr<ResizableBuffer> buffer = AllocateBuffer(
+        properties_->memory_pool(), current_dict_encoder_->dict_encoded_size());
+    current_dict_encoder_->WriteDict(buffer->mutable_data());
 
-    DictionaryPage page(buffer, dict_encoder->num_entries(),
+    DictionaryPage page(buffer, current_dict_encoder_->num_entries(),
                         properties_->dictionary_page_encoding());
     total_bytes_written_ += pager_->WriteDictionaryPage(page);
   }
@@ -1207,6 +1209,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
   using TypedStats = TypedStatistics<DType>;
   std::unique_ptr<Encoder> current_encoder_;
+  // Downcasted observers of current_encoder_.
+  // The downcast is performed once as opposed to at every use since
+  // dynamic_cast is so expensive, and static_cast is not available due
+  // to virtual inheritance.
+  ValueEncoderType* current_value_encoder_;
+  DictEncoder<DType>* current_dict_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
 
@@ -1358,6 +1366,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       // Only PLAIN encoding is supported for fallback in V1
       current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
                                      properties_->memory_pool());
+      current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
+      current_dict_encoder_ = nullptr;  // not using dict
       encoding_ = Encoding::PLAIN;
     }
   }
@@ -1375,17 +1385,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       return;
     }
 
-    // We have to dynamic cast here because TypedEncoder<Type> as some compilers
-    // don't want to cast through virtual inheritance
-    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-    if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
+    if (current_dict_encoder_->dict_encoded_size() >=
+        properties_->dictionary_pagesize_limit()) {
       FallbackToPlainEncoding();
     }
   }
 
   void WriteValues(const T* values, int64_t num_values, int64_t num_nulls) {
-    dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-        ->Put(values, static_cast<int>(num_values));
+    current_value_encoder_->Put(values, static_cast<int>(num_values));
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(values, num_values, num_nulls);
     }
@@ -1394,12 +1401,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   void WriteValuesSpaced(const T* values, int64_t num_values, int64_t num_spaced_values,
                          const uint8_t* valid_bits, int64_t valid_bits_offset) {
     if (num_values != num_spaced_values) {
-      dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-          ->PutSpaced(values, static_cast<int>(num_spaced_values), valid_bits,
-                      valid_bits_offset);
+      current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
+                                        valid_bits, valid_bits_offset);
     } else {
-      dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-          ->Put(values, static_cast<int>(num_values));
+      current_value_encoder_->Put(values, static_cast<int>(num_values));
     }
     if (page_statistics_ != nullptr) {
       const int64_t num_nulls = num_spaced_values - num_values;

@@ -152,18 +152,21 @@ func (b *BitmapWriter) Next() {
 // AppendBools writes a series of booleans to the bitmapwriter and returns
 // the number of remaining bytes left in the buffer for writing.
 func (b *BitmapWriter) AppendBools(in []bool) int {
-	space := min(int(BytesForBits(int64(b.length-b.pos))), len(in))
+	space := min(b.length-b.pos, len(in))
+	if space == 0 {
+		return 0
+	}
 
-	// location that the first byte needs to be written to for appending
-	appslice := b.buf[int(b.byteOffset):]
-	// update everything but curByte
 	bitOffset := bits.TrailingZeros32(uint32(b.bitMask))
+	// location that the first byte needs to be written to for appending
+	appslice := b.buf[int(b.byteOffset) : b.byteOffset+int(BytesForBits(int64(bitOffset+space)))]
+	// update everything but curByte
 	appslice[0] = b.curByte
 	for i, b := range in[:space] {
 		if b {
-			SetBit(appslice, i)
+			SetBit(appslice, i+bitOffset)
 		} else {
-			ClearBit(appslice, i)
+			ClearBit(appslice, i+bitOffset)
 		}
 	}
 
@@ -172,7 +175,7 @@ func (b *BitmapWriter) AppendBools(in []bool) int {
 	b.byteOffset += (bitOffset + space) / 8
 	b.curByte = appslice[len(appslice)-1]
 
-	return int(space)
+	return space
 }
 
 // Finish flushes the final byte out to the byteslice in case it was not already

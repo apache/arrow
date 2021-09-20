@@ -24,7 +24,6 @@
 
 namespace arrow {
 
-using internal::AllTimeUnits;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using util::string_view;
@@ -223,7 +222,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   AddGenericCompare<DoubleType, Op>(float64(), func.get());
 
   // Add timestamp kernels
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
@@ -232,7 +231,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   }
 
   // Duration
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
@@ -262,7 +261,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
-  for (const auto id : DecimalTypeIds()) {
+  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
     DCHECK_OK(
         func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));

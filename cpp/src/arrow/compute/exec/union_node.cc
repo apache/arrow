@@ -54,7 +54,7 @@ class UnionNode : public ExecNode {
     ARROW_DCHECK(counter_completed == false);
   }
 
-  const char* kind_name() override { return "UnionNode"; }
+  const char* kind_name() const override { return "UnionNode"; }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

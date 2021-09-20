@@ -76,6 +76,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \brief A future which will be marked finished when all nodes have stopped producing.
   Future<> finished();
 
+  std::string ToString() const;
+
  protected:
   ExecContext* exec_context_;
   explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
@@ -87,7 +89,7 @@ class ARROW_EXPORT ExecNode {
 
   virtual ~ExecNode() = default;
 
-  virtual const char* kind_name() = 0;
+  virtual const char* kind_name() const = 0;
 
   // The number of inputs/outputs expected by this node
   int num_inputs() const { return static_cast<int>(inputs_.size()); }
@@ -217,6 +219,8 @@ class ARROW_EXPORT ExecNode {
   /// \brief A future which will be marked finished when this node has stopped producing.
   virtual Future<> finished() = 0;
 
+  std::string ToString() const;
+
  protected:
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
            std::shared_ptr<Schema> output_schema, int num_outputs);
@@ -224,6 +228,9 @@ class ARROW_EXPORT ExecNode {
   // A helper method to send an error status to all outputs.
   // Returns true if the status was an error.
   bool ErrorIfNotOk(Status status);
+
+  /// Provide extra info to include in the string representation.
+  virtual std::string ToStringExtra() const;
 
   ExecPlan* plan_;
   std::string label_;

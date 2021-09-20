@@ -50,3 +50,27 @@ table = Arrow::Table.load("/dev/shm/data.arrow")
 # Process data in table
 table.save("/dev/shm/data-processed.arrow")
 ```
+
+## Development
+
+Note that you need to install Apache Arrow C++/GLib at master before preparing Red Arrow. See also:
+
+  * For Apache Arrow C++: https://arrow.apache.org/docs/developers/cpp/building.html
+  * For Apache Arrow GLib: https://github.com/apache/arrow/blob/master/c_glib/README.md
+
+```console
+$ cd ruby/red-arrow
+$ bundle install
+$ bundle exec rake test
+```
+
+### For macOS with Homebrew
+
+```console
+$ cd ruby/red-arrow
+$ bundle install
+$ brew install apache-arrow --head
+$ brew install apache-arrow-glib --head
+$ export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@1.1/lib/pkgconfig"
+$ bundle exec rake test
+```
