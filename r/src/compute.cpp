@@ -469,8 +469,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       out->multiple = cpp11::as_cpp<double>(options["multiple"]);
     }
     SEXP round_mode = options["round_mode"];
-    if (!Rf_isNull(round_mode) && TYPEOF(round_mode) == INTSXP &&
-        XLENGTH(round_mode) == 1) {
+    if (!Rf_isNull(round_mode)) {
       out->round_mode = cpp11::as_cpp<enum arrow::compute::RoundMode>(round_mode);
     }
     return out;
