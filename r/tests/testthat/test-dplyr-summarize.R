@@ -283,7 +283,7 @@ test_that("summarize() with min() and max()", {
       summarize(min_mult = min(dbl, int)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to min\\(\\) not supported in Arrow"
+    warning = "Multiple arguments to min\\(\\) not supported by Arrow"
   )
   expect_dplyr_equal(
     input %>%
