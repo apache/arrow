@@ -235,3 +235,8 @@ source_data <- function(x) {
 }
 
 is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
+
+has_aggregation <- function(x) {
+  # TODO: update with joins (check right side data too)
+  !is.null(x$aggregations) || (is_collapsed(x) && has_aggregation(x$.data))
+}
