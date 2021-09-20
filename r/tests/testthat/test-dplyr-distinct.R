@@ -70,8 +70,6 @@ test_that("distinct() can retain groups", {
       arrange(int),
     tbl
   )
-
-
 })
 
 test_that("distinct() can contain expressions", {

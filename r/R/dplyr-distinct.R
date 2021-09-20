@@ -19,7 +19,7 @@
 
 distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   if (.keep_all == TRUE) {
-    # After ARROW-13993 is merged, we can implement this
+    # After ARROW-13993 is merged, we can implement this (ARROW-14045)
     arrow_not_supported("`distinct()` with `.keep_all = TRUE`")
   }
 
