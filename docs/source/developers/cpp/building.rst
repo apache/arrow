@@ -140,7 +140,10 @@ Minimal debug build with unit tests:
 .. code-block:: shell
 
    git clone https://github.com/apache/arrow.git
-   cd arrow/cpp
+   cd arrow
+   git submodule update --init --recursive
+   export ARROW_TEST_DATA=$PWD/testing/data
+   cd cpp
    mkdir debug
    cd debug
    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
