@@ -1140,8 +1140,8 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
 
 # Use typedef to emulate syntax for std::function<void(..)>
-ctypedef void CallbackTransform(
-    object, const shared_ptr[CBuffer]& src, shared_ptr[CBuffer]* dest)
+ctypedef void CallbackTransform(object, const shared_ptr[CBuffer]& src,
+                                shared_ptr[CBuffer]* dest)
 
 
 cdef extern from "arrow/util/cancel.h" namespace "arrow" nogil:
@@ -1409,7 +1409,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     # TODO: use "cpdef enum class" to automatically get a Python wrapper?
     # See
     # https://github.com/cython/cython/commit/2c7c22f51405299a4e247f78edf52957d30cf71d#diff-61c1365c0f761a8137754bb3a73bfbf7
-    cdef enum CMetadataVersion" arrow::ipc::MetadataVersion":
+    ctypedef enum CMetadataVersion" arrow::ipc::MetadataVersion":
         CMetadataVersion_V1" arrow::ipc::MetadataVersion::V1"
         CMetadataVersion_V2" arrow::ipc::MetadataVersion::V2"
         CMetadataVersion_V3" arrow::ipc::MetadataVersion::V3"
@@ -1690,7 +1690,7 @@ cdef extern from "arrow/json/options.h" nogil:
     # we should be able to use "cpdef enum class
     # CUnexpectedFieldBehavior(char)" to get a Python wrapper with the provided
     # underlying type.
-    enum CUnexpectedFieldBehavior \
+    ctypedef enum CUnexpectedFieldBehavior \
             "arrow::json::UnexpectedFieldBehavior":
         CUnexpectedFieldBehavior_Ignore \
             "arrow::json::UnexpectedFieldBehavior::Ignore"
@@ -1833,7 +1833,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     # TODO: Cython 0.29.x does not fully supports scoped enums. For Cython 3,
     # we should be able to use "cpdef enum class CRoundMode(int8_t)" to get a
     # Python wrapper with the provided underlying type.
-    enum CRoundMode \
+    ctypedef enum CRoundMode \
             "arrow::compute::RoundMode":
         CRoundMode_DOWN \
             "arrow::compute::RoundMode::DOWN"
@@ -2094,7 +2094,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     # TODO: Cython 0.29.x does not fully supports scoped enums. For Cython 3,
     # we should be able to use "cpdef enum class CSortOrder(int8_t)" to get
     # a Python wrapper with the provided underlying type.
-    enum CSortOrder" arrow::compute::SortOrder":
+    ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"
         CSortOrder_Descending \
