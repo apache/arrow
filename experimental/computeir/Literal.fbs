@@ -151,6 +151,11 @@ table BinaryLiteral {
   value: [byte];
 }
 
+table FixedSizeBinaryLiteral {
+  value: [byte];
+  size: int32;
+}
+
 table StringLiteral {
   value: string;
 }
@@ -190,6 +195,7 @@ union LiteralImpl {
 
   StringLiteral,
   BinaryLiteral,
+  FixedSizeBinaryLiteral,
 }
 
 table Literal {

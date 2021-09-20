@@ -95,6 +95,9 @@ struct DurationLiteralBuilder;
 struct BinaryLiteral;
 struct BinaryLiteralBuilder;
 
+struct FixedSizeBinaryLiteral;
+struct FixedSizeBinaryLiteralBuilder;
+
 struct StringLiteral;
 struct StringLiteralBuilder;
 
@@ -182,11 +185,12 @@ enum class LiteralImpl : uint8_t {
   MapLiteral = 22,
   StringLiteral = 23,
   BinaryLiteral = 24,
+  FixedSizeBinaryLiteral = 25,
   MIN = NONE,
-  MAX = BinaryLiteral
+  MAX = FixedSizeBinaryLiteral
 };
 
-inline const LiteralImpl (&EnumValuesLiteralImpl())[25] {
+inline const LiteralImpl (&EnumValuesLiteralImpl())[26] {
   static const LiteralImpl values[] = {
     LiteralImpl::NONE,
     LiteralImpl::NullLiteral,
@@ -212,13 +216,14 @@ inline const LiteralImpl (&EnumValuesLiteralImpl())[25] {
     LiteralImpl::StructLiteral,
     LiteralImpl::MapLiteral,
     LiteralImpl::StringLiteral,
-    LiteralImpl::BinaryLiteral
+    LiteralImpl::BinaryLiteral,
+    LiteralImpl::FixedSizeBinaryLiteral
   };
   return values;
 }
 
 inline const char * const *EnumNamesLiteralImpl() {
-  static const char * const names[26] = {
+  static const char * const names[27] = {
     "NONE",
     "NullLiteral",
     "BooleanLiteral",
@@ -244,13 +249,14 @@ inline const char * const *EnumNamesLiteralImpl() {
     "MapLiteral",
     "StringLiteral",
     "BinaryLiteral",
+    "FixedSizeBinaryLiteral",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameLiteralImpl(LiteralImpl e) {
-  if (flatbuffers::IsOutRange(e, LiteralImpl::NONE, LiteralImpl::BinaryLiteral)) return "";
+  if (flatbuffers::IsOutRange(e, LiteralImpl::NONE, LiteralImpl::FixedSizeBinaryLiteral)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesLiteralImpl()[index];
 }
@@ -353,6 +359,10 @@ template<> struct LiteralImplTraits<org::apache::arrow::computeir::flatbuf::Stri
 
 template<> struct LiteralImplTraits<org::apache::arrow::computeir::flatbuf::BinaryLiteral> {
   static const LiteralImpl enum_value = LiteralImpl::BinaryLiteral;
+};
+
+template<> struct LiteralImplTraits<org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral> {
+  static const LiteralImpl enum_value = LiteralImpl::FixedSizeBinaryLiteral;
 };
 
 bool VerifyLiteralImpl(flatbuffers::Verifier &verifier, const void *obj, LiteralImpl type);
@@ -1686,6 +1696,70 @@ inline flatbuffers::Offset<BinaryLiteral> CreateBinaryLiteralDirect(
       value__);
 }
 
+struct FixedSizeBinaryLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef FixedSizeBinaryLiteralBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_VALUE = 4,
+    VT_SIZE = 6
+  };
+  const flatbuffers::Vector<int8_t> *value() const {
+    return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_VALUE);
+  }
+  int32_t size() const {
+    return GetField<int32_t>(VT_SIZE, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_VALUE) &&
+           verifier.VerifyVector(value()) &&
+           VerifyField<int32_t>(verifier, VT_SIZE) &&
+           verifier.EndTable();
+  }
+};
+
+struct FixedSizeBinaryLiteralBuilder {
+  typedef FixedSizeBinaryLiteral Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_value(flatbuffers::Offset<flatbuffers::Vector<int8_t>> value) {
+    fbb_.AddOffset(FixedSizeBinaryLiteral::VT_VALUE, value);
+  }
+  void add_size(int32_t size) {
+    fbb_.AddElement<int32_t>(FixedSizeBinaryLiteral::VT_SIZE, size, 0);
+  }
+  explicit FixedSizeBinaryLiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  FixedSizeBinaryLiteralBuilder &operator=(const FixedSizeBinaryLiteralBuilder &);
+  flatbuffers::Offset<FixedSizeBinaryLiteral> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<FixedSizeBinaryLiteral>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<FixedSizeBinaryLiteral> CreateFixedSizeBinaryLiteral(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> value = 0,
+    int32_t size = 0) {
+  FixedSizeBinaryLiteralBuilder builder_(_fbb);
+  builder_.add_size(size);
+  builder_.add_value(value);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<FixedSizeBinaryLiteral> CreateFixedSizeBinaryLiteralDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<int8_t> *value = nullptr,
+    int32_t size = 0) {
+  auto value__ = value ? _fbb.CreateVector<int8_t>(*value) : 0;
+  return org::apache::arrow::computeir::flatbuf::CreateFixedSizeBinaryLiteral(
+      _fbb,
+      value__,
+      size);
+}
+
 struct StringLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef StringLiteralBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1823,6 +1897,9 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::BinaryLiteral *impl_as_BinaryLiteral() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::LiteralImpl::BinaryLiteral ? static_cast<const org::apache::arrow::computeir::flatbuf::BinaryLiteral *>(impl()) : nullptr;
   }
+  const org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral *impl_as_FixedSizeBinaryLiteral() const {
+    return impl_type() == org::apache::arrow::computeir::flatbuf::LiteralImpl::FixedSizeBinaryLiteral ? static_cast<const org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral *>(impl()) : nullptr;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_IMPL_TYPE) &&
@@ -1926,6 +2003,10 @@ template<> inline const org::apache::arrow::computeir::flatbuf::StringLiteral *L
 
 template<> inline const org::apache::arrow::computeir::flatbuf::BinaryLiteral *Literal::impl_as<org::apache::arrow::computeir::flatbuf::BinaryLiteral>() const {
   return impl_as_BinaryLiteral();
+}
+
+template<> inline const org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral *Literal::impl_as<org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral>() const {
+  return impl_as_FixedSizeBinaryLiteral();
 }
 
 struct LiteralBuilder {
@@ -2093,6 +2174,10 @@ inline bool VerifyLiteralImpl(flatbuffers::Verifier &verifier, const void *obj, 
     }
     case LiteralImpl::BinaryLiteral: {
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::BinaryLiteral *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case LiteralImpl::FixedSizeBinaryLiteral: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
