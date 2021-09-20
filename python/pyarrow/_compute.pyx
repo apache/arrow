@@ -231,7 +231,7 @@ cdef class Function(_Weakrefable):
         shared_ptr[CFunction] sp_func
         CFunction* base_func
 
-    kind_dict = {
+    _kind_map = {
         FunctionKind_SCALAR: "scalar",
         FunctionKind_VECTOR: "vector",
         FunctionKind_SCALAR_AGGREGATE: "scalar_aggregate",
@@ -283,9 +283,10 @@ cdef class Function(_Weakrefable):
         The function kind.
         """
         cdef FunctionKind c_kind = self.base_func.kind()
-        if c_kind not in type(self).kind_dict:
+        try:
+            return self._kind_map[c_kind]
+        except KeyError:
             raise NotImplementedError("Unknown Function::Kind")
-        return type(self).kind_dict[c_kind]
 
     @property
     def _doc(self):
@@ -293,7 +294,6 @@ cdef class Function(_Weakrefable):
         The C++-like function documentation (for internal use).
         """
         cdef CFunctionDoc c_doc = self.base_func.doc()
-
         return FunctionDoc(frombytes(c_doc.summary),
                            frombytes(c_doc.description),
                            [frombytes(s) for s in c_doc.arg_names],
@@ -317,16 +317,12 @@ cdef class Function(_Weakrefable):
             CExecContext c_exec_ctx = CExecContext(pool)
             vector[CDatum] c_args
             CDatum result
-
         _pack_compute_args(args, &c_args)
-
         if options is not None:
             c_options = options.get_options()
-
         with nogil:
             result = GetResultValue(self.base_func.Execute(c_args, c_options,
                                                            &c_exec_ctx))
-
         return wrap_datum(result)
 
 
@@ -441,9 +437,8 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
             else:
                 out.push_back(CDatum((<Scalar> scal).unwrap()))
                 continue
-
         raise TypeError(
-            f'Got unexpected argument type {type(val)} for compute function')
+            f"Got unexpected argument type {type(val)} for compute function")
 
 
 cdef class FunctionRegistry(_Weakrefable):
@@ -546,6 +541,11 @@ cdef class FunctionOptions(_Weakrefable):
 
     def __eq__(self, FunctionOptions other):
         return self.get_options().Equals(deref(other.get_options()))
+
+
+def raise_invalid_option_keyword(option_value, option_description):
+    raise ValueError(
+        f"\"{option_value}\" is not a valid '{option_description}' keyword")
 
 
 # NOTE:
@@ -710,8 +710,7 @@ cdef CRoundMode unwrap_round_mode(round_mode) except *:
         return CRoundMode_HALF_TO_EVEN
     elif round_mode == "half_to_odd":
         return CRoundMode_HALF_TO_ODD
-    else:
-        raise ValueError(f"\"{round_mode}\" is not a valid 'round mode'")
+    raise_invalid_option_keyword(round_mode, 'round mode')
 
 
 cdef class _RoundOptions(FunctionOptions):
@@ -738,19 +737,19 @@ class RoundToMultipleOptions(_RoundToMultipleOptions):
 
 
 cdef class _JoinOptions(FunctionOptions):
-    null_handling_dict = {
+    _null_handling_map = {
         "emit_null": CJoinNullHandlingBehavior_EMIT_NULL,
         "skip": CJoinNullHandlingBehavior_SKIP,
         "replace": CJoinNullHandlingBehavior_REPLACE,
     }
 
     def _set_options(self, null_handling, null_replacement):
-        if null_handling not in type(self).null_handling_dict:
-            raise ValueError(
-                f"\"{null_handling}\" is not a valid 'null handling'")
-        self.wrapped.reset(
-            new CJoinOptions(type(self).null_handling_dict[null_handling],
-                             tobytes(null_replacement)))
+        try:
+            self.wrapped.reset(
+                new CJoinOptions(self._null_handling_map[null_handling],
+                                 tobytes(null_replacement)))
+        except KeyError:
+            raise_invalid_option_keyword(null_handling, 'null handling')
 
 
 class JoinOptions(_JoinOptions):
@@ -833,18 +832,19 @@ class SliceOptions(_SliceOptions):
 
 
 cdef class _FilterOptions(FunctionOptions):
-    null_selection_dict = {
+    _null_selection_map = {
         "drop": CFilterNullSelectionBehavior_DROP,
         "emit_null": CFilterNullSelectionBehavior_EMIT_NULL,
     }
 
     def _set_options(self, null_selection_behavior):
-        if null_selection_behavior not in type(self).null_selection_dict:
-            raise ValueError(f"\"{null_selection_behavior}\""
-                             "is not a valid 'null selection behavior'")
-        self.wrapped.reset(
-            new CFilterOptions(
-                type(self).null_selection_dict[null_selection_behavior]))
+        try:
+            self.wrapped.reset(
+                new CFilterOptions(
+                    self._null_selection_map[null_selection_behavior]))
+        except KeyError:
+            raise_invalid_option_keyword(null_selection_behavior,
+                                         'null selection behavior')
 
 
 class FilterOptions(_FilterOptions):
@@ -853,18 +853,18 @@ class FilterOptions(_FilterOptions):
 
 
 cdef class _DictionaryEncodeOptions(FunctionOptions):
-    null_encoding_dict = {
+    _null_encoding_map = {
         "encode": CDictionaryEncodeNullEncodingBehavior_ENCODE,
         "mask": CDictionaryEncodeNullEncodingBehavior_MASK,
     }
 
     def _set_options(self, null_encoding):
-        if null_encoding not in type(self).null_encoding_dict:
-            raise ValueError(
-                f"\"{null_encoding}\" is not a valid 'null encoding'")
-        self.wrapped.reset(
-            new CDictionaryEncodeOptions(
-                type(self).null_encoding_dict[null_encoding]))
+        try:
+            self.wrapped.reset(
+                new CDictionaryEncodeOptions(
+                    self._null_encoding_map[null_encoding]))
+        except KeyError:
+            raise_invalid_option_keyword(null_encoding, 'null encoding')
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
@@ -916,16 +916,17 @@ class ScalarAggregateOptions(_ScalarAggregateOptions):
 
 
 cdef class _CountOptions(FunctionOptions):
-    mode_dict = {
+    _mode_map = {
         "only_valid": CCountMode_ONLY_VALID,
         "only_null": CCountMode_ONLY_NULL,
         "all": CCountMode_ALL,
     }
 
     def _set_options(self, mode):
-        if mode not in type(self).mode_dict:
-            raise ValueError(f"\"{mode}\" is not a valid 'count mode'")
-        self.wrapped.reset(new CCountOptions(type(self).mode_dict[mode]))
+        try:
+            self.wrapped.reset(new CCountOptions(self._mode_map[mode]))
+        except KeyError:
+            raise_invalid_option_keyword(mode, 'count mode')
 
 
 class CountOptions(_CountOptions):
@@ -973,7 +974,8 @@ cdef class _SetLookupOptions(FunctionOptions):
         elif isinstance(value_set, Scalar):
             valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
-            raise ValueError(f"\"{value_set}\" is not a valid 'value set'")
+            raise ValueError(
+                f"\"{value_set}\" is not a valid 'value set' type")
         self.wrapped.reset(new CSetLookupOptions(deref(valset), skip_nulls))
 
 
@@ -983,7 +985,7 @@ class SetLookupOptions(_SetLookupOptions):
 
 
 cdef class _StrptimeOptions(FunctionOptions):
-    unit_dict = {
+    _unit_map = {
         "s": TimeUnit_SECOND,
         "ms": TimeUnit_MILLI,
         "us": TimeUnit_MICRO,
@@ -991,10 +993,11 @@ cdef class _StrptimeOptions(FunctionOptions):
     }
 
     def _set_options(self, format, unit):
-        if unit not in type(self).unit_dict:
-            raise ValueError(f'"{unit}" is not a valid time unit')
-        self.wrapped.reset(
-            new CStrptimeOptions(tobytes(format), type(self).unit_dict[unit]))
+        try:
+            self.wrapped.reset(
+                new CStrptimeOptions(tobytes(format), self._unit_map[unit]))
+        except KeyError:
+            raise_invalid_option_keyword(unit, 'time unit')
 
 
 class StrptimeOptions(_StrptimeOptions):
@@ -1025,29 +1028,27 @@ class DayOfWeekOptions(_DayOfWeekOptions):
 
 
 cdef class _AssumeTimezoneOptions(FunctionOptions):
+    _ambiguous_map = {
+        "raise": CAssumeTimezoneAmbiguous_AMBIGUOUS_RAISE,
+        "earliest": CAssumeTimezoneAmbiguous_AMBIGUOUS_EARLIEST,
+        "latest": CAssumeTimezoneAmbiguous_AMBIGUOUS_LATEST,
+    }
+    _nonexistent_map = {
+        "raise": CAssumeTimezoneNonexistent_NONEXISTENT_RAISE,
+        "earliest": CAssumeTimezoneNonexistent_NONEXISTENT_EARLIEST,
+        "latest": CAssumeTimezoneNonexistent_NONEXISTENT_LATEST,
+    }
+
     def _set_options(self, timezone, ambiguous, nonexistent):
-        ambiguous_dict = {
-            "raise": CAssumeTimezoneAmbiguous_AMBIGUOUS_RAISE,
-            "earliest": CAssumeTimezoneAmbiguous_AMBIGUOUS_EARLIEST,
-            "latest": CAssumeTimezoneAmbiguous_AMBIGUOUS_LATEST,
-        }
-        nonexistent_dict = {
-            "raise": CAssumeTimezoneNonexistent_NONEXISTENT_RAISE,
-            "earliest": CAssumeTimezoneNonexistent_NONEXISTENT_EARLIEST,
-            "latest": CAssumeTimezoneNonexistent_NONEXISTENT_LATEST,
-        }
-
-        if ambiguous not in ambiguous_dict:
+        try:
+            self.wrapped.reset(
+                new CAssumeTimezoneOptions(tobytes(timezone),
+                                           self._ambiguous_map[ambiguous],
+                                           self._nonexistent_map[nonexistent]))
+        except KeyError:
             raise ValueError(
-                f"\"{ambiguous}\" is not a valid 'ambiguous' keyword")
-        if nonexistent not in nonexistent_dict:
-            raise ValueError(
+                f"\"{ambiguous}\" is not a valid 'ambiguous' keyword and/or "
                 f"\"{nonexistent}\" is not a valid 'nonexistent' keyword")
-
-        self.wrapped.reset(
-            new CAssumeTimezoneOptions(tobytes(timezone),
-                                       ambiguous_dict[ambiguous],
-                                       nonexistent_dict[nonexistent]))
 
 
 class AssumeTimezoneOptions(_AssumeTimezoneOptions):
@@ -1103,8 +1104,7 @@ cdef CSortOrder unwrap_sort_order(order) except *:
         return CSortOrder_Ascending
     elif order == "descending":
         return CSortOrder_Descending
-    else:
-        raise ValueError(f'"{order}" is not a valid order')
+    raise_invalid_option_keyword(order, 'sort order')
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -1150,7 +1150,7 @@ class SelectKOptions(_SelectKOptions):
 
 
 cdef class _QuantileOptions(FunctionOptions):
-    interp_dict = {
+    _interp_map = {
         "linear": CQuantileInterp_LINEAR,
         "lower": CQuantileInterp_LOWER,
         "higher": CQuantileInterp_HIGHER,
@@ -1159,11 +1159,13 @@ cdef class _QuantileOptions(FunctionOptions):
     }
 
     def _set_options(self, quantiles, interp, skip_nulls, min_count):
-        if interp not in type(self).interp_dict:
-            raise ValueError(f'"{interp}" is not a valid interpolation')
-        self.wrapped.reset(new CQuantileOptions(quantiles,
-                                                type(self).interp_dict[interp],
-                                                skip_nulls, min_count))
+        try:
+            self.wrapped.reset(
+                new CQuantileOptions(quantiles,
+                                     self._interp_map[interp],
+                                     skip_nulls, min_count))
+        except KeyError:
+            raise_invalid_option_keyword(interp, 'quantile interpolation')
 
 
 class QuantileOptions(_QuantileOptions):
