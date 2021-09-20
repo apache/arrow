@@ -69,17 +69,17 @@ enum SqlInfo {
    * The name of the Flight SQL Server.
    */
   FLIGHT_SQL_SERVER_NAME = 0;
-  
+
   /*
    * The native version of the Flight SQL Server.
    */
   FLIGHT_SQL_SERVER_VERSION = 1;
-  
+
   /*
    * The Arrow format version of the Flight SQL Server.
    */
   FLIGHT_SQL_SERVER_ARROW_VERSION = 2;
-  
+
   /* 
    * Indicates whether the Flight SQL Server is read only.
    *
@@ -146,6 +146,13 @@ enum SqlInfo {
    */
   SQL_QUOTED_IDENTIFIER_CASE = 505;
 
+  /*
+   * Retrieves whether all tables are selectable.
+   *
+   * Returns:
+   * - 0: if not all tables are selectable or if none are;
+   * - 1: if all tables are selectable.
+   */
   SQL_ALL_TABLES_ARE_SELECTABLE = 506;
 
   /*
