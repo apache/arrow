@@ -867,7 +867,7 @@ agg_funcs$min <- function(..., na.rm = FALSE) {
 agg_funcs$max <- function(..., na.rm = FALSE) {
   args <- list2(...)
   if (length(args) > 1) {
-    abort("Multiple arguments to max() not supported in Arrow")
+    arrow_not_supported("Multiple arguments to max()")
   }
   list(
     fun = "max",
