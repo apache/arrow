@@ -679,8 +679,7 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   if (tz == "") {
     tz <- Sys.timezone()
   }
-  unit <- TimestampType__unit(x$type())
-  ts <- Expression$create("cast", x, options = list(to_type = timestamp(unit, tz)))
+  ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
   Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
 

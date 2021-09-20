@@ -722,8 +722,6 @@ test_that("errors in strptime", {
 test_that("strftime", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
-  # TODO: consider reevaluating this workaround after ARROW-12980
-  withr::local_timezone("UTC")
   times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
   seconds <- tibble(x = c("05.000000", NA))
   formats_minus_c <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
@@ -752,13 +750,11 @@ test_that("strftime", {
     times
   )
 
-  withr::with_locale(new = c("LC_TIME" = "C"),
-    expect_dplyr_equal(
-      input %>%
-        mutate(x = strftime(x, format = "%c", tz = "Pacific/Marquesas")) %>%
-        collect(),
-      times
-    )
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = "%c", tz = "Pacific/Marquesas")) %>%
+      collect(),
+    times
   )
 
   expect_dplyr_equal(
