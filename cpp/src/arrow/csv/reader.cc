@@ -426,7 +426,7 @@ class BlockParsingOperator {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
     if (count_rows_) {
-      num_rows_seen_ += parser->num_rows();
+      num_rows_seen_ += parser->total_num_rows();
     }
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
     return ParsedBlock{std::move(parser), block.block_index,
@@ -737,7 +737,7 @@ class ReaderMixin {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
     if (count_rows_) {
-      num_rows_seen_ += parser->num_rows();
+      num_rows_seen_ += parser->total_num_rows();
     }
     return ParseResult{std::move(parser), static_cast<int64_t>(parsed_size)};
   }
@@ -1218,8 +1218,9 @@ class CSVRowCounter : public ReaderMixin,
           self->Parse(maybe_block.partial, maybe_block.completion, maybe_block.buffer,
                       maybe_block.block_index, maybe_block.is_final));
       RETURN_NOT_OK(maybe_block.consume_bytes(parser.parsed_bytes));
-      self->row_count_ += parser.parser->num_rows();
-      return parser.parser->num_rows();
+      int32_t total_row_count = parser.parser->total_num_rows();
+      self->row_count_ += total_row_count;
+      return total_row_count;
     };
     auto count_gen = MakeMappedGenerator(block_generator_, std::move(count_cb));
     return DiscardAllFromAsyncGenerator(count_gen).Then(
