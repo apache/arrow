@@ -48,8 +48,7 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     .data <- dplyr::group_by(.data, !!!syms(names(.data)), .add = TRUE)
   }
 
-  # After ARROW-13550 is merged, update this to use .groups = "keep"
-  .data <- dplyr::summarize(.data)
+  .data <- dplyr::summarize(.data, .groups = "keep")
 
   # If there were no vars supplied to distinct() but there were vars supplied
   # to group_by, we need to restore grouping which we removed earlier when

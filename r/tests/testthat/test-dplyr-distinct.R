@@ -52,7 +52,6 @@ test_that("distinct() works without any variables", {
 })
 
 test_that("distinct() can retain groups", {
-  skip("ARROW-13550 - summarise can't retain groups")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping, int) %>%
