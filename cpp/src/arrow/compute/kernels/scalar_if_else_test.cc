@@ -667,13 +667,19 @@ TYPED_TEST(TestCaseWhenDict, Mixed) {
 
   // If we have mixed dictionary/non-dictionary arguments, we decode dictionaries
   CheckDictionary("case_when",
-                  {MakeStruct({cond1, cond2}), values1_dict, values2_decoded});
+                  {MakeStruct({cond1, cond2}), values1_dict, values2_decoded},
+                  /*result_is_encoded=*/false);
   CheckDictionary("case_when",
-                  {MakeStruct({cond1, cond2}), values1_decoded, values2_dict});
-  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1_dict, values2_dict,
-                                values1_decoded});
-  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values_null, values2_dict,
-                                values1_decoded});
+                  {MakeStruct({cond1, cond2}), values1_decoded, values2_dict},
+                  /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1_dict, values2_dict, values1_decoded},
+      /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values_null, values2_dict, values1_decoded},
+      /*result_is_encoded=*/false);
 }
 
 TYPED_TEST(TestCaseWhenDict, NestedSimple) {
@@ -695,30 +701,40 @@ TYPED_TEST(TestCaseWhenDict, NestedSimple) {
   auto values1 = make_list(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
   auto values2 = make_list(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
 
-  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
-  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1,
-                                make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"),
-                                          values2_backing)});
-  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1,
-                                make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"),
-                                          values2_backing),
-                                values1});
-
-  CheckDictionary("case_when", {
-                                   Datum(MakeStruct({cond1, cond2})),
-                                   Datum(std::make_shared<ListScalar>(
-                                       DictArrayFromJSON(inner_type, "[0, 1]", dict))),
-                                   Datum(std::make_shared<ListScalar>(
-                                       DictArrayFromJSON(inner_type, "[2, 3]", dict))),
-                               });
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing)},
+      /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing), values1},
+      /*result_is_encoded=*/false);
 
   CheckDictionary("case_when",
-                  {MakeStruct({Datum(true), Datum(false)}), values1, values2});
+                  {
+                      Datum(MakeStruct({cond1, cond2})),
+                      Datum(std::make_shared<ListScalar>(
+                          DictArrayFromJSON(inner_type, "[0, 1]", dict))),
+                      Datum(std::make_shared<ListScalar>(
+                          DictArrayFromJSON(inner_type, "[2, 3]", dict))),
+                  },
+                  /*result_is_encoded=*/false);
+
   CheckDictionary("case_when",
-                  {MakeStruct({Datum(false), Datum(true)}), values1, values2});
-  CheckDictionary("case_when", {MakeStruct({Datum(false)}), values1, values2});
+                  {MakeStruct({Datum(true), Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
   CheckDictionary("case_when",
-                  {MakeStruct({Datum(false), Datum(false)}), values1, values2});
+                  {MakeStruct({Datum(false), Datum(true)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when", {MakeStruct({Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
 }
 
 TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {

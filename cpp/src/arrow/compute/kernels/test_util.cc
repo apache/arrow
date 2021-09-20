@@ -171,7 +171,8 @@ void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expecte
   }
 }
 
-Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVector& args) {
+Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVector& args,
+                                  bool result_is_encoded) {
   EXPECT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, args));
   ValidateOutput(actual);
 
@@ -188,7 +189,10 @@ Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVecto
   }
   EXPECT_OK_AND_ASSIGN(Datum expected, CallFunction(func_name, decoded_args));
 
-  if (actual.type()->id() == Type::DICTIONARY) {
+  if (result_is_encoded) {
+    EXPECT_EQ(Type::DICTIONARY, actual.type()->id())
+        << "Result should have been dictionary-encoded";
+    // Decode before comparison - we care about equivalent not identical results
     const auto& to_type =
         checked_cast<const DictionaryType&>(*actual.type()).value_type();
     EXPECT_OK_AND_ASSIGN(auto decoded, Cast(actual, to_type));
@@ -199,8 +203,9 @@ Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVecto
   return actual;
 }
 
-void CheckDictionary(const std::string& func_name, const DatumVector& args) {
-  auto actual = CheckDictionaryNonRecursive(func_name, args);
+void CheckDictionary(const std::string& func_name, const DatumVector& args,
+                     bool result_is_encoded) {
+  auto actual = CheckDictionaryNonRecursive(func_name, args, result_is_encoded);
 
   if (actual.is_scalar()) return;
   ASSERT_TRUE(actual.is_array());
@@ -208,19 +213,23 @@ void CheckDictionary(const std::string& func_name, const DatumVector& args) {
 
   // Check all scalars
   for (int64_t i = 0; i < actual.length(); i++) {
-    CheckDictionaryNonRecursive(func_name, GetDatums(GetScalars(args, i)));
+    CheckDictionaryNonRecursive(func_name, GetDatums(GetScalars(args, i)),
+                                result_is_encoded);
   }
 
   // Check slices of the input
   const auto slice_length = actual.length() / 3;
   if (slice_length > 0) {
-    CheckDictionaryNonRecursive(func_name, SliceArrays(args, 0, slice_length));
-    CheckDictionaryNonRecursive(func_name, SliceArrays(args, slice_length, slice_length));
-    CheckDictionaryNonRecursive(func_name, SliceArrays(args, 2 * slice_length));
+    CheckDictionaryNonRecursive(func_name, SliceArrays(args, 0, slice_length),
+                                result_is_encoded);
+    CheckDictionaryNonRecursive(func_name, SliceArrays(args, slice_length, slice_length),
+                                result_is_encoded);
+    CheckDictionaryNonRecursive(func_name, SliceArrays(args, 2 * slice_length),
+                                result_is_encoded);
   }
 
   // Check empty slice
-  CheckDictionaryNonRecursive(func_name, SliceArrays(args, 0, 0));
+  CheckDictionaryNonRecursive(func_name, SliceArrays(args, 0, 0), result_is_encoded);
 
   // Check chunked arrays
   if (slice_length > 0) {
@@ -235,7 +244,7 @@ void CheckDictionary(const std::string& func_name, const DatumVector& args) {
         chunked_args.push_back(arg);
       }
     }
-    CheckDictionaryNonRecursive(func_name, chunked_args);
+    CheckDictionaryNonRecursive(func_name, chunked_args, result_is_encoded);
   }
 }
 

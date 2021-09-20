@@ -78,7 +78,11 @@ void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expecte
 
 // Like CheckScalar, but gets the expected result by
 // dictionary-decoding arguments and calling the function again.
-void CheckDictionary(const std::string& func_name, const DatumVector& args);
+//
+// result_is_encoded controls whether the result is expected to be a
+// dictionary or not.
+void CheckDictionary(const std::string& func_name, const DatumVector& args,
+                     bool result_is_encoded = true);
 
 // Just call the function with the given arguments.
 void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
