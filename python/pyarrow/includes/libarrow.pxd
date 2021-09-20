@@ -1409,7 +1409,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     # TODO: use "cpdef enum class" to automatically get a Python wrapper?
     # See
     # https://github.com/cython/cython/commit/2c7c22f51405299a4e247f78edf52957d30cf71d#diff-61c1365c0f761a8137754bb3a73bfbf7
-    ctypedef enum CMetadataVersion" arrow::ipc::MetadataVersion":
+    cdef enum CMetadataVersion" arrow::ipc::MetadataVersion":
         CMetadataVersion_V1" arrow::ipc::MetadataVersion::V1"
         CMetadataVersion_V2" arrow::ipc::MetadataVersion::V2"
         CMetadataVersion_V3" arrow::ipc::MetadataVersion::V3"
@@ -1826,7 +1826,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CElementWiseAggregateOptions(c_bool skip_nulls)
         c_bool skip_nulls
 
-    ctypedef enum CRoundMode \
+    cdef enum CRoundMode \
             "arrow::compute::RoundMode":
         CRoundMode_DOWN \
             "arrow::compute::RoundMode::DOWN"
@@ -2076,10 +2076,15 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CMakeStructOptions \
             "arrow::compute::MakeStructOptions"(CFunctionOptions):
-        CMakeStructOptions(vector[c_string] field_names)
+        CMakeStructOptions(vector[c_string] n,
+                           vector[c_bool] r,
+                           vector[shared_ptr[const CKeyValueMetadata]] m)
+        CMakeStructOptions(vector[c_string] n)
         vector[c_string] field_names
+        vector[c_bool] field_nullability
+        vector[shared_ptr[const CKeyValueMetadata]] field_metadata
 
-    ctypedef enum CSortOrder" arrow::compute::SortOrder":
+    cdef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"
         CSortOrder_Descending \

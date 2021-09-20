@@ -543,9 +543,8 @@ cdef class FunctionOptions(_Weakrefable):
         return self.get_options().Equals(deref(other.get_options()))
 
 
-def raise_invalid_option_keyword(option_value, option_description):
-    raise ValueError(
-        f"\"{option_value}\" is not a valid '{option_description}' keyword")
+def raise_invalid_function_option(value, description, *, error="keyword"):
+    raise ValueError(f"\"{value}\" is not a valid '{description}' {error}")
 
 
 # NOTE:
@@ -683,13 +682,15 @@ cdef class _ElementWiseAggregateOptions(FunctionOptions):
 
 
 class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
-    def __init__(self, *, skip_nulls=True):
+    def __init__(self, skip_nulls=True):
         self._set_options(skip_nulls)
 
 
 cdef CRoundMode unwrap_round_mode(round_mode) except *:
-    # Explicit if-else since Cython does not supports storing C++ enum classes
-    # as dictionary values because they do not resolve to integers.
+    # Cython 0.29.x does not supports C++ scoped enums as dictionary values
+    # because they do not resolve to integers, so we chain explicit if-elses.
+    # Cython >= 3 supports C++ scoped enums resolving to integers, refer to
+    # https://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html#scoped-enumerations
     if round_mode == "down":
         return CRoundMode_DOWN
     elif round_mode == "up":
@@ -710,7 +711,7 @@ cdef CRoundMode unwrap_round_mode(round_mode) except *:
         return CRoundMode_HALF_TO_EVEN
     elif round_mode == "half_to_odd":
         return CRoundMode_HALF_TO_ODD
-    raise_invalid_option_keyword(round_mode, 'round mode')
+    raise_invalid_function_option(round_mode, "round mode")
 
 
 cdef class _RoundOptions(FunctionOptions):
@@ -720,7 +721,7 @@ cdef class _RoundOptions(FunctionOptions):
 
 
 class RoundOptions(_RoundOptions):
-    def __init__(self, *, ndigits=0, round_mode="half_to_even"):
+    def __init__(self, ndigits=0, round_mode="half_to_even"):
         self._set_options(ndigits, round_mode)
 
 
@@ -732,7 +733,7 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
-    def __init__(self, *, multiple=1.0, round_mode="half_to_even"):
+    def __init__(self, multiple=1.0, round_mode="half_to_even"):
         self._set_options(multiple, round_mode)
 
 
@@ -749,18 +750,19 @@ cdef class _JoinOptions(FunctionOptions):
                 new CJoinOptions(self._null_handling_map[null_handling],
                                  tobytes(null_replacement)))
         except KeyError:
-            raise_invalid_option_keyword(null_handling, 'null handling')
+            raise_invalid_function_option(null_handling, "null handling")
 
 
 class JoinOptions(_JoinOptions):
-    def __init__(self, *, null_handling="emit_null", null_replacement=""):
+    def __init__(self, null_handling="emit_null", null_replacement=""):
         self._set_options(null_handling, null_replacement)
 
 
 cdef class _MatchSubstringOptions(FunctionOptions):
     def _set_options(self, pattern, ignore_case):
-        self.wrapped.reset(new CMatchSubstringOptions(tobytes(pattern),
-                                                      ignore_case))
+        self.wrapped.reset(
+            new CMatchSubstringOptions(tobytes(pattern),
+                                       ignore_case))
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
@@ -774,7 +776,7 @@ cdef class _PadOptions(FunctionOptions):
 
 
 class PadOptions(_PadOptions):
-    def __init__(self, width, *, padding=" "):
+    def __init__(self, width, padding=' '):
         self._set_options(width, padding)
 
 
@@ -827,7 +829,7 @@ cdef class _SliceOptions(FunctionOptions):
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, start, *, stop=sys.maxsize, step=1):
+    def __init__(self, start, stop=sys.maxsize, step=1):
         self._set_options(start, stop, step)
 
 
@@ -843,12 +845,12 @@ cdef class _FilterOptions(FunctionOptions):
                 new CFilterOptions(
                     self._null_selection_map[null_selection_behavior]))
         except KeyError:
-            raise_invalid_option_keyword(null_selection_behavior,
-                                         'null selection behavior')
+            raise_invalid_function_option(null_selection_behavior,
+                                          "null selection behavior")
 
 
 class FilterOptions(_FilterOptions):
-    def __init__(self, *, null_selection_behavior="drop"):
+    def __init__(self, null_selection_behavior="drop"):
         self._set_options(null_selection_behavior)
 
 
@@ -864,11 +866,11 @@ cdef class _DictionaryEncodeOptions(FunctionOptions):
                 new CDictionaryEncodeOptions(
                     self._null_encoding_map[null_encoding]))
         except KeyError:
-            raise_invalid_option_keyword(null_encoding, 'null encoding')
+            raise_invalid_function_option(null_encoding, "null encoding")
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
-    def __init__(self, *, null_encoding="mask"):
+    def __init__(self, null_encoding="mask"):
         self._set_options(null_encoding)
 
 
@@ -893,16 +895,27 @@ class PartitionNthOptions(_PartitionNthOptions):
 
 
 cdef class _MakeStructOptions(FunctionOptions):
-    def _set_options(self, field_names):
-        cdef vector[c_string] c_field_names
+    def _set_options(self, field_names, field_nullability, field_metadata):
+        cdef:
+            vector[c_string] c_field_names
+            vector[shared_ptr[const CKeyValueMetadata]] c_field_metadata
         for name in field_names:
             c_field_names.push_back(tobytes(name))
-        self.wrapped.reset(new CMakeStructOptions(c_field_names))
+        for metadata in field_metadata:
+            c_field_metadata.push_back(pyarrow_unwrap_metadata(metadata))
+        self.wrapped.reset(
+            new CMakeStructOptions(c_field_names,
+                                   field_nullability,
+                                   c_field_metadata))
 
 
 class MakeStructOptions(_MakeStructOptions):
-    def __init__(self, field_names):
-        self._set_options(field_names)
+    def __init__(self, field_names, field_nullability=None, field_metadata=None):
+        if field_nullability is None:
+            field_nullability = [True] * len(field_names)
+        if field_metadata is None:
+            field_metadata = [None] * len(field_names)
+        self._set_options(field_names, field_nullability, field_metadata)
 
 
 cdef class _ScalarAggregateOptions(FunctionOptions):
@@ -926,11 +939,11 @@ cdef class _CountOptions(FunctionOptions):
         try:
             self.wrapped.reset(new CCountOptions(self._mode_map[mode]))
         except KeyError:
-            raise_invalid_option_keyword(mode, 'count mode')
+            raise_invalid_function_option(mode, "count mode")
 
 
 class CountOptions(_CountOptions):
-    def __init__(self, *, mode="only_valid"):
+    def __init__(self, mode="only_valid"):
         self._set_options(mode)
 
 
@@ -959,7 +972,7 @@ cdef class _ModeOptions(FunctionOptions):
 
 
 class ModeOptions(_ModeOptions):
-    def __init__(self, *, n=1, skip_nulls=True, min_count=0):
+    def __init__(self, n=1, *, skip_nulls=True, min_count=0):
         self._set_options(n, skip_nulls, min_count)
 
 
@@ -974,8 +987,7 @@ cdef class _SetLookupOptions(FunctionOptions):
         elif isinstance(value_set, Scalar):
             valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
-            raise ValueError(
-                f"\"{value_set}\" is not a valid 'value set' type")
+            raise_invalid_function_option(value_set, "value set", error="type")
         self.wrapped.reset(new CSetLookupOptions(deref(valset), skip_nulls))
 
 
@@ -997,7 +1009,7 @@ cdef class _StrptimeOptions(FunctionOptions):
             self.wrapped.reset(
                 new CStrptimeOptions(tobytes(format), self._unit_map[unit]))
         except KeyError:
-            raise_invalid_option_keyword(unit, 'time unit')
+            raise_invalid_function_option(unit, "time unit")
 
 
 class StrptimeOptions(_StrptimeOptions):
@@ -1012,7 +1024,7 @@ cdef class _StrftimeOptions(FunctionOptions):
 
 
 class StrftimeOptions(_StrftimeOptions):
-    def __init__(self, format="%Y-%m-%dT%H:%M:%S", *, locale="C"):
+    def __init__(self, format="%Y-%m-%dT%H:%M:%S", locale="C"):
         self._set_options(format, locale)
 
 
@@ -1040,15 +1052,14 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
     }
 
     def _set_options(self, timezone, ambiguous, nonexistent):
-        try:
-            self.wrapped.reset(
-                new CAssumeTimezoneOptions(tobytes(timezone),
-                                           self._ambiguous_map[ambiguous],
-                                           self._nonexistent_map[nonexistent]))
-        except KeyError:
-            raise ValueError(
-                f"\"{ambiguous}\" is not a valid 'ambiguous' keyword and/or "
-                f"\"{nonexistent}\" is not a valid 'nonexistent' keyword")
+        if ambiguous not in self._ambiguous_map:
+            raise_invalid_function_option(ambiguous, "ambiguous")
+        if nonexistent not in self._nonexistent_map:
+            raise_invalid_function_option(nonexistent, "nonexistent")
+        self.wrapped.reset(
+            new CAssumeTimezoneOptions(tobytes(timezone),
+                                       self._ambiguous_map[ambiguous],
+                                       self._nonexistent_map[nonexistent]))
 
 
 class AssumeTimezoneOptions(_AssumeTimezoneOptions):
@@ -1098,13 +1109,15 @@ class SplitPatternOptions(_SplitPatternOptions):
 
 
 cdef CSortOrder unwrap_sort_order(order) except *:
-    # Explicit if-else since Cython does not supports storing C++ enum classes
-    # as dictionary values because they do not resolve to integers.
+    # Cython 0.29.x does not supports C++ scoped enums as dictionary values
+    # because they do not resolve to integers, so we chain explicit if-elses.
+    # Cython >= 3 supports C++ scoped enums resolving to integers, refer to
+    # https://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html#scoped-enumerations
     if order == "ascending":
         return CSortOrder_Ascending
     elif order == "descending":
         return CSortOrder_Descending
-    raise_invalid_option_keyword(order, 'sort order')
+    raise_invalid_function_option(order, "sort order")
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -1113,7 +1126,7 @@ cdef class _ArraySortOptions(FunctionOptions):
 
 
 class ArraySortOptions(_ArraySortOptions):
-    def __init__(self, *, order="ascending"):
+    def __init__(self, order="ascending"):
         self._set_options(order)
 
 
@@ -1127,9 +1140,7 @@ cdef class _SortOptions(FunctionOptions):
 
 
 class SortOptions(_SortOptions):
-    def __init__(self, *, sort_keys=None):
-        if sort_keys is None:
-            sort_keys = []
+    def __init__(self, sort_keys):
         self._set_options(sort_keys)
 
 
@@ -1143,9 +1154,7 @@ cdef class _SelectKOptions(FunctionOptions):
 
 
 class SelectKOptions(_SelectKOptions):
-    def __init__(self, *, k=-1, sort_keys=None):
-        if sort_keys is None:
-            sort_keys = []
+    def __init__(self, k, sort_keys):
         self._set_options(k, sort_keys)
 
 
@@ -1161,11 +1170,10 @@ cdef class _QuantileOptions(FunctionOptions):
     def _set_options(self, quantiles, interp, skip_nulls, min_count):
         try:
             self.wrapped.reset(
-                new CQuantileOptions(quantiles,
-                                     self._interp_map[interp],
+                new CQuantileOptions(quantiles, self._interp_map[interp],
                                      skip_nulls, min_count))
         except KeyError:
-            raise_invalid_option_keyword(interp, 'quantile interpolation')
+            raise_invalid_function_option(interp, "quantile interpolation")
 
 
 class QuantileOptions(_QuantileOptions):
@@ -1177,10 +1185,11 @@ class QuantileOptions(_QuantileOptions):
 
 
 cdef class _TDigestOptions(FunctionOptions):
-    def _set_options(self, quantiles, delta, buffer_size,
-                     skip_nulls, min_count):
-        self.wrapped.reset(new CTDigestOptions(quantiles, delta, buffer_size,
-                                               skip_nulls, min_count))
+    def _set_options(self, quantiles, delta, buffer_size, skip_nulls,
+                     min_count):
+        self.wrapped.reset(
+            new CTDigestOptions(quantiles, delta, buffer_size, skip_nulls,
+                                min_count))
 
 
 class TDigestOptions(_TDigestOptions):

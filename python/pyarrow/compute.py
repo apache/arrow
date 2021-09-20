@@ -314,6 +314,8 @@ def count_substring(array, pattern, *, ignore_case=False):
     array : pyarrow.Array or pyarrow.ChunkedArray
     pattern : str
         pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
@@ -334,6 +336,8 @@ def count_substring_regex(array, pattern, *, ignore_case=False):
     array : pyarrow.Array or pyarrow.ChunkedArray
     pattern : str
         pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
@@ -456,15 +460,17 @@ def match_substring_regex(array, pattern, *, ignore_case=False):
                                                ignore_case=ignore_case))
 
 
-def mode(array, *, n=1, skip_nulls=True, min_count=0):
+def mode(array, n=1, *, skip_nulls=True, min_count=0):
     """
     Return top-n most common values and number of times they occur in a passed
-    numerical (chunked) array, in descending order of occurance. If there are
-    more than one values with same count, smaller one is returned first.
+    numerical (chunked) array, in descending order of occurrence. If there are
+    multiple values with same count, the smaller one is returned first.
 
     Parameters
     ----------
     array : pyarrow.Array or pyarrow.ChunkedArray
+    n : int, default 1
+        Specify the top-n values.
     skip_nulls : bool, default True
         If True, ignore nulls in the input. Else return an empty array
         if any input is null.
@@ -487,11 +493,11 @@ def mode(array, *, n=1, skip_nulls=True, min_count=0):
     >>> modes[1]
     <pyarrow.StructScalar: {'mode': 1, 'count': 2}>
     """
-    options = ModeOptions(n=n, skip_nulls=skip_nulls, min_count=min_count)
+    options = ModeOptions(n, skip_nulls=skip_nulls, min_count=min_count)
     return call_function("mode", [array], options)
 
 
-def filter(data, mask, *, null_selection_behavior='drop'):
+def filter(data, mask, null_selection_behavior='drop'):
     """
     Select values (or records) from array- or table-like data given boolean
     filter, where true values are selected.
@@ -531,7 +537,7 @@ def filter(data, mask, *, null_selection_behavior='drop'):
       "e"
     ]
     """
-    options = FilterOptions(null_selection_behavior=null_selection_behavior)
+    options = FilterOptions(null_selection_behavior)
     return call_function('filter', [data, mask], options)
 
 
@@ -545,6 +551,8 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
     value : Scalar-like object
     start : int, optional
     end : int, optional
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
 
     Returns
     -------
@@ -587,6 +595,8 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     boundscheck : boolean, default True
         Whether to boundscheck the indices. If False and there is an out of
         bounds index, will likely cause the process to crash.
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
 
     Returns
     -------
@@ -652,7 +662,7 @@ def fill_null(values, fill_value):
     return call_function("coalesce", [values, fill_value])
 
 
-def top_k_unstable(values, k, sort_keys=None, memory_pool=None):
+def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     """
     Select the indices of the top-k ordered elements from array- or table-like
     data.
@@ -663,8 +673,13 @@ def top_k_unstable(values, k, sort_keys=None, memory_pool=None):
     Parameters
     ----------
     values : Array, ChunkedArray, RecordBatch, or Table
-    k :  The number of `k` elements to keep.
-    sort_keys : Column key names to order by when input is table-like data.
+        Data to sort and get top indices from.
+    k : int
+        The number of `k` elements to keep.
+    sort_keys : List or tuple
+        Column key names to order by when input is table-like data.
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
 
     Returns
     -------
@@ -693,7 +708,7 @@ def top_k_unstable(values, k, sort_keys=None, memory_pool=None):
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
-def bottom_k_unstable(values, k, sort_keys=None, memory_pool=None):
+def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     """
     Select the indices of the bottom-k ordered elements from
     array- or table-like data.
@@ -704,8 +719,13 @@ def bottom_k_unstable(values, k, sort_keys=None, memory_pool=None):
     Parameters
     ----------
     values : Array, ChunkedArray, RecordBatch, or Table
-    k :  The number of `k` elements to keep.
-    sort_keys : Column key names to order by when input is table-like data.
+        Data to sort and get bottom indices from.
+    k : int
+        The number of `k` elements to keep.
+    sort_keys : List or tuple
+        Column key names to order by when input is table-like data.
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
 
     Returns
     -------
@@ -730,5 +750,5 @@ def bottom_k_unstable(values, k, sort_keys=None, memory_pool=None):
         sort_keys.append(("dummy", "ascending"))
     else:
         sort_keys = map(lambda key_name: (key_name, "ascending"), sort_keys)
-    options = SelectKOptions(k=k, sort_keys=sort_keys)
+    options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
