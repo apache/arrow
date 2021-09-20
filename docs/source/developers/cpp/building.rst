@@ -61,7 +61,7 @@ On Alpine Linux:
            gcc \
            make
            
- On Fedora Linux:
+On Fedora Linux:
 
 .. code-block:: shell
 
