@@ -378,7 +378,7 @@ struct ListLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_VALUES) &&
+           VerifyOffsetRequired(verifier, VT_VALUES) &&
            verifier.VerifyVector(values()) &&
            verifier.VerifyVectorOfTables(values()) &&
            verifier.EndTable();
@@ -400,6 +400,7 @@ struct ListLiteralBuilder {
   flatbuffers::Offset<ListLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<ListLiteral>(end);
+    fbb_.Required(o, ListLiteral::VT_VALUES);
     return o;
   }
 };
@@ -431,7 +432,7 @@ struct StructLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_VALUES) &&
+           VerifyOffsetRequired(verifier, VT_VALUES) &&
            verifier.VerifyVector(values()) &&
            verifier.VerifyVectorOfTables(values()) &&
            verifier.EndTable();
@@ -453,6 +454,7 @@ struct StructLiteralBuilder {
   flatbuffers::Offset<StructLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<StructLiteral>(end);
+    fbb_.Required(o, StructLiteral::VT_VALUES);
     return o;
   }
 };
@@ -488,9 +490,9 @@ struct KeyValue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_KEY) &&
+           VerifyOffsetRequired(verifier, VT_KEY) &&
            verifier.VerifyTable(key()) &&
-           VerifyOffset(verifier, VT_VALUE) &&
+           VerifyOffsetRequired(verifier, VT_VALUE) &&
            verifier.VerifyTable(value()) &&
            verifier.EndTable();
   }
@@ -514,6 +516,8 @@ struct KeyValueBuilder {
   flatbuffers::Offset<KeyValue> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<KeyValue>(end);
+    fbb_.Required(o, KeyValue::VT_KEY);
+    fbb_.Required(o, KeyValue::VT_VALUE);
     return o;
   }
 };
@@ -538,7 +542,7 @@ struct MapLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_VALUES) &&
+           VerifyOffsetRequired(verifier, VT_VALUES) &&
            verifier.VerifyVector(values()) &&
            verifier.VerifyVectorOfTables(values()) &&
            verifier.EndTable();
@@ -560,6 +564,7 @@ struct MapLiteralBuilder {
   flatbuffers::Offset<MapLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<MapLiteral>(end);
+    fbb_.Required(o, MapLiteral::VT_VALUES);
     return o;
   }
 };
@@ -1062,7 +1067,7 @@ struct DecimalLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_VALUE) &&
+           VerifyOffsetRequired(verifier, VT_VALUE) &&
            verifier.VerifyVector(value()) &&
            VerifyField<int32_t>(verifier, VT_SCALE) &&
            VerifyField<int32_t>(verifier, VT_PRECISION) &&
@@ -1091,6 +1096,7 @@ struct DecimalLiteralBuilder {
   flatbuffers::Offset<DecimalLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<DecimalLiteral>(end);
+    fbb_.Required(o, DecimalLiteral::VT_VALUE);
     return o;
   }
 };
@@ -1543,7 +1549,7 @@ struct IntervalLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_VALUE_TYPE) &&
-           VerifyOffset(verifier, VT_VALUE) &&
+           VerifyOffsetRequired(verifier, VT_VALUE) &&
            VerifyIntervalLiteralImpl(verifier, value(), value_type()) &&
            verifier.EndTable();
   }
@@ -1579,6 +1585,7 @@ struct IntervalLiteralBuilder {
   flatbuffers::Offset<IntervalLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<IntervalLiteral>(end);
+    fbb_.Required(o, IntervalLiteral::VT_VALUE);
     return o;
   }
 };
@@ -1655,7 +1662,7 @@ struct BinaryLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_VALUE) &&
+           VerifyOffsetRequired(verifier, VT_VALUE) &&
            verifier.VerifyVector(value()) &&
            verifier.EndTable();
   }
@@ -1676,6 +1683,7 @@ struct BinaryLiteralBuilder {
   flatbuffers::Offset<BinaryLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<BinaryLiteral>(end);
+    fbb_.Required(o, BinaryLiteral::VT_VALUE);
     return o;
   }
 };
@@ -1711,7 +1719,7 @@ struct FixedSizeBinaryLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_VALUE) &&
+           VerifyOffsetRequired(verifier, VT_VALUE) &&
            verifier.VerifyVector(value()) &&
            VerifyField<int32_t>(verifier, VT_SIZE) &&
            verifier.EndTable();
@@ -1736,6 +1744,7 @@ struct FixedSizeBinaryLiteralBuilder {
   flatbuffers::Offset<FixedSizeBinaryLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<FixedSizeBinaryLiteral>(end);
+    fbb_.Required(o, FixedSizeBinaryLiteral::VT_VALUE);
     return o;
   }
 };
@@ -1771,7 +1780,7 @@ struct StringLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_VALUE) &&
+           VerifyOffsetRequired(verifier, VT_VALUE) &&
            verifier.VerifyString(value()) &&
            verifier.EndTable();
   }
@@ -1792,6 +1801,7 @@ struct StringLiteralBuilder {
   flatbuffers::Offset<StringLiteral> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<StringLiteral>(end);
+    fbb_.Required(o, StringLiteral::VT_VALUE);
     return o;
   }
 };

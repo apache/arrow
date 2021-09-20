@@ -20,20 +20,20 @@ include "../../format/Schema.fbs";
 namespace org.apache.arrow.computeir.flatbuf;
 
 table ListLiteral {
-  values: [Literal];
+  values: [Literal] (required);
 }
 
 table StructLiteral {
-  values: [KeyValue];
+  values: [KeyValue] (required);
 }
 
 table KeyValue {
-  key: Literal;
-  value: Literal;
+  key: Literal (required);
+  value: Literal (required);
 }
 
 table MapLiteral {
-  values: [KeyValue];
+  values: [KeyValue] (required);
 }
 
 table Int8Literal {
@@ -82,7 +82,7 @@ table Float64Literal {
 
 table DecimalLiteral {
   /// These bytes must be in little-endian order.
-  value: [byte];
+  value: [byte] (required);
   scale: int32;
   precision: int32;
 }
@@ -138,7 +138,7 @@ union IntervalLiteralImpl {
 }
 
 table IntervalLiteral {
-  value: IntervalLiteralImpl;
+  value: IntervalLiteralImpl (required);
 }
 
 table DurationLiteral {
@@ -149,16 +149,16 @@ table DurationLiteral {
 }
 
 table BinaryLiteral {
-  value: [byte];
+  value: [byte] (required);
 }
 
 table FixedSizeBinaryLiteral {
-  value: [byte];
+  value: [byte] (required);
   size: int32;
 }
 
 table StringLiteral {
-  value: string;
+  value: string (required);
 }
 
 // no union literal is defined as only one branch of a union can be resolved.
