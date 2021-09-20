@@ -26,7 +26,7 @@ table StructLiteral {
 }
 
 table KeyValue {
-  key: string;
+  key: Literal;
   value: Literal;
 }
 

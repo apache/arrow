@@ -524,8 +524,8 @@ struct KeyValue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_KEY = 4,
     VT_VALUE = 6
   };
-  const flatbuffers::String *key() const {
-    return GetPointer<const flatbuffers::String *>(VT_KEY);
+  const org::apache::arrow::computeir::flatbuf::Literal *key() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::Literal *>(VT_KEY);
   }
   const org::apache::arrow::computeir::flatbuf::Literal *value() const {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::Literal *>(VT_VALUE);
@@ -533,7 +533,7 @@ struct KeyValue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_KEY) &&
-           verifier.VerifyString(key()) &&
+           verifier.VerifyTable(key()) &&
            VerifyOffset(verifier, VT_VALUE) &&
            verifier.VerifyTable(value()) &&
            verifier.EndTable();
@@ -544,7 +544,7 @@ struct KeyValueBuilder {
   typedef KeyValue Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_key(flatbuffers::Offset<flatbuffers::String> key) {
+  void add_key(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> key) {
     fbb_.AddOffset(KeyValue::VT_KEY, key);
   }
   void add_value(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> value) {
@@ -564,23 +564,12 @@ struct KeyValueBuilder {
 
 inline flatbuffers::Offset<KeyValue> CreateKeyValue(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> key = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> key = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> value = 0) {
   KeyValueBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_key(key);
   return builder_.Finish();
-}
-
-inline flatbuffers::Offset<KeyValue> CreateKeyValueDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const char *key = nullptr,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Literal> value = 0) {
-  auto key__ = key ? _fbb.CreateString(key) : 0;
-  return org::apache::arrow::computeir::flatbuf::CreateKeyValue(
-      _fbb,
-      key__,
-      value);
 }
 
 struct MapLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
