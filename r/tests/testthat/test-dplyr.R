@@ -1007,7 +1007,7 @@ test_that("ceiling(), floor(), trunc(), round()", {
   # with digits set to 1
   expect_dplyr_equal(
     input %>%
-      filter(x %% 0.5 == 0) %>%
+      filter(x %% 0.5 == 0) %>% # filter out indeterminate cases (see below)
       mutate(r = round(x, 1)) %>%
       collect(),
     df
@@ -1035,7 +1035,15 @@ test_that("ceiling(), floor(), trunc(), round()", {
       collect()
   )
 
-  # float representation error might cause inconsistency
+  # For consistency with base R, the binding for round() uses the Arrow
+  # library's HALF_TO_EVEN round mode, but the expectations *above* would pass
+  # even if another round mode were used. The expectations *below* should fail
+  # with other round modes. However, some decimal numbers cannot be represented
+  # exactly as floating point numbers, and for the ones that also end in 5 (such
+  # as 0.55), R's rounding behavior is indeterminate: it will vary depending on
+  # the OS. In practice, this seems to affect Windows, so we skip these tests
+  # on Windows and on CRAN.
+
   skip_on_cran()
   skip_on_os("windows")
 
@@ -1046,7 +1054,7 @@ test_that("ceiling(), floor(), trunc(), round()", {
     df
   )
 
-  # verify that round mode HALF_TO_EVEN which is what the round() binding uses
+  # Verify that round mode HALF_TO_EVEN, which is what the round() binding uses,
   # yields results consistent with R...
   expect_equal(
     as.vector(
@@ -1058,7 +1066,9 @@ test_that("ceiling(), floor(), trunc(), round()", {
     ),
     round(df$x, 1)
   )
-  # ... but round mode HALF_TOWARDS_ZERO does not.
+  # ...but that the round mode HALF_TOWARDS_ZERO does not. If the expectation
+  # below fails, it means that the expectation above is not effectively testing
+  # that Arrow is using the HALF_TO_EVEN mode.
   expect_false(
     isTRUE(all.equal(
       as.vector(
