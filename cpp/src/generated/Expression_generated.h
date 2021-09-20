@@ -402,13 +402,14 @@ struct MapKey FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_KEY = 4
   };
-  const flatbuffers::String *key() const {
-    return GetPointer<const flatbuffers::String *>(VT_KEY);
+  /// Any expression can be a map key.
+  const org::apache::arrow::computeir::flatbuf::Expression *key() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_KEY);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_KEY) &&
-           verifier.VerifyString(key()) &&
+           verifier.VerifyTable(key()) &&
            verifier.EndTable();
   }
 };
@@ -417,7 +418,7 @@ struct MapKeyBuilder {
   typedef MapKey Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_key(flatbuffers::Offset<flatbuffers::String> key) {
+  void add_key(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> key) {
     fbb_.AddOffset(MapKey::VT_KEY, key);
   }
   explicit MapKeyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -435,19 +436,10 @@ struct MapKeyBuilder {
 
 inline flatbuffers::Offset<MapKey> CreateMapKey(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> key = 0) {
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> key = 0) {
   MapKeyBuilder builder_(_fbb);
   builder_.add_key(key);
   return builder_.Finish();
-}
-
-inline flatbuffers::Offset<MapKey> CreateMapKeyDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const char *key = nullptr) {
-  auto key__ = key ? _fbb.CreateString(key) : 0;
-  return org::apache::arrow::computeir::flatbuf::CreateMapKey(
-      _fbb,
-      key__);
 }
 
 /// Struct field access

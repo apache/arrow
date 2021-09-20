@@ -22,7 +22,8 @@ namespace org.apache.arrow.computeir.flatbuf;
 
 /// Access a value for a given map key
 table MapKey {
-  key: string (required);
+  /// Any expression can be a map key.
+  key: Expression (required);
 }
 
 /// Struct field access
