@@ -1826,7 +1826,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CElementWiseAggregateOptions(c_bool skip_nulls)
         c_bool skip_nulls
 
-    cdef enum CRoundMode \
+    # TODO: using "ctypedef enum" because "RoundMode" is a scoped enum but
+    # Cython 0.29.x does not supports them completely. For Cython 3, we
+    # should be able to use "cpdef enum class CRoundMode(int8_t)".
+    ctypedef enum CRoundMode \
             "arrow::compute::RoundMode":
         CRoundMode_DOWN \
             "arrow::compute::RoundMode::DOWN"
@@ -2084,7 +2087,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_bool] field_nullability
         vector[shared_ptr[const CKeyValueMetadata]] field_metadata
 
-    cdef enum CSortOrder" arrow::compute::SortOrder":
+    # TODO: using "ctypedef enum" because "RoundMode" is a scoped enum but
+    # Cython 0.29.x does not supports them completely. For Cython 3, we
+    # should be able to use "cpdef enum class CRoundMode(int8_t)".
+    ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"
         CSortOrder_Descending \
