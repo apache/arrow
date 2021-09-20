@@ -77,6 +77,7 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
+            IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
@@ -107,6 +108,7 @@ namespace Apache.Arrow.Tests
             public void Visit(Date32Array array) => CompareArrays(array);
             public void Visit(Date64Array array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
+            public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
             public void Visit(Decimal128Array array) => CompareArrays(array);
             public void Visit(Decimal256Array array) => CompareArrays(array);
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
@@ -140,7 +142,6 @@ namespace Apache.Arrow.Tests
                 array.Dictionary.Accept(dictionaryComparer);
             }
 
-            public void Visit(FixedSizeBinaryType array) => throw new NotImplementedException();
             public void Visit(IArrowArray array) => throw new NotImplementedException();
 
             private void CompareBinaryArrays<T>(BinaryArray actualArray)

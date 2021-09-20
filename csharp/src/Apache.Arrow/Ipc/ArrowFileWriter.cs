@@ -162,8 +162,10 @@ namespace Apache.Arrow.Ipc
 
             Flatbuf.Footer.StartRecordBatchesVector(Builder, RecordBatchBlocks.Count);
 
-            foreach (Block recordBatch in RecordBatchBlocks)
+            // flatbuffer struct vectors have to be created in reverse order
+            for (int i = RecordBatchBlocks.Count - 1; i >= 0; i--)
             {
+                Block recordBatch = RecordBatchBlocks[i];
                 Flatbuf.Block.CreateBlock(
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
@@ -220,8 +222,10 @@ namespace Apache.Arrow.Ipc
 
             Flatbuf.Footer.StartRecordBatchesVector(Builder, RecordBatchBlocks.Count);
 
-            foreach (Block recordBatch in RecordBatchBlocks)
+            // flatbuffer struct vectors have to be created in reverse order
+            for (int i = RecordBatchBlocks.Count - 1; i >= 0; i--)
             {
+                Block recordBatch = RecordBatchBlocks[i];
                 Flatbuf.Block.CreateBlock(
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }

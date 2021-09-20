@@ -179,6 +179,9 @@ namespace Apache.Arrow.Ipc
                     return new Types.IntervalType(intervalMetadata.Unit.ToArrow());
                 case Flatbuf.Type.Utf8:
                     return new Types.StringType();
+                case Flatbuf.Type.FixedSizeBinary:
+                    Flatbuf.FixedSizeBinary fixedSizeBinaryMetadata = field.Type<Flatbuf.FixedSizeBinary>().Value;
+                    return new Types.FixedSizeBinaryType(fixedSizeBinaryMetadata.ByteWidth);
                 case Flatbuf.Type.Binary:
                     return Types.BinaryType.Default;
                 case Flatbuf.Type.List:
