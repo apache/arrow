@@ -195,7 +195,6 @@ ExecNode <- R6Class("ExecNode",
     # in the SinkNode (in ExecPlan$run())
     sort = NULL,
     preserve_sort = function(new_node) {
-      print(new_node$schema)
       new_node$sort <- self$sort
       new_node
     },

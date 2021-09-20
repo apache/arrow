@@ -209,15 +209,41 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
   for (auto&& name : left_output) {
     left_out_refs.emplace_back(std::move(name));
   }
-  for (auto&& name : right_output) {
-    right_out_refs.emplace_back(std::move(name));
+  if (type != 0 && type != 2) {
+    // Don't include out_refs in semi/anti join
+    for (auto&& name : right_output) {
+      right_out_refs.emplace_back(std::move(name));
+    }
+  }
+
+  // TODO: we should be able to use this enum directly
+  compute::JoinType join_type;
+  if (type == 0) {
+    join_type = compute::JoinType::LEFT_SEMI;
+  } else if (type == 1) {
+    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
+    join_type = compute::JoinType::RIGHT_SEMI;
+  } else if (type == 2) {
+    join_type = compute::JoinType::LEFT_ANTI;
+  } else if (type == 3) {
+    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
+    join_type = compute::JoinType::RIGHT_ANTI;
+  } else if (type == 4) {
+    join_type = compute::JoinType::INNER;
+  } else if (type == 5) {
+    join_type = compute::JoinType::LEFT_OUTER;
+  } else if (type == 6) {
+    join_type = compute::JoinType::RIGHT_OUTER;
+  } else if (type == 7) {
+    join_type = compute::JoinType::FULL_OUTER;
+  } else {
+    cpp11::stop("todo");
   }
 
   return MakeExecNodeOrStop(
       "hashjoin", input->plan(), {input.get(), right_data.get()},
-      compute::HashJoinNodeOptions{compute::JoinType::LEFT_OUTER, std::move(left_refs),
-                                   std::move(right_refs), std::move(left_out_refs),
-                                   std::move(right_out_refs)});
+      compute::HashJoinNodeOptions{join_type, std::move(left_refs), std::move(right_refs),
+                                   std::move(left_out_refs), std::move(right_out_refs)});
 }
 
 #endif

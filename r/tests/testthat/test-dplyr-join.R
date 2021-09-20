@@ -21,14 +21,12 @@ library(dplyr)
 
 left <- example_data
 # Error: Invalid: Dictionary type support for join output field is not yet implemented, output field reference: FieldRef.Name(fct) on left side of the join
-# (and select(-fct) doesn't solve this somehow)
+# (select(-fct) also solves this but remove once)
 left$fct <- NULL
 left$some_grouping <- rep(c(1, 2), 5)
 
 to_join <- tibble::tibble(
-  # Error: Invalid: Output field name collision in join, name: some_grouping
-  # (so call it something else)
-  the_grouping = c(1, 2),
+  some_grouping = c(1, 2),
   capital_letters = c("A", "B"),
   another_column = TRUE
 )
@@ -36,7 +34,74 @@ to_join <- tibble::tibble(
 test_that("left_join", {
   expect_dplyr_equal(
     input %>%
-      left_join(to_join, by = c(some_grouping = "the_grouping")) %>%
+      left_join(to_join) %>%
+      collect(),
+    left
+  )
+})
+
+test_that("left_join `by` args", {
+  expect_dplyr_equal(
+    input %>%
+      left_join(to_join, by = "some_grouping") %>%
+      collect(),
+    left
+  )
+  expect_dplyr_equal(
+    input %>%
+      left_join(
+        to_join %>%
+          rename(the_grouping = some_grouping),
+        by = c(some_grouping = "the_grouping")
+      ) %>%
+      collect(),
+    left
+  )
+})
+
+# TODO: test duplicate col names
+# TODO: test invalid 'by'
+
+test_that("right_join", {
+  expect_dplyr_equal(
+    input %>%
+      right_join(to_join) %>%
+      collect(),
+    left
+  )
+})
+
+test_that("inner_join", {
+  expect_dplyr_equal(
+    input %>%
+      inner_join(to_join) %>%
+      collect(),
+    left
+  )
+})
+
+test_that("full_join", {
+  expect_dplyr_equal(
+    input %>%
+      full_join(to_join) %>%
+      collect(),
+    left
+  )
+})
+
+test_that("semi_join", {
+  expect_dplyr_equal(
+    input %>%
+      semi_join(to_join) %>%
+      collect(),
+    left
+  )
+})
+
+test_that("anti_join", {
+  expect_dplyr_equal(
+    input %>%
+      anti_join(to_join) %>%
       collect(),
     left
   )
