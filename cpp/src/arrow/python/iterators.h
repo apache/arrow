@@ -18,7 +18,6 @@
 #pragma once
 
 #include <utility>
-#include <iostream>
 
 #include "arrow/python/common.h"
 #include "arrow/python/numpy_internal.h"
@@ -99,9 +98,6 @@ inline Status VisitSequence(PyObject* obj, int64_t offset, VisitorFunc&& func) {
 template <class VisitorFunc>
 inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
                                   VisitorFunc&& func) {
-
-  // std::cout << "ARRAY" << unwrap_array(mo).ValueOrDie()->data() << std::endl;
-
   if (PyArray_Check(mo)) {
     PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
     if (PyArray_NDIM(mask) != 1) {
@@ -124,7 +120,6 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
     }
   }
   else if (PySequence_Check(mo)) {
-    std::cout << "SEQ MASK" << std::endl;
     if (PySequence_Size(mo) != static_cast<int64_t>(PySequence_Size(obj))) {
       return Status::Invalid("Mask was a different length from sequence being converted");
     }
@@ -132,11 +127,20 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
     return VisitSequenceGeneric(
         obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
           OwnedRef value_ref(PySequence_ITEM(mo, i));
-          std::shared_ptr<Scalar> x = unwrap_scalar( value_ref.obj()).ValueOrDie();
-          BooleanScalar *z = dynamic_cast<BooleanScalar*>(x.get());
-
-          // std::cout << "CHECK " << value_ref.obj()->ob_type->tp_name << " " << PyObject_IsTrue(value_ref.obj()) << " " << z->value << std::endl;
-          return func(value, z->value, keep_going);
+          auto scalar = unwrap_scalar(value_ref.obj());
+          if (scalar.ok()) {
+            std::shared_ptr<Scalar> x = scalar.ValueOrDie();
+            BooleanScalar *z = dynamic_cast<BooleanScalar*>(x.get());
+            if (z == nullptr)
+              return Status::Invalid("Mask must be made of boolean values");
+            return func(value, z->value, keep_going);
+          }
+          else if (PyBool_Check(value_ref.obj())) {
+              return func(value, value_ref.obj() == Py_True, keep_going);
+          }
+          else {
+            return Status::Invalid("Mask must be made of boolean values");
+          }
     });
   }
   else {

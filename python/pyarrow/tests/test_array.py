@@ -2750,6 +2750,15 @@ def test_array_masked():
                    mask=pa.array([False, True, False, True]))
     assert arr.to_pylist() == [4, None, 4, None]
 
+    arr = pa.array([4, None, 4, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    with pytest.raises(pa.ArrowInvalid):
+        arr = pa.array([4, None, 4, 3],
+                    mask=pa.array([1.0, 2.0, 3.0, 4.0]))
+        assert arr.to_pylist() == [4, None, 4, None]
+
 
 def test_binary_array_masked():
     # ARROW-12431
