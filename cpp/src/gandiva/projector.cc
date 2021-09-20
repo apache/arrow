@@ -188,9 +188,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
   projector->get()->SetCompiledFromCache(llvm_flag);
-  ARROW_LOG(DEBUG)
-      << "[DEBUG][CACHE-LOG][INFO]: " +
-             shared_cache->ToString();
+  ARROW_LOG(DEBUG) << "[DEBUG][CACHE-LOG][INFO]: " + shared_cache->ToString();
 
   return Status::OK();
 }

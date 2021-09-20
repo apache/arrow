@@ -24,47 +24,47 @@
 #include "gandiva/filter.h"
 #include "gandiva/projector.h"
 
-    namespace gandiva {
+namespace gandiva {
 
-  class BaseCacheKey {
-   public:
-    BaseCacheKey(ProjectorCacheKey& key, std::string type) : type_(type) {
-      static const int32_t kSeedValue = 4;
-      size_t key_hash = key.Hash();
-      size_t result_hash = kSeedValue;
-      arrow::internal::hash_combine(result_hash, type);
-      arrow::internal::hash_combine(result_hash, key_hash);
-      hash_code_ = result_hash;
-      schema_ = key.schema();
+class BaseCacheKey {
+ public:
+  BaseCacheKey(ProjectorCacheKey& key, std::string type) : type_(type) {
+    static const int32_t kSeedValue = 4;
+    size_t key_hash = key.Hash();
+    size_t result_hash = kSeedValue;
+    arrow::internal::hash_combine(result_hash, type);
+    arrow::internal::hash_combine(result_hash, key_hash);
+    hash_code_ = result_hash;
+    schema_ = key.schema();
+  }
+
+  BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
+    static const size_t kSeedValue = 4;
+    size_t key_hash = key.Hash();
+    size_t result_hash = kSeedValue;
+    arrow::internal::hash_combine(result_hash, type);
+    arrow::internal::hash_combine(result_hash, key_hash);
+    hash_code_ = result_hash;
+    schema_ = key.schema();
+  }
+
+  size_t Hash() const { return hash_code_; }
+
+  std::string Type() const { return type_; }
+
+  bool operator==(const BaseCacheKey& other) const {
+    if (hash_code_ != other.hash_code_) {
+      return false;
     }
+    return true;
+  }
 
-    BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
-      static const size_t kSeedValue = 4;
-      size_t key_hash = key.Hash();
-      size_t result_hash = kSeedValue;
-      arrow::internal::hash_combine(result_hash, type);
-      arrow::internal::hash_combine(result_hash, key_hash);
-      hash_code_ = result_hash;
-      schema_ = key.schema();
-    }
+  bool operator!=(const BaseCacheKey& other) const { return !(*this == other); }
 
-    size_t Hash() const { return hash_code_; }
-
-    std::string Type() const { return type_; }
-
-    bool operator==(const BaseCacheKey& other) const {
-      if (hash_code_ != other.hash_code_) {
-        return false;
-      }
-      return true;
-    }
-
-    bool operator!=(const BaseCacheKey& other) const { return !(*this == other); }
-
-   private:
-    uint64_t hash_code_;
-    std::string type_;
-    SchemaPtr schema_;
-  };
+ private:
+  uint64_t hash_code_;
+  std::string type_;
+  SchemaPtr schema_;
+};
 
 }  // namespace gandiva
