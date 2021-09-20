@@ -116,7 +116,7 @@ def test_option_class_equality():
         pc.CountOptions(),
         pc.DayOfWeekOptions(one_based_numbering=False, week_start=0),
         pc.DictionaryEncodeOptions(),
-        pc.ElementWiseAggregateOptions(True),
+        pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
         pc.FilterOptions(),
         pc.IndexOptions(pa.scalar(1)),
@@ -574,9 +574,8 @@ def test_min_max():
         s = pc.min_max(data, options=options)
 
     # Missing argument
-    with pytest.raises(
-            ValueError,
-            match=r"Function min_max accepts 1 argument"):
+    with pytest.raises(ValueError,
+                       match="Function min_max accepts 1 argument"):
         s = pc.min_max()
 
 
@@ -1631,13 +1630,11 @@ def test_strftime():
     expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
 
     assert result.equals(expected)
-    with pytest.raises(
-            pa.ArrowInvalid,
-            match="Timezone not present, cannot convert to string"):
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Timezone not present, cannot convert to string"):
         pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
-    with pytest.raises(
-            pa.ArrowInvalid,
-            match="Timezone not present, cannot convert to string"):
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Timezone not present, cannot convert to string"):
         pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%z"))
 
 
@@ -1770,8 +1767,7 @@ def test_assume_timezone():
         assert result.equals(pa.array(expected))
 
         ta_zoned = pa.array(timestamps, type=pa.timestamp("ns", timezone))
-        with pytest.raises(pa.ArrowInvalid,
-                           match="already have a timezone:"):
+        with pytest.raises(pa.ArrowInvalid, match="already have a timezone:"):
             pc.assume_timezone(ta_zoned, options=options)
 
     invalid_options = pc.AssumeTimezoneOptions("Europe/Brusselsss")
@@ -1788,9 +1784,9 @@ def test_assume_timezone():
         options_nonexistent_latest = pc.AssumeTimezoneOptions(
             timezone, ambiguous="raise", nonexistent="latest")
 
-        with pytest.raises(
-                ValueError,
-                match=f"Timestamp doesn't exist in timezone '{timezone}'"):
+        with pytest.raises(ValueError,
+                           match="Timestamp doesn't exist in "
+                                 f"timezone '{timezone}'"):
             pc.assume_timezone(nonexistent_array,
                                options=options_nonexistent_raise)
 
@@ -1812,9 +1808,9 @@ def test_assume_timezone():
     options_ambiguous_earliest = pc.AssumeTimezoneOptions(
         timezone, ambiguous="earliest", nonexistent="raise")
 
-    with pytest.raises(
-            ValueError,
-            match=f"Timestamp is ambiguous in timezone '{timezone}'"):
+    with pytest.raises(ValueError,
+                       match="Timestamp is ambiguous in "
+                             f"timezone '{timezone}'"):
         pc.assume_timezone(ambiguous_array, options=options_ambiguous_raise)
 
     expected = ambiguous.tz_localize(timezone, ambiguous=[True, True, True])
@@ -1917,29 +1913,27 @@ def test_select_k_table():
         validate_select_k(result, table, sort_keys=[("a", "ascending")])
 
         result = pc.select_k_unstable(
-            table, k=k, sort_keys=[("a", "ascending"), ("b", "ascending")]
-        )
+            table, k=k, sort_keys=[("a", "ascending"), ("b", "ascending")])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")]
-        )
+            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
 
         result = pc.top_k_unstable(table, k=k, sort_keys=["a"])
         validate_select_k(result, table, sort_keys=[("a", "descending")])
 
         result = pc.bottom_k_unstable(table, k=k, sort_keys=["a", "b"])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")]
-        )
+            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
 
     with pytest.raises(ValueError,
                        match="select_k_unstable requires a nonnegative `k`"):
         pc.select_k_unstable(table)
 
-    with pytest.raises(ValueError, match="select_k_unstable requires "
-                       "a non-empty `sort_keys`"):
+    with pytest.raises(ValueError,
+                       match="select_k_unstable requires a "
+                             "non-empty `sort_keys`"):
         pc.select_k_unstable(table, k=2, sort_keys=[])
 
-    with pytest.raises(ValueError, match="not a valid 'sort order'"):
+    with pytest.raises(ValueError, match="not a valid sort order"):
         pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
 
     with pytest.raises(ValueError, match="Nonexistent sort key column"):
@@ -1955,7 +1949,7 @@ def test_array_sort_indices():
     result = pc.array_sort_indices(arr, order="descending")
     assert result.to_pylist() == [1, 0, 3, 2]
 
-    with pytest.raises(ValueError, match="not a valid 'sort order'"):
+    with pytest.raises(ValueError, match="not a valid sort order"):
         pc.array_sort_indices(arr, order="nonscending")
 
 
@@ -2062,8 +2056,7 @@ def test_quantile():
 
     with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
         pc.quantile(arr, q=1.1)
-    with pytest.raises(ValueError,
-                       match="not a valid 'quantile interpolation'"):
+    with pytest.raises(ValueError, match="not a valid quantile interpolation"):
         pc.quantile(arr, interpolation='zzz')
 
 
@@ -2137,8 +2130,8 @@ def test_make_struct():
                               [1, 2, 3],
                               "a b c".split()], names='0 1'.split())
 
-    with pytest.raises(ValueError, match="Array arguments must all "
-                                         "be the same length"):
+    with pytest.raises(ValueError,
+                       match="Array arguments must all be the same length"):
         pc.make_struct([1, 2, 3, 4], "a b c".split())
 
     with pytest.raises(ValueError, match="0 arguments but 2 field names"):

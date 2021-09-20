@@ -543,8 +543,8 @@ cdef class FunctionOptions(_Weakrefable):
         return self.get_options().Equals(deref(other.get_options()))
 
 
-def raise_invalid_function_option(value, description, *, error="keyword"):
-    raise ValueError(f"\"{value}\" is not a valid '{description}' {error}")
+def _raise_invalid_function_option(value, description, *, error="keyword"):
+    raise ValueError(f"\"{value}\" is not a valid {description} {error}")
 
 
 # NOTE:
@@ -682,7 +682,7 @@ cdef class _ElementWiseAggregateOptions(FunctionOptions):
 
 
 class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
-    def __init__(self, skip_nulls=True):
+    def __init__(self, *, skip_nulls=True):
         self._set_options(skip_nulls)
 
 
@@ -711,7 +711,7 @@ cdef CRoundMode unwrap_round_mode(round_mode) except *:
         return CRoundMode_HALF_TO_EVEN
     elif round_mode == "half_to_odd":
         return CRoundMode_HALF_TO_ODD
-    raise_invalid_function_option(round_mode, "round mode")
+    _raise_invalid_function_option(round_mode, "round mode")
 
 
 cdef class _RoundOptions(FunctionOptions):
@@ -750,7 +750,7 @@ cdef class _JoinOptions(FunctionOptions):
                 new CJoinOptions(self._null_handling_map[null_handling],
                                  tobytes(null_replacement)))
         except KeyError:
-            raise_invalid_function_option(null_handling, "null handling")
+            _raise_invalid_function_option(null_handling, "null handling")
 
 
 class JoinOptions(_JoinOptions):
@@ -845,8 +845,8 @@ cdef class _FilterOptions(FunctionOptions):
                 new CFilterOptions(
                     self._null_selection_map[null_selection_behavior]))
         except KeyError:
-            raise_invalid_function_option(null_selection_behavior,
-                                          "null selection behavior")
+            _raise_invalid_function_option(null_selection_behavior,
+                                           "null selection behavior")
 
 
 class FilterOptions(_FilterOptions):
@@ -866,7 +866,7 @@ cdef class _DictionaryEncodeOptions(FunctionOptions):
                 new CDictionaryEncodeOptions(
                     self._null_encoding_map[null_encoding]))
         except KeyError:
-            raise_invalid_function_option(null_encoding, "null encoding")
+            _raise_invalid_function_option(null_encoding, "null encoding")
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
@@ -940,7 +940,7 @@ cdef class _CountOptions(FunctionOptions):
         try:
             self.wrapped.reset(new CCountOptions(self._mode_map[mode]))
         except KeyError:
-            raise_invalid_function_option(mode, "count mode")
+            _raise_invalid_function_option(mode, "count mode")
 
 
 class CountOptions(_CountOptions):
@@ -988,7 +988,8 @@ cdef class _SetLookupOptions(FunctionOptions):
         elif isinstance(value_set, Scalar):
             valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
-            raise_invalid_function_option(value_set, "value set", error="type")
+            _raise_invalid_function_option(value_set, "value set",
+                                           error="type")
         self.wrapped.reset(new CSetLookupOptions(deref(valset), skip_nulls))
 
 
@@ -1010,7 +1011,7 @@ cdef class _StrptimeOptions(FunctionOptions):
             self.wrapped.reset(
                 new CStrptimeOptions(tobytes(format), self._unit_map[unit]))
         except KeyError:
-            raise_invalid_function_option(unit, "time unit")
+            _raise_invalid_function_option(unit, "time unit")
 
 
 class StrptimeOptions(_StrptimeOptions):
@@ -1054,9 +1055,9 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
 
     def _set_options(self, timezone, ambiguous, nonexistent):
         if ambiguous not in self._ambiguous_map:
-            raise_invalid_function_option(ambiguous, "ambiguous")
+            _raise_invalid_function_option(ambiguous, "ambiguous")
         if nonexistent not in self._nonexistent_map:
-            raise_invalid_function_option(nonexistent, "nonexistent")
+            _raise_invalid_function_option(nonexistent, "nonexistent")
         self.wrapped.reset(
             new CAssumeTimezoneOptions(tobytes(timezone),
                                        self._ambiguous_map[ambiguous],
@@ -1118,7 +1119,7 @@ cdef CSortOrder unwrap_sort_order(order) except *:
         return CSortOrder_Ascending
     elif order == "descending":
         return CSortOrder_Descending
-    raise_invalid_function_option(order, "sort order")
+    _raise_invalid_function_option(order, "sort order")
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -1174,7 +1175,7 @@ cdef class _QuantileOptions(FunctionOptions):
                 new CQuantileOptions(quantiles, self._interp_map[interp],
                                      skip_nulls, min_count))
         except KeyError:
-            raise_invalid_function_option(interp, "quantile interpolation")
+            _raise_invalid_function_option(interp, "quantile interpolation")
 
 
 class QuantileOptions(_QuantileOptions):
