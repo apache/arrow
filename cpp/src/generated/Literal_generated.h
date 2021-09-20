@@ -1033,18 +1033,18 @@ struct DecimalLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<int8_t> *value() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_VALUE);
   }
-  uint8_t scale() const {
-    return GetField<uint8_t>(VT_SCALE, 0);
+  int32_t scale() const {
+    return GetField<int32_t>(VT_SCALE, 0);
   }
-  uint8_t precision() const {
-    return GetField<uint8_t>(VT_PRECISION, 0);
+  int32_t precision() const {
+    return GetField<int32_t>(VT_PRECISION, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_VALUE) &&
            verifier.VerifyVector(value()) &&
-           VerifyField<uint8_t>(verifier, VT_SCALE) &&
-           VerifyField<uint8_t>(verifier, VT_PRECISION) &&
+           VerifyField<int32_t>(verifier, VT_SCALE) &&
+           VerifyField<int32_t>(verifier, VT_PRECISION) &&
            verifier.EndTable();
   }
 };
@@ -1056,11 +1056,11 @@ struct DecimalLiteralBuilder {
   void add_value(flatbuffers::Offset<flatbuffers::Vector<int8_t>> value) {
     fbb_.AddOffset(DecimalLiteral::VT_VALUE, value);
   }
-  void add_scale(uint8_t scale) {
-    fbb_.AddElement<uint8_t>(DecimalLiteral::VT_SCALE, scale, 0);
+  void add_scale(int32_t scale) {
+    fbb_.AddElement<int32_t>(DecimalLiteral::VT_SCALE, scale, 0);
   }
-  void add_precision(uint8_t precision) {
-    fbb_.AddElement<uint8_t>(DecimalLiteral::VT_PRECISION, precision, 0);
+  void add_precision(int32_t precision) {
+    fbb_.AddElement<int32_t>(DecimalLiteral::VT_PRECISION, precision, 0);
   }
   explicit DecimalLiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1077,20 +1077,20 @@ struct DecimalLiteralBuilder {
 inline flatbuffers::Offset<DecimalLiteral> CreateDecimalLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<int8_t>> value = 0,
-    uint8_t scale = 0,
-    uint8_t precision = 0) {
+    int32_t scale = 0,
+    int32_t precision = 0) {
   DecimalLiteralBuilder builder_(_fbb);
-  builder_.add_value(value);
   builder_.add_precision(precision);
   builder_.add_scale(scale);
+  builder_.add_value(value);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<DecimalLiteral> CreateDecimalLiteralDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<int8_t> *value = nullptr,
-    uint8_t scale = 0,
-    uint8_t precision = 0) {
+    int32_t scale = 0,
+    int32_t precision = 0) {
   auto value__ = value ? _fbb.CreateVector<int8_t>(*value) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateDecimalLiteral(
       _fbb,

@@ -82,8 +82,8 @@ table Float64Literal {
 
 table DecimalLiteral {
   value: [byte];
-  scale: uint8;
-  precision: uint8;
+  scale: int32;
+  precision: int32;
 }
 
 table BooleanLiteral {
