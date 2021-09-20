@@ -2745,7 +2745,7 @@ def test_array_masked():
                    mask=np.array([False, True, False, True]))
     assert arr.type == pa.int64()
 
-    # ARROW-13883
+    # ARROW-13883
     arr = pa.array([4, None, 4, 3],
                    mask=pa.array([False, True, False, True]))
     assert arr.to_pylist() == [4, None, 4, None]
@@ -2756,12 +2756,12 @@ def test_array_masked():
 
     with pytest.raises(pa.ArrowInvalid):
         arr = pa.array([4, None, 4, 3],
-                    mask=pa.array([1.0, 2.0, 3.0, 4.0]))
+                       mask=pa.array([1.0, 2.0, 3.0, 4.0]))
         assert arr.to_pylist() == [4, None, 4, None]
 
     with pytest.raises(pa.ArrowInvalid):
         arr = pa.array([4, None, 4, 3],
-                    mask=[1.0, 2.0, 3.0, 4.0])
+                       mask=[1.0, 2.0, 3.0, 4.0])
         assert arr.to_pylist() == [4, None, 4, None]
 
 
