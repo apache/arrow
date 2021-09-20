@@ -69,7 +69,6 @@ On Fedora Linux:
         gcc \
         gcc-c++ \
         make \
-        automake \
         cmake      
 
 On macOS, you can use `Homebrew <https://brew.sh/>`_:
