@@ -66,10 +66,10 @@ On Fedora Linux:
 .. code-block:: shell
 
    sudo dnf install \
+        cmake \
         gcc \
         gcc-c++ \
-        make \
-        cmake      
+        make
 
 On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
