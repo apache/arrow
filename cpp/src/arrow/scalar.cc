@@ -542,7 +542,7 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
 }
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
-    : Scalar(std::move(type)),
+    : internal::PrimitiveScalarBase(std::move(type)),
       value{MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).index_type()),
             MakeArrayOfNull(checked_cast<const DictionaryType&>(*this->type).value_type(),
                             0)
