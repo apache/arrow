@@ -67,7 +67,7 @@ test_that("distinct() can retain groups", {
       group_by(y = some_grouping, int) %>%
       distinct(x = lgl) %>%
       collect() %>%
-      arrange(lgl, int),
+      arrange(int),
     tbl
   )
 
@@ -95,7 +95,6 @@ test_that("distinct() can contain expressions", {
 
 test_that("distinct() can return all columns", {
   skip("ARROW-13993 - need this to return correct rows from other cols")
-
   expect_dplyr_equal(
     input %>%
       distinct(lgl, .keep_all = TRUE) %>%

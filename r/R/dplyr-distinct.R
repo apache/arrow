@@ -48,12 +48,12 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     .data <- dplyr::group_by(.data, !!!syms(names(.data)), .add = TRUE)
   }
 
-  .data <- dplyr::summarize(.data, .groups = "keep")
+  .data <- dplyr::summarize(.data, .groups = "drop")
 
   # If there were no vars supplied to distinct() but there were vars supplied
   # to group_by, we need to restore grouping which we removed earlier when
   # grouping by everything
-  if (!length(distinct_groups) && length(gv)) {
+  if (length(gv)) {
     .data$group_by_vars <- gv
   }
 
