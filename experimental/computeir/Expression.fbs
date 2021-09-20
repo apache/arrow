@@ -65,11 +65,10 @@ union Deref {
 
 /// Access the data of a field
 table FieldRef {
-  /// A sequence of field names to allow referencing potentially nested fields
   ref: Deref (required);
   /// For Expressions which might reference fields in multiple Relations,
   /// this index may be provided to indicate which Relation's fields
-  /// `path` points into. For example in the case of a join,
+  /// `ref` points into. For example in the case of a join,
   /// 0 refers to the left relation and 1 to the right relation.
   relation_index: int = 0;
 }

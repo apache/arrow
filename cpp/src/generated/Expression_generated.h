@@ -651,7 +651,6 @@ struct FieldRef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   org::apache::arrow::computeir::flatbuf::Deref ref_type() const {
     return static_cast<org::apache::arrow::computeir::flatbuf::Deref>(GetField<uint8_t>(VT_REF_TYPE, 0));
   }
-  /// A sequence of field names to allow referencing potentially nested fields
   const void *ref() const {
     return GetPointer<const void *>(VT_REF);
   }
@@ -673,7 +672,7 @@ struct FieldRef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   /// For Expressions which might reference fields in multiple Relations,
   /// this index may be provided to indicate which Relation's fields
-  /// `path` points into. For example in the case of a join,
+  /// `ref` points into. For example in the case of a join,
   /// 0 refers to the left relation and 1 to the right relation.
   int32_t relation_index() const {
     return GetField<int32_t>(VT_RELATION_INDEX, 0);
