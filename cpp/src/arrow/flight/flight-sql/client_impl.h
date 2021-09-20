@@ -67,7 +67,7 @@ Status FlightSqlClientT<T>::Execute(const FlightCallOptions& options,
 template <class T>
 Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
                                           const std::string& query,
-                                          std::unique_ptr<int64_t>* rows) const {
+                                          int64_t* rows) const {
   pb::sql::CommandStatementUpdate command;
   command.set_query(query);
 
@@ -88,9 +88,7 @@ Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
   const std::string& string = pBuffer->ToString();
 
   doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(string);
-  rows->reset(new int64_t);
-
-  **rows = doPutUpdateResult.record_count();
+  *rows = doPutUpdateResult.record_count();
 
   return Status::OK();
 }

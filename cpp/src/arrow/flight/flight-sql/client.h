@@ -50,7 +50,7 @@ class FlightSqlClientT {
   /// \param[out] rows        The quantity of rows affected by the operation.
   /// \return Status.
   Status ExecuteUpdate(const FlightCallOptions& options, const std::string& query,
-                       std::unique_ptr<int64_t>* rows) const;
+                       int64_t* rows) const;
 
   /// \brief Request a list of catalogs.
   /// \param[in] options      RPC-layer hints for this call.
