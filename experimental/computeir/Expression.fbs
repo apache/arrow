@@ -45,8 +45,8 @@ table ArraySlice {
   end_exclusive: uint32;
 }
 
-/// Field name in a relation
-table FieldName {
+/// Field name in a relation, in ordinal position of the relation's schema.
+table FieldIndex {
   position: uint32;
 }
 
@@ -61,7 +61,7 @@ union Deref {
   /// Access a range of elements in an array
   ArraySlice,
   /// Access a field of a relation
-  FieldName,
+  FieldIndex,
 }
 
 /// Access the data of a field

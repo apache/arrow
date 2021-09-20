@@ -29,7 +29,7 @@ namespace org.apache.arrow.computeir.flatbuf;
 /// Given a query `SELECT b, a FROM t` where `t` has columns a, b, c
 /// the mapping value for the projection would equal [1, 0].
 table Remap {
-  mapping: [uint32] (required);
+  mapping: [FieldIndex] (required);
 }
 
 // Pass through indicates that no output remapping should occur.

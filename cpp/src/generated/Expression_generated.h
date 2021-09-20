@@ -27,8 +27,8 @@ struct ArraySubscriptBuilder;
 struct ArraySlice;
 struct ArraySliceBuilder;
 
-struct FieldName;
-struct FieldNameBuilder;
+struct FieldIndex;
+struct FieldIndexBuilder;
 
 struct FieldRef;
 struct FieldRefBuilder;
@@ -78,9 +78,9 @@ enum class Deref : uint8_t {
   /// Access a range of elements in an array
   ArraySlice = 4,
   /// Access a field of a relation
-  FieldName = 5,
+  FieldIndex = 5,
   MIN = NONE,
-  MAX = FieldName
+  MAX = FieldIndex
 };
 
 inline const Deref (&EnumValuesDeref())[6] {
@@ -90,7 +90,7 @@ inline const Deref (&EnumValuesDeref())[6] {
     Deref::StructField,
     Deref::ArraySubscript,
     Deref::ArraySlice,
-    Deref::FieldName
+    Deref::FieldIndex
   };
   return values;
 }
@@ -102,14 +102,14 @@ inline const char * const *EnumNamesDeref() {
     "StructField",
     "ArraySubscript",
     "ArraySlice",
-    "FieldName",
+    "FieldIndex",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameDeref(Deref e) {
-  if (flatbuffers::IsOutRange(e, Deref::NONE, Deref::FieldName)) return "";
+  if (flatbuffers::IsOutRange(e, Deref::NONE, Deref::FieldIndex)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesDeref()[index];
 }
@@ -134,8 +134,8 @@ template<> struct DerefTraits<org::apache::arrow::computeir::flatbuf::ArraySlice
   static const Deref enum_value = Deref::ArraySlice;
 };
 
-template<> struct DerefTraits<org::apache::arrow::computeir::flatbuf::FieldName> {
-  static const Deref enum_value = Deref::FieldName;
+template<> struct DerefTraits<org::apache::arrow::computeir::flatbuf::FieldIndex> {
+  static const Deref enum_value = Deref::FieldIndex;
 };
 
 bool VerifyDeref(flatbuffers::Verifier &verifier, const void *obj, Deref type);
@@ -584,9 +584,9 @@ inline flatbuffers::Offset<ArraySlice> CreateArraySlice(
   return builder_.Finish();
 }
 
-/// Field name in a relation
-struct FieldName FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef FieldNameBuilder Builder;
+/// Field name in a relation, in ordinal position of the relation's schema.
+struct FieldIndex FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef FieldIndexBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POSITION = 4
   };
@@ -600,29 +600,29 @@ struct FieldName FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct FieldNameBuilder {
-  typedef FieldName Table;
+struct FieldIndexBuilder {
+  typedef FieldIndex Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_position(uint32_t position) {
-    fbb_.AddElement<uint32_t>(FieldName::VT_POSITION, position, 0);
+    fbb_.AddElement<uint32_t>(FieldIndex::VT_POSITION, position, 0);
   }
-  explicit FieldNameBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit FieldIndexBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  FieldNameBuilder &operator=(const FieldNameBuilder &);
-  flatbuffers::Offset<FieldName> Finish() {
+  FieldIndexBuilder &operator=(const FieldIndexBuilder &);
+  flatbuffers::Offset<FieldIndex> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<FieldName>(end);
+    auto o = flatbuffers::Offset<FieldIndex>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<FieldName> CreateFieldName(
+inline flatbuffers::Offset<FieldIndex> CreateFieldIndex(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t position = 0) {
-  FieldNameBuilder builder_(_fbb);
+  FieldIndexBuilder builder_(_fbb);
   builder_.add_position(position);
   return builder_.Finish();
 }
@@ -654,8 +654,8 @@ struct FieldRef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::ArraySlice *ref_as_ArraySlice() const {
     return ref_type() == org::apache::arrow::computeir::flatbuf::Deref::ArraySlice ? static_cast<const org::apache::arrow::computeir::flatbuf::ArraySlice *>(ref()) : nullptr;
   }
-  const org::apache::arrow::computeir::flatbuf::FieldName *ref_as_FieldName() const {
-    return ref_type() == org::apache::arrow::computeir::flatbuf::Deref::FieldName ? static_cast<const org::apache::arrow::computeir::flatbuf::FieldName *>(ref()) : nullptr;
+  const org::apache::arrow::computeir::flatbuf::FieldIndex *ref_as_FieldIndex() const {
+    return ref_type() == org::apache::arrow::computeir::flatbuf::Deref::FieldIndex ? static_cast<const org::apache::arrow::computeir::flatbuf::FieldIndex *>(ref()) : nullptr;
   }
   /// For Expressions which might reference fields in multiple Relations,
   /// this index may be provided to indicate which Relation's fields
@@ -690,8 +690,8 @@ template<> inline const org::apache::arrow::computeir::flatbuf::ArraySlice *Fiel
   return ref_as_ArraySlice();
 }
 
-template<> inline const org::apache::arrow::computeir::flatbuf::FieldName *FieldRef::ref_as<org::apache::arrow::computeir::flatbuf::FieldName>() const {
-  return ref_as_FieldName();
+template<> inline const org::apache::arrow::computeir::flatbuf::FieldIndex *FieldRef::ref_as<org::apache::arrow::computeir::flatbuf::FieldIndex>() const {
+  return ref_as_FieldIndex();
 }
 
 struct FieldRefBuilder {
@@ -1620,8 +1620,8 @@ inline bool VerifyDeref(flatbuffers::Verifier &verifier, const void *obj, Deref 
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::ArraySlice *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Deref::FieldName: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::FieldName *>(obj);
+    case Deref::FieldIndex: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::FieldIndex *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

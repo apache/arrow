@@ -292,13 +292,14 @@ struct Remap FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MAPPING = 4
   };
-  const flatbuffers::Vector<uint32_t> *mapping() const {
-    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_MAPPING);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *mapping() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *>(VT_MAPPING);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_MAPPING) &&
            verifier.VerifyVector(mapping()) &&
+           verifier.VerifyVectorOfTables(mapping()) &&
            verifier.EndTable();
   }
 };
@@ -307,7 +308,7 @@ struct RemapBuilder {
   typedef Remap Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_mapping(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> mapping) {
+  void add_mapping(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> mapping) {
     fbb_.AddOffset(Remap::VT_MAPPING, mapping);
   }
   explicit RemapBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -325,7 +326,7 @@ struct RemapBuilder {
 
 inline flatbuffers::Offset<Remap> CreateRemap(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> mapping = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> mapping = 0) {
   RemapBuilder builder_(_fbb);
   builder_.add_mapping(mapping);
   return builder_.Finish();
@@ -333,8 +334,8 @@ inline flatbuffers::Offset<Remap> CreateRemap(
 
 inline flatbuffers::Offset<Remap> CreateRemapDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint32_t> *mapping = nullptr) {
-  auto mapping__ = mapping ? _fbb.CreateVector<uint32_t>(*mapping) : 0;
+    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *mapping = nullptr) {
+  auto mapping__ = mapping ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>(*mapping) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateRemap(
       _fbb,
       mapping__);
