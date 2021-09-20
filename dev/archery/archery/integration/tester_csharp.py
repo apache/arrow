@@ -26,12 +26,12 @@ class CSharpTester(Tester):
     CONSUMER = True
 
     EXE_PATH = os.path.join(
-        ARROW_ROOT_DEFAULT, 'csharp/artifacts/Apache.Arrow.IntegrationTest/Debug/netcoreapp3.1/Apache.Arrow.IntegrationTester.exe')
+        ARROW_ROOT_DEFAULT, 'csharp/artifacts/Apache.Arrow.IntegrationTest/Debug/netcoreapp3.1/Apache.Arrow.IntegrationTest')
 
     name = 'csharp'
 
     def _run(self, json_path=None, arrow_path=None, command='validate'):
-        cmd = [EXE_PATH]
+        cmd = [self.EXE_PATH]
 
         cmd.extend(['--mode', command])
 
@@ -47,19 +47,19 @@ class CSharpTester(Tester):
         run_cmd(cmd)
 
     def validate(self, json_path, arrow_path):
-        return self._run('validate', json_path, arrow_path)
+        return self._run(json_path, arrow_path, 'validate')
 
     def json_to_file(self, json_path, arrow_path):
-        return self._run('json-to-arrow', json_path, arrow_path)
+        return self._run(json_path, arrow_path, 'json-to-arrow')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = [EXE_PATH]
+        cmd = [self.EXE_PATH]
         cmd.extend(['--mode', 'stream-to-file'])
         cmd.extend(['<', stream_path, '>', file_path])
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = [EXE_PATH]
+        cmd = [self.EXE_PATH]
         cmd.extend(['--mode', 'file-to-stream'])
         cmd.extend(['-f', file_path, '>', stream_path])
         self.run_shell_command(cmd)

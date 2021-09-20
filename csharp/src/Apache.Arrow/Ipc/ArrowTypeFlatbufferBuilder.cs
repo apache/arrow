@@ -213,10 +213,9 @@ namespace Apache.Arrow.Ipc
             
             public void Visit(FixedSizeBinaryType type)
             {
-                Flatbuf.FixedSizeBinary.StartFixedSizeBinary(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.FixedSizeBinary,
-                    Flatbuf.FixedSizeBinary.EndFixedSizeBinary(Builder));
+                    Flatbuf.FixedSizeBinary.CreateFixedSizeBinary(Builder, type.ByteWidth));
             }
 
             public void Visit(IArrowType type)

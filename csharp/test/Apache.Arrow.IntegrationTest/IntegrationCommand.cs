@@ -39,9 +39,9 @@ namespace Apache.Arrow.IntegrationTest
             ArrowFileInfo = arrowFileInfo;
         }
 
-        public async Task Execute()
+        public async Task<int> Execute()
         {
-            Func<Task> commandDelegate = Mode switch
+            Func<Task<int>> commandDelegate = Mode switch
             {
                 "validate" => Validate,
                 "json-to-arrow" => JsonToArrow,
@@ -50,18 +50,18 @@ namespace Apache.Arrow.IntegrationTest
                 _ => () =>
                 {
                     Console.WriteLine($"Mode '{Mode}' is not supported.");
-                    return Task.CompletedTask;
+                    return Task.FromResult(-1);
                 }
             };
-            await commandDelegate();
+            return await commandDelegate();
         }
 
-        private Task Validate()
+        private Task<int> Validate()
         {
-            return Task.CompletedTask;
+            return Task.FromResult(0);
         }
 
-        private async Task JsonToArrow()
+        private async Task<int> JsonToArrow()
         {
             JsonFile jsonFile = await ParseJsonFile();
             Schema schema = CreateSchema(jsonFile.Schema);
@@ -75,7 +75,10 @@ namespace Apache.Arrow.IntegrationTest
                     await writer.WriteRecordBatchAsync(batch);
                 }
                 await writer.WriteEndAsync();
+                await fs.FlushAsync();
             }
+
+            return 0;
         }
 
         private RecordBatch CreateRecordBatch(Schema schema, JsonRecordBatch jsonRecordBatch)
@@ -130,6 +133,9 @@ namespace Apache.Arrow.IntegrationTest
                 "binary" => BinaryType.Default,
                 "utf8" => StringType.Default,
                 "fixedsizebinary" => new FixedSizeBinaryType(type.ByteWidth),
+                "date" => ToDateArrowType(type),
+                "time" => ToTimeArrowType(type),
+                "timestamp" => ToTimestampArrowType(type),
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
         }
@@ -157,6 +163,44 @@ namespace Apache.Arrow.IntegrationTest
                 "SINGLE" => FloatType.Default,
                 "DOUBLE" => DoubleType.Default,
                 _ => throw new NotSupportedException($"FloatingPoint type not supported: {type.Precision}")
+            };
+        }
+
+        private static IArrowType ToDateArrowType(JsonArrowType type)
+        {
+            return type.Unit switch
+            {
+                "DAY" => Date32Type.Default,
+                "MILLISECOND" => Date64Type.Default,
+                _ => throw new NotSupportedException($"Date type not supported: {type.Unit}")
+            };
+        }
+
+        private static IArrowType ToTimeArrowType(JsonArrowType type)
+        {
+            return (type.Unit, type.BitWidth) switch
+            {
+                ("SECOND", 32) => new Time32Type(TimeUnit.Second),
+                ("SECOND", 64) => new Time64Type(TimeUnit.Second),
+                ("MILLISECOND", 32) => new Time32Type(TimeUnit.Millisecond),
+                ("MILLISECOND", 64) => new Time64Type(TimeUnit.Millisecond),
+                ("MICROSECOND", 32) => new Time32Type(TimeUnit.Microsecond),
+                ("MICROSECOND", 64) => new Time64Type(TimeUnit.Microsecond),
+                ("NANOSECOND", 32) => new Time32Type(TimeUnit.Nanosecond),
+                ("NANOSECOND", 64) => new Time64Type(TimeUnit.Nanosecond),
+                _ => throw new NotSupportedException($"Time type not supported: {type.Unit}, {type.BitWidth}")
+            };
+        }
+
+        private static IArrowType ToTimestampArrowType(JsonArrowType type)
+        {
+            return type.Unit switch
+            {
+                "SECOND" => new TimestampType(TimeUnit.Second, type.Timezone),
+                "MILLISECOND" => new TimestampType(TimeUnit.Millisecond, type.Timezone),
+                "MICROSECOND" => new TimestampType(TimeUnit.Microsecond, type.Timezone),
+                "NANOSECOND" => new TimestampType(TimeUnit.Nanosecond, type.Timezone),
+                _ => throw new NotSupportedException($"Time type not supported: {type.Unit}, {type.BitWidth}")
             };
         }
 
@@ -233,12 +277,40 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(Date32Type type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrowBuffer.Builder<int> valueBuilder = new ArrowBuffer.Builder<int>(JsonFieldData.Count);
+                var json = JsonFieldData.Data.GetRawText();
+                int[] values = JsonSerializer.Deserialize<int[]>(json, s_options);
+
+                foreach (int value in values)
+                {
+                    valueBuilder.Append(value);
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build();
+
+                Array = new Date32Array(
+                    valueBuffer, validityBuffer,
+                    JsonFieldData.Count, nullCount, 0);
             }
 
             public void Visit(Date64Type type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrowBuffer.Builder<long> valueBuilder = new ArrowBuffer.Builder<long>(JsonFieldData.Count);
+                var json = JsonFieldData.Data.GetRawText();
+                string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
+
+                foreach (string value in values)
+                {
+                    valueBuilder.Append(long.Parse(value));
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build();
+
+                Array = new Date64Array(
+                    valueBuffer, validityBuffer,
+                    JsonFieldData.Count, nullCount, 0);
             }
 
             public void Visit(TimestampType type)
@@ -400,14 +472,14 @@ namespace Apache.Arrow.IntegrationTest
             }
         }
 
-        private Task StreamToFile()
+        private Task<int> StreamToFile()
         {
-            return Task.CompletedTask;
+            return Task.FromResult(0);
         }
 
-        private Task FileToStream()
+        private Task<int> FileToStream()
         {
-            return Task.CompletedTask;
+            return Task.FromResult(0);
         }
 
         private async ValueTask<JsonFile> ParseJsonFile()
