@@ -1727,7 +1727,7 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(list schemas):
+def unify_schemas(schemas):
     """
     Unify schemas by merging fields by name.
 
