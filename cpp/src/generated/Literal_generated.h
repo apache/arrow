@@ -83,6 +83,9 @@ struct IntervalLiteralMonthsBuilder;
 struct IntervalLiteralDaysMilliseconds;
 struct IntervalLiteralDaysMillisecondsBuilder;
 
+struct IntervalLiteralDaysNanoseconds;
+struct IntervalLiteralDaysNanosecondsBuilder;
+
 struct IntervalLiteral;
 struct IntervalLiteralBuilder;
 
@@ -102,31 +105,34 @@ enum class IntervalLiteralImpl : uint8_t {
   NONE = 0,
   IntervalLiteralMonths = 1,
   IntervalLiteralDaysMilliseconds = 2,
+  IntervalLiteralDaysNanoseconds = 3,
   MIN = NONE,
-  MAX = IntervalLiteralDaysMilliseconds
+  MAX = IntervalLiteralDaysNanoseconds
 };
 
-inline const IntervalLiteralImpl (&EnumValuesIntervalLiteralImpl())[3] {
+inline const IntervalLiteralImpl (&EnumValuesIntervalLiteralImpl())[4] {
   static const IntervalLiteralImpl values[] = {
     IntervalLiteralImpl::NONE,
     IntervalLiteralImpl::IntervalLiteralMonths,
-    IntervalLiteralImpl::IntervalLiteralDaysMilliseconds
+    IntervalLiteralImpl::IntervalLiteralDaysMilliseconds,
+    IntervalLiteralImpl::IntervalLiteralDaysNanoseconds
   };
   return values;
 }
 
 inline const char * const *EnumNamesIntervalLiteralImpl() {
-  static const char * const names[4] = {
+  static const char * const names[5] = {
     "NONE",
     "IntervalLiteralMonths",
     "IntervalLiteralDaysMilliseconds",
+    "IntervalLiteralDaysNanoseconds",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameIntervalLiteralImpl(IntervalLiteralImpl e) {
-  if (flatbuffers::IsOutRange(e, IntervalLiteralImpl::NONE, IntervalLiteralImpl::IntervalLiteralDaysMilliseconds)) return "";
+  if (flatbuffers::IsOutRange(e, IntervalLiteralImpl::NONE, IntervalLiteralImpl::IntervalLiteralDaysNanoseconds)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesIntervalLiteralImpl()[index];
 }
@@ -141,6 +147,10 @@ template<> struct IntervalLiteralImplTraits<org::apache::arrow::computeir::flatb
 
 template<> struct IntervalLiteralImplTraits<org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysMilliseconds> {
   static const IntervalLiteralImpl enum_value = IntervalLiteralImpl::IntervalLiteralDaysMilliseconds;
+};
+
+template<> struct IntervalLiteralImplTraits<org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysNanoseconds> {
+  static const IntervalLiteralImpl enum_value = IntervalLiteralImpl::IntervalLiteralDaysNanoseconds;
 };
 
 bool VerifyIntervalLiteralImpl(flatbuffers::Verifier &verifier, const void *obj, IntervalLiteralImpl type);
@@ -1445,6 +1455,58 @@ inline flatbuffers::Offset<IntervalLiteralDaysMilliseconds> CreateIntervalLitera
   return builder_.Finish();
 }
 
+struct IntervalLiteralDaysNanoseconds FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef IntervalLiteralDaysNanosecondsBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_DAYS = 4,
+    VT_NANOSECONDS = 6
+  };
+  int32_t days() const {
+    return GetField<int32_t>(VT_DAYS, 0);
+  }
+  int64_t nanoseconds() const {
+    return GetField<int64_t>(VT_NANOSECONDS, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_DAYS) &&
+           VerifyField<int64_t>(verifier, VT_NANOSECONDS) &&
+           verifier.EndTable();
+  }
+};
+
+struct IntervalLiteralDaysNanosecondsBuilder {
+  typedef IntervalLiteralDaysNanoseconds Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_days(int32_t days) {
+    fbb_.AddElement<int32_t>(IntervalLiteralDaysNanoseconds::VT_DAYS, days, 0);
+  }
+  void add_nanoseconds(int64_t nanoseconds) {
+    fbb_.AddElement<int64_t>(IntervalLiteralDaysNanoseconds::VT_NANOSECONDS, nanoseconds, 0);
+  }
+  explicit IntervalLiteralDaysNanosecondsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  IntervalLiteralDaysNanosecondsBuilder &operator=(const IntervalLiteralDaysNanosecondsBuilder &);
+  flatbuffers::Offset<IntervalLiteralDaysNanoseconds> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<IntervalLiteralDaysNanoseconds>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<IntervalLiteralDaysNanoseconds> CreateIntervalLiteralDaysNanoseconds(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t days = 0,
+    int64_t nanoseconds = 0) {
+  IntervalLiteralDaysNanosecondsBuilder builder_(_fbb);
+  builder_.add_nanoseconds(nanoseconds);
+  builder_.add_days(days);
+  return builder_.Finish();
+}
+
 struct IntervalLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef IntervalLiteralBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1464,6 +1526,9 @@ struct IntervalLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysMilliseconds *value_as_IntervalLiteralDaysMilliseconds() const {
     return value_type() == org::apache::arrow::computeir::flatbuf::IntervalLiteralImpl::IntervalLiteralDaysMilliseconds ? static_cast<const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysMilliseconds *>(value()) : nullptr;
   }
+  const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysNanoseconds *value_as_IntervalLiteralDaysNanoseconds() const {
+    return value_type() == org::apache::arrow::computeir::flatbuf::IntervalLiteralImpl::IntervalLiteralDaysNanoseconds ? static_cast<const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysNanoseconds *>(value()) : nullptr;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_VALUE_TYPE) &&
@@ -1479,6 +1544,10 @@ template<> inline const org::apache::arrow::computeir::flatbuf::IntervalLiteralM
 
 template<> inline const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysMilliseconds *IntervalLiteral::value_as<org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysMilliseconds>() const {
   return value_as_IntervalLiteralDaysMilliseconds();
+}
+
+template<> inline const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysNanoseconds *IntervalLiteral::value_as<org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysNanoseconds>() const {
+  return value_as_IntervalLiteralDaysNanoseconds();
 }
 
 struct IntervalLiteralBuilder {
@@ -1903,6 +1972,10 @@ inline bool VerifyIntervalLiteralImpl(flatbuffers::Verifier &verifier, const voi
     }
     case IntervalLiteralImpl::IntervalLiteralDaysMilliseconds: {
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysMilliseconds *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case IntervalLiteralImpl::IntervalLiteralDaysNanoseconds: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::IntervalLiteralDaysNanoseconds *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

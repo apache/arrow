@@ -125,9 +125,15 @@ table IntervalLiteralDaysMilliseconds {
   milliseconds: int32;
 }
 
+table IntervalLiteralDaysNanoseconds {
+  days: int32;
+  nanoseconds: int64;
+}
+
 union IntervalLiteralImpl {
   IntervalLiteralMonths,
   IntervalLiteralDaysMilliseconds,
+  IntervalLiteralDaysNanoseconds,
 }
 
 table IntervalLiteral {
