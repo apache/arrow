@@ -442,7 +442,7 @@ public class TestBaseAllocator {
   }
 
   @Test
-  public void testAllocationManagerRequestedSizeAndGrantedSize1() {
+  public void testDifferentGrantedSize() {
     // actual size is different from request size
     final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(16, MAX_ALLOCATION);
     final ArrowBuf arrowBuf = allocator.buffer(1024L);
@@ -453,7 +453,7 @@ public class TestBaseAllocator {
   }
 
   @Test
-  public void testAllocationManagerRequestedSizeAndGrantedSize2() {
+  public void testLargerGrantedSize() {
     // actual size is larger than request size
     final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(1024, MAX_ALLOCATION);
     final ArrowBuf arrowBuf = allocator.buffer(16L);
@@ -464,19 +464,18 @@ public class TestBaseAllocator {
   }
 
   @Test
-  public void testAllocationManagerRequestedSizeAndGrantedSize3() {
+  public void testLargerGrantedSizeOverLimit() {
     // actual size is larger than request size, and is beyond allocation limit
     final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(1024, 1023);
     assertThrows(OutOfMemoryException.class, () -> {
       allocator.buffer(16L); // should throw exception
-      fail();
     });
     assertEquals(0L, allocator.getAllocatedMemory());
     assertDoesNotThrow(() -> AutoCloseables.close(allocator));
   }
 
   @Test
-  public void testAllocationManagerRequestedSizeAndGrantedSize4() {
+  public void testDifferentGrantedSizeTransfer() {
     // actual size is different from request size, then transfer balance.
     final BaseAllocator root = createAllocatorWithFixedSizeAllocationManager(16, MAX_ALLOCATION);
     final BufferAllocator c1 = root.newChildAllocator("child1", 0, MAX_ALLOCATION);
