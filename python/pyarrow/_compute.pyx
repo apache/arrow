@@ -910,7 +910,8 @@ cdef class _MakeStructOptions(FunctionOptions):
 
 
 class MakeStructOptions(_MakeStructOptions):
-    def __init__(self, field_names, field_nullability=None, field_metadata=None):
+    def __init__(self, field_names, field_nullability=None,
+                 field_metadata=None):
         if field_nullability is None:
             field_nullability = [True] * len(field_names)
         if field_metadata is None:
