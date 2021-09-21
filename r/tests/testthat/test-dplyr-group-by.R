@@ -28,8 +28,7 @@ test_that("group_by groupings are recorded", {
       group_by(chr) %>%
       select(int, chr) %>%
       filter(int > 5) %>%
-      collect() %>%
-      summarize(min_int = min(int)),
+      collect(),
     tbl
   )
 })
