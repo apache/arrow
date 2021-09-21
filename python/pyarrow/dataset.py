@@ -731,7 +731,9 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         keyword is required.
     partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the ``partitioning()``
-        function or a list of field names.
+        function or a list of field names. When providing a list of
+        field names, you can use ``partitioning_flavor`` to drive which
+        partitioning type should be used.
     partitioning_flavor : str, optional
         One of the partitioning flavors supported by
         ``pyarrow.dataset.partitioning``. If omitted will use the
