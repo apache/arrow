@@ -27,14 +27,19 @@ Aggregations
 .. autosummary::
    :toctree: ../generated/
 
+   approximate_median
    count
    index
+   max
    mean
+   min
    min_max
    mode
    product
+   quantile
    stddev
    sum
+   tdigest
    variance
 
 Arithmetic Functions
