@@ -104,7 +104,6 @@ x-hierarchy:
         - conda-python-dask
         - conda-python-hdfs
         - conda-python-jpype
-        - conda-python-minio
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
@@ -967,33 +966,6 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
-
-  conda-python-minio:
-    # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose run --rm conda-python-minio
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-minio
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-minio
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-      ARROW_FLIGHT: "OFF"
-      ARROW_GANDIVA: "OFF"
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_minio.sh /arrow /build"]
 
   conda-python-turbodbc:
     # Possible $TURBODBC parameters:

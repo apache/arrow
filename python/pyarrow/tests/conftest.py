@@ -292,7 +292,11 @@ def s3_server(s3_connection):
         except OSError:
             pytest.skip('`minio` command cannot be located')
         else:
-            yield proc
+            yield {
+                'connection': s3_connection,
+                'process': proc,
+                'tempdir': tempdir
+            }
         finally:
             if proc is not None:
                 proc.kill()
