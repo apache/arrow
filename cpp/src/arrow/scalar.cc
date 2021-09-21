@@ -599,8 +599,9 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
 std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
                                                          std::shared_ptr<Array> dict) {
   auto type = dictionary(index->type, dict->type());
+  auto is_valid = index->is_valid;
   return std::make_shared<DictionaryScalar>(ValueType{std::move(index), std::move(dict)},
-                                            std::move(type));
+                                            std::move(type), is_valid);
 }
 
 namespace {

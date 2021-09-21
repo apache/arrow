@@ -339,6 +339,11 @@ std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
                                        util::string_view json);
 
 ARROW_TESTING_EXPORT
+std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>&,
+                                           util::string_view index_json,
+                                           util::string_view dictionary_json);
+
+ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
                                      const std::vector<std::string>& json);
 

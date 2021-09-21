@@ -446,6 +446,15 @@ std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
   return out;
 }
 
+std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
+                                           util::string_view index_json,
+                                           util::string_view dictionary_json) {
+  std::shared_ptr<Scalar> out;
+  ABORT_NOT_OK(
+      ipc::internal::json::DictScalarFromJSON(type, index_json, dictionary_json, &out));
+  return out;
+}
+
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
                                      const std::vector<std::string>& json) {
   std::vector<std::shared_ptr<RecordBatch>> batches;
