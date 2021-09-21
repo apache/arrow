@@ -1195,8 +1195,6 @@ services:
         go: ${GO}
     shm_size: *shm-size
     volumes: *debian-volumes
-    environment:
-      CGO_ENABLED: "0"
     command: &go-command >
       /bin/bash -c "
         /arrow/ci/scripts/go_build.sh /arrow &&
@@ -1217,7 +1215,7 @@ services:
     shm_size: *shm-size
     volumes: *debian-volumes
     environment:
-      CGO_ENABLED: "1"
+      ARROW_GO_TESTCGO: "1"
     command: *go-command
 
   debian-go-cgo-python:

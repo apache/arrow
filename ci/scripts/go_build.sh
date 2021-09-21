@@ -23,8 +23,12 @@ source_dir=${1}/go
 
 pushd ${source_dir}/arrow
 
+if [[ -v ARROW_GO_TESTCGO ]]; then
+    TAGS="-tags ccalloc"
+fi
+
 go get -d -t -v ./...
-go install -v ./...
+go install $TAGS -v ./...
 
 popd
 
