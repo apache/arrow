@@ -241,7 +241,7 @@ jobs:
       matrix:
         go: [1.15]
         mingw-n-bits:
-          - 32
+          #- 32 runtime handling for CGO needs 64-bit currently
           - 64
     env:
       ARROW_GO_TESTCGO: "1"            
