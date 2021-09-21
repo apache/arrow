@@ -166,15 +166,8 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
     return()
   }
 
-  if ("median" %in% funs_in_expr) {
-    expr <- wrap_median(expr, hash)
-    # TODO: Remove this warning after median() returns an exact median
-    # (ARROW-14021)
-    warn(
-      "median() currently returns an approximate median in Arrow",
-      .frequency = ifelse(is_interactive(), "once", "always"),
-      .frequency_id = "arrow.median.approximate"
-    )
+  if ("quantile" %in% funs_in_expr) {
+    expr <- wrap_quantile(expr, hash)
     funs_in_expr <- all_funs(expr)
   }
 
@@ -269,20 +262,20 @@ extract_aggregations <- function(expr, ctx) {
   expr
 }
 
-# This function recurses through expr and wraps each call to median() with a
+# This function recurses through expr and wraps each call to quantile() with a
 # call to arrow_list_element()
-wrap_median <- function(expr, hash) {
+wrap_quantile <- function(expr, hash) {
   if (length(expr) == 1) {
     return(expr)
   } else {
-    if (is.call(expr) && expr[[1]] == quote(median)) {
+    if (is.call(expr) && expr[[1]] == quote(quantile)) {
       if (hash) {
         return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
       } else {
         return(expr)
       }
     } else {
-      return(as.call(lapply(expr, wrap_median, hash)))
+      return(as.call(lapply(expr, wrap_quantile, hash)))
     }
   }
 }

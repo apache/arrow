@@ -199,6 +199,15 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "approximate_median" || func_name == "hash_approximate_median") {
+    using Options = arrow::compute::TDigestOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
+    }
+    return out;
+  }
+
   if (func_name == "count") {
     using Options = arrow::compute::CountOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
