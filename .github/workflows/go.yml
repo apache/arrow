@@ -197,3 +197,36 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/go_test.sh .
+
+  macos-cgo:
+    name: AMD64 MacOS 10.15 Go ${{ matrix.go }} - CGO
+    runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.15]
+    env:
+      ARROW_GO_TESTCGO: "1"
+    steps:
+      - name: Install go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Brew Install Arrow
+        shell: bash
+        run: brew install apache-arrow
+      - name: Build
+        shell: bash
+        run: ci/scripts/go_build.sh .
+      - name: Test
+        shell: bash
+        run: ci/scripts/go_test.sh .
