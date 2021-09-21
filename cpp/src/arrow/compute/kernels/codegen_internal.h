@@ -189,6 +189,11 @@ struct GetOutputType<Decimal256Type> {
   using T = Decimal256;
 };
 
+template <>
+struct GetOutputType<StructType> {
+  using T = StructScalar;
+};
+
 // ----------------------------------------------------------------------
 // enable_if helpers for C types
 
@@ -322,6 +327,24 @@ struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
   }
 };
 
+template <typename Type>
+struct OutputArrayWriter<Type, enable_if_struct<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType;
+  T* values;
+
+  explicit OutputArrayWriter(ArrayData* data) : values(data->GetMutableValues<T>(1)) {}
+
+  void Write(T value) { *values++ = value; }
+
+  // Note that this doesn't write the null bitmap, which should be consistent
+  // with Write / WriteNull calls
+  void WriteNull() { *values++ = T(null()); }
+
+  void WriteAllNull(int64_t length) {
+    std::memset(static_cast<void*>(values), 0, sizeof(T) * length);
+  }
+};
+
 // (Un)box Scalar to / from C++ value
 
 template <typename Type, typename Enable = void>
@@ -400,7 +423,16 @@ struct BoxScalar<Decimal256Type> {
   static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
-// A VisitArraySpanInline variant that calls its visitor function with logical
+template <>
+struct BoxScalar<StructType> {
+  using T = StructScalar;
+  using ScalarType = T;
+  static void Box(T val, Scalar* out) {
+    checked_cast<ScalarType*>(out)->value = std::move(val.value);
+  }
+};
+
+// A VisitArrayDataInline variant that calls its visitor function with logical
 // values, such as Decimal128 rather than util::string_view.
 
 template <typename T, typename VisitFunc, typename NullFunc>
@@ -552,6 +584,21 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
   template <typename Generator>
   static Status Write(KernelContext* ctx, ArraySpan* out, Generator&& generator) {
     return Status::NotImplemented("NYI");
+  }
+};
+
+template <typename Type>
+struct OutputAdapter<Type, enable_if_struct<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType;
+
+  template <typename Generator>
+  static Status Write(KernelContext*, Datum* out, Generator&& generator) {
+    ArrayData* out_arr = out->mutable_array();
+    auto out_data = out_arr->GetMutableValues<T>(1);
+    for (int64_t i = 0; i < out_arr->length; ++i) {
+      *out_data++ = generator();
+    }
+    return Status::OK();
   }
 };
 

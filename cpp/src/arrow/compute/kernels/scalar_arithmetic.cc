@@ -1061,6 +1061,19 @@ ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
   }
 }
 
+template <template <typename... Args> class KernelGenerator, typename Op>
+ArrayKernelExec GenerateStructFloatingPoint(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::FLOAT:
+      return KernelGenerator<StructType, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return KernelGenerator<StructType, DoubleType, Op>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // resolve decimal binary operation output type per *casted* args
 template <typename OutputGetter>
 Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
@@ -1372,12 +1385,29 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
 }
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNullStructOutType(
-    std::string name, const FunctionDoc* doc, std::shared_ptr<DataType> out_type) {
+std::shared_ptr<ScalarFunction> MakeArithmeticFunctionStructOutType(
+    std::string name, const FunctionDoc* doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
-  for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, out_type, exec));
+  for (const auto& ty : FloatingPointTypes()) {
+    // TODO(edponce): Allow DivmodType as function parameter so that this can
+    // be used by other kernels?
+    auto out_ty = DivmodType(ty);
+    auto exec = GenerateStructFloatingPoint<ScalarBinaryEqualTypes, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
+  }
+  return func;
+}
+
+template <typename Op>
+std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNullStructOutType(
+    std::string name, const FunctionDoc* doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+  for (const auto& ty : FloatingPointTypes()) {
+    // TODO(edponce): Allow DivmodType as function parameter so that this can
+    // be used by other kernels?
+    auto out_ty = DivmodType(ty);
+    auto exec = GenerateStructFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
   }
   return func;
 }
@@ -1711,9 +1741,15 @@ const FunctionDoc div_checked_doc{
 const FunctionDoc divmod_doc{
     "Calculate the quotient and remainder",
     ("Integer division by zero returns an error. However, integer overflow\n"
-     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "wraps around, and floating-point division by zero returns infinity.\n"
      "Use function \"divmod_checked\" if you want to get an error\n"
      "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc divmod_checked_doc{
+    "Calculate the quotient and remainder",
+    ("Integer division by zero returns an error, or when integer overflow is\n"
+     "encountered. Floating-point division by zero returns infinity."),
     {"dividend", "divisor"}};
 
 const FunctionDoc negate_doc{"Negate the argument element-wise",
@@ -2222,6 +2258,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto divmod = MakeArithmeticFunctionNotNullStructOutType<Divmod>("divmod", divmod_doc,
                                                                    DivmodType<int64_t>());
   DCHECK_OK(registry->AddFunction(std::move(divmod)));
+
+  // ----------------------------------------------------------------------
+  auto divmod_checked = MakeArithmeticFunctionNotNullStructOutType<DivmodChecked>(
+      "divmod_checked", divmod_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(divmod_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
