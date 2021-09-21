@@ -1557,15 +1557,16 @@ def test_copy_files(s3_connection, s3fs, tempdir):
     pathfn = s3fs["pathfn"]
 
     # create test file on S3 filesystem
-    c = pathfn('c.txt')
-    with fs.open_output_stream(c) as f:
+    path = pathfn('c.txt')
+    with fs.open_output_stream(path) as f:
         f.write(b'test')
 
     # create URI for created file
     host, port, access_key, secret_key = s3_connection
-    source_uri = "s3://{}:{}@{}?scheme=http&endpoint_override={}:{}" \
-        .format(access_key, secret_key, c, host, port)
-
+    source_uri = (
+        f"s3://{access_key}:{secret_key}@{path}"
+        f"?scheme=http&endpoint_override={host}:{port}"
+    )
     # copy from S3 URI to local file
     local_path1 = str(tempdir / "c_copied1.txt")
     copy_files(source_uri, local_path1)
@@ -1576,7 +1577,7 @@ def test_copy_files(s3_connection, s3fs, tempdir):
 
     # copy from S3 path+filesystem to local file
     local_path2 = str(tempdir / "c_copied2.txt")
-    copy_files(c, local_path2, source_filesystem=fs)
+    copy_files(path, local_path2, source_filesystem=fs)
     with localfs.open_input_stream(local_path2) as f:
         assert f.read() == b"test"
 

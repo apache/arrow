@@ -190,7 +190,7 @@ def _resolve_filesystem_and_path(
 
 def copy_files(source, destination,
                source_filesystem=None, destination_filesystem=None,
-               chunk_size=1024*1024, use_threads=True):
+               *, chunk_size=1024*1024, use_threads=True):
     """
     Copy files between FileSystems.
 
