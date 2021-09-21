@@ -18,6 +18,8 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
+.. _cpp_memory_management:
+
 =================
 Memory Management
 =================
@@ -93,14 +95,30 @@ You can also allocate *and* build a Buffer incrementally, using the
 :class:`arrow::BufferBuilder` API::
 
    BufferBuilder builder;
-   builder.Resize(11);
+   builder.Resize(11);  // reserve enough space for 11 bytes
    builder.Append("hello ", 6);
    builder.Append("world", 5);
 
-   std::shared_ptr<arrow::Buffer> buffer;
-   if (!builder.Finish(&buffer).ok()) {
+   auto maybe_buffer = builder.Finish();
+   if (!maybe_buffer.ok()) {
       // ... handle buffer allocation error
    }
+   std::shared_ptr<arrow::Buffer> buffer = *maybe_buffer;
+
+If a Buffer is meant to contain values of a given fixed-width type (for
+example the 32-bit offsets of a List array), it can be more convenient to
+use the template :class:`arrow::TypedBufferBuilder` API::
+
+   TypedBufferBuilder<int32_t> builder;
+   builder.Reserve(2);  // reserve enough space for two int32_t values
+   builder.Append(0x12345678);
+   builder.Append(-0x765643210);
+
+   auto maybe_buffer = builder.Finish();
+   if (!maybe_buffer.ok()) {
+      // ... handle buffer allocation error
+   }
+   std::shared_ptr<arrow::Buffer> buffer = *maybe_buffer;
 
 Memory Pools
 ============
