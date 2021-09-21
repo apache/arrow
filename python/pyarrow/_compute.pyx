@@ -250,7 +250,7 @@ cdef class Function(_Weakrefable):
     def __repr__(self):
         return ("arrow.compute.Function<name={}, kind={}, "
                 "arity={}, num_kernels={}>"
-                ).format(self.name, self.kind, self.arity, self.num_kernels)
+                .format(self.name, self.kind, self.arity, self.num_kernels))
 
     def __reduce__(self):
         # Reduction uses the global registry
@@ -317,12 +317,17 @@ cdef class Function(_Weakrefable):
             CExecContext c_exec_ctx = CExecContext(pool)
             vector[CDatum] c_args
             CDatum result
+
         _pack_compute_args(args, &c_args)
+
         if options is not None:
             c_options = options.get_options()
+
         with nogil:
-            result = GetResultValue(self.base_func.Execute(c_args, c_options,
-                                                           &c_exec_ctx))
+            result = GetResultValue(
+                self.base_func.Execute(c_args, c_options, &c_exec_ctx)
+            )
+
         return wrap_datum(result)
 
 
@@ -437,8 +442,9 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
             else:
                 out.push_back(CDatum((<Scalar> scal).unwrap()))
                 continue
-        raise TypeError(
-            f"Got unexpected argument type {type(val)} for compute function")
+
+        raise TypeError(f"Got unexpected argument type {type(val)} "
+                        "for compute function")
 
 
 cdef class FunctionRegistry(_Weakrefable):
@@ -713,8 +719,9 @@ cdef CRoundMode unwrap_round_mode(round_mode) except *:
 
 cdef class _RoundOptions(FunctionOptions):
     def _set_options(self, ndigits, round_mode):
-        self.wrapped.reset(new CRoundOptions(ndigits,
-                                             unwrap_round_mode(round_mode)))
+        self.wrapped.reset(
+            new CRoundOptions(ndigits, unwrap_round_mode(round_mode))
+        )
 
 
 class RoundOptions(_RoundOptions):
@@ -726,7 +733,8 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, multiple, round_mode):
         self.wrapped.reset(
             new CRoundToMultipleOptions(multiple,
-                                        unwrap_round_mode(round_mode)))
+                                        unwrap_round_mode(round_mode))
+        )
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
@@ -745,7 +753,8 @@ cdef class _JoinOptions(FunctionOptions):
         try:
             self.wrapped.reset(
                 new CJoinOptions(self._null_handling_map[null_handling],
-                                 tobytes(null_replacement)))
+                                 tobytes(null_replacement))
+            )
         except KeyError:
             _raise_invalid_function_option(null_handling, "null handling")
 
@@ -758,8 +767,8 @@ class JoinOptions(_JoinOptions):
 cdef class _MatchSubstringOptions(FunctionOptions):
     def _set_options(self, pattern, ignore_case):
         self.wrapped.reset(
-            new CMatchSubstringOptions(tobytes(pattern),
-                                       ignore_case))
+            new CMatchSubstringOptions(tobytes(pattern), ignore_case)
+        )
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
@@ -790,7 +799,8 @@ class TrimOptions(_TrimOptions):
 cdef class _ReplaceSliceOptions(FunctionOptions):
     def _set_options(self, start, stop, replacement):
         self.wrapped.reset(
-            new CReplaceSliceOptions(start, stop, tobytes(replacement)))
+            new CReplaceSliceOptions(start, stop, tobytes(replacement))
+        )
 
 
 class ReplaceSliceOptions(_ReplaceSliceOptions):
@@ -800,9 +810,11 @@ class ReplaceSliceOptions(_ReplaceSliceOptions):
 
 cdef class _ReplaceSubstringOptions(FunctionOptions):
     def _set_options(self, pattern, replacement, max_replacements):
-        self.wrapped.reset(new CReplaceSubstringOptions(tobytes(pattern),
-                                                        tobytes(replacement),
-                                                        max_replacements))
+        self.wrapped.reset(
+            new CReplaceSubstringOptions(tobytes(pattern),
+                                         tobytes(replacement),
+                                         max_replacements)
+        )
 
 
 class ReplaceSubstringOptions(_ReplaceSubstringOptions):
@@ -840,7 +852,9 @@ cdef class _FilterOptions(FunctionOptions):
         try:
             self.wrapped.reset(
                 new CFilterOptions(
-                    self._null_selection_map[null_selection_behavior]))
+                    self._null_selection_map[null_selection_behavior]
+                )
+            )
         except KeyError:
             _raise_invalid_function_option(null_selection_behavior,
                                            "null selection behavior")
@@ -861,7 +875,9 @@ cdef class _DictionaryEncodeOptions(FunctionOptions):
         try:
             self.wrapped.reset(
                 new CDictionaryEncodeOptions(
-                    self._null_encoding_map[null_encoding]))
+                    self._null_encoding_map[null_encoding]
+                )
+            )
         except KeyError:
             _raise_invalid_function_option(null_encoding, "null encoding")
 
@@ -901,9 +917,9 @@ cdef class _MakeStructOptions(FunctionOptions):
         for metadata in field_metadata:
             c_field_metadata.push_back(pyarrow_unwrap_metadata(metadata))
         self.wrapped.reset(
-            new CMakeStructOptions(c_field_names,
-                                   field_nullability,
-                                   c_field_metadata))
+            new CMakeStructOptions(c_field_names, field_nullability,
+                                   c_field_metadata)
+        )
 
 
 class MakeStructOptions(_MakeStructOptions):
@@ -981,12 +997,14 @@ cdef class _SetLookupOptions(FunctionOptions):
             valset.reset(new CDatum((<Array> value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
             valset.reset(
-                new CDatum((<ChunkedArray> value_set).sp_chunked_array))
+                new CDatum((<ChunkedArray> value_set).sp_chunked_array)
+            )
         elif isinstance(value_set, Scalar):
             valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
             _raise_invalid_function_option(value_set, "value set",
                                            exception_class=TypeError)
+
         self.wrapped.reset(new CSetLookupOptions(deref(valset), skip_nulls))
 
 
@@ -1006,7 +1024,8 @@ cdef class _StrptimeOptions(FunctionOptions):
     def _set_options(self, format, unit):
         try:
             self.wrapped.reset(
-                new CStrptimeOptions(tobytes(format), self._unit_map[unit]))
+                new CStrptimeOptions(tobytes(format), self._unit_map[unit])
+            )
         except KeyError:
             _raise_invalid_function_option(unit, "time unit")
 
@@ -1019,7 +1038,8 @@ class StrptimeOptions(_StrptimeOptions):
 cdef class _StrftimeOptions(FunctionOptions):
     def _set_options(self, format, locale):
         self.wrapped.reset(
-            new CStrftimeOptions(tobytes(format), tobytes(locale)))
+            new CStrftimeOptions(tobytes(format), tobytes(locale))
+        )
 
 
 class StrftimeOptions(_StrftimeOptions):
@@ -1030,7 +1050,8 @@ class StrftimeOptions(_StrftimeOptions):
 cdef class _DayOfWeekOptions(FunctionOptions):
     def _set_options(self, one_based_numbering, week_start):
         self.wrapped.reset(
-            new CDayOfWeekOptions(one_based_numbering, week_start))
+            new CDayOfWeekOptions(one_based_numbering, week_start)
+        )
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
@@ -1058,7 +1079,8 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
         self.wrapped.reset(
             new CAssumeTimezoneOptions(tobytes(timezone),
                                        self._ambiguous_map[ambiguous],
-                                       self._nonexistent_map[nonexistent]))
+                                       self._nonexistent_map[nonexistent])
+        )
 
 
 class AssumeTimezoneOptions(_AssumeTimezoneOptions):
@@ -1099,7 +1121,8 @@ class SplitOptions(_SplitOptions):
 cdef class _SplitPatternOptions(FunctionOptions):
     def _set_options(self, pattern, max_splits, reverse):
         self.wrapped.reset(
-            new CSplitPatternOptions(tobytes(pattern), max_splits, reverse))
+            new CSplitPatternOptions(tobytes(pattern), max_splits, reverse)
+        )
 
 
 class SplitPatternOptions(_SplitPatternOptions):
@@ -1129,8 +1152,9 @@ cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
-            c_sort_keys.push_back(CSortKey(tobytes(name),
-                                  unwrap_sort_order(order)))
+            c_sort_keys.push_back(
+                CSortKey(tobytes(name), unwrap_sort_order(order))
+            )
         self.wrapped.reset(new CSortOptions(c_sort_keys))
 
 
@@ -1143,8 +1167,9 @@ cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
-            c_sort_keys.push_back(CSortKey(tobytes(name),
-                                  unwrap_sort_order(order)))
+            c_sort_keys.push_back(
+                CSortKey(tobytes(name), unwrap_sort_order(order))
+            )
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
 
@@ -1166,7 +1191,8 @@ cdef class _QuantileOptions(FunctionOptions):
         try:
             self.wrapped.reset(
                 new CQuantileOptions(quantiles, self._interp_map[interp],
-                                     skip_nulls, min_count))
+                                     skip_nulls, min_count)
+            )
         except KeyError:
             _raise_invalid_function_option(interp, "quantile interpolation")
 
@@ -1184,7 +1210,8 @@ cdef class _TDigestOptions(FunctionOptions):
                      min_count):
         self.wrapped.reset(
             new CTDigestOptions(quantiles, delta, buffer_size, skip_nulls,
-                                min_count))
+                                min_count)
+        )
 
 
 class TDigestOptions(_TDigestOptions):
