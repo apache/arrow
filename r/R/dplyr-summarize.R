@@ -166,8 +166,12 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
     return()
   }
 
-  if ("quantile" %in% funs_in_expr) {
-    expr <- wrap_quantile(expr, hash)
+  # For the quantile() binding in the hash aggregation case, we need to mutate
+  # the list output from the Arrow hash_tdigest kernel to flatten it into a
+  # column of type float64. We do that by modifying the unevaluated expression
+  # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
+  if (hash && "quantile" %in% funs_in_expr) {
+    expr <- wrap_hash_quantile(expr)
     funs_in_expr <- all_funs(expr)
   }
 
@@ -264,18 +268,14 @@ extract_aggregations <- function(expr, ctx) {
 
 # This function recurses through expr and wraps each call to quantile() with a
 # call to arrow_list_element()
-wrap_quantile <- function(expr, hash) {
+wrap_hash_quantile <- function(expr) {
   if (length(expr) == 1) {
     return(expr)
   } else {
     if (is.call(expr) && expr[[1]] == quote(quantile)) {
-      if (hash) {
-        return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
-      } else {
-        return(expr)
-      }
+      return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
     } else {
-      return(as.call(lapply(expr, wrap_quantile, hash)))
+      return(as.call(lapply(expr, wrap_hash_quantile)))
     }
   }
 }
