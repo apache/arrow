@@ -589,6 +589,23 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     }
     ASSERT_EQ(row_count, GetParam().expected_rows());
   }
+  // Ensure batch_size is respected
+  void TestScanBatchSize() {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+
+    this->SetSchema(reader->schema()->fields());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+    opts_->batch_size = 16;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      ASSERT_LE(batch->num_rows(), 16);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
   // Ensure file formats only return columns needed to fulfill filter/projection
   void TestScanProjected() {
     auto f32 = field("f32", float32());
