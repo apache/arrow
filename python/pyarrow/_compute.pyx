@@ -543,8 +543,9 @@ cdef class FunctionOptions(_Weakrefable):
         return self.get_options().Equals(deref(other.get_options()))
 
 
-def _raise_invalid_function_option(value, description, *, error="keyword"):
-    raise ValueError(f"\"{value}\" is not a valid {description} {error}")
+def _raise_invalid_function_option(value, description, *,
+                                   exception_class=ValueError):
+    raise exception_class(f"\"{value}\" is not a valid {description}")
 
 
 # NOTE:
@@ -985,7 +986,7 @@ cdef class _SetLookupOptions(FunctionOptions):
             valset.reset(new CDatum((<Scalar> value_set).unwrap()))
         else:
             _raise_invalid_function_option(value_set, "value set",
-                                           error="type")
+                                           exception_class=TypeError)
         self.wrapped.reset(new CSetLookupOptions(deref(valset), skip_nulls))
 
 
