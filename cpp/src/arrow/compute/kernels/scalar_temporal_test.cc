@@ -639,6 +639,7 @@ TEST_F(ScalarTemporalTest, Strftime) {
   CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
 
+<<<<<<< HEAD
   auto options_hms = StrftimeOptions("%H:%M:%S");
   auto options_ymdhms = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
 
@@ -693,6 +694,26 @@ TEST_F(ScalarTemporalTest, Strftime) {
       Invalid,
       testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
       Strftime(arr_ns, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
+
+  auto options_ymd = StrftimeOptions("%Y-%m-%d");
+  auto options_ymdhms = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
+
+  const char* date32s = R"([0, 10957, 10958, null])";
+  const char* date64s = R"([0, 946684800000, 946771200000, null])";
+  const char* dates32_ymd = R"(["1970-01-01", "2000-01-01", "2000-01-02", null])";
+  const char* dates64_ymd = R"(["1970-01-01", "2000-01-01", "2000-01-02", null])";
+  const char* dates32_ymdhms =
+      R"(["1970-01-01T00:00:00", "2000-01-01T00:00:00", "2000-01-02T00:00:00", null])";
+  const char* dates64_ymdhms =
+      R"(["1970-01-01T00:00:00.000", "2000-01-01T00:00:00.000",
+          "2000-01-02T00:00:00.000", null])";
+
+  CheckScalarUnary("strftime", date32(), date32s, utf8(), dates32_ymd, &options_ymd);
+  CheckScalarUnary("strftime", date64(), date64s, utf8(), dates64_ymd, &options_ymd);
+  CheckScalarUnary("strftime", date32(), date32s, utf8(), dates32_ymdhms,
+                   &options_ymdhms);
+  CheckScalarUnary("strftime", date64(), date64s, utf8(), dates64_ymdhms,
+                   &options_ymdhms);
 }
 
 TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
