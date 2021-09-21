@@ -65,7 +65,12 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
-    summarize_eval(names(exprs)[i], exprs[[i]], ctx)
+    summarize_eval(
+      names(exprs)[i],
+      exprs[[i]],
+      ctx,
+      length(.data$group_by_vars) > 0
+    )
   }
 
   # Apply the results to the .data object.
@@ -150,7 +155,7 @@ format_aggregation <- function(x) {
 # appropriate combination of (1) aggregations (possibly temporary) and
 # (2) post-aggregation transformations (mutate)
 # The function returns nothing: it assigns into the `ctx` environment
-summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
+summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
   expr <- quo_get_expr(quosure)
   ctx$quo_env <- quo_get_env(quosure)
 
@@ -162,7 +167,7 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
   }
 
   if ("median" %in% funs_in_expr) {
-    expr <- wrap_median(expr)
+    expr <- wrap_median(expr, hash)
     # TODO: Remove this warning after median() returns an exact median
     # (ARROW-14021)
     warn(
@@ -170,6 +175,7 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
       .frequency = ifelse(is_interactive(), "once", "always"),
       .frequency_id = "arrow.median.approximate"
     )
+    funs_in_expr <- all_funs(expr)
   }
 
   # Start inspecting the expr to see what aggregations it involves
@@ -265,15 +271,18 @@ extract_aggregations <- function(expr, ctx) {
 
 # This function recurses through expr and wraps each call to median() with a
 # call to arrow_list_element()
-# TODO: test that this works after ARROW-12669 is merged
-wrap_median <- function(expr) {
+wrap_median <- function(expr, hash) {
   if (length(expr) == 1) {
     return(expr)
   } else {
     if (is.call(expr) && expr[[1]] == quote(median)) {
-      return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0)")))
+      if (hash) {
+        return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
+      } else {
+        return(expr)
+      }
     } else {
-      return(as.call(lapply(expr, wrap_median)))
+      return(as.call(lapply(expr, wrap_median, hash)))
     }
   }
 }

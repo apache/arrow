@@ -936,7 +936,7 @@ agg_funcs$max <- function(..., na.rm = FALSE) {
   )
 }
 
-output_type <- function(fun, input_type) {
+output_type <- function(fun, input_type, hash) {
   # These are quick and dirty heuristics.
   if (fun %in% c("any", "all")) {
     bool()
@@ -945,6 +945,12 @@ output_type <- function(fun, input_type) {
     input_type
   } else if (fun %in% c("mean", "stddev", "variance")) {
     float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
   } else {
     # Just so things don't error, assume the resulting type is the same
     input_type

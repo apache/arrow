@@ -354,6 +354,52 @@ test_that("summarise() with !!sym()", {
   )
 })
 
+test_that("median()", {
+  # with groups
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        med_dbl = median(dbl),
+        med_int = median(int),
+        med_dbl_narmf = median(dbl, FALSE),
+        med_int_narmf = median(int, na.rm = F),
+        med_dbl_narmt = median(dbl, na.rm = TRUE),
+        med_int_narmt = median(int, T)
+      ) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  )
+  # without groups, with na.rm = TRUE
+  expect_dplyr_equal(
+    input %>%
+      summarize(
+        med_dbl_narmt = median(dbl, na.rm = TRUE),
+        med_int_narmt = median(int, T)
+      ) %>%
+      collect(),
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  )
+
+  skip("Error on median(, na.rm = FALSE) with no groups (ARROW-14050)")
+  # without groups, with na.rm = FALSE (the default)
+  expect_dplyr_equal(
+    input %>%
+      summarize(
+        med_dbl = median(dbl),
+        med_int = median(int),
+        med_dbl_narmf = median(dbl, F),
+        med_int_narmf = median(int, na.rm = FALSE)
+      ) %>%
+      collect(),
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  )
+})
+
 test_that("Filter and aggregate", {
   expect_dplyr_equal(
     input %>%
@@ -578,8 +624,7 @@ test_that(".groups argument", {
       group_by(some_grouping, int < 6) %>%
       summarize(count = n()) %>%
       collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+    tbl
   )
   expect_dplyr_equal(
     input %>%
@@ -593,8 +638,7 @@ test_that(".groups argument", {
       group_by(some_grouping, int < 6) %>%
       summarize(count = n(), .groups = "keep") %>%
       collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+    tbl
   )
   expect_dplyr_equal(
     input %>%
@@ -623,5 +667,4 @@ test_that(".groups argument", {
     ),
     "NOTVALID"
   )
-
 })
