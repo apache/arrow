@@ -363,9 +363,13 @@ test_that("median()", {
         med_dbl = median(dbl),
         med_int = median(int),
         med_dbl_narmf = median(dbl, FALSE),
+        # styler: off
         med_int_narmf = median(int, na.rm = F),
+        # styler: on
         med_dbl_narmt = median(dbl, na.rm = TRUE),
+        # styler: off
         med_int_narmt = median(int, T)
+        # styler: on
       ) %>%
       arrange(some_grouping) %>%
       collect(),
@@ -377,7 +381,9 @@ test_that("median()", {
     input %>%
       summarize(
         med_dbl_narmt = median(dbl, na.rm = TRUE),
+        # styler: off
         med_int_narmt = median(int, T)
+        # styler: on
       ) %>%
       collect(),
     tbl,
@@ -391,7 +397,9 @@ test_that("median()", {
       summarize(
         med_dbl = median(dbl),
         med_int = median(int),
+        # styler: off
         med_dbl_narmf = median(dbl, F),
+        # styler: on
         med_int_narmf = median(int, na.rm = FALSE)
       ) %>%
       collect(),
