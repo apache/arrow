@@ -806,40 +806,38 @@ const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
   }
 
   // Make const char* to vector
-  std::vector<char*> words;
+  std::string concat = "";
   char tokenizable_data[strlen(data)];
   strcpy(tokenizable_data, data);
-  char* token;
-  token = std::strtok(tokenizable_data, ",");
-  while (token != NULL) {
+  char* word;
+  word = std::strtok(tokenizable_data, ",");
+  while (word != NULL) {
     // start trim whitespaces
     char* end;
     // trim leading space
-    while (isspace((unsigned char)*token)) token++;
-    if (*token != 0) {
+    while (isspace((unsigned char)*word)) word++;
+    if (*word != 0) {
       // trim trailing space
-      end = token + strlen(token) - 1;
-      while (end > token && isspace((unsigned char)*end)) end--;
+      end = word + strlen(word) - 1;
+      while (end > word && isspace((unsigned char)*end)) end--;
       end[1] = '\0';
     }
     // finish trim whitespaces
-    words.push_back(token);
-    token = strtok(NULL, ",");
+    concat.append(word);
+    concat.append(separator);
+    word = strtok(NULL, ",");
   }
 
-  // Concat
-  std::string concat = "";
-  auto words_size = static_cast<uint32_t>(words.size());
-  for (uint32_t i = 0; i < words_size; ++i) {
-    if (i >= 0 && i < words_size - 1) {
-      concat.append(words[i]);
-      concat.append(separator);
-    } else {
-      concat.append(words[i]);
-    }
+  std::string result = "";
+  if (separator_len > 0) {
+    result = concat.substr(0, concat.size()-separator_len);
   }
 
-  *out_len = static_cast<int32_t>(concat.length());
+  if (separator_len == 0) {
+    result = concat;
+  }
+
+  *out_len = static_cast<int32_t>(result.length());
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -847,7 +845,7 @@ const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
     return "";
   }
 
-  strcpy(out, concat.c_str());
+  strcpy(out, result.c_str());
   return out;
 }
 }
