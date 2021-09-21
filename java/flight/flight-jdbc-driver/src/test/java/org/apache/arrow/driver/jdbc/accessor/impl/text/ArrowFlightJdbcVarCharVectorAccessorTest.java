@@ -100,6 +100,28 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
+  public void testShouldGetObjectReturnValidString() throws Exception {
+    Text value = new Text("Value for Test.");
+    when(getter.get(0)).thenReturn(value);
+
+    final String result = (String) accessor.getObject();
+
+    collector.checkThat(result, instanceOf(String.class));
+    collector.checkThat(result, equalTo(value.toString()));
+  }
+
+  @Test
+  public void testShouldGetObjectReturnValidString2() throws Exception {
+    Text value = new Text("Value for Test.");
+    when(getter.get(0)).thenReturn(value);
+
+    final String result = (String) accessor.getObject();
+
+    collector.checkThat(result, instanceOf(String.class));
+    collector.checkThat(result, equalTo(value.toString()));
+  }
+
+  @Test
   public void testShouldGetByteThrowsExceptionForNonNumericValue() throws Exception {
     Text value = new Text("Invalid value for byte.");
     when(getter.get(0)).thenReturn(value);
