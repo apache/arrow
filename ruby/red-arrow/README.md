@@ -71,6 +71,5 @@ $ cd ruby/red-arrow
 $ bundle install
 $ brew install apache-arrow --head
 $ brew install apache-arrow-glib --head
-$ export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@1.1/lib/pkgconfig"
 $ bundle exec rake test
 ```
