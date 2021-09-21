@@ -386,6 +386,9 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory) {
     RETURN_NOT_OK(CheckError());
+    if (batch->num_rows() == 0) {
+      return Future<>::MakeFinished();
+    }
     if (!directory.empty()) {
       auto full_path =
           fs::internal::ConcatAbstractPath(write_options_.base_dir, directory);
