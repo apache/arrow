@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("altrep")
-
 skip_if(getRversion() <= "3.5.0")
 
 test_that("altrep vectors from int32 and dbl arrays with no nulls", {

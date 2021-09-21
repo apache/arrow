@@ -15,9 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("compute: sorting")
-
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 
 # randomize order of rows in test data
 tbl <- slice_sample(example_data_for_sorting, prop = 1L)

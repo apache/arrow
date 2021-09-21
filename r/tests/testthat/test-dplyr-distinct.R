@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 
 tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)

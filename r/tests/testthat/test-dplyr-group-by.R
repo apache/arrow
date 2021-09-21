@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 library(stringr)
 
 tbl <- example_data

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("ChunkedArray")
 
 expect_chunked_roundtrip <- function(x, type) {
   a <- ChunkedArray$create(!!!x)
@@ -324,7 +323,7 @@ test_that("chunked_array() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- chunked_array(df, df)
   expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(a$as_vector(), rbind(df, df))
+  expect_equal(a$as_vector(), rbind(df, df), ignore_attr = TRUE)
 })
 
 test_that("ChunkedArray$View() (ARROW-6542)", {

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("compute: aggregation")
-
 test_that("list_compute_functions", {
   allfuncs <- list_compute_functions()
   expect_false(all(grepl("min", allfuncs)))

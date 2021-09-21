@@ -15,13 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_as_vector <- function(x, y, ignore_attr = FALSE, ...) {
-  expect_fun <- if (ignore_attr) {
-    expect_equivalent
-  } else {
-    expect_equal
-  }
-  expect_fun(as.vector(x), y, ...)
+expect_as_vector <- function(x, y, ...) {
+  expect_equal(as.vector(x), y, ...)
 }
 
 expect_data_frame <- function(x, y, ...) {
@@ -31,6 +26,14 @@ expect_data_frame <- function(x, y, ...) {
 expect_r6_class <- function(object, class) {
   expect_s3_class(object, class)
   expect_s3_class(object, "R6")
+}
+
+expect_equal <- function(object, expected, ignore_attr = FALSE, ..., info = NULL, label = NULL) {
+  if (inherits(object, "ArrowObject") && inherits(expected, "ArrowObject")) {
+    expect_true(all.equal(object, expected, check.metadata = !ignore_attr), info = info, label = label)
+  } else {
+    testthat::expect_equal(object, expected, ignore_attr = ignore_attr, ..., info = info, label = label)
+  }
 }
 
 expect_equivalent <- function(object, expected, ...) {
