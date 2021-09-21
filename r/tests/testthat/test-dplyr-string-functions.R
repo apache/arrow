@@ -722,10 +722,9 @@ test_that("errors in strptime", {
 test_that("strftime", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
-  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
   seconds <- tibble(x = c("05.000000", NA))
-  formats_minus_c <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
-  formats <- paste(formats_minus_c, "%c")
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
 
   expect_dplyr_equal(
     input %>%
@@ -734,34 +733,37 @@ test_that("strftime", {
     times
   )
 
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats, tz = "Pacific/Marquesas")) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats, tz = "EST", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
   withr::with_timezone("Pacific/Marquesas",
-   expect_dplyr_equal(
+    expect_dplyr_equal(
       input %>%
-        mutate(x = strftime(x, format = formats)) %>%
+        mutate(x = strftime(x, format = formats, tz = "EST")) %>%
         collect(),
       times
     )
   )
 
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = strftime(x, format = formats_minus_c, tz = "Pacific/Marquesas")) %>%
+  # This check is due to differences in the way %c currently works in Arrow and R's strftime.
+  # We can revisit this after this is resolved: https://github.com/HowardHinnant/date/issues/704
+  expect_warning(
+    times %>%
+      Table$create() %>%
+      mutate(x = strftime(x, format = "%c")) %>%
       collect(),
-    times
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = strftime(x, format = "%c", tz = "Pacific/Marquesas")) %>%
-      collect(),
-    times
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = strftime(x, format = formats, usetz = TRUE)) %>%
-      collect(),
-    times
+    "%c flag currently not supported. not supported by Arrow"
   )
 
   # Output precision of %S depends on the input timestamp precision.

@@ -673,12 +673,19 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
 }
 
 nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (grepl("%c", format)) {
+    # This check is due to differences in the way %c currently works in Arrow and R's strftime.
+    # We can revisit this after this is resolved: https://github.com/HowardHinnant/date/issues/704
+    arrow_not_supported("%c flag currently not supported.")
+  }
   if (usetz) {
     format <- paste(format, "%Z")
   }
   if (tz == "") {
     tz <- Sys.timezone()
   }
+  # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
+  # cast the timestamp to desired timezone. This is a metadata only change.
   ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
   Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
