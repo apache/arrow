@@ -171,7 +171,7 @@ struct CompareFunction : ScalarFunction {
 
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonTimestamp(*values)) {
+    } else if (auto type = CommonTemporal(*values)) {
       ReplaceTypes(type, values);
     } else if (auto type = CommonBinary(*values)) {
       ReplaceTypes(type, values);
@@ -195,7 +195,7 @@ struct VarArgsCompareFunction : ScalarFunction {
 
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonTimestamp(*values)) {
+    } else if (auto type = CommonTemporal(*values)) {
       ReplaceTypes(type, values);
     }
 

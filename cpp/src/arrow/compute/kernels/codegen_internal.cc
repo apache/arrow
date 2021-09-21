@@ -164,7 +164,7 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   return int8();
 }
 
-std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs) {
+std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs) {
   TimeUnit::type finest_unit = TimeUnit::SECOND;
   const std::string* timezone = nullptr;
   bool saw_date32 = false;
@@ -199,9 +199,10 @@ std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs)
   if (timezone) {
     // At least one timestamp seen
     return timestamp(finest_unit, *timezone);
-  } else if (saw_date32 && saw_date64) {
-    // Saw mixed date types
+  } else if (saw_date64) {
     return date64();
+  } else if (saw_date32) {
+    return date32();
   }
   return nullptr;
 }
@@ -321,12 +322,12 @@ Status CastDecimalArgs(ValueDescr* begin, size_t count) {
   auto* end = begin + count;
 
   int32_t max_scale = 0;
+  bool any_floating = false;
   for (auto* it = begin; it != end; ++it) {
     const auto& ty = *it->type;
     if (is_floating(ty.id())) {
       // Decimal + float = float
-      ReplaceTypes(float64(), begin, count);
-      return Status::OK();
+      any_floating = true;
     } else if (is_integer(ty.id())) {
       // Nothing to do here
     } else if (is_decimal(ty.id())) {
@@ -338,6 +339,10 @@ Status CastDecimalArgs(ValueDescr* begin, size_t count) {
       // Non-numeric, can't cast
       return Status::OK();
     }
+  }
+  if (any_floating) {
+    ReplaceTypes(float64(), begin, count);
+    return Status::OK();
   }
 
   // All integer and decimal, rescale
@@ -357,7 +362,11 @@ Status CastDecimalArgs(ValueDescr* begin, size_t count) {
     }
   }
 
-  if (common_precision > BasicDecimal128::kMaxPrecision) {
+  if (common_precision > BasicDecimal256::kMaxPrecision) {
+    return Status::Invalid("Result precision (", common_precision,
+                           ") exceeds max precision of Decimal256 (",
+                           BasicDecimal256::kMaxPrecision, ")");
+  } else if (common_precision > BasicDecimal128::kMaxPrecision) {
     casted_type_id = Type::DECIMAL256;
   }
 

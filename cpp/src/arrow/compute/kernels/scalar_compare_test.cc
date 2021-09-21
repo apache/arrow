@@ -1083,7 +1083,7 @@ TYPED_TEST(TestVarArgsCompareParametricTemporal, MaxElementWise) {
                {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
 }
 
-TEST(TestMaxElementWiseMinElementWise, CommonTimestamp) {
+TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
   EXPECT_THAT(MinElementWise({
                   ScalarFromJSON(timestamp(TimeUnit::SECOND), "1"),
                   ScalarFromJSON(timestamp(TimeUnit::MILLI), "12000"),

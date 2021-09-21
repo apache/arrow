@@ -1916,7 +1916,7 @@ TYPED_TEST(TestCoalesceList, Errors) {
   auto type1 = std::make_shared<TypeParam>(int64());
   auto type2 = std::make_shared<TypeParam>(utf8());
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError, ::testing::HasSubstr("coalesce: all types must be identical"),
+      TypeError, ::testing::HasSubstr("coalesce: all types must be compatible"),
       CallFunction("coalesce", {
                                    ArrayFromJSON(type1, "[null]"),
                                    ArrayFromJSON(type2, "[null]"),
@@ -2054,7 +2054,7 @@ TEST(TestCoalesce, FixedSizeBinary) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("coalesce: all types must be identical, expected: "
+      ::testing::HasSubstr("coalesce: all types must be compatible, expected: "
                            "fixed_size_binary[3], but got: fixed_size_binary[2]"),
       CallFunction("coalesce", {
                                    ArrayFromJSON(type, "[null]"),
@@ -2092,7 +2092,7 @@ TEST(TestCoalesce, FixedSizeListOfInt) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
       ::testing::HasSubstr(
-          "coalesce: all types must be identical, expected: fixed_size_list<item: "
+          "coalesce: all types must be compatible, expected: fixed_size_list<item: "
           "uint8>[2], but got: fixed_size_list<item: uint8>[3]"),
       CallFunction("coalesce", {
                                    ArrayFromJSON(type, "[null]"),
@@ -2168,7 +2168,7 @@ TEST(TestCoalesce, Map) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("coalesce: all types must be identical, expected: map<int64, "
+      ::testing::HasSubstr("coalesce: all types must be compatible, expected: map<int64, "
                            "string>, but got: map<int64, int32>"),
       CallFunction("coalesce", {
                                    ArrayFromJSON(type, "[null]"),
@@ -2210,8 +2210,9 @@ TEST(TestCoalesce, Struct) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("coalesce: all types must be identical, expected: struct<str: "
-                           "string>, but got: struct<int: uint16>"),
+      ::testing::HasSubstr(
+          "coalesce: all types must be compatible, expected: struct<str: "
+          "string>, but got: struct<int: uint16>"),
       CallFunction("coalesce",
                    {
                        ArrayFromJSON(struct_({field("str", utf8())}), "[null]"),
@@ -2250,7 +2251,7 @@ TEST(TestCoalesce, UnionBoolString) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("coalesce: all types must be identical, expected: "
+      ::testing::HasSubstr("coalesce: all types must be compatible, expected: "
                            "sparse_union<a: bool=0>, but got: sparse_union<a: int64=0>"),
       CallFunction(
           "coalesce",

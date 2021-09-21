@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/compute/kernels/codegen_internal.h"
@@ -44,6 +45,12 @@ TEST(TestDispatchBest, CastBinaryDecimalArgs) {
   ASSERT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, &args));
   AssertTypeEqual(args[0].type, decimal128(1, 0));
   AssertTypeEqual(args[1].type, decimal128(19, 0));
+
+  // Add: rescale so all have common scale
+  args = {decimal128(3, 2), decimal128(3, -2)};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("Decimals with negative scales not supported"),
+      CastBinaryDecimalArgs(DecimalPromotion::kAdd, &args));
 }
 
 TEST(TestDispatchBest, CastDecimalArgs) {
@@ -54,6 +61,12 @@ TEST(TestDispatchBest, CastDecimalArgs) {
   ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
   AssertTypeEqual(args[0].type, float64());
   AssertTypeEqual(args[1].type, float64());
+
+  args = {float32(), float64(), decimal128(3, 2)};
+  ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
+  AssertTypeEqual(args[0].type, float64());
+  AssertTypeEqual(args[1].type, float64());
+  AssertTypeEqual(args[2].type, float64());
 
   // Promote to common decimal width
   args = {decimal128(3, 2), decimal256(3, 2)};
@@ -67,6 +80,17 @@ TEST(TestDispatchBest, CastDecimalArgs) {
   AssertTypeEqual(args[0].type, decimal128(5, 2));
   AssertTypeEqual(args[1].type, decimal128(5, 2));
 
+  args = {decimal128(3, 2), decimal128(3, -2)};
+  ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
+  AssertTypeEqual(args[0].type, decimal128(7, 2));
+  AssertTypeEqual(args[1].type, decimal128(7, 2));
+
+  args = {decimal128(3, 0), decimal128(3, 1), decimal128(3, 2)};
+  ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
+  AssertTypeEqual(args[0].type, decimal128(5, 2));
+  AssertTypeEqual(args[1].type, decimal128(5, 2));
+  AssertTypeEqual(args[2].type, decimal128(5, 2));
+
   // Integer -> decimal with appropriate precision
   args = {decimal128(3, 0), int64()};
   ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
@@ -78,30 +102,51 @@ TEST(TestDispatchBest, CastDecimalArgs) {
   AssertTypeEqual(args[0].type, decimal128(20, 1));
   AssertTypeEqual(args[1].type, decimal128(20, 1));
 
+  args = {decimal128(3, -1), int64()};
+  ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
+  AssertTypeEqual(args[0].type, decimal128(19, 0));
+  AssertTypeEqual(args[1].type, decimal128(19, 0));
+
   // Overflow decimal128 max precision -> promote to decimal256
   args = {decimal128(38, 0), decimal128(37, 2)};
   ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
   AssertTypeEqual(args[0].type, decimal256(40, 2));
   AssertTypeEqual(args[1].type, decimal256(40, 2));
+
+  // Overflow decimal256 max precision
+  args = {decimal256(76, 0), decimal256(75, 1)};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Result precision (77) exceeds max precision of Decimal256 (76)"),
+      CastDecimalArgs(args.data(), args.size()));
+
+  // Incompatible, no cast
+  args = {decimal256(3, 2), float64(), utf8()};
+  ASSERT_OK(CastDecimalArgs(args.data(), args.size()));
+  AssertTypeEqual(args[0].type, decimal256(3, 2));
+  AssertTypeEqual(args[1].type, float64());
+  AssertTypeEqual(args[2].type, utf8());
 }
 
-TEST(TestDispatchBest, CommonTimestamp) {
-  AssertTypeEqual(
-      timestamp(TimeUnit::NANO),
-      CommonTimestamp({timestamp(TimeUnit::SECOND), timestamp(TimeUnit::NANO)}));
+TEST(TestDispatchBest, CommonTemporal) {
+  AssertTypeEqual(timestamp(TimeUnit::NANO), CommonTemporal({timestamp(TimeUnit::SECOND),
+                                                             timestamp(TimeUnit::NANO)}));
   AssertTypeEqual(timestamp(TimeUnit::NANO, "UTC"),
-                  CommonTimestamp({timestamp(TimeUnit::SECOND, "UTC"),
-                                   timestamp(TimeUnit::NANO, "UTC")}));
+                  CommonTemporal({timestamp(TimeUnit::SECOND, "UTC"),
+                                  timestamp(TimeUnit::NANO, "UTC")}));
   AssertTypeEqual(timestamp(TimeUnit::NANO),
-                  CommonTimestamp({date32(), timestamp(TimeUnit::NANO)}));
+                  CommonTemporal({date32(), timestamp(TimeUnit::NANO)}));
   AssertTypeEqual(timestamp(TimeUnit::MILLI),
-                  CommonTimestamp({date64(), timestamp(TimeUnit::SECOND)}));
-  AssertTypeEqual(date64(), CommonTimestamp({date32(), date64()}));
-  ASSERT_EQ(nullptr, CommonTimestamp({date32(), date32()}));
-  ASSERT_EQ(nullptr, CommonTimestamp({timestamp(TimeUnit::SECOND),
-                                      timestamp(TimeUnit::SECOND, "UTC")}));
-  ASSERT_EQ(nullptr, CommonTimestamp({timestamp(TimeUnit::SECOND, "America/Phoenix"),
-                                      timestamp(TimeUnit::SECOND, "UTC")}));
+                  CommonTemporal({date64(), timestamp(TimeUnit::SECOND)}));
+  AssertTypeEqual(date32(), CommonTemporal({date32(), date32()}));
+  AssertTypeEqual(date64(), CommonTemporal({date64(), date64()}));
+  AssertTypeEqual(date64(), CommonTemporal({date32(), date64()}));
+  ASSERT_EQ(nullptr, CommonTemporal({}));
+  ASSERT_EQ(nullptr, CommonTemporal({timestamp(TimeUnit::SECOND),
+                                     timestamp(TimeUnit::SECOND, "UTC")}));
+  ASSERT_EQ(nullptr, CommonTemporal({timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                     timestamp(TimeUnit::SECOND, "UTC")}));
 }
 
 }  // namespace internal

@@ -1289,7 +1289,7 @@ ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);

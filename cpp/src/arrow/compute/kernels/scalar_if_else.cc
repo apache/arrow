@@ -1745,7 +1745,7 @@ struct CoalesceFunction : ScalarFunction {
     if (auto type = CommonBinary(*values)) {
       ReplaceTypes(type, values);
     }
-    if (auto type = CommonTimestamp(*values)) {
+    if (auto type = CommonTemporal(*values)) {
       ReplaceTypes(type, values);
     }
     if (HasDecimal(*values)) {
@@ -2091,7 +2091,7 @@ static Status CheckIdenticalTypes(const ExecBatch& batch) {
   auto ty = batch[0].type();
   for (auto it = batch.values.begin() + 1; it != batch.values.end(); ++it) {
     if (!ty->Equals(*it->type())) {
-      return Status::TypeError("coalesce: all types must be identical, expected: ", *ty,
+      return Status::TypeError("coalesce: all types must be compatible, expected: ", *ty,
                                ", but got: ", *it->type());
     }
   }
@@ -2201,62 +2201,9 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
   }
 };
 
-template <>
-struct CoalesceFunctor<FixedSizeListType> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    RETURN_NOT_OK(CheckIdenticalTypes(batch));
-    for (const auto& datum : batch.values) {
-      if (datum.is_array()) {
-        return ExecArray(ctx, batch, out);
-      }
-    }
-    return ExecScalarCoalesce(ctx, batch, out);
-  }
-
-  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
-    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
-  }
-};
-
 template <typename Type>
-struct CoalesceFunctor<Type, enable_if_var_size_list<Type>> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    RETURN_NOT_OK(CheckIdenticalTypes(batch));
-    for (const auto& datum : batch.values) {
-      if (datum.is_array()) {
-        return ExecArray(ctx, batch, out);
-      }
-    }
-    return ExecScalarCoalesce(ctx, batch, out);
-  }
-
-  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
-    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
-  }
-};
-
-template <>
-struct CoalesceFunctor<MapType> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    RETURN_NOT_OK(CheckIdenticalTypes(batch));
-    for (const auto& datum : batch.values) {
-      if (datum.is_array()) {
-        return ExecArray(ctx, batch, out);
-      }
-    }
-    return ExecScalarCoalesce(ctx, batch, out);
-  }
-
-  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
-    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
-  }
-};
-
-template <>
-struct CoalesceFunctor<StructType> {
+struct CoalesceFunctor<
+    Type, enable_if_t<is_nested_type<Type>::value && !is_union_type<Type>::value>> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     RETURN_NOT_OK(CheckIdenticalTypes(batch));
     for (const auto& datum : batch.values) {
