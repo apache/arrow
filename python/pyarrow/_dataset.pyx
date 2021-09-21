@@ -2002,6 +2002,10 @@ cdef class PartitioningFactory(_Weakrefable):
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
 
+    @property
+    def type_name(self):
+        return frombytes(self.factory.type_name())
+
 
 cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
         Schema schema, dictionaries) except *:
