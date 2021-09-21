@@ -27,11 +27,13 @@ import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
+from pyarrow.tests.util import _filesystem_uri
 from pyarrow.vendored.version import Version
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
-                        FileSystemHandler, PyFileSystem, FSSpecHandler)
+                        FileSystemHandler, PyFileSystem, FSSpecHandler,
+                        copy_files)
 
 
 class DummyHandler(FileSystemHandler):
@@ -1547,3 +1549,108 @@ def test_s3_real_aws_region_selection():
     fs, path = FileSystem.from_uri(
         's3://x-arrow-non-existent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
+
+
+@pytest.mark.s3
+def test_copy_files(s3_connection, s3fs, tempdir):
+    fs = s3fs["fs"]
+    pathfn = s3fs["pathfn"]
+
+    # create test file on S3 filesystem
+    path = pathfn('c.txt')
+    with fs.open_output_stream(path) as f:
+        f.write(b'test')
+
+    # create URI for created file
+    host, port, access_key, secret_key = s3_connection
+    source_uri = (
+        f"s3://{access_key}:{secret_key}@{path}"
+        f"?scheme=http&endpoint_override={host}:{port}"
+    )
+    # copy from S3 URI to local file
+    local_path1 = str(tempdir / "c_copied1.txt")
+    copy_files(source_uri, local_path1)
+
+    localfs = LocalFileSystem()
+    with localfs.open_input_stream(local_path1) as f:
+        assert f.read() == b"test"
+
+    # copy from S3 path+filesystem to local file
+    local_path2 = str(tempdir / "c_copied2.txt")
+    copy_files(path, local_path2, source_filesystem=fs)
+    with localfs.open_input_stream(local_path2) as f:
+        assert f.read() == b"test"
+
+    # copy to local file with URI
+    local_path3 = str(tempdir / "c_copied3.txt")
+    destination_uri = _filesystem_uri(local_path3)  # file://
+    copy_files(source_uri, destination_uri)
+
+    with localfs.open_input_stream(local_path3) as f:
+        assert f.read() == b"test"
+
+    # copy to local file with path+filesystem
+    local_path4 = str(tempdir / "c_copied4.txt")
+    copy_files(source_uri, local_path4, destination_filesystem=localfs)
+
+    with localfs.open_input_stream(local_path4) as f:
+        assert f.read() == b"test"
+
+    # copy with additional options
+    local_path5 = str(tempdir / "c_copied5.txt")
+    copy_files(source_uri, local_path5, chunk_size=1, use_threads=False)
+
+    with localfs.open_input_stream(local_path5) as f:
+        assert f.read() == b"test"
+
+
+def test_copy_files_directory(tempdir):
+    localfs = LocalFileSystem()
+
+    # create source directory with 2 files
+    source_dir = tempdir / "source"
+    source_dir.mkdir()
+    with localfs.open_output_stream(str(source_dir / "file1")) as f:
+        f.write(b'test1')
+    with localfs.open_output_stream(str(source_dir / "file2")) as f:
+        f.write(b'test2')
+
+    def check_copied_files(destination_dir):
+        with localfs.open_input_stream(str(destination_dir / "file1")) as f:
+            assert f.read() == b"test1"
+        with localfs.open_input_stream(str(destination_dir / "file2")) as f:
+            assert f.read() == b"test2"
+
+    # Copy directory with local file paths
+    destination_dir1 = tempdir / "destination1"
+    # TODO need to create?
+    destination_dir1.mkdir()
+    copy_files(str(source_dir), str(destination_dir1))
+    check_copied_files(destination_dir1)
+
+    # Copy directory with path+filesystem
+    destination_dir2 = tempdir / "destination2"
+    destination_dir2.mkdir()
+    copy_files(str(source_dir), str(destination_dir2),
+               source_filesystem=localfs, destination_filesystem=localfs)
+    check_copied_files(destination_dir2)
+
+    # Copy directory with URI
+    destination_dir3 = tempdir / "destination3"
+    destination_dir3.mkdir()
+    source_uri = _filesystem_uri(str(source_dir))  # file://
+    destination_uri = _filesystem_uri(str(destination_dir3))
+    copy_files(source_uri, destination_uri)
+    check_copied_files(destination_dir3)
+
+    # Copy directory with Path objects
+    destination_dir4 = tempdir / "destination4"
+    destination_dir4.mkdir()
+    copy_files(source_dir, destination_dir4)
+    check_copied_files(destination_dir4)
+
+    # copy with additional non-default options
+    destination_dir5 = tempdir / "destination5"
+    destination_dir5.mkdir()
+    copy_files(source_dir, destination_dir5, chunk_size=1, use_threads=False)
+    check_copied_files(destination_dir5)
