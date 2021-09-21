@@ -3336,6 +3336,8 @@ TEST(TestQuantileKernel, Scalar) {
     QuantileOptions options(std::vector<double>{0.0, 0.5, 1.0});
     EXPECT_THAT(Quantile(*MakeScalar(ty, 1), options),
                 ResultWith(ArrayFromJSON(float64(), "[1.0, 1.0, 1.0]")));
+    EXPECT_THAT(Quantile(MakeNullScalar(ty), options),
+                ResultWith(ArrayFromJSON(float64(), "[null, null, null]")));
   }
 }
 
@@ -3401,6 +3403,8 @@ TEST(TestTDigestKernel, Scalar) {
     TDigestOptions options(std::vector<double>{0.0, 0.5, 1.0});
     EXPECT_THAT(TDigest(*MakeScalar(ty, 1), options),
                 ResultWith(ArrayFromJSON(float64(), "[1, 1, 1]")));
+    EXPECT_THAT(TDigest(MakeNullScalar(ty), options),
+                ResultWith(ArrayFromJSON(float64(), "[null, null, null]")));
   }
 }
 
