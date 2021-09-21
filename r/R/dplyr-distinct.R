@@ -23,50 +23,24 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     arrow_not_supported("`distinct()` with `.keep_all = TRUE`")
   }
 
-  distinct_groups <- ensure_named_exprs(quos(...))
-
-  gv <- dplyr::group_vars(.data)
-
-  # Get ordering to use when returning data
-  # We need to do this as `data %>% group_by() %>% summarise()` returns cols in
-  # the order supplied, whereas distinct() returns cols in dataset order.
-  if (length(distinct_groups)) {
-    cols_in_order <- intersect(
-      unique(c(names(.data), names(distinct_groups))),
-      unique(c(names(distinct_groups), gv))
-    )
+  original_gv <- dplyr::group_vars(.data)
+  if (length(quos(...))) {
+    # group_by() calls mutate() if there are any expressions in ...
+    .data <- dplyr::group_by(.data, ..., .add = TRUE)
+    # `data %>% group_by() %>% summarise()` returns cols in order supplied
+    # but distinct() returns cols in dataset order, so sort group vars
+    .data$group_by_vars <- names(.data)[names(.data) %in% .data$group_by_vars]
   } else {
-    cols_in_order <- names(.data)
+    # distinct() with no vars specified means distinct across all cols
+    .data <- dplyr::group_by(.data, !!!syms(names(.data)))
   }
 
-  # This works as distinct(data, x, y) == summarise(group_by(data, x, y))
-  if (length(distinct_groups)) {
-    .data <- dplyr::group_by(.data, !!!distinct_groups, .add = TRUE)
-  } else {
-    # If there are no cols supplied, group by everything so that
-    # later call to `summarise()`` returns everything and not empty table
-    .data <- dplyr::group_by(.data, !!!syms(names(.data)), .add = TRUE)
+  out <- dplyr::summarize(.data, .groups = "drop")
+  # distinct() doesn't modify group by vars, so restore the original ones
+  if (length(original_gv)) {
+    out$group_by_vars <- original_gv
   }
-
-  .data <- dplyr::summarize(.data, .groups = "drop")
-
-  # If there were no vars supplied to distinct() but there were vars supplied
-  # to group_by, we need to restore grouping which we removed earlier when
-  # grouping by everything
-  if (length(gv)) {
-    .data$group_by_vars <- gv
-  }
-
-  # If there are group_by expressions or expressions supplied to distinct(),
-  # we need to reorder the selected columns to return them in the correct order
-  # Select the columns to return in the correct order
-  ordered_selected_cols <- intersect(
-    cols_in_order,
-    names(.data$selected_columns)
-  )
-  .data$selected_columns <- .data$selected_columns[ordered_selected_cols]
-
-  .data
+  out
 }
 
 distinct.Dataset <- distinct.ArrowTabular <- distinct.arrow_dplyr_query

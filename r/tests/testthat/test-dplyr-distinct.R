@@ -45,6 +45,7 @@ test_that("distinct() works without any variables", {
     input %>%
       group_by(x = int + 1) %>%
       distinct() %>%
+      # Even though we have group_by(x), all cols (including int) are kept
       arrange(int) %>%
       collect(),
     tbl
