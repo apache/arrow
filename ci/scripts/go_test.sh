@@ -32,7 +32,7 @@ esac
 pushd ${source_dir}/arrow
 
 TAGS="test"
-if [[ -v ARROW_GO_TESTCGO ]]; then
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     TAGS="${TAGS},ccalloc"
 fi
 
