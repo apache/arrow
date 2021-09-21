@@ -417,10 +417,10 @@ Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
                        false);
     if (IsDataPoint(options)) {
       CType* out_buffer = output->template GetMutableValues<CType>(1);
-      std::fill(out_buffer, out_buffer + output->length, 0);
+      std::fill(out_buffer, out_buffer + output->length, CType(0));
     } else {
       double* out_buffer = output->template GetMutableValues<double>(1);
-      std::fill(out_buffer, out_buffer + output->length, 0);
+      std::fill(out_buffer, out_buffer + output->length, 0.0);
     }
     return Status::OK();
   }
