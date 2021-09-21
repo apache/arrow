@@ -494,7 +494,7 @@ const FunctionDoc quantile_doc{
      "If quantile lies between two data points, an interpolated value is\n"
      "returned based on selected interpolation method.\n"
      "Nulls and NaNs are ignored.\n"
-     "An empty array is returned if there is no valid data point."),
+     "An array of nulls is returned if there is no valid data point."),
     {"array"},
     "QuantileOptions"};
 

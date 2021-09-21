@@ -163,7 +163,7 @@ const FunctionDoc tdigest_doc{
     "Approximate quantiles of a numeric array with T-Digest algorithm",
     ("By default, 0.5 quantile (median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
-     "An empty array is returned if there is no valid data point."),
+     "An array of nulls is returned if there is no valid data point."),
     {"array"},
     "TDigestOptions"};
 

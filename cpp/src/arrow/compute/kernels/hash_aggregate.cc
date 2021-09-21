@@ -2632,7 +2632,7 @@ const FunctionDoc hash_tdigest_doc{
     "Calculate approximate quantiles of a numeric array with the T-Digest algorithm",
     ("By default, the 0.5 quantile (median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
-     "A null array is returned if there are no valid data points."),
+     "A array of nulls is returned if there are no valid data points."),
     {"array", "group_id_array"},
     "TDigestOptions"};
 
