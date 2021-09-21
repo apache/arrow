@@ -20,9 +20,34 @@ do_exec_plan <- function(.data) {
   final_node <- plan$Build(.data)
   tab <- plan$Run(final_node)
 
+  # If arrange() created $temp_columns, make sure to omit them from the result
+  # We can't currently handle this in the ExecPlan itself because sorting
+  # happens in the end (SinkNode) so nothing comes after it.
   if (length(final_node$sort$temp_columns) > 0) {
-    # If arrange() created $temp_columns, make sure to omit them from the result
     tab <- tab[, setdiff(names(tab), final_node$sort$temp_columns), drop = FALSE]
+  }
+
+  if (ncol(tab)) {
+    # Apply any column metadata from the original schema, where appropriate
+    original_schema <- source_data(.data)$schema
+    # TODO: do we care about other (non-R) metadata preservation?
+    # How would we know if it were meaningful?
+    r_meta <- original_schema$metadata$r
+    if (!is.null(r_meta)) {
+      r_meta <- .unserialize_arrow_r_metadata(r_meta)
+      # Filter r_metadata$columns on columns with name _and_ type match
+      new_schema <- tab$schema
+      common_names <- intersect(names(r_meta$columns), names(tab))
+      keep <- common_names[
+        map_lgl(common_names, ~ original_schema[[.]] == new_schema[[.]])
+      ]
+      r_meta$columns <- r_meta$columns[keep]
+      if (has_aggregation(.data)) {
+        # dplyr drops top-level attributes if you do summarize
+        r_meta$attributes <- NULL
+      }
+      tab$metadata$r <- .serialize_arrow_r_metadata(r_meta)
+    }
   }
 
   tab

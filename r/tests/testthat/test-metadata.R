@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Schema metadata and R attributes")
+# local_edition(3)
 
 test_that("Schema metadata", {
   s <- schema(b = double())
-  expect_equivalent(s$metadata, list())
+  expect_equal(s$metadata, empty_named_list())
   expect_false(s$HasMetadata)
   s$metadata <- list(test = TRUE)
   expect_identical(s$metadata, list(test = "TRUE"))
@@ -31,7 +31,7 @@ test_that("Schema metadata", {
   expect_identical(s$metadata, list(test = "TRUE"))
   expect_true(s$HasMetadata)
   s$metadata <- NULL
-  expect_equivalent(s$metadata, list())
+  expect_equal(s$metadata, empty_named_list())
   expect_false(s$HasMetadata)
   expect_error(
     s$metadata <- 4,
@@ -41,7 +41,7 @@ test_that("Schema metadata", {
 
 test_that("Table metadata", {
   tab <- Table$create(x = 1:2, y = c("a", "b"))
-  expect_equivalent(tab$metadata, list())
+  expect_equal(tab$metadata, empty_named_list())
   tab$metadata <- list(test = TRUE)
   expect_identical(tab$metadata, list(test = "TRUE"))
   tab$metadata$foo <- 42
@@ -49,7 +49,7 @@ test_that("Table metadata", {
   tab$metadata$foo <- NULL
   expect_identical(tab$metadata, list(test = "TRUE"))
   tab$metadata <- NULL
-  expect_equivalent(tab$metadata, list())
+  expect_equal(tab$metadata, empty_named_list())
 })
 
 test_that("Table R metadata", {
@@ -126,7 +126,7 @@ test_that("Metadata serialization compression", {
 
 test_that("RecordBatch metadata", {
   rb <- RecordBatch$create(x = 1:2, y = c("a", "b"))
-  expect_equivalent(rb$metadata, list())
+  expect_equal(rb$metadata, empty_named_list())
   rb$metadata <- list(test = TRUE)
   expect_identical(rb$metadata, list(test = "TRUE"))
   rb$metadata$foo <- 42
@@ -134,7 +134,7 @@ test_that("RecordBatch metadata", {
   rb$metadata$foo <- NULL
   expect_identical(rb$metadata, list(test = "TRUE"))
   rb$metadata <- NULL
-  expect_equivalent(rb$metadata, list())
+  expect_equal(rb$metadata, empty_named_list())
 })
 
 test_that("RecordBatch R metadata", {
@@ -212,6 +212,7 @@ test_that("metadata of list elements (ARROW-10386)", {
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
+  local_edition(3)
   library(dplyr)
 
   df <- tibble::tibble(
@@ -239,14 +240,65 @@ test_that("metadata of list elements (ARROW-10386)", {
   ds <- open_dataset(dst_dir)
   expect_warning(
     df_from_ds <- collect(ds),
-    NA # TODO: ARROW-13852
-    # "Row-level metadata is not compatible with this operation and has been ignored"
+    "Row-level metadata is not compatible with this operation and has been ignored"
   )
-  expect_equal(arrange(df_from_ds, int), arrange(df, int), check.attributes = FALSE)
+  expect_equal(
+    arrange(df_from_ds, int),
+    arrange(df, int),
+    ignore_attr = TRUE
+  )
 
   # however there is *no* warning if we don't select the metadata column
   expect_warning(
     df_from_ds <- ds %>% select(int) %>% collect(),
     NA
+  )
+})
+
+test_that("dplyr with metadata", {
+  skip_if_not_available("dataset")
+
+  expect_dplyr_equal(
+    input %>%
+      collect(),
+    example_with_metadata
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(a) %>%
+      collect(),
+    example_with_metadata
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(z = b * 4) %>%
+      select(z, a) %>%
+      collect(),
+    example_with_metadata
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(z = nchar(a)) %>%
+      select(z, a) %>%
+      collect(),
+    example_with_metadata
+  )
+  # dplyr drops top-level attributes if you do summarize, though attributes
+  # of grouping columns appear to come through
+  expect_dplyr_equal(
+    input %>%
+      group_by(a) %>%
+      summarize(n()) %>%
+      collect(),
+    example_with_metadata
+  )
+  # Same name in output but different data, so the column metadata shouldn't
+  # carry through
+  expect_dplyr_equal(
+    input %>%
+      mutate(a = nchar(a)) %>%
+      select(a) %>%
+      collect(),
+    example_with_metadata
   )
 })
