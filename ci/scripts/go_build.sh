@@ -23,7 +23,7 @@ source_dir=${1}/go
 
 pushd ${source_dir}/arrow
 
-if [[ -v ARROW_GO_TESTCGO ]]; then
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     TAGS="-tags ccalloc"
 fi
 
