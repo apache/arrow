@@ -2446,8 +2446,11 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
         DictionaryType out = DictionaryType.__new__(DictionaryType)
         shared_ptr[CDataType] dict_type
 
-    if _index_type.id not in {Type_INT8, Type_INT16, Type_INT32, Type_INT64}:
-        raise TypeError("The dictionary index type should be signed integer.")
+    if _index_type.id not in {
+        Type_INT8, Type_INT16, Type_INT32, Type_INT64,
+        Type_UINT8, Type_UINT16, Type_UINT32, Type_UINT64,
+    }:
+        raise TypeError("The dictionary index type should be integer.")
 
     dict_type.reset(new CDictionaryType(_index_type.sp_type,
                                         _value_type.sp_type, ordered == 1))
