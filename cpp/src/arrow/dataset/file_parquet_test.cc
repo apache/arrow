@@ -382,6 +382,7 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
 };
 
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestParquetFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
   TestScanProjectedMissingCols();
