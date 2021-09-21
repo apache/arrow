@@ -1172,7 +1172,7 @@ cdef class _QuantileOptions(FunctionOptions):
 
 
 class QuantileOptions(_QuantileOptions):
-    def __init__(self, *, q=0.5, interpolation="linear", skip_nulls=True,
+    def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
                  min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
@@ -1188,7 +1188,7 @@ cdef class _TDigestOptions(FunctionOptions):
 
 
 class TDigestOptions(_TDigestOptions):
-    def __init__(self, *, q=0.5, delta=100, buffer_size=500, skip_nulls=True,
+    def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]

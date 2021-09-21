@@ -676,7 +676,7 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         Data to sort and get top indices from.
     k : int
         The number of `k` elements to keep.
-    sort_keys : List or tuple
+    sort_keys : List-like
         Column key names to order by when input is table-like data.
     memory_pool : MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
@@ -722,7 +722,7 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         Data to sort and get bottom indices from.
     k : int
         The number of `k` elements to keep.
-    sort_keys : List or tuple
+    sort_keys : List-like
         Column key names to order by when input is table-like data.
     memory_pool : MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
