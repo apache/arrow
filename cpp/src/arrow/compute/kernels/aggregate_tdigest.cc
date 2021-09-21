@@ -85,22 +85,24 @@ struct TDigestImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    const int64_t out_length =
-        (this->tdigest.is_empty() || !this->all_valid || this->count < options.min_count)
-            ? 0
-            : options.q.size();
+    const int64_t out_length = options.q.size();
     auto out_data = ArrayData::Make(float64(), out_length, 0);
     out_data->buffers.resize(2, nullptr);
+    ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                          ctx->Allocate(out_length * sizeof(double)));
+    double* out_buffer = out_data->template GetMutableValues<double>(1);
 
-    if (out_length > 0) {
-      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
-                            ctx->Allocate(out_length * sizeof(double)));
-      double* out_buffer = out_data->template GetMutableValues<double>(1);
+    if (this->tdigest.is_empty() || !this->all_valid || this->count < options.min_count) {
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[0], ctx->AllocateBitmap(out_length));
+      std::memset(out_data->buffers[0]->mutable_data(), 0x00,
+                  out_data->buffers[0]->size());
+      std::fill(out_buffer, out_buffer + out_length, 0.0);
+      out_data->null_count = out_length;
+    } else {
       for (int64_t i = 0; i < out_length; ++i) {
         out_buffer[i] = this->tdigest.Quantile(this->options.q[i]);
       }
     }
-
     *out = Datum(std::move(out_data));
     return Status::OK();
   }
@@ -161,7 +163,7 @@ const FunctionDoc tdigest_doc{
     "Approximate quantiles of a numeric array with T-Digest algorithm",
     ("By default, 0.5 quantile (median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
-     "An empty array is returned if there is no valid data point."),
+     "An array of nulls is returned if there is no valid data point."),
     {"array"},
     "TDigestOptions"};
 

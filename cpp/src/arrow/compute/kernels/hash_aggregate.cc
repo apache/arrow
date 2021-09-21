@@ -1661,17 +1661,18 @@ struct GroupedTDigestImpl : public GroupedAggregator {
   }
 
   Result<Datum> Finalize() override {
+    const int64_t slot_length = options_.q.size();
+    const int64_t num_values = tdigests_.size() * slot_length;
     const int64_t* counts = counts_.data();
     std::shared_ptr<Buffer> null_bitmap;
-    ARROW_ASSIGN_OR_RAISE(
-        std::shared_ptr<Buffer> values,
-        AllocateBuffer(tdigests_.size() * options_.q.size() * sizeof(double), pool_));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
+                          AllocateBuffer(num_values * sizeof(double), pool_));
     int64_t null_count = 0;
-    const int64_t slot_length = options_.q.size();
 
     double* results = reinterpret_cast<double*>(values->mutable_data());
     for (int64_t i = 0; static_cast<size_t>(i) < tdigests_.size(); ++i) {
-      if (!tdigests_[i].is_empty() && counts[i] >= options_.min_count) {
+      if (!tdigests_[i].is_empty() && counts[i] >= options_.min_count &&
+          (options_.skip_nulls || BitUtil::GetBit(no_nulls_.data(), i))) {
         for (int64_t j = 0; j < slot_length; j++) {
           results[i * slot_length + j] = tdigests_[i].Quantile(options_.q[j]);
         }
@@ -1679,30 +1680,19 @@ struct GroupedTDigestImpl : public GroupedAggregator {
       }
 
       if (!null_bitmap) {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(tdigests_.size(), pool_));
-        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, tdigests_.size(), true);
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_values, pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_values, true);
       }
-      null_count++;
-      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
+      null_count += slot_length;
+      BitUtil::SetBitsTo(null_bitmap->mutable_data(), i * slot_length, slot_length,
+                         false);
       std::fill(&results[i * slot_length], &results[(i + 1) * slot_length], 0.0);
     }
 
-    if (!options_.skip_nulls) {
-      null_count = kUnknownNullCount;
-      if (null_bitmap) {
-        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
-                                   no_nulls_.data(), /*right_offset=*/0,
-                                   static_cast<int64_t>(tdigests_.size()),
-                                   /*out_offset=*/0, null_bitmap->mutable_data());
-      } else {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, no_nulls_.Finish());
-      }
-    }
-
-    auto child = ArrayData::Make(float64(), tdigests_.size() * options_.q.size(),
-                                 {nullptr, std::move(values)}, /*null_count=*/0);
-    return ArrayData::Make(out_type(), tdigests_.size(), {std::move(null_bitmap)},
-                           {std::move(child)}, null_count);
+    auto child = ArrayData::Make(float64(), num_values,
+                                 {std::move(null_bitmap), std::move(values)}, null_count);
+    return ArrayData::Make(out_type(), tdigests_.size(), {nullptr}, {std::move(child)},
+                           /*null_count=*/0);
   }
 
   std::shared_ptr<DataType> out_type() const override {
@@ -2642,7 +2632,7 @@ const FunctionDoc hash_tdigest_doc{
     "Calculate approximate quantiles of a numeric array with the T-Digest algorithm",
     ("By default, the 0.5 quantile (median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
-     "A null array is returned if there are no valid data points."),
+     "A array of nulls is returned if there are no valid data points."),
     {"array", "group_id_array"},
     "TDigestOptions"};
 

@@ -14,13 +14,16 @@ namespace arrow {
 namespace flatbuf {
 
 struct TensorDim;
+struct TensorDimBuilder;
 
 struct Tensor;
+struct TensorBuilder;
 
 /// ----------------------------------------------------------------------
 /// Data structures for dense tensors
 /// Shape data for a single axis in a tensor
 struct TensorDim FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TensorDimBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SIZE = 4,
     VT_NAME = 6
@@ -43,6 +46,7 @@ struct TensorDim FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TensorDimBuilder {
+  typedef TensorDim Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_size(int64_t size) {
@@ -85,6 +89,7 @@ inline flatbuffers::Offset<TensorDim> CreateTensorDimDirect(
 }
 
 struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TensorBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE_TYPE = 4,
     VT_TYPE = 6,
@@ -277,6 +282,7 @@ template<> inline const org::apache::arrow::flatbuf::LargeList *Tensor::type_as<
 }
 
 struct TensorBuilder {
+  typedef Tensor Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
