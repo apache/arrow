@@ -244,9 +244,7 @@ jobs:
           - 32
           - 64
     env:
-      ARROW_GO_TESTCGO: "1"
-      CGO_CPPFLAGS: "-IC:/msys64/mingw${{ matrix.mingw-n-bits }}/include"
-      CGO_LDFLAGS: "-g -O2 -LC:/msys64/mingw${{ matrix.mingw-n-bits}}/lib -LC:/msys64/mingw${{ matrix.mingw-n-bits }}/bin"
+      ARROW_GO_TESTCGO: "1"            
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -275,6 +273,12 @@ jobs:
         shell: msys2 {0}
         run: |
           ci/scripts/msys2_setup.sh cgo
+      - name: Update CGO Env vars
+        shell: msys2 {0}
+        run: |
+          echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
+          echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
+          echo "$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_PATH
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .
