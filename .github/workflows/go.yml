@@ -230,3 +230,54 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/go_test.sh .
+
+  windows-mingw:
+    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} CGO
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.15]
+        mingw-n-bits:
+          - 32
+          - 64
+    env:
+      ARROW_GO_TESTCGO: "1"
+      CGO_CPPFLAGS: "-IC:/msys64/mingw${{ matrix.mingw-n-bits }}/include"
+      CGO_LDFLAGS: "-g -O2 -LC:/msys64/mingw${{ matrix.mingw-n-bits}}/lib -LC:/msys64/mingw${{ matrix.mingw-n-bits }}/bin"
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Install go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW${{ matrix.mingw-n-bits }}
+          update: true
+      - name: Setup MSYS2
+        shell: msys2 {0}
+        run: |
+          ci/scripts/msys2_setup.sh cgo
+      - name: Build
+        shell: bash
+        run: ci/scripts/go_build.sh .
+      - name: Test
+        shell: bash
+        run: ci/scripts/go_test.sh .
