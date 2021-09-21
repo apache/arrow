@@ -847,7 +847,6 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
-
 agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
   list(
     fun = "count_distinct",
@@ -855,12 +854,33 @@ agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
     options = list(na.rm = na.rm)
   )
 }
-
 agg_funcs$n <- function() {
   list(
     fun = "sum",
     data = Expression$scalar(1L),
     options = list()
+  )
+}
+agg_funcs$min <- function(..., na.rm = FALSE) {
+  args <- list2(...)
+  if (length(args) > 1) {
+    arrow_not_supported("Multiple arguments to min()")
+  }
+  list(
+    fun = "min",
+    data = args[[1]],
+    options = list(skip_nulls = na.rm, min_count = 0L)
+  )
+}
+agg_funcs$max <- function(..., na.rm = FALSE) {
+  args <- list2(...)
+  if (length(args) > 1) {
+    arrow_not_supported("Multiple arguments to max()")
+  }
+  list(
+    fun = "max",
+    data = args[[1]],
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 

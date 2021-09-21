@@ -30,28 +30,6 @@ tbl$verses <- verses[[1]]
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
 tbl$some_grouping <- rep(c(1, 2), 5)
 
-test_that("summarize", {
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)) %>%
-      collect(),
-    tbl,
-    warning = TRUE
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int) / 2) %>%
-      collect(),
-    tbl,
-    warning = TRUE
-  )
-})
-
 test_that("summarize() doesn't evaluate eagerly", {
   expect_s3_class(
     Table$create(tbl) %>%
@@ -246,6 +224,131 @@ test_that("Group by n_distinct() on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("summarize() with min() and max()", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>% # this filters out the NAs in `int`
+      summarize(min_int = min(int), max_int = max(int)) %>%
+      collect(),
+    tbl,
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>% # this filters out the NAs in `int`
+      summarize(
+        min_int = min(int + 4) / 2,
+        max_int = 3 / max(42 - int)
+      ) %>%
+      collect(),
+    tbl,
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      summarize(min_int = min(int), max_int = max(int)) %>%
+      collect(),
+    tbl,
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(int) %>%
+      summarize(
+        min_int = min(int, na.rm = TRUE),
+        max_int = max(int, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl,
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(dbl, int) %>%
+      summarize(
+        min_int = -min(log(ceiling(dbl)), na.rm = TRUE),
+        max_int = log(max(as.double(int), na.rm = TRUE))
+      ) %>%
+      collect(),
+    tbl,
+  )
+
+  # multiple dots arguments to min(), max() not supported
+  expect_dplyr_equal(
+    input %>%
+      summarize(min_mult = min(dbl, int)) %>%
+      collect(),
+    tbl,
+    warning = "Multiple arguments to min\\(\\) not supported by Arrow"
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(int, dbl, dbl2) %>%
+      summarize(max_mult = max(int, dbl, dbl2)) %>%
+      collect(),
+    tbl,
+    warning = "Multiple arguments to max\\(\\) not supported by Arrow"
+  )
+
+  # min(logical) or max(logical) yields integer in R
+  # min(Boolean) or max(Boolean) yields Boolean in Arrow
+  expect_dplyr_equal(
+    input %>%
+      select(lgl) %>%
+      summarize(
+        max_lgl = as.logical(max(lgl, na.rm = TRUE)),
+        min_lgl = as.logical(min(lgl, na.rm = TRUE))
+      ) %>%
+      collect(),
+    tbl,
+  )
+})
+
+test_that("min() and max() on character strings", {
+  expect_dplyr_equal(
+    input %>%
+      summarize(
+        min_chr = min(chr, na.rm = TRUE),
+        max_chr = max(chr, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl,
+  )
+  skip("Strings not supported by hash_min_max (ARROW-13988)")
+  expect_dplyr_equal(
+    input %>%
+      group_by(fct) %>%
+      summarize(
+        min_chr = min(chr, na.rm = TRUE),
+        max_chr = max(chr, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl,
+  )
+})
+
+test_that("summarise() with !!sym()", {
+  test_chr_col <- "int"
+  test_dbl_col <- "dbl"
+  test_lgl_col <- "lgl"
+  expect_dplyr_equal(
+    input %>%
+      group_by(false) %>%
+      summarise(
+        sum = sum(!!sym(test_dbl_col)),
+        any = any(!!sym(test_lgl_col)),
+        all = all(!!sym(test_lgl_col)),
+        mean = mean(!!sym(test_dbl_col)),
+        sd = sd(!!sym(test_dbl_col)),
+        var = var(!!sym(test_dbl_col)),
+        n_distinct = n_distinct(!!sym(test_chr_col)),
+        min = min(!!sym(test_dbl_col)),
+        max = max(!!sym(test_dbl_col))
+      ) %>%
       collect(),
     tbl
   )
