@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
@@ -28,6 +29,7 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
@@ -47,8 +49,16 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.message.IpcOption;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -130,7 +140,6 @@ public class ArrowDatabaseMetadataTest {
               format("key_name #%d", i)})
           .map(Arrays::asList)
           .collect(toList());
-
   private static final List<String> FIELDS_GET_IMPORTED_EXPORTED_KEYS = ImmutableList.of(
       "PKTABLE_CAT", "PKTABLE_SCHEM", "PKTABLE_NAME",
       "PKCOLUMN_NAME", "FKTABLE_CAT", "FKTABLE_SCHEM",
@@ -138,11 +147,41 @@ public class ArrowDatabaseMetadataTest {
       "FK_NAME", "PK_NAME", "UPDATE_RULE", "DELETE_RULE",
       "DEFERRABILITY");
   private static final String TARGET_TABLE = "TARGET_TABLE";
+  private static final List<List<Object>> EXPECTED_GET_COLUMNS_RESULTS;
+  private static Connection connection;
+
+  static {
+    List<Integer> expectedGetColumnsDataTypes = Arrays.asList(3, 93, 4);
+    List<String> expectedGetColumnsTypeName = Arrays.asList("Decimal", "Timestamp", "Int");
+    List<Integer> expectedGetColumnsRadix = Arrays.asList(10, null, 10);
+    List<Integer> expectedGetColumnsColumnSize = Arrays.asList(5, 29, 10);
+    List<Integer> expectedGetColumnsDecimalDigits = Arrays.asList(2, null, 0);
+    List<String> expectedGetColumnsIsNullable = Arrays.asList("YES", "YES", "NO");
+    EXPECTED_GET_COLUMNS_RESULTS = range(0, ROW_COUNT * 3)
+        .mapToObj(i -> new Object[] {
+            format("catalog_name #%d", i / 3),
+            format("schema_name #%d", i / 3),
+            format("table_name%d", i / 3),
+            format("column_%d", (i % 3) + 1),
+            expectedGetColumnsDataTypes.get(i % 3),
+            expectedGetColumnsTypeName.get(i % 3),
+            expectedGetColumnsColumnSize.get(i % 3),
+            null,
+            expectedGetColumnsDecimalDigits.get(i % 3),
+            expectedGetColumnsRadix.get(i % 3),
+            !Objects.equals(expectedGetColumnsIsNullable.get(i % 3), "NO") ? 1 : 0,
+            null, null, null, null, null,
+            (i % 3) + 1,
+            expectedGetColumnsIsNullable.get(i % 3),
+            null, null, null, null,
+            "", ""})
+        .map(Arrays::asList)
+        .collect(toList());
+  }
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   public final ResultSetTestUtils resultSetTestUtils = new ResultSetTestUtils(collector);
-  private static Connection connection;
 
   @BeforeClass
   public static void setUpBeforeClass() throws SQLException {
@@ -204,6 +243,43 @@ public class ArrowDatabaseMetadataTest {
       }
     };
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetTables, commandGetTablesResultProducer);
+
+    final Message commandGetTablesWithSchema = CommandGetTables.newBuilder()
+        .setIncludeSchema(true)
+        .build();
+    final Consumer<ServerStreamListener> commandGetTablesWithSchemaResultProducer = listener -> {
+      try (final BufferAllocator allocator = new RootAllocator();
+           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA, allocator)) {
+        final byte[] filledTableSchemaBytes =
+            copyFrom(
+                MessageSerializer.serializeMetadata(new Schema(Arrays.asList(
+                        Field.nullable("column_1", ArrowType.Decimal.createDecimal(5, 2, 128)),
+                        Field.nullable("column_2", new ArrowType.Timestamp(TimeUnit.NANOSECOND, "UTC")),
+                        Field.notNullable("column_3", Types.MinorType.INT.getType()))),
+                    IpcOption.DEFAULT))
+                .toByteArray();
+        final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
+        final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
+        final VarBinaryVector tableSchema = (VarBinaryVector) root.getVector("table_schema");
+        range(0, ROW_COUNT)
+            .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
+            .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
+            .peek(i -> tableName.setSafe(i, new Text(format("table_name%d", i))))
+            .peek(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))))
+            .forEach(i -> tableSchema.setSafe(i, filledTableSchemaBytes));
+        root.setRowCount(ROW_COUNT);
+        listener.start(root);
+        listener.putNext();
+      } catch (final Throwable throwable) {
+        listener.error(throwable);
+      } finally {
+        listener.completed();
+      }
+    };
+    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetTablesWithSchema,
+        commandGetTablesWithSchemaResultProducer);
 
     final Message commandGetSchemas = CommandGetSchemas.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetSchemasResultProducer = listener -> {
@@ -297,7 +373,6 @@ public class ArrowDatabaseMetadataTest {
       }
     };
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetPrimaryKeys, commandGetPrimaryKeysResultProducer);
-
   }
 
   @AfterClass
@@ -427,6 +502,61 @@ public class ArrowDatabaseMetadataTest {
               "KEY_SEQ",
               "PK_NAME"),
           EXPECTED_PRIMARY_KEYS_RESULTS
+      );
+    }
+  }
+
+  @Test
+  public void testGetColumnsCanBeAccessedByIndices() throws SQLException {
+    try (final ResultSet resultSet = connection.getMetaData().getColumns(null, null, null, null)) {
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_COLUMNS_RESULTS);
+    }
+  }
+
+  @Test
+  public void testGetColumnsCanByIndicesFilteringColumnNames() throws SQLException {
+    char escapeChar = (char) 0;
+    try (
+        final ResultSet resultSet = connection.getMetaData()
+            .getColumns(null, null, null, "column" + escapeChar + "_1")) {
+      resultSetTestUtils.testData(resultSet, EXPECTED_GET_COLUMNS_RESULTS
+          .stream()
+          .filter(insideList -> Objects.equals(insideList.get(3), "column_1"))
+          .collect(toList())
+      );
+    }
+  }
+
+  @Test
+  public void testGetColumnsCanBeAccessedByNames() throws SQLException {
+    try (final ResultSet resultSet = connection.getMetaData().getColumns(null, null, null, null)) {
+      resultSetTestUtils.testData(resultSet,
+          ImmutableList.of(
+              "TABLE_CAT",
+              "TABLE_SCHEM",
+              "TABLE_NAME",
+              "COLUMN_NAME",
+              "DATA_TYPE",
+              "TYPE_NAME",
+              "COLUMN_SIZE",
+              "BUFFER_LENGTH",
+              "DECIMAL_DIGITS",
+              "NUM_PREC_RADIX",
+              "NULLABLE",
+              "REMARKS",
+              "COLUMN_DEF",
+              "SQL_DATA_TYPE",
+              "SQL_DATETIME_SUB",
+              "CHAR_OCTET_LENGTH",
+              "ORDINAL_POSITION",
+              "IS_NULLABLE",
+              "SCOPE_CATALOG",
+              "SCOPE_SCHEMA",
+              "SCOPE_TABLE",
+              "SOURCE_DATA_TYPE",
+              "IS_AUTOINCREMENT",
+              "IS_GENERATEDCOLUMN"),
+          EXPECTED_GET_COLUMNS_RESULTS
       );
     }
   }
