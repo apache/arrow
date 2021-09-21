@@ -897,16 +897,6 @@ class TakeOptions(_TakeOptions):
         self._set_options(boundscheck)
 
 
-cdef class _PartitionNthOptions(FunctionOptions):
-    def _set_options(self, pivot):
-        self.wrapped.reset(new CPartitionNthOptions(pivot))
-
-
-class PartitionNthOptions(_PartitionNthOptions):
-    def __init__(self, pivot):
-        self._set_options(pivot)
-
-
 cdef class _MakeStructOptions(FunctionOptions):
     def _set_options(self, field_names, field_nullability, field_metadata):
         cdef:
@@ -1140,29 +1130,50 @@ cdef CSortOrder unwrap_sort_order(order) except *:
     _raise_invalid_function_option(order, "sort order")
 
 
+cdef CNullPlacement unwrap_null_placement(null_placement) except *:
+    if null_placement == "at_start":
+        return CNullPlacement_AtStart
+    elif null_placement == "at_end":
+        return CNullPlacement_AtEnd
+    _raise_invalid_function_option(null_placement, "null placement")
+
+
+cdef class _PartitionNthOptions(FunctionOptions):
+    def _set_options(self, pivot, null_placement):
+        self.wrapped.reset(new CPartitionNthOptions(
+            pivot, unwrap_null_placement(null_placement)))
+
+
+class PartitionNthOptions(_PartitionNthOptions):
+    def __init__(self, pivot, *, null_placement="at_end"):
+        self._set_options(pivot, null_placement)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
-    def _set_options(self, order):
-        self.wrapped.reset(new CArraySortOptions(unwrap_sort_order(order)))
+    def _set_options(self, order, null_placement):
+        self.wrapped.reset(new CArraySortOptions(
+            unwrap_sort_order(order), unwrap_null_placement(null_placement)))
 
 
 class ArraySortOptions(_ArraySortOptions):
-    def __init__(self, order="ascending"):
-        self._set_options(order)
+    def __init__(self, order="ascending", *, null_placement="at_end"):
+        self._set_options(order, null_placement)
 
 
 cdef class _SortOptions(FunctionOptions):
-    def _set_options(self, sort_keys):
+    def _set_options(self, sort_keys, null_placement):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
                 CSortKey(tobytes(name), unwrap_sort_order(order))
             )
-        self.wrapped.reset(new CSortOptions(c_sort_keys))
+        self.wrapped.reset(new CSortOptions(
+            c_sort_keys, unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
-    def __init__(self, sort_keys):
-        self._set_options(sort_keys)
+    def __init__(self, sort_keys, *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
 
 
 cdef class _SelectKOptions(FunctionOptions):
