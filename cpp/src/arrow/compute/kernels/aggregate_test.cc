@@ -2871,7 +2871,8 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
       auto out_array = out.make_array();
       ValidateOutput(*out_array);
-      ASSERT_EQ(out.array()->length, 0);
+      ASSERT_EQ(out.array()->length, q.size());
+      ASSERT_EQ(out.array()->null_count, q.size());
     }
   }
 
@@ -2943,7 +2944,7 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   QuantileOptions keep_nulls_min_count(/*q=*/0.5, QuantileOptions::LINEAR,
                                        /*skip_nulls=*/false, /*min_count=*/3);
   auto not_empty = ResultWith(ArrayFromJSON(float64(), "[3.0]"));
-  auto empty = ResultWith(ArrayFromJSON(float64(), "[]"));
+  auto empty = ResultWith(ArrayFromJSON(float64(), "[null]"));
   EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), keep_nulls), not_empty);
   EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), keep_nulls), empty);
   EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), keep_nulls), not_empty);
@@ -2974,7 +2975,7 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
     EXPECT_THAT(Quantile(*MakeScalar(ty, 1), options),
                 ResultWith(ArrayFromJSON(expected_ty, "[1, 1, 1]")));
     EXPECT_THAT(Quantile(MakeNullScalar(ty), options),
-                ResultWith(ArrayFromJSON(expected_ty, "[]")));
+                ResultWith(ArrayFromJSON(expected_ty, "[null, null, null]")));
   }
 }
 
@@ -3019,7 +3020,7 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
   QuantileOptions keep_nulls_min_count(/*q=*/0.5, QuantileOptions::LINEAR,
                                        /*skip_nulls=*/false, /*min_count=*/3);
   auto not_empty = ResultWith(ArrayFromJSON(float64(), "[3.0]"));
-  auto empty = ResultWith(ArrayFromJSON(float64(), "[]"));
+  auto empty = ResultWith(ArrayFromJSON(float64(), "[null]"));
   EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), keep_nulls), not_empty);
   EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), keep_nulls), empty);
   EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), keep_nulls), not_empty);
@@ -3050,7 +3051,7 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
     EXPECT_THAT(Quantile(*MakeScalar(ty, 1), options),
                 ResultWith(ArrayFromJSON(expected_ty, "[1, 1, 1]")));
     EXPECT_THAT(Quantile(MakeNullScalar(ty), options),
-                ResultWith(ArrayFromJSON(expected_ty, "[]")));
+                ResultWith(ArrayFromJSON(expected_ty, "[null, null, null]")));
   }
 }
 
@@ -3312,6 +3313,73 @@ TEST_F(TestRandomFloatQuantileKernel, Sliced) {
 }
 #endif
 
+TEST(TestQuantileKernel, AllNullsOrNaNs) {
+  const std::vector<std::vector<std::string>> tests = {
+      {"[]"},
+      {"[null, null]", "[]", "[null]"},
+      {"[NaN]", "[NaN, NaN]", "[]"},
+      {"[null, NaN, null]"},
+      {"[NaN, NaN]", "[]", "[null]"},
+  };
+
+  for (const auto& json : tests) {
+    auto chunked = ChunkedArrayFromJSON(float64(), json);
+    ASSERT_OK_AND_ASSIGN(Datum out, Quantile(chunked, QuantileOptions()));
+    auto out_array = out.make_array();
+    ValidateOutput(*out_array);
+    AssertArraysEqual(*ArrayFromJSON(float64(), "[null]"), *out_array, /*verbose=*/true);
+  }
+}
+
+TEST(TestQuantileKernel, Scalar) {
+  for (const auto& ty : {float64(), int64(), uint64()}) {
+    QuantileOptions options(std::vector<double>{0.0, 0.5, 1.0});
+    EXPECT_THAT(Quantile(*MakeScalar(ty, 1), options),
+                ResultWith(ArrayFromJSON(float64(), "[1.0, 1.0, 1.0]")));
+    EXPECT_THAT(Quantile(MakeNullScalar(ty), options),
+                ResultWith(ArrayFromJSON(float64(), "[null, null, null]")));
+  }
+}
+
+TEST(TestQuantileKernel, Options) {
+  auto ty = float64();
+  QuantileOptions keep_nulls(/*q=*/0.5, QuantileOptions::LINEAR,
+                             /*skip_nulls=*/false, /*min_count=*/0);
+  QuantileOptions min_count(/*q=*/0.5, QuantileOptions::LINEAR,
+                            /*skip_nulls=*/true, /*min_count=*/3);
+  QuantileOptions keep_nulls_min_count(/*q=*/0.5, QuantileOptions::NEAREST,
+                                       /*skip_nulls=*/false, /*min_count=*/3);
+
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1.0, 2.0, 3.0]"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[2.0]")));
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "1.0"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[1.0]")));
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[2.0]")));
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1.0, 2.0, null]"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "1.0"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1.0, 2.0, 3.0]"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[2.0]")));
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1.0, 2.0]"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "1.0"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[null]")));
+}
+
 TEST(TestTDigestKernel, AllNullsOrNaNs) {
   const std::vector<std::vector<std::string>> tests = {
       {"[]"},
@@ -3326,7 +3394,7 @@ TEST(TestTDigestKernel, AllNullsOrNaNs) {
     ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, TDigestOptions()));
     auto out_array = out.make_array();
     ValidateOutput(*out_array);
-    ASSERT_EQ(out.array()->length, 0);
+    AssertArraysEqual(*ArrayFromJSON(float64(), "[null]"), *out_array, /*verbose=*/true);
   }
 }
 
@@ -3335,6 +3403,8 @@ TEST(TestTDigestKernel, Scalar) {
     TDigestOptions options(std::vector<double>{0.0, 0.5, 1.0});
     EXPECT_THAT(TDigest(*MakeScalar(ty, 1), options),
                 ResultWith(ArrayFromJSON(float64(), "[1, 1, 1]")));
+    EXPECT_THAT(TDigest(MakeNullScalar(ty), options),
+                ResultWith(ArrayFromJSON(float64(), "[null, null, null]")));
   }
 }
 
@@ -3350,31 +3420,31 @@ TEST(TestTDigestKernel, Options) {
   EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0]"), keep_nulls),
               ResultWith(ArrayFromJSON(ty, "[2.0]")));
   EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), keep_nulls),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
   EXPECT_THAT(TDigest(ScalarFromJSON(ty, "1.0"), keep_nulls),
               ResultWith(ArrayFromJSON(ty, "[1.0]")));
   EXPECT_THAT(TDigest(ScalarFromJSON(ty, "null"), keep_nulls),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
 
   EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), min_count),
               ResultWith(ArrayFromJSON(ty, "[2.0]")));
   EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, null]"), min_count),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
   EXPECT_THAT(TDigest(ScalarFromJSON(ty, "1.0"), min_count),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
   EXPECT_THAT(TDigest(ScalarFromJSON(ty, "null"), min_count),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
 
   EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0]"), keep_nulls_min_count),
               ResultWith(ArrayFromJSON(ty, "[2.0]")));
   EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0]"), keep_nulls_min_count),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
   EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), keep_nulls_min_count),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
   EXPECT_THAT(TDigest(ScalarFromJSON(ty, "1.0"), keep_nulls_min_count),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
   EXPECT_THAT(TDigest(ScalarFromJSON(ty, "null"), keep_nulls_min_count),
-              ResultWith(ArrayFromJSON(ty, "[]")));
+              ResultWith(ArrayFromJSON(ty, "[null]")));
 }
 
 }  // namespace compute
