@@ -290,6 +290,7 @@ void EnsureLookupTablesFilled() {}
 constexpr int64_t kTransformError = -1;
 
 struct StringTransformBase {
+  virtual ~StringTransformBase() = default;
   virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Status::OK();
   }
@@ -1904,6 +1905,7 @@ struct IsUpperAscii : CharacterPredicateAscii<IsUpperAscii> {
 
 template <typename Options>
 struct SplitFinderBase {
+  virtual ~SplitFinderBase() = default;
   virtual Status PreExec(const Options& options) { return Status::OK(); }
 
   // Derived classes should also define these methods:

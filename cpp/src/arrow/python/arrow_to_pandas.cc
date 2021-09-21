@@ -1980,6 +1980,7 @@ class PandasBlockCreator {
     }
     column_block_placement_.resize(num_columns_);
   }
+  virtual ~PandasBlockCreator() = default;
 
   virtual Status Convert(PyObject** out) = 0;
 
