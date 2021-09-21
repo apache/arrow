@@ -229,6 +229,63 @@ test_that("Group by n_distinct() on dataset", {
   )
 })
 
+<<<<<<< HEAD
+=======
+test_that("median()", {
+  # with groups
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        med_dbl = median(dbl),
+        med_int = median(int),
+        med_dbl_narmf = median(dbl, FALSE),
+        # styler: off
+        med_int_narmf = median(int, na.rm = F),
+        # styler: on
+        med_dbl_narmt = median(dbl, na.rm = TRUE),
+        # styler: off
+        med_int_narmt = median(int, T)
+        # styler: on
+      ) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  )
+  # without groups, with na.rm = TRUE
+  expect_dplyr_equal(
+    input %>%
+      summarize(
+        med_dbl_narmt = median(dbl, na.rm = TRUE),
+        # styler: off
+        med_int_narmt = median(int, T)
+        # styler: on
+      ) %>%
+      collect(),
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  )
+
+  skip("Error on median(, na.rm = FALSE) with no groups (ARROW-14050)")
+  # without groups, with na.rm = FALSE (the default)
+  expect_dplyr_equal(
+    input %>%
+      summarize(
+        med_dbl = median(dbl),
+        med_int = median(int),
+        # styler: off
+        med_dbl_narmf = median(dbl, F),
+        # styler: on
+        med_int_narmf = median(int, na.rm = FALSE)
+      ) %>%
+      collect(),
+    tbl,
+    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  )
+})
+
+>>>>>>> b5fffd2e2 (Fix merge error)
 test_that("summarize() with min() and max()", {
   expect_dplyr_equal(
     input %>%
