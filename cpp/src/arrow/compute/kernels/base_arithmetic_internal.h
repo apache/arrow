@@ -425,49 +425,57 @@ struct DivideChecked {
   }
 };
 
-std::shared_ptr<DataType> DivmodType(const std::shared_ptr<DataType>& ty) {
+std::shared_ptr<DataType> MakeDivmodType(const std::shared_ptr<DataType>& ty) {
   std::vector<std::shared_ptr<arrow::Field>> fields{field("quotient", ty),
                                                     field("remainder", ty)};
   return struct_(fields);
 }
 
 struct Divmod {
-  // TODO(edponce): mod() should support integer types too.
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext*, Arg0 left,
-                                                           Arg1 right, Status*) {
-    auto quotient = std::floor(left / right);
+  static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
+                                                           Arg1 right, Status* st) {
+    auto div = Divide::Call<Arg0>(ctx, left, right, st);
+    auto quotient = std::floor(div);
     auto remainder = std::fmod(left, right);
     ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
-    // TODO(edponce): How to only call DivmodType once (before processing)?
+    // TODO(edponce): How to only call MakeDivmodType once (before processing)?
     // This is a static method so there is not state.
     auto ty = CTypeTraits<Arg0>::type_singleton();
-    return StructScalar(std::move(values), DivmodType(ty));
+    return StructScalar(std::move(values), MakeDivmodType(ty));
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_c_integer<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
+                                                      Arg1 right, Status* st) {
+    auto quotient = Divide::Call<Arg0>(ctx, left, right, st);
+    auto remainder = left % right;
+    ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
+    auto ty = CTypeTraits<Arg0>::type_singleton();
+    return StructScalar(std::move(values), MakeDivmodType(ty));
   }
 };
 
 struct DivmodChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext*, Arg0 left,
+  static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
                                                            Arg1 right, Status* st) {
-    // Arg0 quotient;
-    // Arg0 remainder = 0;
-    // if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &quotient))) {
-    //   if (right == 0) {
-    //     *st = Status::Invalid("divide by zero");
-    //   } else {
-    //     quotient = 0;
-    //   }
-    // } else {
-    //   remainder = left % right;
-    // }
-    auto quotient = std::floor(left / right);
+    auto div = DivideChecked::Call<Arg0>(ctx, left, right, st);
+    auto quotient = std::floor(div);
     auto remainder = std::fmod(left, right);
     ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
-    // TODO(edponce): How to only call DivmodType once (before processing)?
-    // This is a static method so there is not state.
     auto ty = CTypeTraits<Arg0>::type_singleton();
-    return StructScalar(std::move(values), DivmodType(ty));
+    return StructScalar(std::move(values), MakeDivmodType(ty));
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_c_integer<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
+                                                      Arg1 right, Status* st) {
+    auto quotient = DivideChecked::Call<Arg0>(ctx, left, right, st);
+    auto remainder = left % right;
+    ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
+    auto ty = CTypeTraits<Arg0>::type_singleton();
+    return StructScalar(std::move(values), MakeDivmodType(ty));
   }
 };
 
