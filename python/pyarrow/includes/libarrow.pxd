@@ -1686,10 +1686,6 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
 cdef extern from "arrow/json/options.h" nogil:
 
-    # TODO: Cython 0.29.x does not fully supports scoped enums. For Cython 3,
-    # we should be able to use "cpdef enum class
-    # CUnexpectedFieldBehavior(char)" to get a Python wrapper with the provided
-    # underlying type.
     ctypedef enum CUnexpectedFieldBehavior \
             "arrow::json::UnexpectedFieldBehavior":
         CUnexpectedFieldBehavior_Ignore \
@@ -1830,9 +1826,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CElementWiseAggregateOptions(c_bool skip_nulls)
         c_bool skip_nulls
 
-    # TODO: Cython 0.29.x does not fully supports scoped enums. For Cython 3,
-    # we should be able to use "cpdef enum class CRoundMode(int8_t)" to get a
-    # Python wrapper with the provided underlying type.
     ctypedef enum CRoundMode \
             "arrow::compute::RoundMode":
         CRoundMode_DOWN \
@@ -2091,9 +2084,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_bool] field_nullability
         vector[shared_ptr[const CKeyValueMetadata]] field_metadata
 
-    # TODO: Cython 0.29.x does not fully supports scoped enums. For Cython 3,
-    # we should be able to use "cpdef enum class CSortOrder(int8_t)" to get
-    # a Python wrapper with the provided underlying type.
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"

@@ -687,10 +687,6 @@ class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
 
 
 cdef CRoundMode unwrap_round_mode(round_mode) except *:
-    # TODO: Cython 0.29.x does not supports C++ scoped enums as dictionary
-    # values because they do not resolve to integers, so we use if-elses.
-    # Cython 3 fully supports C++ scoped enums resolving to integers, refer to
-    # https://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html#scoped-enumerations
     if round_mode == "down":
         return CRoundMode_DOWN
     elif round_mode == "up":
@@ -1111,10 +1107,6 @@ class SplitPatternOptions(_SplitPatternOptions):
 
 
 cdef CSortOrder unwrap_sort_order(order) except *:
-    # TODO: Cython 0.29.x does not supports C++ scoped enums as dictionary
-    # values because they do not resolve to integers, so we use if-elses.
-    # Cython 3 supports C++ scoped enums resolving to integers, refer to
-    # https://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html#scoped-enumerations
     if order == "ascending":
         return CSortOrder_Ascending
     elif order == "descending":
