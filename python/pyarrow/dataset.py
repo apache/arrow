@@ -679,6 +679,11 @@ or tables, iterable of batches, RecordBatchReader, or URI
 
 
 def _ensure_write_partitioning(part, schema, flavor):
+    if isinstance(part, PartitioningFactory):
+        raise ValueError("A PartitioningFactory cannot be used. "
+                         "Did you call the partitioning function "
+                         "without supplying a schema?")
+
     if isinstance(part, Partitioning) and flavor:
         raise ValueError(
             "Providing a partitioning_flavor with "
@@ -696,7 +701,8 @@ def _ensure_write_partitioning(part, schema, flavor):
 
     if not isinstance(part, Partitioning):
         raise ValueError(
-            "partitioning must be a Partitioning object with a schema"
+            "partitioning must be a Partitioning object or "
+            "a list of column names"
         )
 
     return part
