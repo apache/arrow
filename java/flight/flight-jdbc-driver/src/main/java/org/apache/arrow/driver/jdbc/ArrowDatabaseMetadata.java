@@ -17,16 +17,32 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Pattern;
 
+import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
+import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 
@@ -34,6 +50,55 @@ import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
  * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
  */
 public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
+  private static final String JAVA_REGEX_SPECIALS = "[]()|^-+*?{}$\\.";
+  private static final Charset CHARSET = StandardCharsets.UTF_8;
+  private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+  private static final int NO_DECIMAL_DIGITS = 0;
+  private static final int BASE10_RADIX = 10;
+  private static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_LONG = (int) Math.ceil((Long.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_VARCHAR_AND_BINARY = 65536;
+  private static final int COLUMN_SIZE_DATE = "YYYY-MM-DD".length();
+  private static final int COLUMN_SIZE_TIME = "HH:MM:ss".length();
+  private static final int COLUMN_SIZE_TIME_MILLISECONDS = "HH:MM:ss.SSS".length();
+  private static final int COLUMN_SIZE_TIME_MICROSECONDS = "HH:MM:ss.SSSSSS".length();
+  private static final int COLUMN_SIZE_TIME_NANOSECONDS = "HH:MM:ss.SSSSSSSSS".length();
+  private static final int COLUMN_SIZE_TIMESTAMP_SECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME;
+  private static final int COLUMN_SIZE_TIMESTAMP_MILLISECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MILLISECONDS;
+  private static final int COLUMN_SIZE_TIMESTAMP_MICROSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MICROSECONDS;
+  private static final int COLUMN_SIZE_TIMESTAMP_NANOSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_NANOSECONDS;
+  private static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
+  private static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
+  private static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
+  private static final Schema GET_COLUMNS_SCHEMA = new Schema(
+      Arrays.asList(
+          Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
+          Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
+          Field.notNullable("COLUMN_NAME", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("DATA_TYPE", Types.MinorType.INT.getType()),
+          Field.nullable("TYPE_NAME", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("COLUMN_SIZE", Types.MinorType.INT.getType()),
+          Field.nullable("BUFFER_LENGTH", Types.MinorType.INT.getType()),
+          Field.nullable("DECIMAL_DIGITS", Types.MinorType.INT.getType()),
+          Field.nullable("NUM_PREC_RADIX", Types.MinorType.INT.getType()),
+          Field.notNullable("NULLABLE", Types.MinorType.INT.getType()),
+          Field.nullable("REMARKS", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("COLUMN_DEF", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("SQL_DATA_TYPE", Types.MinorType.INT.getType()),
+          Field.nullable("SQL_DATETIME_SUB", Types.MinorType.INT.getType()),
+          Field.notNullable("CHAR_OCTET_LENGTH", Types.MinorType.INT.getType()),
+          Field.notNullable("ORDINAL_POSITION", Types.MinorType.INT.getType()),
+          Field.notNullable("IS_NULLABLE", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("SCOPE_CATALOG", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("SCOPE_SCHEMA", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("SCOPE_TABLE", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("SOURCE_DATA_TYPE", Types.MinorType.SMALLINT.getType()),
+          Field.notNullable("IS_AUTOINCREMENT", Types.MinorType.VARCHAR.getType()),
+          Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())
+      ));
 
   protected ArrowDatabaseMetadata(final AvaticaConnection connection) {
     super(connection);
@@ -165,5 +230,237 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
             .renameFieldVector("key_name", "PK_NAME")
             .build();
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoPrimaryKeys, transformer);
+  }
+
+  @Override
+  public ResultSet getColumns(final String catalog, final String schemaPattern, final String tableNamePattern,
+                              final String columnNamePattern)
+      throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
+    final FlightInfo flightInfoTables =
+        connection.getClientHandler().getTables(catalog, schemaPattern, tableNamePattern, null, true);
+
+    final BufferAllocator allocator = connection.getBufferAllocator();
+
+    final Pattern columnNamePat = columnNamePattern != null ? Pattern.compile(sqlToRegexLike(columnNamePattern)) : null;
+
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoTables,
+        (originalRoot, transformedRoot) -> {
+          int columnCounter = 0;
+          if (transformedRoot == null) {
+            transformedRoot = VectorSchemaRoot.create(GET_COLUMNS_SCHEMA, allocator);
+          }
+
+          final int originalRootRowCount = originalRoot.getRowCount();
+
+          final VarCharVector catalogNameVector = (VarCharVector) originalRoot.getVector("catalog_name");
+          final VarCharVector tableNameVector = (VarCharVector) originalRoot.getVector("table_name");
+          final VarCharVector schemaNameVector = (VarCharVector) originalRoot.getVector("schema_name");
+
+          final VarBinaryVector schemaVector = (VarBinaryVector) originalRoot.getVector("table_schema");
+
+          for (int i = 0; i < originalRootRowCount; i++) {
+            final Schema currentSchema = MessageSerializer.deserializeSchema(
+                Message.getRootAsMessage(
+                    ByteBuffer.wrap(schemaVector.get(i))));
+
+            final Text catalogName = catalogNameVector.getObject(i);
+            final Text tableName = tableNameVector.getObject(i);
+            final Text schemaName = schemaNameVector.getObject(i);
+
+            final List<Field> tableColumns = currentSchema.getFields();
+
+            columnCounter = setSchemaGetColumnsRootFromColumnMetadata(transformedRoot, columnCounter, tableColumns,
+                catalogName, tableName, schemaName, columnNamePat);
+          }
+
+          transformedRoot.setRowCount(columnCounter);
+
+          originalRoot.clear();
+          return transformedRoot;
+        });
+  }
+
+  private int setSchemaGetColumnsRootFromColumnMetadata(final VectorSchemaRoot currentRoot, int insertIndex,
+                                                        final List<Field> tableColumns, final Text catalogName,
+                                                        final Text tableName, final Text schemaName,
+                                                        final Pattern columnNamePattern) {
+    int ordinalIndex = 1;
+    int tableColumnsSize = tableColumns.size();
+
+    final VarCharVector tableCatVector = (VarCharVector) currentRoot.getVector("TABLE_CAT");
+    final VarCharVector tableSchemVector = (VarCharVector) currentRoot.getVector("TABLE_SCHEM");
+    final VarCharVector tableNameVector = (VarCharVector) currentRoot.getVector("TABLE_NAME");
+    final VarCharVector columnNameVector = (VarCharVector) currentRoot.getVector("COLUMN_NAME");
+    final IntVector dataTypeVector = (IntVector) currentRoot.getVector("DATA_TYPE");
+    final VarCharVector typeNameVector = (VarCharVector) currentRoot.getVector("TYPE_NAME");
+    final IntVector columnSizeVector = (IntVector) currentRoot.getVector("COLUMN_SIZE");
+    final IntVector decimalDigitsVector = (IntVector) currentRoot.getVector("DECIMAL_DIGITS");
+    final IntVector numPrecRadixVector = (IntVector) currentRoot.getVector("NUM_PREC_RADIX");
+    final IntVector nullableVector = (IntVector) currentRoot.getVector("NULLABLE");
+    final IntVector ordinalPositionVector = (IntVector) currentRoot.getVector("ORDINAL_POSITION");
+    final VarCharVector isNullableVector = (VarCharVector) currentRoot.getVector("IS_NULLABLE");
+    final VarCharVector isAutoincrementVector = (VarCharVector) currentRoot.getVector("IS_AUTOINCREMENT");
+    final VarCharVector isGeneratedColumnVector = (VarCharVector) currentRoot.getVector("IS_GENERATEDCOLUMN");
+
+    for (int i = 0; i < tableColumnsSize; i++, ordinalIndex++) {
+      final String columnName = tableColumns.get(i).getName();
+
+      if (columnNamePattern != null && !columnNamePattern.matcher(columnName).matches()) {
+        continue;
+      }
+
+      final ArrowType fieldType = tableColumns.get(i).getType();
+      final ArrowType.ArrowTypeID fieldTypeId = fieldType.getTypeID();
+
+      if (catalogName != null) {
+        tableCatVector.setSafe(insertIndex, catalogName);
+      }
+
+      if (schemaName != null) {
+        tableSchemVector.setSafe(insertIndex, schemaName);
+      }
+
+      if (tableName != null) {
+        tableNameVector.setSafe(insertIndex, tableName);
+      }
+
+      if (columnName != null) {
+        columnNameVector.setSafe(insertIndex, columnName.getBytes(CHARSET));
+      }
+
+      dataTypeVector.setSafe(insertIndex, SqlTypes.getSqlTypeIdFromArrowType(tableColumns.get(i).getType()));
+      typeNameVector.setSafe(insertIndex, fieldTypeId.name().getBytes(CHARSET));
+
+      // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
+      // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+      if (fieldType instanceof ArrowType.Decimal) {
+        final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
+        columnSizeVector.setSafe(insertIndex, thisDecimal.getPrecision());
+        decimalDigitsVector.setSafe(insertIndex, thisDecimal.getScale());
+        numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
+      } else if (fieldType instanceof ArrowType.Int) {
+        final ArrowType.Int thisInt = (ArrowType.Int) fieldType;
+        switch (thisInt.getBitWidth()) {
+          case Byte.SIZE:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_BYTE);
+            break;
+          case Short.SIZE:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_SHORT);
+            break;
+          case Integer.SIZE:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_INT);
+            break;
+          case Long.SIZE:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_LONG);
+            break;
+          default:
+            columnSizeVector.setSafe(insertIndex,
+                (int) Math.ceil((thisInt.getBitWidth() - 1) * Math.log(2) / Math.log(10)));
+            break;
+        }
+        decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
+        numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
+      } else if (fieldType instanceof ArrowType.Utf8 || fieldType instanceof ArrowType.Binary) {
+        columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_VARCHAR_AND_BINARY);
+      } else if (fieldType instanceof ArrowType.Timestamp) {
+        switch (((ArrowType.Timestamp) fieldType).getUnit()) {
+          case SECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_SECONDS);
+            decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
+            break;
+          case MILLISECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_MILLISECONDS);
+            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MILLISECONDS);
+            break;
+          case MICROSECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_MICROSECONDS);
+            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MICROSECONDS);
+            break;
+          case NANOSECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_NANOSECONDS);
+            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_NANOSECONDS);
+            break;
+          default:
+            break;
+        }
+      } else if (fieldType instanceof ArrowType.Time) {
+        switch (((ArrowType.Time) fieldType).getUnit()) {
+          case SECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME);
+            decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
+            break;
+          case MILLISECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME_MILLISECONDS);
+            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MILLISECONDS);
+            break;
+          case MICROSECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME_MICROSECONDS);
+            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MICROSECONDS);
+            break;
+          case NANOSECOND:
+            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME_NANOSECONDS);
+            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_NANOSECONDS);
+            break;
+          default:
+            break;
+        }
+      } else if (fieldType instanceof ArrowType.Date) {
+        columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_DATE);
+        decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
+      } else if (fieldType instanceof ArrowType.FloatingPoint) {
+        numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
+      }
+
+      nullableVector.setSafe(insertIndex, tableColumns.get(i).isNullable() ? 1 : 0);
+
+      isNullableVector.setSafe(insertIndex,
+          tableColumns.get(i).isNullable() ? "YES".getBytes(CHARSET) : "NO".getBytes(CHARSET));
+
+      // Fields also don't hold information about IS_AUTOINCREMENT and IS_GENERATEDCOLUMN,
+      // so we're setting an empty string (as bytes), which means it couldn't be determined.
+      isAutoincrementVector.setSafe(insertIndex, EMPTY_BYTE_ARRAY);
+      isGeneratedColumnVector.setSafe(insertIndex, EMPTY_BYTE_ARRAY);
+
+      ordinalPositionVector.setSafe(insertIndex, ordinalIndex);
+
+      insertIndex++;
+    }
+    return insertIndex;
+  }
+
+  private String sqlToRegexLike(final String sqlPattern) {
+    final char escapeChar = (char) 0;
+    final int len = sqlPattern.length();
+    final StringBuilder javaPattern = new StringBuilder(len + len);
+
+    for (int i = 0; i < len; i++) {
+      char currentChar = sqlPattern.charAt(i);
+
+      if (JAVA_REGEX_SPECIALS.indexOf(currentChar) >= 0) {
+        javaPattern.append('\\');
+      }
+
+      switch (currentChar) {
+        case escapeChar:
+          char nextChar = sqlPattern.charAt(i + 1);
+          if ((nextChar == '_') || (nextChar == '%') || (nextChar == escapeChar)) {
+            javaPattern.append(nextChar);
+            i++;
+          }
+          break;
+        case '_':
+          javaPattern.append('.');
+          break;
+        case '%':
+          javaPattern.append(".");
+          javaPattern.append('*');
+          break;
+        default:
+          javaPattern.append(currentChar);
+          break;
+      }
+    }
+    return javaPattern.toString();
   }
 }
