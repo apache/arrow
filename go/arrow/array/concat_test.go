@@ -85,7 +85,7 @@ func TestConcatenate(t *testing.T) {
 				seed:      0xdeadbeef,
 				dt:        tt.dt,
 				nullProbs: []float64{0.0, 0.1, 0.5, 0.9, 1.0},
-				sizes:     []int32{ /*0,*/ 1, 2, 4, 16, 31, 1234},
+				sizes:     []int32{0, 1, 2, 4, 16, 31, 1234},
 			})
 		})
 	}
