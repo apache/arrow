@@ -19,6 +19,7 @@
 package cgoalloc
 
 // #cgo !windows pkg-config: arrow
+// #cgo !windows CXXFLAGS: -std=c++14
 // #cgo windows LDFLAGS: -larrow -static
 // #cgo windows CXXFLAGS: -DARROW_STATIC=1
 // #include "allocator.h"
