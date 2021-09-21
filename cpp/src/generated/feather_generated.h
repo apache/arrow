@@ -12,18 +12,25 @@ namespace feather {
 namespace fbs {
 
 struct PrimitiveArray;
+struct PrimitiveArrayBuilder;
 
 struct CategoryMetadata;
+struct CategoryMetadataBuilder;
 
 struct TimestampMetadata;
+struct TimestampMetadataBuilder;
 
 struct DateMetadata;
+struct DateMetadataBuilder;
 
 struct TimeMetadata;
+struct TimeMetadataBuilder;
 
 struct Column;
+struct ColumnBuilder;
 
 struct CTable;
+struct CTableBuilder;
 
 /// Feather is an experimental serialization format implemented using
 /// techniques from Apache Arrow. It was created as a proof-of-concept of an
@@ -247,6 +254,7 @@ bool VerifyTypeMetadata(flatbuffers::Verifier &verifier, const void *obj, TypeMe
 bool VerifyTypeMetadataVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 struct PrimitiveArray FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PrimitiveArrayBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE = 4,
     VT_ENCODING = 6,
@@ -291,6 +299,7 @@ struct PrimitiveArray FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PrimitiveArrayBuilder {
+  typedef PrimitiveArray Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_type(arrow::ipc::feather::fbs::Type type) {
@@ -342,6 +351,7 @@ inline flatbuffers::Offset<PrimitiveArray> CreatePrimitiveArray(
 }
 
 struct CategoryMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CategoryMetadataBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LEVELS = 4,
     VT_ORDERED = 6
@@ -364,6 +374,7 @@ struct CategoryMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct CategoryMetadataBuilder {
+  typedef CategoryMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_levels(flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> levels) {
@@ -395,6 +406,7 @@ inline flatbuffers::Offset<CategoryMetadata> CreateCategoryMetadata(
 }
 
 struct TimestampMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TimestampMetadataBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4,
     VT_TIMEZONE = 6
@@ -417,6 +429,7 @@ struct TimestampMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TimestampMetadataBuilder {
+  typedef TimestampMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_unit(arrow::ipc::feather::fbs::TimeUnit unit) {
@@ -459,6 +472,7 @@ inline flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadataDirect(
 }
 
 struct DateMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DateMetadataBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -466,6 +480,7 @@ struct DateMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct DateMetadataBuilder {
+  typedef DateMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit DateMetadataBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -487,6 +502,7 @@ inline flatbuffers::Offset<DateMetadata> CreateDateMetadata(
 }
 
 struct TimeMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TimeMetadataBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
@@ -501,6 +517,7 @@ struct TimeMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TimeMetadataBuilder {
+  typedef TimeMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_unit(arrow::ipc::feather::fbs::TimeUnit unit) {
@@ -527,6 +544,7 @@ inline flatbuffers::Offset<TimeMetadata> CreateTimeMetadata(
 }
 
 struct Column FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ColumnBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NAME = 4,
     VT_VALUES = 6,
@@ -595,6 +613,7 @@ template<> inline const arrow::ipc::feather::fbs::TimeMetadata *Column::metadata
 }
 
 struct ColumnBuilder {
+  typedef Column Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_name(flatbuffers::Offset<flatbuffers::String> name) {
@@ -659,6 +678,7 @@ inline flatbuffers::Offset<Column> CreateColumnDirect(
 }
 
 struct CTable FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CTableBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DESCRIPTION = 4,
     VT_NUM_ROWS = 6,
@@ -703,6 +723,7 @@ struct CTable FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct CTableBuilder {
+  typedef CTable Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_description(flatbuffers::Offset<flatbuffers::String> description) {

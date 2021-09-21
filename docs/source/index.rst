@@ -93,3 +93,4 @@ target environment.**
    developers/docker
    developers/benchmarks
    developers/documentation
+   developers/computeir
