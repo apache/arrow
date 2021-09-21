@@ -229,8 +229,6 @@ test_that("Group by n_distinct() on dataset", {
   )
 })
 
-<<<<<<< HEAD
-=======
 test_that("median()", {
   # with groups
   expect_dplyr_equal(
@@ -275,7 +273,89 @@ test_that("median()", {
   )
 })
 
->>>>>>> b5fffd2e2 (Fix merge error)
+test_that("quantile()", {
+  # The default S3 method for stats::quantile() method throws an error when
+  # numeric input contains NA or NaN and na.rm is not TRUE. So the tests below
+  # only compare R and Arrow output on data with NAs or NaNs with na.rm = TRUE.
+
+  # Because the default S3 method defaults to names = TRUE, the Arrow binding
+  # does not accept a names argument, and the presence of the names causes
+  # expect_equal() to fail, we don't use expect_dplyr_equal() in the tests
+  # below.
+
+  # The tests below all use probs = 0.5 because other values cause differences
+  # between the exact quantiles returned by R and the approximate quantiles
+  # returned by Arrow.
+
+  # with groups
+  expect_warning(
+    expect_equal(
+      tbl %>%
+        group_by(some_grouping) %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+          q_int = quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+        ) %>%
+        arrange(some_grouping),
+      Table$create(tbl) %>%
+        group_by(some_grouping) %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
+          q_int = quantile(int, probs = 0.5, na.rm = TRUE)
+        ) %>%
+        arrange(some_grouping) %>%
+        collect()
+    ),
+    "quantile() currently returns an approximate quantile in Arrow",
+    fixed = TRUE
+  )
+
+  # without groups
+  expect_warning(
+    expect_equal(
+      tbl %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+          q_int = quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+        ),
+      Table$create(tbl) %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
+          q_int = quantile(int, probs = 0.5, na.rm = TRUE)
+        ) %>%
+        collect()
+    ),
+    "quantile() currently returns an approximate quantile in Arrow",
+    fixed = TRUE
+  )
+
+  # with missing values and na.rm = FALSE
+  expect_warning(
+    expect_equal(
+      tibble(
+        q_dbl = NA_real_,
+        q_int = NA_real_
+      ),
+      Table$create(tbl) %>%
+        summarize(
+          q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
+          q_int = quantile(int, probs = 0.5, na.rm = FALSE)
+        ) %>%
+        collect()
+    ),
+    "quantile() currently returns an approximate quantile in Arrow",
+    fixed = TRUE
+  )
+
+  # with a vector of 2+ probs
+  expect_warning(
+    Table$create(tbl) %>%
+      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = FALSE)),
+    "quantile() with length(probs) != 1 not supported by Arrow",
+    fixed = TRUE
+  )
+})
+
 test_that("summarize() with min() and max()", {
   expect_dplyr_equal(
     input %>%
