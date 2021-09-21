@@ -3299,8 +3299,7 @@ def test_write_dataset_with_dataset(tempdir):
 
         load_back = ds.dataset(tempdir2, partitioning=["b"])
         load_back_table = load_back.to_table()
-        assert load_back_table.to_pydict() == {'b': ['x', 'y', 'z'],
-                                               'c': [1, 2, 3]}
+        assert load_back_table.to_pydict() == table.to_pydict()
 
 
 @pytest.mark.parquet
