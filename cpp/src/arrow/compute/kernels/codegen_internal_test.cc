@@ -143,6 +143,7 @@ TEST(TestDispatchBest, CommonTemporal) {
   AssertTypeEqual(date64(), CommonTemporal({date64(), date64()}));
   AssertTypeEqual(date64(), CommonTemporal({date32(), date64()}));
   ASSERT_EQ(nullptr, CommonTemporal({}));
+  ASSERT_EQ(nullptr, CommonTemporal({float64(), int32()}));
   ASSERT_EQ(nullptr, CommonTemporal({timestamp(TimeUnit::SECOND),
                                      timestamp(TimeUnit::SECOND, "UTC")}));
   ASSERT_EQ(nullptr, CommonTemporal({timestamp(TimeUnit::SECOND, "America/Phoenix"),
