@@ -47,6 +47,7 @@ std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
+std::vector<std::shared_ptr<DataType>> g_interval_types;
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
 std::vector<Type::type> g_decimal_type_ids;
 static std::once_flag codegen_static_initialized;
@@ -90,6 +91,9 @@ static void InitStaticData() {
                       timestamp(TimeUnit::MILLI),
                       timestamp(TimeUnit::MICRO),
                       timestamp(TimeUnit::NANO)};
+
+  // Interval types
+  g_interval_types = {day_time_interval(), month_interval()};
 
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
@@ -155,6 +159,11 @@ const std::vector<std::shared_ptr<DataType>>& NumericTypes() {
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
   std::call_once(codegen_static_initialized, InitStaticData);
   return g_temporal_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
+  std::call_once(codegen_static_initialized, InitStaticData);
+  return g_interval_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {

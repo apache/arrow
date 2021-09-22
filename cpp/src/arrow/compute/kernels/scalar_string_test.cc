@@ -93,7 +93,7 @@ class BaseTestStringKernels : public ::testing::Test {
 template <typename TestType>
 class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 
-TYPED_TEST_SUITE(TestBinaryKernels, BinaryTypes);
+TYPED_TEST_SUITE(TestBinaryKernels, BinaryArrowTypes);
 
 TYPED_TEST(TestBinaryKernels, BinaryLength) {
   this->CheckUnary("binary_length", R"(["aaa", null, "áéíóú", "", "b"])",
@@ -381,7 +381,7 @@ TYPED_TEST(TestBinaryKernels, BinaryJoinElementWise) {
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};
 
-TYPED_TEST_SUITE(TestStringKernels, StringTypes);
+TYPED_TEST_SUITE(TestStringKernels, StringArrowTypes);
 
 TYPED_TEST(TestStringKernels, AsciiUpper) {
   this->CheckUnary("ascii_upper", "[]", this->type(), "[]");
@@ -393,6 +393,24 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
   this->CheckUnary("ascii_lower", "[]", this->type(), "[]");
   this->CheckUnary("ascii_lower", "[\"aAazZæÆ&\", null, \"\", \"BBB\"]", this->type(),
                    "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
+}
+
+TYPED_TEST(TestStringKernels, AsciiSwapCase) {
+  this->CheckUnary("ascii_swapcase", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_swapcase", "[\"aAazZæÆ&\", null, \"\", \"BbB\"]", this->type(),
+                   "[\"AaAZzæÆ&\", null, \"\", \"bBb\"]");
+  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+                   "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
+}
+
+TYPED_TEST(TestStringKernels, AsciiCapitalize) {
+  this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_capitalize",
+                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"hEllO, WoRld!\", \"$. A3\", "
+                   "\"!hELlo, wORLd!\"]",
+                   this->type(),
+                   "[\"AaazzæÆ&\", null, \"\", \"Bbb\", \"Hello, world!\", \"$. a3\", "
+                   "\"!hello, world!\"]");
 }
 
 TYPED_TEST(TestStringKernels, AsciiReverse) {
@@ -454,7 +472,7 @@ TYPED_TEST(TestStringKernels, Utf8Upper) {
   this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
                    "[\"AAAZZÆÆ&\", null, \"\", \"B\"]");
 
-  // test varying encoding lenghts and thus changing indices/offsets
+  // test varying encoding lengths and thus changing indices/offsets
   this->CheckUnary("utf8_upper", "[\"ɑɽⱤoW\", null, \"ıI\", \"b\"]", this->type(),
                    "[\"ⱭⱤⱤOW\", null, \"II\", \"B\"]");
 
@@ -491,6 +509,36 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
   auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_lower", {invalid_input}));
+}
+
+TYPED_TEST(TestStringKernels, Utf8SwapCase) {
+  this->CheckUnary("utf8_swapcase", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
+                   "[\"AaAZzÆæ&\", null, \"\", \"B\"]");
+
+  // test varying encoding lengths and thus changing indices/offsets
+  this->CheckUnary("utf8_swapcase", "[\"ⱭɽⱤoW\", null, \"ıI\", \"B\"]", this->type(),
+                   "[\"ɑⱤɽOw\", null, \"Ii\", \"b\"]");
+
+  // test maximum buffer growth
+  this->CheckUnary("utf8_swapcase", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
+
+  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+                   "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
+
+  // Test invalid data
+  auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
+                                  CallFunction("utf8_swapcase", {invalid_input}));
+}
+
+TYPED_TEST(TestStringKernels, Utf8Capitalize) {
+  this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
+  this->CheckUnary("utf8_capitalize",
+                   "[\"aAazZæÆ&\", null, \"\", \"b\", \"ɑɽⱤoW\", \"ıI\", \"ⱥⱥⱥȺ\", "
+                   "\"hEllO, WoRld!\", \"$. A3\", \"!ɑⱤⱤow\"]",
+                   this->type(),
+                   "[\"Aaazzææ&\", null, \"\", \"B\", \"Ɑɽɽow\", \"Ii\", \"Ⱥⱥⱥⱥ\", "
+                   "\"Hello, world!\", \"$. a3\", \"!ɑɽɽow\"]");
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
@@ -1186,9 +1234,9 @@ TYPED_TEST(TestStringKernels, BinaryJoin) {
   auto expected =
       ArrayFromJSON(this->type(), R"(["a--bb--ccc", "", null, "dd", null, "ff--"])");
   CheckScalarBinary("binary_join", ArrayFromJSON(list(this->type()), list_json),
-                    separator, expected);
+                    Datum(separator), expected);
   CheckScalarBinary("binary_join", ArrayFromJSON(large_list(this->type()), list_json),
-                    separator, expected);
+                    Datum(separator), expected);
 
   auto separator_null = MakeNullScalar(this->type());
   expected = ArrayFromJSON(this->type(), R"([null, null, null, null, null, null])");
@@ -1269,15 +1317,23 @@ TYPED_TEST(TestStringKernels, TrimWhitespaceUTF8) {
 }
 
 TYPED_TEST(TestStringKernels, TrimUTF8) {
-  TrimOptions options{"ȺA"};
-  this->CheckUnary("utf8_trim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
-                   this->type(), "[\"foo\", null, \"bar\", \"fooȺAȺbar\"]", &options);
-  this->CheckUnary("utf8_ltrim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
-                   this->type(), "[\"fooȺAȺ\", null, \"barȺAȺ\", \"fooȺAȺbarA\"]",
-                   &options);
-  this->CheckUnary("utf8_rtrim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
-                   this->type(), "[\"ȺȺfoo\", null, \"bar\", \"ȺAȺfooȺAȺbar\"]",
-                   &options);
+  auto options = TrimOptions{"ab"};
+  this->CheckUnary("utf8_trim", "[\"azȺz矢ba\", null, \"bab\", \"zȺz\"]", this->type(),
+                   "[\"zȺz矢\", null, \"\", \"zȺz\"]", &options);
+  this->CheckUnary("utf8_ltrim", "[\"azȺz矢ba\", null, \"bab\", \"zȺz\"]", this->type(),
+                   "[\"zȺz矢ba\", null, \"\", \"zȺz\"]", &options);
+  this->CheckUnary("utf8_rtrim", "[\"azȺz矢ba\", null, \"bab\", \"zȺz\"]", this->type(),
+                   "[\"azȺz矢\", null, \"\", \"zȺz\"]", &options);
+
+  options = TrimOptions{"ȺA"};
+  this->CheckUnary("utf8_trim", "[\"ȺȺfoo矢ȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺ矢barA\"]",
+                   this->type(), "[\"foo矢\", null, \"bar\", \"fooȺAȺ矢bar\"]", &options);
+  this->CheckUnary(
+      "utf8_ltrim", "[\"ȺȺfoo矢ȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺ矢barA\"]",
+      this->type(), "[\"foo矢ȺAȺ\", null, \"barȺAȺ\", \"fooȺAȺ矢barA\"]", &options);
+  this->CheckUnary(
+      "utf8_rtrim", "[\"ȺȺfoo矢ȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺ矢barA\"]",
+      this->type(), "[\"ȺȺfoo矢\", null, \"bar\", \"ȺAȺfooȺAȺ矢bar\"]", &options);
 
   TrimOptions options_invalid{"ɑa\xFFɑ"};
   auto input = ArrayFromJSON(this->type(), "[\"foo\"]");

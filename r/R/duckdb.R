@@ -40,7 +40,7 @@
 #'
 #' @name to_duckdb
 #' @export
-#' @examplesIf arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE)
+#' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
 #' library(dplyr)
 #'
 #' ds <- InMemoryDataset$create(mtcars)
@@ -56,10 +56,9 @@
 #'   filter(mpg < 30) %>%
 #'   group_by(cyl) %>%
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
-#'
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
-                      table_name =  unique_arrow_tablename(),
+                      table_name = unique_arrow_tablename(),
                       auto_disconnect = TRUE) {
   .data <- arrow_dplyr_query(.data)
   duckdb::duckdb_register_arrow(con, table_name, .data)
@@ -90,6 +89,18 @@ arrow_duck_connection <- function() {
   con
 }
 
+# helper function to determine if duckdb examples should run
+# see: https://github.com/r-lib/roxygen2/issues/1242
+run_duckdb_examples <- function() {
+  arrow_with_dataset() &&
+    requireNamespace("duckdb", quietly = TRUE) &&
+    packageVersion("duckdb") > "0.2.7" &&
+    requireNamespace("dplyr", quietly = TRUE) &&
+    requireNamespace("dbplyr", quietly = TRUE) &&
+    # These examples are flaking: https://github.com/duckdb/duckdb/issues/2100
+    FALSE
+}
+
 # Adapted from dbplyr
 unique_arrow_tablename <- function() {
   i <- getOption("arrow_table_name", 0) + 1
@@ -108,7 +119,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 
     # and there are no more tables, so we can safely shutdown
     if (length(DBI::dbListTables(con)) == 0) {
-      DBI::dbDisconnect(con, shutdown=TRUE)
+      DBI::dbDisconnect(con, shutdown = TRUE)
     }
   })
   environment()

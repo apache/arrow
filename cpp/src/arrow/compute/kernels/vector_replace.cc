@@ -520,10 +520,11 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
   for (const auto& ty : TemporalTypes()) {
     add_primitive_kernel(ty);
   }
+  for (const auto& ty : IntervalTypes()) {
+    add_primitive_kernel(ty);
+  }
   add_primitive_kernel(null());
   add_primitive_kernel(boolean());
-  add_primitive_kernel(day_time_interval());
-  add_primitive_kernel(month_interval());
   add_kernel(Type::FIXED_SIZE_BINARY, ReplaceWithMaskFunctor<FixedSizeBinaryType>::Exec);
   add_kernel(Type::DECIMAL128, ReplaceWithMaskFunctor<Decimal128Type>::Exec);
   add_kernel(Type::DECIMAL256, ReplaceWithMaskFunctor<Decimal256Type>::Exec);

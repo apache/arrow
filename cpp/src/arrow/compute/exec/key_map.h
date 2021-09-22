@@ -86,7 +86,6 @@ class SwissTable {
   ///
   inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
                                    uint64_t group_id_mask) const;
-
   void extract_group_ids(const int num_keys, const uint16_t* optional_selection,
                          const uint32_t* hashes, const uint8_t* local_slots,
                          uint32_t* out_group_ids) const;

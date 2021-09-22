@@ -21,7 +21,8 @@
 #' @format NULL
 #' @rdname Dataset
 #' @export
-DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
+DatasetFactory <- R6Class("DatasetFactory",
+  inherit = ArrowObject,
   public = list(
     Finish = function(schema = NULL, unify_schemas = FALSE) {
       if (is.null(schema)) {

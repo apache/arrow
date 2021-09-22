@@ -56,7 +56,7 @@ test_that("arrange() on integer, double, and character columns", {
   )
   expect_dplyr_equal(
     input %>%
-      mutate(zzz = int + dbl,) %>%
+      mutate(zzz = int + dbl, ) %>%
       arrange(zzz, chr) %>%
       collect(),
     tbl

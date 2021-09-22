@@ -30,6 +30,9 @@ namespace Apache.Arrow.Ipc
         public Schema Schema { get; protected set; }
         protected bool HasReadSchema => Schema != null;
 
+        private protected DictionaryMemo _dictionaryMemo;
+        private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
+
         public void Dispose()
         {
             Dispose(true);
@@ -79,6 +82,16 @@ namespace Apache.Arrow.Ipc
             }
         }
 
+        /// <summary>
+        /// Create a record batch or dictionary batch from Flatbuf.Message.
+        /// </summary>
+        /// <remarks>
+        /// This method adds data to _dictionaryMemo and returns null when the message type is DictionaryBatch.
+        /// </remarks>>
+        /// <returns>
+        /// The record batch when the message type is RecordBatch.
+        /// Null when the message type is not RecordBatch.
+        /// </returns>
         protected RecordBatch CreateArrowObjectFromMessage(
             Flatbuf.Message message, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
         {
@@ -88,8 +101,8 @@ namespace Apache.Arrow.Ipc
                     // TODO: Read schema and verify equality?
                     break;
                 case Flatbuf.MessageHeader.DictionaryBatch:
-                    // TODO: not supported currently
-                    Debug.WriteLine("Dictionaries are not yet supported.");
+                    Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
+                    ReadDictionaryBatch(dictionaryBatch, bodyByteBuffer, memoryOwner);
                     break;
                 case Flatbuf.MessageHeader.RecordBatch:
                     Flatbuf.RecordBatch rb = message.Header<Flatbuf.RecordBatch>().Value;
@@ -107,6 +120,36 @@ namespace Apache.Arrow.Ipc
         internal static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
         {
             return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
+        }
+
+        private void ReadDictionaryBatch(Flatbuf.DictionaryBatch dictionaryBatch, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
+        {
+            long id = dictionaryBatch.Id;
+            IArrowType valueType = DictionaryMemo.GetDictionaryType(id);
+            Flatbuf.RecordBatch? recordBatch = dictionaryBatch.Data;
+
+            if (!recordBatch.HasValue)
+            {
+                throw new InvalidDataException("Dictionary must contain RecordBatch");
+            }
+
+            Field valueField = new Field("dummy", valueType, true);
+            var schema = new Schema(new[] { valueField }, default);
+            IList<IArrowArray> arrays = BuildArrays(schema, bodyByteBuffer, recordBatch.Value);
+
+            if (arrays.Count != 1)
+            {
+                throw new InvalidDataException("Dictionary record batch must contain only one field");
+            }
+
+            if (dictionaryBatch.IsDelta)
+            {
+                throw new NotImplementedException("Dictionary delta is not supported yet");
+            }
+            else
+            {
+                DictionaryMemo.AddOrReplaceDictionary(id, arrays[0]);
+            }
         }
 
         private List<IArrowArray> BuildArrays(
@@ -179,7 +222,14 @@ namespace Apache.Arrow.Ipc
 
             ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
+            IArrowArray dictionary = null;
+            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
+            {
+                long id = DictionaryMemo.GetId(field);
+                dictionary = DictionaryMemo.GetDictionary(id);
+            }
+
+            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
         }
 
         private ArrayData LoadVariableField(
@@ -218,7 +268,14 @@ namespace Apache.Arrow.Ipc
             ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
             ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
+            IArrowArray dictionary = null;
+            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
+            {
+                long id = DictionaryMemo.GetId(field);
+                dictionary = DictionaryMemo.GetDictionary(id);
+            }
+
+            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
         }
 
         private ArrayData[] GetChildren(

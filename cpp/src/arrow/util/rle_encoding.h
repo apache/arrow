@@ -737,7 +737,7 @@ inline void RleEncoder::FlushRepeatedRun() {
   bool result = true;
   // The lsb of 0 indicates this is a repeated run
   int32_t indicator_value = repeat_count_ << 1 | 0;
-  result &= bit_writer_.PutVlqInt(indicator_value);
+  result &= bit_writer_.PutVlqInt(static_cast<uint32_t>(indicator_value));
   result &= bit_writer_.PutAligned(current_value_,
                                    static_cast<int>(BitUtil::CeilDiv(bit_width_, 8)));
   DCHECK(result);

@@ -39,7 +39,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * maintained to track which elements in the vector are null.
  */
 public final class DateMilliVector extends BaseFixedWidthVector {
-  private static final byte TYPE_WIDTH = 8;
+  public static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**

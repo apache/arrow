@@ -152,11 +152,11 @@ write_parquet <- function(x,
                           properties = NULL,
                           arrow_properties = NULL) {
   x_out <- x
-  
+
   if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
-  
+
   assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
@@ -166,10 +166,16 @@ write_parquet <- function(x,
 
   # Deprecation warnings
   if (!is.null(properties)) {
-    warning("Providing 'properties' is deprecated. If you need to assemble properties outside this function, use ParquetFileWriter instead.")
+    warning(
+      "Providing 'properties' is deprecated. If you need to assemble properties outside ",
+      "this function, use ParquetFileWriter instead."
+    )
   }
   if (!is.null(arrow_properties)) {
-    warning("Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties outside this function, use ParquetFileWriter instead.")
+    warning(
+      "Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties ",
+      "outside this function, use ParquetFileWriter instead."
+    )
   }
 
   writer <- ParquetFileWriter$create(
@@ -213,7 +219,8 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
   if (is.null(coerce_timestamps)) {
     timestamp_unit <- -1L # null sentinel value
   } else {
-    timestamp_unit <- make_valid_time_unit(coerce_timestamps,
+    timestamp_unit <- make_valid_time_unit(
+      coerce_timestamps,
       c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
     )
   }
@@ -236,7 +243,7 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
   tryCatch(
     valid_versions[[match.arg(version, choices = names(valid_versions))]],
     error = function(cond) {
-      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call.=FALSE)
+      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call. = FALSE)
     }
   )
 }
@@ -284,7 +291,8 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #'
 #' @export
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObject)
-ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = ArrowObject,
+ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
+  inherit = ArrowObject,
   public = list(
     set_version = function(version) {
       parquet___WriterProperties___Builder__version(self, make_valid_version(version))
@@ -292,26 +300,30 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
     set_compression = function(table, compression) {
       compression <- compression_from_name(compression)
       assert_that(is.integer(compression))
-      private$.set(table, compression,
+      private$.set(
+        table, compression,
         parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
     set_compression_level = function(table, compression_level) {
       # cast to integer but keep names
       compression_level <- set_names(as.integer(compression_level), names(compression_level))
-      private$.set(table, compression_level,
+      private$.set(
+        table, compression_level,
         parquet___ArrowWriterProperties___Builder__set_compression_levels
       )
     },
     set_dictionary = function(table, use_dictionary) {
       assert_that(is.logical(use_dictionary))
-      private$.set(table, use_dictionary,
+      private$.set(
+        table, use_dictionary,
         parquet___ArrowWriterProperties___Builder__set_use_dictionary
       )
     },
     set_write_statistics = function(table, write_statistics) {
       assert_that(is.logical(write_statistics))
-      private$.set(table, write_statistics,
+      private$.set(
+        table, write_statistics,
         parquet___ArrowWriterProperties___Builder__set_write_statistics
       )
     },
@@ -319,7 +331,6 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
       parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
     }
   ),
-
   private = list(
     .set = function(table, value, FUN) {
       msg <- paste0("unsupported ", substitute(value), "= specification")
@@ -399,7 +410,8 @@ ParquetWriterProperties$create <- function(table,
 #'
 #' @export
 #' @include arrow-package.R
-ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = ArrowObject,
+ParquetFileWriter <- R6Class("ParquetFileWriter",
+  inherit = ArrowObject,
   public = list(
     WriteTable = function(table, chunk_size) {
       parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
@@ -441,7 +453,8 @@ ParquetFileWriter$create <- function(schema,
 #'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group (0-based).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
-#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups (0-based integers).
+#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row
+#'    groups (0-based integers).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
 #' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
@@ -454,7 +467,7 @@ ParquetFileWriter$create <- function(schema,
 #'
 #' @export
 #' @examplesIf arrow_with_parquet()
-#' f <- system.file("v0.7.1.parquet", package="arrow")
+#' f <- system.file("v0.7.1.parquet", package = "arrow")
 #' pq <- ParquetFileReader$create(f)
 #' pq$GetSchema()
 #' if (codec_is_available("snappy")) {

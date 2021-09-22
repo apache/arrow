@@ -33,7 +33,7 @@ test_that("read_message can read from input stream", {
 })
 
 test_that("read_message() can read Schema messages", {
-  bytes <- schema(x=int32())$serialize()
+  bytes <- schema(x = int32())$serialize()
   stream <- BufferReader$create(bytes)
   message <- read_message(stream)
 
@@ -55,7 +55,7 @@ test_that("read_message() can handle raw vectors", {
   message_raw <- read_message(bytes)
   expect_equal(message_stream, message_raw)
 
-  bytes <- schema(x=int32())$serialize()
+  bytes <- schema(x = int32())$serialize()
   stream <- BufferReader$create(bytes)
   message_stream <- read_message(stream)
   message_raw <- read_message(bytes)

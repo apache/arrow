@@ -31,6 +31,8 @@ from pyarrow._compute import (  # noqa
     # Option classes
     ArraySortOptions,
     CastOptions,
+    CountOptions,
+    DayOfWeekOptions,
     DictionaryEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
@@ -42,6 +44,7 @@ from pyarrow._compute import (  # noqa
     PadOptions,
     PartitionNthOptions,
     MakeStructOptions,
+    NullOptions,
     QuantileOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
@@ -51,8 +54,8 @@ from pyarrow._compute import (  # noqa
     SortOptions,
     SplitOptions,
     SplitPatternOptions,
+    StrftimeOptions,
     StrptimeOptions,
-    DayOfWeekOptions,
     TakeOptions,
     TDigestOptions,
     TrimOptions,
@@ -596,13 +599,15 @@ def fill_null(values, fill_value):
     the same type as values or able to be implicitly casted to the array's
     type.
 
+    This is an alias for :func:`coalesce`.
+
     Parameters
     ----------
-    data : Array, ChunkedArray
-        replace each null element with fill_value
-    fill_value: Scalar-like object
-        Either a pyarrow.Scalar or any python object coercible to a
-        Scalar. If not same type as data will attempt to cast.
+    data : Array, ChunkedArray, or Scalar-like object
+        Each null element is replaced with the corresponding value
+        from fill_value.
+    fill_value: Array, ChunkedArray, or Scalar-like object
+        If not same type as data will attempt to cast.
 
     Returns
     -------
@@ -622,9 +627,9 @@ def fill_null(values, fill_value):
       3
     ]
     """
-    if not isinstance(fill_value, pa.Scalar):
+    if not isinstance(fill_value, (pa.Array, pa.ChunkedArray, pa.Scalar)):
         fill_value = pa.scalar(fill_value, type=values.type)
     elif values.type != fill_value.type:
         fill_value = pa.scalar(fill_value.as_py(), type=values.type)
 
-    return call_function("fill_null", [values, fill_value])
+    return call_function("coalesce", [values, fill_value])

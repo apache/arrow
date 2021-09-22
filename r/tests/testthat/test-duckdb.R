@@ -17,6 +17,9 @@
 
 skip_if_not_installed("duckdb", minimum_version = "0.2.8")
 skip_if_not_installed("dbplyr")
+skip_if_not_available("dataset")
+# when we remove this, we should also remove the FALSE in run_duckdb_examples
+skip("These tests are flaking: https://github.com/duckdb/duckdb/issues/2100")
 library(duckdb)
 library(dplyr)
 
@@ -143,7 +146,7 @@ test_that("to_duckdb with a table", {
         int_mean = mean(int, na.rm = TRUE),
         dbl_mean = mean(dbl, na.rm = TRUE)
       ) %>%
-    collect(),
+      collect(),
     tibble::tibble(
       "int > 4" = c(FALSE, NA, TRUE),
       int_mean = c(2, NA, 7.5),

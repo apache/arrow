@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -54,7 +54,8 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=${ARROW_DATASET:-ON} \
-    -DARROW_DEPENDENCY_SOURCE=BUNDLED \
+    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-BUNDLED} \
+    -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
     -DARROW_FILESYSTEM=ON \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC:-$ARROW_DEFAULT_PARAM} \
     -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \

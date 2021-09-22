@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Ipc
 {
@@ -52,14 +53,13 @@ namespace Apache.Arrow.Ipc
                                 $"{(signed ? "signed " : "unsigned")} integer.");
         }
 
-        internal static Schema GetSchema(Flatbuf.Schema schema)
+        internal static Schema GetSchema(Flatbuf.Schema schema, ref DictionaryMemo dictionaryMemo)
         {
             List<Field> fields = new List<Field>();
             for (int i = 0; i < schema.FieldsLength; i++)
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
-
-                fields.Add(FieldFromFlatbuffer(field));
+                fields.Add(FieldFromFlatbuffer(field, ref dictionaryMemo));
             }
 
             Dictionary<string, string> metadata = schema.CustomMetadataLength > 0 ? new Dictionary<string, string>() : null;
@@ -73,13 +73,26 @@ namespace Apache.Arrow.Ipc
             return new Schema(fields, metadata, copyCollections: false);
         }
 
-        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField)
+        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField, ref DictionaryMemo dictionaryMemo)
         {
             Field[] childFields = flatbufField.ChildrenLength > 0 ? new Field[flatbufField.ChildrenLength] : null;
             for (int i = 0; i < flatbufField.ChildrenLength; i++)
             {
                 Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
-                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value);
+                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value, ref dictionaryMemo);
+            }
+
+            Flatbuf.DictionaryEncoding? dictionaryEncoding = flatbufField.Dictionary;
+            IArrowType type = GetFieldArrowType(flatbufField, childFields);
+
+            if (dictionaryEncoding.HasValue)
+            {
+                Flatbuf.Int? indexTypeAsInt = dictionaryEncoding.Value.IndexType;
+                IArrowType indexType = indexTypeAsInt.HasValue ?
+                    GetNumberType(indexTypeAsInt.Value.BitWidth, indexTypeAsInt.Value.IsSigned) :
+                    GetNumberType(Int32Type.Default.BitWidth, Int32Type.Default.IsSigned);
+
+                type = new DictionaryType(indexType, type, dictionaryEncoding.Value.IsOrdered);
             }
 
             Dictionary<string, string> metadata = flatbufField.CustomMetadataLength > 0 ? new Dictionary<string, string>() : null;
@@ -90,7 +103,15 @@ namespace Apache.Arrow.Ipc
                 metadata[keyValue.Key] = keyValue.Value;
             }
 
-            return new Field(flatbufField.Name, GetFieldArrowType(flatbufField, childFields), flatbufField.Nullable, metadata, copyCollections: false);
+            var arrowField = new Field(flatbufField.Name, type, flatbufField.Nullable, metadata, copyCollections: false);
+
+            if (dictionaryEncoding.HasValue)
+            {
+                dictionaryMemo ??= new DictionaryMemo();
+                dictionaryMemo.AddField(dictionaryEncoding.Value.Id, arrowField);
+            }
+
+            return arrowField;
         }
 
         private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field, Field[] childFields = null)

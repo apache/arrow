@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 import os
 import pathlib
 import sys
+import warnings
 
 
 cdef _init_ca_paths():
@@ -680,9 +681,13 @@ cdef class FileSystem(_Weakrefable):
     def open_append_stream(self, path, compression='detect',
                            buffer_size=None, metadata=None):
         """
-        Open an output stream for appending.
+        DEPRECATED: Open an output stream for appending.
 
         If the target doesn't exist, a new empty file is created.
+
+        .. deprecated:: 6.0
+            Several filesystems don't support this functionality
+            and it will be later removed.
 
         Parameters
         ----------
@@ -712,6 +717,11 @@ cdef class FileSystem(_Weakrefable):
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
             shared_ptr[const CKeyValueMetadata] c_metadata
+
+        warnings.warn(
+            "`open_append_stream` is deprecated as of 6.0.0; several "
+            "filesystems don't support it and it will be later removed",
+            FutureWarning)
 
         if metadata is not None:
             c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(metadata))

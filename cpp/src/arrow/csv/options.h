@@ -85,11 +85,11 @@ struct ARROW_EXPORT ConvertOptions {
   /// If true, then strings in "null_values" are considered null for string columns.
   /// If false, then all strings are valid string values.
   bool strings_can_be_null = false;
-  /// Whether string / binary columns can have quoted null values.
+
+  /// Whether quoted values can be null.
   ///
-  /// If true *and* `strings_can_be_null` is true, then quoted strings in
-  /// "null_values" are also considered null for string columns.  Otherwise,
-  /// quoted strings are never considered null.
+  /// If true, then strings in "null_values" are also considered null when they
+  /// appear quoted in the CSV file. Otherwise, quoted values are never considered null.
   bool quoted_strings_can_be_null = true;
 
   /// Whether to try to automatically dict-encode string / binary data.
@@ -100,6 +100,9 @@ struct ARROW_EXPORT ConvertOptions {
   /// This setting is ignored for non-inferred columns (those in `column_types`).
   bool auto_dict_encode = false;
   int32_t auto_dict_max_cardinality = 50;
+
+  /// Decimal point character for floating-point and decimal data
+  char decimal_point = '.';
 
   // XXX Should we have a separate FilterOptions?
 
@@ -164,7 +167,6 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
-/// Experimental
 struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;

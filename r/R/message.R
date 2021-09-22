@@ -29,7 +29,8 @@
 #'
 #' @rdname Message
 #' @name Message
-Message <- R6Class("Message", inherit = ArrowObject,
+Message <- R6Class("Message",
+  inherit = ArrowObject,
   public = list(
     Equals = function(other, ...) {
       inherits(other, "Message") && ipc___Message__Equals(self, other)
@@ -57,7 +58,8 @@ Message <- R6Class("Message", inherit = ArrowObject,
 #' @rdname MessageReader
 #' @name MessageReader
 #' @export
-MessageReader <- R6Class("MessageReader", inherit = ArrowObject,
+MessageReader <- R6Class("MessageReader",
+  inherit = ArrowObject,
   public = list(
     ReadNextMessage = function() ipc___MessageReader__ReadNextMessage(self)
   )

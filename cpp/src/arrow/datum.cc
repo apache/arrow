@@ -86,7 +86,7 @@ std::shared_ptr<Array> Datum::make_array() const {
   return MakeArray(util::get<std::shared_ptr<ArrayData>>(this->value));
 }
 
-std::shared_ptr<DataType> Datum::type() const {
+const std::shared_ptr<DataType>& Datum::type() const {
   if (this->kind() == Datum::ARRAY) {
     return util::get<std::shared_ptr<ArrayData>>(this->value)->type;
   }
@@ -96,28 +96,36 @@ std::shared_ptr<DataType> Datum::type() const {
   if (this->kind() == Datum::SCALAR) {
     return util::get<std::shared_ptr<Scalar>>(this->value)->type;
   }
-  return nullptr;
+  static std::shared_ptr<DataType> no_type;
+  return no_type;
 }
 
-std::shared_ptr<Schema> Datum::schema() const {
+const std::shared_ptr<Schema>& Datum::schema() const {
   if (this->kind() == Datum::RECORD_BATCH) {
     return util::get<std::shared_ptr<RecordBatch>>(this->value)->schema();
   }
   if (this->kind() == Datum::TABLE) {
     return util::get<std::shared_ptr<Table>>(this->value)->schema();
   }
-  return nullptr;
+  static std::shared_ptr<Schema> no_schema;
+  return no_schema;
 }
 
 int64_t Datum::length() const {
-  if (this->kind() == Datum::ARRAY) {
-    return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
-  } else if (this->kind() == Datum::CHUNKED_ARRAY) {
-    return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
-  } else if (this->kind() == Datum::SCALAR) {
-    return 1;
+  switch (this->kind()) {
+    case Datum::ARRAY:
+      return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
+    case Datum::CHUNKED_ARRAY:
+      return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
+    case Datum::RECORD_BATCH:
+      return util::get<std::shared_ptr<RecordBatch>>(this->value)->num_rows();
+    case Datum::TABLE:
+      return util::get<std::shared_ptr<Table>>(this->value)->num_rows();
+    case Datum::SCALAR:
+      return 1;
+    default:
+      return kUnknownLength;
   }
-  return kUnknownLength;
 }
 
 int64_t Datum::null_count() const {

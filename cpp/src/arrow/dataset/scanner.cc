@@ -40,6 +40,11 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::Executor;
+using internal::SerialExecutor;
+using internal::TaskGroup;
+
 namespace dataset {
 
 using FragmentGenerator = std::function<Future<std::shared_ptr<Fragment>>()>;
@@ -57,10 +62,6 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-using arrow::internal::Executor;
-using arrow::internal::SerialExecutor;
-using arrow::internal::TaskGroup;
-
 std::shared_ptr<TaskGroup> ScanOptions::TaskGroup() const {
   if (use_threads) {
     auto* thread_pool = arrow::internal::GetCpuThreadPool();
@@ -73,15 +74,14 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
-Future<RecordBatchVector> ScanTask::SafeExecute(internal::Executor* executor) {
+Future<RecordBatchVector> ScanTask::SafeExecute(Executor* executor) {
   // If the ScanTask can't possibly be async then just execute it
   ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
   return Future<RecordBatchVector>::MakeFinished(rb_it.ToVector());
 }
 
 Future<> ScanTask::SafeVisit(
-    internal::Executor* executor,
-    std::function<Status(std::shared_ptr<RecordBatch>)> visitor) {
+    Executor* executor, std::function<Status(std::shared_ptr<RecordBatch>)> visitor) {
   // If the ScanTask can't possibly be async then just execute it
   ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
   return Future<>::MakeFinished(rb_it.Visit(visitor));
@@ -196,6 +196,8 @@ Result<std::shared_ptr<RecordBatchReader>> Scanner::ToRecordBatchReader() {
                                                     std::move(it));
 }
 
+namespace {
+
 struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> {
   explicit ScanBatchesState(ScanTaskIterator scan_task_it,
                             std::shared_ptr<TaskGroup> task_group_)
@@ -241,7 +243,9 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
   }
 
   void PushScanTask() {
-    if (no_more_tasks) return;
+    if (no_more_tasks) {
+      return;
+    }
     std::unique_lock<std::mutex> lock(mutex);
     auto maybe_task = scan_tasks.Next();
     if (!maybe_task.ok()) {
@@ -260,12 +264,18 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
 
     lock.unlock();
     task_group->Append([state, id, scan_task]() {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, state->PushError(scan_task->Execute(), id));
-      for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, state->PushError(std::move(maybe_batch), id));
-        state->Push(TaggedRecordBatch{std::move(batch), scan_task->fragment()}, id);
-      }
-      return state->Finish(id);
+      // If we were to return an error to the task group, subsequent tasks
+      // may never be executed, which would produce a deadlock in Pop()
+      // (ARROW-13480).
+      auto status_unused = [&]() {
+        ARROW_ASSIGN_OR_RAISE(auto batch_it, state->PushError(scan_task->Execute(), id));
+        for (auto maybe_batch : batch_it) {
+          ARROW_ASSIGN_OR_RAISE(auto batch, state->PushError(std::move(maybe_batch), id));
+          state->Push(TaggedRecordBatch{std::move(batch), scan_task->fragment()}, id);
+        }
+        return state->Finish(id);
+      }();
+      return Status::OK();
     });
   }
 
@@ -289,6 +299,9 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
       // all scan tasks drained (or getting next task failed), terminate
       return true;
     });
+
+    // We're not bubbling any task errors into the task group
+    DCHECK(task_group->ok());
 
     if (pop_cursor == task_batches.size()) {
       // Don't report an error until we yield up everything we can first
@@ -314,7 +327,7 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
   size_t pop_cursor = 0;
 };
 
-class ARROW_DS_EXPORT SyncScanner : public Scanner {
+class SyncScanner : public Scanner {
  public:
   SyncScanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options)
       : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
@@ -331,7 +344,7 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
   Result<FragmentIterator> GetFragments();
   Result<TaggedRecordBatchIterator> ScanBatches(ScanTaskIterator scan_task_it);
-  Future<std::shared_ptr<Table>> ToTableInternal(internal::Executor* cpu_executor);
+  Future<std::shared_ptr<Table>> ToTableInternal(Executor* cpu_executor);
   Result<ScanTaskIterator> ScanInternal();
 
   std::shared_ptr<Dataset> dataset_;
@@ -403,12 +416,13 @@ Result<ScanTaskIterator> SyncScanner::ScanInternal() {
   return GetScanTaskIterator(std::move(fragment_it), scan_options_);
 }
 
-class ARROW_DS_EXPORT AsyncScanner : public Scanner,
-                                     public std::enable_shared_from_this<AsyncScanner> {
+class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncScanner> {
  public:
   AsyncScanner(std::shared_ptr<Dataset> dataset,
                std::shared_ptr<ScanOptions> scan_options)
-      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
+      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {
+    internal::Initialize();
+  }
 
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<TaggedRecordBatchIterator> ScanBatches() override;
@@ -419,19 +433,16 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
   Result<int64_t> CountRows() override;
 
  private:
-  Result<TaggedRecordBatchGenerator> ScanBatchesAsync(internal::Executor* executor);
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync(Executor* executor);
   Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
-                             internal::Executor* executor);
-  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
-      internal::Executor* executor);
-  Future<std::shared_ptr<Table>> ToTableAsync(internal::Executor* executor);
+                             Executor* executor);
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(Executor* executor);
+  Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
 
   Result<FragmentGenerator> GetFragments() const;
 
   std::shared_ptr<Dataset> dataset_;
 };
-
-namespace {
 
 Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
@@ -461,54 +472,6 @@ const FieldVector kAugmentedFields{
     field("__batch_index", int32()),
     field("__last_in_fragment", boolean()),
 };
-
-Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
-                                        FragmentGenerator fragment_gen,
-                                        std::shared_ptr<ScanOptions> options) {
-  if (!options->use_async) {
-    return Status::NotImplemented("ScanNodes without asynchrony");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
-                        FragmentsToBatches(std::move(fragment_gen), options));
-
-  auto merged_batch_gen =
-      MakeMergedGenerator(std::move(batch_gen_gen), options->fragment_readahead);
-
-  auto batch_gen =
-      MakeReadaheadGenerator(std::move(merged_batch_gen), options->fragment_readahead);
-
-  auto gen = MakeMappedGenerator(
-      std::move(batch_gen),
-      [options](const EnumeratedRecordBatch& partial)
-          -> Result<util::optional<compute::ExecBatch>> {
-        ARROW_ASSIGN_OR_RAISE(
-            util::optional<compute::ExecBatch> batch,
-            compute::MakeExecBatch(*options->dataset_schema, partial.record_batch.value));
-        // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
-        // than this, for example parquet's row group stats. Failing to do this leaves
-        // perf on the table because row group stats could be used to skip kernel execs in
-        // FilterNode.
-        //
-        // Additionally, if a fragment failed to perform projection pushdown there may be
-        // unnecessarily materialized columns in batch. We could drop them now instead of
-        // letting them coast through the rest of the plan.
-        batch->guarantee = partial.fragment.value->partition_expression();
-
-        // tag rows with fragment- and batch-of-origin
-        batch->values.emplace_back(partial.fragment.index);
-        batch->values.emplace_back(partial.record_batch.index);
-        batch->values.emplace_back(partial.record_batch.last);
-        return batch;
-      });
-
-  auto fields = options->dataset_schema->fields();
-  for (const auto& aug_field : kAugmentedFields) {
-    fields.push_back(aug_field);
-  }
-  return compute::MakeSourceNode(plan, "dataset_scan", schema(std::move(fields)),
-                                 std::move(gen));
-}
 
 class OneShotScanTask : public ScanTask {
  public:
@@ -549,7 +512,7 @@ class OneShotFragment : public Fragment {
         auto background_gen,
         MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
     return MakeTransferredGenerator(std::move(background_gen),
-                                    internal::GetCpuThreadPool());
+                                    ::arrow::internal::GetCpuThreadPool());
   }
   std::string type_name() const override { return "one-shot"; }
 
@@ -560,7 +523,6 @@ class OneShotFragment : public Fragment {
 
   RecordBatchIterator batch_it_;
 };
-}  // namespace
 
 Result<FragmentGenerator> AsyncScanner::GetFragments() const {
   // TODO(ARROW-8163): Async fragment scanning will return AsyncGenerator<Fragment>
@@ -572,26 +534,26 @@ Result<FragmentGenerator> AsyncScanner::GetFragments() const {
 }
 
 Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
-  ARROW_ASSIGN_OR_RAISE(auto batches_gen, ScanBatchesAsync(internal::GetCpuThreadPool()));
+  ARROW_ASSIGN_OR_RAISE(auto batches_gen,
+                        ScanBatchesAsync(::arrow::internal::GetCpuThreadPool()));
   return MakeGeneratorIterator(std::move(batches_gen));
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
   ARROW_ASSIGN_OR_RAISE(auto batches_gen,
-                        ScanBatchesUnorderedAsync(internal::GetCpuThreadPool()));
+                        ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool()));
   return MakeGeneratorIterator(std::move(batches_gen));
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
-  auto table_fut = ToTableAsync(internal::GetCpuThreadPool());
+  auto table_fut = ToTableAsync(::arrow::internal::GetCpuThreadPool());
   return table_fut.result();
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(internal::GetCpuThreadPool());
+  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool());
 }
 
-namespace {
 Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
     const util::optional<compute::ExecBatch>& batch, const ScanOptions& options,
     const FragmentVector& fragments) {
@@ -608,10 +570,9 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
                         batch->ToRecordBatch(options.projected_schema, options.pool));
   return out;
 }
-}  // namespace
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
-    internal::Executor* cpu_executor) {
+    Executor* cpu_executor) {
   if (!scan_options_->use_threads) {
     cpu_executor = nullptr;
   }
@@ -620,22 +581,22 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
-
-  ARROW_ASSIGN_OR_RAISE(auto scan, MakeScanNode(plan.get(), dataset_, scan_options_));
-
-  ARROW_ASSIGN_OR_RAISE(auto filter,
-                        compute::MakeFilterNode(scan, "filter", scan_options_->filter));
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
-  ARROW_ASSIGN_OR_RAISE(
-      auto project,
-      MakeAugmentedProjectNode(filter, "project", std::move(exprs), std::move(names)));
 
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
-      compute::MakeSinkNode(project, "sink");
+  RETURN_NOT_OK(compute::Declaration::Sequence(
+                    {
+                        {"scan", ScanNodeOptions{dataset_, scan_options_}},
+                        {"filter", compute::FilterNodeOptions{scan_options_->filter}},
+                        {"augmented_project",
+                         compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+                        {"sink", compute::SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->StartProducing());
 
@@ -665,11 +626,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
-  return ScanBatchesAsync(internal::GetCpuThreadPool());
+  return ScanBatchesAsync(::arrow::internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
-    internal::Executor* cpu_executor) {
+    Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(cpu_executor));
   // We need an initial value sentinel, so we use one with fragment.index < 0
   auto is_before_any = [](const EnumeratedRecordBatch& batch) {
@@ -750,17 +711,17 @@ Status AsyncScanner::Scan(std::function<Status(TaggedRecordBatch)> visitor) {
   auto top_level_task = [this, &visitor](Executor* executor) {
     return VisitBatchesAsync(visitor, executor);
   };
-  return internal::RunSynchronously<Future<>>(top_level_task, scan_options_->use_threads);
+  return ::arrow::internal::RunSynchronously<Future<>>(top_level_task,
+                                                       scan_options_->use_threads);
 }
 
 Future<> AsyncScanner::VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
-                                         internal::Executor* executor) {
+                                         Executor* executor) {
   ARROW_ASSIGN_OR_RAISE(auto batches_gen, ScanBatchesAsync(executor));
   return VisitAsyncGenerator(std::move(batches_gen), visitor);
 }
 
-Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
-    internal::Executor* cpu_executor) {
+Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(Executor* cpu_executor) {
   auto scan_options = scan_options_;
   ARROW_ASSIGN_OR_RAISE(auto positioned_batch_gen,
                         ScanBatchesUnorderedAsync(cpu_executor));
@@ -785,12 +746,13 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
 Result<int64_t> AsyncScanner::CountRows() {
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
 
-  auto cpu_executor = scan_options_->use_threads ? internal::GetCpuThreadPool() : nullptr;
+  auto cpu_executor =
+      scan_options_->use_threads ? ::arrow::internal::GetCpuThreadPool() : nullptr;
   compute::ExecContext exec_context(scan_options_->pool, cpu_executor);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   // Drop projection since we only need to count rows
-  auto options = std::make_shared<ScanOptions>(*scan_options_);
+  const auto options = std::make_shared<ScanOptions>(*scan_options_);
   RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
 
   std::atomic<int64_t> total{0};
@@ -813,20 +775,23 @@ Result<int64_t> AsyncScanner::CountRows() {
             });
       });
 
-  ARROW_ASSIGN_OR_RAISE(auto scan,
-                        MakeScanNode(plan.get(), std::move(fragment_gen), options));
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto get_selection,
-      compute::MakeProjectNode(scan, "get_selection", {options->filter}));
-
-  ARROW_ASSIGN_OR_RAISE(
-      auto sum_selection,
-      compute::MakeScalarAggregateNode(get_selection, "sum_selection",
-                                       {compute::internal::Aggregate{"sum", nullptr}}));
-
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
-      compute::MakeSinkNode(sum_selection, "sink");
+  RETURN_NOT_OK(
+      compute::Declaration::Sequence(
+          {
+              {"scan", ScanNodeOptions{std::make_shared<FragmentDataset>(
+                                           scan_options_->dataset_schema,
+                                           std::move(fragment_gen)),
+                                       options}},
+              {"project", compute::ProjectNodeOptions{{options->filter}, {"mask"}}},
+              {"aggregate", compute::AggregateNodeOptions{{compute::internal::Aggregate{
+                                                              "sum", nullptr}},
+                                                          /*targets=*/{"mask"},
+                                                          /*names=*/{"selected_count"}}},
+              {"sink", compute::SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->StartProducing());
   auto maybe_slow_count = sink_gen().result();
@@ -837,6 +802,8 @@ Result<int64_t> AsyncScanner::CountRows() {
 
   return total.load();
 }
+
+}  // namespace
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset)
     : ScannerBuilder(std::move(dataset), std::make_shared<ScanOptions>()) {}
@@ -935,7 +902,9 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
   }
 }
 
-static inline RecordBatchVector FlattenRecordBatchVector(
+namespace {
+
+inline RecordBatchVector FlattenRecordBatchVector(
     std::vector<RecordBatchVector> nested_batches) {
   RecordBatchVector flattened;
 
@@ -979,10 +948,9 @@ Result<std::shared_ptr<Table>> SyncScanner::ToTable() {
     auto id = scan_task_id++;
     task_group->Append([state, id, scan_task] {
       ARROW_ASSIGN_OR_RAISE(
-          auto local, internal::SerialExecutor::RunInSerialExecutor<RecordBatchVector>(
-                          [&](internal::Executor* executor) {
-                            return scan_task->SafeExecute(executor);
-                          }));
+          auto local,
+          ::arrow::internal::SerialExecutor::RunInSerialExecutor<RecordBatchVector>(
+              [&](Executor* executor) { return scan_task->SafeExecute(executor); }));
       state->Emplace(std::move(local), id);
       return Status::OK();
     });
@@ -993,6 +961,54 @@ Result<std::shared_ptr<Table>> SyncScanner::ToTable() {
   return Table::FromRecordBatches(scan_options->projected_schema,
                                   FlattenRecordBatchVector(std::move(state->batches)));
 }
+
+Result<int64_t> SyncScanner::CountRows() {
+  // While readers could implement an optimization where they just fabricate empty
+  // batches based on metadata when no columns are selected, skipping I/O (and
+  // indeed, the Parquet reader does this), counting rows using that optimization is
+  // still slower than just hitting metadata directly where possible.
+  ARROW_ASSIGN_OR_RAISE(auto fragment_it, GetFragments());
+  // Fragment is non-null iff fast path could not be taken.
+  std::vector<Future<std::pair<int64_t, std::shared_ptr<Fragment>>>> futures;
+  for (auto maybe_fragment : fragment_it) {
+    ARROW_ASSIGN_OR_RAISE(auto fragment, maybe_fragment);
+    auto count_fut = fragment->CountRows(scan_options_->filter, scan_options_);
+    futures.push_back(
+        count_fut.Then([fragment](const util::optional<int64_t>& count)
+                           -> std::pair<int64_t, std::shared_ptr<Fragment>> {
+          if (count.has_value()) {
+            return std::make_pair(*count, nullptr);
+          }
+          return std::make_pair(0, std::move(fragment));
+        }));
+  }
+
+  int64_t count = 0;
+  FragmentVector fragments;
+  for (auto& future : futures) {
+    ARROW_ASSIGN_OR_RAISE(auto count_result, future.result());
+    count += count_result.first;
+    if (count_result.second) {
+      fragments.push_back(std::move(count_result.second));
+    }
+  }
+  // Now check for any fragments where we couldn't take the fast path
+  if (!fragments.empty()) {
+    auto options = std::make_shared<ScanOptions>(*scan_options_);
+    RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto scan_task_it,
+        GetScanTaskIterator(MakeVectorIterator(std::move(fragments)), options));
+    ARROW_ASSIGN_OR_RAISE(auto batch_it, ScanBatches(std::move(scan_task_it)));
+    RETURN_NOT_OK(batch_it.Visit([&](TaggedRecordBatch batch) {
+      count += batch.record_batch->num_rows();
+      return Status::OK();
+    }));
+  }
+  return count;
+}
+
+}  // namespace
 
 Result<std::shared_ptr<Table>> Scanner::TakeRows(const Array& indices) {
   if (indices.null_count() != 0) {
@@ -1099,55 +1115,19 @@ Result<std::shared_ptr<Table>> Scanner::Head(int64_t num_rows) {
   return Table::FromRecordBatches(options()->projected_schema, batches);
 }
 
-Result<int64_t> SyncScanner::CountRows() {
-  // While readers could implement an optimization where they just fabricate empty
-  // batches based on metadata when no columns are selected, skipping I/O (and
-  // indeed, the Parquet reader does this), counting rows using that optimization is
-  // still slower than just hitting metadata directly where possible.
-  ARROW_ASSIGN_OR_RAISE(auto fragment_it, GetFragments());
-  // Fragment is non-null iff fast path could not be taken.
-  std::vector<Future<std::pair<int64_t, std::shared_ptr<Fragment>>>> futures;
-  for (auto maybe_fragment : fragment_it) {
-    ARROW_ASSIGN_OR_RAISE(auto fragment, maybe_fragment);
-    auto count_fut = fragment->CountRows(scan_options_->filter, scan_options_);
-    futures.push_back(
-        count_fut.Then([fragment](const util::optional<int64_t>& count)
-                           -> std::pair<int64_t, std::shared_ptr<Fragment>> {
-          if (count.has_value()) {
-            return std::make_pair(*count, nullptr);
-          }
-          return std::make_pair(0, std::move(fragment));
-        }));
-  }
-
-  int64_t count = 0;
-  FragmentVector fragments;
-  for (auto& future : futures) {
-    ARROW_ASSIGN_OR_RAISE(auto count_result, future.result());
-    count += count_result.first;
-    if (count_result.second) {
-      fragments.push_back(std::move(count_result.second));
-    }
-  }
-  // Now check for any fragments where we couldn't take the fast path
-  if (!fragments.empty()) {
-    auto options = std::make_shared<ScanOptions>(*scan_options_);
-    RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
-    ARROW_ASSIGN_OR_RAISE(
-        auto scan_task_it,
-        GetScanTaskIterator(MakeVectorIterator(std::move(fragments)), options));
-    ARROW_ASSIGN_OR_RAISE(auto batch_it, ScanBatches(std::move(scan_task_it)));
-    RETURN_NOT_OK(batch_it.Visit([&](TaggedRecordBatch batch) {
-      count += batch.record_batch->num_rows();
-      return Status::OK();
-    }));
-  }
-  return count;
-}
+namespace {
 
 Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
-                                        std::shared_ptr<Dataset> dataset,
-                                        std::shared_ptr<ScanOptions> scan_options) {
+                                        std::vector<compute::ExecNode*> inputs,
+                                        const compute::ExecNodeOptions& options) {
+  const auto& scan_node_options = checked_cast<const ScanNodeOptions&>(options);
+  auto scan_options = scan_node_options.scan_options;
+  auto dataset = scan_node_options.dataset;
+
+  if (!scan_options->use_async) {
+    return Status::NotImplemented("ScanNodes without asynchrony");
+  }
+
   if (scan_options->dataset_schema == nullptr) {
     scan_options->dataset_schema = dataset->schema();
   }
@@ -1170,14 +1150,58 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   // using a generator for speculative forward compatibility with async fragment discovery
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset->GetFragments(scan_options->filter));
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
-  auto fragments_gen = MakeVectorGenerator(std::move(fragments_vec));
+  auto fragment_gen = MakeVectorGenerator(std::move(fragments_vec));
 
-  return MakeScanNode(plan, std::move(fragments_gen), std::move(scan_options));
+  ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
+                        FragmentsToBatches(std::move(fragment_gen), scan_options));
+
+  auto merged_batch_gen =
+      MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);
+
+  auto batch_gen = MakeReadaheadGenerator(std::move(merged_batch_gen),
+                                          scan_options->fragment_readahead);
+
+  auto gen = MakeMappedGenerator(
+      std::move(batch_gen),
+      [scan_options](const EnumeratedRecordBatch& partial)
+          -> Result<util::optional<compute::ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(util::optional<compute::ExecBatch> batch,
+                              compute::MakeExecBatch(*scan_options->dataset_schema,
+                                                     partial.record_batch.value));
+        // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
+        // than this, for example parquet's row group stats. Failing to do this leaves
+        // perf on the table because row group stats could be used to skip kernel execs in
+        // FilterNode.
+        //
+        // Additionally, if a fragment failed to perform projection pushdown there may be
+        // unnecessarily materialized columns in batch. We could drop them now instead of
+        // letting them coast through the rest of the plan.
+        batch->guarantee = partial.fragment.value->partition_expression();
+
+        // tag rows with fragment- and batch-of-origin
+        batch->values.emplace_back(partial.fragment.index);
+        batch->values.emplace_back(partial.record_batch.index);
+        batch->values.emplace_back(partial.record_batch.last);
+        return batch;
+      });
+
+  auto fields = scan_options->dataset_schema->fields();
+  for (const auto& aug_field : kAugmentedFields) {
+    fields.push_back(aug_field);
+  }
+
+  return compute::MakeExecNode(
+      "source", plan, {},
+      compute::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
 }
 
 Result<compute::ExecNode*> MakeAugmentedProjectNode(
-    compute::ExecNode* input, std::string label, std::vector<compute::Expression> exprs,
-    std::vector<std::string> names) {
+    compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
+    const compute::ExecNodeOptions& options) {
+  const auto& project_options = checked_cast<const compute::ProjectNodeOptions&>(options);
+  auto exprs = project_options.expressions;
+  auto names = project_options.names;
+
   if (names.size() == 0) {
     names.resize(exprs.size());
     for (size_t i = 0; i < exprs.size(); ++i) {
@@ -1189,13 +1213,24 @@ Result<compute::ExecNode*> MakeAugmentedProjectNode(
     exprs.push_back(compute::field_ref(aug_field->name()));
     names.push_back(aug_field->name());
   }
-  return compute::MakeProjectNode(input, std::move(label), std::move(exprs),
-                                  std::move(names));
+  return compute::MakeExecNode(
+      "project", plan, std::move(inputs),
+      compute::ProjectNodeOptions{std::move(exprs), std::move(names)});
 }
 
-Result<AsyncGenerator<util::optional<compute::ExecBatch>>> MakeOrderedSinkNode(
-    compute::ExecNode* input, std::string label) {
-  auto unordered = compute::MakeSinkNode(input, std::move(label));
+Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
+                                               std::vector<compute::ExecNode*> inputs,
+                                               const compute::ExecNodeOptions& options) {
+  if (inputs.size() != 1) {
+    return Status::Invalid("Ordered SinkNode requires exactly 1 input, got ",
+                           inputs.size());
+  }
+  auto input = inputs[0];
+
+  AsyncGenerator<util::optional<compute::ExecBatch>> unordered;
+  ARROW_ASSIGN_OR_RAISE(auto node,
+                        compute::MakeExecNode("sink", plan, std::move(inputs),
+                                              compute::SinkNodeOptions{&unordered}));
 
   const Schema& schema = *input->output_schema();
   ARROW_ASSIGN_OR_RAISE(FieldPath match, FieldRef("__fragment_index").FindOne(schema));
@@ -1255,9 +1290,28 @@ Result<AsyncGenerator<util::optional<compute::ExecBatch>>> MakeOrderedSinkNode(
            last_in_fragment(*prev) && batch_index(*next) == 0;
   };
 
-  return MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
-                                 util::make_optional(std::move(before_any)));
+  const auto& sink_options = checked_cast<const compute::SinkNodeOptions&>(options);
+  *sink_options.generator =
+      MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
+                              util::make_optional(std::move(before_any)));
+
+  return node;
 }
 
+}  // namespace
+
+namespace internal {
+
+void Initialize() {
+  static auto registry = compute::default_exec_factory_registry();
+  if (registry) {
+    DCHECK_OK(registry->AddFactory("scan", MakeScanNode));
+    DCHECK_OK(registry->AddFactory("ordered_sink", MakeOrderedSinkNode));
+    DCHECK_OK(registry->AddFactory("augmented_project", MakeAugmentedProjectNode));
+    registry = nullptr;
+  }
+}
+
+}  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

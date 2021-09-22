@@ -150,7 +150,7 @@ public class Types {
           Field field,
           BufferAllocator allocator,
           CallBack schemaChangeCallback) {
-        return new NullVector();
+        return new NullVector(field.getName());
       }
 
       @Override

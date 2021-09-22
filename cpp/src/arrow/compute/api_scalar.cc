@@ -145,6 +145,8 @@ static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
     DataMember("unit", &StrptimeOptions::unit));
+static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
+    DataMember("format", &StrftimeOptions::format));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
     DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -159,6 +161,8 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
     DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
+    DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
 }  // namespace internal
 
@@ -238,6 +242,14 @@ StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
 StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
 constexpr char StrptimeOptions::kTypeName[];
 
+StrftimeOptions::StrftimeOptions(std::string format, std::string locale)
+    : FunctionOptions(internal::kStrftimeOptionsType),
+      format(std::move(format)),
+      locale(std::move(locale)) {}
+StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
+constexpr char StrftimeOptions::kTypeName[];
+constexpr const char* StrftimeOptions::kDefaultFormat;
+
 PadOptions::PadOptions(int64_t width, std::string padding)
     : FunctionOptions(internal::kPadOptionsType),
       width(width),
@@ -281,6 +293,10 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
+NullOptions::NullOptions(bool nan_is_null)
+    : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
+constexpr char NullOptions::kTypeName[];
+
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
@@ -294,11 +310,13 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
 }
 }  // namespace internal
 
@@ -349,6 +367,7 @@ SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
+SCALAR_ARITHMETIC_BINARY(Logb, "logb", "logb_checked")
 SCALAR_EAGER_BINARY(Atan2, "atan2")
 SCALAR_EAGER_UNARY(Floor, "floor")
 SCALAR_EAGER_UNARY(Ceil, "ceil")
@@ -451,12 +470,7 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 // Validity functions
 
 SCALAR_EAGER_UNARY(IsValid, "is_valid")
-SCALAR_EAGER_UNARY(IsNull, "is_null")
 SCALAR_EAGER_UNARY(IsNan, "is_nan")
-
-Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
-  return CallFunction("fill_null", {values, fill_value}, ctx);
-}
 
 Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_false,
                      ExecContext* ctx) {
@@ -469,6 +483,10 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
   args.reserve(cases.size() + 1);
   args.insert(args.end(), cases.begin(), cases.end());
   return CallFunction("case_when", args, ctx);
+}
+
+Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
+  return CallFunction("is_null", {arg}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------
@@ -492,6 +510,10 @@ SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {
+  return CallFunction("strftime", {arg}, &options, ctx);
 }
 
 }  // namespace compute

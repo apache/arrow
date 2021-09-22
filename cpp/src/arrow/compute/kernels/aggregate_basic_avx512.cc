@@ -26,22 +26,18 @@ namespace aggregate {
 
 template <typename ArrowType>
 struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512> {
-  explicit SumImplAvx512(const ScalarAggregateOptions& options_) {
-    this->options = options_;
-  }
+  using SumImpl<ArrowType, SimdLevel::AVX512>::SumImpl;
 };
 
 template <typename ArrowType>
 struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
-  explicit MeanImplAvx512(const ScalarAggregateOptions& options_) {
-    this->options = options_;
-  }
+  using MeanImpl<ArrowType, SimdLevel::AVX512>::MeanImpl;
 };
 
 Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx512> visitor(
-      ctx, *args.inputs[0].type,
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -49,7 +45,7 @@ Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
 Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx512> visitor(
-      ctx, *args.inputs[0].type,
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }

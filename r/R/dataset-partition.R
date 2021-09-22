@@ -75,8 +75,9 @@ DirectoryPartitioning$create <- function(schm, segment_encoding = "uri") {
 HivePartitioning <- R6Class("HivePartitioning", inherit = Partitioning)
 HivePartitioning$create <- function(schm, null_fallback = NULL, segment_encoding = "uri") {
   dataset___HivePartitioning(schm,
-                             null_fallback = null_fallback_or_default(null_fallback),
-                             segment_encoding = segment_encoding)
+    null_fallback = null_fallback_or_default(null_fallback),
+    segment_encoding = segment_encoding
+  )
 }
 
 #' Construct Hive partitioning

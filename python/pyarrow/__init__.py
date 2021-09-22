@@ -147,11 +147,12 @@ from pyarrow.lib import (null, bool_,
                          ListScalar, LargeListScalar, FixedSizeListScalar,
                          Date32Scalar, Date64Scalar,
                          Time32Scalar, Time64Scalar,
+                         TimestampScalar, DurationScalar,
                          BinaryScalar, LargeBinaryScalar,
                          StringScalar, LargeStringScalar,
                          FixedSizeBinaryScalar, DictionaryScalar,
-                         MapScalar, UnionScalar, StructScalar,
-                         TimestampScalar, DurationScalar)
+                         MapScalar, StructScalar, UnionScalar,
+                         ExtensionScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,

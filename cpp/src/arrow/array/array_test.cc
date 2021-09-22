@@ -377,6 +377,7 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   const int64_t union_length = 10;
   auto s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
   ASSERT_OK_AND_ASSIGN(auto s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
+  ASSERT_OK(s_union_nulls->ValidateFull());
   ASSERT_EQ(s_union_nulls->null_count(), 0);
   {
     const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
@@ -388,8 +389,23 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
     }
   }
 
+  s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {2, 7});
+  ASSERT_OK_AND_ASSIGN(s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
+  ASSERT_OK(s_union_nulls->ValidateFull());
+  ASSERT_EQ(s_union_nulls->null_count(), 0);
+  {
+    const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
+    ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
+
+    // Check type codes are all 2
+    for (int i = 0; i < union_length; ++i) {
+      ASSERT_EQ(typed_union.raw_type_codes()[i], 2);
+    }
+  }
+
   auto d_union_ty = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
   ASSERT_OK_AND_ASSIGN(auto d_union_nulls, MakeArrayOfNull(d_union_ty, union_length));
+  ASSERT_OK(d_union_nulls->ValidateFull());
   ASSERT_EQ(d_union_nulls->null_count(), 0);
   {
     const auto& typed_union = checked_cast<const DenseUnionArray&>(*d_union_nulls);
@@ -404,6 +420,35 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
       ASSERT_EQ(typed_union.raw_type_codes()[i], 0);
       ASSERT_EQ(typed_union.raw_value_offsets()[i], 0);
     }
+  }
+}
+
+TEST_F(TestArray, TestValidateNullCount) {
+  Int32Builder builder(pool_);
+  ASSERT_OK(builder.Append(5));
+  ASSERT_OK(builder.Append(42));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+
+  ArrayData* data = array->data().get();
+  data->null_count = kUnknownNullCount;
+  ASSERT_OK(array->ValidateFull());
+  data->null_count = 1;
+  ASSERT_OK(array->ValidateFull());
+
+  // null_count out of bounds
+  data->null_count = -2;
+  ASSERT_RAISES(Invalid, array->Validate());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+  data->null_count = 4;
+  ASSERT_RAISES(Invalid, array->Validate());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+
+  // null_count inconsistent with data
+  for (const int64_t null_count : {0, 2, 3}) {
+    data->null_count = null_count;
+    ASSERT_OK(array->Validate());
+    ASSERT_RAISES(Invalid, array->ValidateFull());
   }
 }
 
@@ -432,11 +477,13 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   for (const auto index : {0, 1, 3, 5, 6}) {
     ASSERT_FALSE(out->IsNull(index));
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
     AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
   }
   for (const auto index : {2, 4, 7, 8}) {
     ASSERT_EQ(out->IsNull(index), can_check_nulls);
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
     AssertScalarsEqual(*null_scalar, *scalar_i, /*verbose=*/true);
   }
 }
@@ -453,23 +500,30 @@ static ScalarVector GetScalars() {
   const auto dense_union_ty = ::arrow::dense_union(union_fields, union_type_codes);
 
   return {
-      std::make_shared<BooleanScalar>(false), std::make_shared<Int8Scalar>(3),
-      std::make_shared<UInt16Scalar>(3), std::make_shared<Int32Scalar>(3),
-      std::make_shared<UInt64Scalar>(3), std::make_shared<DoubleScalar>(3.0),
-      std::make_shared<Date32Scalar>(10), std::make_shared<Date64Scalar>(11),
+      std::make_shared<BooleanScalar>(false),
+      std::make_shared<Int8Scalar>(3),
+      std::make_shared<UInt16Scalar>(3),
+      std::make_shared<Int32Scalar>(3),
+      std::make_shared<UInt64Scalar>(3),
+      std::make_shared<DoubleScalar>(3.0),
+      std::make_shared<Date32Scalar>(10),
+      std::make_shared<Date64Scalar>(11),
       std::make_shared<Time32Scalar>(1000, time32(TimeUnit::SECOND)),
       std::make_shared<Time64Scalar>(1111, time64(TimeUnit::MICRO)),
       std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
       std::make_shared<MonthIntervalScalar>(1),
       std::make_shared<DayTimeIntervalScalar>(daytime),
       std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
-      std::make_shared<BinaryScalar>(hello), std::make_shared<LargeBinaryScalar>(hello),
+      std::make_shared<BinaryScalar>(hello),
+      std::make_shared<LargeBinaryScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
       std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
       std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
-      std::make_shared<StringScalar>(hello), std::make_shared<LargeStringScalar>(hello),
+      std::make_shared<StringScalar>(hello),
+      std::make_shared<LargeStringScalar>(hello),
       std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
+      ScalarFromJSON(map(int8(), utf8()), R"([[1, "foo"], [2, "bar"]])"),
       std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
       std::make_shared<StructScalar>(
@@ -486,7 +540,12 @@ static ScalarVector GetScalars() {
       std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 6,
                                          dense_union_ty),
       std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 42,
-                                         dense_union_ty)};
+                                         dense_union_ty),
+      DictionaryScalar::Make(ScalarFromJSON(int8(), "1"),
+                             ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
+      DictionaryScalar::Make(ScalarFromJSON(uint8(), "1"),
+                             ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
+  };
 }
 
 TEST_F(TestArray, TestMakeArrayFromScalar) {
@@ -513,6 +572,8 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 
   for (auto scalar : scalars) {
+    // TODO(ARROW-13197): appending dictionary scalars not implemented
+    if (is_dictionary(scalar->type->id())) continue;
     AssertAppendScalar(pool_, scalar);
   }
 }
@@ -565,6 +626,77 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   }
 
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
+}
+
+TEST_F(TestArray, TestAppendArraySlice) {
+  auto scalars = GetScalars();
+  for (const auto& scalar : scalars) {
+    // TODO(ARROW-13573): appending dictionary arrays not implemented
+    if (is_dictionary(scalar->type->id())) continue;
+
+    ARROW_SCOPED_TRACE(*scalar->type);
+    ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 16));
+    ASSERT_OK_AND_ASSIGN(auto nulls, MakeArrayOfNull(scalar->type, 16));
+
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool_, scalar->type, &builder));
+
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 4));
+    ASSERT_EQ(4, builder->length());
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_EQ(4, builder->length());
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_EQ(4, builder->length());
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_EQ(8, builder->length());
+
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 4));
+    ASSERT_EQ(12, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 0));
+    ASSERT_EQ(12, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 0));
+    ASSERT_EQ(12, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 4));
+    ASSERT_EQ(16, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(8, builder->null_count());
+    }
+
+    std::shared_ptr<Array> result;
+    ASSERT_OK(builder->Finish(&result));
+    ASSERT_OK(result->ValidateFull());
+    ASSERT_EQ(16, result->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(8, result->null_count());
+    }
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(null(), 16));
+    NullBuilder builder(pool_);
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 4));
+    ASSERT_EQ(4, builder.length());
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_EQ(4, builder.length());
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_EQ(4, builder.length());
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_EQ(8, builder.length());
+    std::shared_ptr<Array> result;
+    ASSERT_OK(builder.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
+    ASSERT_EQ(8, result->length());
+    ASSERT_EQ(8, result->null_count());
+  }
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {

@@ -830,7 +830,7 @@ static inline DecimalStatus SingleDivide(const uint32_t* dividend,
                                          bool divisor_was_negative,
                                          DecimalClass* result) {
   uint64_t r = 0;
-  constexpr int64_t kDecimalArrayLength = DecimalClass::bit_width / sizeof(uint32_t) + 1;
+  constexpr int64_t kDecimalArrayLength = DecimalClass::kBitWidth / sizeof(uint32_t) + 1;
   uint32_t result_array[kDecimalArrayLength];
   for (int64_t j = 0; j < dividend_length; j++) {
     r <<= 32;
@@ -853,7 +853,7 @@ template <class DecimalClass>
 static inline DecimalStatus DecimalDivide(const DecimalClass& dividend,
                                           const DecimalClass& divisor,
                                           DecimalClass* result, DecimalClass* remainder) {
-  constexpr int64_t kDecimalArrayLength = DecimalClass::bit_width / sizeof(uint32_t);
+  constexpr int64_t kDecimalArrayLength = DecimalClass::kBitWidth / sizeof(uint32_t);
   // Split the dividend and divisor into integer pieces so that we can
   // work on them.
   uint32_t dividend_array[kDecimalArrayLength + 1];

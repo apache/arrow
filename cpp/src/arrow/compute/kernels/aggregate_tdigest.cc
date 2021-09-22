@@ -55,7 +55,9 @@ struct TDigestImpl : public ScalarAggregator {
     } else {
       const CType value = UnboxScalar<ArrowType>::Unbox(*batch[0].scalar());
       if (batch[0].scalar()->is_valid) {
-        this->tdigest.NanAdd(value);
+        for (int64_t i = 0; i < batch.length; i++) {
+          this->tdigest.NanAdd(value);
+        }
       }
     }
     return Status::OK();
@@ -63,9 +65,7 @@ struct TDigestImpl : public ScalarAggregator {
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     auto& other = checked_cast<ThisType&>(src);
-    std::vector<TDigest> other_tdigest;
-    other_tdigest.push_back(std::move(other.tdigest));
-    this->tdigest.Merge(&other_tdigest);
+    this->tdigest.Merge(other.tdigest);
     return Status::OK();
   }
 
@@ -87,7 +87,7 @@ struct TDigestImpl : public ScalarAggregator {
     return Status::OK();
   }
 
-  const std::vector<double>& q;
+  const std::vector<double> q;
   TDigest tdigest;
 };
 

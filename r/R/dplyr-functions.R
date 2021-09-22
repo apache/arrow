@@ -96,19 +96,12 @@ nse_funcs$coalesce <- function(...) {
 }
 
 nse_funcs$is.na <- function(x) {
-  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13367)
-  if (is.double(x) || (inherits(x, "Expression") &&
-      x$type_id() %in% TYPES_WITH_NAN)) {
-    build_expr("is_nan", x) | build_expr("is_null", x)
-  } else {
-    build_expr("is_null", x)
-  }
+  build_expr("is_null", x, options = list(nan_is_null = TRUE))
 }
 
 nse_funcs$is.nan <- function(x) {
   if (is.double(x) || (inherits(x, "Expression") &&
-      x$type_id() %in% TYPES_WITH_NAN)) {
+    x$type_id() %in% TYPES_WITH_NAN)) {
     # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
     # use that to simplify the code here (ARROW-13366)
     build_expr("is_nan", x) & build_expr("is_valid", x)
@@ -379,7 +372,7 @@ nse_funcs$substr <- function(x, start, stop) {
   )
 }
 
-nse_funcs$substring <- function(text, first, last){
+nse_funcs$substring <- function(text, first, last) {
   nse_funcs$substr(x = text, start = first, stop = last)
 }
 
@@ -496,9 +489,8 @@ nse_funcs$strsplit <- function(x,
   if (fixed && perl) {
     warning("Argument 'perl = TRUE' will be ignored", call. = FALSE)
   }
-  # since split is not a regex, proceed without any warnings or errors
-  # regardless of the value of perl, for consistency with the behavior of
-  # base::strsplit()
+  # since split is not a regex, proceed without any warnings or errors regardless
+  # of the value of perl, for consistency with the behavior of base::strsplit()
   Expression$create(
     arrow_fun,
     x,
@@ -702,7 +694,6 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
-
   if (base == exp(1)) {
     return(Expression$create("ln_checked", x))
   }
@@ -715,10 +706,10 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
     return(Expression$create("log10_checked", x))
   }
   # ARROW-13345
-  stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
+  arrow_not_supported("`base` values other than exp(1), 2 and 10")
 }
 
-nse_funcs$if_else <- function(condition, true, false, missing = NULL){
+nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
   if (!is.null(missing)) {
     return(nse_funcs$if_else(
       nse_funcs$is.na(condition),
@@ -731,7 +722,11 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   # TODO: remove this after ARROW-13358 is merged
   warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
   if (warn_types) {
-    warning("Dictionaries (in R: factors) are currently converted to strings (characters) in if_else and ifelse", call. = FALSE)
+    warning(
+      "Dictionaries (in R: factors) are currently converted to strings (characters) ",
+      "in if_else and ifelse",
+      call. = FALSE
+    )
   }
 
   build_expr("if_else", condition, true, false)
@@ -773,5 +768,67 @@ nse_funcs$case_when <- function(...) {
       ),
       value
     )
+  )
+}
+
+# Aggregation functions
+# These all return a list of:
+# @param fun string function name
+# @param data Expression (these are all currently a single field)
+# @param options list of function options, as passed to call_function
+# For group-by aggregation, `hash_` gets prepended to the function name.
+# So to see a list of available hash aggregation functions,
+# you can use list_compute_functions("^hash_")
+agg_funcs <- list()
+agg_funcs$sum <- function(x, na.rm = FALSE) {
+  list(
+    fun = "sum",
+    data = x,
+    options = list(na.rm = na.rm, na.min_count = 0L)
+  )
+}
+agg_funcs$any <- function(x, na.rm = FALSE) {
+  list(
+    fun = "any",
+    data = x,
+    options = list(na.rm = na.rm, na.min_count = 0L)
+  )
+}
+agg_funcs$all <- function(x, na.rm = FALSE) {
+  list(
+    fun = "all",
+    data = x,
+    options = list(na.rm = na.rm, na.min_count = 0L)
+  )
+}
+
+agg_funcs$mean <- function(x, na.rm = FALSE) {
+  list(
+    fun = "mean",
+    data = x,
+    options = list(na.rm = na.rm, na.min_count = 0L)
+  )
+}
+# na.rm not currently passed in due to ARROW-13691
+agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
+  list(
+    fun = "stddev",
+    data = x,
+    options = list(ddof = ddof)
+  )
+}
+# na.rm not currently passed in due to ARROW-13691
+agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
+  list(
+    fun = "variance",
+    data = x,
+    options = list(ddof = ddof)
+  )
+}
+agg_funcs$n <- function() {
+  list(
+    fun = "sum",
+    data = Expression$scalar(1L),
+    options = list()
   )
 }

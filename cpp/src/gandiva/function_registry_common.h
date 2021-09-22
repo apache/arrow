@@ -43,6 +43,7 @@ using arrow::int16;
 using arrow::int32;
 using arrow::int64;
 using arrow::int8;
+using arrow::month_interval;
 using arrow::uint16;
 using arrow::uint32;
 using arrow::uint64;

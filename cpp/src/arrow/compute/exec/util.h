@@ -17,16 +17,19 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/optional.h"
 
 #if defined(__clang__) || defined(__GNUC__)
 #define BYTESWAP(x) __builtin_bswap64(x)
@@ -39,6 +42,11 @@
 
 namespace arrow {
 namespace util {
+
+template <typename T>
+inline void CheckAlignment(const void* ptr) {
+  ARROW_DCHECK(reinterpret_cast<uint64_t>(ptr) % sizeof(T) == 0);
+}
 
 // Some platforms typedef int64_t as long int instead of long long int,
 // which breaks the _mm256_i64gather_epi64 and _mm256_i32gather_epi64 intrinsics
@@ -181,4 +189,56 @@ class BitUtil {
 };
 
 }  // namespace util
+namespace compute {
+
+ARROW_EXPORT
+Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
+                              int expected_num_inputs, const char* kind_name);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Table>> TableFromExecBatches(
+    const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches);
+
+class AtomicCounter {
+ public:
+  AtomicCounter() = default;
+
+  int count() const { return count_.load(); }
+
+  util::optional<int> total() const {
+    int total = total_.load();
+    if (total == -1) return {};
+    return total;
+  }
+
+  // return true if the counter is complete
+  bool Increment() {
+    DCHECK_NE(count_.load(), total_.load());
+    int count = count_.fetch_add(1) + 1;
+    if (count != total_.load()) return false;
+    return DoneOnce();
+  }
+
+  // return true if the counter is complete
+  bool SetTotal(int total) {
+    total_.store(total);
+    if (count_.load() != total) return false;
+    return DoneOnce();
+  }
+
+  // return true if the counter has not already been completed
+  bool Cancel() { return DoneOnce(); }
+
+ private:
+  // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
+  bool DoneOnce() {
+    bool expected = false;
+    return complete_.compare_exchange_strong(expected, true);
+  }
+
+  std::atomic<int> count_{0}, total_{-1};
+  std::atomic<bool> complete_{false};
+};
+
+}  // namespace compute
 }  // namespace arrow

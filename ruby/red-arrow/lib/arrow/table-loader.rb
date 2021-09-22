@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "uri"
+
 module Arrow
   class TableLoader
     class << self
@@ -31,6 +33,29 @@ module Arrow
     end
 
     def load
+      if @input.is_a?(URI)
+        custom_load_method = "load_from_uri"
+      else
+        custom_load_method = "load_from_file"
+      end
+      unless respond_to?(custom_load_method, true)
+        available_schemes = []
+        (methods(true) | private_methods(true)).each do |name|
+          match_data = /\Aload_from_/.match(name.to_s)
+          if match_data
+            available_schemes << match_data.post_match
+          end
+        end
+        message = "Arrow::Table load source must be one of ["
+        message << available_schemes.join(", ")
+        message << "]: #{@input.scheme.inspect}"
+        raise ArgumentError, message
+      end
+      __send__(custom_load_method)
+    end
+
+    private
+    def load_from_file
       format = @options[:format]
       custom_load_method = "load_as_#{format}"
       unless respond_to?(custom_load_method, true)
@@ -56,21 +81,24 @@ module Arrow
       end
     end
 
-    private
     def fill_options
       if @options[:format] and @options.key?(:compression)
         return
       end
 
-      if @input.is_a?(Buffer)
+      case @input
+      when Buffer
         info = {}
+      when URI
+        extension = PathExtension.new(@input.path)
+        info = extension.extract
       else
         extension = PathExtension.new(@input)
         info = extension.extract
       end
       format = info[:format]
       @options = @options.dup
-      if format and respond_to?("load_as_#{format}", true)
+      if format
         @options[:format] ||= format.to_sym
       else
         @options[:format] ||= :arrow
@@ -179,6 +207,14 @@ module Arrow
     def load_as_feather
       input = open_input_stream
       reader = FeatherFileReader.new(input)
+      table = reader.read
+      table.instance_variable_set(:@input, input)
+      table
+    end
+
+    def load_as_json
+      input = open_input_stream
+      reader = JSONReader.new(input)
       table = reader.read
       table.instance_variable_set(:@input, input)
       table

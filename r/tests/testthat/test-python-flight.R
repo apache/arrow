@@ -53,7 +53,6 @@ if (process_is_running("demo_flight_server")) {
     flight_put(client, example_with_times, path = flight_obj)
     expect_identical(as.data.frame(flight_get(client, flight_obj)), example_with_times)
   })
-
 } else {
   # Kinda hacky, let's put a skipped test here, just so we note that the tests
   # didn't run

@@ -442,6 +442,9 @@ const std::vector<std::shared_ptr<DataType>>& NumericTypes();
 // Temporal types including time and timestamps for each unit
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
 
+// Interval types
+const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+
 // Integer, floating point, base binary, and temporal
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 

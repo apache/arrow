@@ -26,26 +26,16 @@ library(dplyr)
 # TODO: consider reevaluating this workaround after ARROW-12980
 withr::local_timezone("UTC")
 
-test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
+# TODO: We should test on windows once ARROW-13168 is resolved.
+if (tolower(Sys.info()[["sysname"]]) == "windows") {
+  test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
+} else {
+  test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
+}
 test_df <- tibble::tibble(date = test_date)
 
-# We can support this feature after ARROW-12980 is merged
-test_that("timezone aware timestamps are not supported", {
-
-  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
-  tz_aware_df <- tibble::tibble(date = tz_aware_date)
-
-  expect_error(
-    Table$create(tz_aware_df) %>%
-      mutate(x = wday(date)) %>%
-      collect(),
-    "Cannot extract components from timestamp with specific timezone"
-  )
-})
-
 # We can support this feature when ARROW-13138 is resolved
-test_that("date32 objects are not supported",{
-
+test_that("date32 objects are not supported", {
   date <- ymd("2017-01-01")
   df <- tibble::tibble(date = date)
 
@@ -63,8 +53,7 @@ test_that("extract year from date", {
     input %>%
       mutate(x = year(date)) %>%
       collect(),
-    test_df,
-    check.tzone = FALSE
+    test_df
   )
 })
 
@@ -114,7 +103,7 @@ test_that("extract day from date", {
 })
 
 test_that("extract wday from date", {
- expect_dplyr_equal(
+  expect_dplyr_equal(
     input %>%
       mutate(x = wday(date)) %>%
       collect(),
@@ -142,7 +131,6 @@ test_that("extract wday from date", {
     nse_funcs$wday(x, label = TRUE),
     "Label argument not supported by Arrow"
   )
-
 })
 
 test_that("extract yday from date", {
@@ -164,7 +152,7 @@ test_that("extract hour from date", {
 })
 
 test_that("extract minute from date", {
-   expect_dplyr_equal(
+  expect_dplyr_equal(
     input %>%
       mutate(x = minute(date)) %>%
       collect(),

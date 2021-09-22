@@ -28,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -84,13 +85,17 @@ arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
     return Status::Invalid("FragmentScanOptions of type ", source->type_name(),
                            " were provided for scanning a fragment of type ", type_name);
   }
-  return internal::checked_pointer_cast<T>(source);
+  return ::arrow::internal::checked_pointer_cast<T>(source);
 }
 
 class FragmentDataset : public Dataset {
  public:
   FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
       : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
+
+  FragmentDataset(std::shared_ptr<Schema> schema,
+                  AsyncGenerator<std::shared_ptr<Fragment>> fragments)
+      : Dataset(std::move(schema)), fragment_gen_(std::move(fragments)) {}
 
   std::string type_name() const override { return "fragment"; }
 
@@ -101,6 +106,14 @@ class FragmentDataset : public Dataset {
 
  protected:
   Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
+    if (fragment_gen_) {
+      // TODO(ARROW-8163): Async fragment scanning can be forwarded rather than waiting
+      // for the whole generator here. For now, all Dataset impls have a vector of
+      // Fragments anyway
+      auto fragments_fut = CollectAsyncGenerator(std::move(fragment_gen_));
+      ARROW_ASSIGN_OR_RAISE(fragments_, fragments_fut.result());
+    }
+
     // TODO(ARROW-12891) Provide subtree pruning for any vector of fragments
     FragmentVector fragments;
     for (const auto& fragment : fragments_) {
@@ -114,7 +127,9 @@ class FragmentDataset : public Dataset {
     }
     return MakeVectorIterator(std::move(fragments));
   }
+
   FragmentVector fragments_;
+  AsyncGenerator<std::shared_ptr<Fragment>> fragment_gen_;
 };
 
 }  // namespace dataset

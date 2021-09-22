@@ -39,7 +39,7 @@ G_BEGIN_DECLS
  *
  * #GAFlightRecordBatchStream is a class for producing a sequence of
  * IPC payloads to be sent in `FlightData` protobuf messages by
- * #GArrowREcordBatchReader`.
+ * #GArrowRecordBatchReader`.
  *
  * #GAFlightServerOptions is a class for options of each server.
  *

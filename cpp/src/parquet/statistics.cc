@@ -514,6 +514,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
 
+  void IncrementNullCount(int64_t n) override {
+    statistics_.null_count += n;
+    has_null_count_ = true;
+  }
+
+  void IncrementNumValues(int64_t n) override { num_values_ += n; }
+
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
 
@@ -556,9 +563,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
                     int64_t num_not_null, int64_t num_null) override;
 
-  void Update(const ::arrow::Array& values) override {
-    IncrementNullCount(values.null_count());
-    IncrementNumValues(values.length() - values.null_count());
+  void Update(const ::arrow::Array& values, bool update_counts) override {
+    if (update_counts) {
+      IncrementNullCount(values.null_count());
+      IncrementNumValues(values.length() - values.null_count());
+    }
 
     if (values.null_count() == values.length()) {
       return;
@@ -620,13 +629,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void PlainDecode(const std::string& src, T* dst) const;
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
-
-  void IncrementNullCount(int64_t n) {
-    statistics_.null_count += n;
-    has_null_count_ = true;
-  }
-
-  void IncrementNumValues(int64_t n) { num_values_ += n; }
 
   void IncrementDistinctCount(int64_t n) {
     statistics_.distinct_count += n;

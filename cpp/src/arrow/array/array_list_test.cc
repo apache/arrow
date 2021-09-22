@@ -426,6 +426,7 @@ class TestListArray : public TestBuilder {
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    array_data->null_count += 3;
     auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
     ASSERT_OK(list_array->ValidateFull());
     ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());

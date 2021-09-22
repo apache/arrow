@@ -122,6 +122,21 @@ CAST_UNARY(castFLOAT4, float64, float32)
 
 #undef CAST_UNARY
 
+// cast float types to int types.
+#define CAST_INT_FLOAT(NAME, IN_TYPE, OUT_TYPE)                  \
+  FORCE_INLINE                                                   \
+  gdv_##OUT_TYPE NAME##_##IN_TYPE(gdv_##IN_TYPE in) {            \
+    gdv_##OUT_TYPE out = static_cast<gdv_##OUT_TYPE>(round(in)); \
+    return out;                                                  \
+  }
+
+CAST_INT_FLOAT(castBIGINT, float32, int64)
+CAST_INT_FLOAT(castBIGINT, float64, int64)
+CAST_INT_FLOAT(castINT, float32, int32)
+CAST_INT_FLOAT(castINT, float64, int32)
+
+#undef CAST_INT_FLOAT
+
 // simple nullable functions, result value = fn(input validity)
 #define VALIDITY_OP(NAME, TYPE, OP) \
   FORCE_INLINE                      \

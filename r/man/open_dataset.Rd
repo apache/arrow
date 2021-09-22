@@ -91,7 +91,7 @@ can accelerate queries that only touch some partitions (files). Call
 \code{Dataset}, then use \code{dplyr} methods to query it.
 }
 \examples{
-\dontshow{if (arrow_with_dataset() & arrow_with_parquet() ) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() & arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)
@@ -105,7 +105,7 @@ write_dataset(data, tf)
 open_dataset(tf)
 
 # You can also supply a vector of paths
-open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf,"cyl=8/part-2.parquet")))
+open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf, "cyl=8/part-2.parquet")))
 
 ## You must specify the file format if using a format other than parquet.
 tf2 <- tempfile()
@@ -113,9 +113,11 @@ dir.create(tf2)
 on.exit(unlink(tf2))
 write_dataset(data, tf2, format = "ipc")
 # This line will results in errors when you try to work with the data
-\dontrun{open_dataset(tf2)}
+\dontrun{
+open_dataset(tf2)
+}
 # This line will work
-open_dataset(tf2, format = "ipc") 
+open_dataset(tf2, format = "ipc")
 
 ## You can specify file partitioning to include it as a field in your dataset
 # Create a temporary directory and write example dataset
@@ -124,9 +126,9 @@ dir.create(tf3)
 on.exit(unlink(tf3))
 write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
 
-# View files - you can see the partitioning means that files have been written 
+# View files - you can see the partitioning means that files have been written
 # to folders based on Month/Day values
-list.files(tf3, recursive = TRUE)
+tf3_files <- list.files(tf3, recursive = TRUE)
 
 # With no partitioning specified, dataset contains all files but doesn't include
 # directory names as field names

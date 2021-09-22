@@ -29,7 +29,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   .data <- arrow_dplyr_query(.data)
   # tidy-eval the filter expressions inside an Arrow data_mask
   filters <- lapply(filts, arrow_eval, arrow_mask(.data))
-  bad_filters <- map_lgl(filters, ~inherits(., "try-error"))
+  bad_filters <- map_lgl(filters, ~ inherits(., "try-error"))
   if (any(bad_filters)) {
     # This is similar to abandon_ship() except that the filter eval is
     # vectorized, and we apply filters that _did_ work before abandoning ship

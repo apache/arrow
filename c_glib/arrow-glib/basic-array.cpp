@@ -24,6 +24,8 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
 
+#include <arrow/c/bridge.h>
+
 #include <sstream>
 
 G_BEGIN_DECLS
@@ -554,6 +556,83 @@ garrow_array_class_init(GArrowArrayClass *klass)
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_PARENT, spec);
+}
+
+/**
+ * garrow_array_import:
+ * @c_abi_array: (not nullable): A `struct ArrowArray *`.
+ * @data_type: A #GArrowDataType of the C ABI array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported #GArrowArray
+ *   on success, %NULL on error.
+ *
+ *   You don't need to release the passed `struct ArrowArray *`,
+ *   even if this function reports an error.
+ *
+ * Since: 6.0.0
+ */
+GArrowArray *
+garrow_array_import(gpointer c_abi_array,
+                    GArrowDataType *data_type,
+                    GError **error)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_array_result =
+    arrow::ImportArray(static_cast<ArrowArray *>(c_abi_array),
+                       arrow_data_type);
+  if (garrow::check(error, arrow_array_result, "[array][import]")) {
+    return garrow_array_new_raw(&(*arrow_array_result));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_array_export:
+ * @array: A #GArrowArray.
+ * @c_abi_array: (out): Return location for a `struct ArrowArray *`.
+ *   It should be freed with the `ArrowArray::release` callback then
+ *   g_free() when no longer needed.
+ * @c_abi_schema: (out) (nullable): Return location for a
+ *   `struct ArrowSchema *` or %NULL.
+ *   It should be freed with the `ArrowSchema::release` callback then
+ *   g_free() when no longer needed.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 6.0.0
+ */
+gboolean
+garrow_array_export(GArrowArray *array,
+                    gpointer *c_abi_array,
+                    gpointer *c_abi_schema,
+                    GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  *c_abi_array = g_new(ArrowArray, 1);
+  arrow::Status status;
+  if (c_abi_schema) {
+    *c_abi_schema = g_new(ArrowSchema, 1);
+    status = arrow::ExportArray(*arrow_array,
+                                static_cast<ArrowArray *>(*c_abi_array),
+                                static_cast<ArrowSchema *>(*c_abi_schema));
+  } else {
+    status = arrow::ExportArray(*arrow_array,
+                                static_cast<ArrowArray *>(*c_abi_array));
+  }
+  if (garrow::check(error, status, "[array][export]")) {
+    return true;
+  } else {
+    g_free(*c_abi_array);
+    *c_abi_array = nullptr;
+    if (c_abi_schema) {
+      g_free(*c_abi_schema);
+      *c_abi_schema = nullptr;
+    }
+    return false;
+  }
 }
 
 /**

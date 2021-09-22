@@ -36,10 +36,23 @@ struct _GArrowRecordBatchClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+GArrowRecordBatch *
+garrow_record_batch_import(gpointer c_abi_array,
+                           GArrowSchema *schema,
+                           GError **error);
+
 GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
                                            guint32 n_rows,
                                            GList *columns,
                                            GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+gboolean
+garrow_record_batch_export(GArrowRecordBatch *record_batch,
+                           gpointer *c_abi_array,
+                           gpointer *c_abi_schema,
+                           GError **error);
 
 gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch);

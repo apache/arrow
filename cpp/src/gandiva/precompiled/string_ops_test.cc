@@ -235,6 +235,33 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestRepeat) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = repeat_utf8_int32(ctx_ptr, "abc", 3, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabc");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "a", 1, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "aaaaa");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "", 0, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "", -20, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "a", 1, -10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Repeat number can't be negative"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestCastBoolToVarchar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -256,7 +283,7 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   EXPECT_EQ(std::string(out_str, out_len), "false");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
+  castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));
   ctx.Reset();
@@ -1399,6 +1426,50 @@ TEST(TestStringOps, TestByteSubstr) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestStringOps, TestStrPos) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  int pos;
+
+  pos = strpos_utf8_utf8(ctx_ptr, "TestString", 10, "String", 6);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "TestString", 10, "String", 6);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "abcabc", 6, "abc", 3);
+  EXPECT_EQ(pos, 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "s†å†emçåå†d", 21, "çåå", 6);
+  EXPECT_EQ(pos, 7);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "†barbar", 9, "bar", 3);
+  EXPECT_EQ(pos, 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "", 0, "sub", 3);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "str", 3, "", 0);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d(
+      "a\xff"
+      "c");
+  pos = strpos_utf8_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), "c", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\ff encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestReplace) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -1441,13 +1512,13 @@ TEST(TestStringOps, TestReplace) {
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5,
-                                                5, &out_len);
+  replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5, 5,
+                                      &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
   ctx.Reset();
 
-  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
-                                                &out_len);
+  replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
+                                      &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
   ctx.Reset();
 }
@@ -1683,4 +1754,5 @@ TEST(TestStringOps, TestConvertToBigEndian) {
   }
 #endif
 }
+
 }  // namespace gandiva

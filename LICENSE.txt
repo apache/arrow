@@ -313,6 +313,7 @@ Apache 2.0 License or the under the 3-clause BSD license:
 This project includes code from Daniel Lemire's FrameOfReference project.
 
 https://github.com/lemire/FrameOfReference/blob/6ccaf9e97160f9a3b299e23a8ef739e711ef0c71/src/bpacking.cpp
+https://github.com/lemire/FrameOfReference/blob/146948b6058a976bc7767262ad3a2ce201486b93/scripts/turbopacking64.py
 
 Copyright: 2013 Daniel Lemire
 Home page: http://lemire.me/en/
@@ -993,6 +994,7 @@ License: Apache 2.0
 This project includes code from Google's protobuf project
 
 * cpp/src/arrow/result.h ARROW_ASSIGN_OR_RAISE is based off ASSIGN_OR_RETURN
+* cpp/src/arrow/util/bit_stream_utils.h contains code from wire_format_lite.h
 
 Copyright 2008 Google Inc.  All rights reserved.
 Homepage: https://developers.google.com/protocol-buffers/

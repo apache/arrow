@@ -504,17 +504,16 @@ inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
   return Status::OK();
 }
 
-}  // namespace
-
-Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
-                              int32_t* precision, int32_t* scale) {
+template <typename Decimal>
+Status DecimalFromString(const char* type_name, const util::string_view& s, Decimal* out,
+                         int32_t* precision, int32_t* scale) {
   if (s.empty()) {
-    return Status::Invalid("Empty string cannot be converted to decimal");
+    return Status::Invalid("Empty string cannot be converted to ", type_name);
   }
 
   DecimalComponents dec;
   if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
-    return Status::Invalid("The string '", s, "' is not a valid decimal number");
+    return Status::Invalid("The string '", s, "' is not a valid ", type_name, " number");
   }
 
   // Count number of significant digits (without leading zeros)
@@ -528,29 +527,33 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
     auto adjusted_exponent = dec.exponent;
-    auto len = static_cast<int32_t>(significant_digits);
-    parsed_scale = -adjusted_exponent + len - 1;
+    parsed_scale =
+        -adjusted_exponent + static_cast<int32_t>(dec.fractional_digits.size());
   } else {
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
   if (out != nullptr) {
-    std::array<uint64_t, 2> little_endian_array = {0, 0};
+    static_assert(Decimal::kBitWidth % 64 == 0, "decimal bit-width not a multiple of 64");
+    std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array{};
     ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
     ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
                 little_endian_array.size());
-    *out =
-        Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
-    if (parsed_scale < 0) {
-      *out *= GetScaleMultiplier(-parsed_scale);
-    }
-
+    *out = Decimal(BitUtil::LittleEndianArray::ToNative(little_endian_array));
     if (dec.sign == '-') {
       out->Negate();
     }
   }
 
   if (parsed_scale < 0) {
+    // Force the scale to zero, to avoid negative scales (due to compatibility issues
+    // with external systems such as databases)
+    if (-parsed_scale > Decimal::kMaxScale) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
+    if (out != nullptr) {
+      *out *= Decimal::GetScaleMultiplier(-parsed_scale);
+    }
     parsed_precision -= parsed_scale;
     parsed_scale = 0;
   }
@@ -563,6 +566,13 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   }
 
   return Status::OK();
+}
+
+}  // namespace
+
+Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
+                              int32_t* precision, int32_t* scale) {
+  return DecimalFromString("decimal128", s, out, precision, scale);
 }
 
 Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
@@ -692,49 +702,7 @@ std::string Decimal256::ToString(int32_t scale) const {
 
 Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
                               int32_t* precision, int32_t* scale) {
-  if (s.empty()) {
-    return Status::Invalid("Empty string cannot be converted to decimal");
-  }
-
-  DecimalComponents dec;
-  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
-    return Status::Invalid("The string '", s, "' is not a valid decimal number");
-  }
-
-  // Count number of significant digits (without leading zeros)
-  size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
-  size_t significant_digits = dec.fractional_digits.size();
-  if (first_non_zero != std::string::npos) {
-    significant_digits += dec.whole_digits.size() - first_non_zero;
-  }
-
-  if (precision != nullptr) {
-    *precision = static_cast<int32_t>(significant_digits);
-  }
-
-  if (scale != nullptr) {
-    if (dec.has_exponent) {
-      auto adjusted_exponent = dec.exponent;
-      auto len = static_cast<int32_t>(significant_digits);
-      *scale = -adjusted_exponent + len - 1;
-    } else {
-      *scale = static_cast<int32_t>(dec.fractional_digits.size());
-    }
-  }
-
-  if (out != nullptr) {
-    std::array<uint64_t, 4> little_endian_array = {0, 0, 0, 0};
-    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
-    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
-                little_endian_array.size());
-    *out = Decimal256(BitUtil::LittleEndianArray::ToNative(little_endian_array));
-
-    if (dec.sign == '-') {
-      out->Negate();
-    }
-  }
-
-  return Status::OK();
+  return DecimalFromString("decimal256", s, out, precision, scale);
 }
 
 Status Decimal256::FromString(const std::string& s, Decimal256* out, int32_t* precision,

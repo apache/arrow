@@ -180,7 +180,6 @@ jobs:
       matrix:
         rtools: [35, 40]
     env:
-      TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
@@ -247,7 +246,8 @@ jobs:
         run: |
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
-            MAKEFLAGS = paste0("-j", parallel::detectCores())
+            MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
           )
           rcmdcheck::rcmdcheck("r",
             build_args = '--no-build-vignettes',
