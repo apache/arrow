@@ -155,8 +155,9 @@ def _as_set(xs):
     return set(xs)
 
 
-SEQUENCE_TYPES = [_as_list, _as_tuple, _as_deque, _as_numpy_array]
+SEQUENCE_TYPES = [_as_list, _as_tuple, _as_numpy_array]
 ITERABLE_TYPES = [_as_set, _as_dict_values] + SEQUENCE_TYPES
+COLLECTIONS_TYPES = [_as_deque] + ITERABLE_TYPES
 
 parametrize_with_iterable_types = pytest.mark.parametrize(
     "seq", ITERABLE_TYPES
@@ -166,8 +167,12 @@ parametrize_with_sequence_types = pytest.mark.parametrize(
     "seq", SEQUENCE_TYPES
 )
 
+parametrize_with_collections_types = pytest.mark.parametrize(
+    "seq", COLLECTIONS_TYPES
+)
 
-@parametrize_with_iterable_types
+
+@parametrize_with_collections_types
 def test_sequence_types(seq):
     arr1 = pa.array(seq([1, 2, 3]))
     arr2 = pa.array([1, 2, 3])
@@ -209,7 +214,7 @@ def test_sequence_mixed_numpy_python_bools(seq):
     assert arr.to_pylist() == [True, None, False, True, False]
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 def test_empty_list(seq):
     arr = pa.array(seq([]))
     assert len(arr) == 0
@@ -244,7 +249,7 @@ def test_nested_large_lists(seq):
     assert arr.to_pylist() == data
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 def test_list_with_non_list(seq):
     # List types don't accept non-sequences
     with pytest.raises(TypeError):
@@ -320,7 +325,7 @@ def test_sequence_integer(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_integer_np_nan(seq, np_scalar_pa_type):
     # ARROW-2806: numpy.nan is a double value and thus should produce
@@ -400,7 +405,7 @@ def test_sequence_custom_integers(seq):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 def test_broken_integers(seq):
     data = [MyBrokenInt()]
     with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
@@ -454,7 +459,7 @@ def test_unsigned_integer_overflow(bits):
         pa.array([-1], ty)
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 @pytest.mark.parametrize("typ", pa_int_types)
 def test_integer_from_string_error(seq, typ):
     # ARROW-9451: pa.array(['1'], type=pa.uint32()) should not succeed
