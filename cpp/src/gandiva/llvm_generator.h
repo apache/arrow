@@ -54,10 +54,6 @@ class GANDIVA_EXPORT LLVMGenerator {
   static std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
   GetCache();
 
-  /// \brief Build the code for the expression trees for default mode. Each
-  /// element in the vector represents an expression tree
-  Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);
-
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
   template <class KeyType>
@@ -95,8 +91,9 @@ class GANDIVA_EXPORT LLVMGenerator {
 
   /// \brief Build the code for the expression trees for default mode. Each
   /// element in the vector represents an expression tree
-  Status Build(const ExpressionVector& exprs) {
-    return Build(exprs, SelectionVector::Mode::MODE_NONE);
+  template <class KeyType>
+  Status Build(const ExpressionVector& exprs, GandivaObjectCache<KeyType>& obj_cache) {
+    return Build(exprs, SelectionVector::Mode::MODE_NONE, obj_cache);
   }
 
   /// \brief Execute the built expression against the provided arguments for
