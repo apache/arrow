@@ -167,6 +167,7 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
     return Status::CodeGenError("Could not instantiate llvm::ExecutionEngine: ",
                                 builder_error);
   }
+
   std::unique_ptr<Engine> engine{
       new Engine(conf, std::move(ctx), std::move(exec_engine), module_ptr)};
   ARROW_RETURN_NOT_OK(engine->Init());
@@ -302,9 +303,11 @@ Status Engine::FinalizeModule() {
 
   ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                   Status::CodeGenError("Module verification failed after optimizer"));
+
   // do the compilation
   execution_engine_->finalizeObject();
   module_finalized_ = true;
+
   return Status::OK();
 }
 

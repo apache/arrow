@@ -60,7 +60,7 @@ class GANDIVA_EXPORT Engine {
     execution_engine_->setObjectCache(&object_cache);
     if (execution_engine_->hasError()) {
       return Status::ExecutionError(
-          "[CACHE-LOG][ERROR]: Can not set custom llvm object cache");
+          "Can not set custom llvm object cache");
     }
     return Status::OK();
   }
