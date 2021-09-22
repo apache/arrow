@@ -24,6 +24,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/io/slow.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
@@ -55,6 +56,19 @@ template <typename T>
 AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
   return MakeMappedGenerator(std::move(source), [](const T& res) {
     return SleepABitAsync().Then([res]() { return res; });
+  });
+}
+
+template <typename T>
+AsyncGenerator<T> MakeJittery(AsyncGenerator<T> source) {
+  auto latency_generator = arrow::io::LatencyGenerator::Make(0.01);
+  return MakeMappedGenerator(std::move(source), [latency_generator](const T& res) {
+    auto out = Future<T>::Make();
+    std::thread([out, res, latency_generator]() mutable {
+      latency_generator->Sleep();
+      out.MarkFinished(res);
+    }).detach();
+    return out;
   });
 }
 
@@ -423,6 +437,29 @@ TEST(TestAsyncUtil, MapParallelStress) {
     mapped = MakeReadaheadGenerator(mapped, 8);
     ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, CollectAsyncGenerator(mapped));
     ASSERT_EQ(NITEMS, collected.size());
+  }
+}
+
+TEST(TestAsyncUtil, MapQueuingFailStress) {
+  constexpr int NTASKS = 10;
+  constexpr int NITEMS = 10;
+  for (bool slow : {true, false}) {
+    for (int i = 0; i < NTASKS; i++) {
+      std::shared_ptr<std::atomic<bool>> done = std::make_shared<std::atomic<bool>>();
+      auto inner = AsyncVectorIt(RangeVector(NITEMS));
+      if (slow) inner = MakeJittery(inner);
+      auto gen = FailsAt(inner, NITEMS / 2);
+      std::function<TestStr(const TestInt&)> mapper = [done](const TestInt& in) {
+        if (done->load()) {
+          ADD_FAILURE() << "Callback called after generator sent end signal";
+        }
+        return std::to_string(in.value);
+      };
+      auto mapped = MakeMappedGenerator(std::move(gen), mapper);
+      auto readahead = MakeReadaheadGenerator(std::move(mapped), 8);
+      ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(std::move(readahead)));
+      done->store(true);
+    }
   }
 }
 
