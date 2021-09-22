@@ -590,7 +590,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                     Field.nullable("string_value", MinorType.VARCHAR.getType()),
                     Field.nullable("int_value", MinorType.INT.getType()),
                     Field.nullable("bigint_value", MinorType.BIGINT.getType()),
-                    Field.nullable("int128_bitmask", new ArrowType.Decimal(0, 0, 128))))));
+                    Field.nullable("int128_bitmask", new ArrowType.Decimal(Integer.MAX_VALUE, 0, 128))))));
     public static final Schema GET_PRIMARY_KEYS_SCHEMA = new Schema(Arrays.asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType()),
