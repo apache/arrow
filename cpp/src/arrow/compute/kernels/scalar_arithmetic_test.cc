@@ -1622,7 +1622,8 @@ TEST(TestBinaryDecimalArithmetic, DispatchBest) {
     }
   }
 
-  // decimal, decimal -> decimal and decimal, integer -> decimal
+  // decimal, decimal -> decimal
+  // decimal, integer -> decimal
   for (std::string name : {"add", "subtract"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
