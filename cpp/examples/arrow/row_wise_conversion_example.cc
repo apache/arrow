@@ -82,8 +82,11 @@ arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
     // Indicate the start of a new list row. This will memorise the current
     // offset in the values builder.
     ARROW_RETURN_NOT_OK(component_cost_builder.Append());
-    // Store the actual values. The final nullptr argument tells the underlying
-    // builder that all added values are valid, i.e. non-null.
+    // Store the actual values. The same memory layout used for the
+    // component cost data, in this case a vector of type double, will
+    // be used for the memory that Arrow uses to hold the data.  The
+    // final nullptr argument tells the underlying builder that all
+    // added values are valid, i.e. non-null.
     ARROW_RETURN_NOT_OK(component_item_cost_builder.AppendValues(row.component_cost.data(),
                                                                  row.component_cost.size()));
   }
@@ -155,7 +158,7 @@ arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
   // To enable zero-copy slices, the native values pointer might need to account
   // for this slicing offset. This is not needed for the higher level functions
   // like Value(…) that already account for this offset internally.
-  const double* ccv_ptr = component_cost_values->data()->GetValues<double>(1);
+  const double* ccv_ptr = component_cost_values->raw_values();
 
   for (int64_t i = 0; i < table->num_rows(); i++) {
     // Another simplification in this example is that we assume that there are
