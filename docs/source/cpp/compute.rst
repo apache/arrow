@@ -195,7 +195,7 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | any                | Unary | Boolean          | Scalar Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| approximate_median | Unary | Numeric          | Scalar Float64         | :struct:`TDigestOptions`         |       |
+| approximate_median | Unary | Numeric          | Scalar Float64         | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | count              | Unary | Any              | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
@@ -307,7 +307,7 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_any                | Unary | Boolean                            | Boolean                | :struct:`ScalarAggregateOptions` | \(1)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_approximate_median | Unary | Numeric                            | Float64                | :struct:`TDigestOptions`         |       |
+| hash_approximate_median | Unary | Numeric                            | Float64                | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_count              | Unary | Any                                | Int64                  | :struct:`CountOptions`           | \(2)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
