@@ -1074,10 +1074,10 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
     def _set_options(self, timezone, ambiguous, nonexistent):
         if ambiguous not in self._ambiguous_map:
             _raise_invalid_function_option(ambiguous,
-                                           "'ambiguous' timezone assumption")
+                                           "'ambiguous' timestamp handling")
         if nonexistent not in self._nonexistent_map:
             _raise_invalid_function_option(nonexistent,
-                                           "'nonexistent' timezone assumption")
+                                           "'nonexistent' timestamp handling")
         self.wrapped.reset(
             new CAssumeTimezoneOptions(tobytes(timezone),
                                        self._ambiguous_map[ambiguous],
