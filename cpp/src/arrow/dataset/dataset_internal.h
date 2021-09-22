@@ -139,7 +139,7 @@ class FragmentDataset : public Dataset {
 // reentrant pulls, so apply readahead before using this helper.
 inline RecordBatchGenerator MakeChunkedBatchGenerator(RecordBatchGenerator gen,
                                                       int64_t batch_size) {
-  return MakeConcatenatedGenerator(MakeMappedGenerator(
+  return MakeFlatMappedGenerator(
       std::move(gen),
       [batch_size](const std::shared_ptr<RecordBatch>& batch)
           -> ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> {
@@ -153,7 +153,7 @@ inline RecordBatchGenerator MakeChunkedBatchGenerator(RecordBatchGenerator gen,
           slices.push_back(batch->Slice(i, batch_size));
         }
         return ::arrow::MakeVectorGenerator(std::move(slices));
-      }));
+      });
 }
 
 }  // namespace dataset
