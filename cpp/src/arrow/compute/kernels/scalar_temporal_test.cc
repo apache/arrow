@@ -122,6 +122,7 @@ class ScalarTemporalTest : public ::testing::Test {
       "2005, 2008, 2009, 2011, null]";
   std::string iso_week =
       "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
+  std::string us_week = "[53, 9, 1, 20, 1, 1, 1, 52, 52, 1, 1, 1, 52, 53, 53, 1, null]";
   std::string week = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
 
   std::string quarter = "[1, 1, 1, 2, 1, 4, 4, 4, 1, 1, 1, 1, 4, 4, 4, 1, null]";
@@ -155,6 +156,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
     CheckScalarUnary("day_of_year", unit, sample, int64(), day_of_year);
     CheckScalarUnary("iso_year", unit, sample, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, sample, int64(), iso_week);
+    CheckScalarUnary("us_week", unit, sample, int64(), us_week);
     CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, sample), iso_calendar);
     CheckScalarUnary("quarter", unit, sample, int64(), quarter);
     if (unit->id() == Type::TIMESTAMP) {
@@ -179,6 +181,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
+    CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
     CheckScalarUnary("week", unit, times_seconds_precision, int64(), week);
     CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times_seconds_precision),
                      iso_calendar);
@@ -203,6 +206,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   auto day_of_year = "[263, 103]";
   auto iso_year = "[1677, 2262]";
   auto iso_week = "[38, 15]";
+  auto us_week = "[38, 16]";
   auto week = "[38, 15]";
   auto iso_calendar =
       ArrayFromJSON(iso_calendar_type,
@@ -224,6 +228,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
+  CheckScalarUnary("us_week", unit, times, int64(), us_week);
   CheckScalarUnary("week", unit, times, int64(), week);
   CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times), iso_calendar);
   CheckScalarUnary("quarter", unit, times, int64(), quarter);
@@ -252,6 +257,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
       "[1970, 2000, 1898, 2033, 2020, 2020, 2019, 2009, 2009, 2009, 2009, 2005, 2005, "
       "2008, 2008, 2011, null]";
   auto iso_week = "[1, 9, 52, 20, 1, 1, 52, 53, 53, 53, 53, 52, 52, 52, 52, 52, null]";
+  auto us_week = "[53, 9, 52, 20, 1, 1, 1, 52, 52, 52, 1, 52, 52, 52, 53, 52, null]";
   auto week = "[1, 9, 52, 20, 1, 1, 52, 53, 53, 53, 53, 52, 52, 52, 52, 52, null]";
   auto iso_calendar =
       ArrayFromJSON(iso_calendar_type,
@@ -282,6 +288,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
+  CheckScalarUnary("us_week", unit, times, int64(), us_week);
   CheckScalarUnary("week", unit, times, int64(), week);
   CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times), iso_calendar);
   CheckScalarUnary("quarter", unit, times, int64(), quarter);
@@ -306,6 +313,7 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
         "[1970, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, 2005, "
         "2008, 2009, 2011, null]";
     auto iso_week = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
+    auto us_week = "[53, 9, 1, 20, 1, 1, 1, 52, 52, 1, 1, 1, 52, 53, 53, 1, null]";
     auto week = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
     auto iso_calendar =
         ArrayFromJSON(iso_calendar_type,
@@ -336,6 +344,7 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
+    CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
     CheckScalarUnary("week", unit, times_seconds_precision, int64(), week);
     CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times_seconds_precision),
                      iso_calendar);
@@ -364,7 +373,6 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
     ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
     ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
-    ASSERT_RAISES(Invalid, ISOWeek(timestamp_array));
     ASSERT_RAISES(Invalid, Week(timestamp_array));
     ASSERT_RAISES(Invalid, ISOCalendar(timestamp_array));
     ASSERT_RAISES(Invalid, Quarter(timestamp_array));
@@ -411,6 +419,7 @@ TEST_F(ScalarTemporalTest, Week) {
                                  /*first_week_is_fully_in_year=*/true);
 
   CheckScalarUnary("iso_week", unit, times, int64(), week_100);
+  CheckScalarUnary("us_week", unit, times, int64(), week_000);
   CheckScalarUnary("week", unit, times, int64(), week_100, &options_100);
   CheckScalarUnary("week", unit, times, int64(), week_110, &options_110);
   CheckScalarUnary("week", unit, times, int64(), week_010, &options_010);

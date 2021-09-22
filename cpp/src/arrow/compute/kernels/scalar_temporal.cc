@@ -385,26 +385,6 @@ struct ISOYear {
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 
 template <typename Duration, typename Localizer>
-struct ISOWeek {
-  explicit ISOWeek(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
-
-  template <typename T, typename Arg0>
-  T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
-    auto y = year_month_day{t + days{3}}.year();
-    auto start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
-    if (t < start) {
-      --y;
-      start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
-    }
-    return static_cast<T>(trunc<weeks>(t - start).count() + 1);
-  }
-
-  Localizer localizer_;
-};
-
-template <typename Duration, typename Localizer>
 struct Week {
   explicit Week(const WeekOptions* options, Localizer&& localizer)
       : localizer_(std::move(localizer)),
@@ -1078,7 +1058,18 @@ const FunctionDoc iso_year_doc{
 
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
-    ("First ISO week has the majority (4 or more) of its days in January.\n"
+    ("First ISO week has the majority (4 or more) of its days in January."
+     "ISO week starts on Monday.\n"
+     "Week of the year starts with 1 and can run up to 53.\n"
+     "Null values emit null.\n"
+     "An error is returned if the timestamps have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
+const FunctionDoc us_week_doc{
+    "Extract US week of year number",
+    ("First US week has the majority (4 or more) of its days in January."
+     "US week starts on Sunday.\n"
      "Week of the year starts with 1 and can run up to 53.\n"
      "Null values emit null.\n"
      "An error is returned if the timestamps have a defined timezone but it\n"
@@ -1224,9 +1215,17 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "iso_year", {WithDates, WithTimestamps}, int64(), &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
-  auto iso_week = MakeTemporal<ISOWeek, TemporalComponentExtract, Int64Type>(
-      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc);
+  static const auto default_iso_week_options = WeekOptions(true, false, false);
+  auto iso_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc,
+      &default_iso_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
+
+  static const auto default_us_week_options = WeekOptions(false, false, false);
+  auto us_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "us_week", {WithDates, WithTimestamps}, int64(), &us_week_doc,
+      &default_us_week_options, WeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(us_week)));
 
   static const auto default_week_options = WeekOptions();
   auto week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(

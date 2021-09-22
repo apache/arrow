@@ -1090,7 +1090,7 @@ cdef class _WeekOptions(FunctionOptions):
 
 
 class WeekOptions(_WeekOptions):
-    def __init__(self, week_starts_monday=True, count_from_zero=False,
+    def __init__(self, *, week_starts_monday=True, count_from_zero=False,
                  first_week_is_fully_in_year=False):
         self._set_options(week_starts_monday,
                           count_from_zero, first_week_is_fully_in_year)

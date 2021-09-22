@@ -364,7 +364,7 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
 struct ARROW_EXPORT WeekOptions : public FunctionOptions {
  public:
   explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
-                       bool first_week_in_year = false);
+                       bool first_week_is_fully_in_year = false);
   constexpr static char const kTypeName[] = "WeekOptions";
   static WeekOptions Defaults() { return WeekOptions{}; }
 
@@ -1022,18 +1022,6 @@ ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NUL
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
-
-/// \brief ISOWeek returns ISO week of year number for each element of `values`.
-/// First ISO week has the majority (4 or more) of its days in January.
-/// Week of the year starts with 1 and can run up to 53.
-///
-/// \param[in] values input to extract ISO week of year from
-/// \param[in] ctx the function execution context, optional
-/// \return the resulting datum
-///
-/// \since 5.0.0
-/// \note API not yet finalized
-ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Week returns week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.

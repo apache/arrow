@@ -339,6 +339,16 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<uint32_t>(options["week_start"]));
   }
 
+  if (func_name == "iso_week") {
+    using Options = arrow::compute::WeekOptions;
+    return std::make_shared<Options>(true, false, false);
+  }
+
+  if (func_name == "us_week") {
+    using Options = arrow::compute::WeekOptions;
+    return std::make_shared<Options>(true, false, false);
+  }
+
   if (func_name == "week") {
     using Options = arrow::compute::WeekOptions;
     bool week_starts_monday = true;
