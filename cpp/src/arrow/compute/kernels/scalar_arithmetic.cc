@@ -65,11 +65,13 @@ struct IsPositiveVisitor {
     result = scalar.value > 0;
     return Status::OK();
   }
+
   template <typename... Ts>
   Status Visit(const DecimalScalar<Ts...>& scalar) {
     result = scalar.value > 0;
     return Status::OK();
   }
+
   Status Visit(const Scalar& scalar) { return Status::OK(); }
 };
 
