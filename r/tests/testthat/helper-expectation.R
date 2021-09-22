@@ -30,26 +30,17 @@ expect_r6_class <- function(object, class) {
 
 expect_equal <- function(object, expected, ignore_attr = FALSE, ..., info = NULL, label = NULL) {
   if (inherits(object, "ArrowObject") && inherits(expected, "ArrowObject")) {
-    expect_true(all.equal(object, expected, check.metadata = !ignore_attr), info = info, label = label)
+    mc <- match.call()
+    expect_true(
+      all.equal(object, expected, check.attributes = !ignore_attr),
+      info = info,
+      label = paste(rlang::as_label(mc[["object"]]), "==", rlang::as_label(mc[["expected"]]))
+    )
   } else {
     testthat::expect_equal(object, expected, ignore_attr = ignore_attr, ..., info = info, label = label)
   }
 }
 
-expect_equivalent <- function(object, expected, ...) {
-  # HACK: dplyr includes an all.equal.tbl_df method that is causing failures.
-  # They look spurious, like:
-  # `Can't join on 'b' x 'b' because of incompatible types (tbl_df/tbl/data.frame / tbl_df/tbl/data.frame)` # nolint
-  if (tibble::is_tibble(object)) {
-    class(object) <- "data.frame"
-  }
-  if (tibble::is_tibble(expected)) {
-    class(expected) <- "data.frame"
-  }
-  testthat::expect_equivalent(object, expected, ...)
-}
-
-# expect_equal but for DataTypes, so the error prints better
 expect_type_equal <- function(object, expected, ...) {
   if (is.Array(object)) {
     object <- object$type
@@ -57,7 +48,7 @@ expect_type_equal <- function(object, expected, ...) {
   if (is.Array(expected)) {
     expected <- expected$type
   }
-  expect_equal(object, expected, ..., label = object$ToString(), expected.label = expected$ToString())
+  expect_equal(object, expected, ...)
 }
 
 expect_match_arg_error <- function(object, values = c()) {
@@ -82,7 +73,7 @@ verify_output <- function(...) {
 #'     * `NA` (the default) for ensuring no warning message
 #'     * `TRUE` is a special case to mean to check for the
 #'      "not supported in Arrow; pulling data into R" message.
-#' @param ... additional arguments, passed to `expect_equivalent()`
+#' @param ... additional arguments, passed to `expect_equal()`
 expect_dplyr_equal <- function(expr,
                                tbl,
                                skip_record_batch = NULL,

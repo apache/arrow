@@ -17,8 +17,6 @@
 
 skip_if_not_available("json")
 
-context("JsonTableReader")
-
 test_that("Can read json file with scalars columns (ARROW-5503)", {
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -208,7 +206,10 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   hello <- Array$create(c(NA, NA, "hi", "bonjour", "ciao", NA))
   expect_equal(struct_array$field(0L), ps)
   expect_equal(struct_array$GetFieldByName("ps"), ps)
-  expect_equal(struct_array$Flatten(), list(ps, hello))
+  struct_cols <- struct_array$Flatten()
+  expect_identical(length(struct_cols), 2L)
+  expect_equal(struct_cols[[1]], ps)
+  expect_equal(struct_cols[[2]], hello)
   expect_equal(
     as.vector(struct_array),
     tibble::tibble(ps = ps$as_vector(), hello = hello$as_vector())
@@ -223,18 +224,20 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     c(5, 6)
   )
   list_array <- tab1$column(0)
-  expect_equivalent(
+  expect_equal(
     list_array$as_vector(),
-    list_array_r
+    list_array_r,
+    ignore_attr = TRUE
   )
 
   tib <- as.data.frame(tab1)
-  expect_equivalent(
+  expect_equal(
     tib,
     tibble::tibble(
       arr = list_array_r,
       nuf = tibble::tibble(ps = ps$as_vector(), hello = hello$as_vector())
-    )
+    ),
+    ignore_attr = TRUE
   )
 })
 
@@ -248,5 +251,5 @@ test_that("Can read json file with list<struct<T...>> nested columns (ARROW-7740
 
   one <- tibble::tibble(b = c(1, 2))
   expected <- tibble::tibble(a = c(list(one), list(one)))
-  expect_equivalent(read_json_arrow(tf), expected)
+  expect_equal(read_json_arrow(tf), expected, ignore_attr = TRUE)
 })
