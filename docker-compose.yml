@@ -276,7 +276,7 @@ services:
     #   docker-compose run --rm debian-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     build:
       context: .
@@ -465,7 +465,7 @@ services:
     #   docker-compose run --rm debian-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
     build:
       context: .
@@ -524,7 +524,7 @@ services:
     #   docker-compose run --rm debian-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-ruby
     build:
       context: .
@@ -633,7 +633,7 @@ services:
     #   docker-compose run --rm debian-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
     build:
       context: .
@@ -1183,12 +1183,12 @@ services:
     # Usage:
     #   docker-compose build debian-go
     #   docker-compose run debian-go
-    image: ${REPO}:${ARCH}-debian-10-go-${GO}
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
     build:
       context: .
-      dockerfile: ci/docker/debian-10-go.dockerfile
+      dockerfile: ci/docker/debian-${DEBIAN}-go.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-10-go-${GO}
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
       args:
         arch: ${ARCH}
         go: ${GO}
@@ -1203,32 +1203,32 @@ services:
     # Usage:
     #   docker-compose build debian-go-cgo-python
     #   docker-compose run debian-go-cgo-python
-    image: ${REPO}:${ARCH}-debian-10-go-${GO}-cgo-python
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
     build:
       context: .
-      dockerfile: ci/docker/debian-10-go-cgo-python.dockerfile
+      dockerfile: ci/docker/debian-${DEBIAN}-go-cgo-python.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-10-go-${GO}-cgo-python
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
       args:
-        base: ${REPO}:${ARCH}-debian-10-go-${GO}
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &go-cgo-python-command >
         /bin/bash -c "
           /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
-      
+
   ############################# JavaScript ####################################
 
   debian-js:
     # Usage:
     #   docker-compose build debian-js
     #   docker-compose run debian-js
-    image: ${REPO}:${ARCH}-debian-10-js-${NODE}
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
     build:
       context: .
-      dockerfile: ci/docker/debian-10-js.dockerfile
+      dockerfile: ci/docker/debian-${DEBIAN}-js.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-10-js-${NODE}
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
       args:
         arch: ${ARCH}
         node: ${NODE}

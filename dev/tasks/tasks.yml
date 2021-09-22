@@ -875,12 +875,12 @@ tasks:
       image: ubuntu-cpp
 {% endfor %}
 
-  test-debian-10-cpp:
+  test-debian-11-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        DEBIAN: 10
+        DEBIAN: 11
       image: debian-cpp
 
   test-fedora-33-cpp:
@@ -954,12 +954,12 @@ tasks:
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
 
-  test-debian-10-python-3:
+  test-debian-11-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        DEBIAN: 10
+        DEBIAN: 11
       run: debian-python
 
   test-ubuntu-18.04-python-3:
@@ -1129,11 +1129,12 @@ tasks:
     ci: github
     template: r/github.linux.revdepcheck.yml
 
-  test-debian-10-go-1.15:
+  test-debian-11-go-1.15:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
+        DEBIAN: 11
         GO: 1.15
       run: debian-go
 
