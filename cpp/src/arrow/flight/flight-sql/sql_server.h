@@ -45,10 +45,43 @@ class FlightSqlServerBase : public FlightServerBase {
     if (any.Is<pb::sql::CommandStatementQuery>()) {
       pb::sql::CommandStatementQuery command;
       any.UnpackTo(&command);
-
-      GetFlightInfoStatement(command, context, request, info);
-    } else if (any.Is<pb::sql::CommandStatementUpdate>()) {
-      std::cout << "Update" << std::endl;
+      ARROW_RETURN_NOT_OK(GetFlightInfoStatement(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
+      pb::sql::CommandPreparedStatementQuery command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoPreparedStatement(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
+      pb::sql::CommandGetCatalogs command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoPreparedStatement(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandGetSchemas>()) {
+      pb::sql::CommandGetSchemas command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoCatalogs(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandGetTables>()) {
+      pb::sql::CommandGetTables command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoTables(command, context, request, info));
+    }  else if (any.Is<pb::sql::CommandGetTableTypes>()) {
+      pb::sql::CommandGetTableTypes command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoTableTypes(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
+      pb::sql::CommandGetSqlInfo command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoSqlInfo(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
+      pb::sql::CommandGetPrimaryKeys command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoPrimaryKeys(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandGetExportedKeys>()) {
+      pb::sql::CommandGetExportedKeys command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoExportedKeys(command, context, request, info));
+    } else if (any.Is<pb::sql::CommandGetImportedKeys>()) {
+      pb::sql::CommandGetImportedKeys command;
+      any.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(GetFlightInfoImportedKeys(command, context, request, info));
     }
 
     return Status::OK();
