@@ -2241,13 +2241,13 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto divmod =
-      MakeArithmeticFunctionStructOutType<Divmod>("divmod", divmod_doc, MakeDivmodType);
+  auto divmod = MakeArithmeticFunctionStructOutType<Divmod>(
+      "divmod", divmod_doc, DivmodUtil::MakeDivmodOutType);
   DCHECK_OK(registry->AddFunction(std::move(divmod)));
 
   // ----------------------------------------------------------------------
   auto divmod_checked = MakeArithmeticFunctionNotNullStructOutType<DivmodChecked>(
-      "divmod_checked", divmod_checked_doc, MakeDivmodType);
+      "divmod_checked", divmod_checked_doc, DivmodUtil::MakeDivmodOutType);
   DCHECK_OK(registry->AddFunction(std::move(divmod_checked)));
 
   // ----------------------------------------------------------------------

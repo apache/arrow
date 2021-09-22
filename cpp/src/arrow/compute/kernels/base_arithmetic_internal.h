@@ -425,61 +425,61 @@ struct DivideChecked {
   }
 };
 
-template <typename T>
-static inline constexpr enable_if_c_numeric<T> FastMod(T dividend, T divisor,
-                                                       T quotient) {
-  return dividend - quotient * divisor;
-}
+struct DivmodUtil {
+  template <typename T>
+  static constexpr enable_if_c_number<T> FastMod(T dividend, T divisor, T quotient) {
+    return dividend - quotient * divisor;
+  }
 
-std::shared_ptr<DataType> MakeDivmodType(const std::shared_ptr<DataType>& ty) {
-  std::vector<std::shared_ptr<arrow::Field>> fields{field("quotient", ty),
-                                                    field("remainder", ty)};
-  return struct_(fields);
-}
+  /// Create a StructType instance for Divmod kernels.
+  static std::shared_ptr<DataType> MakeDivmodOutType(
+      const std::shared_ptr<DataType>& ty) {
+    return struct_({field("quotient", ty), field("remainder", ty)});
+  }
 
-template <typename T, typename Arg>
-static inline enable_if_c_numeric<Arg, StructScalar> MakeDivmodStruct(Arg quotient,
-                                                                      Arg remainder) {
-  ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
-  // TODO(edponce): How to only call MakeDivmodType once (before processing)?
-  // `Call()` is a static method and invoked directly so there is no state.
-  auto ty = CTypeTraits<Arg>::type_singleton();
-  return StructScalar(std::move(values), MakeDivmodType(ty));
-}
+  template <typename T>
+  static enable_if_c_number<T, StructScalar> MakeDivmodStruct(T quotient, T remainder) {
+    ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
+    // TODO(edponce): How to only call MakeDivmodOutType once (before processing)?
+    // `Call()` is a static method and invoked directly so there is no state.
+    auto ty = CTypeTraits<T>::type_singleton();
+    return StructScalar(std::move(values), MakeDivmodOutType(ty));
+  }
+};
 
 struct Divmod {
-  template <typename T, typename Arg0, typename Arg1>
+  template <typename OutType, typename Arg0, typename Arg1>
   static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
                                                            Arg1 right, Status* st) {
     auto quotient = std::floor(Divide::Call<Arg0>(ctx, left, right, st));
-    auto remainder = FastMod<Arg0>(left, right, quotient);
-    return MakeDivmodStruct<T>(quotient, remainder);
+    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
+    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
+  template <typename OutType, typename Arg0, typename Arg1>
   static enable_if_c_integer<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
                                                       Arg1 right, Status* st) {
     auto quotient = Divide::Call<Arg0>(ctx, left, right, st);
-    auto remainder = FastMod<Arg0>(left, right, quotient);
-    return MakeDivmodStruct<T>(quotient, remainder);
+    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
+    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
   }
 };
 
 struct DivmodChecked {
-  template <typename T, typename Arg0, typename Arg1>
+  template <typename OutType, typename Arg0, typename Arg1>
   static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
                                                            Arg1 right, Status* st) {
     auto quotient = std::floor(DivideChecked::Call<Arg0>(ctx, left, right, st));
-    auto remainder = FastMod<Arg0>(left, right, quotient);
-    return MakeDivmodStruct<T>(quotient, remainder);
+    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
+    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
+  template <typename OutType, typename Arg0, typename Arg1>
   static enable_if_c_integer<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
                                                       Arg1 right, Status* st) {
     auto quotient = DivideChecked::Call<Arg0>(ctx, left, right, st);
-    auto remainder = FastMod<Arg0>(left, right, quotient);
-    return MakeDivmodStruct<T>(quotient, remainder);
+    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
+    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
   }
 };
 

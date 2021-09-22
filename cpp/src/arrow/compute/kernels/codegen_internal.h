@@ -426,7 +426,7 @@ struct BoxScalar<Decimal256Type> {
 template <>
 struct BoxScalar<StructType> {
   using T = StructScalar;
-  using ScalarType = T;
+  using ScalarType = StructScalar;
   static void Box(T val, Scalar* out) {
     checked_cast<ScalarType*>(out)->value = std::move(val.value);
   }
