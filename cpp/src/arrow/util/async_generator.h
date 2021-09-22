@@ -221,6 +221,9 @@ class MappingGenerator {
       bool should_trigger;
       {
         auto guard = state->mutex.Lock();
+        // A MappedCallback may have purged or be purging the queue;
+        // we shouldn't do anything here.
+        if (state->finished) return;
         if (end) {
           should_purge = !state->finished;
           state->finished = true;

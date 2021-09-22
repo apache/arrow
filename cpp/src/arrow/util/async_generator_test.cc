@@ -440,6 +440,38 @@ TEST(TestAsyncUtil, MapTaskFail) {
   ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(mapped));
 }
 
+TEST(TestAsyncUtil, MapTaskDelayedFail) {
+  // Regression test for an edge case in MappingGenerator
+  auto push = PushGenerator<TestInt>();
+  auto producer = push.producer();
+  AsyncGenerator<TestInt> generator = push;
+
+  auto delayed = Future<TestStr>::Make();
+  std::function<Future<TestStr>(const TestInt&)> mapper =
+      [=](const TestInt& in) -> Future<TestStr> {
+    if (in.value == 1) return delayed;
+    return TestStr(std::to_string(in.value));
+  };
+  auto mapped = MakeMappedGenerator(std::move(generator), mapper);
+
+  producer.Push(TestInt(1));
+  auto fut = mapped();
+  SleepABit();
+  ASSERT_FALSE(fut.is_finished());
+  // At this point there should be nothing in waiting_jobs, so the
+  // next call will push something to the queue and schedule Callback
+  auto fut2 = mapped();
+  // There's now one job in waiting_jobs. Failing the original task will
+  // purge the queue.
+  delayed.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_FINISHES_AND_RAISES(Invalid, fut);
+  // However, Callback can still run once we fulfill the remaining
+  // request. Callback needs to see that the generator is finished and
+  // bail out, instead of trying to manipulate waiting_jobs.
+  producer.Push(TestInt(2));
+  ASSERT_FINISHES_OK_AND_EQ(TestStr(), fut2);
+}
+
 TEST(TestAsyncUtil, MapSourceFail) {
   std::vector<TestInt> input = {1, 2, 3};
   auto generator = FailsAt(AsyncVectorIt(input), 1);
