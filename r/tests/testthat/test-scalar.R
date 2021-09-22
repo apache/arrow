@@ -27,7 +27,7 @@ expect_scalar_roundtrip <- function(x, type) {
   } else {
     expect_identical(as.vector(is.na(s)), is.na(x))
     # MakeArrayFromScalar not implemented for list types
-    expect_equal(as.vector(s), x)
+    expect_as_vector(s, x)
   }
 }
 

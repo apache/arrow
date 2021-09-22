@@ -203,15 +203,15 @@ test_that("max.ChunkedArray", {
 test_that("Edge cases", {
   a <- Array$create(NA)
   for (type in c(int32(), float64(), bool())) {
-    expect_equal(as.vector(sum(a$cast(type), na.rm = TRUE)), sum(NA, na.rm = TRUE))
-    expect_equal(as.vector(mean(a$cast(type), na.rm = TRUE)), mean(NA, na.rm = TRUE))
-    expect_equal(
-      as.vector(min(a$cast(type), na.rm = TRUE)),
+    expect_as_vector(sum(a$cast(type), na.rm = TRUE), sum(NA, na.rm = TRUE))
+    expect_as_vector(mean(a$cast(type), na.rm = TRUE), mean(NA, na.rm = TRUE))
+    expect_as_vector(
+      min(a$cast(type), na.rm = TRUE),
       # Suppress the base R warning about no non-missing arguments
       suppressWarnings(min(NA, na.rm = TRUE))
     )
-    expect_equal(
-      as.vector(max(a$cast(type), na.rm = TRUE)),
+    expect_as_vector(
+      max(a$cast(type), na.rm = TRUE),
       suppressWarnings(max(NA, na.rm = TRUE))
     )
   }

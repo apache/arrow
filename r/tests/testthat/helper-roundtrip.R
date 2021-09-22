@@ -23,9 +23,9 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
     # TODO: revisit how missingness works with ListArrays
     # R list objects don't handle missingness the same way as other vectors.
     # Is there some vctrs thing we should do on the roundtrip back to R?
-    expect_equal(as.vector(is.na(a)), is.na(x))
+    expect_as_vector(is.na(a), is.na(x))
   }
-  expect_equal(as.vector(a), x, ignore_attr = TRUE)
+  expect_as_vector(a, x, ignore_attr = TRUE)
   # Make sure the storage mode is the same on roundtrip (esp. integer vs. numeric)
   expect_identical(typeof(as.vector(a)), typeof(x))
 
@@ -35,9 +35,9 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
     expect_equal(a_sliced$type, type)
     expect_identical(length(a_sliced), length(x_sliced))
     if (!inherits(type, c("ListType", "LargeListType", "FixedSizeListType"))) {
-      expect_equal(as.vector(is.na(a_sliced)), is.na(x_sliced))
+      expect_as_vector(is.na(a_sliced), is.na(x_sliced))
     }
-    expect_equal(as.vector(a_sliced), x_sliced, ignore_attr = TRUE)
+    expect_as_vector(a_sliced, x_sliced, ignore_attr = TRUE)
   }
   invisible(a)
 }
