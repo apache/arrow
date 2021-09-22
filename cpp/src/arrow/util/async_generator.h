@@ -1004,32 +1004,45 @@ class MergedGenerator {
   };
 
   struct InnerCallback {
-    void operator()(const Result<T>& maybe_next) {
-      Future<T> sink;
-      bool sub_finished = maybe_next.ok() && IsIterationEnd(*maybe_next);
-      {
-        auto guard = state->mutex.Lock();
-        if (state->finished) {
-          // We've errored out so just ignore this result and don't keep pumping
-          return;
-        }
-        if (!sub_finished) {
-          if (state->waiting_jobs.empty()) {
-            state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
-                state->active_subscriptions[index], maybe_next, index));
-          } else {
-            sink = std::move(*state->waiting_jobs.front());
-            state->waiting_jobs.pop_front();
+    void operator()(const Result<T>& maybe_next_ref) {
+      Future<T> next_fut;
+      const Result<T>* maybe_next = &maybe_next_ref;
+
+      while (true) {
+        Future<T> sink;
+        bool sub_finished = maybe_next->ok() && IsIterationEnd(**maybe_next);
+        {
+          auto guard = state->mutex.Lock();
+          if (state->finished) {
+            // We've errored out so just ignore this result and don't keep pumping
+            return;
+          }
+          if (!sub_finished) {
+            if (state->waiting_jobs.empty()) {
+              state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
+                  state->active_subscriptions[index], *maybe_next, index));
+            } else {
+              sink = std::move(*state->waiting_jobs.front());
+              state->waiting_jobs.pop_front();
+            }
           }
         }
-      }
-      if (sub_finished) {
-        state->PullSource().AddCallback(OuterCallback{state, index});
-      } else if (sink.is_valid()) {
-        sink.MarkFinished(maybe_next);
-        if (maybe_next.ok()) {
-          state->active_subscriptions[index]().AddCallback(*this);
+        if (sub_finished) {
+          state->PullSource().AddCallback(OuterCallback{state, index});
+        } else if (sink.is_valid()) {
+          sink.MarkFinished(*maybe_next);
+          if (!maybe_next->ok()) return;
+
+          next_fut = state->active_subscriptions[index]();
+          if (next_fut.TryAddCallback([this]() { return *this; })) {
+            return;
+          }
+          // Already completed. Avoid very deep recursion by looping
+          // here instead of relying on the callback.
+          maybe_next = &next_fut.result();
+          continue;
         }
+        return;
       }
     }
     std::shared_ptr<State> state;

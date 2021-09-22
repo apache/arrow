@@ -625,6 +625,28 @@ TEST_P(MergedGeneratorTestFixture, MergedParallelStress) {
   }
 }
 
+TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
+  // Regression test for an edge case in MergedGenerator. Ensure if
+  // the source generator returns already-completed futures and there
+  // are many queued pulls (or, the consumer pulls again as part of
+  // the callback), we don't recurse due to AddCallback (leading to an
+  // eventual stack overflow).
+  const int kNumItems = IsSlow() ? 128 : 4096;
+  std::vector<TestInt> items(kNumItems, TestInt(42));
+  auto generator = MakeSource(items);
+  PushGenerator<AsyncGenerator<TestInt>> sources;
+  auto merged = MakeMergedGenerator(AsyncGenerator<AsyncGenerator<TestInt>>(sources), 1);
+  std::vector<Future<TestInt>> pulls;
+  for (int i = 0; i < kNumItems; i++) {
+    pulls.push_back(merged());
+  }
+  sources.producer().Push(generator);
+  sources.producer().Close();
+  for (const auto& fut : pulls) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(42), fut);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
                          ::testing::Values(false, true));
 
