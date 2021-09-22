@@ -43,7 +43,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 10 Go ${{ matrix.go }}
+    name: AMD64 Debian 11 Go ${{ matrix.go }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
@@ -76,7 +76,7 @@ jobs:
         run: archery docker push debian-go
 
   docker_cgo_python:
-    name: AMD64 Debian 10 GO ${{ matrix.go }} - CGO Python
+    name: AMD64 Debian 11 GO ${{ matrix.go }} - CGO Python
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
