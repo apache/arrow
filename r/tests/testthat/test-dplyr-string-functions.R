@@ -412,12 +412,8 @@ test_that("strsplit and str_split", {
       mutate(x = strsplit(x, "and")) %>%
       collect(),
     df,
-    # Pass check.attributes = FALSE through to expect_equal
-    # (which gives you expect_equal() behavior).
-    # This is because the vctr that comes back from arrow (ListArray)
+    # `ignore_attr = TRUE` because the vctr coming back from arrow (ListArray)
     # has type information in it, but it's just a bare list from R/dplyr.
-    # Note also that whenever we bump up to testthat 3rd edition (ARROW-12871),
-    # the parameter is called `ignore_attr = TRUE`
     ignore_attr = TRUE
   )
   expect_dplyr_equal(
@@ -472,7 +468,6 @@ test_that("strsplit and str_split", {
 })
 
 test_that("arrow_*_split_whitespace functions", {
-
   # use only ASCII whitespace characters
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
 
@@ -622,7 +617,6 @@ test_that("backreferences (substitutions) in string replacement", {
 })
 
 test_that("edge cases in string detection and replacement", {
-
   # in case-insensitive fixed match/replace, test that "\\E" in the search
   # string and backslashes in the replacement string are interpreted literally.
   # this test does not use expect_dplyr_equal() because base::sub() and
@@ -659,7 +653,6 @@ test_that("edge cases in string detection and replacement", {
 })
 
 test_that("strptime", {
-
   # base::strptime() defaults to local timezone
   # but arrow's strptime defaults to UTC.
   # So that tests are consistent, set the local timezone to UTC
