@@ -83,7 +83,7 @@ if "%JOB%" NEQ "Build_Debug" (
 @rem
 if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
 if defined need_vcvarsall (
-    if "%APPVEYOR_BUILD_WORKER_IMAGE%" != "Visual Studio 2017" (
+    if "%APPVEYOR_BUILD_WORKER_IMAGE%" NEQ "Visual Studio 2017" (
         @rem ARROW-14070 Visual Studio 2015 no longer supported
         exit /B
     )
