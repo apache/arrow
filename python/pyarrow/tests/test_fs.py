@@ -300,7 +300,7 @@ def subtree_s3fs(request, s3fs):
     )
 
 
-__minio_limited_policy = """{
+_minio_limited_policy = """{
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -322,7 +322,7 @@ __minio_limited_policy = """{
 }"""
 
 
-def __run_mc_command(mcdir, *args):
+def _run_mc_command(mcdir, *args):
     full_args = ['mc', '-C', mcdir] + list(args)
     proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, encoding='utf-8')
@@ -336,11 +336,11 @@ def __run_mc_command(mcdir, *args):
         raise ChildProcessError("Could not run mc")
 
 
-def __wait_for_minio_startup(mcdir, address, access_key, secret_key):
+def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
     start = time.time()
     while time.time() - start < 10:
         try:
-            __run_mc_command(mcdir, 'alias', 'set', 'myminio',
+            _run_mc_command(mcdir, 'alias', 'set', 'myminio',
                              f'http://{address}', access_key, secret_key)
             return
         except ChildProcessError:
@@ -348,7 +348,7 @@ def __wait_for_minio_startup(mcdir, address, access_key, secret_key):
     raise Exception("mc command could not connect to local minio")
 
 
-def __configure_limited_user(tmpdir, address, access_key, secret_key):
+def _configure_limited_user(tmpdir, address, access_key, secret_key):
     """
     Attempts to use the mc command to configure the minio server
     with a special user limited:limited123 which does not have
@@ -363,20 +363,20 @@ def __configure_limited_user(tmpdir, address, access_key, secret_key):
         os.mkdir(mcdir)
         policy_path = os.path.join(tmpdir, 'limited-buckets-policy.json')
         with open(policy_path, mode='w') as policy_file:
-            policy_file.write(__minio_limited_policy)
+            policy_file.write(_minio_limited_policy)
         # The s3_server fixture starts the minio process but
         # it takes a few moments for the process to become available
-        __wait_for_minio_startup(mcdir, address, access_key, secret_key)
+        _wait_for_minio_startup(mcdir, address, access_key, secret_key)
         # These commands create a limited user with a specific
         # policy and creates a sample bucket for that user to
         # write to
-        __run_mc_command(mcdir, 'admin', 'policy', 'add',
+        _run_mc_command(mcdir, 'admin', 'policy', 'add',
                          'myminio/', 'no-create-buckets', policy_path)
-        __run_mc_command(mcdir, 'admin', 'user', 'add',
+        _run_mc_command(mcdir, 'admin', 'user', 'add',
                          'myminio/', 'limited', 'limited123')
-        __run_mc_command(mcdir, 'admin', 'policy', 'set',
+        _run_mc_command(mcdir, 'admin', 'policy', 'set',
                          'myminio', 'no-create-buckets', 'user=limited')
-        __run_mc_command(mcdir, 'mb', 'myminio/existing-bucket')
+        _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket')
         return True
     except FileNotFoundError:
         # If mc is not found, skip these tests
@@ -389,7 +389,7 @@ def limited_s3_user(request, s3_server):
     tempdir = s3_server['tempdir']
     host, port, access_key, secret_key = s3_server['connection']
     address = '{}:{}'.format(host, port)
-    if not __configure_limited_user(tempdir, address, access_key, secret_key):
+    if not _configure_limited_user(tempdir, address, access_key, secret_key):
         pytest.skip('Could not locate mc command to configure limited user')
 
 
