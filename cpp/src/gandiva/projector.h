@@ -49,6 +49,8 @@ class ProjectorCacheKey {
 
   std::string ToString() const;
 
+  std::vector<std::string> GetExpressionsAsString() const;
+
  private:
   void UpdateUniqifier(const std::string& expr);
 

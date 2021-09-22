@@ -47,6 +47,8 @@ class FilterCacheKey {
 
   SchemaPtr schema() const { return schema_; }
 
+  std::string GetExpressionsAsString() const;
+
   std::string ToString() const;
 
  private:

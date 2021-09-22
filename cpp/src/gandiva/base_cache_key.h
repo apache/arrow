@@ -36,6 +36,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
     schema_ = key.schema();
+    expressions_as_string_ = key.GetExpressionsAsString();
   }
 
   BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
@@ -46,6 +47,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
     schema_ = key.schema();
+    expressions_as_string_.push_back(key.GetExpressionsAsString());
   }
 
   size_t Hash() const { return hash_code_; }
@@ -65,6 +67,10 @@ class BaseCacheKey {
       return false;
     }
 
+    if (expressions_as_string_ != other.expressions_as_string_) {
+      return false;
+    }
+
     return true;
   }
 
@@ -74,6 +80,7 @@ class BaseCacheKey {
   uint64_t hash_code_;
   std::string type_;
   SchemaPtr schema_;
+  std::vector<std::string> expressions_as_string_;
 };
 
 }  // namespace gandiva

@@ -97,6 +97,10 @@ std::string ProjectorCacheKey::ToString() const {
   return ss.str();
 }
 
+std::vector<std::string> ProjectorCacheKey::GetExpressionsAsString() const {
+  return expressions_as_strings_;
+}
+
 void ProjectorCacheKey::UpdateUniqifier(const std::string& expr) {
   if (uniqifier_ == 0) {
     // caching of expressions with re2 patterns causes lock contention. So, use

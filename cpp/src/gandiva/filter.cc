@@ -79,6 +79,10 @@ std::string FilterCacheKey::ToString() const {
   return ss.str();
 }
 
+std::string FilterCacheKey::GetExpressionsAsString() const {
+    return expression_as_string_;
+};
+
 void FilterCacheKey::UpdateUniqifier(const std::string& expr) {
   // caching of expressions with re2 patterns causes lock contention. So, use
   // multiple instances to reduce contention.
