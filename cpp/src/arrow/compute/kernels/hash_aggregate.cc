@@ -1750,12 +1750,9 @@ HashAggregateKernel MakeApproximateMedianKernel(HashAggregateFunction* tdigest_f
     KernelInitArgs new_args{kernel, inputs, &options};
     return kernel->init(ctx, new_args);
   };
-  kernel.signature = KernelSignature::Make(
-      {InputType(ValueDescr::ANY), InputType::Array(Type::UINT32)},
-      OutputType([](KernelContext* ctx,
-                    const std::vector<ValueDescr>& descrs) -> Result<ValueDescr> {
-        return ValueDescr::Array(descrs[0].type);
-      }));
+  kernel.signature =
+      KernelSignature::Make({InputType(ValueDescr::ANY), InputType::Array(Type::UINT32)},
+                            ValueDescr::Array(float64()));
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
