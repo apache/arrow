@@ -221,7 +221,8 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
   uint32_t num_block_bytes = num_groupid_bits + 8;
   if (log_blocks_ == 0) {
     uint64_t block = *reinterpret_cast<const uint64_t*>(blocks_);
-    uint32_t empty_slot = static_cast<uint32_t>(8 - ARROW_POPCOUNT64(block));
+    uint32_t empty_slot =
+        static_cast<uint32_t>(8 - ARROW_POPCOUNT64(block & kHighBitOfEachByte));
     for (uint32_t i = 0; i < num_ids; ++i) {
       int id = ids[i];
       slot_ids[id] = empty_slot;
