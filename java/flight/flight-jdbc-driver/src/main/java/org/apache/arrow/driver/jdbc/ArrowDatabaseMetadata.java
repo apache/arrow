@@ -270,7 +270,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
             final List<Field> tableColumns = currentSchema.getFields();
 
-            columnCounter = setSchemaGetColumnsRootFromColumnMetadata(transformedRoot, columnCounter, tableColumns,
+            columnCounter = setGetColumnsVectorSchemaRootFromFields(transformedRoot, columnCounter, tableColumns,
                 catalogName, tableName, schemaName, columnNamePat);
           }
 
@@ -281,10 +281,10 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         });
   }
 
-  private int setSchemaGetColumnsRootFromColumnMetadata(final VectorSchemaRoot currentRoot, int insertIndex,
-                                                        final List<Field> tableColumns, final Text catalogName,
-                                                        final Text tableName, final Text schemaName,
-                                                        final Pattern columnNamePattern) {
+  private int setGetColumnsVectorSchemaRootFromFields(final VectorSchemaRoot currentRoot, int insertIndex,
+                                                      final List<Field> tableColumns, final Text catalogName,
+                                                      final Text tableName, final Text schemaName,
+                                                      final Pattern columnNamePattern) {
     int ordinalIndex = 1;
     int tableColumnsSize = tableColumns.size();
 
@@ -311,7 +311,6 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       }
 
       final ArrowType fieldType = tableColumns.get(i).getType();
-      final ArrowType.ArrowTypeID fieldTypeId = fieldType.getTypeID();
 
       if (catalogName != null) {
         tableCatVector.setSafe(insertIndex, catalogName);
@@ -329,8 +328,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         columnNameVector.setSafe(insertIndex, columnName.getBytes(CHARSET));
       }
 
-      dataTypeVector.setSafe(insertIndex, SqlTypes.getSqlTypeIdFromArrowType(tableColumns.get(i).getType()));
-      typeNameVector.setSafe(insertIndex, fieldTypeId.name().getBytes(CHARSET));
+      dataTypeVector.setSafe(insertIndex, SqlTypes.getSqlTypeIdFromArrowType(fieldType));
+      typeNameVector.setSafe(insertIndex, SqlTypes.getSqlTypeNameFromArrowType(fieldType).getBytes(CHARSET));
 
       // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
       // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
