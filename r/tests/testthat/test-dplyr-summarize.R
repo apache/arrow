@@ -230,6 +230,11 @@ test_that("Group by n_distinct() on dataset", {
 })
 
 test_that("median()", {
+  # When medians are integer-valued, stats::median() sometimes returns output of
+  # type integer, whereas whereas the Arrow approx_median kernels always return
+  # output of type float64. The calls to median(int, ...) in the tests below
+  # are enclosed in as.double() to work around this known difference.
+
   # with groups
   expect_dplyr_equal(
     input %>%
@@ -274,18 +279,27 @@ test_that("median()", {
 })
 
 test_that("quantile()", {
-  # The default S3 method for stats::quantile() method throws an error when
-  # numeric input contains NA or NaN and na.rm is not TRUE. So the tests below
-  # only compare R and Arrow output on data with NAs or NaNs with na.rm = TRUE.
+  # The default method for stats::quantile() throws an error when na.rm = FALSE
+  # and the input contains NA or NaN, whereas the Arrow tdigest kernels return
+  # null in this situation. To work around this known difference, the tests
+  # below always use na.rm = TRUE when the data contains NA or NaN.
 
-  # Because the default S3 method defaults to names = TRUE, the Arrow binding
-  # does not accept a names argument, and the presence of the names causes
-  # expect_equal() to fail, we don't use expect_dplyr_equal() in the tests
-  # below.
+  # The default method for stats::quantile() has an argument `names` that
+  # controls whether the result has a names attribute. It defaults to
+  # names = TRUE. With Arrow, it is not possible to give the result a names
+  # attribute, so the quantile() binding in Arrow does not accept a `names`
+  # argument. Differences in this names attribute cause expect_dplyr_equal() to
+  # report that the objects are not equal, so we do not use expect_dplyr_equal()
+  # in the tests below.
 
   # The tests below all use probs = 0.5 because other values cause differences
   # between the exact quantiles returned by R and the approximate quantiles
   # returned by Arrow.
+
+  # When quantiles are integer-valued, stats::quantile() sometimes returns
+  # output of type integer, whereas whereas the Arrow tdigest kernels always
+  # return output of type float64. The calls to quantile(int, ...) in the tests
+  # below are enclosed in as.double() to work around this known difference.
 
   # with groups
   expect_warning(
@@ -294,14 +308,16 @@ test_that("quantile()", {
         group_by(some_grouping) %>%
         summarize(
           q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-          q_int = quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+          q_int = as.double(
+            quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+          )
         ) %>%
         arrange(some_grouping),
       Table$create(tbl) %>%
         group_by(some_grouping) %>%
         summarize(
           q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
-          q_int = quantile(int, probs = 0.5, na.rm = TRUE)
+          q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
         ) %>%
         arrange(some_grouping) %>%
         collect()
@@ -316,12 +332,14 @@ test_that("quantile()", {
       tbl %>%
         summarize(
           q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-          q_int = quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+          q_int = as.double(
+            quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+          )
         ),
       Table$create(tbl) %>%
         summarize(
           q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
-          q_int = quantile(int, probs = 0.5, na.rm = TRUE)
+          q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
         ) %>%
         collect()
     ),
@@ -339,7 +357,7 @@ test_that("quantile()", {
       Table$create(tbl) %>%
         summarize(
           q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
-          q_int = quantile(int, probs = 0.5, na.rm = FALSE)
+          q_int = as.double(quantile(int, probs = 0.5, na.rm = FALSE))
         ) %>%
         collect()
     ),
