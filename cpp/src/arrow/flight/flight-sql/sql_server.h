@@ -97,8 +97,52 @@ class FlightSqlServerBase : public FlightServerBase {
     if (anyCommand.Is<pb::sql::TicketStatementQuery>()) {
       pb::sql::TicketStatementQuery command;
       anyCommand.UnpackTo(&command);
-
-      DoGetStatement(command, context, request, stream);
+      ARROW_RETURN_NOT_OK(DoGetStatement(command, context, request, stream));
+    }
+    if (anyCommand.Is<pb::sql::CommandPreparedStatementQuery>()) {
+      pb::sql::CommandPreparedStatementQuery command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetPreparedStatement(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetCatalogs>()) {
+      pb::sql::CommandGetCatalogs command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetCatalogs(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetSchemas>()) {
+      pb::sql::CommandGetSchemas command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetSchemas(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetTables>()) {
+      pb::sql::CommandGetTables command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetTables(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetTableTypes>()) {
+      pb::sql::CommandGetTableTypes command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetTableTypes(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetSqlInfo>()) {
+      pb::sql::CommandGetSqlInfo command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetSqlInfo(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetPrimaryKeys>()) {
+      pb::sql::CommandGetPrimaryKeys command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetPrimaryKeys(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetExportedKeys>()) {
+      pb::sql::CommandGetExportedKeys command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetExportedKeys(command, context, request, payload));
+    }
+    if (anyCommand.Is<pb::sql::CommandGetImportedKeys>()) {
+      pb::sql::CommandGetImportedKeys command;
+      anyCommand.UnpackTo(&command);
+      ARROW_RETURN_NOT_OK(DoGetImportedKeys(command, context, request, payload));
     }
 
     return Status::OK();
@@ -139,7 +183,7 @@ class FlightSqlServerBase : public FlightServerBase {
       std::unique_ptr<FlightInfo>* info){};
 
   virtual Status DoGetPreparedStatement(
-      const pb::sql::CommandPreparedStatementQuery& command, const Ticket& ticket,
+      const pb::sql::CommandPreparedStatementQuery& command,
       const ServerCallContext& context, std::unique_ptr<ResultStream>* result){};
 
   /// \brief Returns a FlightInfo object which contains the data to access the
@@ -156,11 +200,12 @@ class FlightSqlServerBase : public FlightServerBase {
                                        std::unique_ptr<FlightInfo>* info){};
 
   /// \brief Returns data for catalogs based on a data stream.
-  /// \param[in] ticket   The application-defined ticket identifying this stream.
+  /// \param[in] command  The sql command to generate the data stream.
   /// \param[in] context  Per-call context.
   /// \param[out] result  An interface for sending data back to the client.
   /// \return             Status.
-  virtual Status DoGetCatalogs(const Ticket& ticket, const ServerCallContext& context,
+  virtual Status DoGetCatalogs(const pb::sql::CommandGetCatalogs& command,
+                               const ServerCallContext& context,
                                std::unique_ptr<ResultStream>* result){};
 
   /// \brief Returns a FlightInfo object which contains the data to access the
@@ -177,13 +222,12 @@ class FlightSqlServerBase : public FlightServerBase {
                                       std::unique_ptr<FlightInfo>* info){};
 
   /// \brief Returns data for sqlInfo based on a data stream.
-  /// \param[in]command  The sql command to generate the data stream.
-  /// \param[in]ticket   The application-defined ticket identifying this stream.
-  /// \param[in]context  Per-call context.
-  /// \param[out]result   The Result iterator.
+  /// \param[in] command  The sql command to generate the data stream.
+  /// \param[in] context  Per-call context.
+  /// \param[out] result   The Result iterator.
   /// \return         Status.
   virtual Status DoGetSqlInfo(const pb::sql::CommandStatementQuery& command,
-                              const Ticket& ticket, const ServerCallContext& context,
+                              const ServerCallContext& context,
                               std::unique_ptr<ResultStream>* result){};
 
   /// \brief Returns a FlightInfo object which contains the data to access the
@@ -201,12 +245,11 @@ class FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Returns data for schemas based on a data stream.
   /// \param[in]command  The sql command to generate the data stream.
-  /// \param[in]ticket   The application-defined ticket identifying this stream.
   /// \param[in]context  Per-call context.
   /// \param[out]result   The Result iterator.
   /// \return         Status.
   virtual Status DoGetSchemas(const pb::sql::CommandGetSchemas& command,
-                              const Ticket& ticket, const ServerCallContext& context,
+                              const ServerCallContext& context,
                               std::unique_ptr<ResultStream>* result){};
 
   ///\brief Returns a FlightInfo object which contains the data to access the
@@ -223,11 +266,11 @@ class FlightSqlServerBase : public FlightServerBase {
                                      std::unique_ptr<FlightInfo>* info){};
 
   /// \brief Returns data for tables based on a data stream.
-  /// \param[in]ticket   The application-defined ticket identifying this stream.
-  /// \param[in]context  Per-call context.
-  /// \param[out]result   The Result iterator.
+  /// \param[in] command   The sql command to generate the data stream.
+  /// \param[in] context   Per-call context.
+  /// \param[out] result   The Result iterator.
   /// \return         Status.
-  virtual Status DoGetTables(const pb::sql::CommandGetTables, const Ticket& ticket,
+  virtual Status DoGetTables(const pb::sql::CommandGetTables& command,
                              const ServerCallContext& context,
                              std::unique_ptr<ResultStream>* result){};
 
@@ -245,12 +288,13 @@ class FlightSqlServerBase : public FlightServerBase {
                                          std::unique_ptr<FlightInfo>* info){};
 
   /// \brief Returns data for table types based on a data stream.
-  /// \param[in]ticket   The application-defined ticket identifying this stream.
-  /// \param[in]context  Per-call context.
-  /// \param[out]result   The Result iterator.
+  /// \param[in] command   The sql command to generate the data stream.
+  /// \param[in] context   Per-call context.
+  /// \param[out] result   The Result iterator.
   /// \return         Status.
-  virtual Status DoGetTablesTypes(const Ticket& ticket, const ServerCallContext& context,
-                                  std::unique_ptr<ResultStream>* result){};
+  virtual Status DoGetTableTypes(const pb::sql::CommandGetTableTypes& command,
+                                 const ServerCallContext& context,
+                                 std::unique_ptr<ResultStream>* result){};
 
   /// \brief Returns a FlightInfo object which contains the data to access the
   ///        stream of data.
@@ -266,13 +310,12 @@ class FlightSqlServerBase : public FlightServerBase {
                                           std::unique_ptr<FlightInfo>* info){};
 
   /// \brief Returns data for primary keys based on a data stream.
-  /// \param[in]command  The sql command to generate the data stream.
-  /// \param[in]ticket   The application-defined ticket identifying this stream.
-  /// \param[in]context  Per-call context.
-  /// \param[out]result   The Result iterator.
+  /// \param[in] command  The sql command to generate the data stream.
+  /// \param[in] context  Per-call context.
+  /// \param[out] result   The Result iterator.
   /// \return         Status.
   virtual Status DoGetPrimaryKeys(const pb::sql::CommandGetPrimaryKeys& command,
-                                  const Ticket& ticket, const ServerCallContext& context,
+                                  const ServerCallContext& context,
                                   std::unique_ptr<ResultStream>* result){};
 
   /// \brief Returns a FlightInfo object which contains the data to access the
@@ -289,13 +332,12 @@ class FlightSqlServerBase : public FlightServerBase {
                                            std::unique_ptr<FlightInfo>* info){};
 
   /// \brief Returns data for exported keys based on a data stream.
-  /// \param[in]command  The sql command to generate the data stream.
-  /// \param[in]ticket   The application-defined ticket identifying this stream.
-  /// \param[in]context  Per-call context.
-  /// \param[out]result   The Result iterator.
+  /// \param[in] command  The sql command to generate the data stream.
+  /// \param[in] context  Per-call context.
+  /// \param[out] result   The Result iterator.
   /// \return         Status.
   virtual Status DoGetExportedKeys(const pb::sql::CommandGetExportedKeys& command,
-                                   const Ticket& ticket, const ServerCallContext& context,
+                                   const ServerCallContext& context,
                                    std::unique_ptr<ResultStream>* result){};
 
   /// \brief Returns a FlightInfo object which contains the data to access the
@@ -312,13 +354,12 @@ class FlightSqlServerBase : public FlightServerBase {
                                            std::unique_ptr<FlightInfo>* info){};
 
   /// \brief Returns data for imported keys based on a data stream.
-  /// \param[in]command  The sql command to generate the data stream.
-  /// \param[in]ticket   The application-defined ticket identifying this stream.
-  /// \param[in]context  Per-call context.
-  /// \param[out]result   The Result iterator.
+  /// \param[in] command  The sql command to generate the data stream.
+  /// \param[in] context  Per-call context.
+  /// \param[out] result   The Result iterator.
   /// \return         Status.
   virtual Status DoGetImportedKeys(const pb::sql::CommandGetImportedKeys& command,
-                                   const Ticket& ticket, const ServerCallContext& context,
+                                   const ServerCallContext& context,
                                    std::unique_ptr<ResultStream>* result){};
 
   /// \brief Creates a prepared statement on the server and returns a handle and metadata
