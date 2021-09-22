@@ -694,7 +694,7 @@ ISO8601_precision_map <-
        ymdhms = "%Y-%m-%dT%H:%M:%S")
 
 nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
-  if(is.null(precision)) {
+  if (is.null(precision)) {
     precision <- "ymdhms"
   }
   if (is.null(format <- ISO8601_precision_map[[precision]])) {
