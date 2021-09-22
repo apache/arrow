@@ -600,9 +600,25 @@ struct GrouperFastImpl : Grouper {
                                minibatch_hashes_.data());
 
       // Map
-      RETURN_NOT_OK(
-          map_.map(batch_size_next, minibatch_hashes_.data(),
-                   reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row));
+      auto match_bitvector =
+          util::TempVectorHolder<uint8_t>(&temp_stack_, (batch_size_next + 7) / 8);
+      {
+        auto local_slots = util::TempVectorHolder<uint8_t>(&temp_stack_, batch_size_next);
+        map_.early_filter(batch_size_next, minibatch_hashes_.data(),
+                          match_bitvector.mutable_data(), local_slots.mutable_data());
+        map_.find(batch_size_next, minibatch_hashes_.data(),
+                  match_bitvector.mutable_data(), local_slots.mutable_data(),
+                  reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row);
+      }
+      auto ids = util::TempVectorHolder<uint16_t>(&temp_stack_, batch_size_next);
+      int num_ids;
+      util::BitUtil::bits_to_indexes(0, encode_ctx_.hardware_flags, batch_size_next,
+                                     match_bitvector.mutable_data(), &num_ids,
+                                     ids.mutable_data());
+
+      RETURN_NOT_OK(map_.map_new_keys(
+          num_ids, ids.mutable_data(), minibatch_hashes_.data(),
+          reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row));
 
       start_row += batch_size_next;
 
@@ -2188,7 +2204,8 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    return grouper_->Consume(batch).status();
+    ARROW_ASSIGN_OR_RAISE(std::ignore, grouper_->Consume(batch));
+    return Status::OK();
   }
 
   Status Merge(GroupedAggregator&& raw_other,

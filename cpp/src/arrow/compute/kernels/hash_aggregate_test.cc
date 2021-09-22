@@ -57,6 +57,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
+using testing::Eq;
 using testing::HasSubstr;
 
 namespace arrow {
@@ -319,6 +320,14 @@ struct TestGrouper {
     AssertEquivalentIds(expected, ids);
   }
 
+  void ExpectUniques(const ExecBatch& uniques) {
+    EXPECT_THAT(grouper_->GetUniques(), ResultWith(Eq(uniques)));
+  }
+
+  void ExpectUniques(const std::string& uniques_json) {
+    ExpectUniques(ExecBatchFromJSON(descrs_, uniques_json));
+  }
+
   void AssertEquivalentIds(const Datum& expected, const Datum& actual) {
     auto left = expected.make_array();
     auto right = actual.make_array();
@@ -437,13 +446,17 @@ TEST(Grouper, NumericKey) {
     TestGrouper g({ty});
 
     g.ExpectConsume("[[3], [3]]", "[0, 0]");
+    g.ExpectUniques("[[3]]");
 
     g.ExpectConsume("[[3], [3]]", "[0, 0]");
+    g.ExpectUniques("[[3]]");
 
-    g.ExpectConsume("[[27], [81]]", "[1, 2]");
+    g.ExpectConsume("[[27], [81], [81]]", "[1, 2, 2]");
+    g.ExpectUniques("[[3], [27], [81]]");
 
     g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
                     "[0, 1, 0, 1, 3, 2, 1, 2]");
+    g.ExpectUniques("[[3], [27], [81], [null]]");
   }
 }
 
@@ -1900,7 +1913,7 @@ TEST(GroupBy, Distinct) {
   CountOptions all(CountOptions::ALL);
   CountOptions only_valid(CountOptions::ONLY_VALID);
   CountOptions only_null(CountOptions::ONLY_NULL);
-  for (bool use_threads : {true, false}) {
+  for (bool use_threads : {false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
     auto table =

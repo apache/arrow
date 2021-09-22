@@ -828,15 +828,23 @@ void KeyEncoder::KeyRowMetadata::FromColumnMetadataVector(
   const auto num_cols = static_cast<uint32_t>(cols.size());
 
   // Sort columns.
+  //
   // Columns are sorted based on the size in bytes of their fixed-length part.
   // For the varying-length column, the fixed-length part is the 32-bit field storing
   // cumulative length of varying-length fields.
+  //
   // The rules are:
+  //
   // a) Boolean column, marked with fixed-length 0, is considered to have fixed-length
-  // part of 1 byte. b) Columns with fixed-length part being power of 2 or multiple of row
-  // alignment precede other columns. They are sorted among themselves based on size of
-  // fixed-length part. c) Fixed-length columns precede varying-length columns when both
-  // have the same size fixed-length part.
+  // part of 1 byte.
+  //
+  // b) Columns with fixed-length part being power of 2 or multiple of row
+  // alignment precede other columns. They are sorted in decreasing order of the size of
+  // their fixed-length part.
+  //
+  // c) Fixed-length columns precede varying-length columns when
+  // both have the same size fixed-length part.
+  //
   column_order.resize(num_cols);
   for (uint32_t i = 0; i < num_cols; ++i) {
     column_order[i] = i;
