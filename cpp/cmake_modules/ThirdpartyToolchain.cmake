@@ -3922,14 +3922,34 @@ macro(build_opentelemetry)
   else()
     set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} "-DWITH_API_ONLY=ON")
   endif()
-  externalproject_add(opentelemetry_ep
-                      ${EP_LOG_OPTIONS}
-                      URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
-                      URL ${OPENTELEMETRY_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
-                      EXCLUDE_FROM_ALL NOT
-                      ${ARROW_WITH_OPENTELEMETRY})
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
+    externalproject_add(opentelemetry_ep
+                        ${EP_LOG_OPTIONS}
+                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                        # OpenTelemetry tries to determine the processor arch for vcpkg,
+                        # which fails on s390x, even though it doesn't use vcpkg there
+                        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env ARCH=s390x
+                                          ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR}
+                                          "<SOURCE_DIR><SOURCE_SUBDIR>"
+                                          ${OPENTELEMETRY_CMAKE_ARGS}
+                        BUILD_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target all
+                        INSTALL_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target
+                                        install
+                        # CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
+                        URL ${OPENTELEMETRY_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
+                        EXCLUDE_FROM_ALL NOT
+                        ${ARROW_WITH_OPENTELEMETRY})
+  else()
+    externalproject_add(opentelemetry_ep
+                        ${EP_LOG_OPTIONS}
+                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                        CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
+                        URL ${OPENTELEMETRY_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
+                        EXCLUDE_FROM_ALL NOT
+                        ${ARROW_WITH_OPENTELEMETRY})
+  endif()
   add_dependencies(toolchain opentelemetry_ep)
   add_dependencies(toolchain-tests opentelemetry_ep)
 
