@@ -529,6 +529,11 @@ struct Strftime {
     const StrftimeOptions& options = StrftimeState::Get(ctx);
 
     auto timezone = GetInputTimezone(type);
+    // This check is due to surprising %c behavior.
+    // See https://github.com/HowardHinnant/date/issues/704
+    if ((options.format.find("%c") != std::string::npos) && (options.locale != "C")) {
+      return Status::Invalid("%c flag is not supported in non-C locales.");
+    }
     if (timezone.empty()) {
       if ((options.format.find("%z") != std::string::npos) ||
           (options.format.find("%Z") != std::string::npos)) {

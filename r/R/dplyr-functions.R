@@ -673,11 +673,6 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
 }
 
 nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
-  if (grepl("%c", format)) {
-    # This check is due to differences in the way %c currently works in Arrow and R's strftime.
-    # We can revisit this after this is resolved: https://github.com/HowardHinnant/date/issues/704
-    arrow_not_supported("%c flag currently not supported.")
-  }
   if (usetz) {
     format <- paste(format, "%Z")
   }
@@ -688,6 +683,27 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   # cast the timestamp to desired timezone. This is a metadata only change.
   ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
   Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
+
+ISO8601_precision_map <-
+  list(y = "%Y",
+       ym = "%Y-%m",
+       ymd = "%Y-%m-%d",
+       ymdh = "%Y-%m-%dT%H",
+       ymdhm = "%Y-%m-%dT%H:%M",
+       ymdhms = "%Y-%m-%dT%H:%M:%S")
+
+nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+  if(is.null(precision)) {
+    precision <- "ymdhms"
+  }
+  if (is.null(format <- ISO8601_precision_map[[precision]])) {
+    stop("Invalid value for precision provided: ", precision)
+  }
+  if (usetz) {
+    format <- paste0(format, "%z")
+  }
+  Expression$create("strftime", x, options = list(format = format, locale = "C"))
 }
 
 nse_funcs$second <- function(x) {

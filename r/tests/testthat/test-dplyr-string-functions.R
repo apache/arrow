@@ -19,6 +19,7 @@ skip_if_not_available("dataset")
 skip_if_not_available("utf8proc")
 
 library(dplyr)
+library(lubridate)
 library(stringr)
 library(stringi)
 
@@ -757,13 +758,13 @@ test_that("strftime", {
   )
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
-  # We can revisit this after this is resolved: https://github.com/HowardHinnant/date/issues/704
-  expect_warning(
+  # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
+  expect_error(
     times %>%
       Table$create() %>%
       mutate(x = strftime(x, format = "%c")) %>%
       collect(),
-    "%c flag currently not supported. not supported by Arrow"
+    "%c flag is not supported in non-C locales."
   )
 
   # Output precision of %S depends on the input timestamp precision.
@@ -777,6 +778,43 @@ test_that("strftime", {
       collect(),
     times,
     tolerance = 1e-6
+  )
+})
+
+test_that("format_ISO8601", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  # See comment regarding %S flag in strftime tests
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = FALSE)) %>%
+      mutate(x = gsub("\\.0*", "", x)) %>%
+      collect(),
+    times
+  )
+
+  # See comment regarding %S flag in strftime tests
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
+      mutate(x = gsub("\\.0*", "", x)) %>%
+      collect(),
+    times
   )
 })
 
