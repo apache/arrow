@@ -152,10 +152,10 @@ public class ArrowDatabaseMetadataTest {
 
   static {
     List<Integer> expectedGetColumnsDataTypes = Arrays.asList(3, 93, 4);
-    List<String> expectedGetColumnsTypeName = Arrays.asList("Decimal", "Timestamp", "Int");
+    List<String> expectedGetColumnsTypeName = Arrays.asList("DECIMAL", "TIMESTAMP", "INTEGER");
     List<Integer> expectedGetColumnsRadix = Arrays.asList(10, null, 10);
     List<Integer> expectedGetColumnsColumnSize = Arrays.asList(5, 29, 10);
-    List<Integer> expectedGetColumnsDecimalDigits = Arrays.asList(2, null, 0);
+    List<Integer> expectedGetColumnsDecimalDigits = Arrays.asList(2, 9, 0);
     List<String> expectedGetColumnsIsNullable = Arrays.asList("YES", "YES", "NO");
     EXPECTED_GET_COLUMNS_RESULTS = range(0, ROW_COUNT * 3)
         .mapToObj(i -> new Object[] {
