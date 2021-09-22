@@ -37,9 +37,9 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
  public:
   /// Configure the action taken when a slot of the selection mask is null
   enum NullSelectionBehavior {
-    /// the corresponding filtered value will be removed in the output
+    /// The corresponding filtered value will be removed in the output.
     DROP,
-    /// the corresponding filtered value will be null in the output
+    /// The corresponding filtered value will be null in the output.
     EMIT_NULL,
   };
 
@@ -66,9 +66,9 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
  public:
   /// Configure how null values will be encoded
   enum NullEncodingBehavior {
-    /// the null value will be added to the dictionary with a proper index
+    /// The null value will be added to the dictionary with a proper index.
     ENCODE,
-    /// the null value will be masked in the indices array
+    /// The null value will be masked in the indices array.
     MASK
   };
 
@@ -80,7 +80,9 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
 };
 
 enum class SortOrder {
+  /// Arrange values in increasing order
   Ascending,
+  /// Arrange values in decreasing order
   Descending,
 };
 
@@ -106,8 +108,9 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending);
   constexpr static char const kTypeName[] = "ArraySortOptions";
-  static ArraySortOptions Defaults() { return ArraySortOptions{}; }
+  static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
+  /// Sorting order
   SortOrder order;
 };
 
@@ -115,8 +118,9 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {});
   constexpr static char const kTypeName[] = "SortOptions";
-  static SortOptions Defaults() { return SortOptions{}; }
+  static SortOptions Defaults() { return SortOptions(); }
 
+  /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
 };
 
@@ -124,10 +128,8 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
   explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
-
   constexpr static char const kTypeName[] = "SelectKOptions";
-
-  static SelectKOptions Defaults() { return SelectKOptions{-1, {}}; }
+  static SelectKOptions Defaults() { return SelectKOptions(); }
 
   static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
     std::vector<SortKey> keys;
