@@ -448,6 +448,16 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
     const std::shared_ptr<ScanOptions>& options) {
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
+  ArrayVector columns;
+  for (const auto& field : options->dataset_schema->fields()) {
+    // TODO(ARROW-7051): use helper to make empty batch
+    ARROW_ASSIGN_OR_RAISE(auto array,
+                          MakeArrayOfNull(field->type(), /*length=*/0, options->pool));
+    columns.push_back(std::move(array));
+  }
+  batch_gen = MakeDefaultIfEmptyGenerator(
+      std::move(batch_gen),
+      RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
   auto combine_fn =
@@ -765,9 +775,8 @@ Result<int64_t> AsyncScanner::CountRows() {
               if (fast_count) {
                 // fast path: got row count directly; skip scanning this fragment
                 total += *fast_count;
-                return std::make_shared<OneShotFragment>(
-                    options->dataset_schema,
-                    MakeEmptyIterator<std::shared_ptr<RecordBatch>>());
+                return std::make_shared<InMemoryFragment>(options->dataset_schema,
+                                                          RecordBatchVector{});
               }
 
               // slow path: actually filter this fragment's batches

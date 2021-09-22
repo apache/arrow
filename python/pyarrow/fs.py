@@ -31,6 +31,8 @@ from pyarrow._fs import (  # noqa
     _MockFileSystem,
     FileSystemHandler,
     PyFileSystem,
+    _copy_files,
+    _copy_files_selector,
 )
 
 # For backward compatibility.
@@ -151,6 +153,8 @@ def _resolve_filesystem_and_path(
                 "Expected string path; path-like objects are only allowed "
                 "with a local filesystem"
             )
+        if not allow_legacy_filesystem:
+            path = filesystem.normalize_path(path)
         return filesystem, path
 
     path = _stringify_path(path)
@@ -178,8 +182,72 @@ def _resolve_filesystem_and_path(
             # instead of a more confusing scheme parsing error
             if "empty scheme" not in str(e):
                 raise
+    else:
+        path = filesystem.normalize_path(path)
 
     return filesystem, path
+
+
+def copy_files(source, destination,
+               source_filesystem=None, destination_filesystem=None,
+               *, chunk_size=1024*1024, use_threads=True):
+    """
+    Copy files between FileSystems.
+
+    This functions allows you to recursively copy directories of files from
+    one file system to another, such as from S3 to your local machine.
+
+    Parameters
+    ----------
+    source : string
+        Source file path or URI to a single file or directory.
+        If a directory, files will be copied recursively from this path.
+    destination : string
+        Destination file path or URI. If `source` is a file, `destination`
+        is also interpreted as the destination file (not directory).
+        Directories will be created as necessary.
+    source_filesystem : FileSystem, optional
+        Source filesystem, needs to be specified if `source` is not a URI,
+        otherwise inferred.
+    destination_filesystem : FileSystem, optional
+        Destination filesystem, needs to be specified if `destination` is not
+        a URI, otherwise inferred.
+    chunk_size : int, default 1MB
+        The maximum size of block to read before flushing to the
+        destination file. A larger chunk_size will use more memory while
+        copying but may help accommodate high latency FileSystems.
+    use_threads : bool, default True
+        Whether to use multiple threads to accelerate copying.
+
+    Examples
+    --------
+    Copy an S3 bucket's files to a local directory:
+
+    >>> copy_files("s3://your-bucket-name", "local-directory")
+
+    Using a FileSystem object:
+
+    >>> copy_files("your-bucket-name", "local-directory",
+    ...            source_filesystem=S3FileSystem(...))
+
+    """
+    source_fs, source_path = _resolve_filesystem_and_path(
+        source, source_filesystem
+    )
+    destination_fs, destination_path = _resolve_filesystem_and_path(
+        destination, destination_filesystem
+    )
+
+    file_info = source_fs.get_file_info(source_path)
+    if file_info.type == FileType.Directory:
+        source_sel = FileSelector(source_path, recursive=True)
+        _copy_files_selector(source_fs, source_sel,
+                             destination_fs, destination_path,
+                             chunk_size, use_threads)
+    else:
+        _copy_files(source_fs, source_path,
+                    destination_fs, destination_path,
+                    chunk_size, use_threads)
 
 
 class FSSpecHandler(FileSystemHandler):

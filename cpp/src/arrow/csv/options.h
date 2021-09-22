@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/csv/invalid_row.h"
 #include "arrow/csv/type_fwd.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
@@ -58,6 +59,8 @@ struct ARROW_EXPORT ParseOptions {
   /// Whether empty lines are ignored.  If false, an empty line represents
   /// a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
+  /// A handler function for rows which do not have the correct number of columns
+  InvalidRowHandler invalid_row_handler;
 
   /// Create parsing options with default values
   static ParseOptions Defaults();

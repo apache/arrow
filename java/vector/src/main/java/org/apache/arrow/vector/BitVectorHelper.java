@@ -89,16 +89,6 @@ public class BitVectorHelper {
   }
 
   /**
-   * Set the bit at provided index to 1.
-   *
-   * @deprecated Please use {@link BitVectorHelper#setBit(ArrowBuf, long)} instead..
-   */
-  @Deprecated
-  public static void setValidityBitToOne(ArrowBuf validityBuffer, int index) {
-    setBit(validityBuffer, index);
-  }
-
-  /**
    * Set the bit at provided index to 0.
    *
    * @param validityBuffer validity buffer of the vector

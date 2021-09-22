@@ -2651,8 +2651,8 @@ public class TestValueVector {
 
   @Test
   public void testUnionVectorEquals() {
-    try (final UnionVector vector1 = new UnionVector("union", allocator, null);
-        final UnionVector vector2 = new UnionVector("union", allocator, null);) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+        final UnionVector vector2 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -2721,7 +2721,8 @@ public class TestValueVector {
 
   @Test
   public void testUnionNullHashCode() {
-    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector srcVector =
+             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       srcVector.allocateNew();
 
       final NullableIntHolder holder = new NullableIntHolder();
@@ -2788,6 +2789,38 @@ public class TestValueVector {
       structWriter.setValueCount(2);
 
       assertEquals("[{\"f0\":1,\"f1\":10}, {\"f0\":2,\"f1\":20}]", structVector.toString());
+    }
+  }
+
+  @Test
+  public void testUInt1VectorToString() {
+    try (final UInt1Vector uInt1Vector = new UInt1Vector("uInt1Vector", allocator)) {
+      setVector(uInt1Vector, (byte) 0xff);
+      assertEquals("[255]", uInt1Vector.toString());
+    }
+  }
+
+  @Test
+  public void testUInt2VectorToString() {
+    try (final UInt2Vector uInt2Vector = new UInt2Vector("uInt2Vector", allocator)) {
+      setVector(uInt2Vector, (char) 0xffff);
+      assertEquals("[65535]", uInt2Vector.toString());
+    }
+  }
+
+  @Test
+  public void testUInt4VectorToString() {
+    try (final UInt4Vector uInt4Vector = new UInt4Vector("uInt4Vector", allocator)) {
+      setVector(uInt4Vector, 0xffffffff);
+      assertEquals("[4294967295]", uInt4Vector.toString());
+    }
+  }
+
+  @Test
+  public void testUInt8VectorToString() {
+    try (final UInt8Vector uInt8Vector = new UInt8Vector("uInt8Vector", allocator)) {
+      setVector(uInt8Vector, 0xffffffffffffffffL);
+      assertEquals("[18446744073709551615]", uInt8Vector.toString());
     }
   }
 

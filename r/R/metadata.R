@@ -72,7 +72,8 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         # we cannot apply this row-level metadata, since the order of the rows is
         # not guaranteed to be the same, so don't even try, but warn what's going on
         trace <- trace_back()
-        in_dplyr_collect <- any(map_lgl(trace$calls, function(x) {
+        # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
+        in_dplyr_collect <- any(map_lgl(trace$calls %||% trace$call, function(x) {
           grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
         }))
         if (in_dplyr_collect) {
@@ -144,7 +145,8 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     # we cannot apply this row-level metadata, since the order of the rows is
     # not guaranteed to be the same, so don't even try, but warn what's going on
     trace <- trace_back()
-    in_dataset_write <- any(map_lgl(trace$calls, function(x) {
+    # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
+    in_dataset_write <- any(map_lgl(trace$calls %||% trace$call, function(x) {
       grepl("write_dataset", x, fixed = TRUE)[[1]]
     }))
     if (in_dataset_write) {

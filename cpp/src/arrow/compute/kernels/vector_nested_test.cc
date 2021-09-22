@@ -22,9 +22,12 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace compute {
+
+using arrow::internal::checked_cast;
 
 TEST(TestVectorNested, ListFlatten) {
   for (auto ty : {list(int16()), large_list(int16())}) {
@@ -48,6 +51,28 @@ TEST(TestVectorNested, ListFlattenChunkedArray) {
     input = ChunkedArrayFromJSON(ty, {});
     expected = ChunkedArrayFromJSON(int16(), {});
     CheckVectorUnary("list_flatten", input, expected);
+  }
+}
+
+TEST(TestVectorNested, ListFlattenFixedSizeList) {
+  for (auto ty : {fixed_size_list(int16(), 2), fixed_size_list(uint32(), 2)}) {
+    const auto& out_ty = checked_cast<const FixedSizeListType&>(*ty).value_type();
+    {
+      auto input = ArrayFromJSON(ty, "[[0, null], null, [2, 3], [0, 42]]");
+      auto expected = ArrayFromJSON(out_ty, "[0, null, 2, 3, 0, 42]");
+      CheckVectorUnary("list_flatten", input, expected);
+    }
+
+    {
+      // Test a chunked array
+      auto input = ChunkedArrayFromJSON(ty, {"[[0, null], null]", "[[2, 3], [0, 42]]"});
+      auto expected = ChunkedArrayFromJSON(out_ty, {"[0, null]", "[2, 3, 0, 42]"});
+      CheckVectorUnary("list_flatten", input, expected);
+
+      input = ChunkedArrayFromJSON(ty, {});
+      expected = ChunkedArrayFromJSON(out_ty, {});
+      CheckVectorUnary("list_flatten", input, expected);
+    }
   }
 }
 
@@ -79,6 +104,27 @@ TEST(TestVectorNested, ListParentIndicesChunkedArray) {
     input = ChunkedArrayFromJSON(ty, {});
     expected = ChunkedArrayFromJSON(out_ty, {});
     CheckVectorUnary("list_parent_indices", input, expected);
+  }
+}
+
+TEST(TestVectorNested, ListParentIndicesFixedSizeList) {
+  for (auto ty : {fixed_size_list(int16(), 2), fixed_size_list(uint32(), 2)}) {
+    {
+      auto input = ArrayFromJSON(ty, "[[0, null], null, [1, 2], [3, 4], [null, 5]]");
+      auto expected = ArrayFromJSON(int32(), "[0, 0, 2, 2, 3, 3, 4, 4]");
+      CheckVectorUnary("list_parent_indices", input, expected);
+    }
+    {
+      // Test a chunked array
+      auto input =
+          ChunkedArrayFromJSON(ty, {"[[0, null], null, [1, 2]]", "[[3, 4], [null, 5]]"});
+      auto expected = ChunkedArrayFromJSON(int32(), {"[0, 0, 2, 2]", "[3, 3, 4, 4]"});
+      CheckVectorUnary("list_parent_indices", input, expected);
+
+      input = ChunkedArrayFromJSON(ty, {});
+      expected = ChunkedArrayFromJSON(int32(), {});
+      CheckVectorUnary("list_parent_indices", input, expected);
+    }
   }
 }
 

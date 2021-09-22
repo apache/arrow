@@ -147,6 +147,104 @@ class TableTest < Test::Unit::TestCase
       TABLE
     end
 
+    test("{key: Number}") do
+      assert_equal(<<-TABLE, @table.slice(count: 16).to_s)
+	count	visible
+0	   16	true   
+      TABLE
+    end
+
+    test("{key: String}") do
+      table = Arrow::Table.new(name: Arrow::StringArray.new(["a", "b", "c"]))
+      assert_equal(<<-TABLE, table.slice(name: 'b').to_s)
+	name
+0	b   
+      TABLE
+    end
+
+    test("{key: true}") do
+      assert_equal(<<-TABLE, @table.slice(visible: true).to_s)
+	 count	visible
+0	     1	true   
+1	(null)	 (null)
+2	     8	true   
+3	    16	true   
+4	(null)	 (null)
+5	(null)	 (null)
+      TABLE
+    end
+
+    test("{key: false}") do
+      assert_equal(<<-TABLE, @table.slice(visible: false).to_s)
+	 count	visible
+0	     2	false  
+1	(null)	 (null)
+2	    32	false  
+3	(null)	 (null)
+4	(null)	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: beginless include end") do
+      assert_equal(<<-TABLE, @table.slice(count: ..8).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+      TABLE
+    end
+
+    test("{key: Range}: beginless exclude end") do
+      assert_equal(<<-TABLE, @table.slice(count: ...8).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: endless") do
+      assert_equal(<<-TABLE, @table.slice(count: 16..).to_s)
+	count	visible
+0	   16	true   
+1	   32	false  
+2	   64	 (null)
+3	  128	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: include end") do
+      assert_equal(<<-TABLE, @table.slice(count: 1..16).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+4	   16	true   
+      TABLE
+    end
+
+    test("{key: Range}: exclude end") do
+      assert_equal(<<-TABLE, @table.slice(count: 1...16).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+      TABLE
+    end
+
+    test("{key1: Range, key2: true}") do
+      assert_equal(<<-TABLE, @table.slice(count: 0..8, visible: false).to_s)
+	 count	visible
+0	     2	false  
+1	(null)	 (null)
+2	(null)	 (null)
+3	(null)	 (null)
+      TABLE
+    end
+
     sub_test_case("wrong argument") do
       test("no arguments") do
         message = "wrong number of arguments (given 0, expected 1..2)"
@@ -190,19 +288,44 @@ class TableTest < Test::Unit::TestCase
   end
 
   sub_test_case("#[]") do
+    def setup
+      @table = Arrow::Table.new(a: [true],
+                                b: [true],
+                                c: [true],
+                                d: [true],
+                                e: [true],
+                                f: [true],
+                                g: [true])
+    end
+
     test("[String]") do
       assert_equal(Arrow::Column.new(@table, 0),
-                   @table["count"])
+                   @table["a"])
     end
 
     test("[Symbol]") do
       assert_equal(Arrow::Column.new(@table, 1),
-                   @table[:visible])
+                   @table[:b])
     end
 
     test("[Integer]") do
-      assert_equal(Arrow::Column.new(@table, 1),
+      assert_equal(Arrow::Column.new(@table, 6),
                    @table[-1])
+    end
+
+    test("[Range]") do
+      assert_equal(Arrow::Table.new(d: [true],
+                                    e: [true]),
+                   @table[3..4])
+    end
+
+    test("[[Symbol, String, Integer, Range]]") do
+      assert_equal(Arrow::Table.new(c: [true],
+                                    a: [true],
+                                    g: [true],
+                                    d: [true],
+                                    e: [true]),
+                   @table[[:c, "a", -1, 3..4]])
     end
   end
 

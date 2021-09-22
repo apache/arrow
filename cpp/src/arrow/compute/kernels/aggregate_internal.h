@@ -98,6 +98,10 @@ struct ScalarAggregator : public KernelState {
 // kernel implementations together
 enum class VarOrStd : bool { Var, Std };
 
+// Helper to differentiate between min/max calculation so we can fold
+// kernel implementations together
+enum class MinOrMax : uint8_t { Min = 0, Max };
+
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE);

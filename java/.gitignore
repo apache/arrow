@@ -2,6 +2,7 @@
 .buildpath
 .classpath
 .checkstyle
+.factorypath
 .settings/
 .idea/
 TAGS

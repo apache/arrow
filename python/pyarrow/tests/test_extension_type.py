@@ -201,6 +201,34 @@ def test_ext_array_equality():
     assert not d.equals(f)
 
 
+def test_ext_array_wrap_array():
+    ty = ParamExtType(3)
+    storage = pa.array([b"foo", b"bar", None], type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ExtensionArray)
+    assert arr.type == ty
+    assert arr.storage == storage
+
+    storage = pa.chunked_array([[b"abc", b"def"], [b"ghi"]],
+                               type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.type == ty
+    assert arr.chunk(0).storage == storage.chunk(0)
+    assert arr.chunk(1).storage == storage.chunk(1)
+
+    # Wrong storage type
+    storage = pa.array([b"foo", b"bar", None])
+    with pytest.raises(TypeError, match="Incompatible storage type"):
+        ty.wrap_array(storage)
+
+    # Not an array or chunked array
+    with pytest.raises(TypeError, match="Expected array or chunked array"):
+        ty.wrap_array(None)
+
+
 def test_ext_scalar_from_array():
     data = [b"0123456789abcdef", b"0123456789abcdef",
             b"zyxwvutsrqponmlk", None]

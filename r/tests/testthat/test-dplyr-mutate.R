@@ -340,14 +340,57 @@ test_that("dplyr::mutate's examples", {
   # The mutate operation may yield different results on grouped
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
-  # TODO: ARROW-11702
+  # TODO: ARROW-13926
   expect_dplyr_equal(
     input %>%
       select(name, mass, species) %>%
       mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
       collect(),
     starwars,
-    warning = TRUE
+    warning = "window function"
+  )
+})
+
+test_that("Can mutate after group_by as long as there are no aggregations", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean` in `mutate()` to test that
+      # `all_funs()` does not incorrectly identify it as an aggregate function
+      group_by(chr) %>%
+      mutate(mean = mean + 6L) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(avg_int = mean(int)) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean(mean)` in `mutate()` to test that
+      # `all_funs()` detects `mean()` despite the collision with a column name
+      group_by(chr) %>%
+      mutate(avg_int = mean(mean)) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
   )
 })
 

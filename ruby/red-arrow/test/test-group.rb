@@ -123,23 +123,44 @@ class GroupTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case("#min_max") do
+  sub_test_case("#min") do
     test("single") do
-      assert_equal(<<-TABLE, @table.group(:group_key1).min_max.to_s)
-	min_max(group_key2)	              min_max(int)	   min_max(uint)	                    min_max(float)	group_key1
-0	{min: 1, max: 1}   	{min:     -2, max:     -1}	{min: 1, max: 1}	{min:   2.200000, max:   2.200000}	         1
-1	{min: 1, max: 1}   	{min: (null), max: (null)}	{min: 3, max: 3}	{min:   3.300000, max:   3.300000}	         2
-2	{min: 1, max: 2}   	{min:     -6, max:     -4}	{min: 4, max: 6}	{min:   4.400000, max:   6.600000}	         3
+      assert_equal(<<-TABLE, @table.group(:group_key1).min.to_s)
+	min(group_key2)	min(int)	min(uint)	min(float)	group_key1
+0	              1	      -2	        1	  2.200000	         1
+1	              1	  (null)	        3	  3.300000	         2
+2	              1	      -6	        4	  4.400000	         3
       TABLE
     end
 
     test("multiple") do
-      assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).min_max.to_s)
-	              min_max(int)	   min_max(uint)	                    min_max(float)	group_key1	group_key2
-0	{min:     -2, max:     -1}	{min: 1, max: 1}	{min:   2.200000, max:   2.200000}	         1	         1
-1	{min: (null), max: (null)}	{min: 3, max: 3}	{min:   3.300000, max:   3.300000}	         2	         1
-2	{min:     -4, max:     -4}	{min: 4, max: 4}	{min:   4.400000, max:   4.400000}	         3	         1
-3	{min:     -6, max:     -5}	{min: 5, max: 6}	{min:   5.500000, max:   6.600000}	         3	         2
+      assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).min.to_s)
+	min(int)	min(uint)	min(float)	group_key1	group_key2
+0	      -2	        1	  2.200000	         1	         1
+1	  (null)	        3	  3.300000	         2	         1
+2	      -4	        4	  4.400000	         3	         1
+3	      -6	        5	  5.500000	         3	         2
+      TABLE
+    end
+  end
+
+  sub_test_case("#max") do
+    test("single") do
+      assert_equal(<<-TABLE, @table.group(:group_key1).max.to_s)
+	max(group_key2)	max(int)	max(uint)	max(float)	group_key1
+0	              1	      -1	        1	  2.200000	         1
+1	              1	  (null)	        3	  3.300000	         2
+2	              2	      -4	        6	  6.600000	         3
+      TABLE
+    end
+
+    test("multiple") do
+      assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).max.to_s)
+	max(int)	max(uint)	max(float)	group_key1	group_key2
+0	      -1	        1	  2.200000	         1	         1
+1	  (null)	        3	  3.300000	         2	         1
+2	      -4	        4	  4.400000	         3	         1
+3	      -5	        6	  6.600000	         3	         2
       TABLE
     end
   end

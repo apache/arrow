@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -47,7 +48,8 @@ ARROW_TESTING_EXPORT
 void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out);
 
 ARROW_TESTING_EXPORT
-Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(size_t num_rows, bool valid = true);
+Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(
+    size_t num_rows, std::function<bool(size_t row_num)> is_valid = {});
 
 }  // namespace csv
 }  // namespace arrow

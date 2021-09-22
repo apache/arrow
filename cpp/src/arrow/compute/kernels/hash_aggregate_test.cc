@@ -1099,24 +1099,37 @@ TEST(GroupBy, VarianceAndStddev) {
 TEST(GroupBy, TDigest) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
-    [1,   1],
-    [null,  1],
-    [0,   2],
-    [null,  3],
-    [4,   null],
-    [3,  1],
-    [0, 2],
-    [-1, 2],
-    [1,  null],
-    [NaN,  3]
+    [1,    1],
+    [null, 1],
+    [0,    2],
+    [null, 3],
+    [1,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2],
+    [-1,   2],
+    [1,    null],
+    [NaN,  3],
+    [1,    4],
+    [1,    4],
+    [null, 4]
   ])");
 
   TDigestOptions options1(std::vector<double>{0.5, 0.9, 0.99});
   TDigestOptions options2(std::vector<double>{0.5, 0.9, 0.99}, /*delta=*/50,
                           /*buffer_size=*/1024);
+  TDigestOptions keep_nulls(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                            /*skip_nulls=*/false, /*min_count=*/0);
+  TDigestOptions min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                           /*skip_nulls=*/true, /*min_count=*/3);
+  TDigestOptions keep_nulls_min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                                      /*skip_nulls=*/false, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy(
                            {
+                               batch->GetColumnByName("argument"),
+                               batch->GetColumnByName("argument"),
+                               batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
@@ -1128,6 +1141,9 @@ TEST(GroupBy, TDigest) {
                                {"hash_tdigest", nullptr},
                                {"hash_tdigest", &options1},
                                {"hash_tdigest", &options2},
+                               {"hash_tdigest", &keep_nulls},
+                               {"hash_tdigest", &min_count},
+                               {"hash_tdigest", &keep_nulls_min_count},
                            }));
 
   AssertDatumsApproxEqual(
@@ -1135,13 +1151,17 @@ TEST(GroupBy, TDigest) {
                         field("hash_tdigest", fixed_size_list(float64(), 1)),
                         field("hash_tdigest", fixed_size_list(float64(), 3)),
                         field("hash_tdigest", fixed_size_list(float64(), 3)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
                         field("key_0", int64()),
                     }),
                     R"([
-    [[1.0], [1.0, 3.0, 3.0], [1.0, 3.0, 3.0], 1],
-    [[0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 2],
-    [null,  null,            null,            3],
-    [[1.0], [1.0, 4.0, 4.0], [1.0, 4.0, 4.0], null]
+    [[1.0],  [1.0, 3.0, 3.0],    [1.0, 3.0, 3.0],    [null], [null], [null], 1],
+    [[0.0],  [0.0, 0.0, 0.0],    [0.0, 0.0, 0.0],    [0.0],  [0.0],  [0.0],  2],
+    [[null], [null, null, null], [null, null, null], [null], [null], [null], 3],
+    [[1.0],  [1.0, 1.0, 1.0],    [1.0, 1.0, 1.0],    [null], [1.0],  [null], 4],
+    [[1.0],  [1.0, 4.0, 4.0],    [1.0, 4.0, 4.0],    [1.0],  [null], [null], null]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);
@@ -1196,36 +1216,150 @@ TEST(GroupBy, StddevVarianceTDigestScalar) {
   }
 }
 
+TEST(GroupBy, VarianceOptions) {
+  BatchesWithSchema input;
+  input.batches = {
+      ExecBatchFromJSON(
+          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          "[[1, 1.0, 1], [1, 1.0, 1], [1, 1.0, 2], [1, 1.0, 2], [1, 1.0, 3]]"),
+      ExecBatchFromJSON(
+          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          "[[1, 1.0, 4], [1, 1.0, 4]]"),
+      ExecBatchFromJSON(
+          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          "[[null, null, 1]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[2, 2.0, 1], [3, 3.0, 2]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[4, 4.0, 2], [2, 2.0, 4]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[null, null, 4]]"),
+  };
+  input.schema = schema(
+      {field("argument", int32()), field("argument1", float32()), field("key", int64())});
+
+  VarianceOptions keep_nulls(/*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/0);
+  VarianceOptions min_count(/*ddof=*/0, /*skip_nulls=*/true, /*min_count=*/3);
+  VarianceOptions keep_nulls_min_count(/*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
+
+  for (bool use_threads : {false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual, GroupByUsingExecPlan(input, {"key"},
+                                           {
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                           },
+                                           {
+                                               {"hash_stddev", &keep_nulls},
+                                               {"hash_stddev", &min_count},
+                                               {"hash_stddev", &keep_nulls_min_count},
+                                               {"hash_variance", &keep_nulls},
+                                               {"hash_variance", &min_count},
+                                               {"hash_variance", &keep_nulls_min_count},
+                                           },
+                                           use_threads, default_exec_context()));
+    Datum expected = ArrayFromJSON(struct_({
+                                       field("hash_stddev", float64()),
+                                       field("hash_stddev", float64()),
+                                       field("hash_stddev", float64()),
+                                       field("hash_variance", float64()),
+                                       field("hash_variance", float64()),
+                                       field("hash_variance", float64()),
+                                       field("key", int64()),
+                                   }),
+                                   R"([
+         [null,    0.471405, null,    null,   0.222222, null,   1],
+         [1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875, 2],
+         [0.0,     null,     null,    0.0,    null,     null,   3],
+         [null,    0.471405, null,    null,   0.222222, null,   4]
+       ])");
+    ValidateOutput(expected);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(
+        actual, GroupByUsingExecPlan(input, {"key"},
+                                     {
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                     },
+                                     {
+                                         {"hash_stddev", &keep_nulls},
+                                         {"hash_stddev", &min_count},
+                                         {"hash_stddev", &keep_nulls_min_count},
+                                         {"hash_variance", &keep_nulls},
+                                         {"hash_variance", &min_count},
+                                         {"hash_variance", &keep_nulls_min_count},
+                                     },
+                                     use_threads, default_exec_context()));
+    expected = ArrayFromJSON(struct_({
+                                 field("hash_stddev", float64()),
+                                 field("hash_stddev", float64()),
+                                 field("hash_stddev", float64()),
+                                 field("hash_variance", float64()),
+                                 field("hash_variance", float64()),
+                                 field("hash_variance", float64()),
+                                 field("key", int64()),
+                             }),
+                             R"([
+         [null,    0.471405, null,    null,   0.222222, null,   1],
+         [1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875, 2],
+         [0.0,     null,     null,    0.0,    null,     null,   3],
+         [null,    0.471405, null,    null,   0.222222, null,   4]
+       ])");
+    ValidateOutput(expected);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
 TEST(GroupBy, MinMaxOnly) {
+  auto in_schema = schema({
+      field("argument", float64()),
+      field("argument1", null()),
+      field("argument2", boolean()),
+      field("key", int64()),
+  });
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-      auto table = TableFromJSON(
-          schema({field("argument", float64()), field("key", int64())}), {R"([
-    [1.0,   1],
-    [null,  1]
-                        ])",
-                                                                          R"([
-    [0.0,   2],
-    [null,  3],
-    [4.0,   null],
-    [3.25,  1],
-    [0.125, 2]
-                        ])",
-                                                                          R"([
-    [-0.25, 2],
-    [0.75,  null],
-    [null,  3]
-                        ])"});
+      auto table = TableFromJSON(in_schema, {R"([
+    [1.0,   null, true, 1],
+    [null,  null, true, 1]
+])",
+                                             R"([
+    [0.0,   null, false, 2],
+    [null,  null, false, 3],
+    [4.0,   null, null,  null],
+    [3.25,  null, true,  1],
+    [0.125, null, false, 2]
+])",
+                                             R"([
+    [-0.25, null, false, 2],
+    [0.75,  null, true,  null],
+    [null,  null, true,  3]
+])"});
 
       ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                           GroupByTest({table->GetColumnByName("argument")},
-                                       {table->GetColumnByName("key")},
-                                       {
-                                           {"hash_min_max", nullptr},
-                                       },
-                                       use_threads, use_exec_plan));
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument1"),
+                                   table->GetColumnByName("argument2"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_min_max", nullptr},
+                                   {"hash_min_max", nullptr},
+                                   {"hash_min_max", nullptr},
+                               },
+                               use_threads, use_exec_plan));
+      ValidateOutput(aggregated_and_grouped);
       SortBy({"key_0"}, &aggregated_and_grouped);
 
       AssertDatumsEqual(
@@ -1234,17 +1368,78 @@ TEST(GroupBy, MinMaxOnly) {
                                                       field("min", float64()),
                                                       field("max", float64()),
                                                   })),
+                            field("hash_min_max", struct_({
+                                                      field("min", null()),
+                                                      field("max", null()),
+                                                  })),
+                            field("hash_min_max", struct_({
+                                                      field("min", boolean()),
+                                                      field("max", boolean()),
+                                                  })),
                             field("key_0", int64()),
                         }),
                         R"([
-    [{"min": 1.0,   "max": 3.25},  1],
-    [{"min": -0.25, "max": 0.125}, 2],
-    [{"min": null,  "max": null},  3],
-    [{"min": 0.75,  "max": 4.0},   null]
+    [{"min": 1.0,   "max": 3.25},  {"min": null, "max": null}, {"min": true, "max": true},   1],
+    [{"min": -0.25, "max": 0.125}, {"min": null, "max": null}, {"min": false, "max": false}, 2],
+    [{"min": null,  "max": null},  {"min": null, "max": null}, {"min": false, "max": true},  3],
+    [{"min": 0.75,  "max": 4.0},   {"min": null, "max": null}, {"min": true, "max": true},   null]
   ])"),
           aggregated_and_grouped,
           /*verbose=*/true);
     }
+  }
+}
+
+TEST(GroupBy, MinMaxTypes) {
+  std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
+  types.push_back(month_interval());
+  for (const auto& ty : types) {
+    SCOPED_TRACE(ty->ToString());
+    auto in_schema = schema({field("argument0", ty), field("key", int64())});
+    auto table = TableFromJSON(in_schema, {R"([
+    [1,    1],
+    [null, 1]
+])",
+                                           R"([
+    [0,    2],
+    [null, 3],
+    [3,    4],
+    [5,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2]
+])",
+                                           R"([
+    [0,    2],
+    [1,    null],
+    [null, 3]
+])"});
+
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        GroupByTest({table->GetColumnByName("argument0")},
+                    {table->GetColumnByName("key")}, {{"hash_min_max", nullptr}},
+                    /*use_threads=*/true, /*use_exec_plan=*/true));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(
+        ArrayFromJSON(
+            struct_({
+                field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
+                field("key_0", int64()),
+            }),
+            R"([
+    [{"min": 1, "max": 3},       1],
+    [{"min": 0, "max": 0},       2],
+    [{"min": null, "max": null}, 3],
+    [{"min": 3, "max": 5},       4],
+    [{"min": 1, "max": 4},       null]
+  ])"),
+        aggregated_and_grouped,
+        /*verbose=*/true);
   }
 }
 
@@ -1315,6 +1510,59 @@ TEST(GroupBy, MinMaxDecimal) {
           /*verbose=*/true);
     }
   }
+}
+
+TEST(GroupBy, MinOrMax) {
+  auto table =
+      TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    [1.0,   1],
+    [null,  1]
+])",
+                                                                                    R"([
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2]
+])",
+                                                                                    R"([
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+])",
+                                                                                    R"([
+    [NaN,   4],
+    [null,  4],
+    [Inf,   4],
+    [-Inf,  4],
+    [0.0,   4]
+])"});
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       GroupByTest({table->GetColumnByName("argument"),
+                                    table->GetColumnByName("argument")},
+                                   {table->GetColumnByName("key")},
+                                   {
+                                       {"hash_min", nullptr},
+                                       {"hash_max", nullptr},
+                                   },
+                                   /*use_threads=*/true, /*use_exec_plan=*/true));
+  SortBy({"key_0"}, &aggregated_and_grouped);
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_min", float64()),
+                                      field("hash_max", float64()),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [1.0,   3.25,  1],
+    [-0.25, 0.125, 2],
+    [null,  null,  3],
+    [-Inf,  Inf,   4],
+    [0.75,  4.0,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
 }
 
 TEST(GroupBy, MinMaxScalar) {

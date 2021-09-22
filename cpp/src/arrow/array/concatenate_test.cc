@@ -133,10 +133,7 @@ class PrimitiveConcatenateTest : public ConcatenateTest {
  public:
 };
 
-using PrimitiveTypes =
-    ::testing::Types<BooleanType, Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
-                     UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
-TYPED_TEST_SUITE(PrimitiveConcatenateTest, PrimitiveTypes);
+TYPED_TEST_SUITE(PrimitiveConcatenateTest, PrimitiveArrowTypes);
 
 TYPED_TEST(PrimitiveConcatenateTest, Primitives) {
   this->Check([this](int64_t size, double null_probability, std::shared_ptr<Array>* out) {

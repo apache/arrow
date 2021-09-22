@@ -18,6 +18,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 
 #include <mutex>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
 
@@ -87,19 +88,40 @@ class ThreadIndexer {
   std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
 
+void AggregatesToString(
+    std::stringstream* ss, const Schema& input_schema,
+    const std::vector<internal::Aggregate>& aggs,
+    const std::vector<int>& target_field_ids,
+    const std::vector<std::unique_ptr<FunctionOptions>>& owned_options) {
+  *ss << "aggregates=[" << std::endl;
+  for (size_t i = 0; i < aggs.size(); i++) {
+    *ss << '\t' << aggs[i].function << '('
+        << input_schema.field(target_field_ids[i])->name();
+    if (owned_options[i]) {
+      *ss << ", " << owned_options[i]->ToString();
+    }
+    *ss << ")," << std::endl;
+  }
+  *ss << ']';
+}
+
 class ScalarAggregateNode : public ExecNode {
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
                       std::vector<int> target_field_ids,
+                      std::vector<internal::Aggregate> aggs,
                       std::vector<const ScalarAggregateKernel*> kernels,
-                      std::vector<std::vector<std::unique_ptr<KernelState>>> states)
+                      std::vector<std::vector<std::unique_ptr<KernelState>>> states,
+                      std::vector<std::unique_ptr<FunctionOptions>> owned_options)
       : ExecNode(plan, std::move(inputs), {"target"},
                  /*output_schema=*/std::move(output_schema),
                  /*num_outputs=*/1),
         target_field_ids_(std::move(target_field_ids)),
+        aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
-        states_(std::move(states)) {}
+        states_(std::move(states)),
+        owned_options_(std::move(owned_options)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -116,6 +138,7 @@ class ScalarAggregateNode : public ExecNode {
     FieldVector fields(kernels.size());
     const auto& field_names = aggregate_options.names;
     std::vector<int> target_field_ids(kernels.size());
+    std::vector<std::unique_ptr<FunctionOptions>> owned_options(aggregates.size());
 
     for (size_t i = 0; i < kernels.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto match,
@@ -138,6 +161,10 @@ class ScalarAggregateNode : public ExecNode {
       if (aggregates[i].options == nullptr) {
         aggregates[i].options = function->default_options();
       }
+      if (aggregates[i].options) {
+        owned_options[i] = aggregates[i].options->Copy();
+        aggregates[i].options = owned_options[i].get();
+      }
 
       KernelContext kernel_ctx{exec_ctx};
       states[i].resize(ThreadIndexer::Capacity());
@@ -159,10 +186,11 @@ class ScalarAggregateNode : public ExecNode {
 
     return plan->EmplaceNode<ScalarAggregateNode>(
         plan, std::move(inputs), schema(std::move(fields)), std::move(target_field_ids),
-        std::move(kernels), std::move(states));
+        std::move(aggregates), std::move(kernels), std::move(states),
+        std::move(owned_options));
   }
 
-  const char* kind_name() override { return "ScalarAggregateNode"; }
+  const char* kind_name() const override { return "ScalarAggregateNode"; }
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
     for (size_t i = 0; i < kernels_.size(); ++i) {
@@ -225,6 +253,14 @@ class ScalarAggregateNode : public ExecNode {
 
   Future<> finished() override { return finished_; }
 
+ protected:
+  std::string ToStringExtra() const override {
+    std::stringstream ss;
+    const auto input_schema = inputs_[0]->output_schema();
+    AggregatesToString(&ss, *input_schema, aggs_, target_field_ids_, owned_options_);
+    return ss.str();
+  }
+
  private:
   Status Finish() {
     ExecBatch batch{{}, 1};
@@ -244,9 +280,11 @@ class ScalarAggregateNode : public ExecNode {
 
   Future<> finished_ = Future<>::MakeFinished();
   const std::vector<int> target_field_ids_;
+  const std::vector<internal::Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
+  const std::vector<std::unique_ptr<FunctionOptions>> owned_options_;
 
   ThreadIndexer get_thread_index_;
   AtomicCounter input_counter_;
@@ -345,7 +383,7 @@ class GroupByNode : public ExecNode {
         std::move(owned_options));
   }
 
-  const char* kind_name() override { return "GroupByNode"; }
+  const char* kind_name() const override { return "GroupByNode"; }
 
   Status Consume(ExecBatch batch) {
     size_t thread_index = get_thread_index_();
@@ -526,6 +564,20 @@ class GroupByNode : public ExecNode {
   void StopProducing() override { StopProducing(outputs_[0]); }
 
   Future<> finished() override { return finished_; }
+
+ protected:
+  std::string ToStringExtra() const override {
+    std::stringstream ss;
+    const auto input_schema = inputs_[0]->output_schema();
+    ss << "keys=[";
+    for (size_t i = 0; i < key_field_ids_.size(); i++) {
+      if (i > 0) ss << ", ";
+      ss << '"' << input_schema->field(key_field_ids_[i])->name() << '"';
+    }
+    ss << "], ";
+    AggregatesToString(&ss, *input_schema, aggs_, agg_src_field_ids_, owned_options_);
+    return ss.str();
+  }
 
  private:
   struct ThreadLocalState {

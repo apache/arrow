@@ -74,6 +74,9 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
     get_property(CURRENT_INCLUDE_DIRECTORIES
                  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                  PROPERTY INCLUDE_DIRECTORIES)
+    # ARROW-13881: when detecting support, avoid mismatch between
+    # debug flags of gRPC and our probe (which results in LNK2038)
+    set(CMAKE_TRY_COMPILE_CONFIGURATION ${CMAKE_BUILD_TYPE})
     try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
                 SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
                 CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"

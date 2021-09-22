@@ -1124,3 +1124,45 @@ cdef void _cb_open_append_stream(
 cdef void _cb_normalize_path(handler, const c_string& path,
                              c_string* out) except *:
     out[0] = tobytes(handler.normalize_path(frombytes(path)))
+
+
+def _copy_files(FileSystem source_fs, str source_path,
+                FileSystem destination_fs, str destination_path,
+                int64_t chunk_size, c_bool use_threads):
+    # low-level helper exposed through pyarrow/fs.py::copy_files
+    cdef:
+        CFileLocator c_source
+        vector[CFileLocator] c_sources
+        CFileLocator c_destination
+        vector[CFileLocator] c_destinations
+        FileSystem fs
+        CStatus c_status
+        shared_ptr[CFileSystem] c_fs
+
+    c_source.filesystem = source_fs.unwrap()
+    c_source.path = tobytes(source_path)
+    c_sources.push_back(c_source)
+
+    c_destination.filesystem = destination_fs.unwrap()
+    c_destination.path = tobytes(destination_path)
+    c_destinations.push_back(c_destination)
+
+    with nogil:
+        check_status(CCopyFiles(
+            c_sources, c_destinations,
+            c_default_io_context(), chunk_size, use_threads,
+        ))
+
+
+def _copy_files_selector(FileSystem source_fs, FileSelector source_sel,
+                         FileSystem destination_fs, str destination_base_dir,
+                         int64_t chunk_size, c_bool use_threads):
+    # low-level helper exposed through pyarrow/fs.py::copy_files
+    cdef c_string c_destination_base_dir = tobytes(destination_base_dir)
+
+    with nogil:
+        check_status(CCopyFilesWithSelector(
+            source_fs.unwrap(), source_sel.unwrap(),
+            destination_fs.unwrap(), c_destination_base_dir,
+            c_default_io_context(), chunk_size, use_threads,
+        ))

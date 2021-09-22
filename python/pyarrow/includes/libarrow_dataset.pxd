@@ -378,7 +378,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CSegmentEncoding segment_encoding
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
-        pass
+        c_string type_name() const
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):

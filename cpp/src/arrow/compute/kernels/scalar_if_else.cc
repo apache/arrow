@@ -1222,7 +1222,6 @@ struct CaseWhenFunction : ScalarFunction {
     // The first function is a struct of booleans, where the number of fields in the
     // struct is either equal to the number of other arguments or is one less.
     RETURN_NOT_OK(CheckArity(*values));
-    EnsureDictionaryDecoded(values);
     auto first_type = (*values)[0].type;
     if (first_type->id() != Type::STRUCT) {
       return Status::TypeError("case_when: first argument must be STRUCT, not ",
@@ -1243,6 +1242,9 @@ struct CaseWhenFunction : ScalarFunction {
       }
     }
 
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
     if (auto type = CommonNumeric(values->data() + 1, values->size() - 1)) {
       for (auto it = values->begin() + 1; it != values->end(); it++) {
         it->type = type;
@@ -1279,6 +1281,15 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out
     return Status::OK();
   }
   ArrayData* output = out->mutable_array();
+  if (is_dictionary_type<Type>::value) {
+    const Datum& dict_from = result.is_value() ? result : batch[1];
+    if (dict_from.is_scalar()) {
+      output->dictionary = checked_cast<const DictionaryScalar&>(*dict_from.scalar())
+                               .value.dictionary->data();
+    } else {
+      output->dictionary = dict_from.array()->dictionary;
+    }
+  }
   if (!result.is_value()) {
     // All conditions false, no 'else' argument
     result = MakeNullScalar(out->type());
@@ -1304,6 +1315,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
       static_cast<size_t>(conds_array.type->num_fields()) < num_value_args;
   uint8_t* out_valid = output->buffers[0]->mutable_data();
   uint8_t* out_values = output->buffers[1]->mutable_data();
+
   if (have_else_arg) {
     // Copy 'else' value into output
     CopyValues<Type>(batch.values.back(), /*in_offset=*/0, batch.length, out_valid,
@@ -1472,7 +1484,7 @@ static Status ExecVarWidthArrayCaseWhenImpl(
   const bool have_else_arg =
       static_cast<size_t>(conds_array.type->num_fields()) < (batch.values.size() - 1);
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type(), &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
@@ -1685,6 +1697,24 @@ struct CaseWhenFunctor<FixedSizeListType> {
 
 template <typename Type>
 struct CaseWhenFunctor<Type, enable_if_union<Type>> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
+  }
+};
+
+template <>
+struct CaseWhenFunctor<DictionaryType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
@@ -2446,7 +2476,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   }
   {
     auto func = std::make_shared<CaseWhenFunction>(
-        "case_when", Arity::VarArgs(/*min_args=*/1), &case_when_doc);
+        "case_when", Arity::VarArgs(/*min_args=*/2), &case_when_doc);
     AddPrimitiveCaseWhenKernels(func, NumericTypes());
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
@@ -2464,6 +2494,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
     AddCaseWhenKernel(func, Type::DENSE_UNION, CaseWhenFunctor<DenseUnionType>::Exec);
     AddCaseWhenKernel(func, Type::SPARSE_UNION, CaseWhenFunctor<SparseUnionType>::Exec);
+    AddCaseWhenKernel(func, Type::DICTIONARY, CaseWhenFunctor<DictionaryType>::Exec);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

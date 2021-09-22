@@ -355,20 +355,18 @@ const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeFloatBatch,
     &MakeIntervals,
     &MakeUuid,
+    &MakeComplex128,
     &MakeDictExtension};
 
 static int g_file_number = 0;
 
 class ExtensionTypesMixin {
  public:
-  ExtensionTypesMixin() {
-    // Register the extension types required to ensure roundtripping
-    ext_guards_.emplace_back(uuid());
-    ext_guards_.emplace_back(dict_extension_type());
-  }
+  // Register the extension types required to ensure roundtripping
+  ExtensionTypesMixin() : ext_guard_({uuid(), dict_extension_type(), complex128()}) {}
 
  protected:
-  std::vector<ExtensionTypeGuard> ext_guards_;
+  ExtensionTypeGuard ext_guard_;
 };
 
 class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {

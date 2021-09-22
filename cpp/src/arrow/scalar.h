@@ -348,6 +348,11 @@ struct ARROW_EXPORT DayTimeIntervalScalar : public IntervalScalar<DayTimeInterva
   using IntervalScalar<DayTimeIntervalType>::IntervalScalar;
 };
 
+struct ARROW_EXPORT MonthDayNanoIntervalScalar
+    : public IntervalScalar<MonthDayNanoIntervalType> {
+  using IntervalScalar<MonthDayNanoIntervalType>::IntervalScalar;
+};
+
 struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
   using TemporalScalar<DurationType>::TemporalScalar;
 };
@@ -559,6 +564,19 @@ struct MakeScalarImpl {
     ARROW_ASSIGN_OR_RAISE(auto storage,
                           MakeScalar(t.storage_type(), static_cast<ValueRef>(value_)));
     out_ = std::make_shared<ExtensionScalar>(std::move(storage), type_);
+    return Status::OK();
+  }
+
+  // Enable constructing string/binary scalars (but not decimal, etc) from std::string
+  template <typename T>
+  enable_if_t<
+      std::is_same<typename std::remove_reference<ValueRef>::type, std::string>::value &&
+          (is_base_binary_type<T>::value || std::is_same<T, FixedSizeBinaryType>::value),
+      Status>
+  Visit(const T& t) {
+    using ScalarType = typename TypeTraits<T>::ScalarType;
+    out_ = std::make_shared<ScalarType>(Buffer::FromString(std::move(value_)),
+                                        std::move(type_));
     return Status::OK();
   }
 

@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -119,7 +120,7 @@ struct ExecPlanImpl : public ExecPlan {
     }
   }
 
-  NodeVector TopoSort() {
+  NodeVector TopoSort() const {
     struct Impl {
       const std::vector<std::unique_ptr<ExecNode>>& nodes;
       std::unordered_set<ExecNode*> visited;
@@ -150,6 +151,15 @@ struct ExecPlanImpl : public ExecPlan {
     };
 
     return std::move(Impl{nodes_}.sorted);
+  }
+
+  std::string ToString() const {
+    std::stringstream ss;
+    ss << "ExecPlan with " << nodes_.size() << " nodes:" << std::endl;
+    for (const auto& node : TopoSort()) {
+      ss << node->ToString() << std::endl;
+    }
+    return ss.str();
   }
 
   Future<> finished_ = Future<>::MakeFinished();
@@ -197,6 +207,8 @@ void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
 
 Future<> ExecPlan::finished() { return ToDerived(this)->finished_; }
 
+std::string ExecPlan::ToString() const { return ToDerived(this)->ToString(); }
+
 ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
                    std::vector<std::string> input_labels,
                    std::shared_ptr<Schema> output_schema, int num_outputs)
@@ -231,6 +243,36 @@ Status ExecNode::Validate() const {
 
   return Status::OK();
 }
+
+std::string ExecNode::ToString() const {
+  std::stringstream ss;
+  ss << kind_name() << "{\"" << label_ << '"';
+  if (!inputs_.empty()) {
+    ss << ", inputs=[";
+    for (size_t i = 0; i < inputs_.size(); i++) {
+      if (i > 0) ss << ", ";
+      ss << input_labels_[i] << ": \"" << inputs_[i]->label() << '"';
+    }
+    ss << ']';
+  }
+
+  if (!outputs_.empty()) {
+    ss << ", outputs=[";
+    for (size_t i = 0; i < outputs_.size(); i++) {
+      if (i > 0) ss << ", ";
+      ss << "\"" << outputs_[i]->label() << "\"";
+    }
+    ss << ']';
+  }
+
+  const std::string extra = ToStringExtra();
+  if (!extra.empty()) ss << ", " << extra;
+
+  ss << '}';
+  return ss.str();
+}
+
+std::string ExecNode::ToStringExtra() const { return ""; }
 
 bool ExecNode::ErrorIfNotOk(Status status) {
   if (status.ok()) return false;

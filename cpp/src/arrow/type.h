@@ -1250,7 +1250,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 // Base class for the different kinds of calendar intervals.
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
-  enum type { MONTHS, DAY_TIME };
+  enum type { MONTHS, DAY_TIME, MONTH_DAY_NANO };
 
   virtual type interval_type() const = 0;
 
@@ -1287,8 +1287,8 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   struct DayMilliseconds {
     int32_t days = 0;
     int32_t milliseconds = 0;
-    DayMilliseconds() = default;
-    DayMilliseconds(int32_t days, int32_t milliseconds)
+    constexpr DayMilliseconds() = default;
+    constexpr DayMilliseconds(int32_t days, int32_t milliseconds)
         : days(days), milliseconds(milliseconds) {}
     bool operator==(DayMilliseconds other) const {
       return this->days == other.days && this->milliseconds == other.milliseconds;
@@ -1315,6 +1315,43 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
 
   std::string ToString() const override { return name(); }
   std::string name() const override { return "day_time_interval"; }
+};
+
+/// \brief Represents a number of months, days and nanoseconds between
+/// two dates.
+///
+/// All fields are independent from one another.
+class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
+ public:
+  struct MonthDayNanos {
+    int32_t months;
+    int32_t days;
+    int64_t nanoseconds;
+    bool operator==(MonthDayNanos other) const {
+      return this->months == other.months && this->days == other.days &&
+             this->nanoseconds == other.nanoseconds;
+    }
+    bool operator!=(MonthDayNanos other) const { return !(*this == other); }
+  };
+  using c_type = MonthDayNanos;
+  using PhysicalType = MonthDayNanoIntervalType;
+
+  static_assert(sizeof(MonthDayNanos) == 16,
+                "MonthDayNanos struct assumed to be of size 16 bytes");
+  static constexpr Type::type type_id = Type::INTERVAL_MONTH_DAY_NANO;
+
+  static constexpr const char* type_name() { return "month_day_nano_interval"; }
+
+  IntervalType::type interval_type() const override {
+    return IntervalType::MONTH_DAY_NANO;
+  }
+
+  MonthDayNanoIntervalType() : IntervalType(type_id) {}
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "month_day_nano_interval"; }
 };
 
 /// \brief Represents an elapsed time without any relation to a calendar artifact.
@@ -1919,5 +1956,33 @@ ARROW_EXPORT
 int GetByteWidth(const DataType& type);
 
 }  // namespace internal
+
+// Helpers to get instances of data types based on general categories
+
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+// Number types without boolean
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& NumericTypes();
+// Binary and string-like types (except fixed-size binary)
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& StringTypes();
+// Temporal types including time and timestamps for each unit
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
+// Interval types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+// Integer, floating point, base binary, and temporal
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 }  // namespace arrow
