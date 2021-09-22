@@ -704,7 +704,7 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         sort_keys.append(("dummy", "descending"))
     else:
         sort_keys = map(lambda key_name: (key_name, "descending"), sort_keys)
-    options = SelectKOptions(k=k, sort_keys=sort_keys)
+    options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
