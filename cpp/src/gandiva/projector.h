@@ -145,8 +145,8 @@ class GANDIVA_EXPORT Projector {
 
   std::string DumpIR();
 
-  void SetCompiledFromCache(bool flag);
-  bool GetCompiledFromCache();
+  void SetBuiltFromCache(bool flag);
+  bool GetBuiltFromCache();
 
  private:
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
@@ -167,7 +167,7 @@ class GANDIVA_EXPORT Projector {
   SchemaPtr schema_;
   FieldVector output_fields_;
   std::shared_ptr<Configuration> configuration_;
-  bool compiled_from_cache_;
+  bool built_from_cache_;
 };
 
 }  // namespace gandiva

@@ -187,7 +187,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
-  projector->get()->SetCompiledFromCache(llvm_flag);
+  projector->get()->SetBuiltFromCache(llvm_flag);
   ARROW_LOG(DEBUG) << "[DEBUG][CACHE-LOG][INFO]: " + shared_cache->ToString();
 
   return Status::OK();
@@ -361,8 +361,8 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
 
 std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
 
-void Projector::SetCompiledFromCache(bool flag) { compiled_from_cache_ = flag; }
+void Projector::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 
-bool Projector::GetCompiledFromCache() { return compiled_from_cache_; }
+bool Projector::GetBuiltFromCache() { return built_from_cache_; }
 
 }  // namespace gandiva

@@ -103,14 +103,14 @@ class GANDIVA_EXPORT Filter {
 
   std::string DumpIR();
 
-  void SetCompiledFromCache(bool flag);
-  bool GetCompiledFromCache();
+  void SetBuiltFromCache(bool flag);
+  bool GetBuiltFromCache();
 
  private:
   std::unique_ptr<LLVMGenerator> llvm_generator_;
   SchemaPtr schema_;
   std::shared_ptr<Configuration> configuration_;
-  bool compiled_from_cache_;
+  bool built_from_cache_;
 };
 
 }  // namespace gandiva
