@@ -138,6 +138,8 @@ import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -552,7 +554,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             new Field("string_value", FieldType.nullable(MinorType.VARCHAR.getType()), null),
             new Field("int_value", FieldType.nullable(MinorType.INT.getType()), null),
             new Field("bigint_value", FieldType.nullable(MinorType.BIGINT.getType()), null),
-            new Field("int32_bitmask", FieldType.nullable(MinorType.INT.getType()), null)));
+            new Field("int128_bitmask", FieldType.nullable(new Decimal(0, 0, 128)), null)));
     final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
     final byte stringValueId = 0;
     final byte intValueId = 1;
