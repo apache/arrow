@@ -109,21 +109,6 @@ class FlightSqlServerBase : public FlightServerBase {
       const pb::sql::CommandPreparedStatementQuery& command, const Ticket& ticket,
       const ServerCallContext& context, std::unique_ptr<ResultStream>* result){};
 
-  // TODO check doPut
-  virtual Status DoPutStatement(const pb::sql::CommandStatementUpdate& command,
-                                const ServerCallContext& context,
-                                const FlightDescriptor& descriptor){};
-
-  // TODO check doPut
-  virtual Status DoPutPreparedStatementUpdate(
-      const pb::sql::CommandPreparedStatementQuery& command,
-      const ServerCallContext& context, const FlightDescriptor& descriptor){};
-
-  // TODO check doPut
-  virtual Status DoPutPreparedStatementQuery(
-      const pb::sql::CommandPreparedStatementQuery& command,
-      const ServerCallContext& context, const FlightDescriptor& descriptor){};
-
   /// \brief Returns a FlightInfo object which contains the data to access the
   ///        stream of data.
   /// \param[in] command      The sql command to generate the data stream.
