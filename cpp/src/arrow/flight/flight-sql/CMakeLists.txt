@@ -92,6 +92,6 @@ add_arrow_test(flight_sql_test
                LABELS
                "arrow_flight_sql")
 
-add_executable(flight_sql_test_app test_app.cc)
+add_executable(flight_sql_test_app test_app.cc sql_server.h)
 target_link_libraries(flight_sql_test_app PRIVATE arrow_flight_sql_static
                                                   ${GFLAGS_LIBRARIES})
