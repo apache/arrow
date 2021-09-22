@@ -56,6 +56,15 @@ class BaseCacheKey {
     if (hash_code_ != other.hash_code_) {
       return false;
     }
+
+    if (!schema_->Equals(other.schema_)) {
+      return false;
+    }
+
+    if (type_ != other.type_) {
+      return false;
+    }
+
     return true;
   }
 

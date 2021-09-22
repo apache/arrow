@@ -96,14 +96,14 @@ class GreedyDualSizeCache {
 
   bool contains(const Key& key) { return map_.find(key) != map_.end(); }
 
-  void InsertObjectCode(const Key& key, const ValueCacheObject<Value>& value) {
+  void insert(const Key& key, const ValueCacheObject<Value>& value) {
     typename map_type::iterator i = map_.find(key);
     // check if element is not in the cache to add it
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full, to evict an item
       // if it is necessary
       if (size() >= capacity_) {
-        evictObject();
+        evict();
       }
 
       // insert the new item
@@ -115,7 +115,7 @@ class GreedyDualSizeCache {
     }
   }
 
-  arrow::util::optional<ValueCacheObject<Value>> GetObjectCode(const Key& key) {
+  arrow::util::optional<ValueCacheObject<Value>> get(const Key& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
@@ -155,18 +155,6 @@ class GreedyDualSizeCache {
     typename std::set<PriorityItem>::iterator i = priority_set_.begin();
     // update the inflation cost related to the evicted item
     inflation_ = (*i).actual_priority;
-    map_.erase((*i).cache_key);
-    priority_set_.erase(i);
-  }
-
-  void evictObject() {
-    // TODO: inflation overflow is unlikely to happen but needs to be handled
-    //  for correctness.
-    // evict item from the beginning of the set. This set is ordered from the
-    // lower priority value to the higher priority value.
-    typename std::set<PriorityItem>::iterator i = priority_set_.begin();
-    // update the inflation cost related to the evicted item
-    inflation_ = (*i).actual_priority;
     size_t size_to_decrease = map_.find((*i).cache_key)->second.first.size;
     cache_size_ -= size_to_decrease;
     map_.erase((*i).cache_key);
@@ -178,6 +166,5 @@ class GreedyDualSizeCache {
   uint64_t inflation_;
   size_t capacity_;
   size_t cache_size_ = 0;
-  llvm::SmallString<128> cache_dir_;
 };
 }  // namespace gandiva
