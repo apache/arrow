@@ -83,57 +83,42 @@ template <int sexp_type>
 struct AltrepArrayPrimitive {
   static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
   using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
-
   using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
   // singleton altrep class description
   static R_altrep_class_t class_t;
 
-  // the altrep R object
-  SEXP alt_;
-
-  // This constructor is used to create the altrep object from
-  // an Array. Used by MakeAltrepArrayPrimitive() which is used
-  // in array_to_vector.cpp
-  explicit AltrepArrayPrimitive(const std::shared_ptr<Array>& array)
-      : alt_(R_new_altrep(class_t, Pointer(new std::shared_ptr<Array>(array)),
-                          R_NilValue)) {
-    // force duplicate on modify
+  static SEXP Make(const std::shared_ptr<Array>& array) {
+    SEXP alt_ =
+        R_new_altrep(class_t, Pointer(new std::shared_ptr<Array>(array)), R_NilValue);
     MARK_NOT_MUTABLE(alt_);
+    return alt_;
   }
-
-  // This constructor is used when R calls altrep methods.
-  //
-  // For example in the Length() method below:
-  //
-  // template <typename AltrepClass>
-  // R_xlen_t Length(SEXP alt) {
-  //   return AltrepClass(alt).Length();
-  // }
-  explicit AltrepArrayPrimitive(SEXP alt) : alt_(alt) {}
 
   // the arrow::Array that is being wrapped by the altrep object
   // this is only valid before data2 has been materialized
-  const std::shared_ptr<Array>& array() const { return *Pointer(R_altrep_data1(alt_)); }
+  static const std::shared_ptr<Array>& array(SEXP alt_) {
+    return *Pointer(R_altrep_data1(alt_));
+  }
 
-  R_xlen_t Length() { return array()->length(); }
+  static R_xlen_t Length(SEXP alt_) { return array(alt_)->length(); }
 
   // Does the data2 slot of the altrep object contain a
   // standard R vector with the same data as the array
-  bool IsMaterialized() const { return !Rf_isNull(R_altrep_data2(alt_)); }
+  static bool IsMaterialized(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
 
   // Force materialization. After calling this, the data2 slot of the altrep
   // object contains a standard R vector with the same data, with
   // R sentinels where the Array has nulls.
-  void Materialize() {
-    if (!IsMaterialized()) {
-      auto size = array()->length();
+  static void Materialize(SEXP alt_) {
+    if (!IsMaterialized(alt_)) {
+      auto size = array(alt_)->length();
 
       // create a standard R vector
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
 
       // copy the data from the array, through Get_region
-      Get_region(0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
+      Get_region(alt_, 0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
 
       // store as data2, this is now considered materialized
       R_set_altrep_data2(alt_, copy);
@@ -145,21 +130,21 @@ struct AltrepArrayPrimitive {
 
   // Duplication is done by first materializing the vector and
   // then make a lazy duplicate of data2
-  SEXP Duplicate(Rboolean /* deep */) {
-    Materialize();
+  static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
+    Materialize(alt_);
     return Rf_lazy_duplicate(R_altrep_data2(alt_));
   }
 
   // What gets printed on .Internal(inspect(<the altrep object>))
-  Rboolean Inspect(int pre, int deep, int pvec,
-                   void (*inspect_subtree)(SEXP, int, int, int)) {
-    const auto& array_ = array();
+  static Rboolean Inspect(SEXP alt_, int pre, int deep, int pvec,
+                          void (*inspect_subtree)(SEXP, int, int, int)) {
+    const auto& array_ = array(alt_);
     Rprintf("arrow::Array<%s, %d nulls, %s> len=%d, Array=<%p>\n",
             array_->type()->ToString().c_str(), array_->null_count(),
-            IsMaterialized() ? "materialized" : "not materialized", array_->length(),
+            IsMaterialized(alt_) ? "materialized" : "not materialized", array_->length(),
             array_.get());
     inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
-    if (IsMaterialized()) {
+    if (IsMaterialized(alt_)) {
       inspect_subtree(R_altrep_data2(alt_), pre, deep + 1, pvec);
     }
 
@@ -175,12 +160,12 @@ struct AltrepArrayPrimitive {
   // - the Array has no nulls, we can directly return the start of its data
   //
   // Otherwise: if the array has nulls and data2 has not been generated: give up
-  const void* Dataptr_or_null() {
-    if (IsMaterialized()) {
+  static const void* Dataptr_or_null(SEXP alt_) {
+    if (IsMaterialized(alt_)) {
       return DATAPTR_RO(R_altrep_data2(alt_));
     }
 
-    const auto& array_ = array();
+    const auto& array_ = array(alt_);
     if (array_->null_count() == 0) {
       return reinterpret_cast<const void*>(array_->data()->template GetValues<c_type>(1));
     }
@@ -194,9 +179,9 @@ struct AltrepArrayPrimitive {
   // nulls we can directly point to the array data.
   //
   // Otherwise, the object is materialized DATAPTR(data2) is returned.
-  void* Dataptr(Rboolean writeable) {
-    if (!IsMaterialized()) {
-      const auto& array_ = array();
+  static void* Dataptr(SEXP alt_, Rboolean writeable) {
+    if (!IsMaterialized(alt_)) {
+      const auto& array_ = array(alt_);
 
       if (array_->null_count() == 0) {
         return reinterpret_cast<void*>(
@@ -216,18 +201,18 @@ struct AltrepArrayPrimitive {
     // Simply stop() when `writeable = TRUE` is too strong, e.g. this fails
     // identical() which calls DATAPTR() even though DATAPTR_RO() would
     // be enough
-    Materialize();
+    Materialize(alt_);
     return DATAPTR(R_altrep_data2(alt_));
   }
 
   // Does the Array have no nulls ?
-  int No_NA() const { return array()->null_count() != 0; }
+  static int No_NA(SEXP alt_) { return array(alt_)->null_count() != 0; }
 
-  int Is_sorted() const { return UNKNOWN_SORTEDNESS; }
+  static int Is_sorted(SEXP alt_) { return UNKNOWN_SORTEDNESS; }
 
   // The value at position i
-  c_type Elt(R_xlen_t i) {
-    const auto& array_ = array();
+  static c_type Elt(SEXP alt_, R_xlen_t i) {
+    const auto& array_ = array(alt_);
     return array_->IsNull(i) ? cpp11::na<c_type>()
                              : array_->data()->template GetValues<c_type>(1)[i];
   }
@@ -235,10 +220,10 @@ struct AltrepArrayPrimitive {
   // R calls this when it wants data from position `i` to `i + n` copied into `buf`
   // The returned value is the number of values that were really copied
   // (this can be lower than n)
-  R_xlen_t Get_region(R_xlen_t i, R_xlen_t n, c_type* buf) {
+  static R_xlen_t Get_region(SEXP alt_, R_xlen_t i, R_xlen_t n, c_type* buf) {
     // If we have data2, we can just copy the region into buf
     // using the standard Get_region for this R type
-    if (IsMaterialized()) {
+    if (IsMaterialized(alt_)) {
       return Standard_Get_region<c_type>(R_altrep_data2(alt_), i, n, buf);
     }
 
@@ -249,7 +234,7 @@ struct AltrepArrayPrimitive {
     // array has nulls
     //
     // This only materialize the region, into buf. Not the entire vector.
-    auto slice = array()->Slice(i, n);
+    auto slice = array(alt_)->Slice(i, n);
     R_xlen_t ncopy = slice->length();
 
     // first copy the data buffer
@@ -272,15 +257,15 @@ struct AltrepArrayPrimitive {
 
   // This cannot keep the external pointer to an Arrow object through
   // R serialization, so return the materialized
-  SEXP Serialized_state() {
-    Materialize();
+  static SEXP Serialized_state(SEXP alt_) {
+    Materialize(alt_);
     return R_altrep_data2(alt_);
   }
 
   static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 
-  SEXP Coerce(int type) {
-    Materialize();
+  static SEXP Coerce(SEXP alt_, int type) {
+    Materialize(alt_);
     return Rf_coerceVector(R_altrep_data2(alt_), type);
   }
 };
@@ -543,71 +528,6 @@ struct AltrepArrayString {
 
 R_altrep_class_t AltrepArrayString::class_t;
 
-// The methods below are how R interacts with the altrep objects.
-//
-// They all use the same pattern: create a C++ object of the
-// class parameter, and then call the method.
-template <typename AltrepClass>
-R_xlen_t Length(SEXP alt) {
-  return AltrepClass(alt).Length();
-}
-
-template <typename AltrepClass>
-Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
-                 void (*inspect_subtree)(SEXP, int, int, int)) {
-  return AltrepClass(alt).Inspect(pre, deep, pvec, inspect_subtree);
-}
-
-template <typename AltrepClass>
-const void* Dataptr_or_null(SEXP alt) {
-  return AltrepClass(alt).Dataptr_or_null();
-}
-
-template <typename AltrepClass>
-void* Dataptr(SEXP alt, Rboolean writeable) {
-  return AltrepClass(alt).Dataptr(writeable);
-}
-
-template <typename AltrepClass>
-SEXP Duplicate(SEXP alt, Rboolean deep) {
-  return AltrepClass(alt).Duplicate(deep);
-}
-
-template <typename AltrepClass>
-auto Elt(SEXP alt, R_xlen_t i) -> decltype(AltrepClass(alt).Elt(i)) {
-  return AltrepClass(alt).Elt(i);
-}
-
-template <typename AltrepClass>
-int No_NA(SEXP alt) {
-  return AltrepClass(alt).No_NA();
-}
-
-template <typename AltrepClass>
-int Is_sorted(SEXP alt) {
-  return AltrepClass(alt).Is_sorted();
-}
-
-template <typename AltrepClass>
-R_xlen_t Get_region(SEXP alt, R_xlen_t i, R_xlen_t n, typename AltrepClass::c_type* buf) {
-  return AltrepClass(alt).Get_region(i, n, buf);
-}
-
-template <typename AltrepClass>
-SEXP Serialized_state(SEXP alt) {
-  return AltrepClass(alt).Serialized_state();
-}
-
-template <typename AltrepClass>
-SEXP Unserialize(SEXP class_, SEXP state) {
-  return AltrepClass::Unserialize(class_, state);
-}
-
-template <typename AltrepClass>
-SEXP Coerce(SEXP alt, int type) {
-  return AltrepClass(alt).Coerce(type);
-}
-
 static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
     const std::shared_ptr<Array>& array, bool na_rm) {
   auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
@@ -618,14 +538,12 @@ static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
 }
 
 template <int sexp_type, bool Min>
-SEXP MinMax(SEXP alt, Rboolean narm) {
+SEXP MinMax(SEXP alt_, Rboolean narm) {
   using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
   using scalar_type =
       typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
-  AltrepArrayPrimitive<sexp_type> alt_(alt);
-
-  const auto& array = alt_.array();
+  const auto& array = AltrepArrayPrimitive<sexp_type>::array(alt_);
   bool na_rm = narm == TRUE;
   auto n = array->length();
   auto null_count = array->null_count();
@@ -649,22 +567,20 @@ SEXP MinMax(SEXP alt, Rboolean narm) {
 }
 
 template <int sexp_type>
-SEXP Min(SEXP alt, Rboolean narm) {
-  return MinMax<sexp_type, true>(alt, narm);
+SEXP Min(SEXP alt_, Rboolean narm) {
+  return MinMax<sexp_type, true>(alt_, narm);
 }
 
 template <int sexp_type>
-SEXP Max(SEXP alt, Rboolean narm) {
-  return MinMax<sexp_type, false>(alt, narm);
+SEXP Max(SEXP alt_, Rboolean narm) {
+  return MinMax<sexp_type, false>(alt_, narm);
 }
 
 template <int sexp_type>
-static SEXP Sum(SEXP alt, Rboolean narm) {
+static SEXP Sum(SEXP alt_, Rboolean narm) {
   using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
-  AltrepArrayPrimitive<sexp_type> alt_(alt);
-
-  const auto& array = alt_.array();
+  const auto& array = AltrepArrayPrimitive<sexp_type>::array(alt_);
   bool na_rm = narm == TRUE;
   auto null_count = array->null_count();
 
@@ -694,44 +610,44 @@ static SEXP Sum(SEXP alt, Rboolean narm) {
 // initialize altrep, altvec, altreal, and altinteger methods
 template <typename AltrepClass>
 void InitAltrepMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  R_set_altrep_Length_method(class_t, Length<AltrepClass>);
-  R_set_altrep_Inspect_method(class_t, Inspect<AltrepClass>);
-  R_set_altrep_Duplicate_method(class_t, Duplicate<AltrepClass>);
-  R_set_altrep_Serialized_state_method(class_t, Serialized_state<AltrepClass>);
-  R_set_altrep_Unserialize_method(class_t, Unserialize<AltrepClass>);
-  R_set_altrep_Coerce_method(class_t, Coerce<AltrepClass>);
+  R_set_altrep_Length_method(class_t, AltrepClass::Length);
+  R_set_altrep_Inspect_method(class_t, AltrepClass::Inspect);
+  R_set_altrep_Duplicate_method(class_t, AltrepClass::Duplicate);
+  R_set_altrep_Serialized_state_method(class_t, AltrepClass::Serialized_state);
+  R_set_altrep_Unserialize_method(class_t, AltrepClass::Unserialize);
+  R_set_altrep_Coerce_method(class_t, AltrepClass::Coerce);
 }
 
 template <typename AltrepClass>
 void InitAltvecMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  R_set_altvec_Dataptr_method(class_t, Dataptr<AltrepClass>);
-  R_set_altvec_Dataptr_or_null_method(class_t, Dataptr_or_null<AltrepClass>);
+  R_set_altvec_Dataptr_method(class_t, AltrepClass::Dataptr);
+  R_set_altvec_Dataptr_or_null_method(class_t, AltrepClass::Dataptr_or_null);
 }
 
 template <typename AltrepClass>
 void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  R_set_altreal_No_NA_method(class_t, No_NA<AltrepClass>);
-  R_set_altreal_Is_sorted_method(class_t, Is_sorted<AltrepClass>);
+  R_set_altreal_No_NA_method(class_t, AltrepClass::No_NA);
+  R_set_altreal_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
   R_set_altreal_Sum_method(class_t, Sum<REALSXP>);
   R_set_altreal_Min_method(class_t, Min<REALSXP>);
   R_set_altreal_Max_method(class_t, Max<REALSXP>);
 
-  R_set_altreal_Elt_method(class_t, Elt<AltrepClass>);
-  R_set_altreal_Get_region_method(class_t, Get_region<AltrepClass>);
+  R_set_altreal_Elt_method(class_t, AltrepClass::Elt);
+  R_set_altreal_Get_region_method(class_t, AltrepClass::Get_region);
 }
 
 template <typename AltrepClass>
 void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  R_set_altinteger_No_NA_method(class_t, No_NA<AltrepClass>);
-  R_set_altinteger_Is_sorted_method(class_t, Is_sorted<AltrepClass>);
+  R_set_altinteger_No_NA_method(class_t, AltrepClass::No_NA);
+  R_set_altinteger_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
   R_set_altinteger_Sum_method(class_t, Sum<INTSXP>);
   R_set_altinteger_Min_method(class_t, Min<INTSXP>);
   R_set_altinteger_Max_method(class_t, Max<INTSXP>);
 
-  R_set_altinteger_Elt_method(class_t, Elt<AltrepClass>);
-  R_set_altinteger_Get_region_method(class_t, Get_region<AltrepClass>);
+  R_set_altinteger_Elt_method(class_t, AltrepClass::Elt);
+  R_set_altinteger_Get_region_method(class_t, AltrepClass::Get_region);
 }
 
 template <typename AltrepClass>
@@ -782,10 +698,10 @@ void Init_Altrep_classes(DllInfo* dll) {
 SEXP MakeAltrepArrayPrimitive(const std::shared_ptr<Array>& array) {
   switch (array->type()->id()) {
     case arrow::Type::DOUBLE:
-      return altrep::AltrepArrayPrimitive<REALSXP>(array).alt_;
+      return altrep::AltrepArrayPrimitive<REALSXP>::Make(array);
 
     case arrow::Type::INT32:
-      return altrep::AltrepArrayPrimitive<INTSXP>(array).alt_;
+      return altrep::AltrepArrayPrimitive<INTSXP>::Make(array);
 
     case arrow::Type::STRING:
       return altrep::AltrepArrayString::Make(array);
