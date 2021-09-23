@@ -26,12 +26,15 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.EnumMap;
+import java.util.Map;
 
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -99,14 +102,52 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           Field.notNullable("IS_AUTOINCREMENT", Types.MinorType.VARCHAR.getType()),
           Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())
       ));
+  private final Map<SqlInfo, Object> cachedSqlInfo = new EnumMap<>(SqlInfo.class);
 
-  protected ArrowDatabaseMetadata(final AvaticaConnection connection) {
+  ArrowDatabaseMetadata(final AvaticaConnection connection) {
     super(connection);
+  }
+
+  @Override
+  public String getDatabaseProductName() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.FLIGHT_SQL_SERVER_NAME, String.class);
+  }
+
+  @Override
+  public String getDatabaseProductVersion() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.FLIGHT_SQL_SERVER_VERSION, String.class);
+  }
+
+  @Override
+  public String getIdentifierQuoteString() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, String.class);
+  }
+
+  @Override
+  public boolean isReadOnly() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, Integer.class) == 1;
   }
 
   @Override
   public ArrowFlightConnection getConnection() throws SQLException {
     return (ArrowFlightConnection) super.getConnection();
+  }
+
+  private synchronized <T> T getSqlInfoAndCacheIfCacheIsEmpty(final SqlInfo sqlInfoCommand, final Class<T> desiredType)
+      throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
+    final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
+    if (cachedSqlInfo.isEmpty()) {
+      try (final ResultSet resultSet =
+               ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+                   connection, sqlInfo, null)) {
+        while (resultSet.next()) {
+          cachedSqlInfo.put(SqlInfo.forNumber((Integer) resultSet.getObject("info_name")),
+              resultSet.getObject("value"));
+        }
+      }
+    }
+    return desiredType.cast(cachedSqlInfo.get(sqlInfoCommand));
   }
 
   @Override

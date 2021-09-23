@@ -98,8 +98,7 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   }
 
   @Override
-  public AvaticaSpecificDatabaseMetaData newDatabaseMetaData(
-      final AvaticaConnection connection) {
+  public AvaticaSpecificDatabaseMetaData newDatabaseMetaData(final AvaticaConnection connection) {
     return new ArrowDatabaseMetadata(connection);
   }
 

@@ -119,6 +119,10 @@ public class ArrowFlightMetaImpl extends MetaImpl {
                                          final PrepareCallback callback) throws NoSuchStatementException {
     final Signature signature = newSignature(query);
     try {
+      final PreparedStatement preparedStatement = ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
+      final StatementType statementType = preparedStatement.getType();
+      final Signature signature = newSignature(query);
+      final long updateCount = statementType.equals(StatementType.UPDATE) ? preparedStatement.executeUpdate() : -1;
       synchronized (callback.getMonitor()) {
         callback.clear();
         callback.assign(signature, null, -1);
