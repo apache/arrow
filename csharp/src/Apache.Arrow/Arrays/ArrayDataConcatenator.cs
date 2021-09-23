@@ -20,9 +20,9 @@ using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    public static class ArrayDataConcatenator
+    internal static class ArrayDataConcatenator
     {
-        public static ArrayData Concatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
+        internal static ArrayData Concatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
         {
             if (arrayDataList == null || arrayDataList.Count == 0)
             {
@@ -34,15 +34,15 @@ namespace Apache.Arrow
                 return arrayDataList[0];
             }
 
-            var arrowArrayConcatinateVisitor = new ArrayDataConcatinationVisitor(arrayDataList, allocator);
+            var arrowArrayConcatenationVisitor = new ArrayDataConcatenationVisitor(arrayDataList, allocator);
 
             IArrowType type = arrayDataList[0].DataType;
-            type.Accept(arrowArrayConcatinateVisitor);
+            type.Accept(arrowArrayConcatenationVisitor);
 
-            return arrowArrayConcatinateVisitor.Result;
+            return arrowArrayConcatenationVisitor.Result;
         }
 
-        private class ArrayDataConcatinationVisitor :
+        private class ArrayDataConcatenationVisitor :
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<FixedWidthType>,
             IArrowTypeVisitor<BinaryType>,
@@ -51,12 +51,12 @@ namespace Apache.Arrow
             IArrowTypeVisitor<StructType>
         {
             public ArrayData Result { get; private set; }
-            private IReadOnlyList<ArrayData> _arrayDataList;
+            private readonly IReadOnlyList<ArrayData> _arrayDataList;
             private readonly int _totalLength;
             private readonly int _totalNullCount;
             private readonly MemoryAllocator _allocator;
 
-            public ArrayDataConcatinationVisitor(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
+            public ArrayDataConcatenationVisitor(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
             {
                 _arrayDataList = arrayDataList;
                 _allocator = allocator;
@@ -86,9 +86,9 @@ namespace Apache.Arrow
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, valueBuffer });
             }
 
-            public void Visit(BinaryType type) => ConcateneteVariableBinaryArrayData(type);
+            public void Visit(BinaryType type) => ConcatenateVariableBinaryArrayData(type);
 
-            public void Visit(StringType type) => ConcateneteVariableBinaryArrayData(type);
+            public void Visit(StringType type) => ConcatenateVariableBinaryArrayData(type);
 
             public void Visit(ListType type)
             {
@@ -127,7 +127,7 @@ namespace Apache.Arrow
                 }
             }
 
-            private void ConcateneteVariableBinaryArrayData(IArrowType type)
+            private void ConcatenateVariableBinaryArrayData(IArrowType type)
             {
                 CheckData(type, 3);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();

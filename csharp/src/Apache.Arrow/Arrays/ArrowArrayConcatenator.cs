@@ -18,9 +18,9 @@ using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    public static class ArrowArrayConcatenator
+    internal static class ArrowArrayConcatenator
     {
-        public static IArrowArray Concatenate(IReadOnlyList<IArrowArray> arrowArrayList , MemoryAllocator allocator = default)
+        internal static IArrowArray Concatenate(IReadOnlyList<IArrowArray> arrowArrayList , MemoryAllocator allocator = default)
         {
             if(arrowArrayList == null || arrowArrayList.Count == 0)
             {
