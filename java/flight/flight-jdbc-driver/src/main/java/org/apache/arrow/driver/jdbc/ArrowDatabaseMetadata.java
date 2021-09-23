@@ -133,21 +133,17 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     return (ArrowFlightConnection) super.getConnection();
   }
 
-  private <T> T getSqlInfoAndCacheIfCacheIsEmpty(final SqlInfo sqlInfoCommand, final Class<T> desiredType)
+  private synchronized <T> T getSqlInfoAndCacheIfCacheIsEmpty(final SqlInfo sqlInfoCommand, final Class<T> desiredType)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
     final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
     if (cachedSqlInfo.isEmpty()) {
-      synchronized (this) {
-        if (cachedSqlInfo.isEmpty()) {
-          try (final ResultSet resultSet =
-                   ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
-                       connection, sqlInfo, null)) {
-            while (resultSet.next()) {
-              cachedSqlInfo.put(SqlInfo.forNumber((Integer) resultSet.getObject("info_name")),
-                  resultSet.getObject("value"));
-            }
-          }
+      try (final ResultSet resultSet =
+               ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+                   connection, sqlInfo, null)) {
+        while (resultSet.next()) {
+          cachedSqlInfo.put(SqlInfo.forNumber((Integer) resultSet.getObject("info_name")),
+              resultSet.getObject("value"));
         }
       }
     }
