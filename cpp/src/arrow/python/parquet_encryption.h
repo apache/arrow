@@ -22,6 +22,7 @@
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
 #include "arrow/util/macros.h"
+#include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/kms_client_factory.h"
 
@@ -82,6 +83,22 @@ class ARROW_PYTHON_EXPORT PyKmsClientFactory
  private:
   OwnedRefNoGIL handler_;
   PyKmsClientFactoryVtable vtable_;
+};
+
+/// \brief A CryptoFactory that returns Results instead of throwing exceptions.
+class ARROW_PYTHON_EXPORT PyCryptoFactory : public ::parquet::encryption::CryptoFactory {
+ public:
+  arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>> SafeGetFileEncryptionProperties(
+      const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
+      const ::parquet::encryption::EncryptionConfiguration& encryption_config);
+
+  /// The returned FileDecryptionProperties object will use the cache inside this
+  /// CryptoFactory object, so please keep this
+  /// CryptoFactory object alive along with the returned
+  /// FileDecryptionProperties object.
+  arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>> SafeGetFileDecryptionProperties(
+      const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
+      const ::parquet::encryption::DecryptionConfiguration& decryption_config);
 };
 
 }  // namespace encryption

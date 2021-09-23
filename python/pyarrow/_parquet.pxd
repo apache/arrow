@@ -654,28 +654,6 @@ ctypedef void CallbackCreateKmsClient(
     object,
     const CKmsConnectionConfig&, shared_ptr[CKmsClient]*)
 
-cdef extern from "arrow/python/parquet_encryption.h" \
-        namespace "arrow::py::parquet::encryption" nogil:
-    cdef cppclass CPyKmsClientVtable \
-            " arrow::py::parquet::encryption::PyKmsClientVtable":
-        CPyKmsClientVtable()
-        function[CallbackWrapKey] wrap_key
-        function[CallbackUnwrapKey] unwrap_key
-
-    cdef cppclass CPyKmsClient\
-            " arrow::py::parquet::encryption::PyKmsClient"(CKmsClient):
-        CPyKmsClient(object handler, CPyKmsClientVtable vtable)
-
-    cdef cppclass CPyKmsClientFactoryVtable\
-            " arrow::py::parquet::encryption::PyKmsClientFactoryVtable":
-        CPyKmsClientFactoryVtable()
-        function[CallbackCreateKmsClient] create_kms_client
-
-    cdef cppclass CPyKmsClientFactory\
-            " arrow::py::parquet::encryption::PyKmsClientFactory"(
-                CKmsClientFactory):
-        CPyKmsClientFactory(object handler, CPyKmsClientFactoryVtable vtable)
-
 cdef extern from "parquet/encryption/crypto_factory.h" \
         namespace "parquet::encryption" nogil:
     cdef cppclass CEncryptionConfiguration\
@@ -707,3 +685,33 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
             const CDecryptionConfiguration& decryption_config) except +*
         void RemoveCacheEntriesForToken(const c_string& access_token) except +
         void RemoveCacheEntriesForAllTokens() except +
+
+cdef extern from "arrow/python/parquet_encryption.h" \
+        namespace "arrow::py::parquet::encryption" nogil:
+    cdef cppclass CPyKmsClientVtable \
+            " arrow::py::parquet::encryption::PyKmsClientVtable":
+        CPyKmsClientVtable()
+        function[CallbackWrapKey] wrap_key
+        function[CallbackUnwrapKey] unwrap_key
+
+    cdef cppclass CPyKmsClient\
+            " arrow::py::parquet::encryption::PyKmsClient"(CKmsClient):
+        CPyKmsClient(object handler, CPyKmsClientVtable vtable)
+
+    cdef cppclass CPyKmsClientFactoryVtable\
+            " arrow::py::parquet::encryption::PyKmsClientFactoryVtable":
+        CPyKmsClientFactoryVtable()
+        function[CallbackCreateKmsClient] create_kms_client
+
+    cdef cppclass CPyKmsClientFactory\
+            " arrow::py::parquet::encryption::PyKmsClientFactory"(
+                CKmsClientFactory):
+        CPyKmsClientFactory(object handler, CPyKmsClientFactoryVtable vtable)
+
+    cdef cppclass CPyCryptoFactory" arrow::py::parquet::encryption::PyCryptoFactory"(CCryptoFactory):
+        CResult[shared_ptr[CFileEncryptionProperties]] SafeGetFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CEncryptionConfiguration& encryption_config) except +*
+        CResult[shared_ptr[CFileDecryptionProperties]] SafeGetFileDecryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CDecryptionConfiguration& decryption_config) except +*

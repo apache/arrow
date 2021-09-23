@@ -1889,7 +1889,7 @@ cdef class CryptoFactory(_Weakrefable):
     """ A factory that produces the low-level FileEncryptionProperties and
     FileDecryptionProperties objects, from the high-level parameters."""
     cdef:
-        unique_ptr[CCryptoFactory] factory
+        unique_ptr[CPyCryptoFactory] factory
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1902,7 +1902,7 @@ cdef class CryptoFactory(_Weakrefable):
         kms_client_factory : a callable that accepts KmsConnectionConfig
             and returns a KmsClient
         """
-        self.factory.reset(new CCryptoFactory())
+        self.factory.reset(new CPyCryptoFactory())
 
         if callable(kms_client_factory):
             self.init(kms_client_factory)
@@ -1942,10 +1942,15 @@ cdef class CryptoFactory(_Weakrefable):
         file_encryption_properties : FileEncryptionProperties
             File encryption properties.
         """
-        file_encryption_properties = \
-            self.factory.get().GetFileEncryptionProperties(
+        cdef:
+            CResult[shared_ptr[CFileEncryptionProperties]] file_encryption_properties_result
+
+        file_encryption_properties_result = \
+            self.factory.get().SafeGetFileEncryptionProperties(
                 deref(kms_connection_config.unwrap().get()),
                 deref(encryption_config.unwrap().get()))
+        file_encryption_properties = GetResultValue(
+            file_encryption_properties_result)
         return FileEncryptionProperties.wrap(file_encryption_properties)
 
     def file_decryption_properties(
@@ -1968,15 +1973,19 @@ cdef class CryptoFactory(_Weakrefable):
         file_decryption_properties : FileDecryptionProperties
             File decryption properties.
         """
-        cdef CDecryptionConfiguration c_decryption_config
+        cdef:
+            CDecryptionConfiguration c_decryption_config
+            CResult[shared_ptr[CFileDecryptionProperties]] c_file_decryption_properties
         if decryption_config is None:
             c_decryption_config = CDecryptionConfiguration()
         else:
             c_decryption_config = deref(decryption_config.unwrap().get())
-        file_decryption_properties = \
-            self.factory.get().GetFileDecryptionProperties(
+        c_file_decryption_properties = \
+            self.factory.get().SafeGetFileDecryptionProperties(
                 deref(kms_connection_config.unwrap().get()),
                 c_decryption_config)
+        file_decryption_properties = GetResultValue(
+            c_file_decryption_properties)
         return FileDecryptionProperties.wrap(file_decryption_properties)
 
     def remove_cache_entries_for_token(self, access_token):

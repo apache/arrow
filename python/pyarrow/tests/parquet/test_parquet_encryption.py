@@ -260,7 +260,7 @@ def test_encrypted_parquet_write_no_col_key(tempdir, data_table):
         return InMemoryKmsClient(kms_connection_configuration)
 
     crypto_factory = pq.CryptoFactory(kms_factory)
-    with pytest.raises(RuntimeError, match=r"column_keys"):
+    with pytest.raises(OSError, match=r"Either column_keys or uniform_encryption must be set"):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
                                 kms_connection_config, crypto_factory)
@@ -281,7 +281,7 @@ def test_encrypted_parquet_write_kms_error(tempdir, data_table):
         return InMemoryKmsClient(kms_connection_configuration)
 
     crypto_factory = pq.CryptoFactory(kms_factory)
-    with pytest.raises(RuntimeError, match="footer_key.*KeyError"):
+    with pytest.raises(KeyError, match="footer_key"):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
                                 kms_connection_config, crypto_factory)
@@ -316,8 +316,8 @@ def test_encrypted_parquet_write_kms_specific_error(tempdir, data_table):
         # Exception thrown in wrap/unwrap calls
         return ThrowingKmsClient(kms_connection_configuration)
 
-    with pytest.raises(RuntimeError, match="Cannot Wrap Key.*ValueError"):
-        crypto_factory = pq.CryptoFactory(kms_factory)
+    crypto_factory = pq.CryptoFactory(kms_factory)
+    with pytest.raises(ValueError, match="Cannot Wrap Key"):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
                                 kms_connection_config, crypto_factory)
@@ -336,8 +336,8 @@ def test_encrypted_parquet_write_kms_factory_error(tempdir, data_table):
         raise ValueError('Cannot create KmsClient')
 
     crypto_factory = pq.CryptoFactory(kms_factory)
-    with pytest.raises(RuntimeError,
-                       match="Cannot create KmsClient.*ValueError"):
+    with pytest.raises(ValueError,
+                       match="Cannot create KmsClient"):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
                                 kms_connection_config, crypto_factory)
@@ -370,7 +370,7 @@ def test_encrypted_parquet_write_kms_factory_type_error(tempdir, data_table):
         return WrongTypeKmsClient(kms_connection_configuration)
 
     crypto_factory = pq.CryptoFactory(kms_factory)
-    with pytest.raises(RuntimeError, match=r"TypeError"):
+    with pytest.raises(TypeError):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
                                 kms_connection_config, crypto_factory)
