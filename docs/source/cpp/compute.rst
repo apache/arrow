@@ -1448,21 +1448,26 @@ These functions select and return a subset of their input.
 Sorts and partitions
 ~~~~~~~~~~~~~~~~~~~~
 
-In these functions, nulls are considered greater than any other value
-(they will be sorted or partitioned at the end of the array).
-Floating-point NaN values are considered greater than any other non-null
-value, but smaller than nulls.
+By default, in these functions, nulls are considered greater than any other value
+(they will be sorted or partitioned at the end of the array).  Floating-point
+NaN values are considered greater than any other non-null value, but smaller
+than nulls.  This behaviour can be changed using the ``null_placement`` setting
+in the respective option classes.
+
+.. note::
+   Binary- and String-like inputs are ordered lexicographically as bytestrings,
+   even for String types.
 
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 | Function name         | Arity      | Input types                                             | Output type       | Options class                  | Notes          |
 +=======================+============+=========================================================+===================+================================+================+
-| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)      |
+| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(1)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(2) \(4) \(3) |
+| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(2) \(3)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(5) \(6) \(3) |
+| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(4) \(5)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(2) \(5) \(3) |
+| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(2) \(4)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 
 * \(1) The output is an array of indices into the input array, that define
@@ -1475,16 +1480,13 @@ value, but smaller than nulls.
 * \(2) The output is an array of indices into the input, that define a
   stable sort of the input.
 
-* \(3) Input values are ordered lexicographically as bytestrings (even
-  for String arrays).
+* \(3) The input must be an array. The default order is ascending.
 
-* \(4) The input must be an array. The default order is ascending.
-
-* \(5) The input can be an array, chunked array, record batch or
+* \(4) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
 
-* \(6) The output is an array of indices into the input, that define a
+* \(5) The output is an array of indices into the input, that define a
   non-stable sort of the input.
 
 .. _cpp-compute-vector-structural-transforms:

@@ -2069,11 +2069,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CIndexOptions(shared_ptr[CScalar] value)
         shared_ptr[CScalar] value
 
-    cdef cppclass CPartitionNthOptions \
-            "arrow::compute::PartitionNthOptions"(CFunctionOptions):
-        CPartitionNthOptions(int64_t pivot)
-        int64_t pivot
-
     cdef cppclass CMakeStructOptions \
             "arrow::compute::MakeStructOptions"(CFunctionOptions):
         CMakeStructOptions(vector[c_string] n,
@@ -2090,10 +2085,23 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSortOrder_Descending \
             "arrow::compute::SortOrder::Descending"
 
+    ctypedef enum CNullPlacement" arrow::compute::NullPlacement":
+        CNullPlacement_AtStart \
+            "arrow::compute::NullPlacement::AtStart"
+        CNullPlacement_AtEnd \
+            "arrow::compute::NullPlacement::AtEnd"
+
+    cdef cppclass CPartitionNthOptions \
+            "arrow::compute::PartitionNthOptions"(CFunctionOptions):
+        CPartitionNthOptions(int64_t pivot, CNullPlacement)
+        int64_t pivot
+        CNullPlacement null_placement
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
-        CArraySortOptions(CSortOrder order)
+        CArraySortOptions(CSortOrder, CNullPlacement)
         CSortOrder order
+        CNullPlacement null_placement
 
     cdef cppclass CSortKey" arrow::compute::SortKey":
         CSortKey(c_string name, CSortOrder order)
@@ -2102,8 +2110,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
-        CSortOptions(vector[CSortKey] sort_keys)
+        CSortOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
+        CNullPlacement null_placement
 
     cdef cppclass CSelectKOptions \
             "arrow::compute::SelectKOptions"(CFunctionOptions):

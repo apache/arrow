@@ -129,7 +129,7 @@ def test_option_class_equality():
         pc.ModeOptions(),
         pc.NullOptions(),
         pc.PadOptions(5),
-        pc.PartitionNthOptions(1),
+        pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
@@ -139,7 +139,7 @@ def test_option_class_equality():
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
         pc.SetLookupOptions(pa.array([1])),
         pc.SliceOptions(0, 1, 1),
-        pc.SortOptions([("dummy", "descending")]),
+        pc.SortOptions([("dummy", "descending")], null_placement="at_start"),
         pc.SplitOptions(),
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
@@ -174,7 +174,8 @@ def test_option_class_equality():
         assert option1 != option2
 
     assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions(value=int64:1)"
-    assert repr(pc.ArraySortOptions()) == "ArraySortOptions(order=Ascending)"
+    assert repr(pc.ArraySortOptions()) == \
+        "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
 
 def test_list_functions():
@@ -1847,17 +1848,44 @@ def test_index():
     assert arr.index(1, start=1, end=2).as_py() == -1
 
 
+def check_partition_nth(data, indices, pivot, null_placement):
+    indices = indices.to_pylist()
+    assert len(indices) == len(data)
+    assert sorted(indices) == list(range(len(data)))
+    until_pivot = [data[indices[i]] for i in range(pivot)]
+    after_pivot = [data[indices[i]] for i in range(pivot, len(data))]
+    p = data[indices[pivot]]
+    if p is None:
+        if null_placement == "at_start":
+            assert all(v is None for v in until_pivot)
+        else:
+            assert all(v is None for v in after_pivot)
+    else:
+        if null_placement == "at_start":
+            assert all(v is None or v <= p for v in until_pivot)
+            assert all(v >= p for v in after_pivot)
+        else:
+            assert all(v <= p for v in until_pivot)
+            assert all(v is None or v >= p for v in after_pivot)
+
+
 def test_partition_nth():
     data = list(range(100, 140))
     random.shuffle(data)
     pivot = 10
-    indices = pc.partition_nth_indices(data, pivot=pivot).to_pylist()
-    assert len(indices) == len(data)
-    assert sorted(indices) == list(range(len(data)))
-    assert all(data[indices[i]] <= data[indices[pivot]]
-               for i in range(pivot))
-    assert all(data[indices[i]] >= data[indices[pivot]]
-               for i in range(pivot, len(data)))
+    indices = pc.partition_nth_indices(data, pivot=pivot)
+    check_partition_nth(data, indices, pivot, "at_end")
+
+
+def test_partition_nth_null_placement():
+    data = list(range(10)) + [None] * 10
+    random.shuffle(data)
+
+    for pivot in (0, 7, 13, 19):
+        for null_placement in ("at_start", "at_end"):
+            indices = pc.partition_nth_indices(data, pivot=pivot,
+                                               null_placement=null_placement)
+            check_partition_nth(data, indices, pivot, null_placement)
 
 
 def test_select_k_array():
@@ -1949,6 +1977,9 @@ def test_array_sort_indices():
     assert result.to_pylist() == [3, 0, 1, 2]
     result = pc.array_sort_indices(arr, order="descending")
     assert result.to_pylist() == [1, 0, 3, 2]
+    result = pc.array_sort_indices(arr, order="descending",
+                                   null_placement="at_start")
+    assert result.to_pylist() == [2, 1, 0, 3]
 
     with pytest.raises(ValueError, match="not a valid sort order"):
         pc.array_sort_indices(arr, order="nonscending")
@@ -1962,22 +1993,39 @@ def test_sort_indices_array():
     assert result.to_pylist() == [3, 0, 1, 2]
     result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")])
     assert result.to_pylist() == [1, 0, 3, 2]
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")],
+                             null_placement="at_start")
+    assert result.to_pylist() == [2, 1, 0, 3]
+    # Using SortOptions
     result = pc.sort_indices(
         arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")])
     )
     assert result.to_pylist() == [1, 0, 3, 2]
+    result = pc.sort_indices(
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")],
+                                    null_placement="at_start")
+    )
+    assert result.to_pylist() == [2, 1, 0, 3]
 
 
 def test_sort_indices_table():
-    table = pa.table({"a": [1, 1, 0], "b": [1, 0, 1]})
+    table = pa.table({"a": [1, 1, None, 0], "b": [1, 0, 0, 1]})
 
     result = pc.sort_indices(table, sort_keys=[("a", "ascending")])
-    assert result.to_pylist() == [2, 0, 1]
+    assert result.to_pylist() == [3, 0, 1, 2]
+    result = pc.sort_indices(table, sort_keys=[("a", "ascending")],
+                             null_placement="at_start")
+    assert result.to_pylist() == [2, 3, 0, 1]
 
     result = pc.sort_indices(
-        table, sort_keys=[("a", "ascending"), ("b", "ascending")]
+        table, sort_keys=[("a", "descending"), ("b", "ascending")]
     )
-    assert result.to_pylist() == [2, 1, 0]
+    assert result.to_pylist() == [1, 0, 3, 2]
+    result = pc.sort_indices(
+        table, sort_keys=[("a", "descending"), ("b", "ascending")],
+        null_placement="at_start"
+    )
+    assert result.to_pylist() == [2, 1, 0, 3]
 
     with pytest.raises(ValueError, match="Must specify one or more sort keys"):
         pc.sort_indices(table)
