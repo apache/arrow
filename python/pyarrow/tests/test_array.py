@@ -2752,7 +2752,7 @@ def test_array_masked():
 
     with pytest.raises(pa.ArrowInvalid):
         arr = pa.array([4, None, 4, 3],
-                    mask=[False, True, False, True])
+                       mask=[False, True, False, True])
 
     with pytest.raises(pa.ArrowInvalid):
         arr = pa.array([4, None, 4, 3],
