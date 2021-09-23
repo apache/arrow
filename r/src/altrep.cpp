@@ -88,6 +88,7 @@ struct AltrepArrayPrimitive {
   // singleton altrep class description
   static R_altrep_class_t class_t;
 
+  // Make an altrep vector from an Array
   static SEXP Make(const std::shared_ptr<Array>& array) {
     SEXP alt_ =
         R_new_altrep(class_t, Pointer(new std::shared_ptr<Array>(array)), R_NilValue);
@@ -95,24 +96,25 @@ struct AltrepArrayPrimitive {
     return alt_;
   }
 
-  // the arrow::Array that is being wrapped by the altrep object
-  // this is only valid before data2 has been materialized
+  // the Array that is being wrapped by the altrep object
   static const std::shared_ptr<Array>& array(SEXP alt_) {
     return *Pointer(R_altrep_data1(alt_));
   }
 
   static R_xlen_t Length(SEXP alt_) { return array(alt_)->length(); }
 
-  // Does the data2 slot of the altrep object contain a
+  // Is the vector materialized, i.e. does the data2 slot contain a
   // standard R vector with the same data as the array
   static bool IsMaterialized(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
 
   // Force materialization. After calling this, the data2 slot of the altrep
   // object contains a standard R vector with the same data, with
   // R sentinels where the Array has nulls.
-  static void Materialize(SEXP alt_) {
+  //
+  // The Array remains available so that it can be used by Length(), Min(), etc ...
+  static SEXP Materialize(SEXP alt_) {
     if (!IsMaterialized(alt_)) {
-      auto size = array(alt_)->length();
+      auto size = Length(alt_);
 
       // create a standard R vector
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
@@ -126,13 +128,13 @@ struct AltrepArrayPrimitive {
 
       UNPROTECT(1);
     }
+    return R_altrep_data2(alt_);
   }
 
   // Duplication is done by first materializing the vector and
   // then make a lazy duplicate of data2
   static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
-    Materialize(alt_);
-    return Rf_lazy_duplicate(R_altrep_data2(alt_));
+    return Rf_lazy_duplicate(Materialize(alt_));
   }
 
   // What gets printed on .Internal(inspect(<the altrep object>))
@@ -201,8 +203,7 @@ struct AltrepArrayPrimitive {
     // Simply stop() when `writeable = TRUE` is too strong, e.g. this fails
     // identical() which calls DATAPTR() even though DATAPTR_RO() would
     // be enough
-    Materialize(alt_);
-    return DATAPTR(R_altrep_data2(alt_));
+    return DATAPTR(Materialize(alt_));
   }
 
   // Does the Array have no nulls ?
@@ -257,23 +258,18 @@ struct AltrepArrayPrimitive {
 
   // This cannot keep the external pointer to an Arrow object through
   // R serialization, so return the materialized
-  static SEXP Serialized_state(SEXP alt_) {
-    Materialize(alt_);
-    return R_altrep_data2(alt_);
-  }
+  static SEXP Serialized_state(SEXP alt_) { return R_altrep_data2(Materialize(alt_)); }
 
   static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 
   static SEXP Coerce(SEXP alt_, int type) {
-    Materialize(alt_);
-    return Rf_coerceVector(R_altrep_data2(alt_), type);
+    return Rf_coerceVector(Materialize(alt_), type);
   }
-
 
   static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
       const std::shared_ptr<Array>& array, bool na_rm) {
     auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
-      arrow::compute::ScalarAggregateOptions::Defaults());
+        arrow::compute::ScalarAggregateOptions::Defaults());
     options->min_count = 0;
     options->skip_nulls = na_rm;
     return options;
@@ -283,7 +279,7 @@ struct AltrepArrayPrimitive {
   static SEXP MinMax(SEXP alt_, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
     using scalar_type =
-      typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
+        typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
     const auto& array_ = array(alt_);
     bool na_rm = narm == TRUE;
@@ -299,22 +295,18 @@ struct AltrepArrayPrimitive {
     auto options = NaRmOptions(array_, na_rm);
 
     const auto& minmax =
-      ValueOrStop(arrow::compute::CallFunction("min_max", {array_}, options.get()));
+        ValueOrStop(arrow::compute::CallFunction("min_max", {array_}, options.get()));
     const auto& minmax_scalar =
-      internal::checked_cast<const StructScalar&>(*minmax.scalar());
+        internal::checked_cast<const StructScalar&>(*minmax.scalar());
 
     const auto& result_scalar = internal::checked_cast<const scalar_type&>(
-      *ValueOrStop(minmax_scalar.field(Min ? "min" : "max")));
+        *ValueOrStop(minmax_scalar.field(Min ? "min" : "max")));
     return cpp11::as_sexp(result_scalar.value);
   }
 
-  static SEXP Min(SEXP alt_, Rboolean narm) {
-    return MinMax<true>(alt_, narm);
-  }
+  static SEXP Min(SEXP alt_, Rboolean narm) { return MinMax<true>(alt_, narm); }
 
-  static SEXP Max(SEXP alt_, Rboolean narm) {
-    return MinMax<false>(alt_, narm);
-  }
+  static SEXP Max(SEXP alt_, Rboolean narm) { return MinMax<false>(alt_, narm); }
 
   static SEXP Sum(SEXP alt_, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
@@ -329,7 +321,7 @@ struct AltrepArrayPrimitive {
     auto options = NaRmOptions(array_, na_rm);
 
     const auto& sum =
-      ValueOrStop(arrow::compute::CallFunction("sum", {array_}, options.get()));
+        ValueOrStop(arrow::compute::CallFunction("sum", {array_}, options.get()));
 
     if (sexp_type == INTSXP) {
       // When calling the "sum" function on an int32 array, we get an Int64 scalar
@@ -342,11 +334,9 @@ struct AltrepArrayPrimitive {
       }
     } else {
       return Rf_ScalarReal(
-        internal::checked_cast<const DoubleScalar&>(*sum.scalar()).value);
+          internal::checked_cast<const DoubleScalar&>(*sum.scalar()).value);
     }
   }
-
-
 };
 template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
