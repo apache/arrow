@@ -1039,7 +1039,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       WriteRepetitionLevels(num_levels, rep_levels);
     } else {
       // Each value is exactly one row
-      rows_written_ += static_cast<int>(num_levels);
+      rows_written_ += num_levels;
     }
 
     *out_values_to_write = values_to_write;
