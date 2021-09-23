@@ -21,8 +21,6 @@
 
 #include <arrow-glib/arrow-glib.h>
 
-#include <parquet-glib/version.h>
-
 G_BEGIN_DECLS
 
 #define GPARQUET_TYPE_ARROW_FILE_READER (gparquet_arrow_file_reader_get_type())
