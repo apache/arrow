@@ -29,6 +29,7 @@ import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -45,9 +46,9 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 public final class ArrowFlightConnection extends AvaticaConnection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
-  private final BufferAllocator allocator;
-  private final FlightClientHandler clientHandler;
-  private final ArrowFlightConnectionConfigImpl config;
+  private BufferAllocator allocator;
+  private FlightClientHandler clientHandler;
+  private ArrowFlightConnectionConfigImpl config;
   private ExecutorService executorService;
 
   /**
@@ -88,21 +89,25 @@ public final class ArrowFlightConnection extends AvaticaConnection {
                                                    final String url, final Properties properties,
                                                    final BufferAllocator allocator)
       throws SQLException {
+    final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
+    final FlightClientHandler clientHandler = createNewClientHandler(config, allocator);
+    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
+  }
+
+  private static FlightClientHandler createNewClientHandler(final ArrowFlightConnectionConfigImpl config,
+                                                            final BufferAllocator allocator) throws SQLException {
     try {
-      final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
-      final FlightClientHandler clientHandler =
-          new ArrowFlightSqlClientHandler.Builder()
-              .withHost(config.getHost())
-              .withPort(config.getPort())
-              .withUsername(config.getUser())
-              .withPassword(config.getPassword())
-              .withKeyStorePath(config.getKeyStorePath())
-              .withKeyStorePassword(config.keystorePassword())
-              .withBufferAllocator(allocator)
-              .withTlsEncryption(config.useTls())
-              .withCallOptions(config.toCallOption())
-              .build();
-      return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
+      return new ArrowFlightSqlClientHandler.Builder()
+          .withHost(config.getHost())
+          .withPort(config.getPort())
+          .withUsername(config.getUser())
+          .withPassword(config.getPassword())
+          .withKeyStorePath(config.getKeyStorePath())
+          .withKeyStorePassword(config.keystorePassword())
+          .withBufferAllocator(allocator)
+          .withTlsEncryption(config.useTls())
+          .withCallOptions(config.toCallOption())
+          .build();
     } catch (final SQLException e) {
       allocator.close();
       throw e;
@@ -136,12 +141,30 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   }
 
   /**
+   * Gets the {@link #config} for this {@link ArrowFlightConnection}.
+   *
+   * @return the {@link ArrowFlightConnectionConfigImpl}.
+   */
+  ArrowFlightConnectionConfigImpl getConfig() {
+    return config;
+  }
+
+  /**
+   * Gets the {@link #allocator} for this {@link ArrowFlightConnection}.
+   *
+   * @return the {@link BufferAllocator}.
+   */
+  BufferAllocator getAllocator() {
+    return allocator == null ? allocator = new RootAllocator() : null;
+  }
+
+  /**
    * Gets the client {@link #clientHandler} backing this connection.
    *
    * @return the handler.
    */
-  FlightClientHandler getClientHandler() {
-    return clientHandler;
+  FlightClientHandler getClientHandler() throws SQLException {
+    return clientHandler == null ? clientHandler = createNewClientHandler(getConfig(), getAllocator()) : clientHandler;
   }
 
   /**

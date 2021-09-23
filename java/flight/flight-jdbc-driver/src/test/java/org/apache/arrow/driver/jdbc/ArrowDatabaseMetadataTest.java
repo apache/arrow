@@ -22,15 +22,20 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.*;
+import static org.hamcrest.CoreMatchers.is;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.ObjIntConsumer;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
@@ -44,6 +49,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -52,6 +58,7 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -147,6 +154,10 @@ public class ArrowDatabaseMetadataTest {
       "FK_NAME", "PK_NAME", "UPDATE_RULE", "DELETE_RULE",
       "DEFERRABILITY");
   private static final String TARGET_TABLE = "TARGET_TABLE";
+  private static final String EXPECTED_DATABASE_PRODUCT_NAME = "Test Server Name";
+  private static final String EXPECTED_DATABASE_PRODUCT_VERSION = "v0.0.1-alpha";
+  private static final String EXPECTED_IDENTIFIER_QUOTE_STRING = "\"";
+  private static final boolean EXPECTED_IS_READ_ONLY = true;
   private static final List<List<Object>> EXPECTED_GET_COLUMNS_RESULTS;
   private static Connection connection;
 
@@ -373,6 +384,36 @@ public class ArrowDatabaseMetadataTest {
       }
     };
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetPrimaryKeys, commandGetPrimaryKeysResultProducer);
+
+    final ObjIntConsumer<VectorSchemaRoot> flightSqlServerNameProvider =
+        (root, index) ->
+            setDataForUtf8Field(root, index, SqlInfo.FLIGHT_SQL_SERVER_NAME, EXPECTED_DATABASE_PRODUCT_NAME);
+    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_NAME, flightSqlServerNameProvider);
+
+    final ObjIntConsumer<VectorSchemaRoot> flightSqlServerVersionProvider =
+        (root, index) ->
+            setDataForUtf8Field(root, index, SqlInfo.FLIGHT_SQL_SERVER_VERSION, EXPECTED_DATABASE_PRODUCT_VERSION);
+    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_VERSION, flightSqlServerVersionProvider);
+
+    final ObjIntConsumer<VectorSchemaRoot> flightSqlIdentifierQuoteCharProvider =
+        (root, index) ->
+            setDataForUtf8Field(root, index, SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, EXPECTED_IDENTIFIER_QUOTE_STRING);
+    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, flightSqlIdentifierQuoteCharProvider);
+
+    final ObjIntConsumer<VectorSchemaRoot> flightSqlServerReadOnlyProvider =
+        (root, index) -> {
+          setInfoName(root, index, SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY);
+          final NullableIntHolder dataHolder = new NullableIntHolder();
+          dataHolder.isSet = 1;
+          dataHolder.value = EXPECTED_IS_READ_ONLY ? 1 : 0;
+          setValues(root, index, (byte) 1, values -> values.setSafe(index, dataHolder));
+        };
+
+    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, flightSqlServerReadOnlyProvider);
+    FLIGHT_SQL_PRODUCER.addDefaultSqlInfo(
+        EnumSet.of(SqlInfo.FLIGHT_SQL_SERVER_NAME, SqlInfo.FLIGHT_SQL_SERVER_VERSION, SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR,
+            SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY));
+    connection = FLIGHT_SERVER_TEST_RULE.getConnection();
   }
 
   @AfterClass
@@ -525,6 +566,15 @@ public class ArrowDatabaseMetadataTest {
           .collect(toList())
       );
     }
+  }
+
+  @Test
+  public void testGetSqlInfo() throws SQLException {
+    final DatabaseMetaData metaData = connection.getMetaData();
+    collector.checkThat(metaData.getDatabaseProductName(), is(EXPECTED_DATABASE_PRODUCT_NAME));
+    collector.checkThat(metaData.getDatabaseProductVersion(), is(EXPECTED_DATABASE_PRODUCT_VERSION));
+    collector.checkThat(metaData.getIdentifierQuoteString(), is(EXPECTED_IDENTIFIER_QUOTE_STRING));
+    collector.checkThat(metaData.isReadOnly(), is(EXPECTED_IS_READ_ONLY));
   }
 
   @Test

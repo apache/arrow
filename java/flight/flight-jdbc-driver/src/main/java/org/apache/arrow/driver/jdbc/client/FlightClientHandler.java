@@ -63,6 +63,13 @@ public interface FlightClientHandler extends AutoCloseable {
   FlightInfo getCatalogs();
 
   /**
+   * Gets SQL info.
+   *
+   * @return the SQL info.
+   */
+  FlightInfo getSqlInfo(SqlInfo... info);
+
+  /**
    * Makes an RPC "getImportedKeys" request based on the provided info.
    *
    * @param catalog The catalog name. Must match the catalog name as it is stored in the database.

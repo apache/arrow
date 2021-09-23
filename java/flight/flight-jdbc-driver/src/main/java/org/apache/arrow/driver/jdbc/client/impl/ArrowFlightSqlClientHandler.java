@@ -41,6 +41,8 @@ import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.flight.sql.impl.FlightSql;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 
@@ -141,6 +143,10 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
         getOptions());
   }
 
+  @Override
+  public FlightInfo getSqlInfo(SqlInfo... info) {
+    return sqlClient.getSqlInfo(info, getOptions());
+  }
 
   @Override
   public FlightInfo getPrimaryKeys(final String catalog, final String schema, final String table) {

@@ -21,17 +21,23 @@ import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
+import java.util.function.ObjIntConsumer;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.CallStatus;
@@ -62,6 +68,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -94,12 +101,22 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
     final List<UUID> uuids =
         IntStream.range(0, providers)
             .mapToObj(index -> new UUID(sqlCommand.hashCode(), Integer.hashCode(index)))
-            .collect(Collectors.toList());
+            .collect(toList());
     queryResults.put(sqlCommand, new SimpleImmutableEntry<>(schema, uuids));
     IntStream.range(0, providers)
         .forEach(index -> this.resultProviders.put(uuids.get(index), resultProviders.get(index)));
   }
 
+
+  /**
+   * Registers a new {@link StatementType#SELECT} query for metadata-related queries.
+   *
+   * @param info            the {@link SqlInfo} to use.
+   * @param resultsProvider the results provider.
+   */
+  public void addSqlInfo(final SqlInfo info, final ObjIntConsumer<VectorSchemaRoot> resultsProvider) {
+    sqlInfoResultProviders.put(info, resultsProvider);
+  }
 
   @Override
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request,
@@ -146,7 +163,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getTicketBytesFromUuid)
             .map(TicketConversionUtils::getTicketStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
-            .collect(Collectors.toList());
+            .collect(toList());
     return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
   }
 
@@ -165,7 +182,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getTicketBytesFromUuid)
             .map(TicketConversionUtils::getCommandPreparedStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
-            .collect(Collectors.toList());
+            .collect(toList());
     return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
   }
 
@@ -232,8 +249,22 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   @Override
   public void getStreamSqlInfo(final CommandGetSqlInfo commandGetSqlInfo, final CallContext callContext,
                                final Ticket ticket, final ServerStreamListener serverStreamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+    try (final BufferAllocator allocator = new RootAllocator();
+         final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SQL_INFO_SCHEMA, allocator)) {
+      final List<Integer> infos =
+          commandGetSqlInfo.getInfoCount() == 0 ?
+              defaultInfo.stream().map(SqlInfo::getNumber).collect(toList()) :
+              commandGetSqlInfo.getInfoList();
+      final int rows = infos.size();
+      range(0, rows).forEach(i -> sqlInfoResultProviders.get(SqlInfo.forNumber(infos.get(i))).accept(root, i));
+      root.setRowCount(rows);
+      serverStreamListener.start(root);
+      serverStreamListener.putNext();
+    } catch (final Throwable throwable) {
+      serverStreamListener.error(throwable);
+    } finally {
+      serverStreamListener.completed();
+    }
   }
 
   @Override
