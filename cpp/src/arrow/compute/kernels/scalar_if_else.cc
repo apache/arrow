@@ -63,6 +63,20 @@ inline Bitmap GetBitmap(const Datum& datum, int i) {
   return Bitmap{a.buffers[i], a.offset, a.length};
 }
 
+// Ensure parameterized types are identical.
+Status CheckIdenticalTypes(const Datum* begin, size_t count) {
+  const auto& ty = begin->type();
+  const auto* end = begin + count;
+  for (auto it = begin + 1; it != end; ++it) {
+    const DataType& other_ty = *it->type();
+    if (!ty->Equals(other_ty)) {
+      return Status::TypeError("All types must be compatible, expected: ", *ty,
+                               ", but got: ", other_ty);
+    }
+  }
+  return Status::OK();
+}
+
 // if the condition is null then output is null otherwise we take validity from the
 // selected argument
 // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
@@ -2086,23 +2100,11 @@ static Status ExecVarWidthCoalesce(KernelContext* ctx, const ExecBatch& batch, D
                                   });
 }
 
-// Ensure parameterized types are identical.
-static Status CheckIdenticalTypes(const ExecBatch& batch) {
-  auto ty = batch[0].type();
-  for (auto it = batch.values.begin() + 1; it != batch.values.end(); ++it) {
-    if (!ty->Equals(*it->type())) {
-      return Status::TypeError("coalesce: all types must be compatible, expected: ", *ty,
-                               ", but got: ", *it->type());
-    }
-  }
-  return Status::OK();
-}
-
 template <typename Type, typename Enable = void>
 struct CoalesceFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (!TypeTraits<Type>::is_parameter_free) {
-      RETURN_NOT_OK(CheckIdenticalTypes(batch));
+      RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
     }
     // Special case for two arguments (since "fill_null" is a common operation)
     if (batch.num_values() == 2) {
@@ -2205,7 +2207,7 @@ template <typename Type>
 struct CoalesceFunctor<
     Type, enable_if_t<is_nested_type<Type>::value && !is_union_type<Type>::value>> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    RETURN_NOT_OK(CheckIdenticalTypes(batch));
+    RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
@@ -2224,7 +2226,7 @@ template <typename Type>
 struct CoalesceFunctor<Type, enable_if_union<Type>> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // Unions don't have top-level nulls, so a specialized implementation is needed
-    RETURN_NOT_OK(CheckIdenticalTypes(batch));
+    RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
 
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
