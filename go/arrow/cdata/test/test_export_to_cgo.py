@@ -37,15 +37,15 @@ def load_cgotest():
         void importSchema(uintptr_t ptr);
         void importRecordBatch(uintptr_t scptr, uintptr_t rbptr);
         void runGC();
+        void exportSchema(uintptr_t ptr);
+        void exportRecordBatch(uintptr_t schema, uintptr_t record);
         """)
     return ffi.dlopen(f'./cgotest.{libext}')
 
 
 cgotest = load_cgotest()
 
-
-class TestPythonToGo(unittest.TestCase):
-
+class BaseTestGoPython(unittest.TestCase):
     def setUp(self):
         self.c_schema = ffi.new("struct ArrowSchema*")
         self.ptr_schema = int(ffi.cast("uintptr_t", self.c_schema))
@@ -77,6 +77,8 @@ class TestPythonToGo(unittest.TestCase):
             pa.total_allocated_bytes(), old_allocated,
             f"PyArrow memory was not adequately released: {diff} bytes lost")
 
+class TestPythonToGo(BaseTestGoPython):
+    
     def test_schema(self):
         with self.assert_pyarrow_memory_released():
             self.make_schema()._export_to_c(self.ptr_schema)
@@ -90,6 +92,23 @@ class TestPythonToGo(unittest.TestCase):
             # Will panic if expectations are not met
             cgotest.importRecordBatch(self.ptr_schema, self.ptr_array)
 
+
+class TestGoToPython(BaseTestGoPython):
+
+    def test_get_schema(self):
+        with self.assert_pyarrow_memory_released():
+            cgotest.exportSchema(self.ptr_schema)
+
+            sc = pa.Schema._import_from_c(self.ptr_schema)
+            assert sc == self.make_schema()
+    
+    def test_get_batch(self):
+        with self.assert_pyarrow_memory_released():
+            cgotest.exportRecordBatch(self.ptr_schema, self.ptr_array)
+            arrnew = pa.RecordBatch._import_from_c(self.ptr_array, self.ptr_schema)
+            assert arrnew == self.make_batch()
+    
+    
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

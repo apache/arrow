@@ -98,4 +98,43 @@ func importRecordBatch(scptr, rbptr uintptr) {
 	fmt.Println("record batch matches huzzah!")
 }
 
+func makeSchema() *arrow.Schema {
+	meta := arrow.NewMetadata([]string{"key1"}, []string{"value1"})
+	return arrow.NewSchema([]arrow.Field{
+		{Name: "ints", Type: arrow.ListOf(arrow.PrimitiveTypes.Int32), Nullable: true},
+	}, &meta)
+}
+
+func makeBatch() array.Record {
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, makeSchema())
+	defer bldr.Release()
+
+	fbldr := bldr.Field(0).(*array.ListBuilder)
+	valbldr := fbldr.ValueBuilder().(*array.Int32Builder)
+
+	fbldr.Append(true)
+	valbldr.Append(1)
+
+	fbldr.Append(true)
+	fbldr.AppendNull()
+	fbldr.Append(true)
+	valbldr.Append(2)
+	valbldr.Append(42)
+
+	return bldr.NewRecord()
+}
+
+//export exportSchema
+func exportSchema(schema uintptr) {
+	cdata.ExportArrowSchema(makeSchema(), (*cdata.CArrowSchema)(unsafe.Pointer(schema)))
+}
+
+//export exportRecordBatch
+func exportRecordBatch(schema, record uintptr) {
+	batch := makeBatch()
+	defer batch.Release()
+
+	cdata.ExportArrowRecordBatch(batch, (*cdata.CArrowArray)(unsafe.Pointer(record)), (*cdata.CArrowSchema)(unsafe.Pointer(schema)))
+}
+
 func main() {}
