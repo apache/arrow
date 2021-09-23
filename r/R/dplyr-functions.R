@@ -685,21 +685,29 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
 
-ISO8601_precision_map <-
-  list(y = "%Y",
-       ym = "%Y-%m",
-       ymd = "%Y-%m-%d",
-       ymdh = "%Y-%m-%dT%H",
-       ymdhm = "%Y-%m-%dT%H:%M",
-       ymdhms = "%Y-%m-%dT%H:%M:%S")
-
 nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+  ISO8601_precision_map <-
+    list(y = "%Y",
+         ym = "%Y-%m",
+         ymd = "%Y-%m-%d",
+         ymdh = "%Y-%m-%dT%H",
+         ymdhm = "%Y-%m-%dT%H:%M",
+         ymdhms = "%Y-%m-%dT%H:%M:%S")
+
   if (is.null(precision)) {
     precision <- "ymdhms"
   }
-  if (is.null(format <- ISO8601_precision_map[[precision]])) {
-    stop("Invalid value for precision provided: ", precision)
+  if (!precision %in% names(ISO8601_precision_map)) {
+    abort(
+      paste(
+        "`precision` must be one of the following values:",
+        paste(names(ISO8601_precision_map), collapse = ", "),
+        "\nValue supplied was: ",
+        precision
+      )
+    )
   }
+  format <- ISO8601_precision_map[[precision]]
   if (usetz) {
     format <- paste0(format, "%z")
   }
