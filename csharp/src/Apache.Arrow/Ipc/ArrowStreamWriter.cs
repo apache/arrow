@@ -185,6 +185,8 @@ namespace Apache.Arrow.Ipc
 
         private bool HasWrittenDictionaryBatch { get; set; }
 
+        private bool HasWrittenStart { get; set; }
+
         private bool HasWrittenEnd { get; set; }
 
         protected Schema Schema { get; }
@@ -536,6 +538,15 @@ namespace Apache.Arrow.Ipc
             return Tuple.Create(recordBatchBuilder, dictionaryBatchOffset);
         }
 
+        private protected virtual void WriteStartInternal()
+        {
+        }
+
+        private protected virtual ValueTask WriteStartInternalAsync(CancellationToken cancellationToken)
+        {
+            return default;
+        }
+
         private protected virtual void WriteEndInternal()
         {
             WriteIpcMessageLength(length: 0);
@@ -562,6 +573,24 @@ namespace Apache.Arrow.Ipc
         public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
+        }
+
+        public void WriteStart()
+        {
+            if (!HasWrittenStart)
+            {
+                WriteStartInternal();
+                HasWrittenStart = true;
+            }
+        }
+
+        public async Task WriteStartAsync(CancellationToken cancellationToken = default)
+        {
+            if (!HasWrittenStart)
+            {
+                await WriteStartInternalAsync(cancellationToken);
+                HasWrittenStart = true;
+            }
         }
 
         public void WriteEnd()

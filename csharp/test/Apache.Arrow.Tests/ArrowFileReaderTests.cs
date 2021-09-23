@@ -143,18 +143,16 @@ namespace Apache.Arrow.Tests
                 await writer.WriteEndAsync();
                 stream.Position = 0;
 
-                // the recordbatches by index are in reverse order - back to front.
-                // TODO: is this a bug??
                 ArrowFileReader reader = new ArrowFileReader(stream);
                 RecordBatch readBatch1 = await reader.ReadRecordBatchAsync(0);
-                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch1);
+                ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch1);
 
                 RecordBatch readBatch2 = await reader.ReadRecordBatchAsync(1);
-                ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch2);
+                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch2);
 
                 // now read the first again, for random access
                 RecordBatch readBatch3 = await reader.ReadRecordBatchAsync(0);
-                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch3);
+                ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch3);
             }
         }
     }
