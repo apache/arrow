@@ -124,6 +124,10 @@ struct AltrepArrayPrimitive : public AltrepArrayBase {
 
   using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
+  static SEXP Make(const std::shared_ptr<Array>& array) {
+    return AltrepArrayBase::Make(class_t, array);
+  }
+
   // Is the vector materialized, i.e. does the data2 slot contain a
   // standard R vector with the same data as the array.
   static bool IsMaterialized(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
@@ -660,15 +664,13 @@ void Init_Altrep_classes(DllInfo* dll) {
 }
 
 // return an altrep R vector that shadows the array if possible
-SEXP MakeAltrepArrayPrimitive(const std::shared_ptr<Array>& array) {
+SEXP MakeAltrepVector(const std::shared_ptr<Array>& array) {
   switch (array->type()->id()) {
     case arrow::Type::DOUBLE:
-      return altrep::AltrepArrayBase::Make(altrep::AltrepArrayPrimitive<REALSXP>::class_t,
-                                           array);
+      return altrep::AltrepArrayPrimitive<REALSXP>::Make(array);
 
     case arrow::Type::INT32:
-      return altrep::AltrepArrayBase::Make(altrep::AltrepArrayPrimitive<INTSXP>::class_t,
-                                           array);
+      return altrep::AltrepArrayPrimitive<INTSXP>::Make(array);
 
     case arrow::Type::STRING:
       return altrep::AltrepArrayString::Make(array);
