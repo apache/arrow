@@ -51,6 +51,7 @@ cmake -GNinja \
       -DARROW_FLIGHT=on \
       -DARROW_ORC=on \
       -DARROW_PARQUET=on \
+      -DPARQUET_REQUIRE_ENCRYPTION=on \
       -DARROW_PYTHON=on \
       -DARROW_PLASMA=on \
       -DARROW_S3=on \

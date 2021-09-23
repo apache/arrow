@@ -1574,6 +1574,7 @@ cdef class ParquetWriter(_Weakrefable):
             'file metadata is only available after writer close')
 
 cdef class EncryptionConfiguration(_Weakrefable):
+    """Configuration of the encryption, such as which columns to encrypt"""
     cdef:
         shared_ptr[CEncryptionConfiguration] configuration
 
@@ -1715,6 +1716,7 @@ cdef class EncryptionConfiguration(_Weakrefable):
         return self.configuration
 
 cdef class DecryptionConfiguration(_Weakrefable):
+    """Configuration of the decryption, such as cache timeout."""
     cdef:
         shared_ptr[CDecryptionConfiguration] configuration
 
@@ -1740,6 +1742,7 @@ cdef class DecryptionConfiguration(_Weakrefable):
 
 
 cdef class KmsConnectionConfig(_Weakrefable):
+    """Configuration of the connection to the Key Management Service (KMS)"""
     cdef:
         shared_ptr[CKmsConnectionConfig] configuration
 
@@ -1943,7 +1946,8 @@ cdef class CryptoFactory(_Weakrefable):
             File encryption properties.
         """
         cdef:
-            CResult[shared_ptr[CFileEncryptionProperties]] file_encryption_properties_result
+            CResult[shared_ptr[CFileEncryptionProperties]] \
+                file_encryption_properties_result
 
         file_encryption_properties_result = \
             self.factory.get().SafeGetFileEncryptionProperties(
@@ -1975,7 +1979,8 @@ cdef class CryptoFactory(_Weakrefable):
         """
         cdef:
             CDecryptionConfiguration c_decryption_config
-            CResult[shared_ptr[CFileDecryptionProperties]] c_file_decryption_properties
+            CResult[shared_ptr[CFileDecryptionProperties]] \
+                c_file_decryption_properties
         if decryption_config is None:
             c_decryption_config = CDecryptionConfiguration()
         else:

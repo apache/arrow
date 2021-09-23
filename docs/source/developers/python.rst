@@ -278,6 +278,7 @@ Now build and install the Arrow C++ libraries:
          -DARROW_WITH_SNAPPY=ON \
          -DARROW_WITH_BROTLI=ON \
          -DARROW_PARQUET=ON \
+         -DPARQUET_REQUIRE_ENCRYPTION=ON \
          -DARROW_PYTHON=ON \
          -DARROW_BUILD_TESTS=ON \
          ..
@@ -295,7 +296,7 @@ adding flags with ``ON``:
 * ``ARROW_PLASMA``: Shared memory object store
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
-libraries are needed for Parquet support.
+libraries and ``PARQUET_REQUIRE_ENCRYPTION`` are needed for Parquet support.
 
 To enable C++ debugging information, pass the option ``-DCMAKE_BUILD_TYPE=debug``.
 
@@ -475,6 +476,7 @@ Let's configure, build and install the Arrow C++ libraries:
        -DARROW_WITH_ZLIB=on ^
        -DARROW_WITH_ZSTD=on ^
        -DARROW_PARQUET=on ^
+       -DPARQUET_REQUIRE_ENCRYPTION=on ^
        -DARROW_PYTHON=on ^
        ..
    cmake --build . --target INSTALL --config Release
@@ -539,6 +541,7 @@ configuration of the Arrow C++ library build:
        -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
        -DARROW_CXXFLAGS="/WX /MP" ^
        -DARROW_PARQUET=on ^
+       -DPARQUET_REQUIRE_ENCRYPTION=on ^
        -DARROW_PYTHON=on ^
        -DARROW_BUILD_TESTS=ON ^
        ..

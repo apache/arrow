@@ -80,16 +80,16 @@ arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>>
 PyCryptoFactory::SafeGetFileEncryptionProperties(
     const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
     const ::parquet::encryption::EncryptionConfiguration& encryption_config) {
-  PARQUET_CATCH_AND_RETURN(this->GetFileEncryptionProperties(
-      kms_connection_config, encryption_config));
+  PARQUET_CATCH_AND_RETURN(
+      this->GetFileEncryptionProperties(kms_connection_config, encryption_config));
 }
 
 arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>>
 PyCryptoFactory::SafeGetFileDecryptionProperties(
     const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
     const ::parquet::encryption::DecryptionConfiguration& decryption_config) {
-  PARQUET_CATCH_AND_RETURN(this->GetFileDecryptionProperties(
-      kms_connection_config, decryption_config));
+  PARQUET_CATCH_AND_RETURN(
+      this->GetFileDecryptionProperties(kms_connection_config, decryption_config));
 }
 
 }  // namespace encryption

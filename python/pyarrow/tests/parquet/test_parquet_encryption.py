@@ -260,7 +260,9 @@ def test_encrypted_parquet_write_no_col_key(tempdir, data_table):
         return InMemoryKmsClient(kms_connection_configuration)
 
     crypto_factory = pq.CryptoFactory(kms_factory)
-    with pytest.raises(OSError, match=r"Either column_keys or uniform_encryption must be set"):
+    with pytest.raises(OSError,
+                       match="Either column_keys or uniform_encryption "
+                       "must be set"):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
                                 kms_connection_config, crypto_factory)
@@ -559,8 +561,8 @@ def test_encrypted_parquet_write_external(tempdir, data_table):
 
 
 @pytest.mark.parquet
-@pytest.mark.skip(reason="Multithreaded read sometimes fails decryption"
-                  " finalization and sometimes with Segmentation fault")
+@pytest.mark.skip(reason="ARROW-14114: Multithreaded read sometimes fails"
+                  "decryption finalization or with Segmentation fault")
 def test_encrypted_parquet_loop(tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted,
     and then read it multithreaded in a loop."""

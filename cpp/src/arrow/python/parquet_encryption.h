@@ -88,7 +88,8 @@ class ARROW_PYTHON_EXPORT PyKmsClientFactory
 /// \brief A CryptoFactory that returns Results instead of throwing exceptions.
 class ARROW_PYTHON_EXPORT PyCryptoFactory : public ::parquet::encryption::CryptoFactory {
  public:
-  arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>> SafeGetFileEncryptionProperties(
+  arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>>
+  SafeGetFileEncryptionProperties(
       const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
       const ::parquet::encryption::EncryptionConfiguration& encryption_config);
 
@@ -96,7 +97,8 @@ class ARROW_PYTHON_EXPORT PyCryptoFactory : public ::parquet::encryption::Crypto
   /// CryptoFactory object, so please keep this
   /// CryptoFactory object alive along with the returned
   /// FileDecryptionProperties object.
-  arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>> SafeGetFileDecryptionProperties(
+  arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>>
+  SafeGetFileDecryptionProperties(
       const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
       const ::parquet::encryption::DecryptionConfiguration& decryption_config);
 };

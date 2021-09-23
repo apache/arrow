@@ -708,10 +708,13 @@ cdef extern from "arrow/python/parquet_encryption.h" \
                 CKmsClientFactory):
         CPyKmsClientFactory(object handler, CPyKmsClientFactoryVtable vtable)
 
-    cdef cppclass CPyCryptoFactory" arrow::py::parquet::encryption::PyCryptoFactory"(CCryptoFactory):
-        CResult[shared_ptr[CFileEncryptionProperties]] SafeGetFileEncryptionProperties(
+    cdef cppclass CPyCryptoFactory\
+            " arrow::py::parquet::encryption::PyCryptoFactory"(CCryptoFactory):
+        CResult[shared_ptr[CFileEncryptionProperties]] \
+            SafeGetFileEncryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CEncryptionConfiguration& encryption_config) except +*
-        CResult[shared_ptr[CFileDecryptionProperties]] SafeGetFileDecryptionProperties(
+        CResult[shared_ptr[CFileDecryptionProperties]] \
+            SafeGetFileDecryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CDecryptionConfiguration& decryption_config) except +*

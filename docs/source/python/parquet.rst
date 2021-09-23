@@ -48,9 +48,9 @@ support bundled:
    import pyarrow.parquet as pq
 
 If you are building ``pyarrow`` from source, you must use
-``-DARROW_PARQUET=ON`` when compiling the C++ libraries and enable the Parquet
-extensions when building ``pyarrow``. See the :ref:`Python Development
-<python-development>` page for more details.
+``-DARROW_PARQUET=ON -DPARQUET_REQUIRE_ENCRYPTION=ON`` when compiling the C++
+libraries and enable the Parquet extensions when building ``pyarrow``.
+See the :ref:`Python Development <python-development>` page for more details.
 
 Reading and Writing Single Files
 --------------------------------
@@ -599,8 +599,8 @@ One example is Azure Blob storage, which can be interfaced through the
 Parquet Modular Encryption (Columnar Encryption)
 ------------------------------------------------
 
-Columnar encryption is supported for Parquet files starting from
-Apache Arrow 4.0.0.
+Columnar encryption is supported for Parquet files in C++ starting from
+Apache Arrow 4.0.0 and in PyArrow starting from Apache Arrow 6.0.0.
 
 Parquet uses the envelope encryption practice, where file parts are encrypted
 with "data encryption keys" (DEKs), and the DEKs are encrypted with "master
@@ -647,19 +647,18 @@ Any KmsClient implementation should implement the following informal interface:
 .. code-block:: python
 
    class KmsClient:
-   def wrap_key(self, key_bytes, master_key_identifier):
-      """Wrap a key - encrypt it with the master key."""
-       raise NotImplementedError()
+      def wrap_key(self, key_bytes, master_key_identifier):
+         """Wrap a key - encrypt it with the master key."""
+            raise NotImplementedError()
 
-   def unwrap_key(self, wrapped_key, master_key_identifier):
-      """Unwrap a key - decrypt it with the master key."""
-      raise NotImplementedError()
+      def unwrap_key(self, wrapped_key, master_key_identifier):
+         """Unwrap a key - decrypt it with the master key."""
+         raise NotImplementedError()
 
-An example KmsClient implementation might look like the following:
 
-.. code-block:: python
 
    class MyKmsClient(pq.KmsClient):
+      """An example KmsClient implementation skeleton"""
       def __init__(self, kms_connection_configuration):
          pq.KmsClient.__init__(self)
          # Any KMS-specific initialization based on
@@ -687,7 +686,8 @@ For example, in order to use the ``MyKmsClient`` defined above:
 
    crypto_factory = CryptoFactory(kms_client_factory)
 
-An `example <sample_vault_kms_client.py>`_ of such a class for an open source
+An :download:`example <../../../python/examples/parquet_encryption/sample_vault_kms_client.py>`
+of such a class for an open source
 `KMS <https://www.vaultproject.io/api/secret/transit>`_ can be found in the Apache
 Arrow GitHub repository. The production KMS client should be designed in
 cooperation with an organization's security administrators, and built by

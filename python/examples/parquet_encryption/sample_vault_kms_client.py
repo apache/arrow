@@ -32,6 +32,7 @@ except ImportError:
 class VaultClient(pq.KmsClient):
     """An example of a KmsClient implementation with master keys
     managed by Hashicorp Vault KMS.
+    See Vault documentation: https://www.vaultproject.io/api/secret/transit
     Not for production use!
     """
     JSON_MEDIA_TYPE = "application/json; charset=utf-8"
