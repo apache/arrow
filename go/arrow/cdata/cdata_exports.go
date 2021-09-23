@@ -299,8 +299,8 @@ func (exp *schemaExporter) finish(out *CArrowSchema) {
 	out.name = C.CString(exp.name)
 	out.format = C.CString(exp.format)
 	out.metadata = (*C.char)(C.CBytes(exp.metadata))
-	out.flags = C.longlong(exp.flags)
-	out.n_children = C.longlong(len(exp.children))
+	out.flags = C.int64_t(exp.flags)
+	out.n_children = C.int64_t(len(exp.children))
 
 	if len(exp.children) > 0 {
 		children := allocateArrowSchemaArr(len(exp.children))
