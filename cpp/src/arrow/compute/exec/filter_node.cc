@@ -164,18 +164,13 @@ class FilterNode : public ExecNode {
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
-      finished_.MarkFinished();
+      task_group_.WaitForTasksToFinish().AddCallback(
+          [this](const Status& status) { this->finished_.MarkFinished(status); });
     }
     inputs_[0]->StopProducing(this);
   }
 
-  Future<> finished() override {
-    auto executor = plan()->exec_context()->executor();
-    if (executor) {
-      return finished_;
-    }
-    return inputs_[0]->finished();
-  }
+  Future<> finished() override { return finished_; }
 
  protected:
   std::string ToStringExtra() const override { return "filter=" + filter_.ToString(); }
