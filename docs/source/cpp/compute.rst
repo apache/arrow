@@ -1368,14 +1368,14 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 * \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
   starts with the first ISO week. ISO week starts on Monday.
   See `ISO 8601 week date definition`_ for more details.
-* \(3) First US week has the majority (4 or more) of it's days in January. US year
+* \(3) First US week has the majority (4 or more) of its days in January. US year
   starts with the first US week. US week starts on Sunday.
 * \(4) Returns week number allowing for setting several parameters.
-  :member:`WeekOptions::week_starts_monday` sets what day does the week start with (Monday=true, Sunday=false).
-  :member:`WeekOptions::count_from_zero` sets that dates from current year that fall into last ISO week of
-  the previous year return 0 if true and 52 or 53 if false.
-  :member:`WeekOptions::first_week_is_fully_in_year` sets if the first week is fully in January (true), or is a
-  week that begins on December 29, 30, or 31 considered to be the first week of the new year (false)?
+  If :member:`WeekOptions::week_starts_monday` is true, the week starts with Monday, else Sunday if false.
+  If :member:`WeekOptions::count_from_zero` is true, dates from the current year that fall into the last ISO week
+  of the previous year are numbered as week 0, else week 52 or 53 if false.
+  If :member:`WeekOptions::first_week_is_fully_in_year` is true, the first week (week 1) must fully be in January;
+  else if false, a week that begins on December 29, 30, or 31 is considered the first week of the new year.
 * \(5) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
