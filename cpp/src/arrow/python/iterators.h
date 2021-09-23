@@ -137,7 +137,7 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
 
     return VisitSequenceGeneric(
         obj, offset, [&func, &boolmask](PyObject* value, int64_t i, bool* keep_going) {
-            return func(value, boolmask->Value(i), keep_going);
+          return func(value, boolmask->Value(i), keep_going);
         });
   } else {
     return Status::Invalid("Null mask must be a NumPy or Arrow array");
