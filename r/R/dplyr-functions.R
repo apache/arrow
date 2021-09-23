@@ -672,6 +672,48 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
+nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+  if (tz == "") {
+    tz <- Sys.timezone()
+  }
+  # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
+  # cast the timestamp to desired timezone. This is a metadata only change.
+  ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
+
+nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+  ISO8601_precision_map <-
+    list(y = "%Y",
+         ym = "%Y-%m",
+         ymd = "%Y-%m-%d",
+         ymdh = "%Y-%m-%dT%H",
+         ymdhm = "%Y-%m-%dT%H:%M",
+         ymdhms = "%Y-%m-%dT%H:%M:%S")
+
+  if (is.null(precision)) {
+    precision <- "ymdhms"
+  }
+  if (!precision %in% names(ISO8601_precision_map)) {
+    abort(
+      paste(
+        "`precision` must be one of the following values:",
+        paste(names(ISO8601_precision_map), collapse = ", "),
+        "\nValue supplied was: ",
+        precision
+      )
+    )
+  }
+  format <- ISO8601_precision_map[[precision]]
+  if (usetz) {
+    format <- paste0(format, "%z")
+  }
+  Expression$create("strftime", x, options = list(format = format, locale = "C"))
+}
+
 nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }

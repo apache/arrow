@@ -1577,7 +1577,7 @@ def test_strftime():
 
     formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
                "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
-               "%X", "%%", "%G", "%V", "%u", "%V"]
+               "%X", "%%", "%G", "%V", "%u"]
 
     for timezone in timezones:
         ts = pd.to_datetime(times).tz_localize(timezone)

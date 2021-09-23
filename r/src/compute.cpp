@@ -333,6 +333,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
         cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
   }
 
+  if (func_name == "strftime") {
+    using Options = arrow::compute::StrftimeOptions;
+    return std::make_shared<Options>(
+        Options(cpp11::as_cpp<std::string>(options["format"]),
+                cpp11::as_cpp<std::string>(options["locale"])));
+  }
+
   if (func_name == "assume_timezone") {
     using Options = arrow::compute::AssumeTimezoneOptions;
     enum Options::Ambiguous ambiguous;
