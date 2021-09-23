@@ -34,34 +34,6 @@ namespace gandiva {
 
 class LLVMGenerator;
 
-class ProjectorCacheKey {
- public:
-  ProjectorCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                    ExpressionVector expression_vector, SelectionVector::Mode mode);
-
-  std::size_t Hash() const { return hash_code_; }
-
-  bool operator==(const ProjectorCacheKey& other) const;
-
-  bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
-
-  SchemaPtr schema() const { return schema_; }
-
-  std::string ToString() const;
-
-  std::vector<std::string> GetExpressionsAsString() const;
-
- private:
-  void UpdateUniqifier(const std::string& expr);
-
-  const SchemaPtr schema_;
-  const std::shared_ptr<Configuration> configuration_;
-  SelectionVector::Mode mode_;
-  std::vector<std::string> expressions_as_strings_;
-  size_t hash_code_;
-  uint32_t uniqifier_;
-};
-
 /// \brief projection using expressions.
 ///
 /// A projector is built for a specific schema and vector of expressions.

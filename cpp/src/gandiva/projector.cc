@@ -24,92 +24,13 @@
 
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
-#include "gandiva/base_cache_key.h"
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
+#include "gandiva/expression_cache_key.h"
 #include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_generator.h"
 
 namespace gandiva {
-
-ProjectorCacheKey::ProjectorCacheKey(SchemaPtr schema,
-                                     std::shared_ptr<Configuration> configuration,
-                                     ExpressionVector expression_vector,
-                                     SelectionVector::Mode mode)
-    : schema_(schema), configuration_(configuration), mode_(mode), uniqifier_(0) {
-  static const int kSeedValue = 4;
-  size_t result = kSeedValue;
-  for (auto& expr : expression_vector) {
-    std::string expr_as_string = expr->ToString();
-    expressions_as_strings_.push_back(expr_as_string);
-    arrow::internal::hash_combine(result, expr_as_string);
-    UpdateUniqifier(expr_as_string);
-  }
-  arrow::internal::hash_combine(result, static_cast<size_t>(mode));
-  arrow::internal::hash_combine(result, configuration->Hash());
-  arrow::internal::hash_combine(result, schema_->ToString());
-  arrow::internal::hash_combine(result, uniqifier_);
-  hash_code_ = result;
-}
-
-bool ProjectorCacheKey::operator==(const ProjectorCacheKey& other) const {
-  // arrow schema does not overload equality operators.
-  if (!(schema_->Equals(*other.schema().get(), true))) {
-    return false;
-  }
-
-  if (*configuration_ != *other.configuration_) {
-    return false;
-  }
-
-  if (expressions_as_strings_ != other.expressions_as_strings_) {
-    return false;
-  }
-
-  if (mode_ != other.mode_) {
-    return false;
-  }
-
-  if (uniqifier_ != other.uniqifier_) {
-    return false;
-  }
-  return true;
-}
-
-std::string ProjectorCacheKey::ToString() const {
-  std::stringstream ss;
-  // indent, window, indent_size, null_rep and skip new lines.
-  arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-  DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
-
-  ss << "Expressions: [";
-  bool first = true;
-  for (auto& expr : expressions_as_strings_) {
-    if (first) {
-      first = false;
-    } else {
-      ss << ", ";
-    }
-
-    ss << expr;
-  }
-  ss << "]";
-  return ss.str();
-}
-
-std::vector<std::string> ProjectorCacheKey::GetExpressionsAsString() const {
-  return expressions_as_strings_;
-}
-
-void ProjectorCacheKey::UpdateUniqifier(const std::string& expr) {
-  if (uniqifier_ == 0) {
-    // caching of expressions with re2 patterns causes lock contention. So, use
-    // multiple instances to reduce contention.
-    if (expr.find(" like(") != std::string::npos) {
-      uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
-    }
-  }
-}
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                      const FieldVector& output_fields,
@@ -143,14 +64,15 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
       LLVMGenerator::GetCache();
 
-  ProjectorCacheKey projector_key(schema, configuration, exprs, selection_vector_mode);
-  BaseCacheKey cache_key(projector_key, "projector");
-  std::unique_ptr<BaseCacheKey> base_cache_key =
-      std::make_unique<BaseCacheKey>(cache_key);
-  std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
+//  ProjectorCacheKey projector_key(schema, configuration, exprs, selection_vector_mode);
+//  ExpressionCacheKey cache_key(projector_key, "projector");
+  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode, "projector");
+  std::unique_ptr<ExpressionCacheKey> base_cache_key =
+      std::make_unique<ExpressionCacheKey>(cache_key);
+  std::shared_ptr<ExpressionCacheKey> shared_base_cache_key = std::move(base_cache_key);
 
   bool llvm_flag = false;
 
@@ -164,7 +86,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     llvm_flag = true;
   }
 
-  GandivaObjectCache<BaseCacheKey> obj_cache(shared_cache, shared_base_cache_key);
+  GandivaObjectCache<ExpressionCacheKey> obj_cache(shared_cache, shared_base_cache_key);
 
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;

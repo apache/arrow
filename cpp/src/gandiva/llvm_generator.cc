@@ -51,11 +51,11 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   return Status::OK();
 }
 
-std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
 LLVMGenerator::GetCache() {
-  static std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+  static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
       shared_cache =
-          std::make_shared<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
+          std::make_shared<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
 
   return shared_cache;
 }
