@@ -21,7 +21,6 @@
 
 #include "gandiva/cache.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
-#include "llvm/IR/Module.h"
 
 namespace gandiva {
 /// Class that enables the LLVM to use a custom rule to deal with the object code.
