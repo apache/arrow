@@ -71,7 +71,13 @@ R_xlen_t Standard_Get_region<int>(SEXP data2, R_xlen_t i, R_xlen_t n, int* buf) 
 void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
 using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
+// base class for all altrep vectors
+//
+// The altrep vector stores the Array as an external pointer in data1
+// Implementation classes AltrepArrayPrimitive<> and AltrepArrayString
+// also use data2
 struct AltrepArrayBase {
+  // store the Array as an external pointer in data1, mark as immutable
   static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array) {
     SEXP alt_ =
         R_new_altrep(class_t, Pointer(new std::shared_ptr<Array>(array)), R_NilValue);
@@ -90,28 +96,36 @@ struct AltrepArrayBase {
   static int No_NA(SEXP alt_) { return array(alt_)->null_count() == 0; }
 
   static int Is_sorted(SEXP alt_) { return UNKNOWN_SORTEDNESS; }
+
+  // What gets printed on .Internal(inspect(<the altrep object>))
+  static Rboolean Inspect(SEXP alt_, int pre, int deep, int pvec,
+                          void (*inspect_subtree)(SEXP, int, int, int)) {
+    const auto& array_ = array(alt_);
+    Rprintf("arrow::Array<%s, %d nulls> len=%d, Array=<%p>\n",
+            array_->type()->ToString().c_str(), array_->null_count(), array_->length(),
+            array_.get());
+    inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
+    return TRUE;
+  }
 };
 
-// altrep R vector shadowing an Array.
+// altrep R vector shadowing an primitive (int or double) Array.
 //
 // This tries as much as possible to directly use the data
 // from the Array and minimize data copies.
 //
-// Both slots of the altrep object (data1 and data2) are used:
-//
-// data1: always used, stores an R external pointer to a
-//        shared pointer of the Array
-// data2: starts as NULL, and becomes a standard R vector with the same
-//        data if necessary (if materialization is needed)
+// data2 starts as NULL, and becomes a standard R vector with the same
+// data if necessary: if materialization is needed, e.g. if we need
+// to access its data pointer
 template <int sexp_type>
 struct AltrepArrayPrimitive : public AltrepArrayBase {
-  using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
-
   // singleton altrep class description
   static R_altrep_class_t class_t;
 
+  using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
+
   // Is the vector materialized, i.e. does the data2 slot contain a
-  // standard R vector with the same data as the array
+  // standard R vector with the same data as the array.
   static bool IsMaterialized(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
 
   // Force materialization. After calling this, the data2 slot of the altrep
@@ -144,51 +158,29 @@ struct AltrepArrayPrimitive : public AltrepArrayBase {
     return Rf_lazy_duplicate(Materialize(alt_));
   }
 
-  // What gets printed on .Internal(inspect(<the altrep object>))
-  static Rboolean Inspect(SEXP alt_, int pre, int deep, int pvec,
-                          void (*inspect_subtree)(SEXP, int, int, int)) {
-    const auto& array_ = array(alt_);
-    Rprintf("arrow::Array<%s, %d nulls, %s> len=%d, Array=<%p>\n",
-            array_->type()->ToString().c_str(), array_->null_count(),
-            IsMaterialized(alt_) ? "materialized" : "not materialized", array_->length(),
-            array_.get());
-    inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
-    if (IsMaterialized(alt_)) {
-      inspect_subtree(R_altrep_data2(alt_), pre, deep + 1, pvec);
-    }
-
-    return TRUE;
-  }
-
   // R calls this to get a pointer to the start of the vector data
   // but only if this is possible without allocating (in the R sense).
-  //
-  // For this implementation we can return the data in these cases
-  // - data2 has been created, and so the R sentinels are in place where the array has
-  // nulls
-  // - the Array has no nulls, we can directly return the start of its data
-  //
-  // Otherwise: if the array has nulls and data2 has not been generated: give up
   static const void* Dataptr_or_null(SEXP alt_) {
+    // data2 has been created, and so the R sentinels are in place where the array has
+    // nulls
     if (IsMaterialized(alt_)) {
       return DATAPTR_RO(R_altrep_data2(alt_));
     }
 
+    // the Array has no nulls, we can directly return the start of its data
     const auto& array_ = array(alt_);
     if (array_->null_count() == 0) {
       return reinterpret_cast<const void*>(array_->data()->template GetValues<c_type>(1));
     }
 
+    // Otherwise: if the array has nulls and data2 has not been generated: give up
     return NULL;
   }
 
   // R calls this to get a pointer to the start of the data, R allocations are allowed.
-  //
-  // If the object hasn't been materialized, and the array has no
-  // nulls we can directly point to the array data.
-  //
-  // Otherwise, the object is materialized DATAPTR(data2) is returned.
   static void* Dataptr(SEXP alt_, Rboolean writeable) {
+    // If the object hasn't been materialized, and the array has no
+    // nulls we can directly point to the array data.
     if (!IsMaterialized(alt_)) {
       const auto& array_ = array(alt_);
 
@@ -343,13 +335,18 @@ struct AltrepArrayPrimitive : public AltrepArrayBase {
 template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
 
+// Implementation for string arrays
 struct AltrepArrayString : public AltrepArrayBase {
   static R_altrep_class_t class_t;
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
     SEXP alt_ = AltrepArrayBase::Make(class_t, array);
+
     // using the @tag of the external pointer to count the
     // number of strings that have been expanded
+    //
+    // When this is equal to the length of the array,
+    // it means that the data2 is complete
     SEXP count = PROTECT(Rf_ScalarInteger(0));
     R_SetExternalPtrTag(R_altrep_data1(alt_), count);
     UNPROTECT(1);
@@ -357,21 +354,20 @@ struct AltrepArrayString : public AltrepArrayBase {
     return alt_;
   }
 
-  // initially data2 is set to NULL, it is expanded to a regular STRSXP vector when needed
-  static bool IsExpanded(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
-
   // true when all the strings have been expanded in data2
   static bool IsComplete(SEXP alt_) {
     return INTEGER_ELT(R_ExternalPtrTag(R_altrep_data1(alt_)), 0) == Length(alt_);
   }
 
+  // increment the complete count, that tracks the number of
+  // strings from the Array that have been expanded to R strings
   static void IncrementComplete(SEXP alt_) {
     SEXP count = R_ExternalPtrTag(R_altrep_data1(alt_));
     ++INTEGER(count)[0];
   }
 
-  static SEXP Expand(SEXP alt_) {
-    if (!IsExpanded(alt_)) {
+  static SEXP Initialize(SEXP alt_) {
+    if (Rf_isNull(R_altrep_data2(alt_))) {
       auto array_ = array(alt_);
       R_xlen_t n = array_->length();
       SEXP data2_ = PROTECT(Rf_allocVector(STRSXP, n));
@@ -386,22 +382,23 @@ struct AltrepArrayString : public AltrepArrayBase {
     return R_altrep_data2(alt_);
   }
 
+  // Get a single string, as a CHARSXP SEXP
+  // data2 is initialized, the CHARSXP is generated from the Array data
+  // and stored in data2, so that this only needs to expand a given string once
   static SEXP Elt(SEXP alt_, R_xlen_t i) {
-    // make sure data2 is initialized
-    Expand(alt_);
+    Initialize(alt_);
     SEXP data2_ = R_altrep_data2(alt_);
 
-    // data2[i] was already generated
+    // data2[i] was already generated - nothing to do
     SEXP s = STRING_ELT(data2_, i);
     if (s != NULL) {
       return s;
     }
 
-    // data2[i] is nul, materialize to NA_STRING
-    // and increment the completeness count
+    // data2[i] is nul, expand to NA_STRING
     if (array(alt_)->IsNull(i)) {
-      IncrementComplete(alt_);
       SET_STRING_ELT(data2_, i, NA_STRING);
+      IncrementComplete(alt_);
       return NA_STRING;
     }
 
@@ -452,7 +449,7 @@ struct AltrepArrayString : public AltrepArrayBase {
 
     BEGIN_CPP11
 
-    Expand(alt_);
+    Initialize(alt_);
     auto array_ = array(alt_);
     SEXP data2_ = R_altrep_data2(alt_);
     R_xlen_t n = XLENGTH(data2_);
@@ -513,30 +510,16 @@ struct AltrepArrayString : public AltrepArrayBase {
     return NULL;
   }
 
+  static SEXP Coerce(SEXP alt_, int type) {
+    return Rf_coerceVector(Complete(alt_), type);
+  }
+
   static SEXP Serialized_state(SEXP alt_) { return Complete(alt_); }
 
   static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 
   static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
     return Rf_lazy_duplicate(Complete(alt_));
-  }
-
-  static Rboolean Inspect(SEXP alt_, int pre, int deep, int pvec,
-                          void (*inspect_subtree)(SEXP, int, int, int)) {
-    const auto& array_ = array(alt_);
-    Rprintf("arrow::Array<%s, %d nulls> len=%d, Array=<%p>\n",
-            array_->type()->ToString().c_str(), array_->null_count(), array_->length(),
-            array_.get());
-    inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
-    if (IsComplete(alt_)) {
-      inspect_subtree(R_altrep_data2(alt_), pre, deep, pvec);
-    }
-
-    return TRUE;
-  }
-
-  static SEXP Coerce(SEXP alt_, int type) {
-    return Rf_coerceVector(Complete(alt_), type);
   }
 
   // static method so that this can error without concerns of
