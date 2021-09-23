@@ -99,48 +99,39 @@ class FlightSqlServerBase : public FlightServerBase {
       pb::sql::TicketStatementQuery command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetStatement(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandPreparedStatementQuery>()) {
+    } else if (anyCommand.Is<pb::sql::CommandPreparedStatementQuery>()) {
       pb::sql::CommandPreparedStatementQuery command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetPreparedStatement(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetCatalogs>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetCatalogs>()) {
       pb::sql::CommandGetCatalogs command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetCatalogs(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetSchemas>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetSchemas>()) {
       pb::sql::CommandGetSchemas command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetSchemas(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetTables>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetTables>()) {
       pb::sql::CommandGetTables command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetTables(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetTableTypes>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetTableTypes>()) {
       pb::sql::CommandGetTableTypes command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetTableTypes(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetSqlInfo>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetSqlInfo>()) {
       pb::sql::CommandGetSqlInfo command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetSqlInfo(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetPrimaryKeys>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetPrimaryKeys>()) {
       pb::sql::CommandGetPrimaryKeys command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetPrimaryKeys(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetExportedKeys>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetExportedKeys>()) {
       pb::sql::CommandGetExportedKeys command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetExportedKeys(command, context, stream));
-    }
-    if (anyCommand.Is<pb::sql::CommandGetImportedKeys>()) {
+    } else if (anyCommand.Is<pb::sql::CommandGetImportedKeys>()) {
       pb::sql::CommandGetImportedKeys command;
       anyCommand.UnpackTo(&command);
       ARROW_RETURN_NOT_OK(DoGetImportedKeys(command, context, stream));
