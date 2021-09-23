@@ -136,8 +136,6 @@ class GreedyDualSizeCache {
     priority_set_.clear();
   }
 
-  size_t GetCacheSize() { return cache_size_; }
-
  private:
   void evict() {
     // TODO: inflation overflow is unlikely to happen but needs to be handled
