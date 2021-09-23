@@ -25,9 +25,10 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
     # Is there some vctrs thing we should do on the roundtrip back to R?
     expect_as_vector(is.na(a), is.na(x))
   }
-  expect_as_vector(a, x, ignore_attr = TRUE)
+  roundtrip <- as.vector(a)
+  expect_equal(roundtrip, x, ignore_attr = TRUE)
   # Make sure the storage mode is the same on roundtrip (esp. integer vs. numeric)
-  expect_identical(typeof(as.vector(a)), typeof(x))
+  expect_identical(typeof(roundtrip), typeof(x))
 
   if (length(x)) {
     a_sliced <- a$Slice(1)
