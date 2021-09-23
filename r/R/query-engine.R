@@ -18,7 +18,7 @@
 do_exec_plan <- function(.data) {
   plan <- ExecPlan$create()
   final_node <- plan$Build(.data)
-  tab <- plan$Run(final_node)
+  tab <- plan$Run(final_node)$read_table()
 
   # If arrange() created $temp_columns, make sure to omit them from the result
   # We can't currently handle this in the ExecPlan itself because sorting
