@@ -268,6 +268,85 @@ struct AltrepArrayPrimitive {
     Materialize(alt_);
     return Rf_coerceVector(R_altrep_data2(alt_), type);
   }
+
+
+  static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
+      const std::shared_ptr<Array>& array, bool na_rm) {
+    auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
+      arrow::compute::ScalarAggregateOptions::Defaults());
+    options->min_count = 0;
+    options->skip_nulls = na_rm;
+    return options;
+  }
+
+  template <bool Min>
+  static SEXP MinMax(SEXP alt_, Rboolean narm) {
+    using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
+    using scalar_type =
+      typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
+
+    const auto& array_ = array(alt_);
+    bool na_rm = narm == TRUE;
+    auto n = array_->length();
+    auto null_count = array_->null_count();
+    if ((na_rm || n == 0) && null_count == n) {
+      return Rf_ScalarReal(Min ? R_PosInf : R_NegInf);
+    }
+    if (!na_rm && null_count > 0) {
+      return cpp11::as_sexp(cpp11::na<data_type>());
+    }
+
+    auto options = NaRmOptions(array_, na_rm);
+
+    const auto& minmax =
+      ValueOrStop(arrow::compute::CallFunction("min_max", {array_}, options.get()));
+    const auto& minmax_scalar =
+      internal::checked_cast<const StructScalar&>(*minmax.scalar());
+
+    const auto& result_scalar = internal::checked_cast<const scalar_type&>(
+      *ValueOrStop(minmax_scalar.field(Min ? "min" : "max")));
+    return cpp11::as_sexp(result_scalar.value);
+  }
+
+  static SEXP Min(SEXP alt_, Rboolean narm) {
+    return MinMax<true>(alt_, narm);
+  }
+
+  static SEXP Max(SEXP alt_, Rboolean narm) {
+    return MinMax<false>(alt_, narm);
+  }
+
+  static SEXP Sum(SEXP alt_, Rboolean narm) {
+    using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
+
+    const auto& array_ = array(alt_);
+    bool na_rm = narm == TRUE;
+    auto null_count = array_->null_count();
+
+    if (!na_rm && null_count > 0) {
+      return cpp11::as_sexp(cpp11::na<data_type>());
+    }
+    auto options = NaRmOptions(array_, na_rm);
+
+    const auto& sum =
+      ValueOrStop(arrow::compute::CallFunction("sum", {array_}, options.get()));
+
+    if (sexp_type == INTSXP) {
+      // When calling the "sum" function on an int32 array, we get an Int64 scalar
+      // in case of overflow, make it a double like R
+      int64_t value = internal::checked_cast<const Int64Scalar&>(*sum.scalar()).value;
+      if (value <= INT32_MIN || value > INT32_MAX) {
+        return Rf_ScalarReal(static_cast<double>(value));
+      } else {
+        return Rf_ScalarInteger(static_cast<int>(value));
+      }
+    } else {
+      return Rf_ScalarReal(
+        internal::checked_cast<const DoubleScalar&>(*sum.scalar()).value);
+    }
+  }
+
+
 };
 template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
@@ -528,85 +607,6 @@ struct AltrepArrayString {
 
 R_altrep_class_t AltrepArrayString::class_t;
 
-static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
-    const std::shared_ptr<Array>& array, bool na_rm) {
-  auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
-      arrow::compute::ScalarAggregateOptions::Defaults());
-  options->min_count = 0;
-  options->skip_nulls = na_rm;
-  return options;
-}
-
-template <int sexp_type, bool Min>
-SEXP MinMax(SEXP alt_, Rboolean narm) {
-  using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
-  using scalar_type =
-      typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
-
-  const auto& array = AltrepArrayPrimitive<sexp_type>::array(alt_);
-  bool na_rm = narm == TRUE;
-  auto n = array->length();
-  auto null_count = array->null_count();
-  if ((na_rm || n == 0) && null_count == n) {
-    return Rf_ScalarReal(Min ? R_PosInf : R_NegInf);
-  }
-  if (!na_rm && null_count > 0) {
-    return cpp11::as_sexp(cpp11::na<data_type>());
-  }
-
-  auto options = NaRmOptions(array, na_rm);
-
-  const auto& minmax =
-      ValueOrStop(arrow::compute::CallFunction("min_max", {array}, options.get()));
-  const auto& minmax_scalar =
-      internal::checked_cast<const StructScalar&>(*minmax.scalar());
-
-  const auto& result_scalar = internal::checked_cast<const scalar_type&>(
-      *ValueOrStop(minmax_scalar.field(Min ? "min" : "max")));
-  return cpp11::as_sexp(result_scalar.value);
-}
-
-template <int sexp_type>
-SEXP Min(SEXP alt_, Rboolean narm) {
-  return MinMax<sexp_type, true>(alt_, narm);
-}
-
-template <int sexp_type>
-SEXP Max(SEXP alt_, Rboolean narm) {
-  return MinMax<sexp_type, false>(alt_, narm);
-}
-
-template <int sexp_type>
-static SEXP Sum(SEXP alt_, Rboolean narm) {
-  using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
-
-  const auto& array = AltrepArrayPrimitive<sexp_type>::array(alt_);
-  bool na_rm = narm == TRUE;
-  auto null_count = array->null_count();
-
-  if (!na_rm && null_count > 0) {
-    return cpp11::as_sexp(cpp11::na<data_type>());
-  }
-  auto options = NaRmOptions(array, na_rm);
-
-  const auto& sum =
-      ValueOrStop(arrow::compute::CallFunction("sum", {array}, options.get()));
-
-  if (sexp_type == INTSXP) {
-    // When calling the "sum" function on an int32 array, we get an Int64 scalar
-    // in case of overflow, make it a double like R
-    int64_t value = internal::checked_cast<const Int64Scalar&>(*sum.scalar()).value;
-    if (value <= INT32_MIN || value > INT32_MAX) {
-      return Rf_ScalarReal(static_cast<double>(value));
-    } else {
-      return Rf_ScalarInteger(static_cast<int>(value));
-    }
-  } else {
-    return Rf_ScalarReal(
-        internal::checked_cast<const DoubleScalar&>(*sum.scalar()).value);
-  }
-}
-
 // initialize altrep, altvec, altreal, and altinteger methods
 template <typename AltrepClass>
 void InitAltrepMethods(R_altrep_class_t class_t, DllInfo* dll) {
@@ -629,9 +629,9 @@ void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
   R_set_altreal_No_NA_method(class_t, AltrepClass::No_NA);
   R_set_altreal_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
-  R_set_altreal_Sum_method(class_t, Sum<REALSXP>);
-  R_set_altreal_Min_method(class_t, Min<REALSXP>);
-  R_set_altreal_Max_method(class_t, Max<REALSXP>);
+  R_set_altreal_Sum_method(class_t, AltrepClass::Sum);
+  R_set_altreal_Min_method(class_t, AltrepClass::Min);
+  R_set_altreal_Max_method(class_t, AltrepClass::Max);
 
   R_set_altreal_Elt_method(class_t, AltrepClass::Elt);
   R_set_altreal_Get_region_method(class_t, AltrepClass::Get_region);
@@ -642,9 +642,9 @@ void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
   R_set_altinteger_No_NA_method(class_t, AltrepClass::No_NA);
   R_set_altinteger_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
-  R_set_altinteger_Sum_method(class_t, Sum<INTSXP>);
-  R_set_altinteger_Min_method(class_t, Min<INTSXP>);
-  R_set_altinteger_Max_method(class_t, Max<INTSXP>);
+  R_set_altinteger_Sum_method(class_t, AltrepClass::Sum);
+  R_set_altinteger_Min_method(class_t, AltrepClass::Min);
+  R_set_altinteger_Max_method(class_t, AltrepClass::Max);
 
   R_set_altinteger_Elt_method(class_t, AltrepClass::Elt);
   R_set_altinteger_Get_region_method(class_t, AltrepClass::Get_region);
