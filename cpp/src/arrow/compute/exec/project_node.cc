@@ -91,12 +91,25 @@ class ProjectNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
-
-    auto maybe_projected = DoProject(std::move(batch));
-    if (ErrorIfNotOk(maybe_projected.status())) return;
-
-    maybe_projected->guarantee = batch.guarantee;
-    outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
+    if (finished_.is_finished()) {
+      return;
+    }
+    auto task = [this, batch]() {
+      auto maybe_projected = DoProject(std::move(batch));
+      if (ErrorIfNotOk(maybe_projected.status())) return Status::OK();
+      maybe_projected->guarantee = batch.guarantee;
+      outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
+      return Status::OK();
+    };
+    if (this->has_executor()) {
+      DCHECK_OK(this->SubmitTask(task));
+    } else {
+      DCHECK_OK(task());
+    }
+    if (batch_count_.Increment()) {
+      task_group_.WaitForTasksToFinish().AddCallback(
+          [this](const Status& status) { this->finished_.MarkFinished(status); });
+    }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -107,6 +120,10 @@ class ProjectNode : public ExecNode {
   void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->InputFinished(this, total_batches);
+    if (batch_count_.SetTotal(total_batches)) {
+      task_group_.WaitForTasksToFinish().AddCallback(
+          [this](const Status& status) { this->finished_.MarkFinished(status); });
+    }
   }
 
   Status StartProducing() override { return Status::OK(); }
@@ -120,9 +137,15 @@ class ProjectNode : public ExecNode {
     StopProducing();
   }
 
-  void StopProducing() override { inputs_[0]->StopProducing(this); }
+  void StopProducing() override {
+    if (batch_count_.Cancel()) {
+      task_group_.WaitForTasksToFinish().AddCallback(
+          [this](const Status& status) { this->finished_.MarkFinished(status); });
+    }
+    inputs_[0]->StopProducing(this);
+  }
 
-  Future<> finished() override { return inputs_[0]->finished(); }
+  Future<> finished() override { return finished_; }
 
  protected:
   std::string ToStringExtra() const override {
