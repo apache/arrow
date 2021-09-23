@@ -664,7 +664,8 @@ void Init_Altrep_classes(DllInfo* dll) {
   InitAltIntegerClass<AltrepVectorPrimitive<INTSXP>>(dll, "arrow::array_int_vector");
 
   InitAltStringClass<AltrepVectorString<StringType>>(dll, "arrow::array_string_vector");
-  InitAltStringClass<AltrepVectorString<LargeStringType>>(dll, "arrow::array_large_string_vector");
+  InitAltStringClass<AltrepVectorString<LargeStringType>>(
+      dll, "arrow::array_large_string_vector");
 }
 
 // return an altrep R vector that shadows the array if possible
