@@ -97,15 +97,17 @@ test_that("empty vectors are not altrep", {
 test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   withr::local_options(list(arrow.use_altrep = TRUE))
 
-  table <- Table$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3))
+  table <- Table$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3), str = c("un", "deux", "trois"))
   df_table <- as.data.frame(table)
   expect_true(is_altrep(df_table$int))
   expect_true(is_altrep(df_table$dbl))
+  expect_true(is_altrep(df_table$str))
 
-  batch <- RecordBatch$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3))
+  batch <- RecordBatch$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3), str = c("un", "deux", "trois"))
   df_batch <- as.data.frame(batch)
   expect_true(is_altrep(df_batch$int))
   expect_true(is_altrep(df_batch$dbl))
+  expect_true(is_altrep(df_batch$str))
 })
 
 expect_altrep_rountrip <- function(x, fn, ...) {
@@ -198,6 +200,7 @@ test_that("altrep vectors handle serialization", {
   expect_identical(ints, unserialize(serialize(Array$create(ints)$as_vector(), NULL)))
   expect_identical(dbls, unserialize(serialize(Array$create(dbls)$as_vector(), NULL)))
   expect_identical(strs, unserialize(serialize(Array$create(strs)$as_vector(), NULL)))
+  expect_identical(strs, unserialize(serialize(Array$create(strs, large_utf8())$as_vector(), NULL)))
 })
 
 test_that("altrep vectors handle coercion", {

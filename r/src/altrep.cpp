@@ -340,8 +340,10 @@ template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
 
 // Implementation for string arrays
+template <typename Type>
 struct AltrepArrayString : public AltrepArrayBase {
   static R_altrep_class_t class_t;
+  using StringArrayType = typename TypeTraits<Type>::ArrayType;
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
     SEXP alt_ = AltrepArrayBase::Make(class_t, array);
@@ -417,7 +419,7 @@ struct AltrepArrayString : public AltrepArrayBase {
     // before it resumes the unwinding - and perhaps let
     // the R error pass through
     auto array_ = array(alt_);
-    auto view = static_cast<StringArray*>(array_.get())->GetView(i);
+    auto view = internal::checked_cast<StringArrayType*>(array_.get())->GetView(i);
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
     bool nul_was_stripped = false;
     std::string stripped_string;
@@ -461,7 +463,7 @@ struct AltrepArrayString : public AltrepArrayBase {
     std::string stripped_string;
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
     bool nul_was_stripped = false;
-    auto* string_array = static_cast<StringArray*>(array_.get());
+    auto* string_array = internal::checked_cast<StringArrayType*>(array_.get());
     util::string_view view;
 
     // keeping track of how many strings have been materialized
@@ -574,7 +576,8 @@ struct AltrepArrayString : public AltrepArrayBase {
   }
 };
 
-R_altrep_class_t AltrepArrayString::class_t;
+template <typename Type>
+R_altrep_class_t AltrepArrayString<Type>::class_t;
 
 // initialize altrep, altvec, altreal, and altinteger methods
 template <typename AltrepClass>
@@ -660,7 +663,8 @@ void Init_Altrep_classes(DllInfo* dll) {
   InitAltRealClass<AltrepArrayPrimitive<REALSXP>>(dll, "arrow::array_dbl_vector");
   InitAltIntegerClass<AltrepArrayPrimitive<INTSXP>>(dll, "arrow::array_int_vector");
 
-  InitAltStringClass<AltrepArrayString>(dll, "arrow::array_string_vector");
+  InitAltStringClass<AltrepArrayString<StringType>>(dll, "arrow::array_string_vector");
+  InitAltStringClass<AltrepArrayString<LargeStringType>>(dll, "arrow::array_large_string_vector");
 }
 
 // return an altrep R vector that shadows the array if possible
@@ -673,7 +677,10 @@ SEXP MakeAltrepVector(const std::shared_ptr<Array>& array) {
       return altrep::AltrepArrayPrimitive<INTSXP>::Make(array);
 
     case arrow::Type::STRING:
-      return altrep::AltrepArrayString::Make(array);
+      return altrep::AltrepArrayString<StringType>::Make(array);
+
+    case arrow::Type::LARGE_STRING:
+      return altrep::AltrepArrayString<LargeStringType>::Make(array);
 
     default:
       break;
