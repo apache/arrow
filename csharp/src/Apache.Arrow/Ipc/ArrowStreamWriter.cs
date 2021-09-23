@@ -540,11 +540,20 @@ namespace Apache.Arrow.Ipc
 
         private protected virtual void WriteStartInternal()
         {
+            if (!HasWrittenSchema)
+            {
+                WriteSchema(Schema);
+                HasWrittenSchema = true;
+            }
         }
 
-        private protected virtual ValueTask WriteStartInternalAsync(CancellationToken cancellationToken)
+        private protected async virtual ValueTask WriteStartInternalAsync(CancellationToken cancellationToken)
         {
-            return default;
+            if (!HasWrittenSchema)
+            {
+                await WriteSchemaAsync(Schema, cancellationToken).ConfigureAwait(false);
+                HasWrittenSchema = true;
+            }
         }
 
         private protected virtual void WriteEndInternal()

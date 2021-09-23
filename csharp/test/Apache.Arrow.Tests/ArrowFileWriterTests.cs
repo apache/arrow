@@ -152,8 +152,8 @@ namespace Apache.Arrow.Tests
             var stream = new MemoryStream();
             var writer = new ArrowFileWriter(stream, originalBatch.Schema);
 
-            writer.WriteStart();
-            writer.WriteEnd();
+            await writer.WriteStartAsync();
+            await writer.WriteEndAsync();
 
             stream.Position = 0;
 
