@@ -259,8 +259,8 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
 
 namespace detail {
 
-inline void ResetBufferdValues_(const uint8_t* buffer, const int& byte_offset,
-                                const int& bytes_remaining, uint64_t* buffered_values) {
+inline void ResetBufferedValues_(const uint8_t* buffer, const int& byte_offset,
+                                 const int& bytes_remaining, uint64_t* buffered_values) {
   if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
     memcpy(buffered_values, buffer + byte_offset, 8);
   } else {
@@ -286,7 +286,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
     *byte_offset += 8;
     *bit_offset -= 64;
 
-    ResetBufferdValues_(buffer, *byte_offset, max_bytes - *byte_offset, buffered_values);
+    ResetBufferedValues_(buffer, *byte_offset, max_bytes - *byte_offset, buffered_values);
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4800 4805)
@@ -382,8 +382,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     }
   }
 
-  detail::ResetBufferdValues_(buffer, byte_offset, max_bytes - byte_offset,
-                              &buffered_values);
+  detail::ResetBufferedValues_(buffer, byte_offset, max_bytes - byte_offset,
+                               &buffered_values);
 
   for (; i < batch_size; ++i) {
     detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
@@ -415,8 +415,8 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   byte_offset_ += num_bytes;
 
   bit_offset_ = 0;
-  detail::ResetBufferdValues_(buffer_, byte_offset_, max_bytes_ - byte_offset_,
-                              &buffered_values_);
+  detail::ResetBufferedValues_(buffer_, byte_offset_, max_bytes_ - byte_offset_,
+                               &buffered_values_);
   return true;
 }
 
@@ -428,8 +428,8 @@ inline bool BitReader::Advance(int64_t num_bits) {
   }
   byte_offset_ += static_cast<int>(bits_required >> 3);
   bit_offset_ = static_cast<int>(bits_required & 7);
-  detail::ResetBufferdValues_(buffer_, byte_offset_, max_bytes_ - byte_offset_,
-                              &buffered_values_);
+  detail::ResetBufferedValues_(buffer_, byte_offset_, max_bytes_ - byte_offset_,
+                               &buffered_values_);
   return true;
 }
 

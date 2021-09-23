@@ -2254,34 +2254,14 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
     if (len == 0) return;
-
     decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
-    len_decoder_.SetDecoder(num_values, decoder_);
-
-    int num_length = len_decoder_.ValidValuesCount();
-    PARQUET_THROW_NOT_OK(buffered_length_->Resize(num_length * sizeof(int32_t)));
-
-    int ret = len_decoder_.Decode(
-        reinterpret_cast<int32_t*>(buffered_length_->mutable_data()), num_length);
-    DCHECK_EQ(ret, num_length);
-    length_idx_ = 0;
-    num_valid_values_ = num_length;
+    DecodeLengths();
   }
 
   void SetDecoder(int num_values, std::shared_ptr<::arrow::BitUtil::BitReader> decoder) {
     num_values_ = num_values;
     decoder_ = decoder;
-
-    len_decoder_.SetDecoder(num_values, decoder_);
-
-    int num_length = len_decoder_.ValidValuesCount();
-    PARQUET_THROW_NOT_OK(buffered_length_->Resize(num_length * sizeof(int32_t)));
-
-    int ret = len_decoder_.Decode(
-        reinterpret_cast<int32_t*>(buffered_length_->mutable_data()), num_length);
-    DCHECK_EQ(ret, num_length);
-    length_idx_ = 0;
-    num_valid_values_ = num_length;
+    DecodeLengths();
   }
 
   int Decode(ByteArray* buffer, int max_values) override {
@@ -2326,6 +2306,24 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   }
 
  private:
+  // Decode all the encoded lengths. The decoder_ will be at the start of the encoded data
+  // after that.
+  void DecodeLengths() {
+    len_decoder_.SetDecoder(num_values_, decoder_);
+
+    // get the number of encoded lengths
+    int num_length = len_decoder_.ValidValuesCount();
+    PARQUET_THROW_NOT_OK(buffered_length_->Resize(num_length * sizeof(int32_t)));
+
+    // call len_decoder_.Decode to decode all the lengths.
+    // all the lengths are buffered in buffered_length_.
+    int ret = len_decoder_.Decode(
+        reinterpret_cast<int32_t*>(buffered_length_->mutable_data()), num_length);
+    DCHECK_EQ(ret, num_length);
+    length_idx_ = 0;
+    num_valid_values_ = num_length;
+  }
+
   std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
   int num_valid_values_;
