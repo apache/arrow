@@ -56,9 +56,8 @@ class GANDIVA_EXPORT Engine {
 
   /// Set BaseObjectCache.
   template <class KeyType>
-  Status SetLLVMObjectCache(GandivaObjectCache<KeyType>& object_cache) {
+  void SetLLVMObjectCache(GandivaObjectCache<KeyType>& object_cache) {
     execution_engine_->setObjectCache(&object_cache);
-    return Status::OK();
   }
 
   /// Optimise and compile the module.

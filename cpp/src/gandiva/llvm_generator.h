@@ -66,7 +66,7 @@ class GANDIVA_EXPORT LLVMGenerator {
       ARROW_RETURN_NOT_OK(Add(expr, output));
     }
 
-    ARROW_RETURN_NOT_OK(engine_->SetLLVMObjectCache(obj_cache));
+    engine_->SetLLVMObjectCache(obj_cache);
 
     // Compile and inject into the process' memory the generated function.
     ARROW_RETURN_NOT_OK(engine_->FinalizeModule());
