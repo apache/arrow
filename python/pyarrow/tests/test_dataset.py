@@ -21,6 +21,7 @@ import posixpath
 import pathlib
 import pickle
 import textwrap
+import tempfile
 
 import numpy as np
 import pytest
@@ -3248,6 +3249,76 @@ def test_write_dataset_partitioned(tempdir):
     _check_dataset_roundtrip(
         dataset, str(target), expected_paths, target,
         partitioning=partitioning_schema)
+
+
+def test_write_dataset_with_field_names(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"])
+
+    load_back = ds.dataset(tempdir, partitioning=["b"])
+    files = load_back.files
+    partitioning_dirs = {
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in files
+    }
+    assert partitioning_dirs == {"x", "y", "z"}
+
+    load_back_table = load_back.to_table()
+    assert load_back_table.equals(table)
+
+
+def test_write_dataset_with_field_names_hive(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"], partitioning_flavor="hive")
+
+    load_back = ds.dataset(tempdir, partitioning="hive")
+    files = load_back.files
+    partitioning_dirs = {
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in files
+    }
+    assert partitioning_dirs == {"b=x", "b=y", "b=z"}
+
+    load_back_table = load_back.to_table()
+    assert load_back_table.equals(table)
+
+
+def test_write_dataset_with_scanner(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z'],
+                      'c': [1, 2, 3]})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"])
+
+    dataset = ds.dataset(tempdir, partitioning=["b"])
+
+    with tempfile.TemporaryDirectory() as tempdir2:
+        ds.write_dataset(dataset.scanner(columns=["b", "c"]), tempdir2,
+                         format='parquet', partitioning=["b"])
+
+        load_back = ds.dataset(tempdir2, partitioning=["b"])
+        load_back_table = load_back.to_table()
+        assert dict(load_back_table.to_pydict()
+                    ) == table.drop(["a"]).to_pydict()
+
+
+def test_write_dataset_with_dataset(tempdir):
+    table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"])
+
+    dataset = ds.dataset(tempdir, partitioning=["b"])
+
+    with tempfile.TemporaryDirectory() as tempdir2:
+        ds.write_dataset(dataset, tempdir2,
+                         format='parquet', partitioning=["b"])
+
+        load_back = ds.dataset(tempdir2, partitioning=["b"])
+        load_back_table = load_back.to_table()
+        assert dict(load_back_table.to_pydict()) == table.to_pydict()
 
 
 @pytest.mark.parquet

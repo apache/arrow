@@ -85,18 +85,23 @@ static auto kScalarAggregateOptionsType = GetFunctionOptionsType<ScalarAggregate
     DataMember("min_count", &ScalarAggregateOptions::min_count));
 static auto kCountOptionsType =
     GetFunctionOptionsType<CountOptions>(DataMember("mode", &CountOptions::mode));
-static auto kModeOptionsType =
-    GetFunctionOptionsType<ModeOptions>(DataMember("n", &ModeOptions::n));
+static auto kModeOptionsType = GetFunctionOptionsType<ModeOptions>(
+    DataMember("n", &ModeOptions::n), DataMember("skip_nulls", &ModeOptions::skip_nulls),
+    DataMember("min_count", &ModeOptions::min_count));
 static auto kVarianceOptionsType = GetFunctionOptionsType<VarianceOptions>(
     DataMember("ddof", &VarianceOptions::ddof),
     DataMember("skip_nulls", &VarianceOptions::skip_nulls),
     DataMember("min_count", &VarianceOptions::min_count));
 static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
     DataMember("q", &QuantileOptions::q),
-    DataMember("interpolation", &QuantileOptions::interpolation));
+    DataMember("interpolation", &QuantileOptions::interpolation),
+    DataMember("skip_nulls", &QuantileOptions::skip_nulls),
+    DataMember("min_count", &QuantileOptions::min_count));
 static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
     DataMember("q", &TDigestOptions::q), DataMember("delta", &TDigestOptions::delta),
-    DataMember("buffer_size", &TDigestOptions::buffer_size));
+    DataMember("buffer_size", &TDigestOptions::buffer_size),
+    DataMember("skip_nulls", &TDigestOptions::skip_nulls),
+    DataMember("min_count", &TDigestOptions::min_count));
 static auto kIndexOptionsType =
     GetFunctionOptionsType<IndexOptions>(DataMember("value", &IndexOptions::value));
 }  // namespace
@@ -112,7 +117,11 @@ CountOptions::CountOptions(CountMode mode)
     : FunctionOptions(internal::kCountOptionsType), mode(mode) {}
 constexpr char CountOptions::kTypeName[];
 
-ModeOptions::ModeOptions(int64_t n) : FunctionOptions(internal::kModeOptionsType), n(n) {}
+ModeOptions::ModeOptions(int64_t n, bool skip_nulls, uint32_t min_count)
+    : FunctionOptions(internal::kModeOptionsType),
+      n{n},
+      skip_nulls{skip_nulls},
+      min_count{min_count} {}
 constexpr char ModeOptions::kTypeName[];
 
 VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count)
@@ -122,27 +131,38 @@ VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count)
       min_count(min_count) {}
 constexpr char VarianceOptions::kTypeName[];
 
-QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation)
+QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation,
+                                 bool skip_nulls, uint32_t min_count)
     : FunctionOptions(internal::kQuantileOptionsType),
       q{q},
-      interpolation{interpolation} {}
-QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation interpolation)
+      interpolation{interpolation},
+      skip_nulls{skip_nulls},
+      min_count{min_count} {}
+QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation interpolation,
+                                 bool skip_nulls, uint32_t min_count)
     : FunctionOptions(internal::kQuantileOptionsType),
       q{std::move(q)},
-      interpolation{interpolation} {}
+      interpolation{interpolation},
+      skip_nulls{skip_nulls},
+      min_count{min_count} {}
 constexpr char QuantileOptions::kTypeName[];
 
-TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size)
+TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size,
+                               bool skip_nulls, uint32_t min_count)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{q},
       delta{delta},
-      buffer_size{buffer_size} {}
+      buffer_size{buffer_size},
+      skip_nulls{skip_nulls},
+      min_count{min_count} {}
 TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
-                               uint32_t buffer_size)
+                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{std::move(q)},
       delta{delta},
-      buffer_size{buffer_size} {}
+      buffer_size{buffer_size},
+      skip_nulls{skip_nulls},
+      min_count{min_count} {}
 constexpr char TDigestOptions::kTypeName[];
 
 IndexOptions::IndexOptions(std::shared_ptr<Scalar> value)

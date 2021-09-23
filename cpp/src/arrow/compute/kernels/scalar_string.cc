@@ -73,10 +73,7 @@ Status RegexStatus(const RE2& regex) {
 
 // IsAlpha/Digit etc
 
-template <typename T>
-static inline bool IsAsciiCharacter(T character) {
-  return character < 128;
-}
+static inline bool IsAsciiCharacter(uint8_t character) { return character < 128; }
 
 static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
   return (ascii_character >= 'a') && (ascii_character <= 'z');
@@ -293,6 +290,7 @@ void EnsureLookupTablesFilled() {}
 constexpr int64_t kTransformError = -1;
 
 struct StringTransformBase {
+  virtual ~StringTransformBase() = default;
   virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Status::OK();
   }
@@ -1746,8 +1744,7 @@ struct IsNumericUnicode : CharacterPredicateUnicode<IsNumericUnicode> {
 struct IsAscii {
   static bool Call(KernelContext*, const uint8_t* input,
                    size_t input_string_nascii_characters, Status*) {
-    return std::all_of(input, input + input_string_nascii_characters,
-                       IsAsciiCharacter<uint8_t>);
+    return std::all_of(input, input + input_string_nascii_characters, IsAsciiCharacter);
   }
 };
 
@@ -1908,6 +1905,7 @@ struct IsUpperAscii : CharacterPredicateAscii<IsUpperAscii> {
 
 template <typename Options>
 struct SplitFinderBase {
+  virtual ~SplitFinderBase() = default;
   virtual Status PreExec(const Options& options) { return Status::OK(); }
 
   // Derived classes should also define these methods:

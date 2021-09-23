@@ -30,7 +30,7 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     # Nothing to do
     return(.data)
   }
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
   # find and remove any dplyr::desc() and tidy-eval
   # the arrange expressions inside an Arrow data_mask
   sorts <- vector("list", length(exprs))

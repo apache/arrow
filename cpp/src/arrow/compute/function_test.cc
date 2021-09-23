@@ -15,17 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/function.h"
+
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
@@ -57,6 +58,12 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new IndexOptions(ScalarFromJSON(boolean(), "null")));
   options.emplace_back(new ArithmeticOptions());
   options.emplace_back(new ArithmeticOptions(/*check_overflow=*/true));
+  options.emplace_back(new RoundOptions());
+  options.emplace_back(
+      new RoundOptions(/*ndigits=*/2, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
+  options.emplace_back(new RoundToMultipleOptions());
+  options.emplace_back(new RoundToMultipleOptions(
+      /*multiple=*/100, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
   options.emplace_back(new ElementWiseAggregateOptions());
   options.emplace_back(new ElementWiseAggregateOptions(/*skip_nulls=*/false));
   options.emplace_back(new JoinOptions());
@@ -80,6 +87,11 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::NANO));
   options.emplace_back(new StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C"));
+#ifndef _WIN32
+  options.emplace_back(new AssumeTimezoneOptions(
+      "Europe/Amsterdam", AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE,
+      AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE));
+#endif
   options.emplace_back(new PadOptions(5, " "));
   options.emplace_back(new PadOptions(10, "A"));
   options.emplace_back(new TrimOptions(" "));
@@ -110,6 +122,8 @@ TEST(FunctionOptions, Equality) {
       {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
+  options.emplace_back(new SelectKOptions(0, {}));
+  options.emplace_back(new SelectKOptions(5, {{SortKey("key", SortOrder::Ascending)}}));
 
   for (size_t i = 0; i < options.size(); i++) {
     const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;

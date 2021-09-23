@@ -1,4 +1,5 @@
 *_generated*
+*.grpc.fb.*
 *parquet_constants.*
 *parquet_types.*
 *windows_compatibility.h

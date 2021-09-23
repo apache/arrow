@@ -37,9 +37,9 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
  public:
   /// Configure the action taken when a slot of the selection mask is null
   enum NullSelectionBehavior {
-    /// the corresponding filtered value will be removed in the output
+    /// The corresponding filtered value will be removed in the output.
     DROP,
-    /// the corresponding filtered value will be null in the output
+    /// The corresponding filtered value will be null in the output.
     EMIT_NULL,
   };
 
@@ -66,9 +66,9 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
  public:
   /// Configure how null values will be encoded
   enum NullEncodingBehavior {
-    /// the null value will be added to the dictionary with a proper index
+    /// The null value will be added to the dictionary with a proper index.
     ENCODE,
-    /// the null value will be masked in the indices array
+    /// The null value will be masked in the indices array.
     MASK
   };
 
@@ -80,7 +80,9 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
 };
 
 enum class SortOrder {
+  /// Arrange values in increasing order
   Ascending,
+  /// Arrange values in decreasing order
   Descending,
 };
 
@@ -106,8 +108,9 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending);
   constexpr static char const kTypeName[] = "ArraySortOptions";
-  static ArraySortOptions Defaults() { return ArraySortOptions{}; }
+  static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
+  /// Sorting order
   SortOrder order;
 };
 
@@ -115,8 +118,44 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {});
   constexpr static char const kTypeName[] = "SortOptions";
-  static SortOptions Defaults() { return SortOptions{}; }
+  static SortOptions Defaults() { return SortOptions(); }
 
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+};
+
+/// \brief SelectK options
+class ARROW_EXPORT SelectKOptions : public FunctionOptions {
+ public:
+  explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
+  constexpr static char const kTypeName[] = "SelectKOptions";
+  static SelectKOptions Defaults() { return SelectKOptions(); }
+
+  static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names) {
+      keys.emplace_back(SortKey(name, SortOrder::Descending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Descending));
+    }
+    return SelectKOptions{k, keys};
+  }
+  static SelectKOptions BottomKDefault(int64_t k,
+                                       std::vector<std::string> key_names = {}) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names) {
+      keys.emplace_back(SortKey(name, SortOrder::Ascending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Ascending));
+    }
+    return SelectKOptions{k, keys};
+  }
+
+  /// The number of `k` elements to keep.
+  int64_t k;
+  /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
 };
 
@@ -251,6 +290,24 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = 
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
+
+/// \brief Returns the indices that would select the first `k` elements of the array in
+/// the specified order.
+///
+// Perform an indirect sort of the datum, keeping only the first `k` elements. The output
+// array will contain indices such that the item indicated by the k-th index will be in
+// the position it would be if the datum were sorted by `options.sort_keys`. However,
+// indices of null values will not be part of the output. The sort is not guaranteed to be
+// stable.
+///
+/// \param[in] datum datum to be partitioned
+/// \param[in] options options
+/// \param[in] ctx the function execution context, optional
+/// \return a datum with the same schema as the input
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
+                                               const SelectKOptions& options,
+                                               ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array in the
 /// specified order.

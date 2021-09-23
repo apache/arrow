@@ -125,6 +125,9 @@ Expression <- R6Class("Expression",
   inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
+    Equals = function(other, ...) {
+      inherits(other, "Expression") && compute___expr__equals(self, other)
+    },
     # TODO: Implement type determination without storing
     # schemas in Expression objects (ARROW-13186)
     schema = NULL,

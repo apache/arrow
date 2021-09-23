@@ -624,6 +624,187 @@ TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
               ArrayFromJSON(type, R"([null, null, null, [6, null]])"));
 }
 
+template <typename Type>
+class TestCaseWhenDict : public ::testing::Test {};
+
+struct JsonDict {
+  std::shared_ptr<DataType> type;
+  std::string value;
+};
+
+TYPED_TEST_SUITE(TestCaseWhenDict, IntegralArrowTypes);
+
+TYPED_TEST(TestCaseWhenDict, Simple) {
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  for (const auto& dict :
+       {JsonDict{utf8(), R"(["a", null, "bc", "def"])"},
+        JsonDict{int64(), "[1, null, 2, 3]"},
+        JsonDict{decimal256(3, 2), R"(["1.23", null, "3.45", "6.78"])"}}) {
+    auto type = dictionary(default_type_instance<TypeParam>(), dict.type);
+    auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict.value);
+    auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict.value);
+    auto values2 = DictArrayFromJSON(type, "[2, 1, null, 0]", dict.value);
+
+    // Easy case: all arguments have the same dictionary
+    CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
+    CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1});
+    CheckDictionary("case_when",
+                    {MakeStruct({cond1, cond2}), values_null, values2, values1});
+  }
+}
+
+TYPED_TEST(TestCaseWhenDict, Mixed) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
+  auto values1_dict = DictArrayFromJSON(type, "[0, null, 3, 1]", dict);
+  auto values1_decoded = ArrayFromJSON(utf8(), R"(["a", null, "def", null])");
+  auto values2_dict = DictArrayFromJSON(type, "[2, 1, null, 0]", dict);
+  auto values2_decoded = ArrayFromJSON(utf8(), R"(["bc", null, null, "a"])");
+
+  // If we have mixed dictionary/non-dictionary arguments, we decode dictionaries
+  CheckDictionary("case_when",
+                  {MakeStruct({cond1, cond2}), values1_dict, values2_decoded},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when",
+                  {MakeStruct({cond1, cond2}), values1_decoded, values2_dict},
+                  /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1_dict, values2_dict, values1_decoded},
+      /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values_null, values2_dict, values1_decoded},
+      /*result_is_encoded=*/false);
+}
+
+TYPED_TEST(TestCaseWhenDict, NestedSimple) {
+  auto make_list = [](const std::shared_ptr<Array>& indices,
+                      const std::shared_ptr<Array>& backing_array) {
+    EXPECT_OK_AND_ASSIGN(auto result, ListArray::FromArrays(*indices, *backing_array));
+    return result;
+  };
+  auto index_type = default_type_instance<TypeParam>();
+  auto inner_type = dictionary(index_type, utf8());
+  auto type = list(inner_type);
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = make_list(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
+                               DictArrayFromJSON(inner_type, "[]", dict));
+  auto values1_backing = DictArrayFromJSON(inner_type, "[0, null, 3, 1]", dict);
+  auto values2_backing = DictArrayFromJSON(inner_type, "[2, 1, null, 0]", dict);
+  auto values1 = make_list(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
+  auto values2 = make_list(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
+
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing)},
+      /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing), values1},
+      /*result_is_encoded=*/false);
+
+  CheckDictionary("case_when",
+                  {
+                      Datum(MakeStruct({cond1, cond2})),
+                      Datum(std::make_shared<ListScalar>(
+                          DictArrayFromJSON(inner_type, "[0, 1]", dict))),
+                      Datum(std::make_shared<ListScalar>(
+                          DictArrayFromJSON(inner_type, "[2, 3]", dict))),
+                  },
+                  /*result_is_encoded=*/false);
+
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(true), Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(true)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when", {MakeStruct({Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
+}
+
+TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, null, true]");
+  auto dict1 = R"(["a", null, "bc", "def"])";
+  auto dict2 = R"(["bc", "foo", null, "a"])";
+  auto dict3 = R"(["def", null, "a", "bc"])";
+  auto values1_null = DictArrayFromJSON(type, "[null, null, null, null]", dict1);
+  auto values2_null = DictArrayFromJSON(type, "[null, null, null, null]", dict2);
+  auto values1 = DictArrayFromJSON(type, "[null, 0, 3, 1]", dict1);
+  auto values2 = DictArrayFromJSON(type, "[2, 1, 0, null]", dict2);
+  auto values3 = DictArrayFromJSON(type, "[0, 1, 2, 3]", dict3);
+
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(true), Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(true)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values2, values1});
+
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1});
+
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, false, false, true]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                               ArrayFromJSON(boolean(), "[true, false, true, false]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[false, false, false, false]"),
+                               ArrayFromJSON(boolean(), "[true, true, true, true]")}),
+                   values1, values3});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[null, null, null, true]"),
+                               ArrayFromJSON(boolean(), "[true, true, true, true]")}),
+                   values1, values3});
+  CheckDictionary(
+      "case_when",
+      {
+          MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]")}),
+          DictScalarFromJSON(type, "0", dict1),
+          DictScalarFromJSON(type, "0", dict2),
+      });
+  CheckDictionary(
+      "case_when",
+      {
+          MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                      ArrayFromJSON(boolean(), "[false, false, true, true]")}),
+          DictScalarFromJSON(type, "0", dict1),
+          DictScalarFromJSON(type, "0", dict2),
+      });
+  CheckDictionary(
+      "case_when",
+      {
+          MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                      ArrayFromJSON(boolean(), "[false, false, true, true]")}),
+          DictScalarFromJSON(type, "null", dict1),
+          DictScalarFromJSON(type, "0", dict2),
+      });
+}
+
 TEST(TestCaseWhen, Null) {
   auto cond_true = ScalarFromJSON(boolean(), "true");
   auto cond_false = ScalarFromJSON(boolean(), "false");
@@ -1489,6 +1670,18 @@ TEST(TestCaseWhen, DispatchBest) {
                 CallFunction("case_when", {MakeStruct({ArrayFromJSON(boolean(), "[]")}),
                                            ArrayFromJSON(int64(), "[]"),
                                            ArrayFromJSON(utf8(), "[]")}));
+
+  // Do not dictionary-decode when we have only dictionary values
+  CheckDispatchBest("case_when",
+                    {struct_({field("", boolean())}), dictionary(int64(), utf8()),
+                     dictionary(int64(), utf8())},
+                    {struct_({field("", boolean())}), dictionary(int64(), utf8()),
+                     dictionary(int64(), utf8())});
+
+  // Dictionary-decode if we have a mix
+  CheckDispatchBest(
+      "case_when", {struct_({field("", boolean())}), dictionary(int64(), utf8()), utf8()},
+      {struct_({field("", boolean())}), utf8(), utf8()});
 }
 
 template <typename Type>

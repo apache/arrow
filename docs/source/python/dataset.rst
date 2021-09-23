@@ -147,7 +147,7 @@ The format name as a string, like::
 
 is short hand for a default constructed :class:`ParquetFileFormat`::
 
-    ds.dataset(..., format=ds.ParquetFileForma())
+    ds.dataset(..., format=ds.ParquetFileFormat())
 
 The :class:`FileFormat` objects can be customized using keywords. For example::
 

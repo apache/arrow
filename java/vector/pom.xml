@@ -105,20 +105,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <enableAssertions>true</enableAssertions>
-          <childDelegation>true</childDelegation>
-          <forkCount>${forkCount}</forkCount>
-          <reuseForks>true</reuseForks>
-          <systemPropertyVariables>
-            <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-            <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
-            <user.timezone>UTC</user.timezone>
-          </systemPropertyVariables>
-          <!-- Note: changing the below configuration might increase the max allocation size for a vector
-          which in turn can cause OOM. -->
-          <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
-        </configuration>
         <executions>
           <execution>
             <id>default-test</id>
@@ -139,6 +125,7 @@
               <classpathDependencyExcludes>
                 <classpathDependencyExclude>org.apache.arrow:arrow-memory-netty</classpathDependencyExclude>
               </classpathDependencyExcludes>
+              <reportNameSuffix>netty</reportNameSuffix>
             </configuration>
           </execution>
         </executions>
@@ -267,12 +254,8 @@
             <configuration>
               <forkedProcessTimeoutInSeconds>3600</forkedProcessTimeoutInSeconds>
               <systemPropertyVariables>
-                <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-                <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
                 <arrow.memory.debug.allocator>false</arrow.memory.debug.allocator>
-                <user.timezone>UTC</user.timezone>
               </systemPropertyVariables>
-              <argLine />
             </configuration>
             <executions>
               <execution>

@@ -280,8 +280,8 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node)
+ExecPlan_run <- function(plan, final_node, sort_options) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
 }
 
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
@@ -814,6 +814,10 @@ FixedSizeListType__value_type <- function(type) {
 
 FixedSizeListType__list_size <- function(type) {
   .Call(`_arrow_FixedSizeListType__list_size`, type)
+}
+
+compute___expr__equals <- function(lhs, rhs) {
+  .Call(`_arrow_compute___expr__equals`, lhs, rhs)
 }
 
 compute___expr__call <- function(func_name, argument_list, options) {

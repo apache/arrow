@@ -985,6 +985,23 @@ Status MakeUuid(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeComplex128(std::shared_ptr<RecordBatch>* out) {
+  auto type = complex128();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+
+  auto f0 = field("f0", type);
+  auto f1 = field("f1", type, /*nullable=*/false);
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ExtensionType::WrapArray(complex128(),
+                                     ArrayFromJSON(storage_type, "[[1.0, -2.5], null]"));
+  auto a1 = ExtensionType::WrapArray(
+      complex128(), ArrayFromJSON(storage_type, "[[1.0, -2.5], [3.0, -4.0]]"));
+
+  *out = RecordBatch::Make(schema, a1->length(), {a0, a1});
+  return Status::OK();
+}
+
 Status MakeDictExtension(std::shared_ptr<RecordBatch>* out) {
   auto type = dict_extension_type();
   auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();

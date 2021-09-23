@@ -78,14 +78,16 @@ Bit-wise operations do not offer (or need) a checked variant.
 Rounding Functions
 ------------------
 
-Rounding functions convert a numeric input into an approximate value with a
-simpler representation based on the rounding strategy.
+Rounding functions displace numeric inputs to an approximate value with a simpler
+representation based on the rounding criterion.
 
 .. autosummary::
    :toctree: ../generated/
 
    ceil
    floor
+   round
+   round_to_multiple
    trunc
 
 Logarithmic Functions
@@ -349,6 +351,7 @@ Sorts and partitions
    :toctree: ../generated/
 
    partition_nth_indices
+   select_k_unstable
    sort_indices
 
 Structural Transforms
@@ -368,6 +371,7 @@ Structural Transforms
    is_nan
    is_null
    is_valid
-   list_value_length
+   list_element
    list_flatten
    list_parent_indices
+   list_value_length

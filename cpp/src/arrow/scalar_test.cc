@@ -557,6 +557,14 @@ TEST(TestStringScalar, MakeScalarImplicit) {
   ASSERT_EQ(StringScalar("three"), *three);
 }
 
+TEST(TestStringScalar, MakeScalarString) {
+  // MakeScalar(std::string) creates a StringScalar via FromBuffer
+  std::string buf = "three";
+  auto three = MakeScalar(std::move(buf));
+  ASSERT_OK(three->ValidateFull());
+  ASSERT_EQ(StringScalar("three"), *three);
+}
+
 TEST(TestFixedSizeBinaryScalar, Basics) {
   std::string data = "test data";
   auto buf = std::make_shared<Buffer>(data);

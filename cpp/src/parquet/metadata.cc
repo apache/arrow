@@ -653,11 +653,13 @@ class FileMetaData::FileMetaDataImpl {
       throw ParquetException("AppendRowGroups requires equal schemas.");
     }
 
-    format::RowGroup other_rg;
-    for (int i = 0; i < other->num_row_groups(); i++) {
-      other_rg = other->row_group(i);
-      metadata_->row_groups.push_back(other_rg);
+    // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
+    const int n = other->num_row_groups();
+    metadata_->row_groups.reserve(metadata_->row_groups.size() + n);
+    for (int i = 0; i < n; i++) {
+      format::RowGroup other_rg = other->row_group(i);
       metadata_->num_rows += other_rg.num_rows;
+      metadata_->row_groups.push_back(std::move(other_rg));
     }
   }
 
@@ -1565,7 +1567,15 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
         throw ParquetException(ss.str());
       }
       if (i == 0) {
-        file_offset = row_group_->columns[0].file_offset;
+        const format::ColumnMetaData& first_col = row_group_->columns[0].meta_data;
+        // As per spec, file_offset for the row group points to the first
+        // dictionary or data page of the column.
+        if (first_col.__isset.dictionary_page_offset &&
+            first_col.dictionary_page_offset > 0) {
+          file_offset = first_col.dictionary_page_offset;
+        } else {
+          file_offset = first_col.data_page_offset;
+        }
       }
       // sometimes column metadata is encrypted and not available to read,
       // so we must get total_compressed_size from column builder

@@ -4004,6 +4004,7 @@ TEST_P(TestArrowReadDictionary, ZeroChunksListOfDictionary) {
   auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{},
                                                ::arrow::list(::arrow::utf8()));
   options.num_rows = 0;
+  options.num_uniques = 0;
   options.num_row_groups = 1;
   expected_dense_ = MakeSimpleTable(values, false);
 
@@ -4064,6 +4065,7 @@ TEST_P(TestArrowReadDictionary, StreamReadWholeFileDict) {
   // Recompute generated data with only one row-group
   options.num_row_groups = 1;
   options.num_rows = 16;
+  options.num_uniques = 7;
   SetUp();
   WriteSimple();
 

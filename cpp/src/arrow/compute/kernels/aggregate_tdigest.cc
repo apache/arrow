@@ -37,14 +37,23 @@ struct TDigestImpl : public ScalarAggregator {
   using CType = typename ArrowType::c_type;
 
   explicit TDigestImpl(const TDigestOptions& options)
-      : q{options.q}, tdigest{options.delta, options.buffer_size} {}
+      : options{options},
+        tdigest{options.delta, options.buffer_size},
+        count{0},
+        all_valid{true} {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
+    if (!this->all_valid) return Status::OK();
+    if (!options.skip_nulls && batch[0].null_count() > 0) {
+      this->all_valid = false;
+      return Status::OK();
+    }
     if (batch[0].is_array()) {
       const ArrayData& data = *batch[0].array();
       const CType* values = data.GetValues<CType>(1);
 
       if (data.length > data.GetNullCount()) {
+        this->count += data.length - data.GetNullCount();
         VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
                             [&](int64_t pos, int64_t len) {
                               for (int64_t i = 0; i < len; ++i) {
@@ -55,6 +64,7 @@ struct TDigestImpl : public ScalarAggregator {
     } else {
       const CType value = UnboxScalar<ArrowType>::Unbox(*batch[0].scalar());
       if (batch[0].scalar()->is_valid) {
+        this->count += 1;
         for (int64_t i = 0; i < batch.length; i++) {
           this->tdigest.NanAdd(value);
         }
@@ -64,31 +74,43 @@ struct TDigestImpl : public ScalarAggregator {
   }
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
-    auto& other = checked_cast<ThisType&>(src);
+    const auto& other = checked_cast<const ThisType&>(src);
+    if (!this->all_valid || !other.all_valid) {
+      this->all_valid = false;
+      return Status::OK();
+    }
     this->tdigest.Merge(other.tdigest);
+    this->count += other.count;
     return Status::OK();
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    const int64_t out_length = this->tdigest.is_empty() ? 0 : this->q.size();
+    const int64_t out_length = options.q.size();
     auto out_data = ArrayData::Make(float64(), out_length, 0);
     out_data->buffers.resize(2, nullptr);
+    ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                          ctx->Allocate(out_length * sizeof(double)));
+    double* out_buffer = out_data->template GetMutableValues<double>(1);
 
-    if (out_length > 0) {
-      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
-                            ctx->Allocate(out_length * sizeof(double)));
-      double* out_buffer = out_data->template GetMutableValues<double>(1);
+    if (this->tdigest.is_empty() || !this->all_valid || this->count < options.min_count) {
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[0], ctx->AllocateBitmap(out_length));
+      std::memset(out_data->buffers[0]->mutable_data(), 0x00,
+                  out_data->buffers[0]->size());
+      std::fill(out_buffer, out_buffer + out_length, 0.0);
+      out_data->null_count = out_length;
+    } else {
       for (int64_t i = 0; i < out_length; ++i) {
-        out_buffer[i] = this->tdigest.Quantile(this->q[i]);
+        out_buffer[i] = this->tdigest.Quantile(this->options.q[i]);
       }
     }
-
     *out = Datum(std::move(out_data));
     return Status::OK();
   }
 
-  const std::vector<double> q;
+  const TDigestOptions options;
   TDigest tdigest;
+  int64_t count;
+  bool all_valid;
 };
 
 struct TDigestInitState {
@@ -141,7 +163,7 @@ const FunctionDoc tdigest_doc{
     "Approximate quantiles of a numeric array with T-Digest algorithm",
     ("By default, 0.5 quantile (median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
-     "An empty array is returned if there is no valid data point."),
+     "An array of nulls is returned if there is no valid data point."),
     {"array"},
     "TDigestOptions"};
 

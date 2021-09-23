@@ -28,7 +28,7 @@
   <url>https://arrow.apache.org/</url>
 
   <properties>
-    <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
+    <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.4.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
@@ -395,13 +395,28 @@
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
               <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
               <user.timezone>UTC</user.timezone>
+              <!-- Note: changing the below configuration might increase the max allocation size for a vector
+              which in turn can cause OOM. -->
+              <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
             </systemPropertyVariables>
-            <!-- Note: changing the below configuration might increase the max allocation size for a vector
-            which in turn can cause OOM. -->
-            <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
           </configuration>
         </plugin>
-
+        <plugin>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>3.0.0-M3</version>
+          <configuration>
+            <systemPropertyVariables>
+              <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+              <user.timezone>UTC</user.timezone>
+            </systemPropertyVariables>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.7</version>
+        </plugin>
 
         <!--This plugin's configuration is used to store Eclipse m2e settings
           only. It has no influence on the Maven build itself. -->
@@ -758,6 +773,57 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+
+    <profile>
+      <id>code-coverage</id>
+      <!--
+        Use `mvn -Pcode-coverage install site` to capture and generate the code coverage report
+        Alternatively, if you do not want to generate the full set of reports, use:
+        `mvn -Pcode-coverage install org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-integration`
+
+        Add `-Pintegration-tests` to the previous commandline to also capture integration tests coverage
+      -->
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>default-prepare-agent</id>
+                <goals>
+                  <goal>prepare-agent</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>default-prepare-agent-integration</id>
+                <goals>
+                  <goal>prepare-agent-integration</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      <reporting>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.7</version>
+            <reportSets>
+              <reportSet>
+                <inherited>false</inherited><!-- don't run aggregate in child modules -->
+                <reports>
+                  <!-- select non-aggregate reports -->
+                  <report>report</report>
+                </reports>
+              </reportSet>
+            </reportSets>
+          </plugin>
+        </plugins>
+      </reporting>
     </profile>
 
   </profiles>
