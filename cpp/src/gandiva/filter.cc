@@ -80,7 +80,7 @@ std::string FilterCacheKey::ToString() const {
 }
 
 std::string FilterCacheKey::GetExpressionsAsString() const {
-    return expression_as_string_;
+  return expression_as_string_;
 };
 
 void FilterCacheKey::UpdateUniqifier(const std::string& expr) {
@@ -150,9 +150,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   filter->get()->SetBuiltFromCache(llvm_flag);
 
-  ARROW_LOG(DEBUG)
-      << "[DEBUG][CACHE-LOG][INFO]: " +
-             shared_cache->ToString();
+  ARROW_LOG(DEBUG) << "[DEBUG][CACHE-LOG][INFO]: " + shared_cache->ToString();
 
   return Status::OK();
 }

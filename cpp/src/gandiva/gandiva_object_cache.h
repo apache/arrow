@@ -42,7 +42,9 @@ class GandivaObjectCache : public llvm::ObjectCache {
   void notifyObjectCompiled(const llvm::Module* M, llvm::MemoryBufferRef Obj) {
     // Stop measuring time and  calculate the elapsed time to compile the object code
     auto end_time = std::chrono::high_resolution_clock::now();
-    auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - begin_time_).count();
+    auto elapsed_time =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end_time - begin_time_)
+            .count();
 
     std::unique_ptr<llvm::MemoryBuffer> obj_buffer =
         llvm::MemoryBuffer::getMemBufferCopy(Obj.getBuffer(), Obj.getBufferIdentifier());

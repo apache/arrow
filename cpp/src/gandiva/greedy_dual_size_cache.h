@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <llvm/ADT/SmallString.h>
-
 #include <list>
 #include <queue>
 #include <set>
