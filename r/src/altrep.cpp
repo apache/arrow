@@ -74,9 +74,9 @@ using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 // base class for all altrep vectors
 //
 // The altrep vector stores the Array as an external pointer in data1
-// Implementation classes AltrepArrayPrimitive<> and AltrepArrayString
+// Implementation classes AltrepVectorPrimitive<> and AltrepVectorString
 // also use data2
-struct AltrepArrayBase {
+struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
   static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array) {
     SEXP alt_ =
@@ -118,14 +118,14 @@ struct AltrepArrayBase {
 // data if necessary: if materialization is needed, e.g. if we need
 // to access its data pointer
 template <int sexp_type>
-struct AltrepArrayPrimitive : public AltrepArrayBase {
+struct AltrepVectorPrimitive : public AltrepVectorBase {
   // singleton altrep class description
   static R_altrep_class_t class_t;
 
   using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    return AltrepArrayBase::Make(class_t, array);
+    return AltrepVectorBase::Make(class_t, array);
   }
 
   // Is the vector materialized, i.e. does the data2 slot contain a
@@ -337,16 +337,16 @@ struct AltrepArrayPrimitive : public AltrepArrayBase {
   }
 };
 template <int sexp_type>
-R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
+R_altrep_class_t AltrepVectorPrimitive<sexp_type>::class_t;
 
 // Implementation for string arrays
 template <typename Type>
-struct AltrepArrayString : public AltrepArrayBase {
+struct AltrepVectorString : public AltrepVectorBase {
   static R_altrep_class_t class_t;
   using StringArrayType = typename TypeTraits<Type>::ArrayType;
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    SEXP alt_ = AltrepArrayBase::Make(class_t, array);
+    SEXP alt_ = AltrepVectorBase::Make(class_t, array);
 
     // using the @tag of the external pointer to count the
     // number of strings that have been expanded
@@ -577,7 +577,7 @@ struct AltrepArrayString : public AltrepArrayBase {
 };
 
 template <typename Type>
-R_altrep_class_t AltrepArrayString<Type>::class_t;
+R_altrep_class_t AltrepVectorString<Type>::class_t;
 
 // initialize altrep, altvec, altreal, and altinteger methods
 template <typename AltrepClass>
@@ -660,27 +660,27 @@ void InitAltStringClass(DllInfo* dll, const char* name) {
 
 // initialize the altrep classes
 void Init_Altrep_classes(DllInfo* dll) {
-  InitAltRealClass<AltrepArrayPrimitive<REALSXP>>(dll, "arrow::array_dbl_vector");
-  InitAltIntegerClass<AltrepArrayPrimitive<INTSXP>>(dll, "arrow::array_int_vector");
+  InitAltRealClass<AltrepVectorPrimitive<REALSXP>>(dll, "arrow::array_dbl_vector");
+  InitAltIntegerClass<AltrepVectorPrimitive<INTSXP>>(dll, "arrow::array_int_vector");
 
-  InitAltStringClass<AltrepArrayString<StringType>>(dll, "arrow::array_string_vector");
-  InitAltStringClass<AltrepArrayString<LargeStringType>>(dll, "arrow::array_large_string_vector");
+  InitAltStringClass<AltrepVectorString<StringType>>(dll, "arrow::array_string_vector");
+  InitAltStringClass<AltrepVectorString<LargeStringType>>(dll, "arrow::array_large_string_vector");
 }
 
 // return an altrep R vector that shadows the array if possible
 SEXP MakeAltrepVector(const std::shared_ptr<Array>& array) {
   switch (array->type()->id()) {
     case arrow::Type::DOUBLE:
-      return altrep::AltrepArrayPrimitive<REALSXP>::Make(array);
+      return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
 
     case arrow::Type::INT32:
-      return altrep::AltrepArrayPrimitive<INTSXP>::Make(array);
+      return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
 
     case arrow::Type::STRING:
-      return altrep::AltrepArrayString<StringType>::Make(array);
+      return altrep::AltrepVectorString<StringType>::Make(array);
 
     case arrow::Type::LARGE_STRING:
-      return altrep::AltrepArrayString<LargeStringType>::Make(array);
+      return altrep::AltrepVectorString<LargeStringType>::Make(array);
 
     default:
       break;
