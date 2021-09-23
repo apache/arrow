@@ -62,14 +62,7 @@ cd build
 # This may vary by system/CI provider
 MSYS_LIB_DIR="/c/rtools40"
 
-# mingw64 -> x64
-# mingw32 -> i386
-# ucrt64 -> x64-ucrt
-
-ls $MSYS_LIB_DIR/mingw64/lib/
-ls $MSYS_LIB_DIR/mingw32/lib/
-
-# Untar the three builds we made
+# Untar the builds we made
 ls *.xz | xargs -n 1 tar -xJf
 mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
@@ -78,29 +71,37 @@ if [ ! -d $DST_DIR/include ]; then
   mv $(echo $MINGW_ARCH | cut -d ' ' -f 1)/include $DST_DIR
 fi
 
-# Make the rest of the directory structure
-# lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
-mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/x64
-mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/i386
-# lib is for the new gcc 8 toolchain (Rtools 4.0)
-mkdir -p $DST_DIR/lib/x64
-mkdir -p $DST_DIR/lib/i386
+# mingw64 -> x64
+# mingw32 -> i386
+# ucrt64 -> x64-ucrt
 
-# Move the 64-bit versions of libarrow into the expected location
-mv mingw64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
+if [ -d $MSYS_LIB_DIR/mingw64/lib/ ]; then
+  ls $MSYS_LIB_DIR/mingw64/lib/
+  # Make the rest of the directory structure
+  # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
+  mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/x64
+  # lib is for the new gcc 8 toolchain (Rtools 4.0)
+  mkdir -p $DST_DIR/lib/x64
+  # Move the 64-bit versions of libarrow into the expected location
+  mv mingw64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
+  # These may be from https://dl.bintray.com/rtools/backports/
+  cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
+  # These are from https://dl.bintray.com/rtools/mingw{32,64}/
+  cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
+fi
+
 # Same for the 32-bit versions
-mv mingw32/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
-
-# These may be from https://dl.bintray.com/rtools/backports/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
-
-# These are from https://dl.bintray.com/rtools/mingw{32,64}/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+if [ -d $MSYS_LIB_DIR/mingw32/lib/ ]; then
+  ls $MSYS_LIB_DIR/mingw32/lib/
+  mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/i386
+  mkdir -p $DST_DIR/lib/i386
+  mv mingw32/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
+  cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
+  cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+fi
 
 # Do the same also for ucrt64
-if [ "$RTOOLS_VERSION" != "35" ]; then
+if [ -d $MSYS_LIB_DIR/ucrt64/lib/ ]; then
   ls $MSYS_LIB_DIR/ucrt64/lib/
   mkdir -p $DST_DIR/lib/x64-ucrt
   mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
