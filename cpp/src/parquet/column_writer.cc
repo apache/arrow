@@ -596,7 +596,7 @@ class ColumnWriterImpl {
   int64_t num_buffered_encoded_values_;
 
   // Total number of rows written with this ColumnWriter
-  int rows_written_;
+  int64_t rows_written_;
 
   // Records the total number of bytes written by the serializer
   int64_t total_bytes_written_;
@@ -993,7 +993,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       WriteRepetitionLevels(num_values, rep_levels);
     } else {
       // Each value is exactly one row
-      rows_written_ += static_cast<int>(num_values);
+      rows_written_ += num_values;
     }
     return values_to_write;
   }
