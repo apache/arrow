@@ -91,8 +91,6 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   filter->get()->SetBuiltFromCache(llvm_flag);
 
-  ARROW_LOG(DEBUG) << "[DEBUG][CACHE-LOG][INFO]: " + shared_cache->ToString();
-
   return Status::OK();
 }
 

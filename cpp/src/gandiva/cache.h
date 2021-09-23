@@ -57,8 +57,6 @@ class Cache {
     mtx_.unlock();
   }
 
-  std::string ToString() { return cache_.ToString(); }
-
  private:
   GreedyDualSizeCache<KeyType, ValueType> cache_;
   std::mutex mtx_;

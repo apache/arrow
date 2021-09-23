@@ -138,12 +138,6 @@ class GreedyDualSizeCache {
 
   size_t GetCacheSize() { return cache_size_; }
 
-  std::string ToString() {
-    size_t cache_map_length = map_.size();
-    return "Cache has " + std::to_string(cache_map_length) + " items," +
-           " with total size of " + std::to_string(cache_size_) + " bytes.";
-  }
-
  private:
   void evict() {
     // TODO: inflation overflow is unlikely to happen but needs to be handled
