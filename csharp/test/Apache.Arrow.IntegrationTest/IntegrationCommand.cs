@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -130,6 +131,7 @@ namespace Apache.Arrow.IntegrationTest
                 "bool" => BooleanType.Default,
                 "int" => ToIntArrowType(type),
                 "floatingpoint" => ToFloatingPointArrowType(type),
+                "decimal" => ToDecimalArrowType(type),
                 "binary" => BinaryType.Default,
                 "utf8" => StringType.Default,
                 "fixedsizebinary" => new FixedSizeBinaryType(type.ByteWidth),
@@ -158,12 +160,17 @@ namespace Apache.Arrow.IntegrationTest
 
         private static IArrowType ToFloatingPointArrowType(JsonArrowType type)
         {
-            return type.Precision switch
+            return type.FloatingPointPrecision switch
             {
                 "SINGLE" => FloatType.Default,
                 "DOUBLE" => DoubleType.Default,
-                _ => throw new NotSupportedException($"FloatingPoint type not supported: {type.Precision}")
+                _ => throw new NotSupportedException($"FloatingPoint type not supported: {type.FloatingPointPrecision}")
             };
+        }
+
+        private static IArrowType ToDecimalArrowType(JsonArrowType type)
+        {
+            return new Decimal128Type(type.DecimalPrecision, type.Scale);
         }
 
         private static IArrowType ToDateArrowType(JsonArrowType type)
@@ -267,7 +274,35 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(Decimal128Type type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                var json = JsonFieldData.Data.GetRawText();
+                string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
+
+                Span<byte> buffer = stackalloc byte[16];
+
+                ArrowBuffer.Builder<byte> valueBuilder = new ArrowBuffer.Builder<byte>();
+                foreach (string value in values)
+                {
+                    buffer.Fill(0);
+
+                    BigInteger bigInteger = BigInteger.Parse(value);
+                    if (!bigInteger.TryWriteBytes(buffer, out int bytesWritten, false, !BitConverter.IsLittleEndian))
+                    {
+                        throw new InvalidDataException("Decimal data was too big to fit into 128 bits.");
+                    }
+
+                    if (bigInteger.Sign == -1)
+                    {
+                        buffer.Slice(bytesWritten).Fill(255);
+                    }
+
+                    valueBuilder.Append(buffer);
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build(default);
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, new[] { validityBuffer, valueBuffer });
+                Array = new Decimal128Array(arrayData);
             }
 
             public void Visit(Decimal256Type type)

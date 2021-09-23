@@ -52,7 +52,13 @@ namespace Apache.Arrow.IntegrationTest
         public bool IsSigned { get; set; }
 
         // floating point fields
-        public string Precision { get; set; }
+        [JsonIgnore]
+        public string FloatingPointPrecision => ExtensionData["precision"].GetString();
+
+        // decimal fields
+        [JsonIgnore]
+        public int DecimalPrecision => ExtensionData["precision"].GetInt32();
+        public int Scale { get; set; }
 
         // date and time fields 
         public string Unit { get; set; }
@@ -61,6 +67,9 @@ namespace Apache.Arrow.IntegrationTest
 
         // FixedSizeBinary fields
         public int ByteWidth { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement> ExtensionData { get; set; }
     }
 
     public class JsonDictionaryIndex
