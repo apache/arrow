@@ -21,14 +21,12 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
-#include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/thread_pool.h"
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -102,28 +100,17 @@ class FilterNode : public ExecNode {
     if (finished_.is_finished()) {
       return;
     }
-    auto executor = plan()->exec_context()->executor();
-    if (executor) {
-      auto maybe_future = executor->Submit([this, batch] {
-        auto maybe_filtered = DoFilter(std::move(batch));
-        if (ErrorIfNotOk(maybe_filtered.status())) return Status::OK();
-        maybe_filtered->guarantee = batch.guarantee;
-        this->outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
-        return Status::OK();
-      });
-      if (!maybe_future.ok()) {
-        outputs_[0]->ErrorReceived(this, maybe_future.status());
-      }
-
-      auto status = task_group_.AddTask(maybe_future.MoveValueUnsafe());
-      if (!status.ok()) {
-        outputs_[0]->ErrorReceived(this, std::move(status));
-      }
-    } else {
+    auto task = [this, batch]() {
       auto maybe_filtered = DoFilter(std::move(batch));
-      if (ErrorIfNotOk(maybe_filtered.status())) return;
+      if (ErrorIfNotOk(maybe_filtered.status())) return Status::OK();
       maybe_filtered->guarantee = batch.guarantee;
       outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
+      return Status::OK();
+    };
+    if (this->has_executor()) {
+      DCHECK_OK(this->SubmitTask(task));
+    } else {
+      DCHECK_OK(task());
     }
     if (batch_count_.Increment()) {
       task_group_.WaitForTasksToFinish().AddCallback(
@@ -138,20 +125,14 @@ class FilterNode : public ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
-
-    total_batches_.fetch_add(total_batches);
-
     outputs_[0]->InputFinished(this, total_batches);
-    if (batch_count_.SetTotal(total_batches_.load())) {
+    if (batch_count_.SetTotal(total_batches)) {
       task_group_.WaitForTasksToFinish().AddCallback(
           [this](const Status& status) { this->finished_.MarkFinished(status); });
     }
   }
 
-  Status StartProducing() override {
-    finished_ = Future<>::Make();
-    return Status::OK();
-  }
+  Status StartProducing() override { return Status::OK(); }
 
   void PauseProducing(ExecNode* output) override {}
 
@@ -177,10 +158,6 @@ class FilterNode : public ExecNode {
 
  private:
   Expression filter_;
-  AtomicCounter batch_count_;
-  std::atomic<int> total_batches_{0};
-  Future<> finished_ = Future<>::MakeFinished();
-  util::AsyncTaskGroup task_group_;
 };
 }  // namespace
 

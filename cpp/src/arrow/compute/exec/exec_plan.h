@@ -23,8 +23,10 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
@@ -221,6 +223,10 @@ class ARROW_EXPORT ExecNode {
 
   std::string ToString() const;
 
+  bool has_executor() { return plan()->exec_context()->executor() != nullptr; }
+
+  Status SubmitTask(std::function<Status()> task);
+
  protected:
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
            std::shared_ptr<Schema> output_schema, int num_outputs);
@@ -241,6 +247,13 @@ class ARROW_EXPORT ExecNode {
   std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
+
+  // Counter of batches received
+  AtomicCounter batch_count_;
+  // Future to sync finished
+  Future<> finished_ = Future<>::MakeFinished();
+  // Async task group used when executor is available
+  util::AsyncTaskGroup task_group_;
 };
 
 /// \brief An extensible registry for factories of ExecNodes

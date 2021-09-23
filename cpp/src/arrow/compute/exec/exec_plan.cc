@@ -32,6 +32,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -224,6 +225,7 @@ ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
   for (auto input : inputs_) {
     input->outputs_.push_back(this);
   }
+  finished_ = Future<>::Make();
 }
 
 Status ExecNode::Validate() const {
@@ -285,6 +287,19 @@ bool ExecNode::ErrorIfNotOk(Status status) {
     out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
   }
   return true;
+}
+
+Status ExecNode::SubmitTask(std::function<Status()> task) {
+  auto executor = plan()->exec_context()->executor();
+  auto maybe_future = executor->Submit(std::move(task));
+  if (!maybe_future.ok()) {
+    outputs_[0]->ErrorReceived(this, maybe_future.status());
+  }
+  auto status = task_group_.AddTask(maybe_future.MoveValueUnsafe());
+  if (!status.ok()) {
+    outputs_[0]->ErrorReceived(this, std::move(status));
+  }
+  return Status::OK();
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
