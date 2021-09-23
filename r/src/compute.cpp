@@ -340,13 +340,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   }
 
   if (func_name == "iso_week") {
-    using Options = arrow::compute::WeekOptions;
-    return std::make_shared<Options>(true, false, false);
+    return std::make_shared<arrow::compute::WeekOptions>(
+        arrow::compute::WeekOptions::ISODefaults());
   }
 
   if (func_name == "us_week") {
-    using Options = arrow::compute::WeekOptions;
-    return std::make_shared<Options>(true, false, false);
+    return std::make_shared<arrow::compute::WeekOptions>(
+        arrow::compute::WeekOptions::USDefaults());
   }
 
   if (func_name == "week") {

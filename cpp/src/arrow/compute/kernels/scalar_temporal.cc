@@ -377,7 +377,7 @@ struct ISOYear {
 };
 
 // ----------------------------------------------------------------------
-// Extract ISO week from temporal types
+// Extract week from temporal types
 //
 // First week of an ISO year has the majority (4 or more) of its days in January.
 // Last week of an ISO year has the year's last Thursday in it.
@@ -1215,13 +1215,13 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "iso_year", {WithDates, WithTimestamps}, int64(), &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
-  static const auto default_iso_week_options = WeekOptions(true, false, false);
+  static const auto default_iso_week_options = WeekOptions::ISODefaults();
   auto iso_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
       "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc,
       &default_iso_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
-  static const auto default_us_week_options = WeekOptions(false, false, false);
+  static const auto default_us_week_options = WeekOptions::USDefaults();
   auto us_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
       "us_week", {WithDates, WithTimestamps}, int64(), &us_week_doc,
       &default_us_week_options, WeekState::Init);

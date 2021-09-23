@@ -367,6 +367,16 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
                        bool first_week_is_fully_in_year = false);
   constexpr static char const kTypeName[] = "WeekOptions";
   static WeekOptions Defaults() { return WeekOptions{}; }
+  static WeekOptions ISODefaults() {
+    return WeekOptions{/*week_starts_monday*/ true,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
+  static WeekOptions USDefaults() {
+    return WeekOptions{/*week_starts_monday*/ false,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
 
   /// What day does the week start with (Monday=true, Sunday=false)
   bool week_starts_monday;
@@ -1022,6 +1032,32 @@ ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NUL
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief ISOWeek returns ISO week of year number for each element of `values`.
+/// First ISO week has the majority (4 or more) of its days in January.
+/// ISO week starts on Monday. Year can have 52 or 53 weeks.
+/// Week numbering can start with 1.
+///
+/// \param[in] values input to extract ISO week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief USWeek returns US week of year number for each element of `values`.
+/// First US week has the majority (4 or more) of its days in January.
+/// US week starts on Sunday. Year can have 52 or 53 weeks.
+/// Week numbering starts with 1.
+///
+/// \param[in] values input to extract US week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> USWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Week returns week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.
