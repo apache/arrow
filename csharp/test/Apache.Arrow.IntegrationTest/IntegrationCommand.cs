@@ -70,6 +70,8 @@ namespace Apache.Arrow.IntegrationTest
             using (FileStream fs = ArrowFileInfo.Create())
             {
                 ArrowFileWriter writer = new ArrowFileWriter(fs, schema);
+                await writer.WriteStartAsync();
+
                 foreach (var jsonRecordBatch in jsonFile.Batches)
                 {
                     RecordBatch batch = CreateRecordBatch(schema, jsonRecordBatch);
@@ -507,14 +509,48 @@ namespace Apache.Arrow.IntegrationTest
             }
         }
 
-        private Task<int> StreamToFile()
+        private async Task<int> StreamToFile()
         {
-            return Task.FromResult(0);
+            using ArrowStreamReader reader = new ArrowStreamReader(Console.OpenStandardInput());
+
+            RecordBatch batch = await reader.ReadNextRecordBatchAsync();
+
+            using FileStream fileStream = ArrowFileInfo.OpenWrite();
+            using ArrowFileWriter writer = new ArrowFileWriter(fileStream, reader.Schema);
+            await writer.WriteStartAsync();
+
+            while (batch != null)
+            {
+                await writer.WriteRecordBatchAsync(batch);
+
+                batch = await reader.ReadNextRecordBatchAsync();
+            }
+
+            await writer.WriteEndAsync();
+
+            return 0;
         }
 
-        private Task<int> FileToStream()
+        private async Task<int> FileToStream()
         {
-            return Task.FromResult(0);
+            using FileStream fileStream = ArrowFileInfo.OpenRead();
+            using ArrowFileReader fileReader = new ArrowFileReader(fileStream);
+
+            // read the record batch count to initialize the Schema
+            await fileReader.RecordBatchCountAsync();
+
+            using ArrowStreamWriter writer = new ArrowStreamWriter(Console.OpenStandardOutput(), fileReader.Schema);
+            await writer.WriteStartAsync();
+
+            RecordBatch batch;
+            while ((batch = fileReader.ReadNextRecordBatch()) != null)
+            {
+                await writer.WriteRecordBatchAsync(batch);
+            }
+
+            await writer.WriteEndAsync();
+
+            return 0;
         }
 
         private async ValueTask<JsonFile> ParseJsonFile()

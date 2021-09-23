@@ -54,12 +54,12 @@ class CSharpTester(Tester):
 
     def stream_to_file(self, stream_path, file_path):
         cmd = [self.EXE_PATH]
-        cmd.extend(['--mode', 'stream-to-file'])
-        cmd.extend(['<', stream_path, '>', file_path])
+        cmd.extend(['--mode', 'stream-to-file', '-a', file_path])
+        cmd.extend(['<', stream_path])
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
         cmd = [self.EXE_PATH]
         cmd.extend(['--mode', 'file-to-stream'])
-        cmd.extend(['-f', file_path, '>', stream_path])
+        cmd.extend(['-a', file_path, '>', stream_path])
         self.run_shell_command(cmd)
