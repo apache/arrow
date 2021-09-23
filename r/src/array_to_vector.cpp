@@ -73,7 +73,7 @@ class Converter {
       // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
       // - the array has at least one element
       if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
-        SEXP alt = altrep::MakeAltrepArrayPrimitive(array);
+        SEXP alt = altrep::MakeAltrepVector(array);
         if (!Rf_isNull(alt)) {
           return alt;
         }
