@@ -77,7 +77,7 @@ class BaseCacheKey {
   bool operator!=(const BaseCacheKey& other) const { return !(*this == other); }
 
  private:
-  uint64_t hash_code_;
+  size_t hash_code_;
   std::string type_;
   SchemaPtr schema_;
   std::vector<std::string> expressions_as_string_;
