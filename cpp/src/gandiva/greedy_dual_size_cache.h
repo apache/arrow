@@ -86,11 +86,14 @@ class GreedyDualSizeCache {
 
   ~GreedyDualSizeCache() = default;
 
-  size_t size() const { return map_.size(); }
+  size_t size() const { return size_; }
 
   size_t capacity() const { return capacity_; }
 
-  bool empty() const { return map_.empty(); }
+  bool empty() {
+    size_ = 0;
+    return map_.empty();
+  }
 
   bool contains(const Key& key) { return map_.find(key) != map_.end(); }
 
@@ -109,7 +112,7 @@ class GreedyDualSizeCache {
           priority_set_.insert(PriorityItem(value.cost + inflation_, value.cost, key));
       // save on map the value and the priority item iterator position
       map_.emplace(key, std::make_pair(value, item.first));
-      cache_size_ += value.size;
+      size_ += value.size;
     }
   }
 
@@ -146,7 +149,7 @@ class GreedyDualSizeCache {
     // update the inflation cost related to the evicted item
     inflation_ = (*i).actual_priority;
     size_t size_to_decrease = map_.find((*i).cache_key)->second.first.size;
-    cache_size_ -= size_to_decrease;
+    size_ -= size_to_decrease;
     map_.erase((*i).cache_key);
     priority_set_.erase(i);
   }
@@ -155,6 +158,6 @@ class GreedyDualSizeCache {
   std::set<PriorityItem> priority_set_;
   uint64_t inflation_;
   size_t capacity_;
-  size_t cache_size_ = 0;
+  size_t size_ = 0;
 };
 }  // namespace gandiva
