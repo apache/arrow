@@ -19,9 +19,10 @@
 
 #include <utility>
 
+#include "arrow/array/array_primitive.h"
+
 #include "arrow/python/common.h"
 #include "arrow/python/numpy_internal.h"
-#include "arrow/scalar.h"
 
 namespace arrow {
 namespace py {
@@ -119,26 +120,24 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
     } else {
       return Status::Invalid("Mask must be boolean dtype");
     }
-  } else if (PySequence_Check(mo)) {
-    if (PySequence_Size(mo) != static_cast<int64_t>(PySequence_Size(obj))) {
+  } else if (py::is_array(mo)) {
+    auto unwrap_mask_result = unwrap_array(mo);
+    if (!unwrap_mask_result.ok()) {
+      return Status::Invalid("Mask must be an array of booleans");
+    }
+    std::shared_ptr<Array> mask_ = unwrap_mask_result.ValueOrDie();
+    BooleanArray* boolmask = dynamic_cast<BooleanArray*>(mask_.get());
+    if (boolmask == nullptr) {
+      return Status::Invalid("Mask must be an array of booleans");
+    }
+
+    if (mask_->length() != PySequence_Size(obj)) {
       return Status::Invalid("Mask was a different length from sequence being converted");
     }
 
     return VisitSequenceGeneric(
-        obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
-          OwnedRef value_ref(PySequence_ITEM(mo, i));
-          PyObject* value_obj = value_ref.obj();
-          auto scalar = unwrap_scalar(value_obj);
-          if (scalar.ok()) {
-            BooleanScalar* z = dynamic_cast<BooleanScalar*>(scalar.ValueOrDie().get());
-            if (z == nullptr)
-              return Status::Invalid("Mask must be made of boolean values");
-            return func(value, z->value, keep_going);
-          } else if (PyBool_Check(value_obj)) {
-            return func(value, value_obj == Py_True, keep_going);
-          } else {
-            return Status::Invalid("Mask must be made of boolean values");
-          }
+        obj, offset, [&func, &boolmask](PyObject* value, int64_t i, bool* keep_going) {
+            return func(value, boolmask->Value(i), keep_going);
         });
   } else {
     return Status::Invalid("Null mask must be a NumPy or Arrow array");
