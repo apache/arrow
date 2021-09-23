@@ -29,6 +29,9 @@ if [ "$RTOOLS_VERSION" = "35" ]; then
   pacman --noconfirm -Syy
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
   RWINLIB_LIB_DIR="lib-4.9.3"
+  # This is the default (will build for each arch) but we can set up CI to
+  # do these in parallel
+  : ${MINGW_ARCH:="mingw32 mingw64"}
 else
   # Uncomment L38-41 if you're testing a new rtools dependency that hasn't yet sync'd to CRAN
   # curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
@@ -38,8 +41,10 @@ else
 
   pacman --noconfirm -Syy
   RWINLIB_LIB_DIR="lib"
-  export MINGW_ARCH="mingw32 mingw64 ucrt64"
+  : ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
 fi
+
+export MINGW_ARCH
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
@@ -57,6 +62,10 @@ cd build
 # This may vary by system/CI provider
 MSYS_LIB_DIR="/c/rtools40"
 
+# mingw64 -> x64
+# mingw32 -> i386
+# ucrt64 -> x64-ucrt
+
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
 
@@ -66,7 +75,7 @@ mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
 # (if we're building twice to combine old and new toolchains, this may already exist)
 if [ ! -d $DST_DIR/include ]; then
-  mv mingw64/include $DST_DIR
+  mv $(echo $MINGW_ARCH | cut -d ' ' -f 1)/include $DST_DIR
 fi
 
 # Make the rest of the directory structure
