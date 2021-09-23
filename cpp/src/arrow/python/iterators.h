@@ -146,12 +146,12 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
     RETURN_IF_PYERROR();
 
     return VisitSequenceGeneric(
-      obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
-        OwnedRef value_ref(PySequence_ITEM(mo, i));
-        if(!PyBool_Check(value_ref.obj()))
-          return Status::Invalid("Mask must be a sequence of booleans");
-        return func(value, value_ref.obj() == Py_True, keep_going);
-    });
+        obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
+          OwnedRef value_ref(PySequence_ITEM(mo, i));
+          if (!PyBool_Check(value_ref.obj()))
+            return Status::Invalid("Mask must be a sequence of booleans");
+          return func(value, value_ref.obj() == Py_True, keep_going);
+        });
   } else {
     return Status::Invalid("Null mask must be a NumPy array, Arrow array or a Sequence");
   }

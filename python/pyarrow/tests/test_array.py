@@ -2751,7 +2751,7 @@ def test_array_masked():
     assert arr.to_pylist() == [4, None, 4, None]
 
     arr = pa.array([4, None, 4, 3],
-                    mask=[False, True, False, True])
+                   mask=[False, True, False, True])
     assert arr.to_pylist() == [4, None, 4, None]
 
     # Non boolean values
