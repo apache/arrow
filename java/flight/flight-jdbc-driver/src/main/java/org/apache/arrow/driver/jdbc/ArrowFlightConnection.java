@@ -29,7 +29,6 @@ import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -46,9 +45,9 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 public final class ArrowFlightConnection extends AvaticaConnection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
-  private BufferAllocator allocator;
-  private FlightClientHandler clientHandler;
-  private ArrowFlightConnectionConfigImpl config;
+  private final BufferAllocator allocator;
+  private final FlightClientHandler clientHandler;
+  private final ArrowFlightConnectionConfigImpl config;
   private ExecutorService executorService;
 
   /**
@@ -141,30 +140,12 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   }
 
   /**
-   * Gets the {@link #config} for this {@link ArrowFlightConnection}.
-   *
-   * @return the {@link ArrowFlightConnectionConfigImpl}.
-   */
-  ArrowFlightConnectionConfigImpl getConfig() {
-    return config;
-  }
-
-  /**
-   * Gets the {@link #allocator} for this {@link ArrowFlightConnection}.
-   *
-   * @return the {@link BufferAllocator}.
-   */
-  BufferAllocator getAllocator() {
-    return allocator == null ? allocator = new RootAllocator() : null;
-  }
-
-  /**
    * Gets the client {@link #clientHandler} backing this connection.
    *
    * @return the handler.
    */
   FlightClientHandler getClientHandler() throws SQLException {
-    return clientHandler == null ? clientHandler = createNewClientHandler(getConfig(), getAllocator()) : clientHandler;
+    return clientHandler;
   }
 
   /**
