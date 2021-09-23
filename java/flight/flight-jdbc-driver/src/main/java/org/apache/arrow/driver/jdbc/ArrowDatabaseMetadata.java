@@ -24,10 +24,10 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.List;
-import java.util.regex.Pattern;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
