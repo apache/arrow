@@ -55,6 +55,10 @@ GARROW_AVAILABLE_IN_5_0
 GADatasetScannerBuilder *
 gadataset_scanner_builder_new(GADatasetDataset *dataset,
                               GError **error);
+GARROW_AVAILABLE_IN_6_0
+GADatasetScannerBuilder *
+gadataset_scanner_builder_new_record_batch_reader(
+  GArrowRecordBatchReader *reader);
 GARROW_AVAILABLE_IN_5_0
 GADatasetScanner *
 gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder,

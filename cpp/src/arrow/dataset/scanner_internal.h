@@ -151,7 +151,7 @@ class FilterAndProjectScanTask : public ScanTask {
     return ProjectSingleBatch(filtered, simplified_projection, options_);
   }
 
-  inline Future<RecordBatchVector> SafeExecute(internal::Executor* executor) override {
+  inline Future<RecordBatchVector> SafeExecute(Executor* executor) override {
     return task_->SafeExecute(executor).Then(
         // This should only be run via SerialExecutor so it should be safe to capture
         // `this`
@@ -162,7 +162,7 @@ class FilterAndProjectScanTask : public ScanTask {
   }
 
   inline Future<> SafeVisit(
-      internal::Executor* executor,
+      Executor* executor,
       std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
     auto filter_and_project_visitor =
         [this, visitor](const std::shared_ptr<RecordBatch>& batch) {

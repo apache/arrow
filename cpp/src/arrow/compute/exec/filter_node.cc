@@ -66,7 +66,7 @@ class FilterNode : public ExecNode {
                                          std::move(filter_expression));
   }
 
-  const char* kind_name() override { return "FilterNode"; }
+  const char* kind_name() const override { return "FilterNode"; }
 
   Result<ExecBatch> DoFilter(const ExecBatch& target) {
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
@@ -131,12 +131,21 @@ class FilterNode : public ExecNode {
 
   Future<> finished() override { return inputs_[0]->finished(); }
 
+ protected:
+  std::string ToStringExtra() const override { return "filter=" + filter_.ToString(); }
+
  private:
   Expression filter_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterFilter("filter", FilterNode::Make);
-
 }  // namespace
+
+namespace internal {
+
+void RegisterFilterNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("filter", FilterNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

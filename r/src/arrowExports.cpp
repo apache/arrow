@@ -6,31 +6,16 @@
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool is_altrep_int_nonull(SEXP x);
-extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
+bool is_altrep(SEXP x);
+extern "C" SEXP _arrow_is_altrep(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(is_altrep_int_nonull(x));
+	return cpp11::as_sexp(is_altrep(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
-	Rf_error("Cannot call is_altrep_int_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// altrep.cpp
-#if defined(ARROW_R_WITH_ARROW)
-bool is_altrep_dbl_nonull(SEXP x);
-extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(is_altrep_dbl_nonull(x));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
-	Rf_error("Cannot call is_altrep_dbl_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_is_altrep(SEXP x_sexp){
+	Rf_error("Cannot call is_altrep(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1109,16 +1094,17 @@ extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node);
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp){
+std::shared_ptr<arrow::Table> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options);
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
-	return cpp11::as_sexp(ExecPlan_run(plan, final_node));
+	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
+	return cpp11::as_sexp(ExecPlan_run(plan, final_node, sort_options));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp){
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp){
 	Rf_error("Cannot call ExecPlan_run(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1241,23 +1227,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp, SEXP options_sexp){
 	Rf_error("Cannot call compute__CallFunction(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
-SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options);
-extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
-BEGIN_CPP11
-	arrow::r::Input<cpp11::list>::type arguments(arguments_sexp);
-	arrow::r::Input<cpp11::list>::type keys(keys_sexp);
-	arrow::r::Input<cpp11::list>::type options(options_sexp);
-	return cpp11::as_sexp(compute__GroupBy(arguments, keys, options));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
-	Rf_error("Cannot call compute__GroupBy(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3207,6 +3176,22 @@ extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
+bool compute___expr__equals(const std::shared_ptr<compute::Expression>& lhs, const std::shared_ptr<compute::Expression>& rhs);
+extern "C" SEXP _arrow_compute___expr__equals(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type rhs(rhs_sexp);
+	return cpp11::as_sexp(compute___expr__equals(lhs, rhs));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_compute___expr__equals(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call compute___expr__equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name, cpp11::list argument_list, cpp11::list options);
 extern "C" SEXP _arrow_compute___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
 BEGIN_CPP11
@@ -4440,7 +4425,7 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP byt
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads, int block_size);
 extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEXP block_size_sexp){
 BEGIN_CPP11
@@ -4456,7 +4441,7 @@ extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEX
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize1(bool newlines_in_values);
 extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_sexp){
 BEGIN_CPP11
@@ -4471,7 +4456,7 @@ extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize2(bool newlines_in_values, const std::shared_ptr<arrow::Schema>& explicit_schema);
 extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_sexp, SEXP explicit_schema_sexp){
 BEGIN_CPP11
@@ -4487,7 +4472,7 @@ extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::json::ReadOptions>& read_options, const std::shared_ptr<arrow::json::ParseOptions>& parse_options);
 extern "C" SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp){
 BEGIN_CPP11
@@ -4504,7 +4489,7 @@ extern "C" SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_optio
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::Table> json___TableReader__Read(const std::shared_ptr<arrow::json::TableReader>& table_reader);
 extern "C" SEXP _arrow_json___TableReader__Read(SEXP table_reader_sexp){
 BEGIN_CPP11
@@ -7052,13 +7037,22 @@ return Rf_ScalarLogical(
 #endif
 );
 }
+extern "C" SEXP _json_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_JSON)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
 static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_arrow_is_altrep_int_nonull", (DL_FUNC) &_arrow_is_altrep_int_nonull, 1}, 
-		{ "_arrow_is_altrep_dbl_nonull", (DL_FUNC) &_arrow_is_altrep_dbl_nonull, 1}, 
+		{ "_json_available", (DL_FUNC)& _json_available, 0 },
+		{ "_arrow_is_altrep", (DL_FUNC) &_arrow_is_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -7128,7 +7122,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
-		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 2}, 
+		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 3}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
@@ -7136,7 +7130,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
-		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
 		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
 		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
@@ -7263,6 +7256,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__value_field", (DL_FUNC) &_arrow_FixedSizeListType__value_field, 1}, 
 		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
+		{ "_arrow_compute___expr__equals", (DL_FUNC) &_arrow_compute___expr__equals, 2}, 
 		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
 		{ "_arrow_field_names_in_expression", (DL_FUNC) &_arrow_field_names_in_expression, 1}, 
 		{ "_arrow_compute___expr__get_field_ref_name", (DL_FUNC) &_arrow_compute___expr__get_field_ref_name, 1}, 
@@ -7510,7 +7504,7 @@ extern "C" void R_init_arrow(DllInfo* dll){
   R_useDynamicSymbols(dll, FALSE);
 
   #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
-  arrow::r::Init_Altrep_classes(dll);
+  arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 
 }

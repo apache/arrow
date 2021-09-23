@@ -60,25 +60,35 @@ void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct SumImpl : public ScalarAggregator {
   using ThisType = SumImpl<ArrowType, SimdLevel>;
-  using CType = typename ArrowType::c_type;
+  using CType = typename TypeTraits<ArrowType>::CType;
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
+  using SumCType = typename TypeTraits<SumType>::CType;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
+
+  SumImpl(const std::shared_ptr<DataType>& out_type,
+          const ScalarAggregateOptions& options_)
+      : out_type(out_type), options(options_) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
       const auto& data = batch[0].array();
       this->count += data->length - data->GetNullCount();
+      this->nulls_observed = this->nulls_observed || data->GetNullCount();
+
+      if (!options.skip_nulls && this->nulls_observed) {
+        // Short-circuit
+        return Status::OK();
+      }
+
       if (is_boolean_type<ArrowType>::value) {
-        this->sum +=
-            static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
+        this->sum += static_cast<SumCType>(BooleanArray(data).true_count());
       } else {
-        this->sum +=
-            arrow::compute::detail::SumArray<CType, typename SumType::c_type, SimdLevel>(
-                *data);
+        this->sum += arrow::compute::detail::SumArray<CType, SumCType, SimdLevel>(*data);
       }
     } else {
       const auto& data = *batch[0].scalar();
       this->count += data.is_valid * batch.length;
+      this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
         this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
       }
@@ -90,27 +100,48 @@ struct SumImpl : public ScalarAggregator {
     const auto& other = checked_cast<const ThisType&>(src);
     this->count += other.count;
     this->sum += other.sum;
+    this->nulls_observed = this->nulls_observed || other.nulls_observed;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count < options.min_count) {
-      out->value = std::make_shared<OutputType>();
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count)) {
+      out->value = std::make_shared<OutputType>(out_type);
     } else {
-      out->value = MakeScalar(this->sum);
+      out->value = std::make_shared<OutputType>(this->sum, out_type);
     }
     return Status::OK();
   }
 
   size_t count = 0;
-  typename SumType::c_type sum = 0;
+  bool nulls_observed = false;
+  SumCType sum = 0;
+  std::shared_ptr<DataType> out_type;
   ScalarAggregateOptions options;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
-  Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count < options.min_count) {
+  using SumImpl<ArrowType, SimdLevel>::SumImpl;
+
+  template <typename T = ArrowType>
+  enable_if_decimal<T, Status> FinalizeImpl(Datum* out) {
+    using SumCType = typename SumImpl<ArrowType, SimdLevel>::SumCType;
+    using OutputType = typename SumImpl<ArrowType, SimdLevel>::OutputType;
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count) || (this->count == 0)) {
+      out->value = std::make_shared<OutputType>(this->out_type);
+    } else {
+      const SumCType mean = this->sum / this->count;
+      out->value = std::make_shared<OutputType>(mean, this->out_type);
+    }
+    return Status::OK();
+  }
+  template <typename T = ArrowType>
+  enable_if_t<!is_decimal_type<T>::value, Status> FinalizeImpl(Datum* out) {
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       const double mean = static_cast<double>(this->sum) / this->count;
@@ -118,17 +149,19 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
     }
     return Status::OK();
   }
-  ScalarAggregateOptions options;
+  Status Finalize(KernelContext*, Datum* out) override { return FinalizeImpl(out); }
+
+  using SumImpl<ArrowType, SimdLevel>::options;
 };
 
 template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  const DataType& type;
+  const std::shared_ptr<DataType> type;
   const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, const DataType& type,
+  SumLikeInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -139,18 +172,26 @@ struct SumLikeInit {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new KernelClass<BooleanType>(options));
+    auto ty = TypeTraits<typename KernelClass<BooleanType>::SumType>::type_singleton();
+    state.reset(new KernelClass<BooleanType>(ty, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>(options));
+    auto ty = TypeTraits<typename KernelClass<Type>::SumType>::type_singleton();
+    state.reset(new KernelClass<Type>(ty, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
+    state.reset(new KernelClass<Type>(type, options));
     return Status::OK();
   }
 
   Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(type, this));
+    RETURN_NOT_OK(VisitTypeInline(*type, this));
     return std::move(state);
   }
 };
@@ -168,7 +209,6 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
-    this->has_values |= rhs.has_values;
     this->min = this->min && rhs.min;
     this->max = this->max || rhs.max;
     return *this;
@@ -182,17 +222,16 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
   T min = true;
   T max = false;
   bool has_nulls = false;
-  bool has_values = false;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MinMaxState<ArrowType, SimdLevel, enable_if_integer<ArrowType>> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
-    this->has_values |= rhs.has_values;
     this->min = std::min(this->min, rhs.min);
     this->max = std::max(this->max, rhs.max);
     return *this;
@@ -206,17 +245,16 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_integer<ArrowType>> {
   T min = std::numeric_limits<T>::max();
   T max = std::numeric_limits<T>::min();
   bool has_nulls = false;
-  bool has_values = false;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
-    this->has_values |= rhs.has_values;
     this->min = std::fmin(this->min, rhs.min);
     this->max = std::fmax(this->max, rhs.max);
     return *this;
@@ -230,25 +268,26 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
   T min = std::numeric_limits<T>::infinity();
   T max = -std::numeric_limits<T>::infinity();
   bool has_nulls = false;
-  bool has_values = false;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MinMaxState<ArrowType, SimdLevel, enable_if_decimal<ArrowType>> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename TypeTraits<ArrowType>::CType;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   MinMaxState() : min(T::GetMaxSentinel()), max(T::GetMinSentinel()) {}
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
-    this->has_values |= rhs.has_values;
     this->min = std::min(this->min, rhs.min);
     this->max = std::max(this->max, rhs.max);
     return *this;
   }
 
-  void MergeOne(const uint8_t* value) { MergeOne(T(value)); }
+  void MergeOne(util::string_view value) {
+    MergeOne(T(reinterpret_cast<const uint8_t*>(value.data())));
+  }
 
   void MergeOne(const T value) {
     this->min = std::min(this->min, value);
@@ -258,7 +297,50 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_decimal<ArrowType>> {
   T min;
   T max;
   bool has_nulls = false;
-  bool has_values = false;
+};
+
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel,
+                   enable_if_t<is_base_binary_type<ArrowType>::value ||
+                               std::is_same<ArrowType, FixedSizeBinaryType>::value>> {
+  using ThisType = MinMaxState<ArrowType, SimdLevel>;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    if (!this->seen && rhs.seen) {
+      this->min = rhs.min;
+      this->max = rhs.max;
+    } else if (this->seen && rhs.seen) {
+      if (this->min > rhs.min) {
+        this->min = rhs.min;
+      }
+      if (this->max < rhs.max) {
+        this->max = rhs.max;
+      }
+    }
+    this->has_nulls |= rhs.has_nulls;
+    this->seen |= rhs.seen;
+    return *this;
+  }
+
+  void MergeOne(util::string_view value) {
+    if (!seen) {
+      this->min = std::string(value);
+      this->max = std::string(value);
+    } else {
+      if (value < util::string_view(this->min)) {
+        this->min = std::string(value);
+      } else if (value > util::string_view(this->max)) {
+        this->max = std::string(value);
+      }
+    }
+    this->seen = true;
+  }
+
+  std::string min;
+  std::string max;
+  bool has_nulls = false;
+  bool seen = false;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
@@ -268,7 +350,9 @@ struct MinMaxImpl : public ScalarAggregator {
   using StateType = MinMaxState<ArrowType, SimdLevel>;
 
   MinMaxImpl(std::shared_ptr<DataType> out_type, ScalarAggregateOptions options)
-      : out_type(std::move(out_type)), options(std::move(options)) {}
+      : out_type(std::move(out_type)), options(std::move(options)), count(0) {
+    this->options.min_count = std::max<uint32_t>(1, this->options.min_count);
+  }
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
@@ -280,7 +364,7 @@ struct MinMaxImpl : public ScalarAggregator {
   Status ConsumeScalar(const Scalar& scalar) {
     StateType local;
     local.has_nulls = !scalar.is_valid;
-    local.has_values = scalar.is_valid;
+    this->count += scalar.is_valid;
 
     if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
@@ -297,7 +381,7 @@ struct MinMaxImpl : public ScalarAggregator {
 
     const auto null_count = arr.null_count();
     local.has_nulls = null_count > 0;
-    local.has_values = (arr.length() - null_count) > 0;
+    this->count += arr.length() - null_count;
 
     if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
@@ -308,7 +392,7 @@ struct MinMaxImpl : public ScalarAggregator {
       local += ConsumeWithNulls(arr);
     } else {  // All true values
       for (int64_t i = 0; i < arr.length(); i++) {
-        local.MergeOne(arr.Value(i));
+        local.MergeOne(arr.GetView(i));
       }
     }
     this->state = local;
@@ -318,23 +402,26 @@ struct MinMaxImpl : public ScalarAggregator {
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->state += other.state;
+    this->count += other.count;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
-
     const auto& struct_type = checked_cast<const StructType&>(*out_type);
     const auto& child_type = struct_type.field(0)->type();
 
     std::vector<std::shared_ptr<Scalar>> values;
-    if (!state.has_values || (state.has_nulls && !options.skip_nulls)) {
+    // Physical type != result type
+    if ((state.has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
       // (null, null)
-      values = {std::make_shared<ScalarType>(child_type),
-                std::make_shared<ScalarType>(child_type)};
+      auto null_scalar = MakeNullScalar(child_type);
+      values = {null_scalar, null_scalar};
     } else {
-      values = {std::make_shared<ScalarType>(state.min, child_type),
-                std::make_shared<ScalarType>(state.max, child_type)};
+      ARROW_ASSIGN_OR_RAISE(auto min_scalar,
+                            MakeScalar(child_type, std::move(state.min)));
+      ARROW_ASSIGN_OR_RAISE(auto max_scalar,
+                            MakeScalar(child_type, std::move(state.max)));
+      values = {std::move(min_scalar), std::move(max_scalar)};
     }
     out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
     return Status::OK();
@@ -342,6 +429,7 @@ struct MinMaxImpl : public ScalarAggregator {
 
   std::shared_ptr<DataType> out_type;
   ScalarAggregateOptions options;
+  int64_t count;
   MinMaxState<ArrowType, SimdLevel> state;
 
  private:
@@ -357,7 +445,7 @@ struct MinMaxImpl : public ScalarAggregator {
     const int64_t leading_bits = p.leading_bits;
     while (idx < leading_bits) {
       if (BitUtil::GetBit(bitmap, offset)) {
-        local.MergeOne(arr.Value(idx));
+        local.MergeOne(arr.GetView(idx));
       }
       idx++;
       offset++;
@@ -375,7 +463,7 @@ struct MinMaxImpl : public ScalarAggregator {
           current_block = data_counter.NextWord();
         }
         for (int64_t i = 0; i < run_length; i++) {
-          local.MergeOne(arr.Value(idx + i));
+          local.MergeOne(arr.GetView(idx + i));
         }
         idx += run_length;
         offset += run_length;
@@ -385,7 +473,7 @@ struct MinMaxImpl : public ScalarAggregator {
         BitmapReader reader(arr.null_bitmap_data(), offset, current_block.length);
         for (int64_t i = 0; i < current_block.length; i++) {
           if (reader.IsSet()) {
-            local.MergeOne(arr.Value(idx + i));
+            local.MergeOne(arr.GetView(idx + i));
           }
           reader.Next();
         }
@@ -422,7 +510,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     const auto valid_count = arr_length - null_count;
 
     local.has_nulls = null_count > 0;
-    local.has_values = valid_count > 0;
+    this->count += valid_count;
     if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
       return Status::OK();
@@ -441,7 +529,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     StateType local;
 
     local.has_nulls = !scalar.is_valid;
-    local.has_values = scalar.is_valid;
+    this->count += scalar.is_valid;
     if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
       return Status::OK();
@@ -453,6 +541,20 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.min = false_count == 0;
 
     this->state = local;
+    return Status::OK();
+  }
+};
+
+struct NullMinMaxImpl : public ScalarAggregator {
+  Status Consume(KernelContext*, const ExecBatch& batch) override { return Status::OK(); }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override { return Status::OK(); }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    std::vector<std::shared_ptr<Scalar>> values{std::make_shared<NullScalar>(),
+                                                std::make_shared<NullScalar>()};
+    out->value = std::make_shared<StructScalar>(
+        std::move(values), struct_({field("min", null()), field("max", null())}));
     return Status::OK();
   }
 };
@@ -470,12 +572,17 @@ struct MinMaxInitState {
                   const ScalarAggregateOptions& options)
       : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
 
-  Status Visit(const DataType&) {
-    return Status::NotImplemented("No min/max implemented");
+  Status Visit(const DataType& ty) {
+    return Status::NotImplemented("No min/max implemented for ", ty);
   }
 
-  Status Visit(const HalfFloatType&) {
-    return Status::NotImplemented("No min/max implemented");
+  Status Visit(const HalfFloatType& ty) {
+    return Status::NotImplemented("No min/max implemented for ", ty);
+  }
+
+  Status Visit(const NullType&) {
+    state.reset(new NullMinMaxImpl());
+    return Status::OK();
   }
 
   Status Visit(const BooleanType&) {
@@ -484,13 +591,26 @@ struct MinMaxInitState {
   }
 
   template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
+  enable_if_physical_integer<Type, Status> Visit(const Type&) {
+    using PhysicalType = typename Type::PhysicalType;
+    state.reset(new MinMaxImpl<PhysicalType, SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_floating_point<Type, Status> Visit(const Type&) {
     state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
     return Status::OK();
   }
 
   template <typename Type>
-  enable_if_decimal<Type, Status> Visit(const Type&) {
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_fixed_size_binary<Type, Status> Visit(const Type&) {
     state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
     return Status::OK();
   }

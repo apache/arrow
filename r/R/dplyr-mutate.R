@@ -24,7 +24,7 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
-  exprs <- quos(...)
+  exprs <- ensure_named_exprs(quos(...))
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)
@@ -35,20 +35,17 @@ mutate.arrow_dplyr_query <- function(.data,
     return(.data)
   }
 
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
 
   # Restrict the cases we support for now
-  if (length(dplyr::group_vars(.data)) > 0) {
+  has_aggregations <- any(unlist(lapply(exprs, all_funs)) %in% names(agg_funcs))
+  if (has_aggregations) {
+    # ARROW-13926
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
-    return(abandon_ship(call, .data, "mutate() on grouped data not supported in Arrow"))
+    return(abandon_ship(call, .data, "window functions not currently supported in Arrow"))
   }
-
-  # Check for unnamed expressions and fix if any
-  unnamed <- !nzchar(names(exprs))
-  # Deparse and take the first element in case they're long expressions
-  names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
   mask <- arrow_mask(.data)
   results <- list()
@@ -132,4 +129,12 @@ check_transmute_args <- function(..., .keep, .before, .after) {
     abort("`transmute()` does not support the `.after` argument")
   }
   enquos(...)
+}
+
+ensure_named_exprs <- function(exprs) {
+  # Check for unnamed expressions and fix if any
+  unnamed <- !nzchar(names(exprs))
+  # Deparse and take the first element in case they're long expressions
+  names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
+  exprs
 }

@@ -326,7 +326,14 @@ cdef class MapType(DataType):
         self.map_type = <const CMapType*> type.get()
 
     def __reduce__(self):
-        return map_, (self.key_type, self.item_type)
+        return map_, (self.key_field, self.item_field)
+
+    @property
+    def key_field(self):
+        """
+        The field for keys in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.key_field())
 
     @property
     def key_type(self):
@@ -334,6 +341,13 @@ cdef class MapType(DataType):
         The data type of keys in the map entries.
         """
         return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_field(self):
+        """
+        The field for items in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.item_field())
 
     @property
     def item_type(self):
@@ -693,6 +707,45 @@ cdef class BaseExtensionType(DataType):
         The underlying storage type.
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
+
+    def wrap_array(self, storage):
+        """
+        Wrap the given storage array as an extension array.
+
+        Parameters
+        ----------
+        storage : Array or ChunkedArray
+
+        Returns
+        -------
+        array : Array or ChunkedArray
+            Extension array wrapping the storage array
+        """
+        cdef:
+            shared_ptr[CDataType] c_storage_type
+
+        if isinstance(storage, Array):
+            c_storage_type = (<Array> storage).ap.type()
+        elif isinstance(storage, ChunkedArray):
+            c_storage_type = (<ChunkedArray> storage).chunked_array.type()
+        else:
+            raise TypeError(
+                f"Expected array or chunked array, got {storage.__class__}")
+
+        if not c_storage_type.get().Equals(deref(self.ext_type)
+                                           .storage_type()):
+            raise TypeError(
+                f"Incompatible storage type for {self}: "
+                f"expected {self.storage_type}, got {storage.type}")
+
+        if isinstance(storage, Array):
+            return pyarrow_wrap_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<Array> storage).sp_array))
+        else:
+            return pyarrow_wrap_chunked_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<ChunkedArray> storage).sp_chunked_array))
 
 
 cdef class ExtensionType(BaseExtensionType):
@@ -1674,7 +1727,7 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(list schemas):
+def unify_schemas(schemas):
     """
     Unify schemas by merging fields by name.
 
@@ -2336,7 +2389,7 @@ cpdef LargeListType large_list(value_type):
 
 cpdef MapType map_(key_type, item_type, keys_sorted=False):
     """
-    Create MapType instance from key and item data types.
+    Create MapType instance from key and item data types or fields.
 
     Parameters
     ----------
@@ -2349,12 +2402,25 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     map_type : DataType
     """
     cdef:
-        DataType _key_type = ensure_type(key_type, allow_none=False)
-        DataType _item_type = ensure_type(item_type, allow_none=False)
+        Field _key_field
+        Field _item_field
         shared_ptr[CDataType] map_type
         MapType out = MapType.__new__(MapType)
 
-    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+    if isinstance(key_type, Field):
+        if key_type.nullable:
+            raise TypeError('Map key field should be non-nullable')
+        _key_field = key_type
+    else:
+        _key_field = field('key', ensure_type(key_type, allow_none=False),
+                           nullable=False)
+
+    if isinstance(item_type, Field):
+        _item_field = item_type
+    else:
+        _item_field = field('value', ensure_type(item_type, allow_none=False))
+
+    map_type.reset(new CMapType(_key_field.sp_field, _item_field.sp_field,
                                 keys_sorted))
     out.init(map_type)
     return out
@@ -2380,8 +2446,11 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
         DictionaryType out = DictionaryType.__new__(DictionaryType)
         shared_ptr[CDataType] dict_type
 
-    if _index_type.id not in {Type_INT8, Type_INT16, Type_INT32, Type_INT64}:
-        raise TypeError("The dictionary index type should be signed integer.")
+    if _index_type.id not in {
+        Type_INT8, Type_INT16, Type_INT32, Type_INT64,
+        Type_UINT8, Type_UINT16, Type_UINT32, Type_UINT64,
+    }:
+        raise TypeError("The dictionary index type should be integer.")
 
     dict_type.reset(new CDictionaryType(_index_type.sp_type,
                                         _value_type.sp_type, ordered == 1))

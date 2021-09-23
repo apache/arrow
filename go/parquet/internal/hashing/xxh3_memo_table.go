@@ -192,7 +192,13 @@ func (BinaryMemoTable) valAsByteSlice(val interface{}) []byte {
 	case parquet.FixedLenByteArray:
 		return *(*[]byte)(unsafe.Pointer(&v))
 	case string:
-		return (*(*[]byte)(unsafe.Pointer(&v)))[:len(v):len(v)]
+		var out []byte
+		h := (*reflect.StringHeader)(unsafe.Pointer(&v))
+		s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
+		s.Data = h.Data
+		s.Len = h.Len
+		s.Cap = h.Len
+		return out
 	default:
 		panic("invalid type for binarymemotable")
 	}

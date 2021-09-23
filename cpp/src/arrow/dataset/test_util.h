@@ -54,6 +54,11 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using compute::call;
@@ -74,14 +79,11 @@ using compute::or_;
 using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
-using internal::checked_cast;
-using internal::checked_pointer_cast;
-using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
-    return internal::make_unique<FileSource>(std::move(buffer));
+    return ::arrow::internal::make_unique<FileSource>(std::move(buffer));
   }
 };
 
@@ -103,7 +105,8 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+  return ::arrow::internal::make_unique<GeneratedRecordBatch<Gen>>(
+      schema, std::forward<Gen>(gen));
 }
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
@@ -225,10 +228,30 @@ class DatasetFixtureMixin : public ::testing::Test {
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
+    // ToVector does not work since EnumeratedRecordBatch is not comparable
+    std::vector<EnumeratedRecordBatch> batches;
+    for (;;) {
+      ASSERT_OK_AND_ASSIGN(auto batch, it.Next());
+      if (IsIterationEnd(batch)) break;
+      batches.push_back(std::move(batch));
+    }
+    std::sort(batches.begin(), batches.end(),
+              [](const EnumeratedRecordBatch& left,
+                 const EnumeratedRecordBatch& right) -> bool {
+                if (left.fragment.index < right.fragment.index) {
+                  return true;
+                }
+                if (left.fragment.index > right.fragment.index) {
+                  return false;
+                }
+                return left.record_batch.index < right.record_batch.index;
+              });
+
     int fragment_counter = 0;
     bool saw_last_fragment = false;
     int batch_counter = 0;
-    auto visitor = [&](EnumeratedRecordBatch batch) -> Status {
+
+    for (const auto& batch : batches) {
       if (batch_counter == 0) {
         EXPECT_FALSE(saw_last_fragment);
       }
@@ -242,9 +265,7 @@ class DatasetFixtureMixin : public ::testing::Test {
       }
       saw_last_fragment = batch.fragment.last;
       AssertBatchEquals(expected, *batch.record_batch.value);
-      return Status::OK();
-    };
-    ARROW_EXPECT_OK(it.Visit(visitor));
+    }
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -840,7 +861,7 @@ struct MakeFileSystemDatasetMixin {
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
   EXPECT_NE(fragment, nullptr);
   EXPECT_THAT(fragment->type_name(), "dummy");
-  return internal::checked_cast<const FileFragment&>(*fragment).source().path();
+  return checked_cast<const FileFragment&>(*fragment).source().path();
 }
 
 class TestFileSystemDataset : public ::testing::Test,
@@ -854,7 +875,7 @@ static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
 
 void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
                     std::vector<std::string> expected) {
-  auto fs_dataset = internal::checked_cast<FileSystemDataset*>(dataset.get());
+  auto fs_dataset = checked_cast<FileSystemDataset*>(dataset.get());
   EXPECT_THAT(fs_dataset->files(), testing::UnorderedElementsAreArray(expected));
 }
 

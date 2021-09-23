@@ -195,8 +195,6 @@ module Arrow
     alias_method :size, :n_rows
     alias_method :length, :n_rows
 
-    alias_method :[], :find_column
-
     alias_method :slice_raw, :slice
 
     # @overload slice(offset, length)
@@ -236,6 +234,12 @@ module Arrow
     #   @return [Arrow::Table]
     #     The sub `Arrow::Table` that covers only rows of the range of indices.
     #
+    # @overload slice(conditions)
+    #
+    #   @param conditions [Hash] The conditions to select records.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows matched by condition
+    #
     # @overload slice
     #
     #   @yield [slicer] Gives slicer that constructs condition to select records.
@@ -263,12 +267,37 @@ module Arrow
         expected_n_args = nil
         case args.size
         when 1
-          if args[0].is_a?(Integer)
+          case args[0]
+          when Integer
             index = args[0]
             index += n_rows if index < 0
             return nil if index < 0
             return nil if index >= n_rows
             return Record.new(self, index)
+          when Hash
+            condition_pairs = args[0]
+            slicer = Slicer.new(self)
+            conditions = []
+            condition_pairs.each do |key, value|
+              case value
+              when Range
+                # TODO: Optimize "begin <= key <= end" case by missing "between" kernel
+                # https://issues.apache.org/jira/browse/ARROW-9843
+                unless value.begin.nil?
+                  conditions << (slicer[key] >= value.begin)
+                end
+                unless value.end.nil?
+                  if value.exclude_end?
+                    conditions << (slicer[key] < value.end)
+                  else
+                    conditions << (slicer[key] <= value.end)
+                  end
+                end
+              else
+                conditions << (slicer[key] == value)
+              end
+            end
+            slicers << conditions.inject(:&)
           else
             slicers << args[0]
           end
@@ -395,41 +424,6 @@ module Arrow
         end
       end
       remove_column_raw(index)
-    end
-
-    # TODO
-    #
-    # @return [Arrow::Table]
-    def select_columns(*selectors, &block)
-      if selectors.empty?
-        return to_enum(__method__) unless block_given?
-        selected_columns = columns.select(&block)
-      else
-        selected_columns = []
-        selectors.each do |selector|
-          case selector
-          when String, Symbol
-            column = find_column(selector)
-            if column.nil?
-              message = "unknown column: #{selector.inspect}: #{inspect}"
-              raise KeyError.new(message)
-            end
-            selected_columns << column
-          when Range
-            selected_columns.concat(columns[selector])
-          else
-            column = columns[selector]
-            if column.nil?
-              message = "out of index (0..#{n_columns - 1}): " +
-              "#{selector.inspect}: #{inspect}"
-              raise IndexError.new(message)
-            end
-            selected_columns << column
-          end
-        end
-        selected_columns = selected_columns.select(&block) if block_given?
-      end
-      self.class.new(selected_columns)
     end
 
     # Experimental

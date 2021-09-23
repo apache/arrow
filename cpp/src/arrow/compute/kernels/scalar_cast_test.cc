@@ -71,8 +71,10 @@ static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
 
-static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = {
+static std::vector<std::shared_ptr<DataType>> kIntegerTypes = {
     int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
+
+static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = kIntegerTypes;
 
 static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
     binary(), utf8(), large_binary(), large_utf8()};
@@ -585,6 +587,36 @@ TEST(Cast, Decimal256ToInt) {
   options.allow_int_overflow = true;
   options.allow_decimal_truncate = true;
   CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
+}
+
+TEST(Cast, IntegerToDecimal) {
+  for (auto decimal_type : {decimal128(21, 2), decimal256(21, 2)}) {
+    for (auto integer_type : kIntegerTypes) {
+      CheckCast(
+          ArrayFromJSON(integer_type, "[0, 7, null, 100, 99]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", "7.00", null, "100.00", "99.00"])"));
+    }
+  }
+
+  // extreme value
+  for (auto decimal_type : {decimal128(19, 0), decimal256(19, 0)}) {
+    CheckCast(ArrayFromJSON(int64(), "[-9223372036854775808, 9223372036854775807]"),
+              ArrayFromJSON(decimal_type,
+                            R"(["-9223372036854775808", "9223372036854775807"])"));
+    CheckCast(ArrayFromJSON(uint64(), "[0, 18446744073709551615]"),
+              ArrayFromJSON(decimal_type, R"(["0", "18446744073709551615"])"));
+  }
+
+  // insufficient output precision
+  {
+    CastOptions options;
+
+    options.to_type = decimal128(5, 3);
+    CheckCastFails(ArrayFromJSON(int8(), "[0]"), options);
+
+    options.to_type = decimal256(76, 67);
+    CheckCastFails(ArrayFromJSON(int32(), "[0]"), options);
+  }
 }
 
 TEST(Cast, Decimal128ToDecimal128) {
@@ -1453,34 +1485,42 @@ TEST(Cast, StringToBoolean) {
 TEST(Cast, StringToInt) {
   for (auto string_type : {utf8(), large_utf8()}) {
     for (auto signed_type : {int8(), int16(), int32(), int64()}) {
-      CheckCast(ArrayFromJSON(string_type, R"(["0", null, "127", "-1", "0"])"),
-                ArrayFromJSON(signed_type, "[0, null, 127, -1, 0]"));
+      CheckCast(
+          ArrayFromJSON(string_type, R"(["0", null, "127", "-1", "0", "0x0", "0x7F"])"),
+          ArrayFromJSON(signed_type, "[0, null, 127, -1, 0, 0, 127]"));
     }
 
-    CheckCast(
-        ArrayFromJSON(string_type, R"(["2147483647", null, "-2147483648", "0", "0"])"),
-        ArrayFromJSON(int32(), "[2147483647, null, -2147483648, 0, 0]"));
+    CheckCast(ArrayFromJSON(string_type, R"(["2147483647", null, "-2147483648", "0", 
+          "0X0", "0x7FFFFFFF", "0XFFFFfFfF", "0Xf0000000"])"),
+              ArrayFromJSON(
+                  int32(),
+                  "[2147483647, null, -2147483648, 0, 0, 2147483647, -1, -268435456]"));
 
-    CheckCast(ArrayFromJSON(
-                  string_type,
-                  R"(["9223372036854775807", null, "-9223372036854775808", "0", "0"])"),
+    CheckCast(ArrayFromJSON(string_type,
+                            R"(["9223372036854775807", null, "-9223372036854775808", "0", 
+                    "0x0", "0x7FFFFFFFFFFFFFFf", "0XF000000000000001"])"),
               ArrayFromJSON(int64(),
-                            "[9223372036854775807, null, -9223372036854775808, 0, 0]"));
+                            "[9223372036854775807, null, -9223372036854775808, 0, 0, "
+                            "9223372036854775807, -1152921504606846975]"));
 
     for (auto unsigned_type : {uint8(), uint16(), uint32(), uint64()}) {
-      CheckCast(ArrayFromJSON(string_type, R"(["0", null, "127", "255", "0"])"),
-                ArrayFromJSON(unsigned_type, "[0, null, 127, 255, 0]"));
+      CheckCast(ArrayFromJSON(string_type,
+                              R"(["0", null, "127", "255", "0", "0X0", "0xff", "0x7f"])"),
+                ArrayFromJSON(unsigned_type, "[0, null, 127, 255, 0, 0, 255, 127]"));
     }
 
     CheckCast(
-        ArrayFromJSON(string_type, R"(["2147483647", null, "4294967295", "0", "0"])"),
-        ArrayFromJSON(uint32(), "[2147483647, null, 4294967295, 0, 0]"));
+        ArrayFromJSON(string_type, R"(["2147483647", null, "4294967295", "0", 
+                                    "0x0", "0x7FFFFFFf", "0xFFFFFFFF"])"),
+        ArrayFromJSON(uint32(),
+                      "[2147483647, null, 4294967295, 0, 0, 2147483647, 4294967295]"));
 
-    CheckCast(ArrayFromJSON(
-                  string_type,
-                  R"(["9223372036854775807", null, "18446744073709551615", "0", "0"])"),
+    CheckCast(ArrayFromJSON(string_type,
+                            R"(["9223372036854775807", null, "18446744073709551615", "0", 
+                    "0x0", "0x7FFFFFFFFFFFFFFf", "0xfFFFFFFFFFFFFFFf"])"),
               ArrayFromJSON(uint64(),
-                            "[9223372036854775807, null, 18446744073709551615, 0, 0]"));
+                            "[9223372036854775807, null, 18446744073709551615, 0, 0, "
+                            "9223372036854775807, 18446744073709551615]"));
 
     for (std::string not_int8 : {
              "z",
@@ -1488,16 +1528,15 @@ TEST(Cast, StringToInt) {
              "128",
              "-129",
              "0.5",
+             "0x",
+             "0xfff",
+             "-0xf0",
          }) {
       auto options = CastOptions::Safe(int8());
       CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_int8 + "\"]"), options);
     }
 
-    for (std::string not_uint8 : {
-             "256",
-             "-1",
-             "0.5",
-         }) {
+    for (std::string not_uint8 : {"256", "-1", "0.5", "0x", "0x3wa", "0x123"}) {
       auto options = CastOptions::Safe(uint8());
       CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_uint8 + "\"]"), options);
     }

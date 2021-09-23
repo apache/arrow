@@ -164,8 +164,10 @@ struct InitStateVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
+                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
+              Status>
+  Visit(const Type&) {
     return Init<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
@@ -176,6 +178,10 @@ struct InitStateVisitor {
 
   // Handle Decimal128Type, FixedSizeBinaryType
   Status Visit(const FixedSizeBinaryType& type) { return Init<FixedSizeBinaryType>(); }
+
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return Init<MonthDayNanoIntervalType>();
+  }
 
   Result<std::unique_ptr<KernelState>> GetResult() {
     if (!options.value_set.type()->Equals(arg_type)) {
@@ -262,8 +268,10 @@ struct IndexInVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
+                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
+              Status>
+  Visit(const Type&) {
     return ProcessIndexIn<
         typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
@@ -276,6 +284,10 @@ struct IndexInVisitor {
   // Handle Decimal128Type, FixedSizeBinaryType
   Status Visit(const FixedSizeBinaryType& type) {
     return ProcessIndexIn<FixedSizeBinaryType>();
+  }
+
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return ProcessIndexIn<MonthDayNanoIntervalType>();
   }
 
   Status Execute() {
@@ -352,8 +364,10 @@ struct IsInVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
+                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
+              Status>
+  Visit(const Type&) {
     return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
@@ -365,6 +379,10 @@ struct IsInVisitor {
   // Handle Decimal128Type, FixedSizeBinaryType
   Status Visit(const FixedSizeBinaryType& type) {
     return ProcessIsIn<FixedSizeBinaryType>();
+  }
+
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return ProcessIsIn<MonthDayNanoIntervalType>();
   }
 
   Status Execute() { return VisitTypeInline(*data.type, this); }
@@ -396,6 +414,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   AddKernels(BaseBinaryTypes());
   AddKernels(NumericTypes());
   AddKernels(TemporalTypes());
+  AddKernels({month_day_nano_interval()});
 
   std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL,
                                          Type::FIXED_SIZE_BINARY};

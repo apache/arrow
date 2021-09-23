@@ -96,14 +96,7 @@ nse_funcs$coalesce <- function(...) {
 }
 
 nse_funcs$is.na <- function(x) {
-  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13367)
-  if (is.double(x) || (inherits(x, "Expression") &&
-    x$type_id() %in% TYPES_WITH_NAN)) {
-    build_expr("is_nan", x) | build_expr("is_null", x)
-  } else {
-    build_expr("is_null", x)
-  }
+  build_expr("is_null", x, options = list(nan_is_null = TRUE))
 }
 
 nse_funcs$is.nan <- function(x) {
@@ -688,6 +681,14 @@ nse_funcs$trunc <- function(x, ...) {
   build_expr("trunc", x)
 }
 
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
+}
+
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
 
   # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
@@ -701,6 +702,23 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
+  # like other binary functions, either `x` or `base` can be Expression or double(1)
+  if (is.numeric(x) && length(x) == 1) {
+    x <- Expression$scalar(x)
+  } else if (!inherits(x, "Expression")) {
+    arrow_not_supported("x must be a column or a length-1 numeric; other values")
+  }
+
+  # handle `base` differently because we use the simpler ln, log2, and log10
+  # functions for specific scalar base values
+  if (inherits(base, "Expression")) {
+    return(Expression$create("logb_checked", x, base))
+  }
+
+  if (!is.numeric(base) || length(base) != 1) {
+    arrow_not_supported("base must be a column or a length-1 numeric; other values")
+  }
+
   if (base == exp(1)) {
     return(Expression$create("ln_checked", x))
   }
@@ -712,8 +730,8 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
   if (base == 10) {
     return(Expression$create("log10_checked", x))
   }
-  # ARROW-13345
-  arrow_not_supported("`base` values other than exp(1), 2 and 10")
+
+  Expression$create("logb_checked", x, Expression$scalar(base))
 }
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
@@ -791,28 +809,92 @@ agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(
     fun = "sum",
     data = x,
-    options = arrow_na_rm(na.rm = na.rm)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$any <- function(x, na.rm = FALSE) {
   list(
     fun = "any",
     data = x,
-    options = arrow_na_rm(na.rm)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$all <- function(x, na.rm = FALSE) {
   list(
     fun = "all",
     data = x,
-    options = arrow_na_rm(na.rm)
+    options = list(skip_nulls = na.rm, min_count = 0L)
+  )
+}
+agg_funcs$mean <- function(x, na.rm = FALSE) {
+  list(
+    fun = "mean",
+    data = x,
+    options = list(skip_nulls = na.rm, min_count = 0L)
+  )
+}
+agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
+  list(
+    fun = "stddev",
+    data = x,
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+  )
+}
+agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
+  list(
+    fun = "variance",
+    data = x,
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+  )
+}
+agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+  list(
+    fun = "count_distinct",
+    data = x,
+    options = list(na.rm = na.rm)
+  )
+}
+agg_funcs$n <- function() {
+  list(
+    fun = "sum",
+    data = Expression$scalar(1L),
+    options = list()
+  )
+}
+agg_funcs$min <- function(..., na.rm = FALSE) {
+  args <- list2(...)
+  if (length(args) > 1) {
+    arrow_not_supported("Multiple arguments to min()")
+  }
+  list(
+    fun = "min",
+    data = args[[1]],
+    options = list(skip_nulls = na.rm, min_count = 0L)
+  )
+}
+agg_funcs$max <- function(..., na.rm = FALSE) {
+  args <- list2(...)
+  if (length(args) > 1) {
+    arrow_not_supported("Multiple arguments to max()")
+  }
+  list(
+    fun = "max",
+    data = args[[1]],
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 
-arrow_na_rm <- function(na.rm) {
-  if (!isTRUE(na.rm)) {
-    # TODO: ARROW-13497
-    arrow_not_supported(paste("na.rm =", na.rm))
+output_type <- function(fun, input_type) {
+  # These are quick and dirty heuristics.
+  if (fun %in% c("any", "all")) {
+    bool()
+  } else if (fun %in% "sum") {
+    # It may upcast to a bigger type but this is close enough
+    input_type
+  } else if (fun %in% c("mean", "stddev", "variance")) {
+    float64()
+  } else {
+    # Just so things don't error, assume the resulting type is the same
+    input_type
   }
-  list(na.rm = na.rm, na.min_count = 0L)
 }

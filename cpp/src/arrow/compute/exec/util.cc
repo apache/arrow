@@ -53,7 +53,8 @@ inline void BitUtil::bits_filter_indexes_helper(uint64_t word,
 template <int bit_to_search, bool filter_input_indexes>
 void BitUtil::bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
                                        const uint8_t* bits, const uint16_t* input_indexes,
-                                       int* num_indexes, uint16_t* indexes) {
+                                       int* num_indexes, uint16_t* indexes,
+                                       uint16_t base_index) {
   // 64 bits at a time
   constexpr int unroll = 64;
   int tail = num_bits % unroll;
@@ -63,7 +64,8 @@ void BitUtil::bits_to_indexes_internal(int64_t hardware_flags, const int num_bit
       bits_filter_indexes_avx2(bit_to_search, num_bits - tail, bits, input_indexes,
                                num_indexes, indexes);
     } else {
-      bits_to_indexes_avx2(bit_to_search, num_bits - tail, bits, num_indexes, indexes);
+      bits_to_indexes_avx2(bit_to_search, num_bits - tail, bits, num_indexes, indexes,
+                           base_index);
     }
   } else {
 #endif
@@ -76,7 +78,7 @@ void BitUtil::bits_to_indexes_internal(int64_t hardware_flags, const int num_bit
       if (filter_input_indexes) {
         bits_filter_indexes_helper(word, input_indexes + i * 64, num_indexes, indexes);
       } else {
-        bits_to_indexes_helper(word, i * 64, num_indexes, indexes);
+        bits_to_indexes_helper(word, i * 64 + base_index, num_indexes, indexes);
       }
     }
 #if defined(ARROW_HAVE_AVX2)
@@ -94,41 +96,43 @@ void BitUtil::bits_to_indexes_internal(int64_t hardware_flags, const int num_bit
       bits_filter_indexes_helper(word, input_indexes + num_bits - tail, num_indexes,
                                  indexes);
     } else {
-      bits_to_indexes_helper(word, num_bits - tail, num_indexes, indexes);
+      bits_to_indexes_helper(word, num_bits - tail + base_index, num_indexes, indexes);
     }
   }
 }
 
-void BitUtil::bits_to_indexes(int bit_to_search, int64_t hardware_flags,
-                              const int num_bits, const uint8_t* bits, int* num_indexes,
-                              uint16_t* indexes, int bit_offset) {
+void BitUtil::bits_to_indexes(int bit_to_search, int64_t hardware_flags, int num_bits,
+                              const uint8_t* bits, int* num_indexes, uint16_t* indexes,
+                              int bit_offset) {
   bits += bit_offset / 8;
   bit_offset %= 8;
+  *num_indexes = 0;
+  uint16_t base_index = 0;
   if (bit_offset != 0) {
-    int num_indexes_head = 0;
     uint64_t bits_head =
         util::SafeLoad(reinterpret_cast<const uint64_t*>(bits)) >> bit_offset;
     int bits_in_first_byte = std::min(num_bits, 8 - bit_offset);
     bits_to_indexes(bit_to_search, hardware_flags, bits_in_first_byte,
-                    reinterpret_cast<const uint8_t*>(&bits_head), &num_indexes_head,
-                    indexes);
-    int num_indexes_tail = 0;
-    if (num_bits > bits_in_first_byte) {
-      bits_to_indexes(bit_to_search, hardware_flags, num_bits - bits_in_first_byte,
-                      bits + 1, &num_indexes_tail, indexes + num_indexes_head);
+                    reinterpret_cast<const uint8_t*>(&bits_head), num_indexes, indexes);
+    if (num_bits <= bits_in_first_byte) {
+      return;
     }
-    *num_indexes = num_indexes_head + num_indexes_tail;
-    return;
+    num_bits -= bits_in_first_byte;
+    indexes += *num_indexes;
+    bits += 1;
+    base_index = bits_in_first_byte;
   }
 
+  int num_indexes_new = 0;
   if (bit_to_search == 0) {
     bits_to_indexes_internal<0, false>(hardware_flags, num_bits, bits, nullptr,
-                                       num_indexes, indexes);
+                                       &num_indexes_new, indexes, base_index);
   } else {
     ARROW_DCHECK(bit_to_search == 1);
     bits_to_indexes_internal<1, false>(hardware_flags, num_bits, bits, nullptr,
-                                       num_indexes, indexes);
+                                       &num_indexes_new, indexes, base_index);
   }
+  *num_indexes += num_indexes_new;
 }
 
 void BitUtil::bits_filter_indexes(int bit_to_search, int64_t hardware_flags,

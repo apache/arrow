@@ -27,6 +27,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
@@ -212,6 +213,18 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       return false;
     }
     return true;
+  }
+
+  @Override
+  public Boolean visit(ExtensionTypeVector<?> left, Range range) {
+    if (!(right instanceof ExtensionTypeVector<?>) || !validate(left)) {
+      return false;
+    }
+    ValueVector rightUnderlying = ((ExtensionTypeVector<?>) right).getUnderlyingVector();
+    TypeEqualsVisitor typeVisitor = new TypeEqualsVisitor(rightUnderlying);
+    RangeEqualsVisitor underlyingVisitor =
+            createInnerVisitor(left.getUnderlyingVector(), rightUnderlying, (l, r) -> typeVisitor.equals(l));
+    return underlyingVisitor.rangeEquals(range);
   }
 
   protected RangeEqualsVisitor createInnerVisitor(

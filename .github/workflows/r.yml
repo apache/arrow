@@ -53,7 +53,7 @@ jobs:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -180,7 +180,6 @@ jobs:
       matrix:
         rtools: [35, 40]
     env:
-      TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
@@ -248,6 +247,7 @@ jobs:
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE
           )
           rcmdcheck::rcmdcheck("r",

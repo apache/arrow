@@ -22,6 +22,18 @@
 
 #pragma once
 
+/// \defgroup numeric-arrays Concrete classes for numeric arrays
+/// @{
+/// @}
+
+/// \defgroup binary-arrays Concrete classes for binary/string arrays
+/// @{
+/// @}
+
+/// \defgroup nested-arrays Concrete classes for nested arrays
+/// @{
+/// @}
+
 #include "arrow/array/array_base.h"       // IWYU pragma: keep
 #include "arrow/array/array_binary.h"     // IWYU pragma: keep
 #include "arrow/array/array_decimal.h"    // IWYU pragma: keep

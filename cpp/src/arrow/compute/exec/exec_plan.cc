@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -119,7 +120,7 @@ struct ExecPlanImpl : public ExecPlan {
     }
   }
 
-  NodeVector TopoSort() {
+  NodeVector TopoSort() const {
     struct Impl {
       const std::vector<std::unique_ptr<ExecNode>>& nodes;
       std::unordered_set<ExecNode*> visited;
@@ -150,6 +151,15 @@ struct ExecPlanImpl : public ExecPlan {
     };
 
     return std::move(Impl{nodes_}.sorted);
+  }
+
+  std::string ToString() const {
+    std::stringstream ss;
+    ss << "ExecPlan with " << nodes_.size() << " nodes:" << std::endl;
+    for (const auto& node : TopoSort()) {
+      ss << node->ToString() << std::endl;
+    }
+    return ss.str();
   }
 
   Future<> finished_ = Future<>::MakeFinished();
@@ -197,6 +207,8 @@ void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
 
 Future<> ExecPlan::finished() { return ToDerived(this)->finished_; }
 
+std::string ExecPlan::ToString() const { return ToDerived(this)->ToString(); }
+
 ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
                    std::vector<std::string> input_labels,
                    std::shared_ptr<Schema> output_schema, int num_outputs)
@@ -232,6 +244,36 @@ Status ExecNode::Validate() const {
   return Status::OK();
 }
 
+std::string ExecNode::ToString() const {
+  std::stringstream ss;
+  ss << kind_name() << "{\"" << label_ << '"';
+  if (!inputs_.empty()) {
+    ss << ", inputs=[";
+    for (size_t i = 0; i < inputs_.size(); i++) {
+      if (i > 0) ss << ", ";
+      ss << input_labels_[i] << ": \"" << inputs_[i]->label() << '"';
+    }
+    ss << ']';
+  }
+
+  if (!outputs_.empty()) {
+    ss << ", outputs=[";
+    for (size_t i = 0; i < outputs_.size(); i++) {
+      if (i > 0) ss << ", ";
+      ss << "\"" << outputs_[i]->label() << "\"";
+    }
+    ss << ']';
+  }
+
+  const std::string extra = ToStringExtra();
+  if (!extra.empty()) ss << ", " << extra;
+
+  ss << '}';
+  return ss.str();
+}
+
+std::string ExecNode::ToStringExtra() const { return ""; }
+
 bool ExecNode::ErrorIfNotOk(Status status) {
   if (status.ok()) return false;
 
@@ -239,15 +281,6 @@ bool ExecNode::ErrorIfNotOk(Status status) {
     out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
   }
   return true;
-}
-
-ExecFactoryRegistry::AddOnLoad::AddOnLoad(std::string factory_name, Factory factory)
-    : AddOnLoad(std::move(factory_name), std::move(factory),
-                default_exec_factory_registry()) {}
-
-ExecFactoryRegistry::AddOnLoad::AddOnLoad(std::string factory_name, Factory factory,
-                                          ExecFactoryRegistry* registry) {
-  DCHECK_OK(registry->AddFactory(std::move(factory_name), std::move(factory)));
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
@@ -315,9 +348,29 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
   return out;
 }
 
+namespace internal {
+
+void RegisterSourceNode(ExecFactoryRegistry*);
+void RegisterFilterNode(ExecFactoryRegistry*);
+void RegisterProjectNode(ExecFactoryRegistry*);
+void RegisterUnionNode(ExecFactoryRegistry*);
+void RegisterAggregateNode(ExecFactoryRegistry*);
+void RegisterSinkNode(ExecFactoryRegistry*);
+
+}  // namespace internal
+
 ExecFactoryRegistry* default_exec_factory_registry() {
-  static class : public ExecFactoryRegistry {
+  class DefaultRegistry : public ExecFactoryRegistry {
    public:
+    DefaultRegistry() {
+      internal::RegisterSourceNode(this);
+      internal::RegisterFilterNode(this);
+      internal::RegisterProjectNode(this);
+      internal::RegisterUnionNode(this);
+      internal::RegisterAggregateNode(this);
+      internal::RegisterSinkNode(this);
+    }
+
     Result<Factory> GetFactory(const std::string& factory_name) override {
       auto it = factories_.find(factory_name);
       if (it == factories_.end()) {
@@ -341,8 +394,9 @@ ExecFactoryRegistry* default_exec_factory_registry() {
 
    private:
     std::unordered_map<std::string, Factory> factories_;
-  } instance;
+  };
 
+  static DefaultRegistry instance;
   return &instance;
 }
 

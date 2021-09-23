@@ -26,6 +26,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
+tbl$another_chr <- tail(letters, 10)
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -961,7 +962,7 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
       filter(int > 0),
     regexp = paste0(
       'The following field names were found more than once in the data: "int", "dbl", ',
-      '"dbl2", "lgl", "false", "chr", "fct", "verses", and "padded_strings"'
+      '"dbl2", "lgl", "false", "chr", "fct", "verses", "padded_strings"'
     )
   )
 })
@@ -988,7 +989,7 @@ test_that("sign()", {
   )
 })
 
-test_that("ceiling(), floor(), trunc()", {
+test_that("ceiling(), floor(), trunc(), round()", {
   df <- tibble(x = c(-1, -0.55, -0.5, -0.1, 0, 0.1, 0.5, 0.55, 1, NA, NaN))
 
   expect_dplyr_equal(
@@ -996,10 +997,89 @@ test_that("ceiling(), floor(), trunc()", {
       mutate(
         c = ceiling(x),
         f = floor(x),
-        t = trunc(x)
+        t = trunc(x),
+        r = round(x)
       ) %>%
       collect(),
     df
+  )
+
+  # with digits set to 1
+  expect_dplyr_equal(
+    input %>%
+      filter(x %% 0.5 == 0) %>% # filter out indeterminate cases (see below)
+      mutate(r = round(x, 1)) %>%
+      collect(),
+    df
+  )
+
+  # with digits set to -1
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        rd = round(floor(x * 111), -1), # double
+        y = ifelse(is.nan(x), NA_integer_, x),
+        ri = round(as.integer(y * 111), -1) # integer (with the NaN removed)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # round(x, -2) is equivalent to round_to_multiple(x, 100)
+  expect_equal(
+    Table$create(x = 1111.1) %>%
+      mutate(r = round(x, -2)) %>%
+      collect(),
+    Table$create(x = 1111.1) %>%
+      mutate(r = arrow_round_to_multiple(x, options = list(multiple = 100))) %>%
+      collect()
+  )
+
+  # For consistency with base R, the binding for round() uses the Arrow
+  # library's HALF_TO_EVEN round mode, but the expectations *above* would pass
+  # even if another round mode were used. The expectations *below* should fail
+  # with other round modes. However, some decimal numbers cannot be represented
+  # exactly as floating point numbers, and for the ones that also end in 5 (such
+  # as 0.55), R's rounding behavior is indeterminate: it will vary depending on
+  # the OS. In practice, this seems to affect Windows, so we skip these tests
+  # on Windows and on CRAN.
+
+  skip_on_cran()
+  skip_on_os("windows")
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(r = round(x, 1)) %>%
+      collect(),
+    df
+  )
+
+  # Verify that round mode HALF_TO_EVEN, which is what the round() binding uses,
+  # yields results consistent with R...
+  expect_equal(
+    as.vector(
+      call_function(
+        "round",
+        Array$create(df$x),
+        options = list(ndigits = 1L, round_mode = RoundMode$HALF_TO_EVEN)
+      )
+    ),
+    round(df$x, 1)
+  )
+  # ...but that the round mode HALF_TOWARDS_ZERO does not. If the expectation
+  # below fails, it means that the expectation above is not effectively testing
+  # that Arrow is using the HALF_TO_EVEN mode.
+  expect_false(
+    isTRUE(all.equal(
+      as.vector(
+        call_function(
+          "round",
+          Array$create(df$x),
+          options = list(ndigits = 1L, round_mode = RoundMode$HALF_TOWARDS_ZERO)
+        )
+      ),
+      round(df$x, 1)
+    ))
   )
 })
 
@@ -1034,10 +1114,58 @@ test_that("log functions", {
     df
   )
 
+  # test log(, base = (length == 1))
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = 5)) %>%
+      collect(),
+    df
+  )
+
+  # test log(, base = (length != 1))
   expect_error(
-    nse_funcs$log(Expression$scalar(x), base = 5),
-    "`base` values other than exp(1), 2 and 10 not supported by Arrow",
+    nse_funcs$log(10, base = 5:6),
+    "base must be a column or a length-1 numeric; other values not supported by Arrow",
     fixed = TRUE
+  )
+
+  # test log(x = (length != 1))
+  expect_error(
+    nse_funcs$log(10:11),
+    "x must be a column or a length-1 numeric; other values not supported by Arrow",
+    fixed = TRUE
+  )
+
+  # test log(, base = Expression)
+  expect_dplyr_equal(
+    input %>%
+      # test cases where base = 1 below
+      filter(x != 1) %>%
+      mutate(
+        y = log(x, base = x),
+        z = log(2, base = x)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # log(1, base = 1) is NaN in both R and Arrow
+  # suppress the R warning because R warns but Arrow does not
+  suppressWarnings(
+    expect_dplyr_equal(
+      input %>%
+        mutate(y = log(x, base = y)) %>%
+        collect(),
+      tibble(x = 1, y = 1)
+    )
+  )
+
+  # log(n != 1, base = 1) is Inf in R and Arrow
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = y)) %>%
+      collect(),
+    tibble(x = 10, y = 1)
   )
 
   expect_dplyr_equal(
@@ -1109,9 +1237,6 @@ test_that("trig functions", {
 })
 
 test_that("if_else and ifelse", {
-  tbl <- example_data
-  tbl$another_chr <- tail(letters, 10)
-
   expect_dplyr_equal(
     input %>%
       mutate(
@@ -1342,7 +1467,6 @@ test_that("case_when()", {
     )
   )
 
-  skip("case_when does not yet support with variable-width types (ARROW-13222)")
   expect_dplyr_equal(
     input %>%
       transmute(cw = case_when(lgl ~ "abc")) %>%
@@ -1355,10 +1479,11 @@ test_that("case_when()", {
       collect(),
     tbl
   )
+  skip("ARROW-13799: factor() should error but instead we get a string error message in its place")
   expect_dplyr_equal(
     input %>%
       mutate(
-        cw = paste0(case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct), "!")
+        cw = case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct)
       ) %>%
       collect(),
     tbl

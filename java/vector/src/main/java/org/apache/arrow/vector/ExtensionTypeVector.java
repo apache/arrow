@@ -261,6 +261,6 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
 
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    return getUnderlyingVector().accept(visitor, value);
+    return visitor.visit(this, value);
   }
 }

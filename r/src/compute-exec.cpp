@@ -57,12 +57,22 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node) {
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
-  MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
-                     compute::SinkNodeOptions{&sink_gen});
+
+  // Sorting uses a different sink node; there is no general sort yet
+  if (sort_options.size() > 0) {
+    MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                       compute::OrderBySinkNodeOptions{
+                           *std::dynamic_pointer_cast<compute::SortOptions>(
+                               make_compute_options("sort_indices", sort_options)),
+                           &sink_gen});
+  } else {
+    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                       compute::SinkNodeOptions{&sink_gen});
+  }
 
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
@@ -84,10 +94,13 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<arrow::dataset::Dataset>& dataset,
     const std::shared_ptr<compute::Expression>& filter,
     std::vector<std::string> materialized_field_names) {
+  arrow::dataset::internal::Initialize();
+
   // TODO: pass in FragmentScanOptions
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
 
   options->use_async = true;
+  options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
 
   options->dataset_schema = dataset->schema();
 

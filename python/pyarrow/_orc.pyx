@@ -55,8 +55,9 @@ cdef class ORCReader(_Weakrefable):
 
         get_reader(source, use_memory_map, &rd_handle)
         with nogil:
-            check_status(ORCFileReader.Open(rd_handle, self.allocator,
-                                            &self.reader))
+            self.reader = move(GetResultValue(
+                ORCFileReader.Open(rd_handle, self.allocator)
+            ))
 
     def metadata(self):
         """
@@ -88,7 +89,7 @@ cdef class ORCReader(_Weakrefable):
             shared_ptr[CSchema] sp_arrow_schema
 
         with nogil:
-            check_status(deref(self.reader).ReadSchema(&sp_arrow_schema))
+            sp_arrow_schema = GetResultValue(deref(self.reader).ReadSchema())
 
         return pyarrow_wrap_schema(sp_arrow_schema)
 
@@ -109,13 +110,15 @@ cdef class ORCReader(_Weakrefable):
 
         if include_indices is None:
             with nogil:
-                (check_status(deref(self.reader)
-                              .ReadStripe(stripe, &sp_record_batch)))
+                sp_record_batch = GetResultValue(
+                    deref(self.reader).ReadStripe(stripe)
+                )
         else:
             indices = include_indices
             with nogil:
-                (check_status(deref(self.reader)
-                              .ReadStripe(stripe, indices, &sp_record_batch)))
+                sp_record_batch = GetResultValue(
+                    deref(self.reader).ReadStripe(stripe, indices)
+                )
 
         return pyarrow_wrap_batch(sp_record_batch)
 
@@ -126,11 +129,11 @@ cdef class ORCReader(_Weakrefable):
 
         if include_indices is None:
             with nogil:
-                check_status(deref(self.reader).Read(&sp_table))
+                sp_table = GetResultValue(deref(self.reader).Read())
         else:
             indices = include_indices
             with nogil:
-                check_status(deref(self.reader).Read(indices, &sp_table))
+                sp_table = GetResultValue(deref(self.reader).Read(indices))
 
         return pyarrow_wrap_table(sp_table)
 

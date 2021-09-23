@@ -64,6 +64,8 @@ def get_many_types():
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
+        pa.map_(pa.field('key', pa.int32(), nullable=False),
+                pa.field('value', pa.int32())),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
                    pa.field('c', pa.string())]),
@@ -166,6 +168,10 @@ def test_is_map():
 
     assert types.is_map(m)
     assert not types.is_map(pa.int32())
+
+    fields = pa.map_(pa.field('key_name', pa.utf8(), nullable=False),
+                     pa.field('value_name', pa.int32()))
+    assert types.is_map(fields)
 
     entries_type = pa.struct([pa.field('key', pa.int8()),
                               pa.field('value', pa.int8())])
@@ -463,12 +469,16 @@ def test_map_type():
     ty = pa.map_(pa.utf8(), pa.int32())
     assert isinstance(ty, pa.MapType)
     assert ty.key_type == pa.utf8()
+    assert ty.key_field == pa.field("key", pa.utf8(), nullable=False)
     assert ty.item_type == pa.int32()
+    assert ty.item_field == pa.field("value", pa.int32(), nullable=True)
 
     with pytest.raises(TypeError):
         pa.map_(None)
     with pytest.raises(TypeError):
         pa.map_(pa.int32(), None)
+    with pytest.raises(TypeError):
+        pa.map_(pa.field("name", pa.string(), nullable=True), pa.int64())
 
 
 def test_fixed_size_list_type():
@@ -624,11 +634,15 @@ def test_dictionary_type():
     assert ty2.value_type == pa.string()
     assert ty2.ordered is False
 
+    # allow unsigned integers for index type
+    ty3 = pa.dictionary(pa.uint32(), pa.string())
+    assert ty3.index_type == pa.uint32()
+    assert ty3.value_type == pa.string()
+    assert ty3.ordered is False
+
     # invalid index type raises
     with pytest.raises(TypeError):
         pa.dictionary(pa.string(), pa.int64())
-    with pytest.raises(TypeError):
-        pa.dictionary(pa.uint32(), pa.string())
 
 
 def test_dictionary_ordered_equals():

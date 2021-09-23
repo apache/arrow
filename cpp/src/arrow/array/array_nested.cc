@@ -438,6 +438,11 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
                                               /*null_count=*/0, /*offset=*/0);
 }
 
+Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
+    MemoryPool* memory_pool) const {
+  return FlattenListArray(*this, memory_pool);
+}
+
 // ----------------------------------------------------------------------
 // Struct
 

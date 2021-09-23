@@ -170,15 +170,25 @@ cdef class ChunkedArray(_PandasConvertible):
             else:
                 index -= self.chunked_array.chunk(j).get().length()
 
-    def is_null(self):
+    def is_null(self, *, nan_is_null=False):
         """
-        Return BooleanArray indicating the null values.
+        Return boolean array indicating the null values.
+
+        Parameters
+        ----------
+        nan_is_null : bool (optional, default False)
+            Whether floating-point NaN values should also be considered null.
+
+        Returns
+        -------
+        array : boolean Array or ChunkedArray
         """
-        return _pc().is_null(self)
+        options = _pc().NullOptions(nan_is_null=nan_is_null)
+        return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
         """
-        Return BooleanArray indicating the non-null values.
+        Return boolean array indicating the non-null values.
         """
         return _pc().is_valid(self)
 
@@ -921,7 +931,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         return pyarrow_wrap_batch(result)
 
-    def filter(self, Array mask, object null_selection_behavior="drop"):
+    def filter(self, mask, object null_selection_behavior="drop"):
         """
         Select record from a record batch. See pyarrow.compute.filter for full
         usage.

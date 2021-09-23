@@ -83,6 +83,8 @@ concepts, here is a small glossary to help disambiguate.
   layout. Similarly, strings can be stored as ``List<1-byte>``. A
   timestamp may be stored as 64-bit fixed-size layout.
 
+.. _format_layout:
+
 Physical Memory Layout
 ======================
 

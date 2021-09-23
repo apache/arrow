@@ -440,5 +440,11 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
+namespace internal {
+
+/// This function must be called before using dataset ExecNode factories
+ARROW_DS_EXPORT void Initialize();
+
+}  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

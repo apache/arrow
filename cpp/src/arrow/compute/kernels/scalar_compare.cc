@@ -172,6 +172,8 @@ struct CompareFunction : ScalarFunction {
       ReplaceTypes(type, values);
     } else if (auto type = CommonBinary(*values)) {
       ReplaceTypes(type, values);
+    } else if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, values));
     }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -220,7 +222,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   AddGenericCompare<DoubleType, Op>(float64(), func.get());
 
   // Add timestamp kernels
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
@@ -229,7 +231,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   }
 
   // Duration
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
@@ -257,6 +259,12 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+  }
+
+  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+    DCHECK_OK(
+        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
   }
 
   return func;

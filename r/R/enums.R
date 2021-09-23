@@ -148,3 +148,18 @@ NullEncodingBehavior <- enum("NullEncodingBehavior",
 NullHandlingBehavior <- enum("NullHandlingBehavior",
   EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L
 )
+
+#' @export
+#' @rdname enums
+RoundMode <- enum("RoundMode",
+  DOWN = 0L,
+  UP = 1L,
+  TOWARDS_ZERO = 2L,
+  TOWARDS_INFINITY = 3L,
+  HALF_DOWN = 4L,
+  HALF_UP = 5L,
+  HALF_TOWARDS_ZERO = 6L,
+  HALF_TOWARDS_INFINITY = 7L,
+  HALF_TO_EVEN = 8L,
+  HALF_TO_ODD = 9L
+)

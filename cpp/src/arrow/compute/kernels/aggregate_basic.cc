@@ -116,22 +116,18 @@ Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
 
 template <typename ArrowType>
 struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {
-  explicit SumImplDefault(const ScalarAggregateOptions& options_) {
-    this->options = options_;
-  }
+  using SumImpl<ArrowType, SimdLevel::NONE>::SumImpl;
 };
 
 template <typename ArrowType>
 struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
-  explicit MeanImplDefault(const ScalarAggregateOptions& options_) {
-    this->options = options_;
-  }
+  using MeanImpl<ArrowType, SimdLevel::NONE>::MeanImpl;
 };
 
 Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
                                              const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(
-      ctx, *args.inputs[0].type,
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -139,7 +135,7 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
   SumLikeInit<MeanImplDefault> visitor(
-      ctx, *args.inputs[0].type,
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -156,27 +152,41 @@ struct ProductImpl : public ScalarAggregator {
   using ProductType = typename TypeTraits<AccType>::CType;
   using OutputType = typename TypeTraits<AccType>::ScalarType;
 
-  explicit ProductImpl(const ScalarAggregateOptions& options) { this->options = options; }
+  explicit ProductImpl(const std::shared_ptr<DataType>& out_type,
+                       const ScalarAggregateOptions& options)
+      : out_type(out_type),
+        options(options),
+        count(0),
+        product(MultiplyTraits<AccType>::one(*out_type)),
+        nulls_observed(false) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
       const auto& data = batch[0].array();
       this->count += data->length - data->GetNullCount();
-      VisitArrayDataInline<ArrowType>(
+      this->nulls_observed = this->nulls_observed || data->GetNullCount();
+
+      if (!options.skip_nulls && this->nulls_observed) {
+        // Short-circuit
+        return Status::OK();
+      }
+
+      internal::VisitArrayValuesInline<ArrowType>(
           *data,
           [&](typename TypeTraits<ArrowType>::CType value) {
             this->product =
-                static_cast<ProductType>(to_unsigned(this->product) * to_unsigned(value));
+                MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
           },
           [] {});
     } else {
       const auto& data = *batch[0].scalar();
       this->count += data.is_valid * batch.length;
+      this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
         for (int64_t i = 0; i < batch.length; i++) {
           auto value = internal::UnboxScalar<ArrowType>::Unbox(data);
           this->product =
-              static_cast<ProductType>(to_unsigned(this->product) * to_unsigned(value));
+              MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
         }
       }
     }
@@ -187,31 +197,35 @@ struct ProductImpl : public ScalarAggregator {
     const auto& other = checked_cast<const ThisType&>(src);
     this->count += other.count;
     this->product =
-        static_cast<ProductType>(to_unsigned(this->product) * to_unsigned(other.product));
+        MultiplyTraits<AccType>::Multiply(*out_type, this->product, other.product);
+    this->nulls_observed = this->nulls_observed || other.nulls_observed;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count < options.min_count) {
-      out->value = std::make_shared<OutputType>();
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count)) {
+      out->value = std::make_shared<OutputType>(out_type);
     } else {
-      out->value = MakeScalar(this->product);
+      out->value = std::make_shared<OutputType>(this->product, out_type);
     }
     return Status::OK();
   }
 
-  size_t count = 0;
-  typename AccType::c_type product = 1;
+  std::shared_ptr<DataType> out_type;
   ScalarAggregateOptions options;
+  size_t count;
+  ProductType product;
+  bool nulls_observed;
 };
 
 struct ProductInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  const DataType& type;
+  const std::shared_ptr<DataType>& type;
   const ScalarAggregateOptions& options;
 
-  ProductInit(KernelContext* ctx, const DataType& type,
+  ProductInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -224,24 +238,32 @@ struct ProductInit {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new ProductImpl<BooleanType>(options));
+    auto ty = TypeTraits<typename ProductImpl<BooleanType>::AccType>::type_singleton();
+    state.reset(new ProductImpl<BooleanType>(ty, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new ProductImpl<Type>(options));
+    auto ty = TypeTraits<typename ProductImpl<Type>::AccType>::type_singleton();
+    state.reset(new ProductImpl<Type>(ty, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
+    state.reset(new ProductImpl<Type>(type, options));
     return Status::OK();
   }
 
   Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(type, this));
+    RETURN_NOT_OK(VisitTypeInline(*type, this));
     return std::move(state);
   }
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
-    ProductInit visitor(ctx, *args.inputs[0].type,
+    ProductInit visitor(ctx, args.inputs[0].type,
                         static_cast<const ScalarAggregateOptions&>(*args.options));
     return visitor.Create();
   }
@@ -260,6 +282,43 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
   return visitor.Create();
 }
 
+// For "min" and "max" functions: override finalize and return the actual value
+template <MinOrMax min_or_max>
+void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
+                          ScalarAggregateFunction* min_max_func) {
+  auto sig = KernelSignature::Make(
+      {InputType(ValueDescr::ANY)},
+      OutputType([](KernelContext*,
+                    const std::vector<ValueDescr>& descrs) -> Result<ValueDescr> {
+        // any[T] -> scalar[T]
+        return ValueDescr::Scalar(descrs.front().type);
+      }));
+
+  auto init = [min_max_func](
+                  KernelContext* ctx,
+                  const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
+    std::vector<ValueDescr> inputs = args.inputs;
+    ARROW_ASSIGN_OR_RAISE(auto kernel, min_max_func->DispatchBest(&inputs));
+    KernelInitArgs new_args{kernel, inputs, args.options};
+    return kernel->init(ctx, new_args);
+  };
+
+  auto finalize = [](KernelContext* ctx, Datum* out) -> Status {
+    Datum temp;
+    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(ctx->state())->Finalize(ctx, &temp));
+    const auto& result = temp.scalar_as<StructScalar>();
+    DCHECK(result.is_valid);
+    *out = result.value[static_cast<uint8_t>(min_or_max)];
+    return Status::OK();
+  };
+
+  // Note SIMD level is always NONE, but the convenience kernel will
+  // dispatch to an appropriate implementation
+  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
+                               AggregateMerge, std::move(finalize));
+  DCHECK_OK(func->AddKernel(kernel));
+}
+
 // ----------------------------------------------------------------------
 // Any implementation
 
@@ -268,17 +327,19 @@ struct BooleanAnyImpl : public ScalarAggregator {
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a True already
-    if (this->any == true) {
+    if (this->any == true && this->count >= options.min_count) {
       return Status::OK();
     }
     if (batch[0].is_scalar()) {
       const auto& scalar = *batch[0].scalar();
       this->has_nulls = !scalar.is_valid;
       this->any = scalar.is_valid && checked_cast<const BooleanScalar&>(scalar).value;
+      this->count += scalar.is_valid;
       return Status::OK();
     }
     const auto& data = *batch[0].array();
     this->has_nulls = data.GetNullCount() > 0;
+    this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
         data.buffers[0], data.offset, data.buffers[1], data.offset, data.length);
     int64_t position = 0;
@@ -297,11 +358,13 @@ struct BooleanAnyImpl : public ScalarAggregator {
     const auto& other = checked_cast<const BooleanAnyImpl&>(src);
     this->any |= other.any;
     this->has_nulls |= other.has_nulls;
+    this->count += other.count;
     return Status::OK();
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    if (!options.skip_nulls && !this->any && this->has_nulls) {
+    if ((!options.skip_nulls && !this->any && this->has_nulls) ||
+        this->count < options.min_count) {
       out->value = std::make_shared<BooleanScalar>();
     } else {
       out->value = std::make_shared<BooleanScalar>(this->any);
@@ -311,6 +374,7 @@ struct BooleanAnyImpl : public ScalarAggregator {
 
   bool any = false;
   bool has_nulls = false;
+  int64_t count = 0;
   ScalarAggregateOptions options;
 };
 
@@ -329,7 +393,7 @@ struct BooleanAllImpl : public ScalarAggregator {
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a false already
-    if (this->all == false) {
+    if (this->all == false && this->count >= options.min_count) {
       return Status::OK();
     }
     // short-circuit if seen a null already
@@ -339,11 +403,13 @@ struct BooleanAllImpl : public ScalarAggregator {
     if (batch[0].is_scalar()) {
       const auto& scalar = *batch[0].scalar();
       this->has_nulls = !scalar.is_valid;
+      this->count += scalar.is_valid;
       this->all = !scalar.is_valid || checked_cast<const BooleanScalar&>(scalar).value;
       return Status::OK();
     }
     const auto& data = *batch[0].array();
     this->has_nulls = data.GetNullCount() > 0;
+    this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
         data.buffers[1], data.offset, data.buffers[0], data.offset, data.length);
     int64_t position = 0;
@@ -363,11 +429,13 @@ struct BooleanAllImpl : public ScalarAggregator {
     const auto& other = checked_cast<const BooleanAllImpl&>(src);
     this->all &= other.all;
     this->has_nulls |= other.has_nulls;
+    this->count += other.count;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (!options.skip_nulls && this->all && this->has_nulls) {
+    if ((!options.skip_nulls && this->all && this->has_nulls) ||
+        this->count < options.min_count) {
       out->value = std::make_shared<BooleanScalar>();
     } else {
       out->value = std::make_shared<BooleanScalar>(this->all);
@@ -377,6 +445,7 @@ struct BooleanAllImpl : public ScalarAggregator {
 
   bool all = true;
   bool has_nulls = false;
+  int64_t count = 0;
   ScalarAggregateOptions options;
 };
 
@@ -517,6 +586,9 @@ struct IndexInit {
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
+    if (!args.options) {
+      return Status::Invalid("Must provide IndexOptions for index kernel");
+    }
     IndexInit visitor(ctx, static_cast<const IndexOptions&>(*args.options),
                       *args.inputs[0].type);
     return visitor.Create();
@@ -529,7 +601,8 @@ void AddBasicAggKernels(KernelInit init,
                         SimdLevel::type simd_level) {
   for (const auto& ty : types) {
     // array[InT] -> scalar[OutT]
-    auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
+    auto sig =
+        KernelSignature::Make({InputType::Array(ty->id())}, ValueDescr::Scalar(out_ty));
     AddAggKernel(std::move(sig), init, func, simd_level);
   }
 }
@@ -540,7 +613,8 @@ void AddScalarAggKernels(KernelInit init,
                          ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     // scalar[InT] -> scalar[OutT]
-    auto sig = KernelSignature::Make({InputType::Scalar(ty)}, ValueDescr::Scalar(out_ty));
+    auto sig =
+        KernelSignature::Make({InputType::Scalar(ty->id())}, ValueDescr::Scalar(out_ty));
     AddAggKernel(std::move(sig), init, func, SimdLevel::NONE);
   }
 }
@@ -570,11 +644,15 @@ void AddMinMaxKernels(KernelInit init,
                       const std::vector<std::shared_ptr<DataType>>& types,
                       ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   for (const auto& ty : types) {
-    // any[T] -> scalar[struct<min: T, max: T>]
-    auto out_ty = struct_({field("min", ty), field("max", ty)});
-    auto sig = KernelSignature::Make({InputType(ty->id())}, ValueDescr::Scalar(out_ty));
-    AddAggKernel(std::move(sig), init, func, simd_level);
+    AddMinMaxKernel(init, ty, func, simd_level);
   }
+}
+
+Result<ValueDescr> ScalarFirstType(KernelContext*,
+                                   const std::vector<ValueDescr>& descrs) {
+  ValueDescr result = descrs.front();
+  result.shape = ValueDescr::SCALAR;
+  return result;
 }
 
 }  // namespace aggregate
@@ -607,9 +685,12 @@ const FunctionDoc product_doc{
 const FunctionDoc mean_doc{
     "Compute the mean of a numeric array",
     ("Null values are ignored by default. Minimum count of non-null\n"
-     "values can be set and null is returned if too few are "
-     "present.\nThis can be changed through ScalarAggregateOptions.\n"
-     "The result is always computed as a double, regardless of the input types."),
+     "values can be set and null is returned if too few are present.\n"
+     "This can be changed through ScalarAggregateOptions.\n"
+     "The result is a double for integer and floating point arguments,\n"
+     "and a decimal with the same bit-width/precision/scale for decimal arguments.\n"
+     "For integers and floats, NaN is returned if min_count = 0 and\n"
+     "there are no values. For decimals, null is returned instead."),
     {"array"},
     "ScalarAggregateOptions"};
 
@@ -618,6 +699,13 @@ const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numer
                                "This can be changed through ScalarAggregateOptions."),
                               {"array"},
                               "ScalarAggregateOptions"};
+
+const FunctionDoc min_or_max_doc{
+    "Compute the minimum or maximum values of a numeric array",
+    ("Null values are ignored by default.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
                           ("Null values are ignored by default.\n"
@@ -662,6 +750,12 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                                    &default_scalar_aggregate_options);
   aggregate::AddArrayScalarAggKernels(aggregate::SumInit, {boolean()}, uint64(),
                                       func.get());
+  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL128)},
+                                     OutputType(aggregate::ScalarFirstType)),
+               aggregate::SumInit, func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL256)},
+                                     OutputType(aggregate::ScalarFirstType)),
+               aggregate::SumInit, func.get(), SimdLevel::NONE);
   aggregate::AddArrayScalarAggKernels(aggregate::SumInit, SignedIntTypes(), int64(),
                                       func.get());
   aggregate::AddArrayScalarAggKernels(aggregate::SumInit, UnsignedIntTypes(), uint64(),
@@ -690,6 +784,12 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                       func.get());
   aggregate::AddArrayScalarAggKernels(aggregate::MeanInit, NumericTypes(), float64(),
                                       func.get());
+  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL128)},
+                                     OutputType(aggregate::ScalarFirstType)),
+               aggregate::MeanInit, func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL256)},
+                                     OutputType(aggregate::ScalarFirstType)),
+               aggregate::MeanInit, func.get(), SimdLevel::NONE);
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
@@ -705,8 +805,12 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   func = std::make_shared<ScalarAggregateFunction>(
       "min_max", Arity::Unary(), &min_max_doc, &default_scalar_aggregate_options);
-  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
+  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {null(), boolean()}, func.get());
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
+  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, TemporalTypes(), func.get());
+  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, BaseBinaryTypes(), func.get());
+  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::FIXED_SIZE_BINARY, func.get());
+  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::INTERVAL_MONTHS, func.get());
   aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::DECIMAL128, func.get());
   aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::DECIMAL256, func.get());
   // Add the SIMD variants for min max
@@ -721,6 +825,18 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   }
 #endif
 
+  auto min_max_func = func.get();
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // Add min/max as convenience functions
+  func = std::make_shared<ScalarAggregateFunction>("min", Arity::Unary(), &min_or_max_doc,
+                                                   &default_scalar_aggregate_options);
+  aggregate::AddMinOrMaxAggKernel<MinOrMax::Min>(func.get(), min_max_func);
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  func = std::make_shared<ScalarAggregateFunction>("max", Arity::Unary(), &min_or_max_doc,
+                                                   &default_scalar_aggregate_options);
+  aggregate::AddMinOrMaxAggKernel<MinOrMax::Max>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>(
@@ -733,6 +849,12 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                       uint64(), func.get());
   aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, FloatingPointTypes(),
                                       float64(), func.get());
+  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL128)},
+                                     OutputType(aggregate::ScalarFirstType)),
+               aggregate::ProductInit::Init, func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL256)},
+                                     OutputType(aggregate::ScalarFirstType)),
+               aggregate::ProductInit::Init, func.get(), SimdLevel::NONE);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // any

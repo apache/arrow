@@ -28,6 +28,7 @@ arrow_eval <- function(expr, mask) {
     # else, for things not supported by Arrow return a "try-error",
     # which we'll handle differently
     msg <- conditionMessage(e)
+    if (getOption("arrow.debug", FALSE)) print(msg)
     patterns <- .cache$i18ized_error_pattern
     if (is.null(patterns)) {
       patterns <- i18ize_error_messages()
@@ -87,7 +88,11 @@ arrow_mask <- function(.data, aggregation = FALSE) {
   }
 
   if (aggregation) {
-    f_env <- new_environment(agg_funcs, parent = f_env)
+    # This should probably be done with an environment inside an environment
+    # but a first attempt at that had scoping problems (ARROW-13499)
+    for (f in names(agg_funcs)) {
+      f_env[[f]] <- agg_funcs[[f]]
+    }
   }
 
   # Assign the schema to the expressions
