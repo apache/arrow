@@ -71,7 +71,8 @@ class ARROW_EXPORT TaskScheduler : public Executor {
  private:
   std::shared_ptr<ThreadPool> thread_pool_;
   // std::queue<std::unique_ptr<Task>> task_queue_;
-  std::atomic<int> active_tasks_counter_;
+  // std::atomic<int> active_tasks_counter_;
+  //
 };
 
 ARROW_EXPORT TaskScheduler* GetCpuTaskScheduler();

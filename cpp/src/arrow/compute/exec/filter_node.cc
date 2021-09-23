@@ -99,13 +99,14 @@ class FilterNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
+    if (finished_.is_finished()) {
+      return;
+    }
     auto executor = plan()->exec_context()->executor();
     if (executor) {
       auto maybe_future = executor->Submit([this, batch] {
         auto maybe_filtered = DoFilter(std::move(batch));
-        if (ErrorIfNotOk(maybe_filtered.status()))
-          Status::Invalid("Filter output not OK");
-
+        if (ErrorIfNotOk(maybe_filtered.status())) return Status::OK();
         maybe_filtered->guarantee = batch.guarantee;
         this->outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
         return Status::OK();
@@ -121,9 +122,12 @@ class FilterNode : public ExecNode {
     } else {
       auto maybe_filtered = DoFilter(std::move(batch));
       if (ErrorIfNotOk(maybe_filtered.status())) return;
-
       maybe_filtered->guarantee = batch.guarantee;
       outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
+    }
+    if (batch_count_.Increment()) {
+      task_group_.WaitForTasksToFinish().AddCallback(
+          [this](const Status& status) { this->finished_.MarkFinished(status); });
     }
   }
 
@@ -134,13 +138,20 @@ class FilterNode : public ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, total_batches);
 
-    task_group_.WaitForTasksToFinish().AddCallback(
-        [this](const Status& status) { this->finished_.MarkFinished(status); });
+    total_batches_.fetch_add(total_batches);
+
+    outputs_[0]->InputFinished(this, total_batches);
+    if (batch_count_.SetTotal(total_batches_.load())) {
+      task_group_.WaitForTasksToFinish().AddCallback(
+          [this](const Status& status) { this->finished_.MarkFinished(status); });
+    }
   }
 
-  Status StartProducing() override { return Status::OK(); }
+  Status StartProducing() override {
+    finished_ = Future<>::Make();
+    return Status::OK();
+  }
 
   void PauseProducing(ExecNode* output) override {}
 
@@ -151,7 +162,12 @@ class FilterNode : public ExecNode {
     StopProducing();
   }
 
-  void StopProducing() override { inputs_[0]->StopProducing(this); }
+  void StopProducing() override {
+    if (batch_count_.Cancel()) {
+      finished_.MarkFinished();
+    }
+    inputs_[0]->StopProducing(this);
+  }
 
   Future<> finished() override {
     auto executor = plan()->exec_context()->executor();
@@ -166,15 +182,14 @@ class FilterNode : public ExecNode {
 
  private:
   Expression filter_;
-
-  Future<> finished_ = Future<>::Make();
+  AtomicCounter batch_count_;
+  std::atomic<int> total_batches_{0};
+  Future<> finished_ = Future<>::MakeFinished();
   util::AsyncTaskGroup task_group_;
 };
-
 }  // namespace
 
 namespace internal {
-
 void RegisterFilterNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("filter", FilterNode::Make));
 }
