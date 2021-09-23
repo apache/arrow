@@ -24,10 +24,11 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-
+#include "arrow/util/thread_pool.h"
 namespace arrow {
 
 using internal::checked_cast;
@@ -98,12 +99,32 @@ class FilterNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
+    auto executor = plan()->exec_context()->executor();
+    if (executor) {
+      auto maybe_future = executor->Submit([this, batch] {
+        auto maybe_filtered = DoFilter(std::move(batch));
+        if (ErrorIfNotOk(maybe_filtered.status()))
+          Status::Invalid("Filter output not OK");
 
-    auto maybe_filtered = DoFilter(std::move(batch));
-    if (ErrorIfNotOk(maybe_filtered.status())) return;
+        maybe_filtered->guarantee = batch.guarantee;
+        this->outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
+        return Status::OK();
+      });
+      if (!maybe_future.ok()) {
+        outputs_[0]->ErrorReceived(this, maybe_future.status());
+      }
 
-    maybe_filtered->guarantee = batch.guarantee;
-    outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
+      auto status = task_group_.AddTask(maybe_future.MoveValueUnsafe());
+      if (!status.ok()) {
+        outputs_[0]->ErrorReceived(this, std::move(status));
+      }
+    } else {
+      auto maybe_filtered = DoFilter(std::move(batch));
+      if (ErrorIfNotOk(maybe_filtered.status())) return;
+
+      maybe_filtered->guarantee = batch.guarantee;
+      outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
+    }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -114,6 +135,9 @@ class FilterNode : public ExecNode {
   void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->InputFinished(this, total_batches);
+
+    task_group_.WaitForTasksToFinish().AddCallback(
+        [this](const Status& status) { this->finished_.MarkFinished(status); });
   }
 
   Status StartProducing() override { return Status::OK(); }
@@ -129,13 +153,22 @@ class FilterNode : public ExecNode {
 
   void StopProducing() override { inputs_[0]->StopProducing(this); }
 
-  Future<> finished() override { return inputs_[0]->finished(); }
+  Future<> finished() override {
+    auto executor = plan()->exec_context()->executor();
+    if (executor) {
+      return finished_;
+    }
+    return inputs_[0]->finished();
+  }
 
  protected:
   std::string ToStringExtra() const override { return "filter=" + filter_.ToString(); }
 
  private:
   Expression filter_;
+
+  Future<> finished_ = Future<>::Make();
+  util::AsyncTaskGroup task_group_;
 };
 
 }  // namespace

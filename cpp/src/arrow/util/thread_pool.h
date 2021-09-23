@@ -341,6 +341,8 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
+  Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
+                   StopCallback&&) override;
   struct State;
 
  protected:
@@ -349,9 +351,6 @@ class ARROW_EXPORT ThreadPool : public Executor {
   friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
   ThreadPool();
-
-  Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
-                   StopCallback&&) override;
 
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();

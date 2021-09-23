@@ -38,6 +38,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/range.h"
+#include "arrow/util/task_scheduler.h"
 #include "arrow/util/vector.h"
 
 using testing::ElementsAre;
@@ -1402,7 +1403,8 @@ TEST(ScanNode, MinimalEndToEnd) {
   // NB: This test is here for didactic purposes
 
   // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
+  compute::ExecContext exec_context(default_memory_pool(),
+                                    ::arrow::internal::GetCpuTaskScheduler());
 
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
