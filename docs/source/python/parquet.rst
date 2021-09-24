@@ -629,7 +629,7 @@ Reading an encrypted parquet:
    decryption_properties = crypto_factory.file_decryption_properties(
                                                     kms_connection_config)
    parquet_file = pq.ParquetFile(filename,
-                              decryption_properties=decryption_properties)
+                                 decryption_properties=decryption_properties)
 
 
 In order to create the encryption and decryption properties, a ``CryptoFactory``
@@ -655,9 +655,10 @@ Any KmsClient implementation should implement the following informal interface:
       """Unwrap a key - decrypt it with the master key."""
       raise NotImplementedError()
 
-An example KmsClient impelementation might look like the following:
+An example KmsClient implementation might look like the following:
 
 .. code-block:: python
+
    class MyKmsClient(pq.KmsClient):
       def __init__(self, kms_connection_configuration):
          pq.KmsClient.__init__(self)
