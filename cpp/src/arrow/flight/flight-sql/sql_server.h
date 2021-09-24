@@ -33,10 +33,6 @@ namespace sql {
 
 class FlightSqlServerBase : public FlightServerBase {
  public:
-  FlightSqlServerBase();
-
-  ~FlightSqlServerBase() = default;
-
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override;
 
@@ -68,7 +64,7 @@ class FlightSqlServerBase : public FlightServerBase {
   /// \brief Gets a FlightInfo for executing an already created prepared statement.
   /// \param[in] command      The CommandPreparedStatementQuery object containing the
   ///                         prepared statement handle.
-  /// \param[in] context      Per-callcommand context.
+  /// \param[in] context      Per-call context.
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] info        The FlightInfo describing where to access the
   ///                         dataset.
