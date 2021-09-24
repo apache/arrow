@@ -95,3 +95,14 @@ add_arrow_test(flight_sql_test
 add_executable(flight_sql_test_app test_app.cc)
 target_link_libraries(flight_sql_test_app PRIVATE arrow_flight_sql_static
                                                   ${GFLAGS_LIBRARIES})
+
+find_package(SQLite3)
+include_directories(${SQLite3_INCLUDE_DIRS})
+
+add_executable(flight_sql_test_server
+               sql_server.cpp
+               test_server.cc example/sqlite_statement.cc
+               example/sqlite_statement_batch_reader.cc example/sqlite_server.cc)
+target_link_libraries(flight_sql_test_server
+                      PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}
+                              ${SQLite3_LIBRARIES})
