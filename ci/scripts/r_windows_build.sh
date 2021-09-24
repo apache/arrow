@@ -75,7 +75,7 @@ fi
 # mingw32 -> i386
 # ucrt64 -> x64-ucrt
 
-if [ -d $MSYS_LIB_DIR/mingw64/lib/ ]; then
+if [ -d mingw64/lib/ ]; then
   ls $MSYS_LIB_DIR/mingw64/lib/
   # Make the rest of the directory structure
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
@@ -91,7 +91,7 @@ if [ -d $MSYS_LIB_DIR/mingw64/lib/ ]; then
 fi
 
 # Same for the 32-bit versions
-if [ -d $MSYS_LIB_DIR/mingw32/lib/ ]; then
+if [ -d mingw32/lib/ ]; then
   ls $MSYS_LIB_DIR/mingw32/lib/
   mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/i386
   mkdir -p $DST_DIR/lib/i386
@@ -101,7 +101,7 @@ if [ -d $MSYS_LIB_DIR/mingw32/lib/ ]; then
 fi
 
 # Do the same also for ucrt64
-if [ -d $MSYS_LIB_DIR/ucrt64/lib/ ]; then
+if [ -d ucrt64/lib/ ]; then
   ls $MSYS_LIB_DIR/ucrt64/lib/
   mkdir -p $DST_DIR/lib/x64-ucrt
   mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
