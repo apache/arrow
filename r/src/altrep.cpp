@@ -91,6 +91,10 @@ struct AltrepVectorBase {
     return *Pointer(R_altrep_data1(alt_));
   }
 
+  // Is the vector materialized, i.e. does the data2 slot contain a
+  // standard R vector with the same data as the array.
+  static bool IsMaterialized(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
+
   static R_xlen_t Length(SEXP alt_) { return array(alt_)->length(); }
 
   static int No_NA(SEXP alt_) { return array(alt_)->null_count() == 0; }
@@ -127,10 +131,6 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
   static SEXP Make(const std::shared_ptr<Array>& array) {
     return AltrepVectorBase::Make(class_t, array);
   }
-
-  // Is the vector materialized, i.e. does the data2 slot contain a
-  // standard R vector with the same data as the array.
-  static bool IsMaterialized(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
 
   // Force materialization. After calling this, the data2 slot of the altrep
   // object contains a standard R vector with the same data, with
@@ -346,69 +346,23 @@ struct AltrepVectorString : public AltrepVectorBase {
   using StringArrayType = typename TypeTraits<Type>::ArrayType;
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    SEXP alt_ = AltrepVectorBase::Make(class_t, array);
-
-    // using the @tag of the external pointer to count the
-    // number of strings that have been expanded
-    //
-    // When this is equal to the length of the array,
-    // it means that the data2 is complete
-    SEXP count = PROTECT(Rf_ScalarInteger(0));
-    R_SetExternalPtrTag(R_altrep_data1(alt_), count);
-    UNPROTECT(1);
-
-    return alt_;
-  }
-
-  // true when all the strings have been expanded in data2
-  static bool IsComplete(SEXP alt_) {
-    return INTEGER_ELT(R_ExternalPtrTag(R_altrep_data1(alt_)), 0) == Length(alt_);
-  }
-
-  // increment the complete count, that tracks the number of
-  // strings from the Array that have been expanded to R strings
-  static void IncrementComplete(SEXP alt_) {
-    SEXP count = R_ExternalPtrTag(R_altrep_data1(alt_));
-    ++INTEGER(count)[0];
-  }
-
-  static SEXP Initialize(SEXP alt_) {
-    if (Rf_isNull(R_altrep_data2(alt_))) {
-      auto array_ = array(alt_);
-      R_xlen_t n = array_->length();
-      SEXP data2_ = PROTECT(Rf_allocVector(STRSXP, n));
-      if (n > 0) {
-        // set individual strings to NULL (not yet materialized)
-        memset(STDVEC_DATAPTR(data2_), 0, n * sizeof(SEXP));
-      }
-      R_set_altrep_data2(alt_, data2_);
-      UNPROTECT(1);
-    }
-
-    return R_altrep_data2(alt_);
+    return AltrepVectorBase::Make(class_t, array);
   }
 
   // Get a single string, as a CHARSXP SEXP
   // data2 is initialized, the CHARSXP is generated from the Array data
   // and stored in data2, so that this only needs to expand a given string once
   static SEXP Elt(SEXP alt_, R_xlen_t i) {
-    Initialize(alt_);
-    SEXP data2_ = R_altrep_data2(alt_);
-
-    // data2[i] was already generated - nothing to do
-    SEXP s = STRING_ELT(data2_, i);
-    if (s != NULL) {
-      return s;
+    if (IsMaterialized(alt_)) {
+      return STRING_ELT(R_altrep_data2(alt_), i);
     }
 
-    // data2[i] is nul, expand to NA_STRING
+    // nul -> to NA_STRING
     if (array(alt_)->IsNull(i)) {
-      SET_STRING_ELT(data2_, i, NA_STRING);
-      IncrementComplete(alt_);
       return NA_STRING;
     }
 
-    // data2[i] is a string, but we need care about embedded nuls
+    // not nul, but we need care about embedded nuls
     // this needs to call an R api function: Rf_mkCharLenCE() that
     // might jump, i.e. throw an R error, which is dealt with using
     // BEGIN_CPP11/END_CPP11/cpp11::unwind_protect()
@@ -428,6 +382,7 @@ struct AltrepVectorString : public AltrepVectorBase {
     // nuls are stripped, but still we need the unwind protection
     // so that C++ objects here are correctly destructed, whilst errors
     // properly pass through to the R side
+    SEXP s;
     cpp11::unwind_protect([&]() {
       if (strip_out_nuls) {
         s = r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped);
@@ -439,26 +394,26 @@ struct AltrepVectorString : public AltrepVectorBase {
         cpp11::warning("Stripping '\\0' (nul) from character vector");
       }
     });
-    SET_STRING_ELT(data2_, i, s);
-    IncrementComplete(alt_);
     return s;
 
     END_CPP11
   }
 
-  static void* Dataptr(SEXP alt_, Rboolean writeable) { return DATAPTR(Complete(alt_)); }
+  static void* Dataptr(SEXP alt_, Rboolean writeable) {
+    return DATAPTR(Materialize(alt_));
+  }
 
-  static SEXP Complete(SEXP alt_) {
-    if (IsComplete(alt_)) {
+  static SEXP Materialize(SEXP alt_) {
+    if (IsMaterialized(alt_)) {
       return R_altrep_data2(alt_);
     }
 
     BEGIN_CPP11
 
-    Initialize(alt_);
     auto array_ = array(alt_);
-    SEXP data2_ = R_altrep_data2(alt_);
-    R_xlen_t n = XLENGTH(data2_);
+    R_xlen_t n = array_->length();
+    SEXP data2_ = PROTECT(Rf_allocVector(STRSXP, n));
+    MARK_NOT_MUTABLE(data2_);
 
     std::string stripped_string;
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
@@ -466,23 +421,13 @@ struct AltrepVectorString : public AltrepVectorBase {
     auto* string_array = internal::checked_cast<StringArrayType*>(array_.get());
     util::string_view view;
 
-    // keeping track of how many strings have been materialized
-    SEXP count = R_ExternalPtrTag(R_altrep_data1(alt_));
-    int* p_count = INTEGER(count);
-
     cpp11::unwind_protect([&]() {
       for (R_xlen_t i = 0; i < n; i++) {
         SEXP s = STRING_ELT(data2_, i);
 
-        // already materialized, nothing to do
-        if (s != NULL) {
-          continue;
-        }
-
         // nul, so materialize to NA_STRING
         if (array_->IsNull(i)) {
           SET_STRING_ELT(data2_, i, NA_STRING);
-          ++p_count;
           continue;
         }
 
@@ -495,7 +440,6 @@ struct AltrepVectorString : public AltrepVectorBase {
           s = r_string_from_view(view);
         }
         SET_STRING_ELT(data2_, i, s);
-        ++p_count;
       }
 
       if (nul_was_stripped) {
@@ -503,29 +447,34 @@ struct AltrepVectorString : public AltrepVectorBase {
       }
     });
 
-    return R_altrep_data2(alt_);
+    // only set to data2 if all the values have been converted
+    R_set_altrep_data2(alt_, data2_);
+    UNPROTECT(1);
+
+    return data2_;
+
     END_CPP11
   }
 
   static const void* Dataptr_or_null(SEXP alt_) {
     // only valid if all strings have been materialized
     // i.e. it is not enough for data2 to be not NULL
-    if (IsComplete(alt_)) return DATAPTR(R_altrep_data2(alt_));
+    if (IsMaterialized(alt_)) return DATAPTR(R_altrep_data2(alt_));
 
     // otherwise give up
     return NULL;
   }
 
   static SEXP Coerce(SEXP alt_, int type) {
-    return Rf_coerceVector(Complete(alt_), type);
+    return Rf_coerceVector(Materialize(alt_), type);
   }
 
-  static SEXP Serialized_state(SEXP alt_) { return Complete(alt_); }
+  static SEXP Serialized_state(SEXP alt_) { return Materialize(alt_); }
 
   static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 
   static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
-    return Rf_lazy_duplicate(Complete(alt_));
+    return Rf_lazy_duplicate(Materialize(alt_));
   }
 
   // static method so that this can error without concerns of
