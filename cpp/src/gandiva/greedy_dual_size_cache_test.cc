@@ -51,7 +51,7 @@ TEST_F(TestGreedyDualSizeCache, TestEvict) {
   cache_.insert(GreedyDualSizeCacheKey(3), ValueCacheObject<std::string>("3", 20, 20));
   cache_.insert(GreedyDualSizeCacheKey(4), ValueCacheObject<std::string>("4", 15, 15));
   cache_.insert(GreedyDualSizeCacheKey(1), ValueCacheObject<std::string>("5", 1, 1));
-  ASSERT_EQ(2, cache_.size());
+  ASSERT_EQ(16, cache_.size());
   // we check initially the values that won't be on the cache, since the get operation
   // may affect the entity costs, which is not the purpose of this test
   ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2)), arrow::util::nullopt);
@@ -81,8 +81,7 @@ TEST_F(TestGreedyDualSizeCache, TestGreedyDualSizeBehavior) {
   cache_.insert(GreedyDualSizeCacheKey(1), ValueCacheObject<std::string>("1", 20, 20));
 
   ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1))->module, "1");
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2))->module, "2");
   ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), arrow::util::nullopt);
-  ASSERT_EQ(2, cache_.size());
+  ASSERT_EQ(20, cache_.size());
 }
 }  // namespace gandiva

@@ -18,11 +18,8 @@
 #include "gandiva/filter.h"
 
 #include <memory>
-#include <thread>
 #include <utility>
-#include <vector>
 
-#include "arrow/util/hash_util.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"

@@ -18,11 +18,9 @@
 #include "gandiva/projector.h"
 
 #include <memory>
-#include <thread>
 #include <utility>
 #include <vector>
 
-#include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
