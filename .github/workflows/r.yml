@@ -294,6 +294,7 @@ jobs:
           name: libarrow-rtools40-mingw64.zip
           path: r/windows
       - name: Unzip libarrows
+        shell: bash
         run: unzip -u *.zip
       - name: Setup ccache
         shell: bash
