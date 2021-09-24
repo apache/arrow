@@ -116,7 +116,9 @@ def sample_time_types():
 
 
 def sample_temporal_types():
-    return sample_date_only_types() + sample_time_only_types() + sample_timestamp_types()
+    return sample_date_only_types() + \
+        sample_time_only_types() + \
+        sample_timestamp_types()
 
 
 def sample_logical_types():
@@ -147,11 +149,15 @@ def sample_string_types():
 
 
 def sample_primitive_types():
-    return sample_numeric_types() + sample_temporal_types() + sample_timestamp_types() + sample_bytes_types()
+    return sample_numeric_types() + \
+        sample_temporal_types() + \
+        sample_timestamp_types() + \
+        sample_bytes_types()
 
 
 def __listify_types(types):
-    return [pa.list_(t) for t in types] + [pa.list_(t, 32) for t in types] + [pa.large_list(t) for t in types]
+    return [pa.list_(t) for t in types] + [pa.list_(t, 32) for t in types] + [
+        pa.large_list(t) for t in types]
 
 
 def __structify_types(types):
@@ -171,7 +177,9 @@ def sample_struct_types():
 
 
 def sample_all_types():
-    return sample_primitive_types() + sample_list_types() + sample_struct_types()
+    return sample_primitive_types() + \
+        sample_list_types() + \
+        sample_struct_types()
 
 
 type_categories = {
@@ -228,7 +236,9 @@ class DecimalDynamicParameter(DynamicParameter):
 
     def _ensure_decimal(self, type_):
         if not pa.types.is_decimal(type_):
-            raise Exception(f'DECIMAL_* type function was used for a type {type_} which is not decimal')
+            raise Exception(
+                'DECIMAL_* type function was used for a type '
+                f'{type_} which is not decimal')
 
     def compute_type(self, parameters_map):
         left_type = parameters_map[self.left_name]
@@ -239,9 +249,12 @@ class DecimalDynamicParameter(DynamicParameter):
             return left_type
         self._ensure_decimal(left_type)
         self._ensure_decimal(right_type)
-        scale, precision = self._do_compute(left_type.scale, left_type.precision, right_type.scale,
+        scale, precision = self._do_compute(left_type.scale,
+                                            left_type.precision,
+                                            right_type.scale,
                                             right_type.precision)
-        if precision <= 38 and pa.types.is_decimal128(left_type) and pa.types.is_decimal128(right_type):
+        if precision <= 38 and pa.types.is_decimal128(
+                left_type) and pa.types.is_decimal128(right_type):
             return pa.decimal128(precision, scale)
         else:
             return pa.decimal256(precision, scale)
@@ -254,7 +267,8 @@ class DecimalDynamicParameter(DynamicParameter):
 class DecimalAddDynamicParameter(DecimalDynamicParameter):
 
     def __init__(self, key, left_name, right_name):
-        super(DecimalAddDynamicParameter, self).__init__(key, left_name, right_name)
+        super(DecimalAddDynamicParameter, self).__init__(
+            key, left_name, right_name)
 
     def _do_compute(self, s1, p1, s2, p2):
         scale = max(s1, s2)
@@ -265,7 +279,8 @@ class DecimalAddDynamicParameter(DecimalDynamicParameter):
 class DecimalMultiplyDynamicParameter(DecimalDynamicParameter):
 
     def __init__(self, key, left_name, right_name):
-        super(DecimalMultiplyDynamicParameter, self).__init__(key, left_name, right_name)
+        super(DecimalMultiplyDynamicParameter, self).__init__(
+            key, left_name, right_name)
 
     def _do_compute(self, s1, p1, s2, p2):
         scale = s1 + s2
@@ -276,7 +291,8 @@ class DecimalMultiplyDynamicParameter(DecimalDynamicParameter):
 class DecimalDivideDynamicParameter(DecimalDynamicParameter):
 
     def __init__(self, key, left_name, right_name):
-        super(DecimalDivideDynamicParameter, self).__init__(key, left_name, right_name)
+        super(DecimalDivideDynamicParameter, self).__init__(
+            key, left_name, right_name)
 
     def _do_compute(self, s1, p1, s2, p2):
         scale = max(4, s1 + p2 - s2 + 1)
@@ -290,7 +306,8 @@ class StructifyDynamicParameter(DynamicParameter):
         super(StructifyDynamicParameter, self).__init__(key)
 
     def compute_type(self, parameters_map):
-        fields = [pa.field(key, value) for key, value in parameters_map.items()]
+        fields = [pa.field(key, value)
+                  for key, value in parameters_map.items()]
         return pa.struct(fields)
 
 
@@ -322,11 +339,13 @@ class ConstrainedParameter(ABC):
         self.key = key
 
     @abstractmethod
-    def sample(self, parameters_map: Dict[str, pa.DataType]) -> List[pa.DataType]:
+    def sample(self, parameters_map: Dict[str, pa.DataType]) -> List[
+            pa.DataType]:
         pass
 
     @abstractmethod
-    def satisfied_with(self, data_type: pa.DataType, parameters_map: Dict[str, pa.DataType]) -> bool:
+    def satisfied_with(self, data_type: pa.DataType,
+                       parameters_map: Dict[str, pa.DataType]) -> bool:
         pass
 
 
@@ -343,7 +362,8 @@ class IsListOfGivenType(ConstrainedParameter):
             pa.list_(type_, 32)
         ]
 
-    def satisfied_with(self, data_type: pa.DataType, parameters_map: Dict[str, pa.DataType]) -> bool:
+    def satisfied_with(self, data_type: pa.DataType,
+                       parameters_map: Dict[str, pa.DataType]) -> bool:
         if not pa.types.is_list(data_type):
             return False
         if self.name not in parameters_map:
@@ -364,7 +384,8 @@ class IsFixedSizeListOfGivenType(ConstrainedParameter):
             pa.list_(type_, 32)
         ]
 
-    def satisfied_with(self, data_type: pa.DataType, parameters_map: Dict[str, pa.DataType]) -> bool:
+    def satisfied_with(self, data_type: pa.DataType,
+                       parameters_map: Dict[str, pa.DataType]) -> bool:
         if not pa.types.is_fixed_size_list(data_type):
             return False
         if self.name not in parameters_map:
@@ -386,7 +407,8 @@ class IsCaseWhen(ConstrainedParameter):
             pa.struct(fields)
         ]
 
-    def satisfied_with(self, data_type: pa.DataType, parameters_map: Dict[str, pa.DataType]) -> bool:
+    def satisfied_with(self, data_type: pa.DataType,
+                       parameters_map: Dict[str, pa.DataType]) -> bool:
         if not pa.types.is_struct(data_type):
             return False
         for field in data_type:
@@ -411,7 +433,8 @@ class InSetOfTypes(ConstrainedParameter):
     def sample(self, _):
         return self.example_types
 
-    def satisfied_with(self, data_type: pa.DataType, parameters_map: Dict[str, pa.DataType]) -> bool:
+    def satisfied_with(self, data_type: pa.DataType,
+                       parameters_map: Dict[str, pa.DataType]) -> bool:
         return data_type in self.example_types
 
 
@@ -423,7 +446,8 @@ class IsAnyType(ConstrainedParameter):
     def sample(self, _):
         return sample_all_types()
 
-    def satisfied_with(self, data_type: pa.DataType, parameters_map: Dict[str, pa.DataType]) -> bool:
+    def satisfied_with(self, data_type: pa.DataType,
+                       parameters_map: Dict[str, pa.DataType]) -> bool:
         return True
 
 
@@ -434,7 +458,9 @@ def parse_parameter_condition_func(key, value):
         condition_type = condition_types[func_name]
         return condition_type(key, *func_args)
     else:
-        raise Exception(f'Unrecognized parameter condition function ({func_name}) on key {key}')
+        raise Exception(
+            f'Unrecognized parameter condition function ({func_name}) on '
+            f'key {key}')
 
 
 def parse_parameter_condition_typed(key, value):
@@ -462,14 +488,18 @@ def parse_dynamic_parameter(pstr):
         dynamic_parameter_type = dynamic_parameter_types[func_name]
         return dynamic_parameter_type(key, *func_args)
     else:
-        raise Exception(f"Unrecognized dynamic parameter function {func_name} for parameter {key}")
+        raise Exception(
+            f"Unrecognized dynamic parameter function {func_name} for '"
+            f"parameter {key}")
 
 
 def parse_parameters_string(parameters_str):
     parameters_str = parameters_str[1:-1]
     parameter_strings = parameters_str.split(',')
-    conditions = [parse_parameter_condition(pstr) for pstr in parameter_strings if '=' not in pstr]
-    dynamic_parameters = [parse_dynamic_parameter(pstr) for pstr in parameter_strings if '=' in pstr]
+    conditions = [parse_parameter_condition(
+        pstr) for pstr in parameter_strings if '=' not in pstr]
+    dynamic_parameters = [parse_dynamic_parameter(
+        pstr) for pstr in parameter_strings if '=' in pstr]
     return conditions, dynamic_parameters
 
 
@@ -482,8 +512,10 @@ class FunctionSignatureArg:
 
 class FunctionSignature:
 
-    def __init__(self, parameter_conditions, dynamic_parameters, args, output_key):
-        self.parameter_conditions: List[ConstrainedParameter] = parameter_conditions
+    def __init__(self, parameter_conditions, dynamic_parameters, args,
+                 output_key):
+        self.parameter_conditions: List[
+            ConstrainedParameter] = parameter_conditions
         self.dynamic_parameters: List[DynamicParameter] = dynamic_parameters
         self.args: List[FunctionSignatureArg] = args
         self.output_key: str = output_key
@@ -493,7 +525,8 @@ class FunctionSignature:
             if parameter_condition.key not in parameters_map:
                 return False
             actual_type = parameters_map[parameter_condition.key]
-            if not parameter_condition.satisfied_with(actual_type, parameters_map):
+            if not parameter_condition.satisfied_with(actual_type,
+                                                      parameters_map):
                 return False
         return True
 
@@ -507,16 +540,19 @@ def parse_arg(arg_string):
 
 def parse_signature(signature_str):
     arg_strings, _, output_key = signature_str.partition('=>')
-    args = [parse_arg(arg_string) for arg_string in arg_strings[0:-1].split(',')]
+    args = [parse_arg(arg_string)
+            for arg_string in arg_strings[0:-1].split(',')]
     return args, output_key
 
 
 def parse_function_signature(shortcut_string):
     shortcut_string = re.sub(r'\s+', '', shortcut_string)
     parameters_str, _, signature_str = shortcut_string.rpartition('(')
-    parameter_conditions, dynamic_parameters = parse_parameters_string(parameters_str)
+    parameter_conditions, dynamic_parameters = parse_parameters_string(
+        parameters_str)
     args, output_key = parse_signature(signature_str)
-    return FunctionSignature(parameter_conditions, dynamic_parameters, args, output_key)
+    return FunctionSignature(parameter_conditions, dynamic_parameters, args,
+                             output_key)
 
 
 unary_arithmetic = '<T:numeric>(T)=>T'
@@ -544,8 +580,10 @@ function_taxonomy_input = {
     'abs_checked': [unary_arithmetic],
     'acos': [unary_arithmetic],
     'acos_checked': [unary_arithmetic],
-    'add': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
-    'add_checked': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
+    'add': [simple_binary_arithmetic,
+            '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
+    'add_checked': [simple_binary_arithmetic,
+                    '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
     'all': [unary_logic],
     'and': [binary_logic],
     'and_kleene': [binary_logic],
@@ -604,8 +642,10 @@ function_taxonomy_input = {
     'day_of_week': [unary_datelike],
     'day_of_year': [unary_datelike],
     'dictionary_encode': [],
-    'divide': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_DIVIDE(T|V)>(T,V)=>O'],
-    'divide_checked': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_DIVIDE(T|V)>(T,V)=>O'],
+    'divide': [simple_binary_arithmetic,
+               '<T:decimal,V:decimal,O=DECIMAL_DIVIDE(T|V)>(T,V)=>O'],
+    'divide_checked': [simple_binary_arithmetic,
+                       '<T:decimal,V:decimal,O=DECIMAL_DIVIDE(T|V)>(T,V)=>O'],
     'drop_null': ['<T>(T)=>T'],
     'ends_with': [unary_string],
     'equal': [binary_equatable],
@@ -660,8 +700,11 @@ function_taxonomy_input = {
     'minute': [unary_timelike],
     'mode': [unary_arithmetic],
     'month': [unary_datelike],
-    'multiply': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_MULTIPLY(T|V)>(T,V)=>O'],
-    'multiply_checked': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_MULTIPLY(T|V)>(T,V)=>O'],
+    'multiply': [simple_binary_arithmetic,
+                 '<T:decimal,V:decimal,O=DECIMAL_MULTIPLY(T|V)>(T,V)=>O'],
+    'multiply_checked': [
+        simple_binary_arithmetic,
+        '<T:decimal,V:decimal,O=DECIMAL_MULTIPLY(T|V)>(T,V)=>O'],
     'nanosecond': [unary_timelike],
     'negate': [unary_arithmetic],
     'negate_checked': ['<T:signed_numeric>(T)=>T'],
@@ -697,8 +740,10 @@ function_taxonomy_input = {
     'string_is_ascii': [unary_string],
     'strptime': [unary_string],
     'subsecond': [unary_timelike],
-    'subtract': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
-    'subtract_checked': [simple_binary_arithmetic, '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
+    'subtract': [simple_binary_arithmetic,
+                 '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
+    'subtract_checked': [simple_binary_arithmetic,
+                         '<T:decimal,V:decimal,O=DECIMAL_ADD(T|V)>(T,V)=>O'],
     'sum': [unary_arithmetic],
     'take': ['<T,I:integral>(T,I)=>T'],
     'tan': [unary_arithmetic],
@@ -746,14 +791,16 @@ function_taxonomy_input = {
 def _create_function_taxonomy():
     taxonomy = {}
     for key, value in function_taxonomy_input.items():
-        taxonomy[key] = [parse_function_signature(signature) for signature in value]
+        taxonomy[key] = [parse_function_signature(
+            signature) for signature in value]
     return taxonomy
 
 
 function_taxonomy = _create_function_taxonomy()
 
 
-def sample_combinations_of_types(constrained_parameters: List[ConstrainedParameter]):
+def sample_combinations_of_types(
+        constrained_parameters: List[ConstrainedParameter]):
     iterators = []
     parameters_map = {}
     for constrained_parameter in constrained_parameters:
@@ -786,7 +833,8 @@ def get_sample_calls(signature: FunctionSignature):
     constrained_parameters = signature.parameter_conditions
     for param_map in sample_combinations_of_types(constrained_parameters):
         for dynamic_parameter in signature.dynamic_parameters:
-            param_map[dynamic_parameter.key] = dynamic_parameter.compute_type(param_map)
+            param_map[dynamic_parameter.key] = dynamic_parameter.compute_type(
+                param_map)
         args = []
         has_variadic = False
         for arg in signature.args:
@@ -809,20 +857,37 @@ if __name__ == '__main__':
 
 
 def get_sample_opts():
-    assume_timezone_opts = lambda t: pc.AssumeTimezoneOptions('UTC')
-    extract_regex_opts = lambda t: pc.ExtractRegexOptions('(?P<letter>[ab])(?P<digit>\\d)')
-    idx_opts = lambda t: pc.IndexOptions(pa.scalar(None, type=t[0]))
-    idx_in_opts = lambda t: pc.SetLookupOptions(value_set=pa.array([None], type=t[0]))
-    match_substr_opts = lambda t: pc.MatchSubstringOptions('.*')
-    pad_opts = lambda t: pc.PadOptions(10)
-    partition_opts = lambda t: pc.PartitionNthOptions(10)
-    replace_slice_opts = lambda t: pc.ReplaceSliceOptions(0, 2, '  ')
-    replace_substr_opts = lambda t: pc.ReplaceSubstringOptions('.*', 'foo')
-    select_k_unstable_opts = lambda t: pc.SelectKOptions(k=3, sort_keys=[("", "ascending")])
-    slice_opts = lambda t: pc.SliceOptions(0, 10)
-    split_pattern_opts = lambda t: pc.SplitPatternOptions(pattern='=')
-    strptime_opts = lambda t: pc.StrptimeOptions(format='%Y-%m-%dT%H:%M:%SZ', unit='ns')
-    trim_opts = lambda t: pc.TrimOptions(' ')
+    def assume_timezone_opts(_): return pc.AssumeTimezoneOptions('UTC')
+
+    def extract_regex_opts(_): return pc.ExtractRegexOptions(
+        '(?P<letter>[ab])(?P<digit>\\d)')
+
+    def idx_opts(types): return pc.IndexOptions(pa.scalar(None, type=types[0]))
+
+    def idx_in_opts(types): return pc.SetLookupOptions(
+        value_set=pa.array([None], type=types[0]))
+
+    def match_substr_opts(_): return pc.MatchSubstringOptions('.*')
+
+    def pad_opts(_): return pc.PadOptions(10)
+
+    def partition_opts(_): return pc.PartitionNthOptions(10)
+
+    def replace_slice_opts(_): return pc.ReplaceSliceOptions(0, 2, '  ')
+
+    def replace_substr_opts(_): return pc.ReplaceSubstringOptions('.*', 'foo')
+
+    def select_k_unstable_opts(_): return pc.SelectKOptions(
+        k=3, sort_keys=[("", "ascending")])
+
+    def slice_opts(_): return pc.SliceOptions(0, 10)
+
+    def split_pattern_opts(_): return pc.SplitPatternOptions(pattern='=')
+
+    def strptime_opts(_): return pc.StrptimeOptions(
+        format='%Y-%m-%dT%H:%M:%SZ', unit='ns')
+
+    def trim_opts(_): return pc.TrimOptions(' ')
 
     return {
         'ascii_center': pad_opts,
@@ -868,7 +933,8 @@ samples_opts = get_sample_opts()
 
 class SampleCall:
 
-    def __init__(self, function_name: str, args: List[pa.Array], options, parameters_map):
+    def __init__(self, function_name: str, args: List[pa.Array], options,
+                 parameters_map):
         self.function_name = function_name
         self.args = args
         self.options = options
@@ -879,12 +945,13 @@ class SampleCall:
         return f'{self.function_name}({arg_str})'
 
 
-def get_sample_empty_inputs():
+def get_sample_empty_calls():
     for function_name in pc.function_registry().list_functions():
         if function_name not in function_taxonomy:
             continue
         for signature in function_taxonomy[function_name]:
-            for arg_types, _return_type, parameters_map in get_sample_calls(signature):
+            for arg_types, _return_type, parameters_map in get_sample_calls(
+                    signature):
                 args = [pa.array([], type=arg_type) for arg_type in arg_types]
                 options_fn = samples_opts.get(function_name, None)
                 options = None
@@ -893,26 +960,33 @@ def get_sample_empty_inputs():
                 yield SampleCall(function_name, args, options, parameters_map)
 
 
-@pytest.mark.parametrize('function_name', pc.function_registry().list_functions(), ids=str)
+@pytest.mark.parametrize('function_name',
+                         pc.function_registry().list_functions(), ids=str)
 def test_all_functions_in_taxonomy(function_name):
     if function_name.startswith('array_'):
-        pytest.xfail('ARROW-13873: array_* functions should be hidden from python')
+        pytest.xfail(
+            'ARROW-13873: array_* functions should be hidden from python')
     if function_name.endswith('_meta_binary'):
-        pytest.xfail('ARROW-13949: *_meta_binary functions should be hidden from python')
+        pytest.xfail(
+            'ARROW-13949: *_meta_binary functions should be '
+            'hidden from python')
     if function_name.startswith('hash_'):
-        pytest.xfail('ARROW-13943: hash_* functions should be hidden from python')
+        pytest.xfail(
+            'ARROW-13943: hash_* functions should be hidden from python')
     if function_name == 'list_element':
         pytest.xfail('ARROW-13594: list_element requires a scalar input')
     assert function_name in function_taxonomy
 
 
-def _check_expect_fail(sample_call: SampleCall, message: str, signatures_map: List[Tuple[Set[str], List[str]]]):
+def _check_expect_fail(sample_call: SampleCall, message: str,
+                       signatures_map: List[Tuple[Set[str], List[str]]]):
     for possible_sig in signatures_map:
         if sample_call.function_name in possible_sig[0]:
             signatures = possible_sig[1]
             for signature in signatures:
                 parsed_signature = parse_function_signature(signature)
-                if parsed_signature.matches_parameters(sample_call.parameters_map):
+                if parsed_signature.matches_parameters(
+                        sample_call.parameters_map):
                     pytest.xfail(message)
 
 
@@ -921,221 +995,263 @@ def safe_str(o):
     return re.sub(r'\s', '', raw_str).replace('(', '-').replace(')', '-')
 
 
-@pytest.mark.parametrize('sample_call', get_sample_empty_inputs(), ids=safe_str)
+@pytest.mark.parametrize('sample_call', get_sample_empty_calls(), ids=safe_str)
 def test_supports_empty_arrays(sample_call):
-    _check_expect_fail(sample_call, 'ARROW-13390: Improve type support for coalesce kernel', [
-        ({'choose'}, ['<T:list,I:integral>(I,T...)=>T', '<T:struct,I:integral>(I,T...)=>T']),
-        ({'coalesce'}, ['<T:list>(T)=>T', '<T:struct>(T)=>T']),
-        ({'replace_with_mask'}, ['<T:list,B:boolean>(T,B,T)=>T', '<T:struct,B:boolean>(T,B,T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-13130: Add decimal support for arithmetic compute functions', [
-        ({
-             'abs',
-             'abs_checked',
-             'acos',
-             'acos_checked',
-             'any',
-             'asin',
-             'asin_checked',
-             'atan',
-             'atan2',
-             'ceil',
-             'cos',
-             'cos_checked',
-             'floor',
-             'index',
-             'is_finite',
-             'is_inf',
-             'is_nan',
-             'ln',
-             'ln_checked',
-             'log10',
-             'log10_checked',
-             'log1p',
-             'log1p_checked',
-             'log2',
-             'log2_checked',
-             'max_element_wise',
-             'min_element_wise',
-             'mode',
-             'negate',
-             'negate_checked',
-             'quantile',
-             'round',
-             'round_to_multiple',
-             'sign',
-             'sin',
-             'sin_checked',
-             'stddev',
-             'tan',
-             'tan_checked',
-             'tdigest',
-             'trunc',
-             'variance',
-         }, ['<T:decimal>(T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-13876: Uniform null handling in compute functions', [
-        ({
-             'add',
-             'add_checked',
-             'all',
-             'and',
-             'and_kleene',
-             'and_not',
-             'and_not_kleene',
-             'ascii_capitalize',
-             'ascii_center',
-             'ascii_is_alnum',
-             'ascii_is_alpha',
-             'ascii_is_decimal',
-             'ascii_is_lower',
-             'ascii_is_printable',
-             'ascii_is_space',
-             'ascii_is_title',
-             'ascii_is_upper',
-             'ascii_lower',
-             'ascii_lpad',
-             'ascii_ltrim',
-             'ascii_ltrim_whitespace',
-             'ascii_reverse',
-             'ascii_rpad',
-             'ascii_rtrim',
-             'ascii_rtrim_whitespace',
-             'ascii_split_whitespace',
-             'ascii_swapcase',
-             'ascii_title',
-             'ascii_trim',
-             'ascii_trim_whitespace',
-             'ascii_upper',
-             'assume_timezone',
-             'binary_join',
-             'binary_join_element_wise',
-             'bit_wise_and',
-             'bit_wise_not',
-             'bit_wise_or',
-             'bit_wise_xor',
-             'day',
-             'day_of_week',
-             'day_of_year',
-             'divide',
-             'divide_checked',
-             'ends_with',
-             'find_substring',
-             'find_substring_regex',
-             'invert',
-             'iso_calendar',
-             'iso_week',
-             'iso_year',
-             'list_flatten',
-             'list_parent_indices',
-             'list_value_length',
-             'logb',
-             'logb_checked',
-             'match_like',
-             'match_substring',
-             'match_substring_regex',
-             'mean',
-             'multiply',
-             'multiply_checked',
-             'or',
-             'or_kleene',
-             'partition_nth_indices',
-             'power',
-             'power_checked',
-             'product',
-             'quarter',
-             'replace_substring',
-             'replace_substring_regex',
-             'select_k_unstable',
-             'shift_left',
-             'shift_left_checked',
-             'shift_right',
-             'shift_right_checked',
-             'sort_indices',
-             'string_is_ascii',
-             'strptime',
-             'subtract',
-             'subtract_checked',
-             'sum',
-             'take',
-             'utf8_capitalize',
-             'utf8_center',
-             'utf8_is_alnum',
-             'utf8_is_alpha',
-             'utf8_is_decimal',
-             'utf8_is_digit',
-             'utf8_is_lower',
-             'utf8_is_numeric',
-             'utf8_is_types_numeric',
-             'utf8_is_printable',
-             'utf8_is_space',
-             'utf8_is_title',
-             'utf8_is_upper',
-             'utf8_length',
-             'utf8_lower',
-             'utf8_lpad',
-             'utf8_ltrim',
-             'utf8_ltrim_whitespace',
-             'utf8_replace_slice',
-             'utf8_reverse',
-             'utf8_rpad',
-             'utf8_rtrim',
-             'utf8_rtrim_whitespace',
-             'utf8_slice_codeunits',
-             'utf8_split_whitespace',
-             'utf8_swapcase',
-             'utf8_title',
-             'utf8_trim',
-             'utf8_trim_whitespace',
-             'utf8_upper',
-             'xor',
-             'year'
-         }, ['<T:null>(T)=>T', '<T:null>(T,T)=>T', '<T:decimal,V:null>(T,V)=>T', '<T:null,V:decimal>(T,V)=>T']),
-        ({'filter'}, ['<T,B:null>(T,B)=>T']),
-        ({'take'}, ['<T,I:null>(T,I)=>T']),
-        ({'replace_with_mask'}, ['<T,B:null>(T,B,T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-13945: fixed list support missing for binary_join', [
-        ({'binary_join'}, ['<T:string,L:~FIXED_SIZE_LIST(T)>(L,T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-13878: Add fixed_size_binary support to compute functions', [
-        ({
-             'binary_length',
-             'binary_replace_slice',
-             'count_substring',
-             'count_substring_regex',
-             'equal',
-             'greater',
-             'greater_equal',
-             'index',
-             'less',
-             'less_equal',
-             'month',
-             'multiply',
-             'multiply_checked',
-             'not_equal'
-         },
-         ['<T:fixed_bytes>(T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-13879: Mixed support for binary types in regex functions', [
-        ({'extract_regex', 'split_pattern', 'split_pattern_regex', 'starts_with'},
-         ['<T:bytes>(T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-14111: Add extraction function support for time32/time64', [
-        ({'hour', 'microsecond', 'millisecond', 'minute', 'nanosecond', 'second', 'subsecond'}, ['<T:timelike>(T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-13358: Extend type support for if_else kernel', [
-        ({'if_else'}, ['<T:timestamp_all,B:boolean>(B, T, T)=>T', '<T:decimal,B:boolean>(B, T, T)=>T',
-                       '<T:list,B:boolean>(B, T, T)=>T', '<T:struct,B:boolean>(B, T, T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-14112: index_in/is_in does not support timestamptz', [
-        ({'index_in'}, ['<T:timestamptz>(T)=>T']),
-        ({'is_in'}, ['<T:timestamptz>(T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-14113: max_element_wise does not support binary', [
-        ({'max_element_wise', 'min_element_wise'}, ['<T:bytes>(T)=>T'])
-    ])
-    _check_expect_fail(sample_call, 'ARROW-13916: Implement strftime on date32/64 types', [
-        ({'strftime'}, ['<T:time>(T)=>T', '<T:date>(T)=>T'])
-    ])
-    pc.call_function(sample_call.function_name, sample_call.args, sample_call.options)
+    _check_expect_fail(sample_call,
+                       'ARROW-13390: Improve type support for coalesce kernel',
+                       [
+                           ({'choose'}, ['<T:list,I:integral>(I,T...)=>T',
+                                         '<T:struct,I:integral>(I,T...)=>T']),
+                           ({'coalesce'},
+                            ['<T:list>(T)=>T', '<T:struct>(T)=>T']),
+                           ({'replace_with_mask'}, [
+                               '<T:list,B:boolean>(T,B,T)=>T',
+                               '<T:struct,B:boolean>(T,B,T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-13130: Add decimal support for arithmetic '
+                       'compute functions',
+                       [
+                           ({
+                               'abs',
+                               'abs_checked',
+                               'acos',
+                               'acos_checked',
+                               'any',
+                               'asin',
+                               'asin_checked',
+                               'atan',
+                               'atan2',
+                               'ceil',
+                               'cos',
+                               'cos_checked',
+                               'floor',
+                               'index',
+                               'is_finite',
+                               'is_inf',
+                               'is_nan',
+                               'ln',
+                               'ln_checked',
+                               'log10',
+                               'log10_checked',
+                               'log1p',
+                               'log1p_checked',
+                               'log2',
+                               'log2_checked',
+                               'max_element_wise',
+                               'min_element_wise',
+                               'mode',
+                               'negate',
+                               'negate_checked',
+                               'quantile',
+                               'round',
+                               'round_to_multiple',
+                               'sign',
+                               'sin',
+                               'sin_checked',
+                               'stddev',
+                               'tan',
+                               'tan_checked',
+                               'tdigest',
+                               'trunc',
+                               'variance',
+                           }, ['<T:decimal>(T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-13876: Uniform null handling in compute '
+                       'functions',
+                       [
+                           ({
+                               'add',
+                               'add_checked',
+                               'all',
+                               'and',
+                               'and_kleene',
+                               'and_not',
+                               'and_not_kleene',
+                               'ascii_capitalize',
+                               'ascii_center',
+                               'ascii_is_alnum',
+                               'ascii_is_alpha',
+                               'ascii_is_decimal',
+                               'ascii_is_lower',
+                               'ascii_is_printable',
+                               'ascii_is_space',
+                               'ascii_is_title',
+                               'ascii_is_upper',
+                               'ascii_lower',
+                               'ascii_lpad',
+                               'ascii_ltrim',
+                               'ascii_ltrim_whitespace',
+                               'ascii_reverse',
+                               'ascii_rpad',
+                               'ascii_rtrim',
+                               'ascii_rtrim_whitespace',
+                               'ascii_split_whitespace',
+                               'ascii_swapcase',
+                               'ascii_title',
+                               'ascii_trim',
+                               'ascii_trim_whitespace',
+                               'ascii_upper',
+                               'assume_timezone',
+                               'binary_join',
+                               'binary_join_element_wise',
+                               'bit_wise_and',
+                               'bit_wise_not',
+                               'bit_wise_or',
+                               'bit_wise_xor',
+                               'day',
+                               'day_of_week',
+                               'day_of_year',
+                               'divide',
+                               'divide_checked',
+                               'ends_with',
+                               'find_substring',
+                               'find_substring_regex',
+                               'invert',
+                               'iso_calendar',
+                               'iso_week',
+                               'iso_year',
+                               'list_flatten',
+                               'list_parent_indices',
+                               'list_value_length',
+                               'logb',
+                               'logb_checked',
+                               'match_like',
+                               'match_substring',
+                               'match_substring_regex',
+                               'mean',
+                               'multiply',
+                               'multiply_checked',
+                               'or',
+                               'or_kleene',
+                               'partition_nth_indices',
+                               'power',
+                               'power_checked',
+                               'product',
+                               'quarter',
+                               'replace_substring',
+                               'replace_substring_regex',
+                               'select_k_unstable',
+                               'shift_left',
+                               'shift_left_checked',
+                               'shift_right',
+                               'shift_right_checked',
+                               'sort_indices',
+                               'string_is_ascii',
+                               'strptime',
+                               'subtract',
+                               'subtract_checked',
+                               'sum',
+                               'take',
+                               'utf8_capitalize',
+                               'utf8_center',
+                               'utf8_is_alnum',
+                               'utf8_is_alpha',
+                               'utf8_is_decimal',
+                               'utf8_is_digit',
+                               'utf8_is_lower',
+                               'utf8_is_numeric',
+                               'utf8_is_types_numeric',
+                               'utf8_is_printable',
+                               'utf8_is_space',
+                               'utf8_is_title',
+                               'utf8_is_upper',
+                               'utf8_length',
+                               'utf8_lower',
+                               'utf8_lpad',
+                               'utf8_ltrim',
+                               'utf8_ltrim_whitespace',
+                               'utf8_replace_slice',
+                               'utf8_reverse',
+                               'utf8_rpad',
+                               'utf8_rtrim',
+                               'utf8_rtrim_whitespace',
+                               'utf8_slice_codeunits',
+                               'utf8_split_whitespace',
+                               'utf8_swapcase',
+                               'utf8_title',
+                               'utf8_trim',
+                               'utf8_trim_whitespace',
+                               'utf8_upper',
+                               'xor',
+                               'year'
+                           }, ['<T:null>(T)=>T', '<T:null>(T,T)=>T',
+                               '<T:decimal,V:null>(T,V)=>T',
+                               '<T:null,V:decimal>(T,V)=>T']),
+                           ({'filter'}, ['<T,B:null>(T,B)=>T']),
+                           ({'take'}, ['<T,I:null>(T,I)=>T']),
+                           ({'replace_with_mask'}, ['<T,B:null>(T,B,T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-13945: fixed list support missing for '
+                       'binary_join',
+                       [
+                           ({'binary_join'},
+                            ['<T:string,L:~FIXED_SIZE_LIST(T)>(L,T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-13878: Add fixed_size_binary support to compute '
+                       'functions',
+                       [
+                           ({
+                               'binary_length',
+                               'binary_replace_slice',
+                               'count_substring',
+                               'count_substring_regex',
+                               'equal',
+                               'greater',
+                               'greater_equal',
+                               'index',
+                               'less',
+                               'less_equal',
+                               'month',
+                               'multiply',
+                               'multiply_checked',
+                               'not_equal'
+                           },
+                               ['<T:fixed_bytes>(T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-13879: Mixed support for binary types in regex '
+                       'functions',
+                       [
+                           ({'extract_regex', 'split_pattern',
+                             'split_pattern_regex', 'starts_with'},
+                            ['<T:bytes>(T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-14111: Add extraction function support for '
+                       'time32/time64',
+                       [
+                           ({'hour', 'microsecond', 'millisecond', 'minute',
+                             'nanosecond', 'second', 'subsecond'},
+                            ['<T:timelike>(T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-13358: Extend type support for if_else kernel', [
+                           ({'if_else'},
+                            ['<T:timestamp_all,B:boolean>(B, T, T)=>T',
+                             '<T:decimal,B:boolean>(B, T, T)=>T',
+                             '<T:list,B:boolean>(B, T, T)=>T',
+                             '<T:struct,B:boolean>(B, T, T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-14112: index_in/is_in does not support '
+                       'timestamptz',
+                       [
+                           ({'index_in'}, ['<T:timestamptz>(T)=>T']),
+                           ({'is_in'}, ['<T:timestamptz>(T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-14113: max_element_wise does not support binary',
+                       [
+                           ({'max_element_wise', 'min_element_wise'},
+                            ['<T:bytes>(T)=>T'])
+                       ])
+    _check_expect_fail(sample_call,
+                       'ARROW-13916: Implement strftime on date32/64 types', [
+                           ({'strftime'}, ['<T:time>(T)=>T', '<T:date>(T)=>T'])
+                       ])
+    pc.call_function(sample_call.function_name,
+                     sample_call.args, sample_call.options)
