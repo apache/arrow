@@ -31,7 +31,7 @@ package arrow.flight.protocol.sql;
  * The returned schema will be:
  * <
  *  info_name: uint32 not null,
- *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int128_bitmask: int128>
+ *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int64_bitmask: int64>
  * >
  * where there is one row per requested piece of metadata information.
  */
@@ -163,76 +163,21 @@ enum SqlInfo {
    */
   SQL_NULL_ORDERING = 507;
 
-  /*
-   * Retrieves the supported SQL keywords.
-   *
-   * Returns an int128 bitmask value representing the supported SQL keywords.
-   * The returned bitmask should be parsed in order to retrieve the supported commands.
-   *
-   * For instance:
-   * - return 0 (\b0)   => [] (no SQL keyword is supported);
-   * - return 1 (\b1)   => [SQL_NUMERIC_FUNCTION_ABS];
-   * - return 2 (\b10)  => [SQL_NUMERIC_FUNCTION_ACOS];
-   * - return 3 (\b11)  => [SQL_NUMERIC_FUNCTION_ABS, SQL_NUMERIC_FUNCTION_ACOS];
-   * - return 4 (\b100) => [SQL_NUMERIC_FUNCTION_ATAN];
-   * - ...
-   * Valid SQL keywords are described under `arrow.flight.protocol.sql.SqlSupportedKeyword`.
-   */
-  SQL_SUPPORTED_KEYWORDS = 508;
 
-  /*
-   * Retrieves the supported SQL numeric functions.
-   *
-   * Returns an int128 bitmask value representing the supported SQL numeric functions.
-   * The returned bitmask should be parsed in order to retrieve the supported commands.
-   *
-   * For instance:
-   * - return 0 (\b0)   => [] (no SQL numeric function is supported);
-   * - return 1 (\b1)   => [SQL_NUMERIC_FUNCTION_ABS];
-   * - return 2 (\b10)  => [SQL_NUMERIC_FUNCTION_ACOS];
-   * - return 3 (\b11)  => [SQL_NUMERIC_FUNCTION_ABS, SQL_NUMERIC_FUNCTION_ACOS];
-   * - return 4 (\b100) => [SQL_NUMERIC_FUNCTION_ATAN];
-   * - ...
-   * Valid SQL numeric functions are described under `arrow.flight.protocol.sql.SqlSupportedNumericFunction`.
-   */
-  SQL_SUPPORTED_NUMERIC_FUNCTIONS = 509;
+  // Retrieves a UTF-8 String with comma-separated values of the supported keywords.
+  SQL_KEYWORDS = 508;
 
-  /*
-   * Retrieves the supported SQL string functions.
-   *
-   * Returns an int128 bitmask value representing the supported SQL string functions.
-   * The returned bitmask should be parsed in order to retrieve the supported commands.
-   *
-   * For instance:
-   * - return 0 (\b0)   => [] (no SQL string function is supported);
-   * - return 1 (\b1)   => [SQL_STRING_FUNCTION_ASCII];
-   * - return 2 (\b10)  => [SQL_STRING_FUNCTION_BIN];
-   * - return 3 (\b11)  => [SQL_STRING_FUNCTION_ASCII, SQL_STRING_FUNCTION_BIN];
-   * - return 4 (\b100) => [SQL_STRING_FUNCTION_BIT_LENGTH];
-   * - ...
-   * Valid SQL string functions are described under `arrow.flight.protocol.sql.SqlSupportedStringFunction`.
-   */
-  SQL_SUPPORTED_STRING_FUNCTIONS = 510;
+  // Retrieves a UTF-8 String with comma-separated values of the supported numeric functions.
+  SQL_NUMERIC_FUNCTIONS = 509;
 
-  // Retrieves a comma-separated list of the available system functions.
-  SQL_SUPPORTED_SYSTEM_FUNCTIONS = 511;
+  // Retrieves a UTF-8 String with comma-separated values of the supported string functions.
+  SQL_STRING_FUNCTIONS = 510;
 
-  /*
-   * Retrieves the supported SQL datetime functions.
-   *
-   * Returns an int128 bitmask value representing the supported SQL datetime functions.
-   * The returned bitmask should be parsed in order to retrieve the supported commands.
-   *
-   * For instance:
-   * - return 0 (\b0)   => [] (no SQL datetime function is supported);
-   * - return 1 (\b1)   => [SQL_DATETIME_ADDDATE];
-   * - return 2 (\b10)  => [SQL_DATETIME_ADDTIME];
-   * - return 3 (\b11)  => [SQL_DATETIME_ADDDATE, SQL_DATETIME_ADDTIME];
-   * - return 4 (\b100) => [SQL_DATETIME_CURDATE];
-   * - ...
-   * Valid SQL datetime functions are described under `arrow.flight.protocol.sql.SqlSupportedDatetimeFunction`.
-   */
-  SQL_SUPPORTED_DATETIME_FUNCTIONS = 512;
+  // Retrieves a UTF-8 String with comma-separated values of the supported system functions.
+  SQL_SYSTEM_FUNCTIONS = 511;
+
+  // Retrieves a UTF-8 String with comma-separated values of the supported datetime functions.
+  SQL_DATETIME_FUNCTIONS = 512;
 
   /*
    * Retrieves the string that can be used to escape wildcard characters.
@@ -263,19 +208,7 @@ enum SqlInfo {
   // Retrieves whether concatenations between null and non-null values being null are supported.
   SQL_NULL_PLUS_NULL_IS_NULL = 516;
 
-  /*
-   * Retrieves the supported SQL conversion functions.
-   *
-   * Returns an int128 bitmask value representing the supported SQL conversion functions.
-   * The returned bitmask should be parsed in order to retrieve the supported SQL conversion functions.
-   *
-   * For instance:
-   * - return 0 (\b0)   => [] (no SQL conversion function is supported);
-   * - return 1 (\b1)   => [SQL_CONVERSION_CAST];
-   * - return 2 (\b10)  => [SQL_CONVERSION_CONVERT];
-   * - return 3 (\b11)  => [SQL_CONVERSION_CAST, SQL_CONVERSION_CONVERT].
-   * Valid SQL conversion functions are described under `arrow.flight.protocol.sql.SqlSupportedConversionFunction`.
-   */
+  // Retrieves a UTF-8 String with comma-separated values of the supported conversion functions.
   SQL_SUPPORTED_CONVERSION_FUNCTIONS = 517;
 
   /*
@@ -849,253 +782,15 @@ enum SqlSupportedTransactions {
 
 enum SqlSupportedResultSetType {
   SQL_RESULT_SET_TYPE_UNSPECIFIED = 0;
-  SQL_RESULT_SET_TYPE_FORWARD_ONLY = 1003;
-  SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE = 1004;
-  SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE = 1005;
+  SQL_RESULT_SET_TYPE_FORWARD_ONLY = 1;
+  SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE = 2;
+  SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE = 3;
 }
 
 enum SqlSupportedResultSetConcurrency {
   SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED = 0;
   SQL_RESULT_SET_CONCURRENCY_READ_ONLY = 1;
   SQL_RESULT_SET_CONCURRENCY_UPDATABLE = 2;
-}
-
-enum SqlSupportedNumericFunction {
-  SQL_NUMERIC_FUNCTION_ABS = 0;
-  SQL_NUMERIC_FUNCTION_ACOS = 1;
-  SQL_NUMERIC_FUNCTION_ASIN = 2;
-  SQL_NUMERIC_FUNCTION_ATAN = 3;
-  SQL_NUMERIC_FUNCTION_ATAN2 = 4;
-  SQL_NUMERIC_FUNCTION_BIT_AND = 5;
-  SQL_NUMERIC_FUNCTION_BIT_COUNT = 6;
-  SQL_NUMERIC_FUNCTION_BIT_OR = 7;
-  SQL_NUMERIC_FUNCTION_CEIL = 8;
-  SQL_NUMERIC_FUNCTION_CEILING = 9;
-  SQL_NUMERIC_FUNCTION_CONV = 10;
-  SQL_NUMERIC_FUNCTION_COS = 11;
-  SQL_NUMERIC_FUNCTION_COT = 12;
-  SQL_NUMERIC_FUNCTION_DEGREES = 13;
-  SQL_NUMERIC_FUNCTION_EXP = 14;
-  SQL_NUMERIC_FUNCTION_FLOOR = 15;
-  SQL_NUMERIC_FUNCTION_FORMAT = 16;
-  SQL_NUMERIC_FUNCTION_GREATEST = 17;
-  SQL_NUMERIC_FUNCTION_INTERVAL = 18;
-  SQL_NUMERIC_FUNCTION_LEAST = 19;
-  SQL_NUMERIC_FUNCTION_LOG = 20;
-  SQL_NUMERIC_FUNCTION_LOG10 = 21;
-  SQL_NUMERIC_FUNCTION_MOD = 22;
-  SQL_NUMERIC_FUNCTION_OCT = 23;
-  SQL_NUMERIC_FUNCTION_PI = 24;
-  SQL_NUMERIC_FUNCTION_POW = 25;
-  SQL_NUMERIC_FUNCTION_POWER = 26;
-  SQL_NUMERIC_FUNCTION_RADIANS = 27;
-  SQL_NUMERIC_FUNCTION_ROUND = 28;
-  SQL_NUMERIC_FUNCTION_SIN = 29;
-  SQL_NUMERIC_FUNCTION_SQRT = 30;
-  SQL_NUMERIC_FUNCTION_STD = 31;
-  SQL_NUMERIC_FUNCTION_STDDEV = 32;
-  SQL_NUMERIC_FUNCTION_TAN = 33;
-  SQL_NUMERIC_FUNCTION_TRUNCATE = 34;
-}
-
-enum SqlSupportedStringFunction {
-  SQL_STRING_FUNCTION_ASCII = 0;
-  SQL_STRING_FUNCTION_BIN = 1;
-  SQL_STRING_FUNCTION_BIT_LENGTH = 2;
-  SQL_STRING_FUNCTION_CHAR_LENGTH = 3;
-  SQL_STRING_FUNCTION_CHAR = 4;
-  SQL_STRING_FUNCTION_CHARACTER_LENGTH = 5;
-  SQL_STRING_FUNCTION_CONCAT_WS = 6;
-  SQL_STRING_FUNCTION_CONCAT = 7;
-  SQL_STRING_FUNCTION_CONV = 8;
-  SQL_STRING_FUNCTION_ELT = 9;
-  SQL_STRING_FUNCTION_EXPORT_SET = 10;
-  SQL_STRING_FUNCTION_FIELD = 11;
-  SQL_STRING_FUNCTION_FIND_IN_SET = 12;
-  SQL_STRING_FUNCTION_FORMAT = 13;
-  SQL_STRING_FUNCTION_HEX = 14;
-  SQL_STRING_FUNCTION_INSERT = 15;
-  SQL_STRING_FUNCTION_INSTR = 16;
-  SQL_STRING_FUNCTION_LCASE = 17;
-  SQL_STRING_FUNCTION_LEFT = 18;
-  SQL_STRING_FUNCTION_LENGTH = 19;
-  SQL_STRING_FUNCTION_LOAD_FILE = 20;
-  SQL_STRING_FUNCTION_LOCATE = 21;
-  SQL_STRING_FUNCTION_LOWER = 22;
-  SQL_STRING_FUNCTION_LPAD = 23;
-  SQL_STRING_FUNCTION_LTRIM = 24;
-  SQL_STRING_FUNCTION_MAKE_SET = 25;
-  SQL_STRING_FUNCTION_MID = 26;
-  SQL_STRING_FUNCTION_OCT = 27;
-  SQL_STRING_FUNCTION_OCTET_LENGTH = 28;
-  SQL_STRING_FUNCTION_ORD = 29;
-  SQL_STRING_FUNCTION_POSITION = 30;
-  SQL_STRING_FUNCTION_QUOTE = 31;
-  SQL_STRING_FUNCTION_REGEXP = 32;
-  SQL_STRING_FUNCTION_REPEAT = 33;
-  SQL_STRING_FUNCTION_REPLACE = 34;
-  SQL_STRING_FUNCTION_REVERSE = 35;
-  SQL_STRING_FUNCTION_RIGHT = 36;
-  SQL_STRING_FUNCTION_RPAD = 37;
-  SQL_STRING_FUNCTION_RTRIM = 38;
-  SQL_STRING_FUNCTION_SOUNDEX = 39;
-  SQL_STRING_FUNCTION_SOUNDS_LIKE = 40;
-  SQL_STRING_FUNCTION_SPACE = 41;
-  SQL_STRING_FUNCTION_STRCMP = 42;
-  SQL_STRING_FUNCTION_SUBSTRING_INDEX = 43;
-  SQL_STRING_FUNCTION_SUBSTRING_SUBSTR = 44;
-  SQL_STRING_FUNCTION_TRIM = 45;
-  SQL_STRING_FUNCTION_UCASE = 46;
-  SQL_STRING_FUNCTION_UNHEX = 47;
-  SQL_STRING_FUNCTION_UPPER = 48;
-}
-
-enum SqlSupportedDatetimeFunction {
-  SQL_DATETIME_ADDDATE = 0;
-  SQL_DATETIME_ADDTIME = 1;
-  SQL_DATETIME_CONVERT_TZ = 2;
-  SQL_DATETIME_CURDATE = 3;
-  SQL_DATETIME_CURRENT_DATE = 4;
-  SQL_DATETIME_CURRENT_TIME = 5;
-  SQL_DATETIME_CURRENT_TIMESTAMP = 6;
-  SQL_DATETIME_CURTIME = 7;
-  SQL_DATETIME_DATE_ADD = 8;
-  SQL_DATETIME_DATE_FORMAT = 9;
-  SQL_DATETIME_DATE_SUB = 10;
-  SQL_DATETIME_DATE = 11;
-  SQL_DATETIME_DATEDIFF = 12;
-  SQL_DATETIME_DAY = 13;
-  SQL_DATETIME_DAYNAME = 14;
-  SQL_DATETIME_DAYOFMONTH = 15;
-  SQL_DATETIME_DAYOFWEEK = 16;
-  SQL_DATETIME_DAYOFYEAR = 17;
-  SQL_DATETIME_EXTRACT = 18;
-  SQL_DATETIME_FROM_DAYS = 19;
-  SQL_DATETIME_FROM_UNIXTIME = 20;
-  SQL_DATETIME_HOUR = 21;
-  SQL_DATETIME_LAST_DAY = 22;
-  SQL_DATETIME_LOCALTIME = 23;
-  SQL_DATETIME_LOCALTIMESTAMP = 24;
-  SQL_DATETIME_MAKEDATE = 25;
-  SQL_DATETIME_MAKETIME = 26;
-  SQL_DATETIME_MICROSECOND = 27;
-  SQL_DATETIME_MINUTE = 28;
-  SQL_DATETIME_MONTH = 29;
-  SQL_DATETIME_MONTHNAME = 30;
-  SQL_DATETIME_NOW = 31;
-  SQL_DATETIME_PERIOD_ADD = 32;
-  SQL_DATETIME_PERIOD_DIFF = 33;
-  SQL_DATETIME_QUARTER = 34;
-  SQL_DATETIME_SEC_TO_TIME = 35;
-  SQL_DATETIME_SECOND = 36;
-  SQL_DATETIME_STR_TO_DATE = 37;
-  SQL_DATETIME_SUBDATE = 38;
-  SQL_DATETIME_SUBTIME = 39;
-  SQL_DATETIME_SYSDATE = 40;
-  SQL_DATETIME_TIME_FORMAT = 41;
-  SQL_DATETIME_TIME_TO_SEC = 42;
-  SQL_DATETIME_TIME = 43;
-  SQL_DATETIME_TIMEDIFF = 44;
-  SQL_DATETIME_TIMESTAMP = 45;
-  SQL_DATETIME_TIMESTAMPADD = 46;
-  SQL_DATETIME_TIMESTAMPDIFF = 47;
-  SQL_DATETIME_TO_DAYS = 48;
-  SQL_DATETIME_UNIX_TIMESTAMP = 49;
-  SQL_DATETIME_UTC_DATE = 50;
-  SQL_DATETIME_UTC_TIME = 51;
-  SQL_DATETIME_UTC_TIMESTAMP = 52;
-  SQL_DATETIME_WEEK = 53;
-  SQL_DATETIME_WEEKDAY = 54;
-  SQL_DATETIME_WEEKOFYEAR = 55;
-  SQL_DATETIME_YEAR = 56;
-  SQL_DATETIME_YEARWEEK = 57;
-}
-
-enum SqlSupportedKeyword {
-  SQL_KEYWORD_ADD = 0;
-  SQL_KEYWORD_ADD_CONSTRAINT = 1;
-  SQL_KEYWORD_ALTER = 2;
-  SQL_KEYWORD_ALTER_COLUMN = 3;
-  SQL_KEYWORD_ALTER_TABLE = 4;
-  SQL_KEYWORD_ALL = 5;
-  SQL_KEYWORD_AND = 6;
-  SQL_KEYWORD_ANY = 7;
-  SQL_KEYWORD_AS = 8;
-  SQL_KEYWORD_ASC = 9;
-  SQL_KEYWORD_BACKUP_DATABASE = 10;
-  SQL_KEYWORD_BETWEEN = 11;
-  SQL_KEYWORD_CASE = 12;
-  SQL_KEYWORD_CHECK = 13;
-  SQL_KEYWORD_COLUMN = 14;
-  SQL_KEYWORD_CONSTRAINT = 15;
-  SQL_KEYWORD_CREATE = 16;
-  SQL_KEYWORD_CREATE_DATABASE = 17;
-  SQL_KEYWORD_CREATE_INDEX = 18;
-  SQL_KEYWORD_CREATE_OR_REPLACE_VIEW = 19;
-  SQL_KEYWORD_CREATE_TABLE = 20;
-  SQL_KEYWORD_CREATE_PROCEDURE = 21;
-  SQL_KEYWORD_UNIQUE_INDEX = 22;
-  SQL_KEYWORD_CREATE_VIEW = 23;
-  SQL_KEYWORD_DATABASE = 24;
-  SQL_KEYWORD_DEFAULT = 25;
-  SQL_KEYWORD_DELETE = 26;
-  SQL_KEYWORD_DESC = 27;
-  SQL_KEYWORD_DISTINCT = 28;
-  SQL_KEYWORD_DROP = 29;
-  SQL_KEYWORD_DROP_COLUMN = 30;
-  SQL_KEYWORD_DROP_CONSTRAINT = 31;
-  SQL_KEYWORD_DROP_DATABASE = 32;
-  SQL_KEYWORD_DROP_DEFAULT = 33;
-  SQL_KEYWORD_DROP_INDEX = 34;
-  SQL_KEYWORD_DROP_TABLE = 35;
-  SQL_KEYWORD_DROP_VIEW = 36;
-  SQL_KEYWORD_EXEC = 37;
-  SQL_KEYWORD_EXISTS = 38;
-  SQL_KEYWORD_FOREIGN_KEY = 39;
-  SQL_KEYWORD_FROM = 40;
-  SQL_KEYWORD_FULL_OUTER_JOIN = 41;
-  SQL_KEYWORD_GROUP_BY = 42;
-  SQL_KEYWORD_HAVING = 43;
-  SQL_KEYWORD_IN = 44;
-  SQL_KEYWORD_INDEX = 45;
-  SQL_KEYWORD_INNER_JOIN = 46;
-  SQL_KEYWORD_INSERT_INTO = 47;
-  SQL_KEYWORD_INSERT_INTO_SELECT = 48;
-  SQL_KEYWORD_IS_NULL = 49;
-  SQL_KEYWORD_IS_NOT_NULL = 50;
-  SQL_KEYWORD_JOIN = 51;
-  SQL_KEYWORD_LEFT_JOIN = 52;
-  SQL_KEYWORD_LIKE = 53;
-  SQL_KEYWORD_LIMIT = 54;
-  SQL_KEYWORD_NOT = 55;
-  SQL_KEYWORD_NOT_NULL = 56;
-  SQL_KEYWORD_OR = 57;
-  SQL_KEYWORD_ORDER_BY = 58;
-  SQL_KEYWORD_OUTER_JOIN = 59;
-  SQL_KEYWORD_PRIMARY_KEY = 60;
-  SQL_KEYWORD_PROCEDURE = 61;
-  SQL_KEYWORD_RIGHT_JOIN = 62;
-  SQL_KEYWORD_ROWNUM = 63;
-  SQL_KEYWORD_SELECT = 64;
-  SQL_KEYWORD_SELECT_DISTINCT = 65;
-  SQL_KEYWORD_SELECT_INTO = 66;
-  SQL_KEYWORD_SELECT_TOP = 67;
-  SQL_KEYWORD_SET = 68;
-  SQL_KEYWORD_TABLE = 69;
-  SQL_KEYWORD_TOP = 70;
-  SQL_KEYWORD_TRUNCATE_TABLE = 71;
-  SQL_KEYWORD_UNION = 72;
-  SQL_KEYWORD_UNION_ALL = 73;
-  SQL_KEYWORD_UNIQUE = 74;
-  SQL_KEYWORD_UPDATE = 75;
-  SQL_KEYWORD_VALUES = 76;
-  SQL_KEYWORD_VIEW = 77;
-  SQL_KEYWORD_WHERE = 78;
-}
-
-enum SqlSupportedConversionFunction {
-  SQL_CONVERSION_CAST = 0;
-  SQL_CONVERSION_CONVERT = 1;
 }
 
 /*

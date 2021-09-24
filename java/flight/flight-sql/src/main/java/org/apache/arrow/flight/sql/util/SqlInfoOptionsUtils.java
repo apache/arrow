@@ -21,9 +21,6 @@ import com.google.protobuf.ProtocolMessageEnum;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-
 /**
  * Utility class for {@link SqlInfo} and {@link FlightSqlClient#getSqlInfo} option parsing.
  */
@@ -37,14 +34,10 @@ public final class SqlInfoOptionsUtils {
    * {@link ProtocolMessageEnum#getNumber} with the respective bit index of the {@code bitmask}.
    *
    * @param enumInstance the protobuf message enum to use.
-   * @param bitmask      the {@link BigDecimal} bitmask response from {@link FlightSqlClient#getSqlInfo}.
+   * @param bitmask      the bitmask response from {@link FlightSqlClient#getSqlInfo}.
    * @return whether the provided {@code bitmask} points to the specified {@code enumInstance}.
    */
-  public static boolean doesBitmaskTranslateToEnum(final ProtocolMessageEnum enumInstance, final BigDecimal bitmask) {
-    return doesBitmaskTranslateToEnum(enumInstance, bitmask.toBigIntegerExact());
-  }
-
-  private static boolean doesBitmaskTranslateToEnum(final ProtocolMessageEnum enumInstance, final BigInteger bitmask) {
-    return bitmask.testBit(enumInstance.getNumber());
+  public static boolean doesBitmaskTranslateToEnum(final ProtocolMessageEnum enumInstance, final long bitmask) {
+    return ((bitmask >> enumInstance.getNumber()) & 1) == 1;
   }
 }

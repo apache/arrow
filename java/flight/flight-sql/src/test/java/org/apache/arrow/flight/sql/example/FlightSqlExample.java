@@ -554,7 +554,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             new Field("string_value", FieldType.nullable(MinorType.VARCHAR.getType()), null),
             new Field("int_value", FieldType.nullable(MinorType.INT.getType()), null),
             new Field("bigint_value", FieldType.nullable(MinorType.BIGINT.getType()), null),
-            new Field("int128_bitmask", FieldType.nullable(new Decimal(Integer.MAX_VALUE, 0, 128)), null)));
+            new Field("int64_bitmask", FieldType.nullable(MinorType.BIGINT.getType()), null)));
     final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
     final byte stringValueId = 0;
     final byte intValueId = 1;
