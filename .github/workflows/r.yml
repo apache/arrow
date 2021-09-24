@@ -295,7 +295,7 @@ jobs:
           path: r/windows
       - name: Unzip libarrows
         shell: bash
-        run: unzip -u *.zip
+        run: unzip -u $(ls *.zip)
       - name: Setup ccache
         shell: bash
         run: |
