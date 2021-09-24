@@ -100,7 +100,7 @@ TEST(TestStringOps, TestSpace) {
   EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
   out = space_int64(ctx_ptr, 9223372036854775807, &out_len);
   EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
-  out = space_int64(ctx_ptr, -2639077559L, &out_len);
+  out = space_int64(ctx_ptr, -2639077559LL, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
 }
 
