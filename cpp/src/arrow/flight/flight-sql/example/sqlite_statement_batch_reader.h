@@ -28,8 +28,13 @@ namespace example {
 
 class SqliteStatementBatchReader : public RecordBatchReader {
  public:
-  static Status Make(const std::shared_ptr<SqliteStatement> &statement_,
-                     std::shared_ptr<SqliteStatementBatchReader> *result);
+
+  /// \brief Creates a RecordBatchReader backed by a SQLite statement.
+  /// \param[in] statement    SQLite statement to be read.
+  /// \param[out] result      The resulting RecordBatchReader.
+  /// \return                 Status.
+  static Status Create(const std::shared_ptr<SqliteStatement> &statement,
+                       std::shared_ptr<SqliteStatementBatchReader> *result);
 
   std::shared_ptr<Schema> schema() const override;
 

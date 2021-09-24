@@ -28,18 +28,35 @@ namespace example {
 
 class SqliteStatement {
  public:
+
+  /// \brief Creates a SQLite3 statement.
+  /// \param[in] db        SQLite3 database instance.
+  /// \param[in] sql       SQL statement.
+  /// \param[out] result   The resulting SqliteStatement.
+  /// \return              Status.
   static Status Create(sqlite3 *db, const std::string &sql,
                        std::shared_ptr<SqliteStatement> *result);
 
   ~SqliteStatement();
 
+  /// \brief Creates an Arrow Schema based on the results of this statement.
+  /// \param[out] schema   The resulting Schema.
+  /// \return              Status.
   Status GetSchema(std::shared_ptr<Schema> *schema) const;
 
-  sqlite3_stmt *stmt;
-  sqlite3 *db;
+  /// \brief Steps on underlying sqlite3_stmt.
+  /// \param[out] rc   The resulting return code from SQLite.
+  /// \return          Status.
+  Status Step(int* rc);
+
+  /// \brief Returns the underlying sqlite3_stmt.
+  sqlite3_stmt *GetSqlite3Stmt();
 
  private:
-  SqliteStatement(sqlite3 *_db, sqlite3_stmt *_stmt) : stmt(_stmt), db(_db) {}
+  sqlite3 *db_;
+  sqlite3_stmt *stmt_;
+
+  SqliteStatement(sqlite3 *db, sqlite3_stmt *stmt) : db_(db), stmt_(stmt) {}
 };
 
 }  // namespace example

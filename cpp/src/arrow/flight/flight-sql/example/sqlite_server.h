@@ -29,11 +29,17 @@ namespace flight {
 namespace sql {
 namespace example {
 
+/// \brief Example implementation of FlightSqlServerBase backed by an in-memory SQLite3
+///        database.
 class SQLiteFlightSqlServer : public FlightSqlServerBase {
  public:
   SQLiteFlightSqlServer();
 
   ~SQLiteFlightSqlServer() override;
+
+  /// \brief Auxiliary method used to execute an arbitrary SQL statement on the underlying
+  ///        SQLite database.
+  void ExecuteSql(const std::string &sql);
 
   Status GetFlightInfoStatement(const pb::sql::CommandStatementQuery &command,
                                 const ServerCallContext &context,
@@ -46,8 +52,6 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
 
  private:
   sqlite3 *db_;
-
-  void ExecuteSql(const std::string &sql);
 };
 
 }  // namespace example

@@ -56,6 +56,15 @@ SQLiteFlightSqlServer::SQLiteFlightSqlServer() {
 
 SQLiteFlightSqlServer::~SQLiteFlightSqlServer() { sqlite3_close(db_); }
 
+void SQLiteFlightSqlServer::ExecuteSql(const std::string &sql) {
+  char *zErrMsg = NULLPTR;
+  int rc = sqlite3_exec(db_, sql.data(), NULLPTR, NULLPTR, &zErrMsg);
+  if (rc != SQLITE_OK) {
+    fprintf(stderr, "SQL error: %s\n", zErrMsg);
+    sqlite3_free(zErrMsg);
+  }
+}
+
 Status SQLiteFlightSqlServer::GetFlightInfoStatement(
     const pb::sql::CommandStatementQuery& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
@@ -93,22 +102,11 @@ Status SQLiteFlightSqlServer::DoGetStatement(const pb::sql::TicketStatementQuery
   ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, string, &statement));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Make(statement, &reader));
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
 
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
 
   return Status::OK();
-}
-
-void SQLiteFlightSqlServer::ExecuteSql(const std::string &sql) {
-  char *zErrMsg = NULLPTR;
-  int rc = sqlite3_exec(db_, sql.data(), NULLPTR, NULLPTR, &zErrMsg);
-  if (rc != SQLITE_OK) {
-    fprintf(stderr, "SQL error: %s\n", zErrMsg);
-    sqlite3_free(zErrMsg);
-  } else {
-    fprintf(stdout, "Executed successfully\n");
-  }
 }
 
 }  // namespace example

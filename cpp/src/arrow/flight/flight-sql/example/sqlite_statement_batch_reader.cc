@@ -67,16 +67,12 @@ SqliteStatementBatchReader::SqliteStatementBatchReader(
     std::shared_ptr<SqliteStatement> statement, std::shared_ptr<Schema> schema, int rc)
     : statement_(std::move(statement)), schema_(std::move(schema)), rc_(rc) {}
 
-Status SqliteStatementBatchReader::Make(
+Status SqliteStatementBatchReader::Create(
     const std::shared_ptr<SqliteStatement> &statement_,
     std::shared_ptr<SqliteStatementBatchReader> *result) {
-  sqlite3_stmt *stmt_ = statement_->stmt;
-  sqlite3 *db_ = statement_->db;
 
-  int rc = sqlite3_step(stmt_);
-  if (rc == SQLITE_ERROR) {
-    return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db_));
-  }
+  int rc;
+  ARROW_RETURN_NOT_OK(statement_->Step(&rc));
 
   std::shared_ptr<Schema> schema;
   ARROW_RETURN_NOT_OK(statement_->GetSchema(&schema));
@@ -87,8 +83,7 @@ Status SqliteStatementBatchReader::Make(
 }
 
 Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch> *out) {
-  sqlite3_stmt *stmt_ = statement_->stmt;
-  sqlite3 *db_ = statement_->db;
+  sqlite3_stmt *stmt_ = statement_->GetSqlite3Stmt();
 
   const int num_fields = schema_->num_fields();
   std::vector<std::unique_ptr<arrow::ArrayBuilder>> builders(num_fields);
@@ -130,10 +125,7 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch> *out) {
       }
     }
 
-    rc_ = sqlite3_step(stmt_);
-    if (rc_ == SQLITE_ERROR) {
-      return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db_));
-    }
+    ARROW_RETURN_NOT_OK(statement_->Step(&rc_));
   }
 
   if (rows > 0) {
