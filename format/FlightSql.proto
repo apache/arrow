@@ -31,7 +31,7 @@ package arrow.flight.protocol.sql;
  * The returned schema will be:
  * <
  *  info_name: uint32 not null,
- *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int64_bitmask: int64>
+ *  value: dense_union<string_value: string, bool_value: bool, int_value: int32, bigint_value: int64, int32_bitmask: int32>
  * >
  * where there is one row per requested piece of metadata information.
  */
@@ -66,26 +66,26 @@ enum SqlInfo {
   // Server Information [0-500): Provides basic information about the Flight SQL Server.
 
   /*
-   * The name of the Flight SQL Server.
+   * Retrieves a UTF-8 string with the name of the Flight SQL Server.
    */
   FLIGHT_SQL_SERVER_NAME = 0;
 
   /*
-   * The native version of the Flight SQL Server.
+   * Retrieves a UTF-8 string with the native version of the Flight SQL Server.
    */
   FLIGHT_SQL_SERVER_VERSION = 1;
 
   /*
-   * The Arrow format version of the Flight SQL Server.
+   * Retrieves a UTF-8 string with the Arrow format version of the Flight SQL Server.
    */
   FLIGHT_SQL_SERVER_ARROW_VERSION = 2;
 
   /* 
-   * Indicates whether the Flight SQL Server is read only.
+   * Retrieves a boolean value indicating whether the Flight SQL Server is read only.
    *
    * Returns:
-   * 0 - if read-write
-   * 1 - if read only
+   * - false - if read-write
+   * - true - if read only
    */
   FLIGHT_SQL_SERVER_READ_ONLY = 3;
 
@@ -93,20 +93,20 @@ enum SqlInfo {
   // SQL Syntax Information [500-1000): provides information about SQL syntax supported by the Flight SQL Server.
 
   /*
-   * Indicates whether the Flight SQL Server supports CREATE and DROP of catalogs.
+   * Retrieves a boolean value indicating whether the Flight SQL Server supports CREATE and DROP of catalogs.
    *
    * Returns:
-   * - 0: if it doesn't support CREATE and DROP of catalogs.
-   * - 1: if it supports CREATE and DROP of catalogs.
+   * - false: if it doesn't support CREATE and DROP of catalogs.
+   * - true: if it supports CREATE and DROP of catalogs.
    */
   SQL_DDL_CATALOG = 500;
 
   /*
-   * Indicates whether the Flight SQL Server supports CREATE and DROP of schemas.
+   * Retrieves a boolean value indicating whether the Flight SQL Server supports CREATE and DROP of schemas.
    *
    * Returns:
-   * - 0: if it doesn't support CREATE and DROP of schemas.
-   * - 1: if it supports CREATE and DROP of schemas.
+   * - false: if it doesn't support CREATE and DROP of schemas.
+   * - true: if it supports CREATE and DROP of schemas.
    */
   SQL_DDL_SCHEMA = 501;
 
@@ -114,44 +114,36 @@ enum SqlInfo {
    * Indicates whether the Flight SQL Server supports CREATE and DROP of tables.
    *
    * Returns:
-   * - 0: if it doesn't support CREATE and DROP of tables.
-   * - 1: if it supports CREATE and DROP of tables.
+   * - false: if it doesn't support CREATE and DROP of tables.
+   * - true: if it supports CREATE and DROP of tables.
    */
   SQL_DDL_TABLE = 502;
 
   /*
-   * Indicates the case sensitivity of catalog, table and schema names.
+   * Retrieves a uint32 value representing the enum ordinal for the case sensitivity of catalog, table and schema names.
    *
-   * Returns:
-   * - "CASE_INSENSITIVE"
-   * - "UPPERCASE"
-   * - "LOWERCASE"
-   * - "UNKNOWN"
+   * The possible values are listed in `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
    */
   SQL_IDENTIFIER_CASE = 503;
 
   /*
-   * Indicates the supported character(s) used to surround a delimited identifier.
+   * Retrieves a UTF-8 string with the supported character(s) used to surround a delimited identifier.
    */
   SQL_IDENTIFIER_QUOTE_CHAR = 504;
 
   /*
-   * Indicates case sensitivity of quoted identifiers.
+   * Retrieves a uint32 value representing the enum ordinal for the case sensitivity of quoted identifiers.
    *
-   * Returns:
-   * - "CASE_INSENSITIVE"
-   * - "UPPERCASE"
-   * - "LOWERCASE"
-   * - "UNKNOWN"
+   * The possible values are listed in `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
    */
   SQL_QUOTED_IDENTIFIER_CASE = 505;
 
   /*
-   * Retrieves whether all tables are selectable.
+   * Retrieves a boolean value indicating whether all tables are selectable.
    *
    * Returns:
-   * - 0: if not all tables are selectable or if none are;
-   * - 1: if all tables are selectable.
+   * - false: if not all tables are selectable or if none are;
+   * - true: if all tables are selectable.
    */
   SQL_ALL_TABLES_ARE_SELECTABLE = 506;
 
@@ -163,24 +155,23 @@ enum SqlInfo {
    */
   SQL_NULL_ORDERING = 507;
 
-
-  // Retrieves a UTF-8 String with comma-separated values of the supported keywords.
+  // Retrieves a UTF-8 string with comma-separated values of the supported keywords.
   SQL_KEYWORDS = 508;
 
-  // Retrieves a UTF-8 String with comma-separated values of the supported numeric functions.
+  // Retrieves a UTF-8 string with comma-separated values of the supported numeric functions.
   SQL_NUMERIC_FUNCTIONS = 509;
 
-  // Retrieves a UTF-8 String with comma-separated values of the supported string functions.
+  // Retrieves a UTF-8 string with comma-separated values of the supported string functions.
   SQL_STRING_FUNCTIONS = 510;
 
-  // Retrieves a UTF-8 String with comma-separated values of the supported system functions.
+  // Retrieves a UTF-8 string with comma-separated values of the supported system functions.
   SQL_SYSTEM_FUNCTIONS = 511;
 
-  // Retrieves a UTF-8 String with comma-separated values of the supported datetime functions.
+  // Retrieves a UTF-8 string with comma-separated values of the supported datetime functions.
   SQL_DATETIME_FUNCTIONS = 512;
 
   /*
-   * Retrieves the string that can be used to escape wildcard characters.
+   * Retrieves the UTF-8 string that can be used to escape wildcard characters.
    * This is the string that can be used to escape '_' or '%' in the catalog search parameters that are a pattern
    * (and therefore use one of the wildcard characters).
    * The '_' character represents any single character; the '%' character represents any sequence of zero or more
@@ -189,70 +180,71 @@ enum SqlInfo {
   SQL_SEARCH_STRING_ESCAPE = 513;
 
   /*
-   * Retrieves all the "extra" characters that can be used in unquoted identifier names
+   * Retrieves a UTF-8 string with all the "extra" characters that can be used in unquoted identifier names
    * (those beyond a-z, A-Z, 0-9 and _).
    */
   SQL_EXTRA_NAME_CHARACTERS = 514;
 
   /*
-   * Retrieves whether column aliasing is supported.
+   * Retrieves a boolean value indicating whether column aliasing is supported.
    * If so, the SQL AS clause can be used to provide names for computed columns or to provide alias names for columns
    * as required.
    *
    * Returns:
-   * - 0: if column aliasing is unsupported;
-   * - 1: if column aliasing is supported.
+   * - false: if column aliasing is unsupported;
+   * - true: if column aliasing is supported.
    */
   SQL_SUPPORTS_COLUMN_ALIASING = 515;
 
   // Retrieves whether concatenations between null and non-null values being null are supported.
   SQL_NULL_PLUS_NULL_IS_NULL = 516;
 
-  // Retrieves a UTF-8 String with comma-separated values of the supported conversion functions.
+  // Retrieves a UTF-8 string with comma-separated values of the supported conversion functions.
   SQL_SUPPORTED_CONVERSION_FUNCTIONS = 517;
 
   /*
-   * Retrieves whether, when table correlation names are supported, they are restricted to being different
-   * from the names of the tables.
+   * Retrieves a boolean value indicating whether, when table correlation names are supported,
+   * they are restricted to being different from the names of the tables.
    *
    * Returns:
-   * - 0: if table correlation names are unsupported;
-   * - 1: if table correlation names are supported.
+   * - false: if table correlation names are unsupported;
+   * - true: if table correlation names are supported.
    */
   SQL_SUPPORTS_TABLE_CORRELATION_NAMES = 518;
 
   /*
-   * Retrieves whether, when table correlation names are supported, they are restricted to being different
-   * from the names of the tables.
+   * Retrieves a boolean value indicating whether, when table correlation names are supported,
+   * they are restricted to being different from the names of the tables.
    *
    * Returns:
-   * - 0: if different table correlation names are unsupported;
-   * - 1: if different table correlation names are supported
+   * - false: if different table correlation names are unsupported;
+   * - true: if different table correlation names are supported
    */
   SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES = 519;
 
   /*
-   * Retrieves whether expressions in ORDER BY lists are supported.
+   * Retrieves a boolean value indicating whether expressions in ORDER BY lists are supported.
    *
    * Returns:
-   * - 0: if expressions in ORDER BY are unsupported;
-   * - 1: if expressions in ORDER BY are supported;
+   * - false: if expressions in ORDER BY are unsupported;
+   * - true: if expressions in ORDER BY are supported;
    */
   SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY = 520;
 
   /*
-   * Retrieves whether using a column that is not in the SELECT statement in a GROUP BY clause is supported.
+   * Retrieves a boolean value indicating whether using a column that is not in the SELECT statement in a GROUP BY
+   * clause is supported.
    *
    * Returns:
-   * - 0: if using a column that is not in the SELECT statement in a GROUP BY clause is unsupported;
-   * - 1: if using a column that is not in the SELECT statement in a GROUP BY clause is supported.
+   * - false: if using a column that is not in the SELECT statement in a GROUP BY clause is unsupported;
+   * - true: if using a column that is not in the SELECT statement in a GROUP BY clause is supported.
    */
   SQL_SUPPORTS_ORDER_BY_UNRELATED = 521;
 
   /*
    * Retrieves the supported GROUP BY commands;
    *
-   * Returns an int128 bitmask value representing the supported commands.
+   * Returns an int32 bitmask value representing the supported commands.
    * The returned bitmask should be parsed in order to retrieve the supported commands.
    *
    * For instance:
@@ -265,11 +257,11 @@ enum SqlInfo {
   SQL_SUPPORTED_GROUP_BY = 522;
 
   /*
-   * Retrieves whether specifying a LIKE escape clause is supported.
+   * Retrieves a boolean value indicating whether specifying a LIKE escape clause is supported.
    *
    * Returns:
-   * - 0: if specifying a LIKE escape clause is unsupported;
-   * - 1: if specifying a LIKE escape clause is supported.
+   * - false: if specifying a LIKE escape clause is unsupported;
+   * - true: if specifying a LIKE escape clause is supported.
    */
   SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE = 523;
 
@@ -279,7 +271,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported SQL grammar level as per the ODBC specification.
    *
-   * Returns an int128 bitmask value representing the supported SQL grammar level.
+   * Returns an int32 bitmask value representing the supported SQL grammar level.
    * The returned bitmask should be parsed in order to retrieve the supported grammar levels.
    *
    * For instance:
@@ -298,7 +290,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported ANSI92 SQL grammar level.
    *
-   * Returns an int128 bitmask value representing the supported ANSI92 SQL grammar level.
+   * Returns an int32 bitmask value representing the supported ANSI92 SQL grammar level.
    * The returned bitmask should be parsed in order to retrieve the supported commands.
    *
    * For instance:
@@ -340,7 +332,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported actions for a SQL schema.
    *
-   * Returns an int128 bitmask value representing the supported actions for a SQL schema.
+   * Returns an int32 bitmask value representing the supported actions for a SQL schema.
    * The returned bitmask should be parsed in order to retrieve the supported actions for a SQL schema.
    *
    * For instance:
@@ -359,7 +351,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported actions for a SQL schema.
    *
-   * Returns an int128 bitmask value representing the supported actions for a SQL catalog.
+   * Returns an int32 bitmask value representing the supported actions for a SQL catalog.
    * The returned bitmask should be parsed in order to retrieve the supported actions for a SQL catalog.
    *
    * For instance:
@@ -378,7 +370,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported SQL positioned commands.
    *
-   * Returns an int128 bitmask value representing the supported SQL positioned commands.
+   * Returns an int32 bitmask value representing the supported SQL positioned commands.
    * The returned bitmask should be parsed in order to retrieve the supported SQL positioned commands.
    *
    * For instance:
@@ -399,7 +391,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported SQL subqueries.
    *
-   * Returns an int128 bitmask value representing the supported SQL subqueries.
+   * Returns an int32 bitmask value representing the supported SQL subqueries.
    * The returned bitmask should be parsed in order to retrieve the supported SQL subqueries.
    *
    * For instance:
@@ -430,7 +422,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported SQL UNIONs.
    *
-   * Returns an int128 bitmask value representing the supported SQL UNIONs.
+   * Returns an int32 bitmask value representing the supported SQL UNIONs.
    * The returned bitmask should be parsed in order to retrieve the supported SQL UNIONs.
    *
    * For instance:
@@ -532,7 +524,7 @@ enum SqlInfo {
   /*
    * Retrieves the supported transactions isolation levels.
    *
-   * Returns an int128 bitmask value representing the supported transactions isolation levels.
+   * Returns an int32 bitmask value representing the supported transactions isolation levels.
    * The returned bitmask should be parsed in order to retrieve the supported transactions isolation levels.
    *
    * For instance:
@@ -577,7 +569,7 @@ enum SqlInfo {
   SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED = 566;
 
   /*
-   * Retrieves an int128 bitmask value representing the supported result set types.
+   * Retrieves an int32 bitmask value representing the supported result set types.
    * The returned bitmask should be parsed in order to retrieve the supported result set types.
    *
    * For instance:
@@ -596,7 +588,7 @@ enum SqlInfo {
   SQL_SUPPORTED_RESULT_SET_TYPES = 567;
 
   /*
-   * Returns an int128 bitmask value concurrency types supported for
+   * Returns an int32 bitmask value concurrency types supported for
    * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_UNSPECIFIED`.
    *
    * For instance:
@@ -613,7 +605,7 @@ enum SqlInfo {
   SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_UNSPECIFIED = 568;
 
   /*
-   * Returns an int128 bitmask value concurrency types supported for
+   * Returns an int32 bitmask value concurrency types supported for
    * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY`.
    *
    * For instance:
@@ -630,7 +622,7 @@ enum SqlInfo {
   SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_FORWARD_ONLY = 569;
 
   /*
-   * Returns an int128 bitmask value concurrency types supported for
+   * Returns an int32 bitmask value concurrency types supported for
    * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE`.
    *
    * For instance:
@@ -647,7 +639,7 @@ enum SqlInfo {
   SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_SENSITIVE = 570;
 
   /*
-   * Returns an int128 bitmask value concurrency types supported for
+   * Returns an int32 bitmask value concurrency types supported for
    * `arrow.flight.protocol.sql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE`.
    *
    * For instance:
@@ -706,6 +698,13 @@ enum SqlInfo {
    * - 1: if invoking user-defined or vendor functions using the stored procedure escape syntax is supported.
    */
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
+}
+
+enum SqlSupportedCaseSensitivity {
+  SQL_CASE_SENSITIVITY_UNKNOWN = 0;
+  SQL_CASE_SENSITIVITY_CASE_INSENSITIVE = 1;
+  SQL_CASE_SENSITIVITY_UPPERCASE = 2;
+  SQL_CASE_SENSITIVITY_LOWERCASE = 3;
 }
 
 // The sorting of null values.

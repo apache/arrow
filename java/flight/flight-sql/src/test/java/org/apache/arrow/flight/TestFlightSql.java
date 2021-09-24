@@ -42,6 +42,7 @@ import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.example.FlightSqlExample;
 import org.apache.arrow.flight.sql.impl.FlightSql;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -109,19 +110,23 @@ public class TestFlightSql {
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
         .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION_VALUE), "10.14.2.0 - (1828579)");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE), "0");
+        .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE), "false");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE), "0");
+        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE), "false");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE), "1");
+        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE), "true");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_TABLE_VALUE), "1");
+        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_TABLE_VALUE), "true");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE), "UPPERCASE");
+        .put(
+            Integer.toString(FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE),
+            Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE_VALUE));
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
         .put(Integer.toString(FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE), "\"");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE), "CASE_INSENSITIVE");
+        .put(
+            Integer.toString(FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE),
+            Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE));
   }
 
   @AfterClass

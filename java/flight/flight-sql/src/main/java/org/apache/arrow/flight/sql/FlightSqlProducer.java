@@ -585,12 +585,13 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
             Field.notNullable("info_name", new ArrowType.Int(32, false)),
             new Field("value",
                 // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
-                new FieldType(true, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
+                new FieldType(true, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3, 4}), /*dictionary=*/null),
                 Arrays.asList(
                     Field.nullable("string_value", MinorType.VARCHAR.getType()),
+                    Field.nullable("bool_value", MinorType.BIT.getType()),
                     Field.nullable("int_value", MinorType.INT.getType()),
                     Field.nullable("bigint_value", MinorType.BIGINT.getType()),
-                    Field.nullable("int64_bitmask", MinorType.BIGINT.getType())))));
+                    Field.nullable("int32_bitmask", MinorType.INT.getType())))));
     public static final Schema GET_PRIMARY_KEYS_SCHEMA = new Schema(Arrays.asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType()),
