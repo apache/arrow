@@ -132,11 +132,15 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
     if option_class is not None:
         doc_pieces.append("""\
             options : pyarrow.compute.{0}, optional
-                Parameters altering compute function semantics
-            **kwargs : optional
-                Parameters for {0} constructor. Either `options`
-                or `**kwargs` can be passed, but not both at the same time.
+                Parameters altering compute function semantics.
             """.format(option_class.__name__))
+        options_sig = inspect.signature(option_class)
+        for p in options_sig.parameters.values():
+            doc_pieces.append("""\
+            {0} : optional
+                Parameter for {1} constructor. Either `options`
+                or `{0}` can be passed, but not both at the same time.
+            """.format(p.name, option_class.__name__))
 
     wrapper.__doc__ = "".join(dedent(s) for s in doc_pieces)
     return wrapper
