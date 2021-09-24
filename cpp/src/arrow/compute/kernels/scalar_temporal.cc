@@ -179,6 +179,54 @@ struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Date64Type, O
   }
 };
 
+template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::seconds, Time32Type, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecBatch& batch, Datum* out) {
+    using ExecTemplate = Op<std::chrono::seconds, NonZonedLocalizer>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, Time32Type, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Time32Type, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecBatch& batch, Datum* out) {
+    using ExecTemplate = Op<std::chrono::milliseconds, NonZonedLocalizer>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, Time32Type, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::microseconds, Time64Type, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecBatch& batch, Datum* out) {
+    using ExecTemplate = Op<std::chrono::microseconds, NonZonedLocalizer>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, Date64Type, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::nanoseconds, Time64Type, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecBatch& batch, Datum* out) {
+    using ExecTemplate = Op<std::chrono::nanoseconds, NonZonedLocalizer>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, Date64Type, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
 struct TemporalComponentExtract
@@ -528,13 +576,18 @@ struct Strftime {
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
     const StrftimeOptions& options = StrftimeState::Get(ctx);
 
-    auto timezone = GetInputTimezone(type);
     // This check is due to surprising %c behavior.
     // See https://github.com/HowardHinnant/date/issues/704
     if ((options.format.find("%c") != std::string::npos) && (options.locale != "C")) {
       return Status::Invalid("%c flag is not supported in non-C locales.");
     }
-    if (timezone.empty()) {
+    std::string timezone;
+    bool is_timestamp = type.id() == Type::TIMESTAMP;
+    if (is_timestamp) {
+      timezone = GetInputTimezone(type);
+    }
+
+    if (timezone.empty() || !is_timestamp) {
       if ((options.format.find("%z") != std::string::npos) ||
           (options.format.find("%Z") != std::string::npos)) {
         return Status::Invalid(
@@ -556,7 +609,7 @@ struct Strftime {
     TimestampFormatter formatter{self.options.format, self.tz, self.locale};
 
     if (in.is_valid) {
-      const int64_t in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
+      const int64_t in_val = internal::UnboxScalar<const InType>::Unbox(in);
       ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(in_val));
       checked_cast<StringScalar*>(out)->value = Buffer::FromString(std::move(formatted));
     } else {
@@ -584,7 +637,7 @@ struct Strftime {
       ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(arg));
       return string_builder.Append(std::move(formatted));
     };
-    RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
+    RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
 
     std::shared_ptr<Array> out_array;
     RETURN_NOT_OK(string_builder.Finish(&out_array));
@@ -835,7 +888,7 @@ struct ISOCalendar {
 };
 
 // Which types to generate a kernel for
-enum EnabledTypes : uint8_t { WithDates, WithTimestamps };
+enum EnabledTypes : uint8_t { WithDates, WithTimes, WithTimestamps };
 
 template <template <typename...> class Op,
           template <template <typename...> class OpExec, typename Duration,
@@ -858,6 +911,25 @@ std::shared_ptr<ScalarFunction> MakeTemporal(
         auto exec64 =
             ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
         DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
+        break;
+      }
+
+      case WithTimes: {
+        auto exec32s = ExecTemplate<Op, std::chrono::seconds, Time32Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::SECOND)}, out_type,
+                                  std::move(exec32s), init));
+        auto exec32ms =
+            ExecTemplate<Op, std::chrono::milliseconds, Time32Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::MILLI)}, out_type,
+                                  std::move(exec32ms), init));
+        auto exec64us =
+            ExecTemplate<Op, std::chrono::microseconds, Time64Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::MICRO)}, out_type,
+                                  std::move(exec64us), init));
+        auto exec64ns =
+            ExecTemplate<Op, std::chrono::nanoseconds, Time64Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::NANO)}, out_type, std::move(exec64ns),
+                                  init));
         break;
       }
 
@@ -917,6 +989,23 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporal(
         DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
         break;
       }
+
+      case WithTimes: {
+        auto exec32s = SimpleUnary<Op<std::chrono::seconds, Time32Type>>;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::SECOND)}, out_type,
+                                  std::move(exec32s), init));
+        auto exec32ms = SimpleUnary<Op<std::chrono::milliseconds, Time32Type>>;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::MILLI)}, out_type,
+                                  std::move(exec32ms), init));
+        auto exec64us = SimpleUnary<Op<std::chrono::microseconds, Time64Type>>;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::MICRO)}, out_type,
+                                  std::move(exec64us), init));
+        auto exec64ns = SimpleUnary<Op<std::chrono::nanoseconds, Time64Type>>;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::NANO)}, out_type, std::move(exec64ns),
+                                  init));
+        break;
+      }
+
       case WithTimestamps: {
         for (auto unit : TimeUnit::values()) {
           InputType in_type{match::TimestampTypeUnit(unit)};
@@ -1155,39 +1244,39 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   // Date / time extractors
 
   auto hour = MakeTemporal<Hour, TemporalComponentExtract, Int64Type>(
-      "hour", {WithTimestamps}, int64(), &hour_doc);
+      "hour", {WithTimes, WithTimestamps}, int64(), &hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
   auto minute = MakeTemporal<Minute, TemporalComponentExtract, Int64Type>(
-      "minute", {WithTimestamps}, int64(), &minute_doc);
+      "minute", {WithTimes, WithTimestamps}, int64(), &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
   auto second = MakeTemporal<Second, TemporalComponentExtract, Int64Type>(
-      "second", {WithTimestamps}, int64(), &second_doc);
+      "second", {WithTimes, WithTimestamps}, int64(), &second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond = MakeTemporal<Millisecond, TemporalComponentExtract, Int64Type>(
-      "millisecond", {WithTimestamps}, int64(), &millisecond_doc);
+      "millisecond", {WithTimes, WithTimestamps}, int64(), &millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
   auto microsecond = MakeTemporal<Microsecond, TemporalComponentExtract, Int64Type>(
-      "microsecond", {WithTimestamps}, int64(), &microsecond_doc);
+      "microsecond", {WithTimes, WithTimestamps}, int64(), &microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
   auto nanosecond = MakeTemporal<Nanosecond, TemporalComponentExtract, Int64Type>(
-      "nanosecond", {WithTimestamps}, int64(), &nanosecond_doc);
+      "nanosecond", {WithTimes, WithTimestamps}, int64(), &nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond = MakeTemporal<Subsecond, TemporalComponentExtract, DoubleType>(
-      "subsecond", {WithTimestamps}, float64(), &subsecond_doc);
+      "subsecond", {WithTimes, WithTimestamps}, float64(), &subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
   // Timezone-related functions
 
   static const auto default_strftime_options = StrftimeOptions();
   auto strftime = MakeSimpleUnaryTemporal<Strftime>(
-      "strftime", {WithTimestamps}, utf8(), &strftime_doc, &default_strftime_options,
-      StrftimeState::Init);
+      "strftime", {WithTimes, WithTimestamps}, utf8(), &strftime_doc,
+      &default_strftime_options, StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
 
   auto assume_timezone =
