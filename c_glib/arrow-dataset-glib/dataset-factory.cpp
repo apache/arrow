@@ -496,18 +496,34 @@ gadataset_file_system_dataset_factory_finish(
   }
   auto arrow_file_system = garrow_file_system_get_raw(priv->file_system);
   auto arrow_format = gadataset_file_format_get_raw(priv->format);
-  std::vector<arrow::fs::FileInfo> arrow_files;
-  priv->files = g_list_reverse(priv->files);
-  for (auto node = priv->files; node; node = node->next) {
-    auto file = GARROW_FILE_INFO(node->data);
-    arrow_files.push_back(*garrow_file_info_get_raw(file));
+  arrow::Result<std::shared_ptr<arrow::dataset::DatasetFactory>>
+    arrow_factory_result;
+  if (priv->files &&
+      !priv->files->next &&
+      garrow_file_info_is_dir(GARROW_FILE_INFO(priv->files->data))) {
+    auto file = GARROW_FILE_INFO(priv->files->data);
+    arrow::fs::FileSelector arrow_selector;
+    arrow_selector.base_dir = garrow_file_info_get_raw(file)->path();
+    arrow_selector.recursive = true;
+    arrow_factory_result =
+      arrow::dataset::FileSystemDatasetFactory::Make(arrow_file_system,
+                                                     arrow_selector,
+                                                     arrow_format,
+                                                     priv->options);
+  } else {
+    std::vector<arrow::fs::FileInfo> arrow_files;
+    priv->files = g_list_reverse(priv->files);
+    for (auto node = priv->files; node; node = node->next) {
+      auto file = GARROW_FILE_INFO(node->data);
+      arrow_files.push_back(*garrow_file_info_get_raw(file));
+    }
+    priv->files = g_list_reverse(priv->files);
+    arrow_factory_result =
+      arrow::dataset::FileSystemDatasetFactory::Make(arrow_file_system,
+                                                     arrow_files,
+                                                     arrow_format,
+                                                     priv->options);
   }
-  priv->files = g_list_reverse(priv->files);
-  auto arrow_factory_result =
-    arrow::dataset::FileSystemDatasetFactory::Make(arrow_file_system,
-                                                   arrow_files,
-                                                   arrow_format,
-                                                   priv->options);
   if (!garrow::check(error, arrow_factory_result, context)) {
     return NULL;
   }
