@@ -1750,6 +1750,37 @@ struct GroupedTDigestFactory {
   InputType argument_type;
 };
 
+HashAggregateKernel MakeApproximateMedianKernel(HashAggregateFunction* tdigest_func) {
+  HashAggregateKernel kernel;
+  kernel.init = [tdigest_func](
+                    KernelContext* ctx,
+                    const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
+    std::vector<ValueDescr> inputs = args.inputs;
+    ARROW_ASSIGN_OR_RAISE(auto kernel, tdigest_func->DispatchBest(&inputs));
+    const auto& scalar_options =
+        checked_cast<const ScalarAggregateOptions&>(*args.options);
+    TDigestOptions options;
+    // Default q = 0.5
+    options.min_count = scalar_options.min_count;
+    options.skip_nulls = scalar_options.skip_nulls;
+    KernelInitArgs new_args{kernel, inputs, &options};
+    return kernel->init(ctx, new_args);
+  };
+  kernel.signature =
+      KernelSignature::Make({InputType(ValueDescr::ANY), InputType::Array(Type::UINT32)},
+                            ValueDescr::Array(float64()));
+  kernel.resize = HashAggregateResize;
+  kernel.consume = HashAggregateConsume;
+  kernel.merge = HashAggregateMerge;
+  kernel.finalize = [](KernelContext* ctx, Datum* out) {
+    ARROW_ASSIGN_OR_RAISE(Datum temp,
+                          checked_cast<GroupedAggregator*>(ctx->state())->Finalize());
+    *out = temp.array_as<FixedSizeListArray>()->values();
+    return Status::OK();
+  };
+  return kernel;
+}
+
 // ----------------------------------------------------------------------
 // MinMax implementation
 
@@ -2653,6 +2684,13 @@ const FunctionDoc hash_tdigest_doc{
     {"array", "group_id_array"},
     "TDigestOptions"};
 
+const FunctionDoc hash_approximate_median_doc{
+    "Calculate approximate medians of a numeric array with the T-Digest algorithm",
+    ("Nulls and NaNs are ignored.\n"
+     "Null is emitted for a group if there are no valid data points."),
+    {"array", "group_id_array"},
+    "ScalarAggregateOptions"};
+
 const FunctionDoc hash_min_max_doc{
     "Compute the minimum and maximum values of a numeric array",
     ("Null values are ignored by default.\n"
@@ -2777,6 +2815,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
+  HashAggregateFunction* tdigest_func = nullptr;
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_tdigest", Arity::Binary(), &hash_tdigest_doc, &default_tdigest_options);
@@ -2786,6 +2825,15 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         AddHashAggKernels(UnsignedIntTypes(), GroupedTDigestFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(FloatingPointTypes(), GroupedTDigestFactory::Make, func.get()));
+    tdigest_func = func.get();
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_approximate_median", Arity::Binary(), &hash_approximate_median_doc,
+        &default_scalar_aggregate_options);
+    DCHECK_OK(func->AddKernel(MakeApproximateMedianKernel(tdigest_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 

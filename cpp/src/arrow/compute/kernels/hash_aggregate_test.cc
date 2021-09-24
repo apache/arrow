@@ -1167,6 +1167,70 @@ TEST(GroupBy, TDigest) {
       /*verbose=*/true);
 }
 
+TEST(GroupBy, ApproximateMedian) {
+  for (const auto& type : {float64(), int8()}) {
+    auto batch =
+        RecordBatchFromJSON(schema({field("argument", type), field("key", int64())}), R"([
+    [1,    1],
+    [null, 1],
+    [0,    2],
+    [null, 3],
+    [1,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2],
+    [-1,   2],
+    [1,    null],
+    [null, 3],
+    [1,    4],
+    [1,    4],
+    [null, 4]
+  ])");
+
+    ScalarAggregateOptions options;
+    ScalarAggregateOptions keep_nulls(
+        /*skip_nulls=*/false, /*min_count=*/0);
+    ScalarAggregateOptions min_count(
+        /*skip_nulls=*/true, /*min_count=*/3);
+    ScalarAggregateOptions keep_nulls_min_count(
+        /*skip_nulls=*/false, /*min_count=*/3);
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                             },
+                             {
+                                 batch->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_approximate_median", &options},
+                                 {"hash_approximate_median", &keep_nulls},
+                                 {"hash_approximate_median", &min_count},
+                                 {"hash_approximate_median", &keep_nulls_min_count},
+                             }));
+
+    AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                              field("hash_approximate_median", float64()),
+                                              field("hash_approximate_median", float64()),
+                                              field("hash_approximate_median", float64()),
+                                              field("hash_approximate_median", float64()),
+                                              field("key_0", int64()),
+                                          }),
+                                          R"([
+    [1.0,  null, null, null, 1],
+    [0.0,  0.0,  0.0,  0.0,  2],
+    [null, null, null, null, 3],
+    [1.0,  null, 1.0,  null, 4],
+    [1.0,  1.0,  null, null, null]
+  ])"),
+                            aggregated_and_grouped,
+                            /*verbose=*/true);
+  }
+}
+
 TEST(GroupBy, StddevVarianceTDigestScalar) {
   BatchesWithSchema input;
   input.batches = {
