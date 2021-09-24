@@ -64,12 +64,13 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
-      LLVMGenerator::GetCache();
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+      shared_cache = LLVMGenerator::GetCache();
 
-//  ProjectorCacheKey projector_key(schema, configuration, exprs, selection_vector_mode);
-//  ExpressionCacheKey cache_key(projector_key, "projector");
-  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode, "projector");
+  //  ProjectorCacheKey projector_key(schema, configuration, exprs,
+  //  selection_vector_mode); ExpressionCacheKey cache_key(projector_key, "projector");
+  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode,
+                               "projector");
   std::unique_ptr<ExpressionCacheKey> base_cache_key =
       std::make_unique<ExpressionCacheKey>(cache_key);
   std::shared_ptr<ExpressionCacheKey> shared_base_cache_key = std::move(base_cache_key);

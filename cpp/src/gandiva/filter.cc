@@ -49,8 +49,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
-      LLVMGenerator::GetCache();
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+      shared_cache = LLVMGenerator::GetCache();
 
   Condition conditionToKey = *(condition.get());
 
