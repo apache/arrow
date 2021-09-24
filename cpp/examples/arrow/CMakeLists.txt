@@ -21,6 +21,10 @@ if (ARROW_COMPUTE)
   ADD_ARROW_EXAMPLE(compute_register_example)
 endif()
 
+if (ARROW_COMPUTE AND ARROW_CSV)
+  ADD_ARROW_EXAMPLE(compute_and_write_csv_example)
+endif()
+
 if (ARROW_PARQUET AND ARROW_DATASET)
   if (ARROW_BUILD_SHARED)
     set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_shared)
