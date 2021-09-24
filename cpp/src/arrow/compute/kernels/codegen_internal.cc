@@ -223,7 +223,7 @@ std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) 
 }
 
 std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
-  bool all_utf8 = true, all_offset32 = true;
+  bool all_utf8 = true, all_offset32 = true, all_fixed_width = true;
 
   const ValueDescr* end = begin + count;
   for (auto it = begin; it != end; ++it) {
@@ -231,20 +231,32 @@ std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
     // a common varbinary type is only possible if all types are binary like
     switch (id) {
       case Type::STRING:
+        all_fixed_width = false;
         continue;
       case Type::BINARY:
+        all_fixed_width = false;
+        all_utf8 = false;
+        continue;
+      case Type::FIXED_SIZE_BINARY:
         all_utf8 = false;
         continue;
       case Type::LARGE_STRING:
         all_offset32 = false;
+        all_fixed_width = false;
         continue;
       case Type::LARGE_BINARY:
         all_offset32 = false;
+        all_fixed_width = false;
         all_utf8 = false;
         continue;
       default:
         return nullptr;
     }
+  }
+
+  if (all_fixed_width) {
+    // At least for the purposes of comparison, no need to cast.
+    return nullptr;
   }
 
   if (all_utf8) {
