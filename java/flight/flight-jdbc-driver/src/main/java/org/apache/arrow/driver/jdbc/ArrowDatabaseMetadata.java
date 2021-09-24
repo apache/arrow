@@ -24,6 +24,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -102,7 +103,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           Field.notNullable("IS_AUTOINCREMENT", Types.MinorType.VARCHAR.getType()),
           Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())
       ));
-  private final Map<SqlInfo, Object> cachedSqlInfo = new EnumMap<>(SqlInfo.class);
+  private final Map<SqlInfo, Object> cachedSqlInfo = Collections.synchronizedMap(new EnumMap<>(SqlInfo.class));
 
   ArrowDatabaseMetadata(final AvaticaConnection connection) {
     super(connection);
@@ -133,17 +134,21 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     return (ArrowFlightConnection) super.getConnection();
   }
 
-  private synchronized <T> T getSqlInfoAndCacheIfCacheIsEmpty(final SqlInfo sqlInfoCommand, final Class<T> desiredType)
+  private <T> T getSqlInfoAndCacheIfCacheIsEmpty(final SqlInfo sqlInfoCommand, final Class<T> desiredType)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
     final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
     if (cachedSqlInfo.isEmpty()) {
-      try (final ResultSet resultSet =
-               ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
-                   connection, sqlInfo, null)) {
-        while (resultSet.next()) {
-          cachedSqlInfo.put(SqlInfo.forNumber((Integer) resultSet.getObject("info_name")),
-              resultSet.getObject("value"));
+      synchronized (cachedSqlInfo) {
+        if (cachedSqlInfo.isEmpty()) {
+          try (final ResultSet resultSet =
+                   ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+                       connection, sqlInfo, null)) {
+            while (resultSet.next()) {
+              cachedSqlInfo.put(SqlInfo.forNumber((Integer) resultSet.getObject("info_name")),
+                  resultSet.getObject("value"));
+            }
+          }
         }
       }
     }
