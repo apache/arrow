@@ -17,8 +17,19 @@
 
 #pragma once
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4141)
+#pragma warning(disable : 4146)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4624)
+#endif
+
 #include <llvm/ExecutionEngine/ObjectCache.h>
 #include <llvm/Support/MemoryBuffer.h>
+
+#include <chrono>
 
 #include "gandiva/cache.h"
 
