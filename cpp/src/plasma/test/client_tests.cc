@@ -591,6 +591,39 @@ TEST_F(TestPlasmaStore, ContainsTest) {
   ASSERT_TRUE(has_object);
 }
 
+TEST_F(TestPlasmaStore, ContainsBeforeSealTest) {  // xxx
+  ObjectID object_id = random_object_id();
+
+  bool has_object;
+  std::vector<uint8_t> data(100, 0);
+  std::vector<uint8_t> metadata{42};
+
+  std::shared_ptr<Buffer> data_buffer;
+  ARROW_CHECK_OK(client_.Create(object_id, data.size(), metadata.data(), metadata.size(),
+                                &data_buffer));
+  for (size_t i = 0; i < data.size(); i++) {
+    data_buffer->mutable_data()[i] = data[i];
+  }
+
+  // Test for object nonexistence before sealed
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_FALSE(has_object);
+  ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+  ASSERT_FALSE(has_object);
+
+  ARROW_CHECK_OK(client_.Seal(object_id));
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+  ASSERT_TRUE(has_object);
+
+  ARROW_CHECK_OK(client_.Release(object_id));
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+  ASSERT_TRUE(has_object);
+}
+
 TEST_F(TestPlasmaStore, GetTest) {
   std::vector<ObjectBuffer> object_buffers;
 

@@ -746,9 +746,10 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
 Status PlasmaClient::Impl::Contains(const ObjectID& object_id, bool* has_object) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
+  auto itr = objects_in_use_.find(object_id);
   // Check if we already have a reference to the object.
-  if (objects_in_use_.count(object_id) > 0) {
-    *has_object = 1;
+  if (itr != objects_in_use_.end()) {
+    *has_object = itr->second->is_sealed;
   } else {
     // If we don't already have a reference to the object, check with the store
     // to see if we have the object.
