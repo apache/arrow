@@ -29,7 +29,9 @@ import (
 
 type ListScalar interface {
 	Scalar
-	List() array.Interface
+	GetList() array.Interface
+	Release()
+	Retain()
 }
 
 type List struct {
@@ -37,10 +39,12 @@ type List struct {
 	Value array.Interface
 }
 
-func (l *List) value() interface{}    { return l.Value }
-func (l *List) List() array.Interface { return l.Value }
+func (l *List) Release()                 { l.Value.Release() }
+func (l *List) Retain()                  { l.Value.Retain() }
+func (l *List) value() interface{}       { return l.Value }
+func (l *List) GetList() array.Interface { return l.Value }
 func (l *List) equals(rhs Scalar) bool {
-	return array.ArrayEqual(l.Value, rhs.(ListScalar).List())
+	return array.ArrayEqual(l.Value, rhs.(ListScalar).GetList())
 }
 func (l *List) Validate() (err error) {
 	if err = l.scalar.Validate(); err != nil {
@@ -108,7 +112,7 @@ func (l *List) String() string {
 }
 
 func NewListScalar(val array.Interface) *List {
-	return &List{scalar{arrow.ListOf(val.DataType()), true}, val}
+	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val.Data())}
 }
 
 func makeMapType(typ *arrow.StructType) *arrow.MapType {
@@ -121,7 +125,7 @@ type Map struct {
 }
 
 func NewMapScalar(val array.Interface) *Map {
-	return &Map{&List{scalar{makeMapType(val.DataType().(*arrow.StructType)), true}, val}}
+	return &Map{&List{scalar{makeMapType(val.DataType().(*arrow.StructType)), true}, array.MakeFromData(val.Data())}}
 }
 
 type FixedSizeList struct {
@@ -151,7 +155,7 @@ func NewFixedSizeListScalar(val array.Interface) *FixedSizeList {
 
 func NewFixedSizeListScalarWithType(val array.Interface, typ arrow.DataType) *FixedSizeList {
 	debug.Assert(val.Len() == int(typ.(*arrow.FixedSizeListType).Len()), "length of value for fixed size list scalar must match type")
-	return &FixedSizeList{&List{scalar{typ, true}, val}}
+	return &FixedSizeList{&List{scalar{typ, true}, array.MakeFromData(val.Data())}}
 }
 
 type Vector []Scalar
