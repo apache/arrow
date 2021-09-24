@@ -762,3 +762,18 @@ def test_to_numpy():
     for result in [np.asarray(charr), charr.to_numpy()]:
         assert result.dtype == np.int64
         np.testing.assert_array_equal(result, np.array([], dtype='int64'))
+
+
+def test_empty_take():
+    # https://issues.apache.org/jira/browse/ARROW-13474
+    ext_type = IntegerType()
+    storage = pa.array([], type=pa.int64())
+    empty_arr = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = empty_arr.filter(pa.array([], pa.bool_()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)
+
+    result = empty_arr.take(pa.array([], pa.int32()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)
