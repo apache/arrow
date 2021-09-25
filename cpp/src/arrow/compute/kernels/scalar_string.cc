@@ -1235,11 +1235,11 @@ void AddMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
                                                  &match_substring_doc);
-    auto exec_32 = MatchSubstring<StringType, PlainSubstringMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, PlainSubstringMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, PlainSubstringMatcher>(ty);
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

@@ -918,7 +918,7 @@ TYPED_TEST(TestStringKernels, IsUpperAscii) {
                    "[false, null, false, true, true, false, false]");
 }
 
-TYPED_TEST(TestStringKernels, MatchSubstring) {
+TYPED_TEST(TestBinaryKernels, MatchSubstring) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("match_substring", "[]", boolean(), "[]", &options);
   this->CheckUnary("match_substring", R"(["abc", "acb", "cab", null, "bac", "AB"])",
@@ -944,14 +944,14 @@ TYPED_TEST(TestStringKernels, MatchSubstring) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
+TYPED_TEST(TestBinaryKernels, MatchSubstringIgnoreCase) {
   MatchSubstringOptions options_insensitive{"aé(", /*ignore_case=*/true};
   this->CheckUnary("match_substring", R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])",
                    boolean(), "[false, false, true, true, false, true]",
                    &options_insensitive);
 }
 #else
-TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
+TYPED_TEST(TestBinaryKernels, MatchSubstringIgnoreCase) {
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   MatchSubstringOptions options{"a", /*ignore_case=*/true};
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
