@@ -1133,7 +1133,7 @@ TYPED_TEST(TestBinaryKernels, MatchLikeEscaping) {
 }
 #endif
 
-TYPED_TEST(TestStringKernels, SplitBasics) {
+TYPED_TEST(TestBinaryKernels, SplitBasics) {
   SplitPatternOptions options{" "};
   // basics
   this->CheckUnary("split_pattern", R"(["foo bar", "foo"])", list(this->type()),
@@ -1155,7 +1155,7 @@ TYPED_TEST(TestStringKernels, SplitBasics) {
                    &options_long_reverse);
 }
 
-TYPED_TEST(TestStringKernels, SplitMax) {
+TYPED_TEST(TestBinaryKernels, SplitMax) {
   SplitPatternOptions options{"---", 2};
   SplitPatternOptions options_reverse{"---", 2, /*reverse=*/true};
   this->CheckUnary("split_pattern", R"(["foo---bar", "foo", "foo---bar------ar"])",
@@ -1216,7 +1216,7 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestStringKernels, SplitRegex) {
+TYPED_TEST(TestBinaryKernels, SplitRegex) {
   SplitPatternOptions options{"a+|b"};
 
   this->CheckUnary(
@@ -1233,7 +1233,7 @@ TYPED_TEST(TestStringKernels, SplitRegex) {
       &options);
 }
 
-TYPED_TEST(TestStringKernels, SplitRegexReverse) {
+TYPED_TEST(TestBinaryKernels, SplitRegexReverse) {
   SplitPatternOptions options{"a+|b", /*max_splits=*/1, /*reverse=*/true};
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
 

@@ -2171,6 +2171,8 @@ struct SplitExec {
   }
 };
 
+using SplitPatternState = OptionsWrapper<SplitPatternOptions>;
+
 struct SplitPatternFinder : public SplitFinderBase<SplitPatternOptions> {
   using Options = SplitPatternOptions;
 
@@ -2259,11 +2261,10 @@ const FunctionDoc utf8_split_whitespace_doc(
 void AddSplitPattern(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
                                                &split_pattern_doc);
-  using t32 = SplitPatternExec<StringType, ListType>;
-  using t64 = SplitPatternExec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<SplitPatternExec, ListType>(ty);
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitPatternState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2453,11 +2454,10 @@ const FunctionDoc split_pattern_regex_doc(
 void AddSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
                                                &split_pattern_regex_doc);
-  using t32 = SplitRegexExec<StringType, ListType>;
-  using t64 = SplitRegexExec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<SplitRegexExec, ListType>(ty);
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitPatternState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 #endif  // ARROW_WITH_RE2
