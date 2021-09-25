@@ -338,7 +338,7 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 #   str_to_upper
 #   str_to_title
 .valid_locales_for_string_functions <- list("en", "C", "POSIX")
-arrow_string_function_with_locale_arg <- function(function_name, string, locale) {
+arrow_string_function_with_locale_arg <- function(fun, string, locale) {
   assert_that(
     exists(locale, .valid_locales_for_string_functions),
     msg = paste(
@@ -346,6 +346,7 @@ arrow_string_function_with_locale_arg <- function(function_name, string, locale)
       paste(.valid_locales_for_string_functions, collapse=",")
     )
   )
+  Expression$create(fun, string)
 }
 
 nse_funcs$str_to_lower <- function(string, locale = "en") {
