@@ -1245,32 +1245,32 @@ void AddMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("starts_with", Arity::Unary(),
                                                  &match_substring_doc);
-    auto exec_32 = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, PlainStartsWithMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, PlainStartsWithMatcher>(ty);
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
     auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
                                                  &match_substring_doc);
-    auto exec_32 = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, PlainEndsWithMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, PlainEndsWithMatcher>(ty);
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("match_substring_regex", Arity::Unary(),
                                                  &match_substring_regex_doc);
-    auto exec_32 = MatchSubstring<StringType, RegexSubstringMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, RegexSubstringMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, RegexSubstringMatcher>(ty);
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

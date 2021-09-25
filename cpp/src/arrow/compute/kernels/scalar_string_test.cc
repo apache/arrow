@@ -91,6 +91,11 @@ class BaseTestStringKernels : public ::testing::Test {
 };
 
 template <typename TestType>
+class TestStringKernels : public BaseTestStringKernels<TestType> {};
+
+TYPED_TEST_SUITE(TestStringKernels, StringArrowTypes);
+
+template <typename TestType>
 class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 
 TYPED_TEST_SUITE(TestBinaryKernels, BinaryArrowTypes);
@@ -960,7 +965,7 @@ TYPED_TEST(TestBinaryKernels, MatchSubstringIgnoreCase) {
 }
 #endif
 
-TYPED_TEST(TestStringKernels, MatchStartsWith) {
+TYPED_TEST(TestBinaryKernels, MatchStartsWith) {
   MatchSubstringOptions options{"abab"};
   this->CheckUnary("starts_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -969,7 +974,7 @@ TYPED_TEST(TestStringKernels, MatchStartsWith) {
                    boolean(), "[false, false, false, false, false]", &options);
 }
 
-TYPED_TEST(TestStringKernels, MatchEndsWith) {
+TYPED_TEST(TestBinaryKernels, MatchEndsWith) {
   MatchSubstringOptions options{"abab"};
   this->CheckUnary("ends_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -979,7 +984,7 @@ TYPED_TEST(TestStringKernels, MatchEndsWith) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
+TYPED_TEST(TestBinaryKernels, MatchStartsWithIgnoreCase) {
   MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
   this->CheckUnary("starts_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -988,7 +993,7 @@ TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
                    boolean(), "[true, false, true, false, true]", &options);
 }
 
-TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
+TYPED_TEST(TestBinaryKernels, MatchEndsWithIgnoreCase) {
   MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
   this->CheckUnary("ends_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -997,7 +1002,7 @@ TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
                    boolean(), "[true, true, false, true, false]", &options);
 }
 #else
-TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
+TYPED_TEST(TestBinaryKernels, MatchStartsWithIgnoreCase) {
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   MatchSubstringOptions options{"a", /*ignore_case=*/true};
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
@@ -1005,7 +1010,7 @@ TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
                                   CallFunction("starts_with", {input}, &options));
 }
 
-TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
+TYPED_TEST(TestBinaryKernels, MatchEndsWithIgnoreCase) {
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   MatchSubstringOptions options{"a", /*ignore_case=*/true};
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
@@ -1015,7 +1020,7 @@ TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
 #endif
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
+TYPED_TEST(TestBinaryKernels, MatchSubstringRegex) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("match_substring_regex", "[]", boolean(), "[]", &options);
   this->CheckUnary("match_substring_regex", R"(["abc", "acb", "cab", null, "bac", "AB"])",
@@ -1045,12 +1050,12 @@ TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
                    "[true, true, false, false]", &options_unicode);
 }
 
-TYPED_TEST(TestStringKernels, MatchSubstringRegexNoOptions) {
+TYPED_TEST(TestBinaryKernels, MatchSubstringRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("match_substring_regex", {input}));
 }
 
-TYPED_TEST(TestStringKernels, MatchSubstringRegexInvalid) {
+TYPED_TEST(TestBinaryKernels, MatchSubstringRegexInvalid) {
   Datum input = ArrayFromJSON(this->type(), "[null]");
   MatchSubstringOptions options{"invalid["};
   EXPECT_RAISES_WITH_MESSAGE_THAT(
