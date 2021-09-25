@@ -368,7 +368,7 @@ test_that("quantile()", {
   # with a vector of 2+ probs
   expect_warning(
     Table$create(tbl) %>%
-      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = FALSE)),
+      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
     "quantile() with length(probs) != 1 not supported by Arrow",
     fixed = TRUE
   )
