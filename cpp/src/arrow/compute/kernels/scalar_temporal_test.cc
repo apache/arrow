@@ -596,23 +596,59 @@ TEST_F(ScalarTemporalTest, Strftime) {
                    utf8(), string_nanoseconds, &options);
 
   auto options_hms = StrftimeOptions("%H:%M:%S");
+  auto options_ymdhms = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
+
   const char* times_s = R"([59, null])";
   const char* times_ms = R"([59123, null])";
   const char* times_us = R"([59123456, null])";
   const char* times_ns = R"([59123456789, null])";
-  const char* strftime_ns = R"(["00:00:59.123456789", null])";
-  const char* strftime_us = R"(["00:00:59.123456", null])";
-  const char* strftime_ms = R"(["00:00:59.123", null])";
-  const char* strftime_s = R"(["00:00:59", null])";
+  const char* hms_s = R"(["00:00:59", null])";
+  const char* hms_ms = R"(["00:00:59.123", null])";
+  const char* hms_us = R"(["00:00:59.123456", null])";
+  const char* hms_ns = R"(["00:00:59.123456789", null])";
+  const char* ymdhms_s = R"(["1970-01-01T00:00:59", null])";
+  const char* ymdhms_ms = R"(["1970-01-01T00:00:59.123", null])";
+  const char* ymdhms_us = R"(["1970-01-01T00:00:59.123456", null])";
+  const char* ymdhms_ns = R"(["1970-01-01T00:00:59.123456789", null])";
 
-  CheckScalarUnary("strftime", time64(TimeUnit::NANO), times_ns, utf8(), strftime_ns,
+  CheckScalarUnary("strftime", time32(TimeUnit::SECOND), times_s, utf8(), hms_s,
                    &options_hms);
-  CheckScalarUnary("strftime", time64(TimeUnit::MICRO), times_us, utf8(), strftime_us,
+  CheckScalarUnary("strftime", time32(TimeUnit::MILLI), times_ms, utf8(), hms_ms,
                    &options_hms);
-  CheckScalarUnary("strftime", time32(TimeUnit::MILLI), times_ms, utf8(), strftime_ms,
+  CheckScalarUnary("strftime", time64(TimeUnit::MICRO), times_us, utf8(), hms_us,
                    &options_hms);
-  CheckScalarUnary("strftime", time32(TimeUnit::SECOND), times_s, utf8(), strftime_s,
+  CheckScalarUnary("strftime", time64(TimeUnit::NANO), times_ns, utf8(), hms_ns,
                    &options_hms);
+
+  CheckScalarUnary("strftime", time32(TimeUnit::SECOND), times_s, utf8(), ymdhms_s,
+                   &options_ymdhms);
+  CheckScalarUnary("strftime", time32(TimeUnit::MILLI), times_ms, utf8(), ymdhms_ms,
+                   &options_ymdhms);
+  CheckScalarUnary("strftime", time64(TimeUnit::MICRO), times_us, utf8(), ymdhms_us,
+                   &options_ymdhms);
+  CheckScalarUnary("strftime", time64(TimeUnit::NANO), times_ns, utf8(), ymdhms_ns,
+                   &options_ymdhms);
+
+  auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
+  auto arr_ms = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms);
+  auto arr_us = ArrayFromJSON(time64(TimeUnit::MICRO), times_us);
+  auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr_s, StrftimeOptions("%Y-%m-%dT%H:%M:%S%z")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr_ms, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr_us, StrftimeOptions("%Y-%m-%dT%H:%M:%S%z")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr_ns, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
 }
 
 TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {

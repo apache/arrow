@@ -85,6 +85,17 @@ const std::string& GetInputTimezone(const ArrayData& array) {
   return checked_cast<const TimestampType&>(*array.type).timezone();
 }
 
+template <typename T>
+enable_if_timestamp<T, const std::string> GetInputTimezone(const DataType& type) {
+  return GetInputTimezone(type);
+}
+
+template <typename T>
+enable_if_t<is_time_type<T>::value || is_date_type<T>::value, const std::string>
+GetInputTimezone(const DataType& type) {
+  return "";
+}
+
 Result<const time_zone*> LocateZone(const std::string& timezone) {
   try {
     return locate_zone(timezone);
@@ -581,13 +592,9 @@ struct Strftime {
     if ((options.format.find("%c") != std::string::npos) && (options.locale != "C")) {
       return Status::Invalid("%c flag is not supported in non-C locales.");
     }
-    std::string timezone;
-    bool is_timestamp = type.id() == Type::TIMESTAMP;
-    if (is_timestamp) {
-      timezone = GetInputTimezone(type);
-    }
+    auto timezone = GetInputTimezone<InType>(type);
 
-    if (timezone.empty() || !is_timestamp) {
+    if (timezone.empty()) {
       if ((options.format.find("%z") != std::string::npos) ||
           (options.format.find("%Z") != std::string::npos)) {
         return Status::Invalid(
@@ -1041,9 +1048,9 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporal(
 }
 
 const FunctionDoc year_doc{
-    "Extract year from temporal types",
+    "Extract year number",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1051,14 +1058,14 @@ const FunctionDoc month_doc{
     "Extract month number",
     ("Month is encoded as January=1, December=12.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc day_doc{
     "Extract day number",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1070,16 +1077,16 @@ const FunctionDoc day_of_week_doc{
      "the ISO numbering convention (1=start week on Monday, 7=start week on Sunday).\n"
      "Day numbers can start at 0 or 1 based on `DayOfWeekOptions.one_based_numbering`.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"},
     "DayOfWeekOptions"};
 
 const FunctionDoc day_of_year_doc{
-    "Extract number of day of year",
+    "Extract day of year number",
     ("January 1st maps to day number 1, February 1st to 32, etc.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1087,7 +1094,7 @@ const FunctionDoc iso_year_doc{
     "Extract ISO year number",
     ("First week of an ISO year has the majority (4 or more) of its days in January."
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1096,7 +1103,7 @@ const FunctionDoc iso_week_doc{
     ("First ISO week has the majority (4 or more) of its days in January.\n"
      "Week of the year starts with 1 and can run up to 53.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1104,7 +1111,7 @@ const FunctionDoc iso_calendar_doc{
     "Extract (ISO year, ISO week, ISO day of week) struct",
     ("ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1112,28 +1119,28 @@ const FunctionDoc quarter_doc{
     "Extract quarter of year number",
     ("First quarter maps to 1 and forth quarter maps to 4.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc hour_doc{
     "Extract hour value",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc minute_doc{
     "Extract minute values",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc second_doc{
     "Extract second values",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1141,7 +1148,7 @@ const FunctionDoc millisecond_doc{
     "Extract millisecond values",
     ("Millisecond returns number of milliseconds since the last full second.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1149,7 +1156,7 @@ const FunctionDoc microsecond_doc{
     "Extract microsecond values",
     ("Millisecond returns number of microseconds since the last full millisecond.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1157,7 +1164,7 @@ const FunctionDoc nanosecond_doc{
     "Extract nanosecond values",
     ("Nanosecond returns number of nanoseconds since the last full microsecond.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1165,20 +1172,20 @@ const FunctionDoc subsecond_doc{
     "Extract subsecond values",
     ("Subsecond returns the fraction of a second since the last full second.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc strftime_doc{
-    "Format timestamps according to a format string",
-    ("For each input timestamp, emit a formatted string.\n"
+    "Format temporal values according to a format string",
+    ("For each input value, emit a formatted string.\n"
      "The time format string and locale can be set using StrftimeOptions.\n"
      "The output precision of the \"%S\" (seconds) format code depends on\n"
-     "the input timestamp precision: it is an integer for timestamps with\n"
+     "the input time precision: it is an integer for timestamps with\n"
      "second precision, a real number with the required number of fractional\n"
      "digits for higher precisions.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database, or if the specified locale\n"
      "does not exist on this system."),
     {"timestamps"},
