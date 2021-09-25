@@ -467,6 +467,46 @@ test_that("strsplit and str_split", {
   )
 })
 
+test_that("str_to_lower, str_to_upper, and str_to_title", {
+  df <- tibble(x = c("Foo", " B\na R", "ⱭɽⱤoW", "ıI"))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_to_lower(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_error(
+    nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
+    "`locale` must be any of"
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_to_upper(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_error(
+    nse_funcs$str_to_upper("Apache Arrow", locale = "sp"),
+    "`locale` must be any of"
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_to_title(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_error(
+    nse_funcs$str_to_title("Apache Arrow", locale = "sp"),
+    "`locale` must be any of"
+  )
+})
+
 test_that("arrow_*_split_whitespace functions", {
   # use only ASCII whitespace characters
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
