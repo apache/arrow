@@ -1063,7 +1063,7 @@ TYPED_TEST(TestBinaryKernels, MatchSubstringRegexInvalid) {
       CallFunction("match_substring_regex", {input}, &options));
 }
 
-TYPED_TEST(TestStringKernels, MatchLike) {
+TYPED_TEST(TestBinaryKernels, MatchLike) {
   auto inputs = R"(["foo", "bar", "foobar", "barfoo", "o", "\nfoo", "foo\n", null])";
 
   MatchSubstringOptions prefix_match{"foo%"};
@@ -1099,7 +1099,7 @@ TYPED_TEST(TestStringKernels, MatchLike) {
                    "[false, true, false]", &insensitive_regex);
 }
 
-TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
+TYPED_TEST(TestBinaryKernels, MatchLikeEscaping) {
   auto inputs = R"(["%%foo", "_bar", "({", "\\baz"])";
 
   // N.B. I believe Impala mistakenly optimizes these into substring searches
