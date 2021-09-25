@@ -639,7 +639,6 @@ TEST_F(ScalarTemporalTest, Strftime) {
   CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
 
-<<<<<<< HEAD
   auto options_hms = StrftimeOptions("%H:%M:%S");
   auto options_ymdhms = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
 
@@ -696,7 +695,6 @@ TEST_F(ScalarTemporalTest, Strftime) {
       Strftime(arr_ns, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
 
   auto options_ymd = StrftimeOptions("%Y-%m-%d");
-  auto options_ymdhms = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
 
   const char* date32s = R"([0, 10957, 10958, null])";
   const char* date64s = R"([0, 946684800000, 946771200000, null])";

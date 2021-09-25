@@ -125,6 +125,8 @@ test_that("extract wday from timestamp", {
     test_df
   )
 
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   expect_dplyr_equal(
     input %>%
       mutate(x = wday(date, label = TRUE)) %>%
@@ -266,6 +268,8 @@ test_that("extract wday from date", {
       collect(),
     test_df
   )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_dplyr_equal(
     input %>%

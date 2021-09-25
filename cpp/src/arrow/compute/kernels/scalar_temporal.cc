@@ -1199,7 +1199,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
 
   static const auto default_strftime_options = StrftimeOptions();
   auto strftime = MakeSimpleUnaryTemporal<Strftime>(
-      "strftime", {WithDates, WithTimestamps}, utf8(), &strftime_doc,
+      "strftime", {WithTimes, WithDates, WithTimestamps}, utf8(), &strftime_doc,
       &default_strftime_options, StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
 

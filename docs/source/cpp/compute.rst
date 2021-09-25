@@ -1215,7 +1215,7 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 +=================+============+====================+==================+==============================+=======+
 | cast            | Unary      | Many               | Variable         | :struct:`CastOptions`        |       |
 +-----------------+------------+--------------------+------------------+------------------------------+-------+
-| strftime        | Unary      | Timestamp, Time    | String           | :struct:`StrftimeOptions`    | \(1)  |
+| strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`    | \(1)  |
 +-----------------+------------+--------------------+------------------+------------------------------+-------+
 | strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |       |
 +-----------------+------------+--------------------+------------------+------------------------------+-------+
