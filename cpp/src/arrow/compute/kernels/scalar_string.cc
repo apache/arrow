@@ -2903,7 +2903,8 @@ struct ExtractRegexData {
     }
     // Input type is either String or LargeString and is also the type of each
     // field in the output struct type.
-    DCHECK(input_type->id() == Type::STRING || input_type->id() == Type::LARGE_STRING);
+    DCHECK(input_type->id() == Type::STRING || input_type->id() == Type::LARGE_STRING ||
+           input_type->id() == Type::BINARY || input_type->id() == Type::LARGE_BINARY);
     FieldVector fields;
     fields.reserve(group_names.size());
     std::transform(group_names.begin(), group_names.end(), std::back_inserter(fields),
@@ -2955,17 +2956,17 @@ struct ExtractRegexBase {
   }
 };
 
+using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
+
 template <typename Type>
 struct ExtractRegex : public ExtractRegexBase {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
-  using State = OptionsWrapper<ExtractRegexOptions>;
-
   using ExtractRegexBase::ExtractRegexBase;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ExtractRegexOptions options = State::Get(ctx);
+    ExtractRegexOptions options = ExtractRegexState::Get(ctx);
     ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
     return ExtractRegex{data}.Extract(ctx, batch, out);
   }
@@ -3010,8 +3011,8 @@ struct ExtractRegex : public ExtractRegexBase {
       if (input.is_valid && Match(util::string_view(*input.value))) {
         result->value.reserve(group_count);
         for (int i = 0; i < group_count; i++) {
-          result->value.push_back(
-              std::make_shared<ScalarType>(found_values[i].as_string()));
+          result->value.push_back(std::make_shared<ScalarType>(
+              std::make_shared<Buffer>(ToStringView(found_values[i]))));
         }
         result->is_valid = true;
       } else {
@@ -3037,23 +3038,18 @@ const FunctionDoc extract_regex_doc(
 void AddExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
                                                &extract_regex_doc);
-  using t32 = ExtractRegex<StringType>;
-  using t64 = ExtractRegex<LargeStringType>;
   OutputType out_ty(ResolveExtractRegexOutput);
   ScalarKernel kernel;
 
   // Null values will be computed based on regex match or not
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  kernel.signature.reset(new KernelSignature({utf8()}, out_ty));
-  kernel.exec = t32::Exec;
-  kernel.init = t32::State::Init;
-  DCHECK_OK(func->AddKernel(kernel));
-  kernel.signature.reset(new KernelSignature({large_utf8()}, out_ty));
-  kernel.exec = t64::Exec;
-  kernel.init = t64::State::Init;
-  DCHECK_OK(func->AddKernel(kernel));
-
+  for (const auto& ty : BaseBinaryTypes()) {
+    kernel.signature.reset(new KernelSignature({ty}, out_ty));
+    kernel.exec = GenerateTypeAgnosticVarBinary<ExtractRegex>(ty);
+    kernel.init = ExtractRegexState::Init;
+    DCHECK_OK(func->AddKernel(kernel));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 #endif  // ARROW_WITH_RE2

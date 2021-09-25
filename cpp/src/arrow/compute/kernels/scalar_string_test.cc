@@ -1360,7 +1360,7 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringRegexInvalid) {
       CallFunction("replace_substring_regex", {input}, &options));
 }
 
-TYPED_TEST(TestStringKernels, ExtractRegex) {
+TYPED_TEST(TestBinaryKernels, ExtractRegex) {
   ExtractRegexOptions options{"(?P<letter>[ab])(?P<digit>\\d)"};
   auto type = struct_({field("letter", this->type()), field("digit", this->type())});
   this->CheckUnary("extract_regex", R"([])", type, R"([])", &options);
@@ -1380,7 +1380,7 @@ TYPED_TEST(TestStringKernels, ExtractRegex) {
                    &options);
 }
 
-TYPED_TEST(TestStringKernels, ExtractRegexNoCapture) {
+TYPED_TEST(TestBinaryKernels, ExtractRegexNoCapture) {
   // XXX Should we accept this or is it a user error?
   ExtractRegexOptions options{"foo"};
   auto type = struct_({});
@@ -1388,12 +1388,12 @@ TYPED_TEST(TestStringKernels, ExtractRegexNoCapture) {
                    R"([{}, null, null])", &options);
 }
 
-TYPED_TEST(TestStringKernels, ExtractRegexNoOptions) {
+TYPED_TEST(TestBinaryKernels, ExtractRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("extract_regex", {input}));
 }
 
-TYPED_TEST(TestStringKernels, ExtractRegexInvalid) {
+TYPED_TEST(TestBinaryKernels, ExtractRegexInvalid) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ExtractRegexOptions options{"invalid["};
   EXPECT_RAISES_WITH_MESSAGE_THAT(
