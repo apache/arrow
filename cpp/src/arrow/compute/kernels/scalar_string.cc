@@ -2312,8 +2312,10 @@ template <typename Type, typename ListType>
 using SplitWhitespaceAsciiExec = SplitExec<Type, ListType, SplitWhitespaceAsciiFinder>;
 
 void AddSplitWhitespaceAscii(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
-                                               &ascii_split_whitespace_doc);
+  static const SplitOptions default_options{};
+  auto func =
+      std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
+                                       &ascii_split_whitespace_doc, &default_options);
 
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateTypeAgnosticVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
@@ -2381,8 +2383,10 @@ template <typename Type, typename ListType>
 using SplitWhitespaceUtf8Exec = SplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
 
 void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
-                                               &utf8_split_whitespace_doc);
+  static const SplitOptions default_options{};
+  auto func =
+      std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
+                                       &utf8_split_whitespace_doc, &default_options);
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateTypeAgnosticVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
     DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitState::Init));
