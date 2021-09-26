@@ -3569,15 +3569,17 @@ void AddStrptime(FunctionRegistry* registry) {
 void AddBinaryLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary(),
                                                &binary_length_doc);
-  ArrayKernelExec exec_offset_32 =
-      applicator::ScalarUnaryNotNull<Int32Type, StringType, BinaryLength>::Exec;
-  ArrayKernelExec exec_offset_64 =
-      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, BinaryLength>::Exec;
-  for (const auto& input_type : {binary(), utf8()}) {
-    DCHECK_OK(func->AddKernel({input_type}, int32(), exec_offset_32));
+  for (const auto& ty : {binary(), utf8()}) {
+    auto exec =
+        GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int32Type, BinaryLength>(
+            ty);
+    DCHECK_OK(func->AddKernel({ty}, int32(), exec));
   }
-  for (const auto& input_type : {large_binary(), large_utf8()}) {
-    DCHECK_OK(func->AddKernel({input_type}, int64(), exec_offset_64));
+  for (const auto& ty : {large_binary(), large_utf8()}) {
+    auto exec =
+        GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int64Type, BinaryLength>(
+            ty);
+    DCHECK_OK(func->AddKernel({ty}, int64(), exec));
   }
   DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                             BinaryLength::FixedSizeExec));
@@ -3587,15 +3589,15 @@ void AddBinaryLength(FunctionRegistry* registry) {
 void AddUtf8Length(FunctionRegistry* registry) {
   auto func =
       std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
-
-  ArrayKernelExec exec_offset_32 =
-      applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec_offset_32)));
-
-  ArrayKernelExec exec_offset_64 =
-      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
-  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec_offset_64)));
-
+  {
+    auto exec = applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, int32(), exec));
+  }
+  {
+    auto exec =
+        applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
+    DCHECK_OK(func->AddKernel({large_utf8()}, int64(), exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
