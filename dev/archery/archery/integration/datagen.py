@@ -1584,8 +1584,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_month_day_nano_interval_case()
         .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
 
         generate_map_case()
