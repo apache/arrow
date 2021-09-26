@@ -124,7 +124,7 @@ argument is omitted then a release build will be produced.
    You need to more options to build on Windows. See
    :ref:`developers-cpp-windows` for details.
 
-Minimal release build (1Gb of RAM for building or more recommended):
+Minimal release build (1GB of RAM for building or more recommended):
 
 .. code-block:: shell
 
@@ -135,7 +135,7 @@ Minimal release build (1Gb of RAM for building or more recommended):
    cmake ..
    make
 
-Minimal debug build with unit tests (4Gb of RAM for building or more recommended):
+Minimal debug build with unit tests (4GB of RAM for building or more recommended):
 
 .. code-block:: shell
 
