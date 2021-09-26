@@ -2266,6 +2266,8 @@ void AddSplitPattern(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+using SplitState = OptionsWrapper<SplitOptions>;
+
 struct SplitWhitespaceAsciiFinder : public SplitFinderBase<SplitOptions> {
   using Options = SplitOptions;
 
@@ -2310,15 +2312,13 @@ template <typename Type, typename ListType>
 using SplitWhitespaceAsciiExec = SplitExec<Type, ListType, SplitWhitespaceAsciiFinder>;
 
 void AddSplitWhitespaceAscii(FunctionRegistry* registry) {
-  static const SplitOptions default_options{};
-  auto func =
-      std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
-                                       &ascii_split_whitespace_doc, &default_options);
-  using t32 = SplitWhitespaceAsciiExec<StringType, ListType>;
-  using t64 = SplitWhitespaceAsciiExec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  auto func = std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
+                                               &ascii_split_whitespace_doc);
+
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2381,15 +2381,12 @@ template <typename Type, typename ListType>
 using SplitWhitespaceUtf8Exec = SplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
 
 void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
-  static const SplitOptions default_options{};
-  auto func =
-      std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
-                                       &utf8_split_whitespace_doc, &default_options);
-  using t32 = SplitWhitespaceUtf8Exec<StringType, ListType>;
-  using t64 = SplitWhitespaceUtf8Exec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  auto func = std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
+                                               &utf8_split_whitespace_doc);
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 #endif  // ARROW_WITH_UTF8PROC
@@ -2854,11 +2851,11 @@ void AddReplaceSlice(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
                                                  &utf8_replace_slice_doc);
-    DCHECK_OK(func->AddKernel({utf8()}, utf8(), Utf8ReplaceSlice<StringType>::Exec,
-                              ReplaceSliceTransformBase::State::Init));
-    DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(),
-                              Utf8ReplaceSlice<LargeStringType>::Exec,
-                              ReplaceSliceTransformBase::State::Init));
+
+    for (const auto& ty : StringTypes()) {
+      auto exec = GenerateTypeAgnosticVarBinary<Utf8ReplaceSlice>(ty);
+      DCHECK_OK(func->AddKernel({ty}, ty, exec, ReplaceSliceTransformBase::State::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
@@ -2867,6 +2864,8 @@ void AddReplaceSlice(FunctionRegistry* registry) {
 // Extract with regex
 
 #ifdef ARROW_WITH_RE2
+
+using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
 
 // TODO cache this once per ExtractRegexOptions
 struct ExtractRegexData {
@@ -2916,8 +2915,7 @@ struct ExtractRegexData {
 
 Result<ValueDescr> ResolveExtractRegexOutput(KernelContext* ctx,
                                              const std::vector<ValueDescr>& args) {
-  using State = OptionsWrapper<ExtractRegexOptions>;
-  ExtractRegexOptions options = State::Get(ctx);
+  ExtractRegexOptions options = ExtractRegexState::Get(ctx);
   ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
   return data.ResolveOutputType(args);
 }
@@ -2952,8 +2950,6 @@ struct ExtractRegexBase {
                                    group_count);
   }
 };
-
-using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
 
 template <typename Type>
 struct ExtractRegex : public ExtractRegexBase {
@@ -3036,15 +3032,14 @@ void AddExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
                                                &extract_regex_doc);
   OutputType out_ty(ResolveExtractRegexOutput);
-  ScalarKernel kernel;
-
-  // Null values will be computed based on regex match or not
-  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   for (const auto& ty : BaseBinaryTypes()) {
-    kernel.signature.reset(new KernelSignature({ty}, out_ty));
-    kernel.exec = GenerateTypeAgnosticVarBinary<ExtractRegex>(ty);
-    kernel.init = ExtractRegexState::Init;
+    ScalarKernel kernel{{ty},
+                        out_ty,
+                        GenerateTypeAgnosticVarBinary<ExtractRegex>(ty),
+                        ExtractRegexState::Init};
+    // Null values will be computed based on regex match or not
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     DCHECK_OK(func->AddKernel(kernel));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3075,13 +3070,16 @@ struct ParseStrptime {
 };
 
 template <typename InputType>
-Status StrptimeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  applicator::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime> kernel{
-      ParseStrptime(StrptimeState::Get(ctx))};
-  return kernel.Exec(ctx, batch, out);
-}
+struct StrptimeExec {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    applicator::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime>
+        kernel{ParseStrptime(StrptimeState::Get(ctx))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
 
-Result<ValueDescr> StrptimeResolve(KernelContext* ctx, const std::vector<ValueDescr>&) {
+Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
+                                         const std::vector<ValueDescr>&) {
   if (ctx->state()) {
     return ::arrow::timestamp(StrptimeState::Get(ctx).unit);
   }
@@ -3556,10 +3554,12 @@ const FunctionDoc utf8_length_doc("Compute UTF8 string lengths",
 
 void AddStrptime(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
-  DCHECK_OK(func->AddKernel({utf8()}, OutputType(StrptimeResolve),
-                            StrptimeExec<StringType>, StrptimeState::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, OutputType(StrptimeResolve),
-                            StrptimeExec<LargeStringType>, StrptimeState::Init));
+
+  OutputType out_ty(ResolveStrptimeOutput);
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<StrptimeExec>(ty);
+    DCHECK_OK(func->AddKernel({ty}, out_ty, exec, StrptimeState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -4112,15 +4112,9 @@ void MakeUnaryStringBatchKernel(
     std::string name, FunctionRegistry* registry, const FunctionDoc* doc,
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-  {
-    auto exec = ExecFunctor<StringType>::Exec;
-    ScalarKernel kernel{{utf8()}, utf8(), exec};
-    kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
-  }
-  {
-    auto exec = ExecFunctor<LargeStringType>::Exec;
-    ScalarKernel kernel{{large_utf8()}, large_utf8(), exec};
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<ExecFunctor>(ty);
+    ScalarKernel kernel{{ty}, ty, exec};
     kernel.mem_allocation = mem_allocation;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
@@ -4153,10 +4147,10 @@ template <template <typename> class Transformer>
 void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry,
                                         const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-  ArrayKernelExec exec_32 = Transformer<StringType>::Exec;
-  ArrayKernelExec exec_64 = Transformer<LargeStringType>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_32));
-  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_64));
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<Transformer>(ty);
+    DCHECK_OK(func->AddKernel({ty}, ty, exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -4167,48 +4161,50 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
 using StringPredicate =
     std::function<bool(KernelContext*, const uint8_t*, size_t, Status*)>;
 
-template <typename Type>
-Status ApplyPredicate(KernelContext* ctx, const ExecBatch& batch,
-                      StringPredicate predicate, Datum* out) {
-  Status st = Status::OK();
-  EnsureLookupTablesFilled();
-  if (batch[0].kind() == Datum::ARRAY) {
-    const ArrayData& input = *batch[0].array();
-    ArrayIterator<Type> input_it(input);
-    ArrayData* out_arr = out->mutable_array();
-    ::arrow::internal::GenerateBitsUnrolled(
-        out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
-        [&]() -> bool {
-          util::string_view val = input_it();
-          return predicate(ctx, reinterpret_cast<const uint8_t*>(val.data()), val.size(),
-                           &st);
-        });
-  } else {
-    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-    if (input.is_valid) {
-      bool boolean_result = predicate(ctx, input.value->data(),
-                                      static_cast<size_t>(input.value->size()), &st);
-      // UTF decoding can lead to issues
-      if (st.ok()) {
-        out->value = std::make_shared<BooleanScalar>(boolean_result);
+template <typename Type, typename Predicate>
+struct StringPredicateFunctor {
+  static Status ApplyPredicate(KernelContext* ctx, const ExecBatch& batch,
+                               StringPredicate predicate, Datum* out) {
+    Status st = Status::OK();
+    EnsureLookupTablesFilled();
+    if (batch[0].kind() == Datum::ARRAY) {
+      const ArrayData& input = *batch[0].array();
+      ArrayIterator<Type> input_it(input);
+      ArrayData* out_arr = out->mutable_array();
+      ::arrow::internal::GenerateBitsUnrolled(
+          out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
+          [&]() -> bool {
+            util::string_view val = input_it();
+            return predicate(ctx, reinterpret_cast<const uint8_t*>(val.data()),
+                             val.size(), &st);
+          });
+    } else {
+      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+      if (input.is_valid) {
+        bool boolean_result = predicate(ctx, input.value->data(),
+                                        static_cast<size_t>(input.value->size()), &st);
+        // UTF decoding can lead to issues
+        if (st.ok()) {
+          out->value = std::make_shared<BooleanScalar>(boolean_result);
+        }
       }
     }
+    return st;
   }
-  return st;
-}
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return ApplyPredicate(ctx, batch, Predicate::Call, out);
+  }
+};
 
 template <typename Predicate>
 void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
                              const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-  auto exec_32 = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ApplyPredicate<StringType>(ctx, batch, Predicate::Call, out);
-  };
-  auto exec_64 = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ApplyPredicate<LargeStringType>(ctx, batch, Predicate::Call, out);
-  };
-  DCHECK_OK(func->AddKernel({utf8()}, boolean(), std::move(exec_32)));
-  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), std::move(exec_64)));
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<StringPredicateFunctor, Predicate>(ty);
+    DCHECK_OK(func->AddKernel({ty}, boolean(), exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
