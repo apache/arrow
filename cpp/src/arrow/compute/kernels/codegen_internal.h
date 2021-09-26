@@ -1199,7 +1199,7 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   }
 }
 
-// similar to GenerateTypeAgnosticPrimitive, but for variable types
+// similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
 template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
@@ -1215,6 +1215,7 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   }
 }
 
+// similar to GenerateTypeAgnosticPrimitive, but for variable binary and string types
 template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateTypeAgnosticVarBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
