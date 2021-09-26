@@ -1742,12 +1742,10 @@ const FunctionDoc utf8_slice_codeunits_doc(
 void AddSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
                                                &utf8_slice_codeunits_doc);
-  using t32 = SliceCodeunits<StringType>;
-  using t64 = SliceCodeunits<LargeStringType>;
-  DCHECK_OK(
-      func->AddKernel({utf8()}, utf8(), t32::Exec, SliceCodeunitsTransform::State::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), t64::Exec,
-                            SliceCodeunitsTransform::State::Init));
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinary<SliceCodeunits>(ty);
+    DCHECK_OK(func->AddKernel({ty}, ty, exec, SliceCodeunitsTransform::State::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2901,10 +2899,9 @@ struct ExtractRegexData {
       // No input type specified => propagate shape
       return args[0];
     }
-    // Input type is either String or LargeString and is also the type of each
+    // Input type is [Large]Binary or [Large]String and is also the type of each
     // field in the output struct type.
-    DCHECK(input_type->id() == Type::STRING || input_type->id() == Type::LARGE_STRING ||
-           input_type->id() == Type::BINARY || input_type->id() == Type::LARGE_BINARY);
+    DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
     fields.reserve(group_names.size());
     std::transform(group_names.begin(), group_names.end(), std::back_inserter(fields),
@@ -4116,14 +4113,14 @@ void MakeUnaryStringBatchKernel(
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   {
-    auto exec_32 = ExecFunctor<StringType>::Exec;
-    ScalarKernel kernel{{utf8()}, utf8(), exec_32};
+    auto exec = ExecFunctor<StringType>::Exec;
+    ScalarKernel kernel{{utf8()}, utf8(), exec};
     kernel.mem_allocation = mem_allocation;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   {
-    auto exec_64 = ExecFunctor<LargeStringType>::Exec;
-    ScalarKernel kernel{{large_utf8()}, large_utf8(), exec_64};
+    auto exec = ExecFunctor<LargeStringType>::Exec;
+    ScalarKernel kernel{{large_utf8()}, large_utf8(), exec};
     kernel.mem_allocation = mem_allocation;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
