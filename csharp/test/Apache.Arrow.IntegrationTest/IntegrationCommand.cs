@@ -23,6 +23,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Tests;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.IntegrationTest
@@ -57,9 +58,41 @@ namespace Apache.Arrow.IntegrationTest
             return await commandDelegate();
         }
 
-        private Task<int> Validate()
+        private async Task<int> Validate()
         {
-            return Task.FromResult(0);
+            JsonFile jsonFile = await ParseJsonFile();
+
+            using FileStream arrowFileStream = ArrowFileInfo.OpenRead();
+            using ArrowFileReader reader = new ArrowFileReader(arrowFileStream);
+            int batchCount = await reader.RecordBatchCountAsync();
+
+            if (batchCount != jsonFile.Batches.Count)
+            {
+                Console.WriteLine($"Incorrect batch count. JsonFile: {jsonFile.Batches.Count}, ArrowFile: {batchCount}");
+                return -1;
+            }
+
+            Schema jsonFileSchema = CreateSchema(jsonFile.Schema);
+            Schema arrowFileSchema = reader.Schema;
+
+            SchemaComparer.Compare(jsonFileSchema, arrowFileSchema);
+
+            for (int i = 0; i < batchCount; i++)
+            {
+                RecordBatch arrowFileRecordBatch = reader.ReadNextRecordBatch();
+                RecordBatch jsonFileRecordBatch = CreateRecordBatch(jsonFileSchema, jsonFile.Batches[i]);
+
+                ArrowReaderVerifier.CompareBatches(jsonFileRecordBatch, arrowFileRecordBatch, strictCompare: false);
+            }
+
+            // ensure there are no more batches in the file
+            if (reader.ReadNextRecordBatch() != null)
+            {
+                Console.WriteLine($"The ArrowFile has more RecordBatches than it should.");
+                return -1;
+            }
+
+            return 0;
         }
 
         private async Task<int> JsonToArrow()
@@ -380,7 +413,7 @@ namespace Apache.Arrow.IntegrationTest
 
                 var json = JsonFieldData.Data.GetRawText();
                 string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
-                
+
                 ArrowBuffer.Builder<byte> valueBuilder = new ArrowBuffer.Builder<byte>();
                 foreach (string value in values)
                 {
@@ -425,7 +458,7 @@ namespace Apache.Arrow.IntegrationTest
                 byte[] data = new byte[hexString.Length / 2];
                 for (int index = 0; index < data.Length; index++)
                 {
-                    data[index] = byte.Parse(hexString.AsSpan(index * 2, 2) , NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                    data[index] = byte.Parse(hexString.AsSpan(index * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
                 }
 
                 return data;
@@ -558,7 +591,7 @@ namespace Apache.Arrow.IntegrationTest
             using var fileStream = JsonFileInfo.OpenRead();
             JsonSerializerOptions options = new JsonSerializerOptions()
             {
-                 PropertyNamingPolicy = JsonFileNamingPolicy.Instance,
+                PropertyNamingPolicy = JsonFileNamingPolicy.Instance,
             };
             options.Converters.Add(new ValidityConverter());
 
