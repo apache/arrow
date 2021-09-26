@@ -62,7 +62,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
-  public void testParquetRead() throws Exception {
+  public void testBaseParquetRead() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -84,7 +84,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testParquetProject() throws Exception {
+  public void testParquetProjectSingleColumn() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -129,7 +129,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testEmptyProject() throws Exception {
+  public void testEmptyProjectSelectsZeroColumns() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -152,7 +152,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testNullProject() throws Exception {
+  public void testNullProjectSelectsAllColumns() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -174,7 +174,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testCloseAgain() throws Exception {
+  public void testNoErrorWhenCloseAgain() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -188,7 +188,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testScanAgain() throws Exception {
+  public void testErrorThrownWhenScanAgain() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -232,7 +232,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testScanAfterClose1() throws Exception {
+  public void testErrorThrownWhenScanAfterScannerClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -245,7 +245,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testScanAfterClose2() throws Exception {
+  public void testErrorThrownWhenExecuteTaskAfterTaskClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -260,7 +260,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testScanAfterClose3() throws Exception {
+  public void testErrorThrownWhenIterateOnIteratorAfterTaskClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -276,7 +276,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testMemoryAllocation() throws Exception {
+  public void testMemoryAllocationOnAssociatedAllocator() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
