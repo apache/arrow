@@ -20,6 +20,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
+#include <arrow/chunked_array.h>
 #include <arrow/compute/api.h>
 #include <arrow/util/bitmap_reader.h>
 
@@ -617,24 +618,46 @@ void Init_Altrep_classes(DllInfo* dll) {
       dll, "arrow::array_large_string_vector");
 }
 
+}  // namespace altrep
+}  // namespace r
+}  // namespace arrow
+
+#endif  // HAS_ALTREP
+
+namespace arrow {
+namespace r {
+namespace altrep {
+
 // return an altrep R vector that shadows the array if possible
-SEXP MakeAltrepVector(const std::shared_ptr<Array>& array) {
-  switch (array->type()->id()) {
-    case arrow::Type::DOUBLE:
-      return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
+SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
+#if defined(HAS_ALTREP)
 
-    case arrow::Type::INT32:
-      return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
+  // special case when there is only one array
+  if (chunked_array->num_chunks() == 1) {
+    const auto& array = chunked_array->chunk(0);
+    // using altrep if
+    // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
+    // - the array has at least one element
+    if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
+      switch (array->type()->id()) {
+        case arrow::Type::DOUBLE:
+          return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
 
-    case arrow::Type::STRING:
-      return altrep::AltrepVectorString<StringType>::Make(array);
+        case arrow::Type::INT32:
+          return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
 
-    case arrow::Type::LARGE_STRING:
-      return altrep::AltrepVectorString<LargeStringType>::Make(array);
+        case arrow::Type::STRING:
+          return altrep::AltrepVectorString<StringType>::Make(array);
 
-    default:
-      break;
+        case arrow::Type::LARGE_STRING:
+          return altrep::AltrepVectorString<LargeStringType>::Make(array);
+
+        default:
+          break;
+      }
+    }
   }
+#endif
 
   return R_NilValue;
 }
@@ -642,8 +665,6 @@ SEXP MakeAltrepVector(const std::shared_ptr<Array>& array) {
 }  // namespace altrep
 }  // namespace r
 }  // namespace arrow
-
-#endif  // HAS_ALTREP
 
 // [[arrow::export]]
 bool is_altrep(SEXP x) {

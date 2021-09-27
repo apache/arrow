@@ -65,21 +65,13 @@ class Converter {
 
   // converter is passed as self to outlive the scope of Converter::Convert()
   SEXP ScheduleConvertTasks(RTasks& tasks, std::shared_ptr<Converter> self) {
-#if defined(HAS_ALTREP)
-    // special case when there is only one array
-    if (chunked_array_->num_chunks() == 1) {
-      const auto& array = chunked_array_->chunk(0);
-      // using altrep if
-      // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
-      // - the array has at least one element
-      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
-        SEXP alt = altrep::MakeAltrepVector(array);
-        if (!Rf_isNull(alt)) {
-          return alt;
-        }
-      }
+    // try altrep first
+    SEXP alt = altrep::MakeAltrepVector(chunked_array_);
+    if (!Rf_isNull(alt)) {
+      return alt;
     }
-#endif
+
+    // otherwise use the Converter api:
 
     // allocating the R vector upfront
     SEXP out = PROTECT(Allocate(chunked_array_->length()));
@@ -722,7 +714,8 @@ class Converter_Struct : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     // allocate a data frame column to host each array
-    auto type = checked_cast<const arrow::StructType*>(this->chunked_array_->type());
+    auto type =
+        checked_cast<const arrow::StructType*>(this->chunked_array_->type().get());
     auto out =
         arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
           return converter->Allocate(n);
