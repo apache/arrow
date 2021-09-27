@@ -28,7 +28,7 @@ class CSharpTester(Tester):
     EXE_PATH = os.path.join(
         ARROW_ROOT_DEFAULT, 'csharp/artifacts/Apache.Arrow.IntegrationTest/Debug/netcoreapp3.1/Apache.Arrow.IntegrationTest')
 
-    name = 'csharp'
+    name = 'C#'
 
     def _run(self, json_path=None, arrow_path=None, command='validate'):
         cmd = [self.EXE_PATH]

@@ -693,7 +693,7 @@ def _set_default(opt, default):
 @click.option('--with-cpp', type=bool, default=False,
               help='Include C++ in integration tests')
 @click.option('--with-csharp', type=bool, default=False,
-              help='Include CSharp in integration tests')
+              help='Include C# in integration tests')
 @click.option('--with-java', type=bool, default=False,
               help='Include Java in integration tests')
 @click.option('--with-js', type=bool, default=False,
