@@ -486,6 +486,20 @@ struct PartitionNthToIndices {
   }
 };
 
+template <typename OutType>
+struct PartitionNthToIndices<OutType, NullType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (ctx->state() == nullptr) {
+      return Status::Invalid("NthToIndices requires PartitionNthOptions");
+    }
+    ArrayData* out_arr = out->mutable_array();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    uint64_t* out_end = out_begin + batch.length;
+    std::iota(out_begin, out_end, 0);
+    return Status::OK();
+  }
+};
+
 // ----------------------------------------------------------------------
 // Array sorting implementations
 
@@ -788,8 +802,24 @@ struct ArraySortIndices {
   }
 };
 
+template <typename OutType>
+struct ArraySortIndices<OutType, NullType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayData* out_arr = out->mutable_array();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    uint64_t* out_end = out_begin + batch.length;
+    std::iota(out_begin, out_end, 0);
+    return Status::OK();
+  }
+};
+
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
+  // null type
+  base.signature = KernelSignature::Make({InputType::Array(null())}, uint64());
+  base.exec = ExecTemplate<UInt64Type, NullType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+
   // bool type
   base.signature = KernelSignature::Make({InputType::Array(boolean())}, uint64());
   base.exec = ExecTemplate<UInt64Type, BooleanType>::Exec;

@@ -294,6 +294,18 @@ TYPED_TEST(TestNthToIndicesForStrings, Strings) {
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 6);
 }
 
+TEST(TestNthToIndices, Null) {
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(null(), 6));
+  auto expected = ArrayFromJSON(uint64(), "[0, 1, 2, 3, 4, 5]");
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto n : {0, 1, 2, 3, 4, 5, 6}) {
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           NthToIndices(*arr, PartitionNthOptions(n, null_placement)));
+      AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestNthToIndicesRandom : public TestNthToIndicesBase<ArrowType> {
  public:
@@ -673,6 +685,15 @@ TYPED_TEST(TestArraySortIndicesForDecimal, DecimalSortTestTypes) {
                           "[3, 0, 2, 4, 1, 5]");
   this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
                           "[1, 5, 3, 0, 2, 4]");
+}
+
+TEST(TestArraySortIndices, Null) {
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto order : AllOrders()) {
+      AssertSortIndices(null(), "[null, null, null, null]", order, null_placement,
+                        "[0, 1, 2, 3]");
+    }
+  }
 }
 
 TEST(TestArraySortIndices, TemporalTypeParameters) {
