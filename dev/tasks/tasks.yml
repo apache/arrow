@@ -997,9 +997,9 @@ tasks:
     params:
       MATRIX: {{ "${{ matrix.r_image }}" }}
 
-  test-r-version-compatibility:
+  test-r-arrow-backwards-compatibility:
     ci: github
-    template: r/github.linux.version.compatibility.yml
+    template: r/github.linux.arrow.version.back.compat.yml
 
   test-r-versions:
     ci: github
