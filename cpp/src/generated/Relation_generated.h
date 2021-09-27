@@ -448,7 +448,7 @@ struct Filter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BASE = 4,
     VT_REL = 6,
-    VT_PREDICATE = 8
+    VT_PREDICATES = 8
   };
   /// Common options
   const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
@@ -458,11 +458,10 @@ struct Filter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Relation *rel() const {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::Relation *>(VT_REL);
   }
-  /// The expression which will be evaluated against input rows
-  /// to determine whether they should be excluded from the
-  /// filter relation's output.
-  const org::apache::arrow::computeir::flatbuf::Expression *predicate() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_PREDICATE);
+  /// The conjunction of expressions expression which will be evaluated against
+  /// input rows to determine whether they should be excluded from the / filter
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *predicates() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *>(VT_PREDICATES);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -470,8 +469,9 @@ struct Filter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(base()) &&
            VerifyOffsetRequired(verifier, VT_REL) &&
            verifier.VerifyTable(rel()) &&
-           VerifyOffsetRequired(verifier, VT_PREDICATE) &&
-           verifier.VerifyTable(predicate()) &&
+           VerifyOffsetRequired(verifier, VT_PREDICATES) &&
+           verifier.VerifyVector(predicates()) &&
+           verifier.VerifyVectorOfTables(predicates()) &&
            verifier.EndTable();
   }
 };
@@ -486,8 +486,8 @@ struct FilterBuilder {
   void add_rel(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel) {
     fbb_.AddOffset(Filter::VT_REL, rel);
   }
-  void add_predicate(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> predicate) {
-    fbb_.AddOffset(Filter::VT_PREDICATE, predicate);
+  void add_predicates(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>> predicates) {
+    fbb_.AddOffset(Filter::VT_PREDICATES, predicates);
   }
   explicit FilterBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -499,7 +499,7 @@ struct FilterBuilder {
     auto o = flatbuffers::Offset<Filter>(end);
     fbb_.Required(o, Filter::VT_BASE);
     fbb_.Required(o, Filter::VT_REL);
-    fbb_.Required(o, Filter::VT_PREDICATE);
+    fbb_.Required(o, Filter::VT_PREDICATES);
     return o;
   }
 };
@@ -508,12 +508,25 @@ inline flatbuffers::Offset<Filter> CreateFilter(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> predicate = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>> predicates = 0) {
   FilterBuilder builder_(_fbb);
-  builder_.add_predicate(predicate);
+  builder_.add_predicates(predicates);
   builder_.add_rel(rel);
   builder_.add_base(base);
   return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Filter> CreateFilterDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *predicates = nullptr) {
+  auto predicates__ = predicates ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>(*predicates) : 0;
+  return org::apache::arrow::computeir::flatbuf::CreateFilter(
+      _fbb,
+      base,
+      rel,
+      predicates__);
 }
 
 /// Projection

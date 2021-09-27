@@ -53,10 +53,10 @@ table Filter {
   base: RelBase (required);
   /// Child relation
   rel: Relation (required);
-  /// The expression which will be evaluated against input rows
-  /// to determine whether they should be excluded from the
-  /// filter relation's output.
-  predicate: Expression (required);
+  /// The conjunction of expressions expression which will be evaluated against
+  /// input rows to determine whether they should be excluded from the / filter
+  //relation's output.
+  predicates: [Expression] (required);
 }
 
 /// Projection
