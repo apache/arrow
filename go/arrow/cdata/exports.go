@@ -75,6 +75,10 @@ func releaseExportedSchema(schema *CArrowSchema) {
 	s.Len = int(schema.n_children)
 	s.Cap = int(schema.n_children)
 
+	for _, c := range children {
+		C.ArrowSchemaRelease(c)
+	}
+
 	C.free(unsafe.Pointer(children[0]))
 	C.free(unsafe.Pointer(schema.children))
 }
