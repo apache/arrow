@@ -224,8 +224,6 @@ the input to a single output value.
 | variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 
-Notes:
-
 * \(1) If null values are taken into account, by setting the
   ScalarAggregateOptions parameter skip_nulls = false, then `Kleene logic`_
   logic is applied. The min_count option is not respected.
@@ -649,26 +647,34 @@ comparison. If any of the input elements in a pair is null, the corresponding
 output element is null. Decimal arguments will be promoted in the same way as
 for ``add`` and ``subtract``.
 
-+--------------------------+------------+---------------------------------------------+---------------------+
-| Function names           | Arity      | Input types                                 | Output type         |
-+==========================+============+=============================================+=====================+
-| equal, not_equal         | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+--------------------------+------------+---------------------------------------------+---------------------+
-| greater, greater_equal,  | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-| less, less_equal         |            |                                             |                     |
-+--------------------------+------------+---------------------------------------------+---------------------+
++----------------+------------+---------------------------------------------+---------------------+
+| Function names | Arity      | Input types                                 | Output type         |
++================+============+=============================================+=====================+
+| equal          | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
++----------------+------------+---------------------------------------------+---------------------+
+| greater        | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
++----------------+------------+---------------------------------------------+---------------------+
+| greater_equal  | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
++----------------+------------+---------------------------------------------+---------------------+
+| less           | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
++----------------+------------+---------------------------------------------+---------------------+
+| less_equal     | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
++----------------+------------+---------------------------------------------+---------------------+
+| not_equal      | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
++----------------+------------+---------------------------------------------+---------------------+
 
 These functions take any number of inputs of numeric type (in which case they
 will be cast to the :ref:`common numeric type <common-numeric-type>` before
 comparison) or of temporal types. If any input is dictionary encoded it will be
 expanded for the purposes of comparison.
 
-+--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
-| Function names           | Arity      | Input types                                 | Output type         | Options class                         | Notes |
-+==========================+============+=============================================+=====================+=======================================+=======+
-| max_element_wise,        | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
-| min_element_wise         |            |                                             |                     |                                       |       |
-+--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
++------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
+| Function names   | Arity      | Input types                                 | Output type         | Options class                         | Notes |
++==================+============+=============================================+=====================+=======================================+=======+
+| max_element_wise | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
++------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
+| min_element_wise | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
++------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 
 * \(1) By default, nulls are skipped (but the kernel can be configured to propagate nulls).
   For floating point values, NaN will be taken over null but not over any other value.
@@ -697,9 +703,9 @@ For the Kleene logic variants, therefore:
 +==========================+============+====================+=====================+
 | and                      | Binary     | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
-| and_not                  | Binary     | Boolean            | Boolean             |
-+--------------------------+------------+--------------------+---------------------+
 | and_kleene               | Binary     | Boolean            | Boolean             |
++--------------------------+------------+--------------------+---------------------+
+| and_not                  | Binary     | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
 | and_not_kleene           | Binary     | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
@@ -885,17 +891,17 @@ order to center (center), right-align (lpad), or left-align (rpad) a string.
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 | Function name            | Arity      | Input types             | Output type         | Options class                          |
 +==========================+============+=========================+=====================+========================================+
+| ascii_center             | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 | ascii_lpad               | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 | ascii_rpad               | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
-| ascii_center             | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
+| utf8_center              | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 | utf8_lpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 | utf8_rpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
-+--------------------------+------------+-------------------------+---------------------+----------------------------------------+
-| utf8_center              | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 
 String trimming
@@ -943,6 +949,95 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 
 * \(4) Only trim off Unicode whitespace characters.
 
+String splitting
+~~~~~~~~~~~~~~~~
+
+These functions split strings into lists of strings.  All kernels can optionally
+be configured with a ``max_splits`` and a ``reverse`` parameter, where
+``max_splits == -1`` means no limit (the default).  When ``reverse`` is true,
+the splitting is done starting from the end of the string; this is only relevant
+when a positive ``max_splits`` is given.
+
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| Function name            | Arity      | Input types             | Output type       | Options class                    | Notes   |
++==========================+============+=========================+===================+==================================+=========+
+| ascii_split_whitespace   | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(1)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| split_pattern            | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(2)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| split_pattern_regex      | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(3)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| utf8_split_whitespace    | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(4)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+
+* \(1) A non-zero length sequence of ASCII defined whitespace bytes
+  (``'\t'``, ``'\n'``, ``'\v'``, ``'\f'``, ``'\r'``  and ``' '``) is seen
+  as separator.
+
+* \(2) The string is split when an exact pattern is found (the pattern itself
+  is not included in the output).
+
+* \(3) The string is split when a regex match is found (the matched
+  substring itself is not included in the output).
+
+* \(4) A non-zero length sequence of Unicode defined whitespace codepoints
+  is seen as separator.
+
+String component extraction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++---------------+-------+-------------+-------------+-------------------------------+-------+
+| Function name | Arity | Input types | Output type | Options class                 | Notes |
++===============+=======+=============+=============+===============================+=======+
+| extract_regex | Unary | String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
++---------------+-------+-------------+-------------+-------------------------------+-------+
+
+* \(1) Extract substrings defined by a regular expression using the Google RE2
+  library.  The output struct field names refer to the named capture groups,
+  e.g. 'letter' and 'digit' for the regular expression
+  ``(?P<letter>[ab])(?P<digit>\\d)``.
+
+String joining
+~~~~~~~~~~~~~~
+
+These functions do the inverse of string splitting.
+
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| Function name            | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
++==========================+===========+=======================+================+===================+=======================+=========+
+| binary_join              | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| binary_join_element_wise | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+
+* \(1) The first input must be an array, while the second can be a scalar or array.
+  Each list of values in the first input is joined using each second input
+  as separator.  If any input list is null or contains a null, the corresponding
+  output will be null.
+
+* \(2) All arguments are concatenated element-wise, with the last argument treated
+  as the separator (scalars are recycled in either case). Null separators emit
+  null. If any other argument is null, by default the corresponding output will be
+  null, but it can instead either be skipped or replaced with a given string.
+
+String Slicing
+~~~~~~~~~~~~~~
+
+This function transforms each sequence of the array to a subsequence, according
+to start and stop indices, and a non-zero step (defaulting to 1).  Slicing
+semantics follow Python slicing semantics: the start index is inclusive,
+the stop index exclusive; if the step is negative, the sequence is followed
+in reverse order.
+
++--------------------------+------------+----------------+-----------------+--------------------------+---------+
+| Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
++==========================+============+================+=================+==========================+=========+
+| utf8_slice_codepoints    | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
++--------------------------+------------+----------------+-----------------+--------------------------+---------+
+
+* \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
+  as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
+  in codeunits. Null inputs emit null.
 
 Containment tests
 ~~~~~~~~~~~~~~~~~
@@ -974,7 +1069,6 @@ Containment tests
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | starts_with           | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-
 
 * \(1) Output is the number of occurrences of
   :member:`MatchSubstringOptions::pattern` in the corresponding input
@@ -1009,98 +1103,6 @@ Containment tests
 * \(8) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
-String splitting
-~~~~~~~~~~~~~~~~
-
-These functions split strings into lists of strings.  All kernels can optionally
-be configured with a ``max_splits`` and a ``reverse`` parameter, where
-``max_splits == -1`` means no limit (the default).  When ``reverse`` is true,
-the splitting is done starting from the end of the string; this is only relevant
-when a positive ``max_splits`` is given.
-
-+--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| Function name            | Arity      | Input types             | Output type       | Options class                    | Notes   |
-+==========================+============+=========================+===================+==================================+=========+
-| split_pattern            | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(1)    |
-+--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| split_pattern_regex      | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(2)    |
-+--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| utf8_split_whitespace    | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(3)    |
-+--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| ascii_split_whitespace   | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(4)    |
-+--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-
-* \(1) The string is split when an exact pattern is found (the pattern itself
-  is not included in the output).
-
-* \(2) The string is split when a regex match is found (the matched
-  substring itself is not included in the output).
-
-* \(3) A non-zero length sequence of Unicode defined whitespace codepoints
-  is seen as separator.
-
-* \(4) A non-zero length sequence of ASCII defined whitespace bytes
-  (``'\t'``, ``'\n'``, ``'\v'``, ``'\f'``, ``'\r'``  and ``' '``) is seen
-  as separator.
-
-
-String component extraction
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+---------------+-------+-------------+-------------+-------------------------------+-------+
-| Function name | Arity | Input types | Output type | Options class                 | Notes |
-+===============+=======+=============+=============+===============================+=======+
-| extract_regex | Unary | String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
-+---------------+-------+-------------+-------------+-------------------------------+-------+
-
-* \(1) Extract substrings defined by a regular expression using the Google RE2
-  library.  The output struct field names refer to the named capture groups,
-  e.g. 'letter' and 'digit' for the regular expression
-  ``(?P<letter>[ab])(?P<digit>\\d)``.
-
-
-String joining
-~~~~~~~~~~~~~~
-
-These functions do the inverse of string splitting.
-
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| Function name            | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
-+==========================+===========+=======================+================+===================+=======================+=========+
-| binary_join              | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| binary_join_element_wise | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-
-* \(1) The first input must be an array, while the second can be a scalar or array.
-  Each list of values in the first input is joined using each second input
-  as separator.  If any input list is null or contains a null, the corresponding
-  output will be null.
-
-* \(2) All arguments are concatenated element-wise, with the last argument treated
-  as the separator (scalars are recycled in either case). Null separators emit
-  null. If any other argument is null, by default the corresponding output will be
-  null, but it can instead either be skipped or replaced with a given string.
-
-Slicing
-~~~~~~~
-
-This function transforms each sequence of the array to a subsequence, according
-to start and stop indices, and a non-zero step (defaulting to 1).  Slicing
-semantics follow Python slicing semantics: the start index is inclusive,
-the stop index exclusive; if the step is negative, the sequence is followed
-in reverse order.
-
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
-| Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
-+==========================+============+================+=================+==========================+=========+
-| utf8_slice_codepoints    | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
-+--------------------------+------------+----------------+-----------------+--------------------------+---------+
-
-* \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
-  as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
-  in codeunits. Null inputs emit null.
-
 Categorizations
 ~~~~~~~~~~~~~~~
 
@@ -1129,7 +1131,6 @@ Categorizations
   can also be considered null by setting :member:`NullOptions::nan_is_null`.
 
 * \(5) Output is true iff the corresponding input element is non-null.
-
 
 .. _cpp-compute-scalar-selections:
 
@@ -1185,13 +1186,13 @@ depending on a condition.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+----------------+-------------------+------------------------------+---------+
-| Function name            | Arity      | Input types    | Output type       | Options class                | Notes   |
-+==========================+============+================+===================+==============================+=========+
-| list_value_length        | Unary      | List-like      | Int32 or Int64    |                              | \(1)    |
-+--------------------------+------------+----------------+-------------------+------------------------------+---------+
-| make_struct              | Varargs    | Any            | Struct            | :struct:`MakeStructOptions`  | \(2)    |
-+--------------------------+------------+----------------+-------------------+------------------------------+---------+
++---------------------+------------+-------------+------------------+------------------------------+--------+
+| Function name       | Arity      | Input types | Output type      | Options class                | Notes  |
++=====================+============+=============+==================+==============================+========+
+| list_value_length   | Unary      | List-like   | Int32 or Int64   |                              | \(1)   |
++---------------------+------------+-------------+------------------+------------------------------+--------+
+| make_struct         | Varargs    | Any         | Struct           | :struct:`MakeStructOptions`  | \(2)   |
++---------------------+------------+-------------+------------------+------------------------------+--------+
 
 * \(1) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List and FixedSizeList,
@@ -1324,59 +1325,63 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | Function name      | Arity      | Input types       | Output type   | Options class              | Notes |
 +====================+============+===================+===============+============================+=======+
-| year               | Unary      | Temporal          | Int64         |                            |       |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
-| month              | Unary      | Temporal          | Int64         |                            |       |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
 | day                | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | day_of_week        | Unary      | Temporal          | Int64         | :struct:`DayOfWeekOptions` | \(1)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | day_of_year        | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_year           | Unary      | Temporal          | Int64         |                            | \(2)  |
+| hour               | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | iso_week           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| us_week            | Unary      | Temporal          | Int64         |                            | \(3)  |
+| iso_year           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(4)  |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_calendar       | Unary      | Timestamp         | Struct        |                            | \(5)  |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
-| quarter            | Unary      | Temporal          | Int64         |                            |       |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
-| hour               | Unary      | Timestamp, Time   | Int64         |                            |       |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
-| minute             | Unary      | Timestamp, Time   | Int64         |                            |       |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
-| second             | Unary      | Timestamp, Time   | Int64         |                            |       |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
-| millisecond        | Unary      | Timestamp, Time   | Int64         |                            |       |
+| iso_calendar       | Unary      | Temporal          | Struct        |                            | \(3)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | microsecond        | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
+| millisecond        | Unary      | Timestamp, Time   | Int64         |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| minute             | Unary      | Timestamp, Time   | Int64         |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| month              | Unary      | Temporal          | Int64         |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
 | nanosecond         | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
+| quarter            | Unary      | Temporal          | Int64         |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| second             | Unary      | Timestamp, Time   | Int64         |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
 | subsecond          | Unary      | Timestamp, Time   | Double        |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| us_week            | Unary      | Temporal          | Int64         |                            | \(4)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(5)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| year               | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
   represented by 0 and ends on Sunday represented by 6. :member:`DayOfWeekOptions::week_start` can be used to set
   the starting day of the week using ISO convention (Monday=1, Sunday=7). Day numbering can start with 0 or 1
   using :member:`DayOfWeekOptions::count_from_zero` parameter.
+
 * \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
   starts with the first ISO week. ISO week starts on Monday.
   See `ISO 8601 week date definition`_ for more details.
-* \(3) First US week has the majority (4 or more) of its days in January. US year
+
+* \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
+
+* \(4) First US week has the majority (4 or more) of its days in January. US year
   starts with the first US week. US week starts on Sunday.
-* \(4) Returns week number allowing for setting several parameters.
+
+* \(5) Returns week number allowing for setting several parameters.
   If :member:`WeekOptions::week_starts_monday` is true, the week starts with Monday, else Sunday if false.
   If :member:`WeekOptions::count_from_zero` is true, dates from the current year that fall into the last ISO week
   of the previous year are numbered as week 0, else week 52 or 53 if false.
   If :member:`WeekOptions::first_week_is_fully_in_year` is true, the first week (week 1) must fully be in January;
   else if false, a week that begins on December 29, 30, or 31 is considered the first week of the new year.
-* \(5) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
@@ -1441,6 +1446,10 @@ These functions select and return a subset of their input.
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
 +===============+========+==============+==============+==============+=========================+===========+
+| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
++---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
+| array_take    | Binary | Any          | Boolean      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
++---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
@@ -1477,26 +1486,26 @@ in the respective option classes.
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 | Function name         | Arity      | Input types                                             | Output type       | Options class                  | Notes          |
 +=======================+============+=========================================================+===================+================================+================+
-| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(1)           |
+| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(1) \(2)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(2) \(3)      |
+| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(3)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 | select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(4) \(5)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(2) \(4)      |
+| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(1) \(4)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 
-* \(1) The output is an array of indices into the input array, that define
+* \(1) The output is an array of indices into the input, that define a
+  stable sort of the input.
+
+* \(2) The input must be an array. The default order is ascending.
+
+* \(3) The output is an array of indices into the input array, that define
   a partial non-stable sort such that the *N*'th index points to the *N*'th
   element in sorted order, and all indices before the *N*'th point to
   elements less or equal to elements at or after the *N*'th (similar to
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
-
-* \(2) The output is an array of indices into the input, that define a
-  stable sort of the input.
-
-* \(3) The input must be an array. The default order is ascending.
 
 * \(4) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
@@ -1510,15 +1519,15 @@ in the respective option classes.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+------------------------------------+---------------------+---------+
-| Function name            | Arity      | Input types                        | Output type         | Notes   |
-+==========================+============+====================================+=====================+=========+
-| list_element             | Binary     | List-like (Arg 0), Integral (Arg 1)| List value type     | \(1)    |
-+--------------------------+------------+------------------------------------+---------------------+---------+
-| list_flatten             | Unary      | List-like                          | List value type     | \(2)    |
-+--------------------------+------------+------------------------------------+---------------------+---------+
-| list_parent_indices      | Unary      | List-like                          | Int32 or Int64      | \(3)    |
-+--------------------------+------------+------------------------------------+---------------------+---------+
++---------------------+------------+-------------------------------------+------------------+--------+
+| Function name       | Arity      | Input types                         | Output type      | Notes  |
++=====================+============+=====================================+==================+========+
+| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  | \(1)   |
++---------------------+------------+-------------------------------------+------------------+--------+
+| list_flatten        | Unary      | List-like                           | List value type  | \(2)   |
++---------------------+------------+-------------------------------------+------------------+--------+
+| list_parent_indices | Unary      | List-like                           | Int32 or Int64   | \(3)   |
++---------------------+------------+-------------------------------------+------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
   output values are the values at the specified index of each child list.

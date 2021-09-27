@@ -27,6 +27,8 @@ Aggregations
 .. autosummary::
    :toctree: ../generated/
 
+   all
+   any
    approximate_median
    count
    index
@@ -41,6 +43,26 @@ Aggregations
    sum
    tdigest
    variance
+
+Grouped Aggregations
+--------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   hash_all
+   hash_any
+   hash_approximate_median
+   hash_count
+   hash_count_distinct
+   hash_distinct
+   hash_max
+   hash_mean
+   hash_min
+   hash_min_max
+   hash_min_sum
+   hash_min_tdigest
+   hash_min_variance
 
 Arithmetic Functions
 --------------------
@@ -60,17 +82,16 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    divide_checked
    multiply
    multiply_checked
+   negate
+   negate_checked
    power
    power_checked
-   shift_left
-   shift_left_checked
-   shift_right
-   shift_right_checked
    sign
    subtract
    subtract_checked
 
-Bit-wise operations do not offer (or need) a checked variant.
+Bit-wise Functions
+------------------
 
 .. autosummary::
    :toctree: ../generated/
@@ -79,6 +100,10 @@ Bit-wise operations do not offer (or need) a checked variant.
    bit_wise_not
    bit_wise_or
    bit_wise_xor
+   shift_left
+   shift_left_checked
+   shift_right
+   shift_right_checked
 
 Rounding Functions
 ------------------
@@ -172,8 +197,8 @@ logic variants are provided (suffixed ``_kleene``). See User Guide for details.
 
    and_
    and_kleene
-   all
-   any
+   and_not
+   and_not_kleene
    invert
    or_
    or_kleene
@@ -226,15 +251,72 @@ a byte-by-byte basis.
 
    string_is_ascii
 
+String Transforms
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ascii_capitalize
+   ascii_lower
+   ascii_reverse
+   ascii_swapcase
+   ascii_title
+   ascii_upper
+   binary_length
+   binary_replace_slice
+   replace_substring
+   replace_substring_regex
+   utf8_capitalize
+   utf8_length
+   utf8_lower
+   utf8_replace_slice
+   utf8_reverse
+   utf8_swapcase
+   utf8_title
+   utf8_upper
+
+String Padding
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ascii_center
+   ascii_lpad
+   ascii_rpad
+   utf8_center
+   utf8_lpad
+   utf8_rpad
+
+String Trimming
+---------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ascii_ltrim
+   ascii_ltrim_whitespace
+   ascii_rtrim
+   ascii_rtrim_whitespace
+   ascii_trim
+   ascii_trim_whitespace
+   utf8_ltrim
+   utf8_ltrim_whitespace
+   utf8_rtrim
+   utf8_rtrim_whitespace
+   utf8_trim
+   utf8_trim_whitespace
+
 String Splitting
 ----------------
 
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_split_whitespace
    split_pattern
    split_pattern_regex
-   ascii_split_whitespace
    utf8_split_whitespace
 
 String Component Extraction
@@ -254,48 +336,15 @@ String Joining
    binary_join
    binary_join_element_wise
 
-String Transforms
------------------
+String Slicing
+--------------
 
 .. autosummary::
    :toctree: ../generated/
 
-   ascii_capitalize
-   ascii_center
-   ascii_lpad
-   ascii_ltrim
-   ascii_ltrim_whitespace
-   ascii_lower
-   ascii_reverse
-   ascii_rpad
-   ascii_rtrim
-   ascii_rtrim_whitespace
-   ascii_swapcase
-   ascii_title
-   ascii_trim
-   ascii_upper
-   binary_length
-   binary_replace_slice
-   replace_substring
-   replace_substring_regex
-   utf8_capitalize
-   utf8_center
-   utf8_length
-   utf8_lower
-   utf8_lpad
-   utf8_ltrim
-   utf8_ltrim_whitespace
-   utf8_replace_slice
-   utf8_reverse
-   utf8_rpad
-   utf8_rtrim
-   utf8_rtrim_whitespace
-   utf8_swapcase
-   utf8_title
-   utf8_trim
-   utf8_upper
+   utf8_slice_codepoints
 
-Containment tests
+Containment Tests
 -----------------
 
 .. autosummary::
@@ -313,6 +362,29 @@ Containment tests
    match_substring_regex
    starts_with
 
+Categorizations
+---------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   is_finite
+   is_inf
+   is_nan
+   is_null
+   is_valid
+
+Selecting / Multiplexing
+------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   case_when
+   choose
+   coalesce
+   if_else
+
 Conversions
 -----------
 
@@ -320,9 +392,10 @@ Conversions
    :toctree: ../generated/
 
    cast
+   strftime
    strptime
 
-Temporal component extraction
+Temporal Component Extraction
 -----------------------------
 
 .. autosummary::
@@ -332,9 +405,9 @@ Temporal component extraction
    day_of_week
    day_of_year
    hour
-   iso_calendar
    iso_week
    iso_year
+   iso_calendar
    microsecond
    millisecond
    minute
@@ -343,26 +416,19 @@ Temporal component extraction
    quarter
    second
    subsecond
+   us_week
+   week
    year
 
-Replacements
-------------
+Timezone Handling
+-----------------
 
 .. autosummary::
    :toctree: ../generated/
 
-   replace_with_mask
+   assume_timezone
 
-Selections
-----------
-
-.. autosummary::
-   :toctree: ../generated/
-
-   filter
-   take
-
-Associative transforms
+Associative Transforms
 ----------------------
 
 .. autosummary::
@@ -372,12 +438,25 @@ Associative transforms
    unique
    value_counts
 
-Sorts and partitions
+Selections
+----------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   array_filter
+   array_take
+   drop_null
+   filter
+   take
+
+Sorts and Partitions
 --------------------
 
 .. autosummary::
    :toctree: ../generated/
 
+   array_sort_indices
    partition_nth_indices
    select_k_unstable
    sort_indices
@@ -388,18 +467,9 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
-   binary_length
-   case_when
-   choose
-   coalesce
-   fill_null
-   if_else
-   is_finite
-   is_inf
-   is_nan
-   is_null
-   is_valid
    list_element
    list_flatten
    list_parent_indices
    list_value_length
+   make_struct
+   replace_with_mask
