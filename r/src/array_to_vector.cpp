@@ -121,6 +121,8 @@ class Converter {
     return Convert(std::make_shared<ChunkedArray>(array), false);
   }
 
+  SEXP MaybeAltrep() { return altrep::MakeAltrepVector(chunked_array_); }
+
  protected:
   std::shared_ptr<ChunkedArray> chunked_array_;
 };
@@ -705,7 +707,8 @@ class Converter_Struct : public Converter {
       : Converter(chunked_array), converters() {
     auto first_array =
         checked_cast<const arrow::StructArray*>(this->chunked_array_->chunk(0).get());
-    int nf = first_array->num_fields();
+    int nf = chunked_array->type()->num_fields();
+
     for (int i = 0; i < nf; i++) {
       converters.push_back(
           Converter::Make(std::make_shared<ChunkedArray>(first_array->field(i))));
@@ -716,8 +719,17 @@ class Converter_Struct : public Converter {
     // allocate a data frame column to host each array
     auto type =
         checked_cast<const arrow::StructType*>(this->chunked_array_->type().get());
-    auto out =
-        arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
+    auto out = arrow::r::to_r_list(
+        converters, [n, this](const std::shared_ptr<Converter>& converter) {
+          // when there is only one chunk, perhaps this field
+          // can be dealt with upfront with altrep
+          if (this->chunked_array_->num_chunks() == 1) {
+            SEXP alt = converter->MaybeAltrep();
+            if (!Rf_isNull(alt)) {
+              return alt;
+            }
+          }
+
           return converter->Allocate(n);
         });
     auto colnames = arrow::r::to_r_strings(
@@ -733,7 +745,12 @@ class Converter_Struct : public Converter {
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     int nf = converters.size();
     for (int i = 0; i < nf; i++) {
-      StopIfNotOk(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
+      SEXP data_i = VECTOR_ELT(data, i);
+
+      // only ingest if the column is not altrep
+      if (!is_altrep(data_i)) {
+        StopIfNotOk(converters[i]->Ingest_all_nulls(data_i, start, n));
+      }
     }
     return Status::OK();
   }
@@ -745,8 +762,13 @@ class Converter_Struct : public Converter {
     // Flatten() deals with merging of nulls
     auto arrays = ValueOrStop(struct_array->Flatten(gc_memory_pool()));
     for (int i = 0; i < nf; i++) {
-      StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start,
-                                                   n, chunk_index));
+      SEXP data_i = VECTOR_ELT(data, i);
+
+      // only ingest if the column is not altrep
+      if (!is_altrep(data_i)) {
+        StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i],
+                                                     start, n, chunk_index));
+      }
     }
 
     return Status::OK();

@@ -374,3 +374,5 @@ SEXP as_sexp(const std::shared_ptr<T>& ptr) {
 }
 
 }  // namespace cpp11
+
+bool is_altrep(SEXP x);

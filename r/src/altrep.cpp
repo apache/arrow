@@ -654,8 +654,8 @@ namespace altrep {
 // return an altrep R vector that shadows the array if possible
 SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 #if defined(HAS_ALTREP)
-
   // special case when there is only one array
+
   if (chunked_array->num_chunks() == 1) {
     const auto& array = chunked_array->chunk(0);
     // using altrep if

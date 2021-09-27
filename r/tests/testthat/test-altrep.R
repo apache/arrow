@@ -217,3 +217,11 @@ test_that("altrep vectors handle coercion", {
   expect_identical(strs, as.character(Array$create(ints)$as_vector()))
   expect_identical(strs, as.character(Array$create(dbls)$as_vector()))
 })
+
+test_that("columns of struct types may be altrep", {
+  st <- Array$create(data.frame(x = 1:10, y = runif(10)))
+  df <- st$as_vector()
+
+  expect_true(is_altrep(df$x))
+  expect_true(is_altrep(df$y))
+})
