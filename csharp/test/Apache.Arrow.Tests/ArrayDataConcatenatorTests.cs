@@ -15,8 +15,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Apache.Arrow.Types;
+using System.Reflection;
+using Apache.Arrow.Memory;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -26,16 +26,27 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void TestNullOrEmpty()
         {
-            Assert.Null(ArrayDataConcatenator.Concatenate(null));
-            Assert.Null(ArrayDataConcatenator.Concatenate(new List<ArrayData>()));
+            Assert.Null(ArrayDataConcatenatorReflector.InvokeConcatenate(null));
+            Assert.Null(ArrayDataConcatenatorReflector.InvokeConcatenate(new List<ArrayData>()));
         }
 
         [Fact]
         public void TestSingleElement()
         {
             Int32Array array = new Int32Array.Builder().Append(1).Append(2).Build();
-            ArrayData actualArray = ArrayDataConcatenator.Concatenate(new [] { array.Data });
+            ArrayData actualArray = ArrayDataConcatenatorReflector.InvokeConcatenate(new[] { array.Data });
             ArrowReaderVerifier.CompareArrays(array, ArrowArrayFactory.BuildArray(actualArray));
+        }
+
+        private static class ArrayDataConcatenatorReflector
+        {
+            private static readonly Type s_arrayDataConcatenatorType = Assembly.Load("Apache.Arrow").GetType("Apache.Arrow.ArrayDataConcatenator");
+            private static readonly MethodInfo s_concatenateInfo = s_arrayDataConcatenatorType.GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
+
+            internal static ArrayData InvokeConcatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
+            {
+                return s_concatenateInfo.Invoke(null, new object[] { arrayDataList, allocator }) as ArrayData;
+            }
         }
     }
 }

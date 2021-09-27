@@ -16,6 +16,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -28,7 +30,7 @@ namespace Apache.Arrow.Tests
         {
             foreach ((List<IArrowArray> testTargetArrayList, IArrowArray expectedArray) in GenerateTestData())
             {
-                IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(testTargetArrayList);
+                IArrowArray actualArray = ArrowArrayConcatenatorReflector.InvokeConcatenate(testTargetArrayList);
                 ArrowReaderVerifier.CompareArrays(expectedArray, actualArray);
             }
         }
@@ -36,15 +38,15 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void TestNullOrEmpty()
         {
-            Assert.Null(ArrowArrayConcatenator.Concatenate(null));
-            Assert.Null(ArrowArrayConcatenator.Concatenate(new List<IArrowArray>()));
+            Assert.Null(ArrowArrayConcatenatorReflector.InvokeConcatenate(null));
+            Assert.Null(ArrowArrayConcatenatorReflector.InvokeConcatenate(new List<IArrowArray>()));
         }
 
         [Fact]
         public void TestSingleElement()
         {
             Int32Array array = new Int32Array.Builder().Append(1).Append(2).Build();
-            IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(new [] { array });
+            IArrowArray actualArray = ArrowArrayConcatenatorReflector.InvokeConcatenate(new[] { array });
             ArrowReaderVerifier.CompareArrays(array, actualArray);
         }
 
@@ -81,6 +83,17 @@ namespace Apache.Arrow.Tests
                 var creator = new TestDataGenerator();
                 type.Accept(creator);
                 yield return Tuple.Create(creator.TestTargetArrayList, creator.ExpectedArray);
+            }
+        }
+
+        private static class ArrowArrayConcatenatorReflector
+        {
+            private static readonly Type s_arrowArrayConcatenatorType = Assembly.Load("Apache.Arrow").GetType("Apache.Arrow.ArrowArrayConcatenator");
+            private static readonly MethodInfo s_concatenateInfo = s_arrowArrayConcatenatorType.GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
+
+            internal static IArrowArray InvokeConcatenate(IReadOnlyList<IArrowArray> arrowArrayList, MemoryAllocator allocator = default)
+            {
+                return s_concatenateInfo.Invoke(null, new object[] { arrowArrayList, allocator }) as IArrowArray;
             }
         }
 
@@ -351,13 +364,13 @@ namespace Apache.Arrow.Tests
                 where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>
                 where TArray : IArrowArray
             {
-                var resultBuilder = (IArrowArrayBuilder<T, TArray, TArrayBuilder>)ArrowArrayBuilderFactory.Build(type);
+                var resultBuilder = (IArrowArrayBuilder<T, TArray, TArrayBuilder>)ArrayArrayBuilderFactoryReflector.InvokeBuild(type);
                 resultBuilder.Reserve(_baseDataTotalElementCount);
 
                 for (int i = 0; i < _baseDataListCount; i++)
                 {
                     List<int?> dataList = _baseData[i];
-                    var builder = (IArrowArrayBuilder<T, TArray, TArrayBuilder>)ArrowArrayBuilderFactory.Build(type);
+                    var builder = (IArrowArrayBuilder<T, TArray, TArrayBuilder>)ArrayArrayBuilderFactoryReflector.InvokeBuild(type);
                     builder.Reserve(dataList.Count);
 
                     foreach (int? value in dataList)
