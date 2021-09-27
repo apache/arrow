@@ -21,6 +21,7 @@
 #include <arrow/compute/exec/expression.h>
 #include <arrow/csv/api.h>
 #include <arrow/csv/writer.h>
+#include <arrow/filesystem/filesystem.h>
 #include <arrow/io/file.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/result.h>
@@ -33,7 +34,16 @@
 // assembled into a table. In this example, we
 // examine how to compare two arrays which are
 // combined to form a table that is then written
-// out to a CSV file.
+// out to a CSV file. 
+//
+// To run this example you can use
+// ./comparison_example uri
+//
+// where uri is the universal resource identifier
+// to the directory you want created on your 
+// filesystem that output will be put into, for
+// example on a local linux system
+// ./comparison_example file:///$PWD
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
@@ -46,7 +56,13 @@
 
 
 int main(int argc, char** argv){
-        const char* csv_filename = "output.csv";
+
+        if (argc < 2) {
+                std::cout << "Please enter the path to which you want data saved" 
+                          << std::endl; 
+                // Fake success for CI purposes.
+                return EXIT_SUCCESS;
+        }
 
         // Make Arrays
         arrow::NumericBuilder<arrow::Int64Type>  int64_builder;
@@ -67,9 +83,10 @@ int main(int argc, char** argv){
         ABORT_ON_FAILURE(int64_builder.AppendValues(int64_values));
         ABORT_ON_FAILURE(int64_builder.Finish(&array_b));
 
-        // Cast the Arrays to their actual types
+        // Cast the arrays to their actual types
         auto int64_array_a = std::static_pointer_cast<arrow::Int64Array>(array_a);
         auto int64_array_b = std::static_pointer_cast<arrow::Int64Array>(array_b);
+        // Explicit comparison using a loop
         for(int64_t i=0; i < 8; i++)
         {
                 if( (!int64_array_a->IsNull(i)) & 
@@ -82,31 +99,39 @@ int main(int argc, char** argv){
         }
         std::shared_ptr<arrow::Array> array_c;
         ABORT_ON_FAILURE(boolean_builder.Finish(&array_c));
-        //auto bool_array_c  = std::static_pointer_cast<arrow::BooleanArray>(array_c);
-        std::cout << "Array created" << std::endl;
+        std::cout << "Array explicitly compared" << std::endl;
 
-        // Try a compute function
+        // Try a compute function for comparison
         arrow::Datum compared_datum;
-        std::shared_ptr<arrow::Array> compared_array;
-        //auto bool_compared_array  = std::static_pointer_cast<arrow::BooleanArray>(compared_array);
+        std::shared_ptr<arrow::Array> array_d;
         arrow::Result<arrow::Datum> st_compared_datum = 
                 arrow::compute::CallFunction("greater",{array_a,array_b});
         if (st_compared_datum.ok()) {
                 compared_datum = std::move(st_compared_datum).ValueOrDie();
-                compared_array = compared_datum.make_array();
+                array_d = compared_datum.make_array();
         }else{
                 std::cerr << st_compared_datum.status() << std::endl;
         }
+        std::cout << "Arrays compared using a compute function" << std::endl;
         // Create a table
         auto schema = arrow::schema({arrow::field("a", arrow::int64()),
                                      arrow::field("b", arrow::int64()),
-                                     arrow::field("c", arrow::boolean()),
-                                     arrow::field("d", arrow::boolean())  });
-        std::shared_ptr<arrow::Table> my_table = arrow::Table::Make(schema, {array_a,array_b,array_c,
-                                                           compared_array});
+                                     arrow::field("a>b? (self written)", arrow::boolean()),
+                                     arrow::field("a>b? (arrow)", arrow::boolean())  });
+        std::shared_ptr<arrow::Table> my_table = arrow::Table::Make(schema, {array_a,array_b,
+                                                                             array_c,array_d});
 
         std::cout << "Table created" << std::endl;
 
+        // Create a folder to output the data
+        std::string uri = argv[1];
+        std::string root_path;
+        auto fs = arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
+        std::string base_path = root_path + "/csv_dataset";
+        std::cout << "Base path " << base_path << std::endl;
+        ABORT_ON_FAILURE(fs->CreateDir(base_path));
+        auto csv_filename = base_path + "/output.csv";
+         
         // Write table to CSV file
         std::shared_ptr<arrow::io::FileOutputStream> outstream;
         arrow::Result<std::shared_ptr<arrow::io::FileOutputStream>> st = 
@@ -123,7 +148,7 @@ int main(int argc, char** argv){
         {
                 std::cout << "Writing CSV file completed" << std::endl;
         }else{
-                std::cout << "Writing CSV file failed" << std::endl;
+                std::cerr << "Writing CSV file failed" << std::endl;
         }
 
         return 0;
