@@ -1305,6 +1305,8 @@ TEST_F(TestSchemaImport, Temporal) {
   CheckImport(month_interval());
   FillPrimitive("tiD");
   CheckImport(day_time_interval());
+  FillPrimitive("tiN");
+  CheckImport(month_day_nano_interval());
 
   FillPrimitive("tss:");
   CheckImport(timestamp(TimeUnit::SECOND));
