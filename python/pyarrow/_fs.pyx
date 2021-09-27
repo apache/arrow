@@ -597,15 +597,15 @@ cdef class FileSystem(_Weakrefable):
 
         Parameters
         ----------
-        source: str
+        source : str
             The source to open for reading.
-        compression: str optional, default 'detect'
+        compression : str optional, default 'detect'
             The compression algorithm to use for on-the-fly decompression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: int optional, default None
+        buffer_size : int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary read buffer.
 
@@ -639,16 +639,16 @@ cdef class FileSystem(_Weakrefable):
         ----------
         path : str
             The source to open for writing.
-        compression: str optional, default 'detect'
+        compression : str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: int optional, default None
+        buffer_size : int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
-        metadata: dict optional, default None
+        metadata : dict optional, default None
             If not None, a mapping of string keys to string values.
             Some filesystems support storing metadata along the file
             (such as "Content-Type").
@@ -693,16 +693,16 @@ cdef class FileSystem(_Weakrefable):
         ----------
         path : str
             The source to open for writing.
-        compression: str optional, default 'detect'
+        compression : str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: int optional, default None
+        buffer_size : int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
-        metadata: dict optional, default None
+        metadata : dict optional, default None
             If not None, a mapping of string keys to string values.
             Some filesystems support storing metadata along the file
             (such as "Content-Type").
@@ -768,7 +768,7 @@ cdef class LocalFileSystem(FileSystem):
 
     Parameters
     ----------
-    use_mmap: bool, default False
+    use_mmap : bool, default False
         Whether open_input_stream and open_input_file should return
         a mmap'ed file or a regular file.
     """
@@ -813,9 +813,9 @@ cdef class SubTreeFileSystem(FileSystem):
 
     Parameters
     ----------
-    base_path: str
+    base_path : str
         The root of the subtree.
-    base_fs: FileSystem
+    base_fs : FileSystem
         FileSystem object the operations delegated to.
     """
 
@@ -934,36 +934,42 @@ class FileSystemHandler(ABC):
         """
         Implement PyFileSystem.type_name.
         """
+    get_type_name.__doc__ = FileSystem.get_type_name.__doc__
 
     @abstractmethod
     def get_file_info(self, paths):
         """
         Implement PyFileSystem.get_file_info(paths).
         """
+    get_file_info.__doc__ = FileSystem.get_file_info.__doc__
 
     @abstractmethod
     def get_file_info_selector(self, selector):
         """
         Implement PyFileSystem.get_file_info(selector).
         """
+    get_file_info_selector.__doc__ = FileSystem.get_file_info_selector.__doc__
 
     @abstractmethod
     def create_dir(self, path, recursive):
         """
         Implement PyFileSystem.create_dir(...).
         """
+    create_dir.__doc__ = FileSystem.create_dir.__doc__
 
     @abstractmethod
     def delete_dir(self, path):
         """
         Implement PyFileSystem.delete_dir(...).
         """
+    delete_dir.__doc__ = FileSystem.delete_dir.__doc__
 
     @abstractmethod
     def delete_dir_contents(self, path):
         """
         Implement PyFileSystem.delete_dir_contents(...).
         """
+    delete_dir_contents.__doc__ = FileSystem.delete_dir_contents.__doc__
 
     @abstractmethod
     def delete_root_dir_contents(self):
@@ -976,48 +982,56 @@ class FileSystemHandler(ABC):
         """
         Implement PyFileSystem.delete_file(...).
         """
+    delete_file.__doc__ = FileSystem.delete_file.__doc__
 
     @abstractmethod
     def move(self, src, dest):
         """
         Implement PyFileSystem.move(...).
         """
+    move.__doc__ = FileSystem.move.__doc__
 
     @abstractmethod
     def copy_file(self, src, dest):
         """
         Implement PyFileSystem.copy_file(...).
         """
+    copy_file.__doc__ = FileSystem.copy_file.__doc__
 
     @abstractmethod
     def open_input_stream(self, path):
         """
         Implement PyFileSystem.open_input_stream(...).
         """
+    open_input_stream.__doc__ = FileSystem.open_input_stream.__doc__
 
     @abstractmethod
     def open_input_file(self, path):
         """
         Implement PyFileSystem.open_input_file(...).
         """
+    open_input_file.__doc__ = FileSystem.open_input_file.__doc__
 
     @abstractmethod
     def open_output_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_output_stream(...).
         """
+    open_output_stream.__doc__ = FileSystem.open_output_stream.__doc__
 
     @abstractmethod
     def open_append_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_append_stream(...).
         """
+    open_append_stream.__doc__ = FileSystem.open_append_stream.__doc__
 
     @abstractmethod
     def normalize_path(self, path):
         """
         Implement PyFileSystem.normalize_path(...).
         """
+    normalize_path.__doc__ = FileSystem.normalize_path.__doc__
 
 
 # Callback definitions for CPyFileSystemVtable
