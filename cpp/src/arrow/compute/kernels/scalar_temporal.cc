@@ -22,6 +22,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
 #include "arrow/vendored/datetime.h"
@@ -72,41 +73,6 @@ const std::shared_ptr<DataType>& IsoCalendarType() {
   return type;
 }
 
-const std::string& GetInputTimezone(const DataType& type) {
-  return checked_cast<const TimestampType&>(type).timezone();
-}
-
-const std::string& GetInputTimezone(const Datum& datum) {
-  return checked_cast<const TimestampType&>(*datum.type()).timezone();
-}
-
-const std::string& GetInputTimezone(const Scalar& scalar) {
-  return checked_cast<const TimestampType&>(*scalar.type).timezone();
-}
-
-const std::string& GetInputTimezone(const ArrayData& array) {
-  return checked_cast<const TimestampType&>(*array.type).timezone();
-}
-
-template <typename T>
-enable_if_timestamp<T, const std::string> GetInputTimezone(const DataType& type) {
-  return GetInputTimezone(type);
-}
-
-template <typename T>
-enable_if_t<is_time_type<T>::value || is_date_type<T>::value, const std::string>
-GetInputTimezone(const DataType& type) {
-  return "";
-}
-
-Result<const time_zone*> LocateZone(const std::string& timezone) {
-  try {
-    return locate_zone(timezone);
-  } catch (const std::runtime_error& ex) {
-    return Status::Invalid("Cannot locate timezone '", timezone, "': ", ex.what());
-  }
-}
-
 Result<std::locale> GetLocale(const std::string& locale) {
   try {
     return std::locale(locale.c_str());
@@ -114,144 +80,6 @@ Result<std::locale> GetLocale(const std::string& locale) {
     return Status::Invalid("Cannot find locale '", locale, "': ", ex.what());
   }
 }
-
-struct NonZonedLocalizer {
-  // No-op conversions: UTC -> UTC
-  template <typename Duration>
-  sys_time<Duration> ConvertTimePoint(int64_t t) const {
-    return sys_time<Duration>(Duration{t});
-  }
-
-  sys_days ConvertDays(sys_days d) const { return d; }
-};
-
-struct ZonedLocalizer {
-  // Timezone-localizing conversions: UTC -> local time
-  const time_zone* tz;
-
-  template <typename Duration>
-  local_time<Duration> ConvertTimePoint(int64_t t) const {
-    return tz->to_local(sys_time<Duration>(Duration{t}));
-  }
-
-  local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }
-};
-
-//
-// Executor class for temporal component extractors, i.e. scalar kernels
-// with the signature temporal type -> <non-temporal scalar type `OutType`>
-//
-// The `Op` parameter is templated on the Duration (which depends on the timestamp
-// unit) and a Localizer class (depending on whether the timestamp has a
-// timezone defined).
-//
-template <template <typename...> class Op, typename Duration, typename InType,
-          typename OutType>
-struct TemporalComponentExtractBase {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    const auto& timezone = GetInputTimezone(batch.values[0]);
-    if (timezone.empty()) {
-      using ExecTemplate = Op<Duration, NonZonedLocalizer>;
-      auto op = ExecTemplate(options, NonZonedLocalizer());
-      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
-          op};
-      return kernel.Exec(ctx, batch, out);
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      using ExecTemplate = Op<Duration, ZonedLocalizer>;
-      auto op = ExecTemplate(options, ZonedLocalizer{tz});
-      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
-          op};
-      return kernel.Exec(ctx, batch, out);
-    }
-  }
-};
-
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, days, Date32Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<days, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Date32Type, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Date64Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<std::chrono::milliseconds, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Date64Type, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, std::chrono::seconds, Time32Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<std::chrono::seconds, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Time32Type, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Time32Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<std::chrono::milliseconds, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Time32Type, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, std::chrono::microseconds, Time64Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<std::chrono::microseconds, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Date64Type, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, std::chrono::nanoseconds, Time64Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<std::chrono::nanoseconds, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Date64Type, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename Duration, typename InType,
-          typename OutType>
-struct TemporalComponentExtract
-    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
-  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const FunctionOptions* options = nullptr;
-    return Base::ExecWithOptions(ctx, options, batch, out);
-  }
-};
 
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
@@ -646,7 +474,7 @@ struct Strftime {
     if ((options.format.find("%c") != std::string::npos) && (options.locale != "C")) {
       return Status::Invalid("%c flag is not supported in non-C locales.");
     }
-    auto timezone = GetInputTimezone<InType>(type);
+    auto timezone = GetInputTimezone(type);
 
     if (timezone.empty()) {
       if ((options.format.find("%z") != std::string::npos) ||
@@ -953,7 +781,7 @@ enum EnabledTypes : uint8_t { WithDates, WithTimes, WithTimestamps };
 
 template <template <typename...> class Op,
           template <template <typename...> class OpExec, typename Duration,
-                    typename InType, typename OutType>
+                    typename InType, typename OutType, typename... Args>
           class ExecTemplate,
           typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporal(

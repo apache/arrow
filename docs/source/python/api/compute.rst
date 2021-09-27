@@ -322,6 +322,29 @@ Conversions
    cast
    strptime
 
+Temporal component extraction
+-----------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   day
+   day_of_week
+   day_of_year
+   hour
+   iso_calendar
+   iso_week
+   iso_year
+   microsecond
+   millisecond
+   minute
+   month
+   nanosecond
+   quarter
+   second
+   subsecond
+   year
+
 Replacements
 ------------
 
