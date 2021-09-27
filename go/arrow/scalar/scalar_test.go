@@ -515,11 +515,30 @@ func TestNumericScalarCasts(t *testing.T) {
 		arrow.FixedWidthTypes.MonthInterval,
 	}
 
+	falseScalar := scalar.NewBooleanScalar(false)
+	trueScalar := scalar.NewBooleanScalar(true)
+	nullBool := scalar.MakeNullScalar(arrow.FixedWidthTypes.Boolean)
+
 	for _, tt := range tests {
+		t.Run(tt.ID().String()+"from bool", func(t *testing.T) {
+			zero, _ := scalar.ParseScalar(tt, "0")
+			zeroFromBool, err := falseScalar.CastTo(tt)
+			assert.NoError(t, err)
+			assert.True(t, scalar.Equals(zero, zeroFromBool))
+
+			one, _ := scalar.ParseScalar(tt, "1")
+			oneFromBool, err := trueScalar.CastTo(tt)
+			assert.NoError(t, err)
+			assert.True(t, scalar.Equals(one, oneFromBool))
+		})
 		t.Run(tt.ID().String(), func(t *testing.T) {
 			for _, repr := range []string{"0", "1", "3"} {
 				nullTest := scalar.MakeNullScalar(tt)
 				assert.Equal(t, "null", nullTest.String())
+
+				castedNull, err := nullBool.CastTo(tt)
+				assert.NoError(t, err)
+				assert.True(t, scalar.Equals(castedNull, nullTest))
 
 				s, err := scalar.ParseScalar(tt, repr)
 				assert.NoError(t, err)
