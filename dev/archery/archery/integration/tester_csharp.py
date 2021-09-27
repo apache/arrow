@@ -26,7 +26,9 @@ class CSharpTester(Tester):
     CONSUMER = True
 
     EXE_PATH = os.path.join(
-        ARROW_ROOT_DEFAULT, 'csharp/artifacts/Apache.Arrow.IntegrationTest/Debug/netcoreapp3.1/Apache.Arrow.IntegrationTest')
+        ARROW_ROOT_DEFAULT,
+        'csharp/artifacts/Apache.Arrow.IntegrationTest',
+        'Debug/netcoreapp3.1/Apache.Arrow.IntegrationTest')
 
     name = 'C#'
 
