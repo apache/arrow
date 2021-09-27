@@ -41,6 +41,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/endian"
 	"github.com/apache/arrow/go/arrow/ipc"
 )
 
@@ -48,7 +49,7 @@ func encodeCMetadata(keys, values []string) []byte {
 	if len(keys) != len(values) {
 		panic("unequal metadata key/values length")
 	}
-	npairs := len(keys)
+	npairs := int32(len(keys))
 
 	var b bytes.Buffer
 	totalSize := 4
@@ -57,11 +58,11 @@ func encodeCMetadata(keys, values []string) []byte {
 	}
 	b.Grow(totalSize)
 
-	binary.Write(&b, binary.LittleEndian, int32(npairs))
+	b.Write((*[4]byte)(unsafe.Pointer(&npairs))[:])
 	for i := range keys {
-		binary.Write(&b, binary.LittleEndian, int32(len(keys[i])))
+		binary.Write(&b, endian.Native, int32(len(keys[i])))
 		b.WriteString(keys[i])
-		binary.Write(&b, binary.LittleEndian, int32(len(values[i])))
+		binary.Write(&b, endian.Native, int32(len(values[i])))
 		b.WriteString(values[i])
 	}
 	return b.Bytes()

@@ -65,6 +65,10 @@ func releaseExportedSchema(schema *CArrowSchema) {
 	C.free(unsafe.Pointer(schema.format))
 	C.free(unsafe.Pointer(schema.metadata))
 
+	if schema.n_children == 0 {
+		return
+	}
+
 	var children []*CArrowSchema
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&children))
 	s.Data = uintptr(unsafe.Pointer(schema.children))
@@ -73,7 +77,10 @@ func releaseExportedSchema(schema *CArrowSchema) {
 
 	for _, c := range children {
 		C.ArrowSchemaRelease(c)
+		C.free(unsafe.Pointer(c))
 	}
+
+	C.free(unsafe.Pointer(schema.children))
 }
 
 //export releaseExportedArray
@@ -96,7 +103,10 @@ func releaseExportedArray(arr *CArrowArray) {
 
 		for _, c := range children {
 			C.ArrowArrayRelease(c)
+			C.free(unsafe.Pointer(c))
 		}
+
+		C.free(unsafe.Pointer(arr.children))
 	}
 
 	h := dataHandle(arr.private_data)
