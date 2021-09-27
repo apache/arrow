@@ -889,6 +889,37 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
+agg_funcs$quantile <- function(x, probs, na.rm = FALSE) {
+  if (length(probs) != 1) {
+    arrow_not_supported("quantile() with length(probs) != 1")
+  }
+  # TODO: Bind to the Arrow function that returns an exact quantile and remove
+  # this warning (ARROW-14021)
+  warn(
+    "quantile() currently returns an approximate quantile in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.quantile.approximate"
+  )
+  list(
+    fun = "tdigest",
+    data = x,
+    options = list(skip_nulls = na.rm, q = probs)
+  )
+}
+agg_funcs$median <- function(x, na.rm = FALSE) {
+  # TODO: Bind to the Arrow function that returns an exact median and remove
+  # this warning (ARROW-14021)
+  warn(
+    "median() currently returns an approximate median in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.median.approximate"
+  )
+  list(
+    fun = "approximate_median",
+    data = x,
+    options = list(skip_nulls = na.rm)
+  )
+}
 agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
   list(
     fun = "count_distinct",
@@ -926,15 +957,21 @@ agg_funcs$max <- function(..., na.rm = FALSE) {
   )
 }
 
-output_type <- function(fun, input_type) {
+output_type <- function(fun, input_type, hash) {
   # These are quick and dirty heuristics.
   if (fun %in% c("any", "all")) {
     bool()
   } else if (fun %in% "sum") {
     # It may upcast to a bigger type but this is close enough
     input_type
-  } else if (fun %in% c("mean", "stddev", "variance")) {
+  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
     float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
   } else {
     # Just so things don't error, assume the resulting type is the same
     input_type

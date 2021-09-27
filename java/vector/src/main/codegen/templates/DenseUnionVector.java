@@ -734,8 +734,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
 
   @Override
   public Iterator<ValueVector> iterator() {
-    List<ValueVector> vectors = org.apache.arrow.util.Collections2.toList(internalStruct.iterator());
-    return vectors.iterator();
+    return internalStruct.iterator();
   }
 
   private ValueVector getVector(int index) {

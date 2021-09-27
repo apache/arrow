@@ -172,14 +172,27 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   }
 
   if (func_name == "all" || func_name == "hash_all" || func_name == "any" ||
-      func_name == "hash_any" || func_name == "mean" || func_name == "hash_mean" ||
-      func_name == "min_max" || func_name == "hash_min_max" || func_name == "min" ||
-      func_name == "hash_min" || func_name == "max" || func_name == "hash_max" ||
-      func_name == "sum" || func_name == "hash_sum") {
+      func_name == "hash_any" || func_name == "approximate_median" ||
+      func_name == "hash_approximate_median" || func_name == "mean" ||
+      func_name == "hash_mean" || func_name == "min_max" || func_name == "hash_min_max" ||
+      func_name == "min" || func_name == "hash_min" || func_name == "max" ||
+      func_name == "hash_max" || func_name == "sum" || func_name == "hash_sum") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["min_count"])) {
       out->min_count = cpp11::as_cpp<int>(options["min_count"]);
+    }
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
+    }
+    return out;
+  }
+
+  if (func_name == "tdigest" || func_name == "hash_tdigest") {
+    using Options = arrow::compute::TDigestOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["q"])) {
+      out->q = cpp11::as_cpp<std::vector<double>>(options["q"]);
     }
     if (!Rf_isNull(options["skip_nulls"])) {
       out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
