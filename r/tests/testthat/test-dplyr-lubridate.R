@@ -125,12 +125,22 @@ test_that("extract wday from timestamp", {
     test_df
   )
 
-  # We should be able to support the label argument after this ticket is resolved:
-  # https://issues.apache.org/jira/browse/ARROW-13133
-  x <- Expression$field_ref("x")
-  expect_error(
-    nse_funcs$wday(x, label = TRUE),
-    "Label argument not supported by Arrow"
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, label = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(datetime, label = TRUE, abbr = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
   )
 })
 
@@ -259,12 +269,22 @@ test_that("extract wday from date", {
     test_df
   )
 
-  # We should be able to support the label argument after this ticket is resolved:
-  # https://issues.apache.org/jira/browse/ARROW-13133
-  x <- Expression$field_ref("x")
-  expect_error(
-    nse_funcs$wday(x, label = TRUE),
-    "Label argument not supported by Arrow"
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, label = TRUE, abbr = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, label = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
   )
 })
 

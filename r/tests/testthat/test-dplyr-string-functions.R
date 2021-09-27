@@ -737,27 +737,36 @@ test_that("errors in strptime", {
 test_that("strftime", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
-  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
-  seconds <- tibble(x = c("05.000000", NA))
+  times <- tibble(
+    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
+    date = c(as.Date("2021-09-09"), NA)
+  )
   formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
 
   expect_dplyr_equal(
     input %>%
-      mutate(x = strftime(x, format = formats)) %>%
+      mutate(x = strftime(datetime, format = formats)) %>%
       collect(),
     times
   )
 
   expect_dplyr_equal(
     input %>%
-      mutate(x = strftime(x, format = formats, tz = "Pacific/Marquesas")) %>%
+      mutate(x = strftime(date, format = formats)) %>%
       collect(),
     times
   )
 
   expect_dplyr_equal(
     input %>%
-      mutate(x = strftime(x, format = formats, tz = "EST", usetz = TRUE)) %>%
+      mutate(x = strftime(datetime, format = formats, tz = "Pacific/Marquesas")) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
       collect(),
     times
   )
@@ -765,7 +774,7 @@ test_that("strftime", {
   withr::with_timezone("Pacific/Marquesas",
     expect_dplyr_equal(
       input %>%
-        mutate(x = strftime(x, format = formats, tz = "EST")) %>%
+        mutate(x = strftime(datetime, format = formats, tz = "EST")) %>%
         collect(),
       times
     )
@@ -776,7 +785,7 @@ test_that("strftime", {
   expect_error(
     times %>%
       Table$create() %>%
-      mutate(x = strftime(x, format = "%c")) %>%
+      mutate(x = strftime(datetime, format = "%c")) %>%
       collect(),
     "%c flag is not supported in non-C locales."
   )
@@ -787,7 +796,7 @@ test_that("strftime", {
   # point numbers with 3, 6 and 9 decimal places respectively.
   expect_dplyr_equal(
     input %>%
-      mutate(x = strftime(x, format = "%S")) %>%
+      mutate(x = strftime(datetime, format = "%S")) %>%
       transmute(as.double(substr(x, 1, 2))) %>%
       collect(),
     times,

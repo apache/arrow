@@ -731,13 +731,15 @@ nse_funcs$round <- function(x, digits = 0) {
   )
 }
 
-nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
-
-  # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
-  # When the ticket below is resolved, we should be able to support the label argument
-  # https://issues.apache.org/jira/browse/ARROW-13133
+nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7),
+                           locale = Sys.getlocale("LC_TIME")) {
   if (label) {
-    arrow_not_supported("Label argument")
+    if (abbr) (
+      format <- "%a"
+    ) else {
+      format <- "%A"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
   }
 
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
