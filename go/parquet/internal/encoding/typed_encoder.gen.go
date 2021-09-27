@@ -495,10 +495,9 @@ type int96EncoderTraits struct{}
 
 // Encoder returns an encoder for int96 type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
-// dictionary encoding does not exist for this type and Encoder will panic if useDict is true
 func (int96EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
 	if useDict {
-		panic("parquet: no parquet.Int96 dictionary encoding")
+		return &DictInt96Encoder{newDictEncoderBase(descr, NewBinaryDictionary(mem), mem)}
 	}
 
 	switch e {
@@ -521,7 +520,7 @@ func (int96DecoderTraits) BytesRequired(n int) int {
 // Decoder returns a decoder for int96 typed data of the requested encoding type if available
 func (int96DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useDict bool, mem memory.Allocator) TypedDecoder {
 	if useDict {
-		panic("dictionary decoding unimplemented for int96")
+		return &DictInt96Decoder{dictDecoder{decoder: newDecoderBase(format.Encoding_RLE_DICTIONARY, descr), mem: mem}}
 	}
 
 	switch e {
@@ -530,6 +529,157 @@ func (int96DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useD
 	default:
 		panic("unimplemented encoding type")
 	}
+}
+
+// DictInt96Encoder is an encoder for parquet.Int96 data using dictionary encoding
+type DictInt96Encoder struct {
+	dictEncoder
+}
+
+// Type returns the underlying physical type that can be encoded with this encoder
+func (enc *DictInt96Encoder) Type() parquet.Type {
+	return parquet.Types.Int96
+}
+
+// WriteDict populates the byte slice with the dictionary index
+func (enc *DictInt96Encoder) WriteDict(out []byte) {
+	enc.memo.(BinaryMemoTable).CopyFixedWidthValues(0, parquet.Int96SizeBytes, out)
+}
+
+// Put encodes the values passed in, adding to the index as needed
+func (enc *DictInt96Encoder) Put(in []parquet.Int96) {
+	for _, v := range in {
+		memoIdx, found, err := enc.memo.GetOrInsert(v)
+		if err != nil {
+			panic(err)
+		}
+		if !found {
+			enc.dictEncodedSize += parquet.Int96SizeBytes
+		}
+		enc.addIndex(memoIdx)
+	}
+}
+
+// PutSpaced is like Put but assumes space for nulls
+func (enc *DictInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, validBitsOffset int64) {
+	utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+		enc.Put(in[pos : pos+length])
+		return nil
+	})
+}
+
+// DictInt96Decoder is a decoder for decoding dictionary encoded data for parquet.Int96 columns
+type DictInt96Decoder struct {
+	dictDecoder
+}
+
+// Type returns the underlying physical type that can be decoded with this decoder
+func (DictInt96Decoder) Type() parquet.Type {
+	return parquet.Types.Int96
+}
+
+// Decode populates the passed in slice with min(len(out), remaining values) values,
+// decoding using hte dictionary to get the actual values. Returns the number of values
+// actually decoded and any error encountered.
+func (d *DictInt96Decoder) Decode(out []parquet.Int96) (int, error) {
+	vals := utils.MinInt(len(out), d.nvals)
+	decoded, err := d.decode(out[:vals])
+	if err != nil {
+		return decoded, err
+	}
+	if vals != decoded {
+		return decoded, xerrors.New("parquet: dict eof exception")
+	}
+	d.nvals -= vals
+	return vals, nil
+}
+
+// Decode spaced is like Decode but will space out the data leaving slots for null values
+// based on the provided bitmap.
+func (d *DictInt96Decoder) DecodeSpaced(out []parquet.Int96, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
+	vals := utils.MinInt(len(out), d.nvals)
+	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
+	if err != nil {
+		return decoded, err
+	}
+	if vals != decoded {
+		return decoded, xerrors.New("parquet: dict spaced eof exception")
+	}
+	d.nvals -= vals
+	return vals, nil
+}
+
+// Int96DictConverter is a helper for dictionary handling which is used for converting
+// run length encoded indexes into the actual values that are stored in the dictionary index page.
+type Int96DictConverter struct {
+	valueDecoder Int96Decoder
+	dict         []parquet.Int96
+	zeroVal      parquet.Int96
+}
+
+// ensure validates that we've decoded dictionary values up to the index
+// provided so that we don't need to decode the entire dictionary at start.
+func (dc *Int96DictConverter) ensure(idx utils.IndexType) error {
+	if len(dc.dict) <= int(idx) {
+		if cap(dc.dict) <= int(idx) {
+			val := make([]parquet.Int96, int(idx+1)-len(dc.dict))
+			n, err := dc.valueDecoder.Decode(val)
+			if err != nil {
+				return err
+			}
+			dc.dict = append(dc.dict, val[:n]...)
+		} else {
+			cur := len(dc.dict)
+			n, err := dc.valueDecoder.Decode(dc.dict[cur : idx+1])
+			if err != nil {
+				return err
+			}
+			dc.dict = dc.dict[:cur+n]
+		}
+	}
+	return nil
+}
+
+// IsValid verifies that the set of indexes passed in are all valid indexes
+// in the dictionary and if necessary decodes dictionary indexes up to the index
+// requested.
+func (dc *Int96DictConverter) IsValid(idxes ...utils.IndexType) bool {
+	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	dc.ensure(utils.IndexType(max))
+
+	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)
+}
+
+// Fill populates the slice passed in entirely with the value at dictionary index indicated by val
+func (dc *Int96DictConverter) Fill(out interface{}, val utils.IndexType) error {
+	o := out.([]parquet.Int96)
+	if err := dc.ensure(val); err != nil {
+		return err
+	}
+	o[0] = dc.dict[val]
+	for i := 1; i < len(o); i *= 2 {
+		copy(o[i:], o[:i])
+	}
+	return nil
+}
+
+// FillZero populates the entire slice of out with the zero value for parquet.Int96
+func (dc *Int96DictConverter) FillZero(out interface{}) {
+	o := out.([]parquet.Int96)
+	o[0] = dc.zeroVal
+	for i := 1; i < len(o); i *= 2 {
+		copy(o[i:], o[:i])
+	}
+}
+
+// Copy populates the slice provided with the values in the dictionary at the indexes
+// in the vals slice.
+func (dc *Int96DictConverter) Copy(out interface{}, vals []utils.IndexType) error {
+	o := out.([]parquet.Int96)
+	for idx, val := range vals {
+		o[idx] = dc.dict[val]
+	}
+	return nil
 }
 
 // Float32Encoder is the interface for all encoding types that implement encoding
@@ -1385,6 +1535,8 @@ func NewDictConverter(dict TypedDecoder) utils.DictionaryConverter {
 		return &Int32DictConverter{valueDecoder: dict.(Int32Decoder), dict: make([]int32, 0, dict.ValuesLeft())}
 	case parquet.Types.Int64:
 		return &Int64DictConverter{valueDecoder: dict.(Int64Decoder), dict: make([]int64, 0, dict.ValuesLeft())}
+	case parquet.Types.Int96:
+		return &Int96DictConverter{valueDecoder: dict.(Int96Decoder), dict: make([]parquet.Int96, 0, dict.ValuesLeft())}
 	case parquet.Types.Float:
 		return &Float32DictConverter{valueDecoder: dict.(Float32Decoder), dict: make([]float32, 0, dict.ValuesLeft())}
 	case parquet.Types.Double:

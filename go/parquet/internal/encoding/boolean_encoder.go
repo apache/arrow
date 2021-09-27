@@ -47,6 +47,9 @@ func (enc *PlainBooleanEncoder) Put(in []bool) {
 	if enc.wr == nil {
 		enc.wr = utils.NewBitmapWriter(enc.bitsBuffer, 0, boolsInBuf)
 	}
+	if len(in) == 0 {
+		return
+	}
 
 	n := enc.wr.AppendBools(in)
 	for n < len(in) {
