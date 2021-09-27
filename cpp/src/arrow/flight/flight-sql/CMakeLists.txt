@@ -51,7 +51,7 @@ set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
 string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-set(ARROW_FLIGHT_SQL_SRCS protocol_internal.cc)
+set(ARROW_FLIGHT_SQL_SRCS protocol_internal.cc sql_server.cpp)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -77,15 +77,17 @@ add_arrow_lib(arrow_flight_sql
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS
-      arrow_flight_sql_static ${ARROW_FLIGHT_STATIC_LINK_LIBS} ${ARROW_TEST_LINK_LIBS})
+      arrow_flight_sql_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS} ${ARROW_TEST_LINK_LIBS})
 else()
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared arrow_flight_testing_shared ${ARROW_TEST_LINK_LIBS})
 endif()
 
 add_arrow_test(flight_sql_test
                SOURCES
                client_test.cc
+               sql_server_test.cc
                STATIC_LINK_LIBS
+               ${ARROW_FLIGHT_SQL_LINK_LIBS}
                ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                GTest::gtest
                GTest::gmock

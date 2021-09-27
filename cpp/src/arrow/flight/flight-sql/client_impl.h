@@ -36,7 +36,7 @@ FlightSqlClientT<T>::FlightSqlClientT(std::unique_ptr<T>& client) {
 template <class T>
 FlightSqlClientT<T>::~FlightSqlClientT() = default;
 
-FlightDescriptor GetFlightDescriptorForCommand(const google::protobuf::Message& command) {
+inline FlightDescriptor GetFlightDescriptorForCommand(const google::protobuf::Message& command) {
   google::protobuf::Any any;
   any.PackFrom(command);
 

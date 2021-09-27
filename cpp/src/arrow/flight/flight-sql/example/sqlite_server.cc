@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/flight-sql/example/sqlite_server.h"
+
 #include <sqlite3.h>
 
 #include "arrow/api.h"
-#include "arrow/flight/flight-sql/sql_server.h"
-#include "arrow/flight/flight-sql/example/sqlite_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
+#include "arrow/flight/flight-sql/sql_server.h"
 
 namespace arrow {
 namespace flight {
@@ -34,6 +35,25 @@ SQLiteFlightSqlServer::SQLiteFlightSqlServer() {
     sqlite3_close(db_);
     throw std::runtime_error(std::string("Can't open database: ") + sqlite3_errmsg(db_));
   }
+
+  ExecuteSql(
+      "CREATE TABLE foreignTable ("
+      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+      "foreignName varchar(100), "
+      "value int)");
+  ExecuteSql(
+      "CREATE TABLE intTable ("
+      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+      "keyName varchar(100), "
+      "value int, "
+      "foreignId int references foreignTable(id))");
+  ExecuteSql("INSERT INTO foreignTable (foreignName, value) VALUES ('keyOne', 1)");
+  ExecuteSql("INSERT INTO foreignTable (foreignName, value) VALUES ('keyTwo', 0)");
+  ExecuteSql("INSERT INTO foreignTable (foreignName, value) VALUES ('keyThree', -1)");
+  ExecuteSql("INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1)");
+  ExecuteSql("INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1)");
+  ExecuteSql(
+      "INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1)");
 
   ExecuteSql(
       "CREATE TABLE COMPANY("
@@ -56,8 +76,8 @@ SQLiteFlightSqlServer::SQLiteFlightSqlServer() {
 
 SQLiteFlightSqlServer::~SQLiteFlightSqlServer() { sqlite3_close(db_); }
 
-void SQLiteFlightSqlServer::ExecuteSql(const std::string &sql) {
-  char *zErrMsg = NULLPTR;
+void SQLiteFlightSqlServer::ExecuteSql(const std::string& sql) {
+  char* zErrMsg = NULLPTR;
   int rc = sqlite3_exec(db_, sql.data(), NULLPTR, NULLPTR, &zErrMsg);
   if (rc != SQLITE_OK) {
     fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -68,7 +88,7 @@ void SQLiteFlightSqlServer::ExecuteSql(const std::string &sql) {
 Status SQLiteFlightSqlServer::GetFlightInfoStatement(
     const pb::sql::CommandStatementQuery& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
-  const std::string &query = command.query();
+  const std::string& query = command.query();
 
   std::shared_ptr<SqliteStatement> statement;
   ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, query, &statement));
@@ -82,7 +102,7 @@ Status SQLiteFlightSqlServer::GetFlightInfoStatement(
   google::protobuf::Any ticket;
   ticket.PackFrom(ticket_statement_query);
 
-  const std::string &ticket_string = ticket.SerializeAsString();
+  const std::string& ticket_string = ticket.SerializeAsString();
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{{ticket_string}, {}}};
   ARROW_ASSIGN_OR_RAISE(auto result,
                         FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
@@ -92,10 +112,10 @@ Status SQLiteFlightSqlServer::GetFlightInfoStatement(
   return Status::OK();
 }
 
-Status SQLiteFlightSqlServer::DoGetStatement(const pb::sql::TicketStatementQuery &command,
-                                             const ServerCallContext &context,
-                                             std::unique_ptr<FlightDataStream> *result) {
-  const std::string &string = command.statement_handle();
+Status SQLiteFlightSqlServer::DoGetStatement(const pb::sql::TicketStatementQuery& command,
+                                             const ServerCallContext& context,
+                                             std::unique_ptr<FlightDataStream>* result) {
+  const std::string& string = command.statement_handle();
   std::shared_ptr<RecordBatchReader> batch_reader;
 
   std::shared_ptr<SqliteStatement> statement;
