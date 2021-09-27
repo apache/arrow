@@ -17,14 +17,15 @@
 package memory
 
 type CheckedAllocator struct {
-	mem  Allocator
-	base int
-	sz   int
+	mem Allocator
+	sz  int
 }
 
 func NewCheckedAllocator(mem Allocator) *CheckedAllocator {
 	return &CheckedAllocator{mem: mem}
 }
+
+func (a *CheckedAllocator) CurrentAlloc() int { return a.sz }
 
 func (a *CheckedAllocator) Allocate(size int) []byte {
 	a.sz += size
