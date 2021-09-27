@@ -192,12 +192,12 @@ table Source {
 /// The varieties of relations
 union RelationImpl {
   Aggregate,
-  SetOperation,
   Filter,
   Limit,
   LiteralRelation,
   OrderBy,
   Project,
+  SetOperation,
   Source,
 }
 
