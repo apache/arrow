@@ -1038,15 +1038,31 @@ class StrftimeOptions(_StrftimeOptions):
 
 
 cdef class _DayOfWeekOptions(FunctionOptions):
-    def _set_options(self, one_based_numbering, week_start):
+    def _set_options(self, count_from_zero, week_start):
         self.wrapped.reset(
-            new CDayOfWeekOptions(one_based_numbering, week_start)
+            new CDayOfWeekOptions(count_from_zero, week_start)
         )
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
-    def __init__(self, *, one_based_numbering=False, week_start=1):
-        self._set_options(one_based_numbering, week_start)
+    def __init__(self, *, count_from_zero=True, week_start=1):
+        self._set_options(count_from_zero, week_start)
+
+
+cdef class _WeekOptions(FunctionOptions):
+    def _set_options(self, week_starts_monday, count_from_zero,
+                     first_week_is_fully_in_year):
+        self.wrapped.reset(
+            new CWeekOptions(week_starts_monday, count_from_zero,
+                             first_week_is_fully_in_year)
+        )
+
+
+class WeekOptions(_WeekOptions):
+    def __init__(self, *, week_starts_monday=True, count_from_zero=False,
+                 first_week_is_fully_in_year=False):
+        self._set_options(week_starts_monday,
+                          count_from_zero, first_week_is_fully_in_year)
 
 
 cdef class _AssumeTimezoneOptions(FunctionOptions):

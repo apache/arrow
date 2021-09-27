@@ -331,12 +331,40 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "day_of_week") {
     using Options = arrow::compute::DayOfWeekOptions;
-    bool one_based_numbering = true;
-    if (!Rf_isNull(options["one_based_numbering"])) {
-      one_based_numbering = cpp11::as_cpp<bool>(options["one_based_numbering"]);
+    bool count_from_zero = false;
+    if (!Rf_isNull(options["count_from_zero"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["count_from_zero"]);
     }
-    return std::make_shared<Options>(one_based_numbering,
+    return std::make_shared<Options>(count_from_zero,
                                      cpp11::as_cpp<uint32_t>(options["week_start"]));
+  }
+
+  if (func_name == "iso_week") {
+    return std::make_shared<arrow::compute::WeekOptions>(
+        arrow::compute::WeekOptions::ISODefaults());
+  }
+
+  if (func_name == "us_week") {
+    return std::make_shared<arrow::compute::WeekOptions>(
+        arrow::compute::WeekOptions::USDefaults());
+  }
+
+  if (func_name == "week") {
+    using Options = arrow::compute::WeekOptions;
+    bool week_starts_monday = true;
+    bool count_from_zero = false;
+    bool first_week_is_fully_in_year = false;
+    if (!Rf_isNull(options["week_starts_monday"])) {
+      week_starts_monday = cpp11::as_cpp<bool>(options["week_starts_monday"]);
+    }
+    if (!Rf_isNull(options["count_from_zero"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["count_from_zero"]);
+    }
+    if (!Rf_isNull(options["first_week_is_fully_in_year"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["first_week_is_fully_in_year"]);
+    }
+    return std::make_shared<Options>(week_starts_monday, count_from_zero,
+                                     first_week_is_fully_in_year);
   }
 
   if (func_name == "strptime") {

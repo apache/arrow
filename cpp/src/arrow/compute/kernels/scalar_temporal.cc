@@ -55,11 +55,14 @@ using arrow_vendored::date::literals::dec;
 using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
 using arrow_vendored::date::literals::mon;
+using arrow_vendored::date::literals::sun;
 using arrow_vendored::date::literals::thu;
+using arrow_vendored::date::literals::wed;
 using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
+using WeekState = OptionsWrapper<WeekOptions>;
 using StrftimeState = OptionsWrapper<StrftimeOptions>;
 using AssumeTimezoneState = OptionsWrapper<AssumeTimezoneOptions>;
 
@@ -289,6 +292,18 @@ struct AssumeTimezoneExtractor
   }
 };
 
+template <template <typename...> class Op, typename Duration, typename InType,
+          typename OutType>
+struct TemporalComponentExtractWeek
+    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const WeekOptions& options = WeekState::Get(ctx);
+    return Base::ExecWithOptions(ctx, &options, batch, out);
+  }
+};
+
 // ----------------------------------------------------------------------
 // Extract year from temporal types
 //
@@ -360,7 +375,7 @@ struct DayOfWeek {
     for (int i = 0; i < 7; i++) {
       lookup_table[i] = i + 8 - options->week_start;
       lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
-      lookup_table[i] += options->one_based_numbering;
+      lookup_table[i] += !options->count_from_zero;
     }
   }
 
@@ -421,31 +436,70 @@ struct ISOYear {
 };
 
 // ----------------------------------------------------------------------
-// Extract ISO week from temporal types
+// Extract week from temporal types
 //
-// First week of an ISO year has the majority (4 or more) of it's days in January.
+// First week of an ISO year has the majority (4 or more) of its days in January.
 // Last week of an ISO year has the year's last Thursday in it.
 // Based on
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 
 template <typename Duration, typename Localizer>
-struct ISOWeek {
-  explicit ISOWeek(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
+struct Week {
+  explicit Week(const WeekOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)),
+        count_from_zero_(options->count_from_zero),
+        first_week_is_fully_in_year_(options->first_week_is_fully_in_year) {
+    if (options->week_starts_monday) {
+      if (first_week_is_fully_in_year_) {
+        wd_ = mon;
+      } else {
+        wd_ = thu;
+      }
+    } else {
+      if (first_week_is_fully_in_year_) {
+        wd_ = sun;
+      } else {
+        wd_ = wed;
+      }
+    }
+    if (count_from_zero_) {
+      days_offset_ = days{0};
+    } else {
+      days_offset_ = days{3};
+    }
+  }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
-    auto y = year_month_day{t + days{3}}.year();
-    auto start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
-    if (t < start) {
-      --y;
-      start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
+    auto y = year_month_day{t + days_offset_}.year();
+
+    if (first_week_is_fully_in_year_) {
+      auto start = localizer_.ConvertDays(y / jan / wd_[1]);
+      if (!count_from_zero_) {
+        if (t < start) {
+          --y;
+          start = localizer_.ConvertDays(y / jan / wd_[1]);
+        }
+      }
+      return static_cast<T>(floor<weeks>(t - start).count() + 1);
     }
-    return static_cast<T>(trunc<weeks>(t - start).count() + 1);
+
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
+    if (!count_from_zero_) {
+      if (t < start) {
+        --y;
+        start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
+      }
+    }
+    return static_cast<T>(floor<weeks>(t - start).count() + 1);
   }
 
   Localizer localizer_;
+  arrow_vendored::date::weekday wd_;
+  arrow_vendored::date::days days_offset_;
+  const bool count_from_zero_;
+  const bool first_week_is_fully_in_year_;
 };
 
 // ----------------------------------------------------------------------
@@ -1075,7 +1129,7 @@ const FunctionDoc day_of_week_doc{
      "represented by 6.\n"
      "`DayOfWeekOptions.week_start` can be used to set another starting day using\n"
      "the ISO numbering convention (1=start week on Monday, 7=start week on Sunday).\n"
-     "Day numbers can start at 0 or 1 based on `DayOfWeekOptions.one_based_numbering`.\n"
+     "Day numbers can start at 0 or 1 based on `DayOfWeekOptions.count_from_zero`.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
@@ -1100,12 +1154,33 @@ const FunctionDoc iso_year_doc{
 
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
-    ("First ISO week has the majority (4 or more) of its days in January.\n"
+    ("First ISO week has the majority (4 or more) of its days in January."
+     "ISO week starts on Monday.\n"
      "Week of the year starts with 1 and can run up to 53.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
+
+const FunctionDoc us_week_doc{
+    "Extract US week of year number",
+    ("First US week has the majority (4 or more) of its days in January."
+     "US week starts on Sunday.\n"
+     "Week of the year starts with 1 and can run up to 53.\n"
+     "Null values emit null.\n"
+     "An error is returned if the timestamps have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
+const FunctionDoc week_doc{
+    "Extract week of year number",
+    ("First week has the majority (4 or more) of its days in January.\n"
+     "Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using "
+     "DayOfWeekOptions.count_from_zero.\n"
+     "An error is returned if the timestamps have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"},
+    "WeekOptions"};
 
 const FunctionDoc iso_calendar_doc{
     "Extract (ISO year, ISO week, ISO day of week) struct",
@@ -1236,9 +1311,23 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "iso_year", {WithDates, WithTimestamps}, int64(), &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
-  auto iso_week = MakeTemporal<ISOWeek, TemporalComponentExtract, Int64Type>(
-      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc);
+  static const auto default_iso_week_options = WeekOptions::ISODefaults();
+  auto iso_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc,
+      &default_iso_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
+
+  static const auto default_us_week_options = WeekOptions::USDefaults();
+  auto us_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "us_week", {WithDates, WithTimestamps}, int64(), &us_week_doc,
+      &default_us_week_options, WeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(us_week)));
+
+  static const auto default_week_options = WeekOptions();
+  auto week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "week", {WithDates, WithTimestamps}, int64(), &week_doc, &default_week_options,
+      WeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(week)));
 
   auto iso_calendar = MakeSimpleUnaryTemporal<ISOCalendar>(
       "iso_calendar", {WithDates, WithTimestamps}, IsoCalendarType(), &iso_calendar_doc);

@@ -740,7 +740,7 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
     arrow_not_supported("Label argument")
   }
 
-  Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
+  Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {

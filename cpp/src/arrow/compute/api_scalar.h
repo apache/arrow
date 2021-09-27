@@ -317,12 +317,12 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
 
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
-  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1);
+  explicit DayOfWeekOptions(bool count_from_zero = true, uint32_t week_start = 1);
   constexpr static char const kTypeName[] = "DayOfWeekOptions";
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
-  /// Number days from 1 if true and from 0 if false
-  bool one_based_numbering;
+  /// Number days from 0 if true and from 1 if false
+  bool count_from_zero;
   /// What day does the week start with (Monday=1, Sunday=7)
   uint32_t week_start;
 };
@@ -359,6 +359,33 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
   Ambiguous ambiguous;
   /// How to interpret non-existent local times (due to DST shifts)
   Nonexistent nonexistent;
+};
+
+struct ARROW_EXPORT WeekOptions : public FunctionOptions {
+ public:
+  explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
+                       bool first_week_is_fully_in_year = false);
+  constexpr static char const kTypeName[] = "WeekOptions";
+  static WeekOptions Defaults() { return WeekOptions{}; }
+  static WeekOptions ISODefaults() {
+    return WeekOptions{/*week_starts_monday*/ true,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
+  static WeekOptions USDefaults() {
+    return WeekOptions{/*week_starts_monday*/ false,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
+
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
+  /// Dates from current year that fall into last ISO week of the previous year return
+  /// 0 if true and 52 or 53 if false.
+  bool count_from_zero;
+  /// Must the first week be fully in January (true), or is a week that begins on
+  /// December 29, 30, or 31 considered to be the first week of the new year (false)?
+  bool first_week_is_fully_in_year;
 };
 
 /// @}
@@ -1008,7 +1035,8 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.
-/// Week of the year starts with 1 and can run up to 53.
+/// ISO week starts on Monday. Year can have 52 or 53 weeks.
+/// Week numbering can start with 1.
 ///
 /// \param[in] values input to extract ISO week of year from
 /// \param[in] ctx the function execution context, optional
@@ -1017,6 +1045,34 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief USWeek returns US week of year number for each element of `values`.
+/// First US week has the majority (4 or more) of its days in January.
+/// US week starts on Sunday. Year can have 52 or 53 weeks.
+/// Week numbering starts with 1.
+///
+/// \param[in] values input to extract US week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> USWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Week returns week of year number for each element of `values`.
+/// First ISO week has the majority (4 or more) of its days in January.
+/// Year can have 52 or 53 weeks. Week numbering can start with 0 or 1
+/// depending on DayOfWeekOptions.count_from_zero.
+///
+/// \param[in] values input to extract week of year from
+/// \param[in] options for setting numbering start
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Week(const Datum& values, WeekOptions options = WeekOptions(),
+                                ExecContext* ctx = NULLPTR);
 
 /// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for
 /// each element of `values`.

@@ -1338,7 +1338,11 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | iso_week           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_calendar       | Unary      | Temporal          | Struct        |                            | \(3)  |
+| us_week            | Unary      | Temporal          | Int64         |                            | \(3)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(4)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| iso_calendar       | Unary      | Timestamp         | Struct        |                            | \(5)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | quarter            | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
@@ -1360,11 +1364,19 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
   represented by 0 and ends on Sunday represented by 6. :member:`DayOfWeekOptions::week_start` can be used to set
   the starting day of the week using ISO convention (Monday=1, Sunday=7). Day numbering can start with 0 or 1
-  using :member:`DayOfWeekOptions::one_based_numbering` parameter.
+  using :member:`DayOfWeekOptions::count_from_zero` parameter.
 * \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
-  starts with the first ISO week.
+  starts with the first ISO week. ISO week starts on Monday.
   See `ISO 8601 week date definition`_ for more details.
-* \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
+* \(3) First US week has the majority (4 or more) of its days in January. US year
+  starts with the first US week. US week starts on Sunday.
+* \(4) Returns week number allowing for setting several parameters.
+  If :member:`WeekOptions::week_starts_monday` is true, the week starts with Monday, else Sunday if false.
+  If :member:`WeekOptions::count_from_zero` is true, dates from the current year that fall into the last ISO week
+  of the previous year are numbered as week 0, else week 52 or 53 if false.
+  If :member:`WeekOptions::first_week_is_fully_in_year` is true, the first week (week 1) must fully be in January;
+  else if false, a week that begins on December 29, 30, or 31 is considered the first week of the new year.
+* \(5) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 

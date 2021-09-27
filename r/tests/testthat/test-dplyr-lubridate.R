@@ -85,6 +85,15 @@ test_that("extract isoweek from timestamp", {
   )
 })
 
+test_that("extract epiweek from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = epiweek(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract day from timestamp", {
   expect_dplyr_equal(
     input %>%
@@ -205,6 +214,15 @@ test_that("extract isoweek from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = isoweek(date)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract epiweek from date", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = epiweek(date)) %>%
       collect(),
     test_df
   )
