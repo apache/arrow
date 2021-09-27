@@ -2808,7 +2808,7 @@ void AddSplit(FunctionRegistry* registry) {
 }
 
 template <typename Type1, typename Type2>
-struct StrRepeatTransform : public StringBinaryTransformBase {
+struct StringRepeatTransform : public StringBinaryTransformBase {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
@@ -2879,11 +2879,11 @@ struct StrRepeatTransform : public StringBinaryTransformBase {
 };
 
 template <typename Type1, typename Type2>
-using StrRepeat =
-    StringBinaryTransformExec<Type1, Type2, StrRepeatTransform<Type1, Type2>>;
+using StringRepeat =
+    StringBinaryTransformExec<Type1, Type2, StringRepeatTransform<Type1, Type2>>;
 
 template <template <typename...> class ExecFunctor>
-void MakeStrRepeatBatchKernel(std::string name, FunctionRegistry* registry,
+void MakeStringRepeatBatchKernel(std::string name, FunctionRegistry* registry,
                               const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
   {
@@ -4821,7 +4821,7 @@ const FunctionDoc utf8_reverse_doc(
      "composed of multiple codepoints."),
     {"strings"});
 
-const FunctionDoc str_repeat_doc(
+const FunctionDoc string_repeat_doc(
     "Repeat a string", ("For each string in `strings`, return a replicated version."),
     {"strings", "repeats"});
 }  // namespace
@@ -4926,7 +4926,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSplit(registry);
   AddStrptime(registry);
   AddBinaryJoin(registry);
-  MakeStrRepeatBatchKernel<StrRepeat>("str_repeat", registry, &str_repeat_doc);
+  MakeStringRepeatBatchKernel<StringRepeat>("string_repeat", registry, &string_repeat_doc);
 }
 
 }  // namespace internal

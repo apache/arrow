@@ -131,7 +131,6 @@ def test_option_class_equality():
         pc.PadOptions(5),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
-        pc.RepeatOptions(1),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -2239,7 +2238,7 @@ def test_count_distinct_options():
     assert pc.count_distinct(arr, mode='all').as_py() == 4
 
 
-def test_str_repeat():
+def test_string_repeat():
     # Test with single value for number of repeats
     values = ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"]
     repeat_and_expected = [
@@ -2248,7 +2247,7 @@ def test_str_repeat():
         [2, ["æÆ&æÆ&", None, "", "bb", "ɑɽⱤoWɑɽⱤoW", "ıIıI", "$. 3$. 3"]],
     ]
     for repeat, expected in repeat_and_expected:
-        result = pc.str_repeat(values, repeat)
+        result = pc.string_repeat(values, repeat)
         assert result.equals(pa.array(expected))
 
     # Test with multiple values for number of repeats
@@ -2260,5 +2259,5 @@ def test_str_repeat():
         [[0, 0], ["", ""]],
     ]
     for repeat, expected in repeat_and_expected:
-        result = pc.str_repeat(values, repeat)
+        result = pc.string_repeat(values, repeat)
         assert result.equals(pa.array(expected))

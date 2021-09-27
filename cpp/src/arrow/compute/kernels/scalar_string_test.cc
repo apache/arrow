@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace compute {
@@ -1031,9 +1032,7 @@ TYPED_TEST(TestStringKernels, Utf8Title) {
       R"([null, "", "B", "Aaaz;Zææ&", "Ɑɽɽow", "Ii", "Ⱥ.Ⱥ.Ⱥ..Ⱥ", "Hello, World!", "Foo   Bar;Héhé0Zop", "!%$^.,;"])");
 }
 
-TYPED_TEST(TestStringKernels, StrRepeat) {
-  this->CheckUnary("str_repeat", "[]", this->type(), "[]");
-
+TYPED_TEST(TestStringKernels, StringRepeat) {
   auto values = ArrayFromJSON(
       this->type(),
       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
@@ -1048,22 +1047,22 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
   for (const auto& pair : repeats_and_expected) {
     auto repeat = pair.first;
     auto expected = pair.second;
-    for (const auto& ty : internal::IntTypes()) {
-      this->CheckVarArgs("str_repeat", {values, Datum(*arrow::MakeScalar(ty, repeat))},
+    for (const auto& ty : IntTypes()) {
+      this->CheckVarArgs("string_repeat", {values, Datum(*arrow::MakeScalar(ty, repeat))},
                          this->type(), expected);
     }
   }
 }
 
-TYPED_TEST(TestStringKernels, StrRepeats) {
-  for (const auto& ty : internal::IntTypes()) {
+TYPED_TEST(TestStringKernels, StringRepeats) {
+  for (const auto& ty : IntTypes()) {
     auto repeats = ArrayFromJSON(ty, R"([100, 1, 2, 4, 2, 0, 1, 3, 2, 3])");
     auto values = ArrayFromJSON(
         this->type(),
         R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
     std::string expected =
         R"([null, "aAazZæÆ&", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
-    this->CheckVarArgs("str_repeat", {values, repeats}, this->type(), expected);
+    this->CheckVarArgs("string_repeat", {values, repeats}, this->type(), expected);
   }
 }
 
