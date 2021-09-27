@@ -46,7 +46,13 @@ static inline Result<const time_zone*> LocateZone(const std::string& timezone) {
 }
 
 static inline const std::string& GetInputTimezone(const DataType& type) {
-  return checked_cast<const TimestampType&>(type).timezone();
+  static const std::string no_timezone = "";
+  switch (type.id()) {
+    case Type::TIMESTAMP:
+      return checked_cast<const TimestampType&>(type).timezone();
+    default:
+      return no_timezone;
+  }
 }
 
 static inline const std::string& GetInputTimezone(const Datum& datum) {
@@ -59,17 +65,6 @@ static inline const std::string& GetInputTimezone(const Scalar& scalar) {
 
 static inline const std::string& GetInputTimezone(const ArrayData& array) {
   return checked_cast<const TimestampType&>(*array.type).timezone();
-}
-
-template <typename T>
-enable_if_timestamp<T, const std::string> GetInputTimezone(const DataType& type) {
-  return GetInputTimezone(type);
-}
-
-template <typename T>
-enable_if_t<is_time_type<T>::value || is_date_type<T>::value, const std::string>
-GetInputTimezone(const DataType& type) {
-  return "";
 }
 
 struct NonZonedLocalizer {

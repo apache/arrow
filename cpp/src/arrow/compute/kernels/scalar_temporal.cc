@@ -420,7 +420,7 @@ struct Strftime {
     if ((options.format.find("%c") != std::string::npos) && (options.locale != "C")) {
       return Status::Invalid("%c flag is not supported in non-C locales.");
     }
-    auto timezone = GetInputTimezone<InType>(type);
+    auto timezone = GetInputTimezone(type);
 
     if (timezone.empty()) {
       if ((options.format.find("%z") != std::string::npos) ||
