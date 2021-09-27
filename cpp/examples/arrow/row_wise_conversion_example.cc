@@ -21,6 +21,8 @@
 #include <vector>
 
 #include <arrow/api.h>
+#include <arrow/result.h>
+#include <arrow/util/logging.h>
 
 using arrow::DoubleBuilder;
 using arrow::Int64Builder;
@@ -56,8 +58,8 @@ struct data_row {
 // `arrow::ListBuilder` that builds the array of offsets and a nested 
 // `arrow::DoubleBuilder` that constructs the underlying values array that
 // is referenced by the offsets in the former array.
-arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
-                                    std::shared_ptr<arrow::Table>* table) {
+arrow::Result<std::shared_ptr<arrow::Table>> VectorToColumnarTable(
+                                    const std::vector<struct data_row>& rows) {
   // The builders are more efficient using
   // arrow::jemalloc::MemoryPool::default_pool() as this can increase the size of
   // the underlying memory regions in-place. At the moment, arrow::jemalloc is only
@@ -68,8 +70,8 @@ arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
   Int64Builder components_builder(pool);
   ListBuilder component_cost_builder(pool, std::make_shared<DoubleBuilder>(pool));
   // The following builder is owned by component_cost_builder.
-  DoubleBuilder& component_item_cost_builder =
-      *(static_cast<DoubleBuilder*>(component_cost_builder.value_builder()));
+  DoubleBuilder* component_item_cost_builder =
+      (static_cast<DoubleBuilder*>(component_cost_builder.value_builder()));
 
   // Now we can loop over our existing data and insert it into the builders. The
   // `Append` calls here may fail (e.g. we cannot allocate enough additional memory).
@@ -82,12 +84,12 @@ arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
     // Indicate the start of a new list row. This will memorise the current
     // offset in the values builder.
     ARROW_RETURN_NOT_OK(component_cost_builder.Append());
-    // Store the actual values. The same memory layout used for the
-    // component cost data, in this case a vector of type double, will
-    // be used for the memory that Arrow uses to hold the data.  The
-    // final nullptr argument tells the underlying builder that all
-    // added values are valid, i.e. non-null.
-    ARROW_RETURN_NOT_OK(component_item_cost_builder.AppendValues(row.component_cost.data(),
+    // Store the actual values. The same memory layout is
+    // used for the component cost data, in this case a vector of
+    // type double, as for the memory that Arrow uses to hold this
+    // data and will be created.  The final nullptr argument tells 
+    // the underlying builder that all added values are valid, i.e. non-null.
+    ARROW_RETURN_NOT_OK(component_item_cost_builder->AppendValues(row.component_cost.data(),
                                                                  row.component_cost.size()));
   }
 
@@ -113,13 +115,14 @@ arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
   // that can consume Apache Arrow memory structures. This object has ownership of
   // all referenced data, thus we don't have to care about undefined references once
   // we leave the scope of the function building the table and its underlying arrays.
-  *table = arrow::Table::Make(schema, {id_array, components_array, component_cost_array});
+  std::shared_ptr<arrow::Table> table = 
+          arrow::Table::Make(schema, {id_array, components_array, component_cost_array});
 
-  return arrow::Status::OK();
+  return table;
 }
 
-arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
-                                    std::vector<struct data_row>* rows) {
+arrow::Result<std::vector<data_row>> ColumnarTableToVector( 
+                               const std::shared_ptr<arrow::Table>& table) {
   // To convert an Arrow table back into the same row-wise representation as in the
   // above section, we first will check that the table conforms to our expected
   // schema and then will build up the vector of rows incrementally.
@@ -159,7 +162,7 @@ arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
   // for this slicing offset. This is not needed for the higher level functions
   // like Value(…) that already account for this offset internally.
   const double* ccv_ptr = component_cost_values->raw_values();
-
+  std::vector<data_row> rows;
   for (int64_t i = 0; i < table->num_rows(); i++) {
     // Another simplification in this example is that we assume that there are
     // no null entries, e.g. each row is fill with valid values.
@@ -168,10 +171,10 @@ arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
     const double* first = ccv_ptr + component_cost->value_offset(i);
     const double* last = ccv_ptr + component_cost->value_offset(i + 1);
     std::vector<double> components_vec(first, last);
-    rows->push_back({id, component, components_vec});
+    rows.push_back({id, component, components_vec});
   }
 
-  return arrow::Status::OK();
+  return rows;
 }
 
 #define EXIT_ON_FAILURE(expr)                      \
@@ -186,12 +189,24 @@ arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
 int main(int argc, char** argv) {
   std::vector<data_row> rows = {
       {1, 1, {10.0}}, {2, 3, {11.0, 12.0, 13.0}}, {3, 2, {15.0, 25.0}}};
-
   std::shared_ptr<arrow::Table> table;
-  EXIT_ON_FAILURE(VectorToColumnarTable(rows, &table));
-
   std::vector<data_row> expected_rows;
-  EXIT_ON_FAILURE(ColumnarTableToVector(table, &expected_rows));
+
+  arrow::Result<std::shared_ptr<arrow::Table>> table_result = 
+          VectorToColumnarTable(rows);
+  if(table_result.ok()){
+          table = std::move(table_result).ValueOrDie();
+          arrow::Result<std::vector<data_row>> expected_rows_result =
+                  ColumnarTableToVector(table);
+          if(expected_rows_result.ok()) {
+                  expected_rows = 
+                          std::move(expected_rows_result).ValueOrDie();
+          }else{
+                  ARROW_LOG(ERROR) << expected_rows_result.status();
+         }
+  }else{
+          ARROW_LOG(ERROR) << table_result.status();
+  }
 
   assert(rows.size() == expected_rows.size());
   // Print out contents of table, should get
