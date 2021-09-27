@@ -64,6 +64,7 @@
   "day" = "day",
   "hour" = "hour",
   "isoweek" = "iso_week",
+  "epiweek" = "us_week",
   "isoyear" = "iso_year",
   "minute" = "minute",
   "month" = "month",

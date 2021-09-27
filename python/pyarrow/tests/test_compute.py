@@ -114,7 +114,7 @@ def test_option_class_equality():
         pc.AssumeTimezoneOptions("UTC"),
         pc.CastOptions.safe(pa.int8()),
         pc.CountOptions(),
-        pc.DayOfWeekOptions(one_based_numbering=False, week_start=0),
+        pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
         pc.DictionaryEncodeOptions(),
         pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
@@ -148,6 +148,8 @@ def test_option_class_equality():
         pc.TDigestOptions(),
         pc.TrimOptions(" "),
         pc.VarianceOptions(),
+        pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
+                       first_week_is_fully_in_year=False),
     ]
     # TODO: We should test on windows once ARROW-13168 is resolved.
     # Timezone database is not available on Windows yet
@@ -1689,9 +1691,14 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
 
     day_of_week_options = pc.DayOfWeekOptions(
-        one_based_numbering=True, week_start=1)
+        count_from_zero=False, week_start=1)
     assert pc.day_of_week(tsa, options=day_of_week_options).equals(
         pa.array(ts.dt.dayofweek + 1))
+
+    week_options = pc.WeekOptions(
+        week_starts_monday=True, count_from_zero=False,
+        first_week_is_fully_in_year=False)
+    assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
 
 @pytest.mark.pandas

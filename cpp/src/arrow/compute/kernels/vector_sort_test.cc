@@ -1149,6 +1149,34 @@ TEST_F(TestRecordBatchSortIndices, Decimal) {
   AssertSortIndices(batch, options, "[3, 4, 0, 2, 1]");
 }
 
+TEST_F(TestRecordBatchSortIndices, DuplicateSortKeys) {
+  // ARROW-14073: only the first occurrence of a given sort column is taken
+  // into account.
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": null, "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": null},
+                                       {"a": null, "b": null},
+                                       {"a": NaN,  "b": null},
+                                       {"a": NaN,  "b": NaN},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": 1,    "b": 5}
+                                      ])");
+  const std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending),
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Ascending),
+      SortKey("a", SortOrder::Descending)};
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
+}
+
 // Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {};
 
@@ -1266,6 +1294,8 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
                                     ])"});
   options.null_placement = NullPlacement::AtEnd;
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
 TEST_F(TestTableSortIndices, Boolean) {
@@ -1335,6 +1365,35 @@ TEST_F(TestTableSortIndices, Decimal) {
   AssertSortIndices(table, options, "[4, 3, 0, 2, 1]");
   options.null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 4, 0, 2, 1]");
+}
+
+TEST_F(TestTableSortIndices, DuplicateSortKeys) {
+  // ARROW-14073: only the first occurrence of a given sort column is taken
+  // into account.
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  const std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending),
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Ascending),
+      SortKey("a", SortOrder::Descending)};
+  std::shared_ptr<Table> table;
+
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null}
+                                    ])",
+                                 R"([{"a": NaN,  "b": null},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
 // Tests for temporal types
