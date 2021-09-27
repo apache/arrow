@@ -17,12 +17,20 @@
 
 package org.apache.arrow.flight.sql;
 
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
+import static java.util.stream.IntStream.range;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
+import static org.apache.arrow.vector.types.Types.MinorType.BIGINT;
+import static org.apache.arrow.vector.types.Types.MinorType.BIT;
+import static org.apache.arrow.vector.types.Types.MinorType.INT;
+import static org.apache.arrow.vector.types.Types.MinorType.LIST;
+import static org.apache.arrow.vector.types.Types.MinorType.UINT4;
+import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
 
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -51,7 +59,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -548,58 +555,65 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * Default schema templates for the {@link FlightSqlProducer}.
    */
   final class Schemas {
-    public static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("table_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("table_type", MinorType.VARCHAR.getType()),
+    public static final Schema GET_TABLES_SCHEMA = new Schema(asList(
+        Field.nullable("catalog_name", VARCHAR.getType()),
+        Field.nullable("schema_name", VARCHAR.getType()),
+        Field.notNullable("table_name", VARCHAR.getType()),
+        Field.notNullable("table_type", VARCHAR.getType()),
         Field.notNullable("table_schema", MinorType.VARBINARY.getType())));
-    public static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("table_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("table_type", MinorType.VARCHAR.getType())));
+    public static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(asList(
+        Field.nullable("catalog_name", VARCHAR.getType()),
+        Field.nullable("schema_name", VARCHAR.getType()),
+        Field.notNullable("table_name", VARCHAR.getType()),
+        Field.notNullable("table_type", VARCHAR.getType())));
     public static final Schema GET_CATALOGS_SCHEMA = new Schema(
-        Collections.singletonList(Field.notNullable("catalog_name", MinorType.VARCHAR.getType())));
+        singletonList(Field.notNullable("catalog_name", VARCHAR.getType())));
     public static final Schema GET_TABLE_TYPES_SCHEMA =
-        new Schema(Collections.singletonList(Field.notNullable("table_type", MinorType.VARCHAR.getType())));
-    public static final Schema GET_SCHEMAS_SCHEMA = new Schema(
-        Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-            Field.notNullable("schema_name", MinorType.VARCHAR.getType())));
-    public static final Schema GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA = new Schema(Arrays.asList(
-        Field.nullable("pk_catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_schema_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("pk_table_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("pk_column_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_schema_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("fk_table_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("fk_column_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("key_sequence", MinorType.INT.getType()),
-        Field.nullable("fk_key_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_key_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("update_rule", new ArrowType.Int(8, false)),
-        Field.notNullable("delete_rule", new ArrowType.Int(8, false))));
+        new Schema(singletonList(Field.notNullable("table_type", VARCHAR.getType())));
+    public static final Schema GET_SCHEMAS_SCHEMA =
+        new Schema(asList(
+            Field.nullable("catalog_name", VARCHAR.getType()),
+            Field.notNullable("schema_name", VARCHAR.getType())));
+    public static final Schema GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA =
+        new Schema(asList(
+            Field.nullable("pk_catalog_name", VARCHAR.getType()),
+            Field.nullable("pk_schema_name", VARCHAR.getType()),
+            Field.notNullable("pk_table_name", VARCHAR.getType()),
+            Field.notNullable("pk_column_name", VARCHAR.getType()),
+            Field.nullable("fk_catalog_name", VARCHAR.getType()),
+            Field.nullable("fk_schema_name", VARCHAR.getType()),
+            Field.notNullable("fk_table_name", VARCHAR.getType()),
+            Field.notNullable("fk_column_name", VARCHAR.getType()),
+            Field.notNullable("key_sequence", INT.getType()),
+            Field.nullable("fk_key_name", VARCHAR.getType()),
+            Field.nullable("pk_key_name", VARCHAR.getType()),
+            Field.notNullable("update_rule", MinorType.UINT1.getType()),
+            Field.notNullable("delete_rule", MinorType.UINT1.getType())));
+    private static final List<Field> GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS = asList(
+        Field.nullable("string_value", VARCHAR.getType()),
+        Field.nullable("bool_value", BIT.getType()),
+        Field.nullable("int_value", INT.getType()),
+        Field.nullable("uint32_value", UINT4.getType()),
+        Field.nullable("bigint_value", BIGINT.getType()),
+        Field.nullable("int32_bitmask", INT.getType()),
+        new Field(
+            "string_list", FieldType.nullable(LIST.getType()),
+            singletonList(Field.nullable("string_data", VARCHAR.getType()))));
     public static final Schema GET_SQL_INFO_SCHEMA =
-        new Schema(Arrays.asList(
-            Field.notNullable("info_name", new ArrowType.Int(32, false)),
+        new Schema(asList(
+            Field.notNullable("info_name", UINT4.getType()),
             new Field("value",
-                // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
-                new FieldType(true, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3, 4, 5}), /*dictionary=*/null),
-                Arrays.asList(
-                    Field.nullable("string_value", MinorType.VARCHAR.getType()),
-                    Field.nullable("bool_value", MinorType.BIT.getType()),
-                    Field.nullable("int_value", MinorType.INT.getType()),
-                    Field.nullable("uint32_value", MinorType.UINT4.getType()),
-                    Field.nullable("bigint_value", MinorType.BIGINT.getType()),
-                    Field.nullable("int32_bitmask", MinorType.INT.getType())))));
-    public static final Schema GET_PRIMARY_KEYS_SCHEMA = new Schema(Arrays.asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("table_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("column_name", MinorType.VARCHAR.getType()),
-        Field.notNullable("key_sequence", MinorType.INT.getType()),
-        Field.nullable("key_name", MinorType.VARCHAR.getType())));
+                FieldType.nullable(
+                    new Union(UnionMode.Dense, range(0, GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS.size()).toArray())),
+                GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS)));
+    public static final Schema GET_PRIMARY_KEYS_SCHEMA =
+        new Schema(asList(
+            Field.nullable("catalog_name", VARCHAR.getType()),
+            Field.nullable("schema_name", VARCHAR.getType()),
+            Field.notNullable("table_name", VARCHAR.getType()),
+            Field.notNullable("column_name", VARCHAR.getType()),
+            Field.notNullable("key_sequence", INT.getType()),
+            Field.nullable("key_name", VARCHAR.getType())));
 
     private Schemas() {
       // Prevent instantiation.

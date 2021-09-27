@@ -26,9 +26,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-import com.google.protobuf.Descriptors.EnumDescriptor;
-import com.google.protobuf.Descriptors.EnumValueDescriptor;
-import com.google.protobuf.ProtocolMessageEnum;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -37,6 +34,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+
+import com.google.protobuf.Descriptors.EnumDescriptor;
+import com.google.protobuf.Descriptors.EnumValueDescriptor;
+import com.google.protobuf.ProtocolMessageEnum;
 
 @RunWith(Parameterized.class)
 public final class SqlInfoOptionsUtilsTest {

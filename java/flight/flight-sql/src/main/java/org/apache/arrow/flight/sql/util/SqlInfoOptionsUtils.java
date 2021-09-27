@@ -17,9 +17,10 @@
 
 package org.apache.arrow.flight.sql.util;
 
-import com.google.protobuf.ProtocolMessageEnum;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
+
+import com.google.protobuf.ProtocolMessageEnum;
 
 /**
  * Utility class for {@link SqlInfo} and {@link FlightSqlClient#getSqlInfo} option parsing.

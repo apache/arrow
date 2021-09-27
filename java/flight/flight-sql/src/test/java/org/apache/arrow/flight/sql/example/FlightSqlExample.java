@@ -134,14 +134,12 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.holders.NullableBitHolder;
-import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -335,7 +333,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           // Nothing.
         },
         (theData, fieldVector) -> {
-          final NullableIntHolder holder = new NullableIntHolder();
+          final NullableUInt4Holder holder = new NullableUInt4Holder();
           holder.value = isNull(data) ? 0 : data;
           holder.isSet = 1;
           fieldVector.setTypeId(index, typeRegisteredId);
@@ -575,7 +573,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             new Field("int_value", FieldType.nullable(MinorType.INT.getType()), null),
             new Field("uint32_value", FieldType.nullable(MinorType.UINT4.getType()), null),
             new Field("bigint_value", FieldType.nullable(MinorType.BIGINT.getType()), null),
-            new Field("int32_bitmask", FieldType.nullable(MinorType.INT.getType()), null)));
+            new Field("int32_bitmask", FieldType.nullable(MinorType.INT.getType()), null),
+            new Field(
+                "string_list",
+                FieldType.nullable(MinorType.LIST.getType()),
+                singletonList(Field.nullable("string_data", MinorType.VARCHAR.getType())))));
     final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
     final byte stringValueId = 0;
     final byte boolValueId = 1;
@@ -1401,9 +1403,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
              requestedInfo)) {
       listener.start(vectorSchemaRoot);
       listener.putNext();
-    } catch (SQLException e) {
-      LOGGER.error(format("Failed to getStreamSqlInfo: <%s>.", e.getMessage()), e);
-      listener.error(e);
+    } catch (final Throwable t) {
+      LOGGER.error(format("Failed to getStreamSqlInfo: <%s>.", t.getMessage()), t);
+      listener.error(t);
     } finally {
       listener.completed();
     }

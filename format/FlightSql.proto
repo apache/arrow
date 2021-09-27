@@ -31,7 +31,14 @@ package arrow.flight.protocol.sql;
  * The returned schema will be:
  * <
  *  info_name: uint32 not null,
- *  value: dense_union<string_value: string, bool_value: bool, int_value: int32, bigint_value: int64, int32_bitmask: int32>
+ *  value: dense_union<
+ *              string_value: utf8,
+ *              bool_value: bool,
+ *              int_value: int32,
+ *              uint32_value: uint32
+ *              bigint_value: int64,
+ *              int32_bitmask: int32,
+ *              string_list: list<string_data: utf8>
  * >
  * where there is one row per requested piece of metadata information.
  */
@@ -147,19 +154,19 @@ enum SqlInfo {
    */
   SQL_NULL_ORDERING = 507;
 
-  // Retrieves a UTF-8 string with comma-separated values of the supported keywords.
+  // Retrieves a UTF-8 string list with values of the supported keywords.
   SQL_KEYWORDS = 508;
 
-  // Retrieves a UTF-8 string with comma-separated values of the supported numeric functions.
+  // Retrieves a UTF-8 string list with values of the supported numeric functions.
   SQL_NUMERIC_FUNCTIONS = 509;
 
-  // Retrieves a UTF-8 string with comma-separated values of the supported string functions.
+  // Retrieves a UTF-8 string list with values of the supported string functions.
   SQL_STRING_FUNCTIONS = 510;
 
-  // Retrieves a UTF-8 string with comma-separated values of the supported system functions.
+  // Retrieves a UTF-8 string list with values of the supported system functions.
   SQL_SYSTEM_FUNCTIONS = 511;
 
-  // Retrieves a UTF-8 string with comma-separated values of the supported datetime functions.
+  // Retrieves a UTF-8 string list with values of the supported datetime functions.
   SQL_DATETIME_FUNCTIONS = 512;
 
   /*
@@ -191,7 +198,7 @@ enum SqlInfo {
   // Retrieves whether concatenations between null and non-null values being null are supported.
   SQL_NULL_PLUS_NULL_IS_NULL = 516;
 
-  // Retrieves a UTF-8 string with comma-separated values of the supported conversion functions.
+  // Retrieves a UTF-8 string list with values of the supported conversion functions.
   SQL_SUPPORTED_CONVERSION_FUNCTIONS = 517;
 
   /*
