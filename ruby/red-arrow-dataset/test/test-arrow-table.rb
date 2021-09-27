@@ -19,9 +19,12 @@ class TestArrowTable < Test::Unit::TestCase
   def setup
     Dir.mktmpdir do |tmpdir|
       @dir = tmpdir
-      @path = File.join(@dir, "data", "table.arrow")
-      @table = Arrow::Table.new(visible: [true, false, true],
-                                point: [1, 2, 3])
+      @path1 = File.join(@dir, "data", "table1.arrow")
+      @table1 = Arrow::Table.new(visible: [true, false, true],
+                                 point: [1, 2, 3])
+      @path2 = File.join(@dir, "data", "table2.arrow")
+      @table2 = Arrow::Table.new(visible: [true],
+                                 point: [10])
       yield
     end
   end
@@ -38,16 +41,31 @@ class TestArrowTable < Test::Unit::TestCase
   sub_test_case("load") do
     def test_no_scheme
       Dir.chdir(@dir) do
-        uri = URI(File.basename(@path))
-        @table.save(uri)
-        assert_equal(@table, Arrow::Table.load(uri))
+        uri = URI(File.basename(@path1))
+        @table1.save(uri)
+        assert_equal(@table1, Arrow::Table.load(uri))
       end
     end
 
     def test_file
-      uri = build_file_uri(@path)
-      @table.save(uri)
-      assert_equal(@table, Arrow::Table.load(uri))
+      uri = build_file_uri(@path1)
+      @table1.save(uri)
+      assert_equal(@table1, Arrow::Table.load(uri))
+    end
+
+    def test_directory_uri
+      uri = build_file_uri(@dir)
+      @table1.save(build_file_uri(@path1))
+      @table2.save(build_file_uri(@path2))
+      assert_equal(@table1.concatenate([@table2]),
+                   Arrow::Table.load(uri))
+    end
+
+    def test_directory_path
+      @table1.save(build_file_uri(@path1))
+      @table2.save(build_file_uri(@path2))
+      assert_equal(@table1.concatenate([@table2]),
+                   Arrow::Table.load(@dir))
     end
   end
 end

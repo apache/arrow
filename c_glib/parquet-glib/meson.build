@@ -36,16 +36,6 @@ cpp_headers = files(
   'parquet-glib.hpp',
 )
 
-version_h_conf = configuration_data()
-version_h_conf.set('GPARQUET_VERSION_MAJOR', version_major)
-version_h_conf.set('GPARQUET_VERSION_MINOR', version_minor)
-version_h_conf.set('GPARQUET_VERSION_MICRO', version_micro)
-version_h_conf.set('GPARQUET_VERSION_TAG', version_tag)
-version_h = configure_file(input: 'version.h.in',
-                           output: 'version.h',
-                           configuration: version_h_conf)
-c_headers += version_h
-
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
 

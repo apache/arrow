@@ -1567,7 +1567,15 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
         throw ParquetException(ss.str());
       }
       if (i == 0) {
-        file_offset = row_group_->columns[0].file_offset;
+        const format::ColumnMetaData& first_col = row_group_->columns[0].meta_data;
+        // As per spec, file_offset for the row group points to the first
+        // dictionary or data page of the column.
+        if (first_col.__isset.dictionary_page_offset &&
+            first_col.dictionary_page_offset > 0) {
+          file_offset = first_col.dictionary_page_offset;
+        } else {
+          file_offset = first_col.data_page_offset;
+        }
       }
       // sometimes column metadata is encrypted and not available to read,
       // so we must get total_compressed_size from column builder

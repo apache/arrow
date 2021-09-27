@@ -3447,5 +3447,79 @@ TEST(TestTDigestKernel, Options) {
               ResultWith(ArrayFromJSON(ty, "[null]")));
 }
 
+TEST(TestTDigestKernel, ApproximateMedian) {
+  // This is a wrapper for TDigest
+  for (const auto& ty : {float64(), int64(), uint16()}) {
+    ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
+    ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+    ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+
+    EXPECT_THAT(
+        CallFunction("approximate_median", {ArrayFromJSON(ty, "[1, 2, 3]")}, &keep_nulls),
+        ResultWith(ScalarFromJSON(float64(), "2.0")));
+    EXPECT_THAT(CallFunction("approximate_median", {ArrayFromJSON(ty, "[1, 2, 3, null]")},
+                             &keep_nulls),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(
+        CallFunction("approximate_median",
+                     {ChunkedArrayFromJSON(ty, {"[1, 2]", "[]", "[3]"})}, &keep_nulls),
+        ResultWith(ScalarFromJSON(float64(), "2.0")));
+    EXPECT_THAT(CallFunction("approximate_median",
+                             {ChunkedArrayFromJSON(ty, {"[1, 2]", "[null]", "[3]"})},
+                             &keep_nulls),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(
+        CallFunction("approximate_median", {ScalarFromJSON(ty, "1")}, &keep_nulls),
+        ResultWith(ScalarFromJSON(float64(), "1.0")));
+    EXPECT_THAT(
+        CallFunction("approximate_median", {ScalarFromJSON(ty, "null")}, &keep_nulls),
+        ResultWith(ScalarFromJSON(float64(), "null")));
+
+    EXPECT_THAT(CallFunction("approximate_median", {ArrayFromJSON(ty, "[1, 2, 3, null]")},
+                             &min_count),
+                ResultWith(ScalarFromJSON(float64(), "2.0")));
+    EXPECT_THAT(CallFunction("approximate_median", {ArrayFromJSON(ty, "[1, 2, null]")},
+                             &min_count),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(
+        CallFunction("approximate_median",
+                     {ChunkedArrayFromJSON(ty, {"[1, 2]", "[]", "[3]"})}, &keep_nulls),
+        ResultWith(ScalarFromJSON(float64(), "2.0")));
+    EXPECT_THAT(CallFunction("approximate_median",
+                             {ChunkedArrayFromJSON(ty, {"[1, 2]", "[null]", "[3]"})},
+                             &keep_nulls),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(CallFunction("approximate_median", {ScalarFromJSON(ty, "1")}, &min_count),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(
+        CallFunction("approximate_median", {ScalarFromJSON(ty, "null")}, &min_count),
+        ResultWith(ScalarFromJSON(float64(), "null")));
+
+    EXPECT_THAT(CallFunction("approximate_median", {ArrayFromJSON(ty, "[1, 2, 3]")},
+                             &keep_nulls_min_count),
+                ResultWith(ScalarFromJSON(float64(), "2.0")));
+    EXPECT_THAT(CallFunction("approximate_median", {ArrayFromJSON(ty, "[1, 2]")},
+                             &keep_nulls_min_count),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(CallFunction("approximate_median",
+                             {ChunkedArrayFromJSON(ty, {"[1, 2]", "[]", "[3]"})},
+                             &keep_nulls_min_count),
+                ResultWith(ScalarFromJSON(float64(), "2.0")));
+    EXPECT_THAT(CallFunction("approximate_median",
+                             {ChunkedArrayFromJSON(ty, {"[1, 2]", "[null]", "[3]"})},
+                             &keep_nulls_min_count),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(CallFunction("approximate_median", {ArrayFromJSON(ty, "[1, 2, 3, null]")},
+                             &keep_nulls_min_count),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(CallFunction("approximate_median", {ScalarFromJSON(ty, "1")},
+                             &keep_nulls_min_count),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+    EXPECT_THAT(CallFunction("approximate_median", {ScalarFromJSON(ty, "null")},
+                             &keep_nulls_min_count),
+                ResultWith(ScalarFromJSON(float64(), "null")));
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow

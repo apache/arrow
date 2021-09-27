@@ -57,6 +57,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
+using testing::Eq;
 using testing::HasSubstr;
 
 namespace arrow {
@@ -319,6 +320,14 @@ struct TestGrouper {
     AssertEquivalentIds(expected, ids);
   }
 
+  void ExpectUniques(const ExecBatch& uniques) {
+    EXPECT_THAT(grouper_->GetUniques(), ResultWith(Eq(uniques)));
+  }
+
+  void ExpectUniques(const std::string& uniques_json) {
+    ExpectUniques(ExecBatchFromJSON(descrs_, uniques_json));
+  }
+
   void AssertEquivalentIds(const Datum& expected, const Datum& actual) {
     auto left = expected.make_array();
     auto right = actual.make_array();
@@ -437,13 +446,17 @@ TEST(Grouper, NumericKey) {
     TestGrouper g({ty});
 
     g.ExpectConsume("[[3], [3]]", "[0, 0]");
+    g.ExpectUniques("[[3]]");
 
     g.ExpectConsume("[[3], [3]]", "[0, 0]");
+    g.ExpectUniques("[[3]]");
 
-    g.ExpectConsume("[[27], [81]]", "[1, 2]");
+    g.ExpectConsume("[[27], [81], [81]]", "[1, 2, 2]");
+    g.ExpectUniques("[[3], [27], [81]]");
 
     g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
                     "[0, 1, 0, 1, 3, 2, 1, 2]");
+    g.ExpectUniques("[[3], [27], [81], [null]]");
   }
 }
 
@@ -1152,6 +1165,70 @@ TEST(GroupBy, TDigest) {
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);
+}
+
+TEST(GroupBy, ApproximateMedian) {
+  for (const auto& type : {float64(), int8()}) {
+    auto batch =
+        RecordBatchFromJSON(schema({field("argument", type), field("key", int64())}), R"([
+    [1,    1],
+    [null, 1],
+    [0,    2],
+    [null, 3],
+    [1,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2],
+    [-1,   2],
+    [1,    null],
+    [null, 3],
+    [1,    4],
+    [1,    4],
+    [null, 4]
+  ])");
+
+    ScalarAggregateOptions options;
+    ScalarAggregateOptions keep_nulls(
+        /*skip_nulls=*/false, /*min_count=*/0);
+    ScalarAggregateOptions min_count(
+        /*skip_nulls=*/true, /*min_count=*/3);
+    ScalarAggregateOptions keep_nulls_min_count(
+        /*skip_nulls=*/false, /*min_count=*/3);
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                             },
+                             {
+                                 batch->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_approximate_median", &options},
+                                 {"hash_approximate_median", &keep_nulls},
+                                 {"hash_approximate_median", &min_count},
+                                 {"hash_approximate_median", &keep_nulls_min_count},
+                             }));
+
+    AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                              field("hash_approximate_median", float64()),
+                                              field("hash_approximate_median", float64()),
+                                              field("hash_approximate_median", float64()),
+                                              field("hash_approximate_median", float64()),
+                                              field("key_0", int64()),
+                                          }),
+                                          R"([
+    [1.0,  null, null, null, 1],
+    [0.0,  0.0,  0.0,  0.0,  2],
+    [null, null, null, null, 3],
+    [1.0,  null, 1.0,  null, 4],
+    [1.0,  1.0,  null, null, null]
+  ])"),
+                            aggregated_and_grouped,
+                            /*verbose=*/true);
+  }
 }
 
 TEST(GroupBy, StddevVarianceTDigestScalar) {
@@ -1900,7 +1977,7 @@ TEST(GroupBy, Distinct) {
   CountOptions all(CountOptions::ALL);
   CountOptions only_valid(CountOptions::ONLY_VALID);
   CountOptions only_null(CountOptions::ONLY_NULL);
-  for (bool use_threads : {true, false}) {
+  for (bool use_threads : {false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
     auto table =

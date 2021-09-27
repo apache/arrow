@@ -24,6 +24,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/io/slow.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
@@ -55,6 +56,19 @@ template <typename T>
 AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
   return MakeMappedGenerator(std::move(source), [](const T& res) {
     return SleepABitAsync().Then([res]() { return res; });
+  });
+}
+
+template <typename T>
+AsyncGenerator<T> MakeJittery(AsyncGenerator<T> source) {
+  auto latency_generator = arrow::io::LatencyGenerator::Make(0.01);
+  return MakeMappedGenerator(std::move(source), [latency_generator](const T& res) {
+    auto out = Future<T>::Make();
+    std::thread([out, res, latency_generator]() mutable {
+      latency_generator->Sleep();
+      out.MarkFinished(res);
+    }).detach();
+    return out;
   });
 }
 
@@ -426,6 +440,29 @@ TEST(TestAsyncUtil, MapParallelStress) {
   }
 }
 
+TEST(TestAsyncUtil, MapQueuingFailStress) {
+  constexpr int NTASKS = 10;
+  constexpr int NITEMS = 10;
+  for (bool slow : {true, false}) {
+    for (int i = 0; i < NTASKS; i++) {
+      std::shared_ptr<std::atomic<bool>> done = std::make_shared<std::atomic<bool>>();
+      auto inner = AsyncVectorIt(RangeVector(NITEMS));
+      if (slow) inner = MakeJittery(inner);
+      auto gen = FailsAt(inner, NITEMS / 2);
+      std::function<TestStr(const TestInt&)> mapper = [done](const TestInt& in) {
+        if (done->load()) {
+          ADD_FAILURE() << "Callback called after generator sent end signal";
+        }
+        return std::to_string(in.value);
+      };
+      auto mapped = MakeMappedGenerator(std::move(gen), mapper);
+      auto readahead = MakeReadaheadGenerator(std::move(mapped), 8);
+      ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(std::move(readahead)));
+      done->store(true);
+    }
+  }
+}
+
 TEST(TestAsyncUtil, MapTaskFail) {
   std::vector<TestInt> input = {1, 2, 3};
   auto generator = AsyncVectorIt(input);
@@ -438,6 +475,38 @@ TEST(TestAsyncUtil, MapTaskFail) {
   };
   auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(mapped));
+}
+
+TEST(TestAsyncUtil, MapTaskDelayedFail) {
+  // Regression test for an edge case in MappingGenerator
+  auto push = PushGenerator<TestInt>();
+  auto producer = push.producer();
+  AsyncGenerator<TestInt> generator = push;
+
+  auto delayed = Future<TestStr>::Make();
+  std::function<Future<TestStr>(const TestInt&)> mapper =
+      [=](const TestInt& in) -> Future<TestStr> {
+    if (in.value == 1) return delayed;
+    return TestStr(std::to_string(in.value));
+  };
+  auto mapped = MakeMappedGenerator(std::move(generator), mapper);
+
+  producer.Push(TestInt(1));
+  auto fut = mapped();
+  SleepABit();
+  ASSERT_FALSE(fut.is_finished());
+  // At this point there should be nothing in waiting_jobs, so the
+  // next call will push something to the queue and schedule Callback
+  auto fut2 = mapped();
+  // There's now one job in waiting_jobs. Failing the original task will
+  // purge the queue.
+  delayed.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_FINISHES_AND_RAISES(Invalid, fut);
+  // However, Callback can still run once we fulfill the remaining
+  // request. Callback needs to see that the generator is finished and
+  // bail out, instead of trying to manipulate waiting_jobs.
+  producer.Push(TestInt(2));
+  ASSERT_FINISHES_OK_AND_EQ(TestStr(), fut2);
 }
 
 TEST(TestAsyncUtil, MapSourceFail) {
@@ -590,6 +659,28 @@ TEST_P(MergedGeneratorTestFixture, MergedParallelStress) {
     merged = MakeReadaheadGenerator(merged, 4);
     ASSERT_FINISHES_OK_AND_ASSIGN(auto items, CollectAsyncGenerator(merged));
     ASSERT_EQ(NITEMS * NGENERATORS, items.size());
+  }
+}
+
+TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
+  // Regression test for an edge case in MergedGenerator. Ensure if
+  // the source generator returns already-completed futures and there
+  // are many queued pulls (or, the consumer pulls again as part of
+  // the callback), we don't recurse due to AddCallback (leading to an
+  // eventual stack overflow).
+  const int kNumItems = IsSlow() ? 128 : 4096;
+  std::vector<TestInt> items(kNumItems, TestInt(42));
+  auto generator = MakeSource(items);
+  PushGenerator<AsyncGenerator<TestInt>> sources;
+  auto merged = MakeMergedGenerator(AsyncGenerator<AsyncGenerator<TestInt>>(sources), 1);
+  std::vector<Future<TestInt>> pulls;
+  for (int i = 0; i < kNumItems; i++) {
+    pulls.push_back(merged());
+  }
+  sources.producer().Push(generator);
+  sources.producer().Close();
+  for (const auto& fut : pulls) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(42), fut);
   }
 }
 

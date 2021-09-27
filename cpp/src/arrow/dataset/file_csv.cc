@@ -183,10 +183,12 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
 }
 
 static RecordBatchGenerator GeneratorFromReader(
-    const Future<std::shared_ptr<csv::StreamingReader>>& reader) {
+    const Future<std::shared_ptr<csv::StreamingReader>>& reader, int64_t batch_size) {
   auto gen_fut = reader.Then(
-      [](const std::shared_ptr<csv::StreamingReader>& reader) -> RecordBatchGenerator {
-        return [reader]() { return reader->ReadNextAsync(); };
+      [batch_size](
+          const std::shared_ptr<csv::StreamingReader>& reader) -> RecordBatchGenerator {
+        auto batch_gen = [reader]() { return reader->ReadNextAsync(); };
+        return MakeChunkedBatchGenerator(std::move(batch_gen), batch_size);
       });
   return MakeFromFuture(std::move(gen_fut));
 }
@@ -204,13 +206,13 @@ class CsvScanTask : public ScanTask {
   Result<RecordBatchIterator> Execute() override {
     auto reader_fut = OpenReaderAsync(source_, *format_, options(),
                                       ::arrow::internal::GetCpuThreadPool());
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut));
+    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
     return MakeGeneratorIterator(std::move(reader_gen));
   }
 
   Future<RecordBatchVector> SafeExecute(Executor* executor) override {
     auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut));
+    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
     return CollectAsyncGenerator(reader_gen);
   }
 
@@ -218,7 +220,7 @@ class CsvScanTask : public ScanTask {
       Executor* executor,
       std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
     auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut));
+    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
     return VisitAsyncGenerator(reader_gen, visitor);
   }
 
@@ -269,7 +271,7 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   auto source = file->source();
   auto reader_fut =
       OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
-  return GeneratorFromReader(std::move(reader_fut));
+  return GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
 }
 
 Future<util::optional<int64_t>> CsvFileFormat::CountRows(

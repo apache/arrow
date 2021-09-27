@@ -148,6 +148,11 @@ func (t *StructType) FieldByName(name string) (Field, bool) {
 	return t.fields[i], true
 }
 
+func (t *StructType) FieldIdx(name string) (int, bool) {
+	i, ok := t.index[name]
+	return i, ok
+}
+
 type MapType struct {
 	value      *ListType
 	KeysSorted bool

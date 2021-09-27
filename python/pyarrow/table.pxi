@@ -183,7 +183,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         array : boolean Array or ChunkedArray
         """
-        options = _pc().NullOptions(nan_is_null)
+        options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
@@ -931,7 +931,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         return pyarrow_wrap_batch(result)
 
-    def filter(self, Array mask, object null_selection_behavior="drop"):
+    def filter(self, mask, object null_selection_behavior="drop"):
         """
         Select record from a record batch. See pyarrow.compute.filter for full
         usage.

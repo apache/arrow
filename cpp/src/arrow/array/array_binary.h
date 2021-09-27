@@ -37,6 +37,10 @@
 
 namespace arrow {
 
+/// \addtogroup binary-arrays
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // Binary and String
 
@@ -251,5 +255,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   int32_t byte_width_;
 };
+
+/// @}
 
 }  // namespace arrow

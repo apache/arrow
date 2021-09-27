@@ -23,17 +23,27 @@ class TestDatasetFileSystemDatasetFactory < Test::Unit::TestCase
     omit("Arrow Dataset is required") unless defined?(ArrowDataset)
     Dir.mktmpdir do |tmpdir|
       @dir = tmpdir
-      @path = File.join(@dir, "table.arrow")
-      @table = build_table(visible: [
-                             build_boolean_array([true, false, true]),
-                             build_boolean_array([false, true, false, true]),
-                           ],
-                           point: [
-                             build_int32_array([1, 2, 3]),
-                             build_int32_array([-1, -2, -3, -4]),
-                           ])
       @format = ArrowDataset::IPCFileFormat.new
-      write_table(@table, @path)
+      @path1 = File.join(@dir, "table1.arrow")
+      @table1 = build_table(visible: [
+                              build_boolean_array([true, false, true]),
+                              build_boolean_array([false, true, false, true]),
+                            ],
+                            point: [
+                              build_int32_array([1, 2, 3]),
+                              build_int32_array([-1, -2, -3, -4]),
+                            ])
+      write_table(@table1, @path1)
+      @path2 = File.join(@dir, "table2.arrow")
+      @table2 = build_table(visible: [
+                              build_boolean_array([false, true]),
+                              build_boolean_array([true]),
+                            ],
+                            point: [
+                              build_int32_array([10]),
+                              build_int32_array([-10, -20]),
+                            ])
+      write_table(@table2, @path2)
       yield
     end
   end
@@ -41,15 +51,23 @@ class TestDatasetFileSystemDatasetFactory < Test::Unit::TestCase
   def test_file_system
     factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
     factory.file_system = Arrow::LocalFileSystem.new
-    factory.add_path(File.expand_path(@path))
+    factory.add_path(File.expand_path(@path1))
     dataset = factory.finish
-    assert_equal(@table, dataset.to_table)
+    assert_equal(@table1, dataset.to_table)
   end
 
   def test_file_system_uri
     factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
-    factory.file_system_uri = build_file_uri(@path)
+    factory.file_system_uri = build_file_uri(@path1)
     dataset = factory.finish
-    assert_equal(@table, dataset.to_table)
+    assert_equal(@table1, dataset.to_table)
+  end
+
+  def test_directory
+    factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
+    factory.file_system_uri = build_file_uri(@dir)
+    dataset = factory.finish
+    assert_equal(@table1.concatenate([@table2]),
+                 dataset.to_table)
   end
 end

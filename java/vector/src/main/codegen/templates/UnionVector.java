@@ -617,8 +617,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
   @Override
   public Iterator<ValueVector> iterator() {
-    List<ValueVector> vectors = org.apache.arrow.util.Collections2.toList(internalStruct.iterator());
-    return vectors.iterator();
+    return internalStruct.iterator();
   }
 
   public ValueVector getVector(int index) {

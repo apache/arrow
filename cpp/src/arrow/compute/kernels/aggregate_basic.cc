@@ -44,11 +44,21 @@ Status AggregateFinalize(KernelContext* ctx, Datum* out) {
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func, SimdLevel::type simd_level) {
-  ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
-                               AggregateFinalize);
+  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
+                               AggregateMerge, AggregateFinalize);
   // Set the simd level
   kernel.simd_level = simd_level;
-  DCHECK_OK(func->AddKernel(kernel));
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
+void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
+                  ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
+                  SimdLevel::type simd_level) {
+  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
+                               AggregateMerge, std::move(finalize));
+  // Set the simd level
+  kernel.simd_level = simd_level;
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
 }
 
 namespace aggregate {
@@ -314,9 +324,7 @@ void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
 
   // Note SIMD level is always NONE, but the convenience kernel will
   // dispatch to an appropriate implementation
-  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
-                               AggregateMerge, std::move(finalize));
-  DCHECK_OK(func->AddKernel(kernel));
+  AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
 }
 
 // ----------------------------------------------------------------------

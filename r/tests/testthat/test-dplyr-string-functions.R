@@ -19,6 +19,7 @@ skip_if_not_available("dataset")
 skip_if_not_available("utf8proc")
 
 library(dplyr)
+library(lubridate)
 library(stringr)
 library(stringi)
 
@@ -730,6 +731,104 @@ test_that("errors in strptime", {
   expect_error(
     nse_funcs$strptime(x, tz = "PDT"),
     "Time zone argument not supported by Arrow"
+  )
+})
+
+test_that("strftime", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
+  seconds <- tibble(x = c("05.000000", NA))
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats)) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats, tz = "Pacific/Marquesas")) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = formats, tz = "EST", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  withr::with_timezone("Pacific/Marquesas",
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = strftime(x, format = formats, tz = "EST")) %>%
+        collect(),
+      times
+    )
+  )
+
+  # This check is due to differences in the way %c currently works in Arrow and R's strftime.
+  # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
+  expect_error(
+    times %>%
+      Table$create() %>%
+      mutate(x = strftime(x, format = "%c")) %>%
+      collect(),
+    "%c flag is not supported in non-C locales."
+  )
+
+  # Output precision of %S depends on the input timestamp precision.
+  # Timestamps with second precision are represented as integers while
+  # milliseconds, microsecond and nanoseconds are represented as fixed floating
+  # point numbers with 3, 6 and 9 decimal places respectively.
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(x, format = "%S")) %>%
+      transmute(as.double(substr(x, 1, 2))) %>%
+      collect(),
+    times,
+    tolerance = 1e-6
+  )
+})
+
+test_that("format_ISO8601", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  # See comment regarding %S flag in strftime tests
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = FALSE)) %>%
+      mutate(x = gsub("\\.0*", "", x)) %>%
+      collect(),
+    times
+  )
+
+  # See comment regarding %S flag in strftime tests
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
+      mutate(x = gsub("\\.0*", "", x)) %>%
+      collect(),
+    times
   )
 })
 

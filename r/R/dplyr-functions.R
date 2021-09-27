@@ -672,6 +672,48 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
+nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+  if (tz == "") {
+    tz <- Sys.timezone()
+  }
+  # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
+  # cast the timestamp to desired timezone. This is a metadata only change.
+  ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
+
+nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+  ISO8601_precision_map <-
+    list(y = "%Y",
+         ym = "%Y-%m",
+         ymd = "%Y-%m-%d",
+         ymdh = "%Y-%m-%dT%H",
+         ymdhm = "%Y-%m-%dT%H:%M",
+         ymdhms = "%Y-%m-%dT%H:%M:%S")
+
+  if (is.null(precision)) {
+    precision <- "ymdhms"
+  }
+  if (!precision %in% names(ISO8601_precision_map)) {
+    abort(
+      paste(
+        "`precision` must be one of the following values:",
+        paste(names(ISO8601_precision_map), collapse = ", "),
+        "\nValue supplied was: ",
+        precision
+      )
+    )
+  }
+  format <- ISO8601_precision_map[[precision]]
+  if (usetz) {
+    format <- paste0(format, "%z")
+  }
+  Expression$create("strftime", x, options = list(format = format, locale = "C"))
+}
+
 nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
@@ -698,7 +740,7 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
     arrow_not_supported("Label argument")
   }
 
-  Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
+  Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
@@ -847,6 +889,37 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
+agg_funcs$quantile <- function(x, probs, na.rm = FALSE) {
+  if (length(probs) != 1) {
+    arrow_not_supported("quantile() with length(probs) != 1")
+  }
+  # TODO: Bind to the Arrow function that returns an exact quantile and remove
+  # this warning (ARROW-14021)
+  warn(
+    "quantile() currently returns an approximate quantile in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.quantile.approximate"
+  )
+  list(
+    fun = "tdigest",
+    data = x,
+    options = list(skip_nulls = na.rm, q = probs)
+  )
+}
+agg_funcs$median <- function(x, na.rm = FALSE) {
+  # TODO: Bind to the Arrow function that returns an exact median and remove
+  # this warning (ARROW-14021)
+  warn(
+    "median() currently returns an approximate median in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.median.approximate"
+  )
+  list(
+    fun = "approximate_median",
+    data = x,
+    options = list(skip_nulls = na.rm)
+  )
+}
 agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
   list(
     fun = "count_distinct",
@@ -884,15 +957,21 @@ agg_funcs$max <- function(..., na.rm = FALSE) {
   )
 }
 
-output_type <- function(fun, input_type) {
+output_type <- function(fun, input_type, hash) {
   # These are quick and dirty heuristics.
   if (fun %in% c("any", "all")) {
     bool()
   } else if (fun %in% "sum") {
     # It may upcast to a bigger type but this is close enough
     input_type
-  } else if (fun %in% c("mean", "stddev", "variance")) {
+  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
     float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
   } else {
     # Just so things don't error, assume the resulting type is the same
     input_type
