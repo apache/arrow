@@ -182,8 +182,8 @@ table LiteralRelation {
   columns: [LiteralColumn] (required);
 }
 
-/// A table read
-table Table {
+/// A source of data that produces rows.
+table Source {
   base: RelBase (required);
   name: string (required);
   schema: org.apache.arrow.flatbuf.Schema (required);
@@ -198,7 +198,7 @@ union RelationImpl {
   LiteralRelation,
   OrderBy,
   Project,
-  Table,
+  Source,
 }
 
 /// A table holding an instance of the possible relation types.
