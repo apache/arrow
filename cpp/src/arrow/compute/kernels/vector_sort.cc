@@ -17,10 +17,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <queue>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 
 #include "arrow/array/concatenate.h"
@@ -64,6 +66,45 @@ namespace internal {
   VISIT(Decimal256Type)
 
 namespace {
+
+struct SortField {
+  int field_index;
+  SortOrder order;
+};
+
+// Return the field indices of the sort keys, deduplicating them along the way
+Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
+                                            const std::vector<SortKey>& sort_keys) {
+  std::vector<SortField> fields;
+  std::unordered_set<int> seen;
+  fields.reserve(sort_keys.size());
+  seen.reserve(sort_keys.size());
+
+  for (const auto& sort_key : sort_keys) {
+    const auto r = schema.GetFieldIndex(sort_key.name);
+    if (r < 0) {
+      return Status::KeyError("Nonexistent sort key column: ", sort_key.name);
+    }
+    if (seen.insert(r).second) {
+      fields.push_back({r, sort_key.order});
+    }
+  }
+  return fields;
+}
+
+template <typename ResolvedSortKey, typename TableOrBatch>
+Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
+    const TableOrBatch& table_or_batch, const std::vector<SortKey>& sort_keys) {
+  ARROW_ASSIGN_OR_RAISE(const auto fields,
+                        FindSortKeys(*table_or_batch.schema(), sort_keys));
+  std::vector<ResolvedSortKey> resolved;
+  resolved.reserve(fields.size());
+  std::transform(fields.begin(), fields.end(), std::back_inserter(resolved),
+                 [&](const SortField& f) {
+                   return ResolvedSortKey{table_or_batch.column(f.field_index), f.order};
+                 });
+  return resolved;
+}
 
 // The target chunk in a chunked array.
 template <typename ArrayType>
@@ -1257,16 +1298,7 @@ class RadixRecordBatchSorter {
 
   static Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
       const RecordBatch& batch, const std::vector<SortKey>& sort_keys) {
-    std::vector<ResolvedSortKey> resolved;
-    resolved.reserve(sort_keys.size());
-    for (const auto& sort_key : sort_keys) {
-      auto array = batch.GetColumnByName(sort_key.name);
-      if (!array) {
-        return Status::Invalid("Nonexistent sort key column: ", sort_key.name);
-      }
-      resolved.push_back({std::move(array), sort_key.order});
-    }
-    return resolved;
+    return ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(batch, sort_keys);
   }
 
   const RecordBatch& batch_;
@@ -1484,16 +1516,13 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
  private:
   static std::vector<ResolvedSortKey> ResolveSortKeys(
       const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
-    std::vector<ResolvedSortKey> resolved;
-    for (const auto& sort_key : sort_keys) {
-      auto array = batch.GetColumnByName(sort_key.name);
-      if (!array) {
-        *status = Status::Invalid("Nonexistent sort key column: ", sort_key.name);
-        break;
-      }
-      resolved.emplace_back(array, sort_key.order);
+    const auto maybe_resolved =
+        ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(batch, sort_keys);
+    if (!maybe_resolved.ok()) {
+      *status = maybe_resolved.status();
+      return {};
     }
-    return resolved;
+    return *std::move(maybe_resolved);
   }
 
   template <typename Type>
@@ -1607,13 +1636,14 @@ class MultipleKeyTableSorter : public TypeVisitor {
 
   // Preprocessed sort key.
   struct ResolvedSortKey {
-    ResolvedSortKey(const ChunkedArray& chunked_array, const SortOrder order)
+    ResolvedSortKey(const std::shared_ptr<ChunkedArray>& chunked_array,
+                    const SortOrder order)
         : order(order),
-          type(GetPhysicalType(chunked_array.type())),
-          chunks(GetPhysicalChunks(chunked_array, type)),
+          type(GetPhysicalType(chunked_array->type())),
+          chunks(GetPhysicalChunks(*chunked_array, type)),
           chunk_pointers(GetArrayPointers(chunks)),
-          null_count(chunked_array.null_count()),
-          num_chunks(chunked_array.num_chunks()),
+          null_count(chunked_array->null_count()),
+          num_chunks(chunked_array->num_chunks()),
           resolver(chunk_pointers) {}
 
     // Finds the target chunk and index in the target chunk from an
@@ -1661,17 +1691,13 @@ class MultipleKeyTableSorter : public TypeVisitor {
  private:
   static std::vector<ResolvedSortKey> ResolveSortKeys(
       const Table& table, const std::vector<SortKey>& sort_keys, Status* status) {
-    std::vector<ResolvedSortKey> resolved;
-    resolved.reserve(sort_keys.size());
-    for (const auto& sort_key : sort_keys) {
-      const auto& chunked_array = table.GetColumnByName(sort_key.name);
-      if (!chunked_array) {
-        *status = Status::Invalid("Nonexistent sort key column: ", sort_key.name);
-        break;
-      }
-      resolved.emplace_back(*chunked_array, sort_key.order);
+    const auto maybe_resolved =
+        ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(table, sort_keys);
+    if (!maybe_resolved.ok()) {
+      *status = maybe_resolved.status();
+      return {};
     }
-    return resolved;
+    return *std::move(maybe_resolved);
   }
 
   template <typename Type>
@@ -2153,7 +2179,7 @@ class ChunkedArraySelecter : public TypeVisitor {
   SortOrder order_;
   ExecContext* ctx_;
   Datum* output_;
-};  // namespace
+};
 
 class RecordBatchSelecter : public TypeVisitor {
  private:
@@ -2299,7 +2325,7 @@ class TableSelecter : public TypeVisitor {
     std::vector<ResolvedSortKey> resolved;
     for (const auto& key : sort_keys) {
       auto chunked_array = table.GetColumnByName(key.name);
-      resolved.emplace_back(*chunked_array, key.order);
+      resolved.emplace_back(chunked_array, key.order);
     }
     return resolved;
   }
