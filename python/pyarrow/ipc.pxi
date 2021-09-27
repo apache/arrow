@@ -85,26 +85,27 @@ cdef _wrap_read_stats(CIpcReadStats c):
 
 
 cdef class IpcWriteOptions(_Weakrefable):
-    """Serialization options for the IPC format.
+    """
+    Serialization options for the IPC format.
 
     Parameters
     ----------
     metadata_version : MetadataVersion, default MetadataVersion.V5
         The metadata version to write.  V5 is the current and latest,
         V4 is the pre-1.0 metadata version (with incompatible Union layout).
-    allow_64bit: bool, default False
+    allow_64bit : bool, default False
         If true, allow field lengths that don't fit in a signed 32-bit int.
     use_legacy_format : bool, default False
         Whether to use the pre-Arrow 0.15 IPC format.
-    compression: str, Codec, or None
+    compression : str, Codec, or None
         compression codec to use for record batch buffers.
         If None then batch buffers will be uncompressed.
         Must be "lz4", "zstd" or None.
         To specify a compression_level use `pyarrow.Codec`
-    use_threads: bool
+    use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like compression.
-    emit_dictionary_deltas: bool
+    emit_dictionary_deltas : bool
         Whether to emit dictionary deltas.  Default is false for maximum
         stream compatibility.
     """
