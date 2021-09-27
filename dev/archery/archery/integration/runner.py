@@ -130,11 +130,13 @@ class IntegrationRunner(object):
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
+                skip.add("csharp")
                 skip.add("Go")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
             if prefix == '2.0.0-compression':
+                skip.add("csharp")
                 skip.add("JS")
                 skip.add("Rust")
 
@@ -142,6 +144,7 @@ class IntegrationRunner(object):
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
+                skip.add("csharp")
                 skip.add("Go")
 
             yield datagen.File(name, None, None, skip=skip, path=out_path)
