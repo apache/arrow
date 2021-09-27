@@ -1215,7 +1215,7 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 +=================+============+====================+==================+==============================+=======+
 | cast            | Unary      | Many               | Variable         | :struct:`CastOptions`        |       |
 +-----------------+------------+--------------------+------------------+------------------------------+-------+
-| strftime        | Unary      | Timestamp          | String           | :struct:`StrftimeOptions`    | \(1)  |
+| strftime        | Unary      | Timestamp, Time    | String           | :struct:`StrftimeOptions`    | \(1)  |
 +-----------------+------------+--------------------+------------------+------------------------------+-------+
 | strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |       |
 +-----------------+------------+--------------------+------------------+------------------------------+-------+
@@ -1342,19 +1342,19 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | quarter            | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| hour               | Unary      | Timestamp         | Int64         |                            |       |
+| hour               | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| minute             | Unary      | Timestamp         | Int64         |                            |       |
+| minute             | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| second             | Unary      | Timestamp         | Int64         |                            |       |
+| second             | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| millisecond        | Unary      | Timestamp         | Int64         |                            |       |
+| millisecond        | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| microsecond        | Unary      | Timestamp         | Int64         |                            |       |
+| microsecond        | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| nanosecond         | Unary      | Timestamp         | Int64         |                            |       |
+| nanosecond         | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| subsecond          | Unary      | Timestamp         | Double        |                            |       |
+| subsecond          | Unary      | Timestamp, Time   | Double        |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
