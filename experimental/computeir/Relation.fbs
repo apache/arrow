@@ -182,7 +182,7 @@ table LiteralRelation {
   columns: [LiteralColumn] (required);
 }
 
-/// A source of data that produces rows.
+/// An external source of tabular data
 table Source {
   base: RelBase (required);
   name: string (required);
