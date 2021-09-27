@@ -193,6 +193,7 @@ table Source {
 union RelationImpl {
   Aggregate,
   Filter,
+  Join,
   Limit,
   LiteralRelation,
   OrderBy,
