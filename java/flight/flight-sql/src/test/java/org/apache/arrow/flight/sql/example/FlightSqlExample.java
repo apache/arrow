@@ -573,12 +573,13 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             new Field("string_value", FieldType.nullable(MinorType.VARCHAR.getType()), null),
             new Field("bool_value", FieldType.nullable(MinorType.BIT.getType()), null),
             new Field("int_value", FieldType.nullable(MinorType.INT.getType()), null),
+            new Field("uint32_value", FieldType.nullable(MinorType.UINT4.getType()), null),
             new Field("bigint_value", FieldType.nullable(MinorType.BIGINT.getType()), null),
             new Field("int32_bitmask", FieldType.nullable(MinorType.INT.getType()), null)));
     final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
     final byte stringValueId = 0;
     final byte boolValueId = 1;
-    final byte intValueId = 2;
+    final byte uint32ValueId = 3;
     vectors.forEach(FieldVector::allocateNew);
     final int rows = requestedInfo.length;
     for (int index = 0; index < rows; index++) {
@@ -609,7 +610,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           break;
         case FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE:
           saveToVector(
-              intValueId,
+              uint32ValueId,
               metaData.storesMixedCaseIdentifiers() ?
                   SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE :
                   metaData.storesUpperCaseIdentifiers() ?
@@ -623,7 +624,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           break;
         case FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE:
           saveToVector(
-              intValueId, metaData.storesMixedCaseQuotedIdentifiers() ?
+              uint32ValueId, metaData.storesMixedCaseQuotedIdentifiers() ?
                   SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE :
                   metaData.storesUpperCaseQuotedIdentifiers() ?
                       SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE_VALUE :
