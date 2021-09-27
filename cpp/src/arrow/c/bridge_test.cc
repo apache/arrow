@@ -805,6 +805,8 @@ TEST_F(TestArrayExport, Primitive) {
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
+
+  TestPrimitive(month_day_nano_interval(), R"([[-1, 5, 20], null])");
 }
 
 TEST_F(TestArrayExport, PrimitiveSliced) {
@@ -2547,6 +2549,7 @@ TEST_F(TestSchemaRoundtrip, Temporal) {
   TestWithTypeFactory(date32);
   TestWithTypeFactory(day_time_interval);
   TestWithTypeFactory(month_interval);
+  TestWithTypeFactory(month_day_nano_interval);
   TestWithTypeFactory(std::bind(time64, TimeUnit::NANO));
   TestWithTypeFactory(std::bind(duration, TimeUnit::MICRO));
   TestWithTypeFactory([]() { return arrow::timestamp(TimeUnit::MICRO, "Europe/Paris"); });
