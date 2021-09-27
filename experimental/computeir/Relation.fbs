@@ -120,10 +120,10 @@ table Join {
   left: Relation (required);
   /// Right relation
   right: Relation (required);
-  /// The expression which will be evaluated against rows from each
+  /// Conjunction of expressions that will be evaluated against rows from each
   /// input to determine whether they should be included in the
   /// join relation's output.
-  on_expression: Expression (required);
+  predicates: [Expression] (required);
   /// The kind of join to use.
   join_kind: JoinKind;
 }

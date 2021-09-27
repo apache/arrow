@@ -783,7 +783,7 @@ struct Join FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_BASE = 4,
     VT_LEFT = 6,
     VT_RIGHT = 8,
-    VT_ON_EXPRESSION = 10,
+    VT_PREDICATES = 10,
     VT_JOIN_KIND = 12
   };
   /// Common options
@@ -798,11 +798,11 @@ struct Join FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Relation *right() const {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::Relation *>(VT_RIGHT);
   }
-  /// The expression which will be evaluated against rows from each
+  /// Conjunction of expressions that will be evaluated against rows from each
   /// input to determine whether they should be included in the
   /// join relation's output.
-  const org::apache::arrow::computeir::flatbuf::Expression *on_expression() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_ON_EXPRESSION);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *predicates() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *>(VT_PREDICATES);
   }
   /// The kind of join to use.
   org::apache::arrow::computeir::flatbuf::JoinKind join_kind() const {
@@ -816,8 +816,9 @@ struct Join FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(left()) &&
            VerifyOffsetRequired(verifier, VT_RIGHT) &&
            verifier.VerifyTable(right()) &&
-           VerifyOffsetRequired(verifier, VT_ON_EXPRESSION) &&
-           verifier.VerifyTable(on_expression()) &&
+           VerifyOffsetRequired(verifier, VT_PREDICATES) &&
+           verifier.VerifyVector(predicates()) &&
+           verifier.VerifyVectorOfTables(predicates()) &&
            VerifyField<uint8_t>(verifier, VT_JOIN_KIND) &&
            verifier.EndTable();
   }
@@ -836,8 +837,8 @@ struct JoinBuilder {
   void add_right(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> right) {
     fbb_.AddOffset(Join::VT_RIGHT, right);
   }
-  void add_on_expression(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> on_expression) {
-    fbb_.AddOffset(Join::VT_ON_EXPRESSION, on_expression);
+  void add_predicates(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>> predicates) {
+    fbb_.AddOffset(Join::VT_PREDICATES, predicates);
   }
   void add_join_kind(org::apache::arrow::computeir::flatbuf::JoinKind join_kind) {
     fbb_.AddElement<uint8_t>(Join::VT_JOIN_KIND, static_cast<uint8_t>(join_kind), 0);
@@ -853,7 +854,7 @@ struct JoinBuilder {
     fbb_.Required(o, Join::VT_BASE);
     fbb_.Required(o, Join::VT_LEFT);
     fbb_.Required(o, Join::VT_RIGHT);
-    fbb_.Required(o, Join::VT_ON_EXPRESSION);
+    fbb_.Required(o, Join::VT_PREDICATES);
     return o;
   }
 };
@@ -863,15 +864,32 @@ inline flatbuffers::Offset<Join> CreateJoin(
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> left = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> right = 0,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> on_expression = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>> predicates = 0,
     org::apache::arrow::computeir::flatbuf::JoinKind join_kind = org::apache::arrow::computeir::flatbuf::JoinKind::Anti) {
   JoinBuilder builder_(_fbb);
-  builder_.add_on_expression(on_expression);
+  builder_.add_predicates(predicates);
   builder_.add_right(right);
   builder_.add_left(left);
   builder_.add_base(base);
   builder_.add_join_kind(join_kind);
   return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Join> CreateJoinDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> left = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> right = 0,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *predicates = nullptr,
+    org::apache::arrow::computeir::flatbuf::JoinKind join_kind = org::apache::arrow::computeir::flatbuf::JoinKind::Anti) {
+  auto predicates__ = predicates ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>(*predicates) : 0;
+  return org::apache::arrow::computeir::flatbuf::CreateJoin(
+      _fbb,
+      base,
+      left,
+      right,
+      predicates__,
+      join_kind);
 }
 
 /// Order by relation
