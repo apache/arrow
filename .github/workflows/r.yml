@@ -179,8 +179,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        # We use the R version that was released at the time of the arrow release in order
-        # to make sure we can download binaries from RSPM.
         - { rtools: 35, arch: 'mingw32' }
         - { rtools: 35, arch: 'mingw64' }
         - { rtools: 40, arch: 'mingw32' }
@@ -297,11 +295,17 @@ jobs:
         with:
           name: libarrow-rtools40-mingw64.zip
           path: r/windows
-      - name: Unzip libarrows
+      - name: Unzip and rezip libarrows
         shell: bash
         run: |
           cd r/windows
           ls *.zip | xargs -n 1 unzip -uo
+          # Because the r/windows directory is in .Rbuildignore,
+          # and rcmdcheck checks a built package,
+          # this directory won't be found, so let's zip it back up
+          # and pass in the libarrow.zip path later
+          rm -rf *.zip
+          zip -r libarrow.zip .
       - name: Setup ccache
         shell: bash
         run: |
@@ -349,6 +353,7 @@ jobs:
         shell: Rscript {0}
         run: |
           Sys.setenv(
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
             ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE
