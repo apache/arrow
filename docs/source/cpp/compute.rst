@@ -1183,6 +1183,26 @@ depending on a condition.
 
   Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
 
+Structural transforms
+~~~~~~~~~~~~~~~~~~~~~
+
++---------------------+------------+-------------+------------------+------------------------------+--------+
+| Function name       | Arity      | Input types | Output type      | Options class                | Notes  |
++=====================+============+=============+==================+==============================+========+
+| list_value_length   | Unary      | List-like   | Int32 or Int64   |                              | \(1)   |
++---------------------+------------+-------------+------------------+------------------------------+--------+
+| make_struct         | Varargs    | Any         | Struct           | :struct:`MakeStructOptions`  | \(2)   |
++---------------------+------------+-------------+------------------+------------------------------+--------+
+
+* \(1) Each output element is the length of the corresponding input element
+  (null if input is null).  Output type is Int32 for List and FixedSizeList,
+  Int64 for LargeList.
+
+* \(2) The output struct's field types are the types of its arguments. The
+  field names are specified using an instance of :struct:`MakeStructOptions`.
+  The output shape will be scalar if all inputs are scalar, otherwise any
+  scalars will be broadcast to arrays.
+
 Conversions
 ~~~~~~~~~~~
 
@@ -1499,19 +1519,15 @@ in the respective option classes.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
-+=====================+============+=====================================+==================+==============================+========+
-| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int32 or Int64   |                              | \(3)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_value_length   | Unary      | List-like                           | Int32 or Int64   |                              | \(4)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| make_struct         | Varargs    | Any                                 | Struct           | :struct:`MakeStructOptions`  | \(5)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
++---------------------+------------+-------------------------------------+------------------+--------+
+| Function name       | Arity      | Input types                         | Output type      | Notes  |
++=====================+============+=====================================+==================+========+
+| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  | \(1)   |
++---------------------+------------+-------------------------------------+------------------+--------+
+| list_flatten        | Unary      | List-like                           | List value type  | \(2)   |
++---------------------+------------+-------------------------------------+------------------+--------+
+| list_parent_indices | Unary      | List-like                           | Int32 or Int64   | \(3)   |
++---------------------+------------+-------------------------------------+------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
   output values are the values at the specified index of each child list.
@@ -1524,15 +1540,6 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.  Output type is Int32 for List and FixedSizeList, Int64 for
   LargeList.
-
-* \(4) Each output element is the length of the corresponding input element
-  (null if input is null).  Output type is Int32 for List and FixedSizeList,
-  Int64 for LargeList.
-
-* \(5) The output struct's field types are the types of its arguments. The
-  field names are specified using an instance of :struct:`MakeStructOptions`.
-  The output shape will be scalar if all inputs are scalar, otherwise any
-  scalars will be broadcast to arrays.
 
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.
