@@ -87,16 +87,12 @@ test_that("Handling string data with embedded nuls", {
   scalar_with_nul <- Scalar$create(raws, binary())$cast(utf8())
 
   v <- expect_error(as.vector(scalar_with_nul), NA)
-  # expect_error(
-  #   v[1],
-  #   paste0(
-  #     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
-  #     "set options(arrow.skip_nul = TRUE)"
-  #   ),
-  #   fixed = TRUE
-  # )
   expect_error(
-    v[], "embedded nul in string: 'ma\\0n'",
+    v[1],
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+      "set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 

@@ -65,10 +65,7 @@ is.nan.ArrowDatum <- function(x) {
 
 #' @export
 as.vector.ArrowDatum <- function(x, mode) {
-  tryCatch(
-    x$as_vector(),
-    error = handle_embedded_nul_error
-  )
+  x$as_vector()
 }
 
 #' @export

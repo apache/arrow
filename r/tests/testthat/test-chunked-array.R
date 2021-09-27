@@ -434,20 +434,12 @@ test_that("Handling string data with embedded nuls", {
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
   v <- expect_error(as.vector(chunked_array_with_nul), NA)
 
-  # TODO: when we figure out how to promote the error internally in altrep
-  #
-  # expect_error(
-  #   v[],
-  #   paste0(
-  #     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
-  #     "set options(arrow.skip_nul = TRUE)"
-  #   ),
-  #   fixed = TRUE
-  # )
-
   expect_error(
-    v[3],
-    "embedded nul in string: 'ma\\0n'",
+    v[],
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+      "set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 
@@ -460,3 +452,4 @@ test_that("Handling string data with embedded nuls", {
     )
   })
 })
+

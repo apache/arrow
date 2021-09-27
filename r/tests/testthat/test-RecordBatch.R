@@ -518,17 +518,12 @@ test_that("Handling string data with embedded nuls", {
 
   df <- as.data.frame(batch_with_nul)
 
-  # expect_error(
-  #   df[],
-  #   paste0(
-  #     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
-  #     "set options(arrow.skip_nul = TRUE)"
-  #   ),
-  #   fixed = TRUE
-  # )
   expect_error(
     df$b[],
-    "embedded nul in string: 'ma\\0n'",
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+      "set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 

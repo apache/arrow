@@ -388,7 +388,7 @@ struct AltrepVectorString : public AltrepVectorBase {
       if (strip_out_nuls) {
         s = r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped);
       } else {
-        s = r_string_from_view(view);
+        s = r_string_from_view_keep_nul(view, stripped_string);
       }
 
       if (nul_was_stripped) {
@@ -438,7 +438,7 @@ struct AltrepVectorString : public AltrepVectorBase {
         if (strip_out_nuls) {
           s = r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped);
         } else {
-          s = r_string_from_view(view);
+          s = r_string_from_view_keep_nul(view, stripped_string);
         }
         SET_STRING_ELT(data2_, i, s);
       }
@@ -516,6 +516,29 @@ struct AltrepVectorString : public AltrepVectorBase {
       *nul_was_stripped = true;
       stripped_string.resize(stripped_len);
       return r_string_from_view(stripped_string);
+    }
+
+    return r_string_from_view(view);
+  }
+
+  static SEXP r_string_from_view_keep_nul(arrow::util::string_view view,
+                                          std::string& buffer) {
+    bool has_nul = std::find(view.begin(), view.end(), '\0') != view.end();
+    if (has_nul) {
+      buffer = "embedded nul in string: '";
+      for (char c : view) {
+        if (c) {
+          buffer += c;
+        } else {
+          buffer += "\\0";
+        }
+      }
+
+      buffer +=
+          "'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul "
+          "= TRUE)";
+
+      Rf_error(buffer.c_str());
     }
 
     return r_string_from_view(view);

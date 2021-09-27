@@ -736,31 +736,20 @@ test_that("Handling string data with embedded nuls", {
 
   # attempting materialization -> error
 
-  # TODO: this happens internally in ALTREP, and there we can't catch the error and
-  #       promote it
-  #
-  # expect_error(v[],
-  #   paste0(
-  #     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
-  #     "to R, set options(arrow.skip_nul = TRUE)"
-  #   ),
-  #   fixed = TRUE
-  # )
   expect_error(v[],
-    "embedded nul in string: 'ma\\0n'",
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+      "to R, set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 
   # also error on materializing v[3]
-  # expect_error(v[3],
-  #   paste0(
-  #    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
-  #    "to R, set options(arrow.skip_nul = TRUE)"
-  #   ),
-  #   fixed = TRUE
-  # )
   expect_error(v[3],
-    "embedded nul in string",
+    paste0(
+     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+     "to R, set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 
