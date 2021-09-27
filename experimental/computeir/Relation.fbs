@@ -44,7 +44,7 @@ union Emit {
 /// An identifier for relations in a query.
 ///
 /// A table is used here to allow plan implementations optionality.
-table Identifier {
+table RelId {
   id: uint64;
 }
 
@@ -55,7 +55,7 @@ table RelBase {
 
   /// An identifiier for a relation. The identifier should be unique over the
   /// entire plan. Optional.
-  id: Identifier;
+  id: RelId;
 }
 
 /// Filter operation

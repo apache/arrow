@@ -22,8 +22,8 @@ struct RemapBuilder;
 struct PassThrough;
 struct PassThroughBuilder;
 
-struct Identifier;
-struct IdentifierBuilder;
+struct RelId;
+struct RelIdBuilder;
 
 struct RelBase;
 struct RelBaseBuilder;
@@ -384,8 +384,8 @@ inline flatbuffers::Offset<PassThrough> CreatePassThrough(
 /// An identifier for relations in a query.
 ///
 /// A table is used here to allow plan implementations optionality.
-struct Identifier FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef IdentifierBuilder Builder;
+struct RelId FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RelIdBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4
   };
@@ -399,29 +399,29 @@ struct Identifier FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct IdentifierBuilder {
-  typedef Identifier Table;
+struct RelIdBuilder {
+  typedef RelId Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_id(uint64_t id) {
-    fbb_.AddElement<uint64_t>(Identifier::VT_ID, id, 0);
+    fbb_.AddElement<uint64_t>(RelId::VT_ID, id, 0);
   }
-  explicit IdentifierBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit RelIdBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  IdentifierBuilder &operator=(const IdentifierBuilder &);
-  flatbuffers::Offset<Identifier> Finish() {
+  RelIdBuilder &operator=(const RelIdBuilder &);
+  flatbuffers::Offset<RelId> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Identifier>(end);
+    auto o = flatbuffers::Offset<RelId>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Identifier> CreateIdentifier(
+inline flatbuffers::Offset<RelId> CreateRelId(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t id = 0) {
-  IdentifierBuilder builder_(_fbb);
+  RelIdBuilder builder_(_fbb);
   builder_.add_id(id);
   return builder_.Finish();
 }
@@ -450,8 +450,8 @@ struct RelBase FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   /// An identifiier for a relation. The identifier should be unique over the
   /// entire plan. Optional.
-  const org::apache::arrow::computeir::flatbuf::Identifier *id() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::Identifier *>(VT_ID);
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -482,7 +482,7 @@ struct RelBaseBuilder {
   void add_output_mapping(flatbuffers::Offset<void> output_mapping) {
     fbb_.AddOffset(RelBase::VT_OUTPUT_MAPPING, output_mapping);
   }
-  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Identifier> id) {
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
     fbb_.AddOffset(RelBase::VT_ID, id);
   }
   explicit RelBaseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -502,7 +502,7 @@ inline flatbuffers::Offset<RelBase> CreateRelBase(
     flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::computeir::flatbuf::Emit output_mapping_type = org::apache::arrow::computeir::flatbuf::Emit::NONE,
     flatbuffers::Offset<void> output_mapping = 0,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Identifier> id = 0) {
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0) {
   RelBaseBuilder builder_(_fbb);
   builder_.add_id(id);
   builder_.add_output_mapping(output_mapping);
