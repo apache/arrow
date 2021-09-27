@@ -54,8 +54,8 @@ table Filter {
   /// Child relation
   rel: Relation (required);
   /// The conjunction of expressions expression which will be evaluated against
-  /// input rows to determine whether they should be excluded from the / filter
-  //relation's output.
+  /// input rows to determine whether they should be excluded from the filter
+  /// relation's output.
   predicates: [Expression] (required);
 }
 

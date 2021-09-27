@@ -459,7 +459,8 @@ struct Filter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::Relation *>(VT_REL);
   }
   /// The conjunction of expressions expression which will be evaluated against
-  /// input rows to determine whether they should be excluded from the / filter
+  /// input rows to determine whether they should be excluded from the filter
+  /// relation's output.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *predicates() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *>(VT_PREDICATES);
   }
