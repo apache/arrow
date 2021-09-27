@@ -722,9 +722,7 @@ class Converter_Struct : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     // allocate a data frame column to host each array
-    auto first_array =
-        checked_cast<const arrow::StructArray*>(this->chunked_array_->chunk(0).get());
-    auto type = first_array->struct_type();
+    auto type = checked_cast<const arrow::StructType*>(this->chunked_array_->type());
     auto out =
         arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
           return converter->Allocate(n);
