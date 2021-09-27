@@ -132,9 +132,6 @@ def test_option_class_equality():
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
         pc.ReplaceSliceOptions(0, 1, "a"),
-        pc.DayOfWeekOptions(False, 0),
-        pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
-                       first_week_is_fully_in_year=False),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
@@ -151,6 +148,8 @@ def test_option_class_equality():
         pc.TDigestOptions(),
         pc.TrimOptions(" "),
         pc.VarianceOptions(),
+        pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
+                       first_week_is_fully_in_year=False),
     ]
     # TODO: We should test on windows once ARROW-13168 is resolved.
     # Timezone database is not available on Windows yet

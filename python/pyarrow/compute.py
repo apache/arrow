@@ -34,7 +34,6 @@ from pyarrow._compute import (  # noqa
     CastOptions,
     CountOptions,
     DayOfWeekOptions,
-    WeekOptions,
     DictionaryEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
@@ -65,6 +64,7 @@ from pyarrow._compute import (  # noqa
     TDigestOptions,
     TrimOptions,
     VarianceOptions,
+    WeekOptions,
     # Functions
     call_function,
     function_registry,

@@ -1045,8 +1045,24 @@ cdef class _DayOfWeekOptions(FunctionOptions):
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
-    def __init__(self, count_from_zero=True, week_start=1):
+    def __init__(self, *, count_from_zero=True, week_start=1):
         self._set_options(count_from_zero, week_start)
+
+
+cdef class _WeekOptions(FunctionOptions):
+    def _set_options(self, week_starts_monday, count_from_zero,
+                     first_week_is_fully_in_year):
+        self.wrapped.reset(
+            new CWeekOptions(week_starts_monday, count_from_zero,
+                             first_week_is_fully_in_year)
+        )
+
+
+class WeekOptions(_WeekOptions):
+    def __init__(self, *, week_starts_monday=True, count_from_zero=False,
+                 first_week_is_fully_in_year=False):
+        self._set_options(week_starts_monday,
+                          count_from_zero, first_week_is_fully_in_year)
 
 
 cdef class _AssumeTimezoneOptions(FunctionOptions):
@@ -1078,22 +1094,6 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
 class AssumeTimezoneOptions(_AssumeTimezoneOptions):
     def __init__(self, timezone, *, ambiguous="raise", nonexistent="raise"):
         self._set_options(timezone, ambiguous, nonexistent)
-
-
-cdef class _WeekOptions(FunctionOptions):
-    def _set_options(self, week_starts_monday, count_from_zero,
-                     first_week_is_fully_in_year):
-        self.wrapped.reset(
-            new CWeekOptions(week_starts_monday, count_from_zero,
-                             first_week_is_fully_in_year)
-        )
-
-
-class WeekOptions(_WeekOptions):
-    def __init__(self, *, week_starts_monday=True, count_from_zero=False,
-                 first_week_is_fully_in_year=False):
-        self._set_options(week_starts_monday,
-                          count_from_zero, first_week_is_fully_in_year)
 
 
 cdef class _NullOptions(FunctionOptions):
