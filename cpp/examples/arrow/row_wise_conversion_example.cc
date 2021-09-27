@@ -186,20 +186,21 @@ int main(int argc, char** argv) {
   expected_rows = std::move(expected_rows_result).ValueOrDie();
 
   assert(rows.size() == expected_rows.size());
+
   // Print out contents of table, should get
   // ID Components Component prices
   // 1  1          10
   // 2  3          11  12  13
   // 3  2          15  25
-
   std::cout << std::left << std::setw(3) << "ID " << std::left << std::setw(11)
             << "Components " << std::left << std::setw(15) << "Component prices "
             << std::endl;
-  for (int i = 0; i < rows.size(); i++) {
-    std::cout << std::left << std::setw(3) << rows.at(i).id << std::left << std::setw(11)
-              << rows.at(i).components;
-    for (int j = 0; j < rows.at(i).components; j++)
-      std::cout << std::left << std::setw(4) << rows.at(i).component_cost[j];
+  for (const auto& row : rows) {
+    std::cout << std::left << std::setw(3) << row.id << std::left << std::setw(11)
+              << row.components;
+    for (const auto& cost : row.component_cost) {
+      std::cout << std::left << std::setw(4) << cost;
+    }
     std::cout << std::endl;
   }
   return EXIT_SUCCESS;
