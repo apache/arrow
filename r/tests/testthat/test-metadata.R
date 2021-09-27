@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# local_edition(3)
-
 test_that("Schema metadata", {
   s <- schema(b = double())
   expect_equal(s$metadata, empty_named_list())
