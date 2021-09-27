@@ -22,6 +22,13 @@ if (!exists("deparse1")) {
   }
 }
 
+# for compatibility with R versions earlier than 3.6.0
+if (!exists("str2lang")) {
+  str2lang <- function(s) {
+    parse(text = s, keep.source = FALSE)[[1]]
+  }
+}
+
 oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
   if (quote && is.character(x)) {
     x <- paste0('"', x, '"')

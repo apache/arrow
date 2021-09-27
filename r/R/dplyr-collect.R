@@ -96,9 +96,10 @@ implicit_schema <- function(.data) {
     #   and they get projected to this order after aggregation)
     # * Infer the output types from the aggregations
     group_fields <- new_fields[.data$group_by_vars]
+    hash <- length(.data$group_by_vars) > 0
     agg_fields <- imap(
       new_fields[setdiff(names(new_fields), .data$group_by_vars)],
-      ~ output_type(.data$aggregations[[.y]][["fun"]], .x)
+      ~ output_type(.data$aggregations[[.y]][["fun"]], .x, hash)
     )
     new_fields <- c(group_fields, agg_fields)
   }

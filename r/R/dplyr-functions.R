@@ -731,16 +731,18 @@ nse_funcs$round <- function(x, digits = 0) {
   )
 }
 
-nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
-
-  # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
-  # When the ticket below is resolved, we should be able to support the label argument
-  # https://issues.apache.org/jira/browse/ARROW-13133
+nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7),
+                           locale = Sys.getlocale("LC_TIME")) {
   if (label) {
-    arrow_not_supported("Label argument")
+    if (abbr) (
+      format <- "%a"
+    ) else {
+      format <- "%A"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
   }
 
-  Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
+  Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
@@ -889,6 +891,37 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
+agg_funcs$quantile <- function(x, probs, na.rm = FALSE) {
+  if (length(probs) != 1) {
+    arrow_not_supported("quantile() with length(probs) != 1")
+  }
+  # TODO: Bind to the Arrow function that returns an exact quantile and remove
+  # this warning (ARROW-14021)
+  warn(
+    "quantile() currently returns an approximate quantile in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.quantile.approximate"
+  )
+  list(
+    fun = "tdigest",
+    data = x,
+    options = list(skip_nulls = na.rm, q = probs)
+  )
+}
+agg_funcs$median <- function(x, na.rm = FALSE) {
+  # TODO: Bind to the Arrow function that returns an exact median and remove
+  # this warning (ARROW-14021)
+  warn(
+    "median() currently returns an approximate median in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.median.approximate"
+  )
+  list(
+    fun = "approximate_median",
+    data = x,
+    options = list(skip_nulls = na.rm)
+  )
+}
 agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
   list(
     fun = "count_distinct",
@@ -926,15 +959,21 @@ agg_funcs$max <- function(..., na.rm = FALSE) {
   )
 }
 
-output_type <- function(fun, input_type) {
+output_type <- function(fun, input_type, hash) {
   # These are quick and dirty heuristics.
   if (fun %in% c("any", "all")) {
     bool()
   } else if (fun %in% "sum") {
     # It may upcast to a bigger type but this is close enough
     input_type
-  } else if (fun %in% c("mean", "stddev", "variance")) {
+  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
     float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
   } else {
     # Just so things don't error, assume the resulting type is the same
     input_type

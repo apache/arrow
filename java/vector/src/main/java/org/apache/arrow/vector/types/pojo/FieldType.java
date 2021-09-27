@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.types.pojo;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -68,11 +69,9 @@ public class FieldType {
       extensionMetadata.put(ExtensionType.EXTENSION_METADATA_KEY_NAME, ((ExtensionType) type).extensionName());
       extensionMetadata.put(ExtensionType.EXTENSION_METADATA_KEY_METADATA, ((ExtensionType) type).serialize());
       if (metadata != null) {
-        for (Map.Entry<String, String> entry : metadata.entrySet()) {
-          extensionMetadata.put(entry.getKey(), entry.getValue());
-        }
+        extensionMetadata.putAll(metadata);
       }
-      this.metadata = Collections2.immutableMapCopy(extensionMetadata);
+      this.metadata = Collections.unmodifiableMap(extensionMetadata);
     } else {
       this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
     }
