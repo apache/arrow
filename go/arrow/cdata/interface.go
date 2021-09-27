@@ -19,12 +19,20 @@
 package cdata
 
 import (
+	"unsafe"
+
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
+
+// SchemaFromPtr is a simple helper function to cast a uintptr to a *CArrowSchema
+func SchemaFromPtr(ptr uintptr) *CArrowSchema { return (*CArrowSchema)(unsafe.Pointer(ptr)) }
+
+// ArrayFromPtr is a simple helper function to cast a uintptr to a *CArrowArray
+func ArrayFromPtr(ptr uintptr) *CArrowArray { return (*CArrowArray)(unsafe.Pointer(ptr)) }
 
 // ImportCArrowField takes in an ArrowSchema from the C Data interface, it
 // will copy the metadata and type definitions rather than keep direct references
