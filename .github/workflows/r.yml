@@ -301,7 +301,7 @@ jobs:
         shell: bash
         run: |
           cd r/windows
-          unzip -u $(ls *.zip)
+          ls *.zip | xargs -n 1 unzip -u
       - name: Setup ccache
         shell: bash
         run: |
