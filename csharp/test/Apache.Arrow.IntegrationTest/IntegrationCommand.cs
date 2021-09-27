@@ -205,7 +205,11 @@ namespace Apache.Arrow.IntegrationTest
 
         private static IArrowType ToDecimalArrowType(JsonArrowType type)
         {
-            return new Decimal128Type(type.DecimalPrecision, type.Scale);
+            return type.BitWidth switch
+            {
+                256 => new Decimal256Type(type.DecimalPrecision, type.Scale),
+                _ => new Decimal128Type(type.DecimalPrecision, type.Scale),
+            };
         }
 
         private static IArrowType ToDateArrowType(JsonArrowType type)
@@ -309,12 +313,22 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(Decimal128Type type)
             {
+                Array = new Decimal128Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(Decimal256Type type)
+            {
+                Array = new Decimal256Array(GetDecimalArrayData(type));
+            }
+
+            private ArrayData GetDecimalArrayData(FixedSizeBinaryType type)
+            {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
 
                 var json = JsonFieldData.Data.GetRawText();
                 string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
 
-                Span<byte> buffer = stackalloc byte[16];
+                Span<byte> buffer = stackalloc byte[type.ByteWidth];
 
                 ArrowBuffer.Builder<byte> valueBuilder = new ArrowBuffer.Builder<byte>();
                 foreach (string value in values)
@@ -324,7 +338,7 @@ namespace Apache.Arrow.IntegrationTest
                     BigInteger bigInteger = BigInteger.Parse(value);
                     if (!bigInteger.TryWriteBytes(buffer, out int bytesWritten, false, !BitConverter.IsLittleEndian))
                     {
-                        throw new InvalidDataException("Decimal data was too big to fit into 128 bits.");
+                        throw new InvalidDataException($"Decimal data was too big to fit into {type.BitWidth} bits.");
                     }
 
                     if (bigInteger.Sign == -1)
@@ -336,13 +350,7 @@ namespace Apache.Arrow.IntegrationTest
                 }
                 ArrowBuffer valueBuffer = valueBuilder.Build(default);
 
-                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, new[] { validityBuffer, valueBuffer });
-                Array = new Decimal128Array(arrayData);
-            }
-
-            public void Visit(Decimal256Type type)
-            {
-                throw new NotImplementedException();
+                return new ArrayData(type, JsonFieldData.Count, nullCount, 0, new[] { validityBuffer, valueBuffer });
             }
 
             public void Visit(Date32Type type)

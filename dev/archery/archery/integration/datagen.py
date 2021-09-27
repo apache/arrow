@@ -1576,7 +1576,6 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Rust'),
 
         generate_decimal256_case()
-        .skip_category('C#')
         .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('JS')
         .skip_category('Rust'),
