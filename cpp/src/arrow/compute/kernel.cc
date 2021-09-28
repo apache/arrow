@@ -249,8 +249,30 @@ class LargeBinaryLikeMatcher : public TypeMatcher {
   std::string ToString() const override { return "large-binary-like"; }
 };
 
+class FixedSizeBinaryLikeMatcher : public TypeMatcher {
+ public:
+  FixedSizeBinaryLikeMatcher() {}
+
+  bool Matches(const DataType& type) const override {
+    return is_fixed_size_binary(type.id());
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const FixedSizeBinaryLikeMatcher*>(&other);
+    return casted != nullptr;
+  }
+  std::string ToString() const override { return "fixed-size-binary-like"; }
+};
+
 std::shared_ptr<TypeMatcher> LargeBinaryLike() {
   return std::make_shared<LargeBinaryLikeMatcher>();
+}
+
+std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
+  return std::make_shared<FixedSizeBinaryLikeMatcher>();
 }
 
 }  // namespace match

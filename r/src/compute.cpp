@@ -208,7 +208,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
-  if (func_name == "hash_count_distinct") {
+  if (func_name == "count_distinct" || func_name == "hash_count_distinct") {
     using Options = arrow::compute::CountOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->mode =
