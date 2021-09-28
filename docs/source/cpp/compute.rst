@@ -1402,29 +1402,29 @@ is the same, even though the UTC years would be different.
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
 | Function name                   | Arity      | Input types       | Output type           | Options class              |
 +=================================+============+===================+=======================+============================+
-| day_time_interval_between       | Binary     | Timestamp         | DayTime interval      |                            |
+| day_time_interval_between       | Binary     | Temporal          | DayTime interval      |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| days_between                    | Binary     | Timestamp         | Int64                 |                            |
+| days_between                    | Binary     | Timestamp, Date   | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| hours_between                   | Binary     | Timestamp         | Int64                 |                            |
+| hours_between                   | Binary     | Temporal          | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| microseconds_between            | Binary     | Timestamp         | Int64                 |                            |
+| microseconds_between            | Binary     | Temporal          | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| milliseconds_between            | Binary     | Timestamp         | Int64                 |                            |
+| milliseconds_between            | Binary     | Temporal          | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| minutes_between                 | Binary     | Timestamp         | Int64                 |                            |
+| minutes_between                 | Binary     | Temporal          | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| month_day_nano_interval_between | Binary     | Timestamp         | MonthDayNano interval |                            |
+| month_day_nano_interval_between | Binary     | Temporal          | MonthDayNano interval |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| month_interval_between          | Binary     | Timestamp         | Month interval        |                            |
+| month_interval_between          | Binary     | Timestamp, Date   | Month interval        |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| nanoseconds_between             | Binary     | Timestamp         | Int64                 |                            |
+| nanoseconds_between             | Binary     | Temporal          | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| seconds_between                 | Binary     | Timestamp         | Int64                 |                            |
+| seconds_between                 | Binary     | Temporal          | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| weeks_between                   | Binary     | Timestamp         | Int64                 | :struct:`DayOfWeekOptions` |
+| weeks_between                   | Binary     | Timestamp, Date   | Int64                 | :struct:`DayOfWeekOptions` |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
-| years_between                   | Binary     | Timestamp         | Int64                 |                            |
+| years_between                   | Binary     | Timestamp, Date   | Int64                 |                            |
 +---------------------------------+------------+-------------------+-----------------------+----------------------------+
 
 Timezone handling
