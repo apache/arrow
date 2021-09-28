@@ -1217,7 +1217,7 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
 
 // similar to GenerateTypeAgnosticPrimitive, but for variable binary and string types
 template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateTypeAgnosticVarBinary(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateIsomorphicVarBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
       return Generator<BinaryType, Args...>::Exec;
