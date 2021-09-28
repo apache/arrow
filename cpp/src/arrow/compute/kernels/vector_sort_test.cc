@@ -294,6 +294,18 @@ TYPED_TEST(TestNthToIndicesForStrings, Strings) {
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 6);
 }
 
+TEST(TestNthToIndices, Null) {
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(null(), 6));
+  auto expected = ArrayFromJSON(uint64(), "[0, 1, 2, 3, 4, 5]");
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto n : {0, 1, 2, 3, 4, 5, 6}) {
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           NthToIndices(*arr, PartitionNthOptions(n, null_placement)));
+      AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestNthToIndicesRandom : public TestNthToIndicesBase<ArrowType> {
  public:
@@ -673,6 +685,17 @@ TYPED_TEST(TestArraySortIndicesForDecimal, DecimalSortTestTypes) {
                           "[3, 0, 2, 4, 1, 5]");
   this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
                           "[1, 5, 3, 0, 2, 4]");
+}
+
+TEST(TestArraySortIndices, NullType) {
+  auto chunked = ChunkedArrayFromJSON(null(), {"[null, null]", "[]", "[null]", "[null]"});
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto order : AllOrders()) {
+      AssertSortIndices(null(), "[null, null, null, null]", order, null_placement,
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(chunked, order, null_placement, "[0, 1, 2, 3]");
+    }
+  }
 }
 
 TEST(TestArraySortIndices, TemporalTypeParameters) {
@@ -1149,6 +1172,55 @@ TEST_F(TestRecordBatchSortIndices, Decimal) {
   AssertSortIndices(batch, options, "[3, 4, 0, 2, 1]");
 }
 
+TEST_F(TestRecordBatchSortIndices, NullType) {
+  auto schema = arrow::schema({
+      field("a", null()),
+      field("b", int32()),
+      field("c", int32()),
+      field("d", int32()),
+      field("e", int32()),
+      field("f", int32()),
+      field("g", int32()),
+      field("h", int32()),
+      field("i", int32()),
+  });
+  auto batch = RecordBatchFromJSON(schema, R"([
+    {"a": null, "b": 5, "c": 0, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
+    {"a": null, "b": 5, "c": 1, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
+    {"a": null, "b": 2, "c": 2, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
+    {"a": null, "b": 4, "c": 3, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5}
+])");
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto order : AllOrders()) {
+      // Uses radix sorter
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+      // Uses multiple-key sorter
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                                SortKey("c", SortOrder::Ascending),
+                                SortKey("d", SortOrder::Ascending),
+                                SortKey("e", SortOrder::Ascending),
+                                SortKey("f", SortOrder::Ascending),
+                                SortKey("g", SortOrder::Ascending),
+                                SortKey("h", SortOrder::Ascending),
+                                SortKey("i", SortOrder::Ascending),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+    }
+  }
+}
+
 TEST_F(TestRecordBatchSortIndices, DuplicateSortKeys) {
   // ARROW-14073: only the first occurrence of a given sort column is taken
   // into account.
@@ -1365,6 +1437,35 @@ TEST_F(TestTableSortIndices, Decimal) {
   AssertSortIndices(table, options, "[4, 3, 0, 2, 1]");
   options.null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 4, 0, 2, 1]");
+}
+
+TEST_F(TestTableSortIndices, NullType) {
+  auto schema = arrow::schema({
+      field("a", null()),
+      field("b", int32()),
+      field("c", int32()),
+  });
+  auto table = TableFromJSON(schema, {
+                                         R"([
+                                             {"a": null, "b": 5, "c": 0},
+                                             {"a": null, "b": 5, "c": 1},
+                                             {"a": null, "b": 2, "c": 2}
+                                         ])",
+                                         R"([])",
+                                         R"([{"a": null, "b": 4, "c": 3}])",
+                                     });
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto order : AllOrders()) {
+      AssertSortIndices(table,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+    }
+  }
 }
 
 TEST_F(TestTableSortIndices, DuplicateSortKeys) {

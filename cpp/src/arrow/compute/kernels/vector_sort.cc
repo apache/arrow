@@ -486,6 +486,20 @@ struct PartitionNthToIndices {
   }
 };
 
+template <typename OutType>
+struct PartitionNthToIndices<OutType, NullType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (ctx->state() == nullptr) {
+      return Status::Invalid("NthToIndices requires PartitionNthOptions");
+    }
+    ArrayData* out_arr = out->mutable_array();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    uint64_t* out_end = out_begin + batch.length;
+    std::iota(out_begin, out_end, 0);
+    return Status::OK();
+  }
+};
+
 // ----------------------------------------------------------------------
 // Array sorting implementations
 
@@ -788,8 +802,24 @@ struct ArraySortIndices {
   }
 };
 
+template <typename OutType>
+struct ArraySortIndices<OutType, NullType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayData* out_arr = out->mutable_array();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    uint64_t* out_end = out_begin + batch.length;
+    std::iota(out_begin, out_end, 0);
+    return Status::OK();
+  }
+};
+
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
+  // null type
+  base.signature = KernelSignature::Make({InputType::Array(null())}, uint64());
+  base.exec = ExecTemplate<UInt64Type, NullType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+
   // bool type
   base.signature = KernelSignature::Make({InputType::Array(boolean())}, uint64());
   base.exec = ExecTemplate<UInt64Type, BooleanType>::Exec;
@@ -899,6 +929,11 @@ class ChunkedArraySorter : public TypeVisitor {
   VISIT_PHYSICAL_TYPES(VISIT)
 
 #undef VISIT
+
+  Status Visit(const NullType&) override {
+    std::iota(indices_begin_, indices_end_, 0);
+    return Status::OK();
+  }
 
  private:
   template <typename Type>
@@ -1220,6 +1255,24 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
   const int64_t null_count_;
 };
 
+template <>
+class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter {
+ public:
+  ConcreteRecordBatchColumnSorter(std::shared_ptr<Array> array, SortOrder order,
+                                  NullPlacement null_placement,
+                                  RecordBatchColumnSorter* next_column = nullptr)
+      : RecordBatchColumnSorter(next_column), owned_array_(std::move(array)) {}
+
+  void SortRange(uint64_t* indices_begin, uint64_t* indices_end) {
+    if (next_column_ != nullptr) {
+      next_column_->SortRange(indices_begin, indices_end);
+    }
+  }
+
+ protected:
+  const std::shared_ptr<Array> owned_array_;
+};
+
 // Sort a batch using a single-pass left-to-right radix sort.
 class RadixRecordBatchSorter {
  public:
@@ -1273,6 +1326,7 @@ class RadixRecordBatchSorter {
   Status Visit(const TYPE& type) { return VisitGeneric(type); }
 
     VISIT_PHYSICAL_TYPES(VISIT)
+    VISIT(NullType)
 
 #undef VISIT
 
@@ -1510,6 +1564,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
 
   VISIT_PHYSICAL_TYPES(VISIT)
+  VISIT(NullType)
 
 #undef VISIT
 
@@ -1526,7 +1581,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   }
 
   template <typename Type>
-  Status SortInternal() {
+  enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     using GetView = GetViewType<Type>;
 
@@ -1555,6 +1610,14 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
           // sort keys.
           return comparator.Compare(left, right, 1);
         });
+    return comparator_.status();
+  }
+
+  template <typename Type>
+  enable_if_null<Type, Status> SortInternal() {
+    std::stable_sort(indices_begin_, indices_end_, [&](uint64_t left, uint64_t right) {
+      return comparator_.Compare(left, right, 1);
+    });
     return comparator_.status();
   }
 
@@ -1685,6 +1748,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
   Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
 
   VISIT_PHYSICAL_TYPES(VISIT)
+  VISIT(NullType)
 
 #undef VISIT
 
@@ -1701,7 +1765,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
   }
 
   template <typename Type>
-  Status SortInternal() {
+  enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
 
     auto& comparator = comparator_;
@@ -1729,6 +1793,14 @@ class MultipleKeyTableSorter : public TypeVisitor {
                          }
                        }
                      });
+    return comparator_.status();
+  }
+
+  template <typename Type>
+  enable_if_null<Type, Status> SortInternal() {
+    std::stable_sort(indices_begin_, indices_end_, [&](uint64_t left, uint64_t right) {
+      return comparator_.Compare(left, right, 1);
+    });
     return comparator_.status();
   }
 

@@ -52,6 +52,26 @@ using UnsignedIntegerTypes =
 // TODO(kszucs): add half-float
 using FloatingTypes = testing::Types<FloatType, DoubleType>;
 
+// Assert that all-null-type inputs results in a null-type output.
+void AssertNullToNull(const std::string& func_name) {
+  SCOPED_TRACE(func_name);
+  ASSERT_OK_AND_ASSIGN(auto func, GetFunctionRegistry()->GetFunction(func_name));
+  ASSERT_OK_AND_ASSIGN(auto nulls, MakeArrayOfNull(null(), /*length=*/7));
+  const auto n = func->arity().num_args;
+
+  {
+    std::vector<Datum> args(n, nulls);
+    ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func_name, args));
+    AssertArraysEqual(*nulls, *result.make_array(), /*verbose=*/true);
+  }
+
+  {
+    std::vector<Datum> args(n, Datum(std::make_shared<NullScalar>()));
+    ASSERT_OK_AND_ASSIGN(auto result, CallFunction(func_name, args));
+    AssertScalarsEqual(NullScalar(), *result.scalar(), /*verbose=*/true);
+  }
+}
+
 template <typename T, typename OptionsType>
 class TestBaseUnaryArithmetic : public TestBase {
  protected:
@@ -1066,6 +1086,20 @@ TEST(TestBinaryArithmetic, DispatchBest) {
   CheckDispatchBest("atan2", {float32(), int8()}, {float64(), float64()});
 }
 
+TEST(TestBinaryArithmetic, Null) {
+  for (std::string name : {"add", "divide", "logb", "multiply", "power", "shift_left",
+                           "shift_right", "subtract", "tan"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      AssertNullToNull(name);
+    }
+  }
+
+  for (std::string name : {"atan2", "bit_wise_and", "bit_wise_or", "bit_wise_xor"}) {
+    AssertNullToNull(name);
+  }
+}
+
 TEST(TestBinaryArithmetic, AddWithImplicitCasts) {
   CheckScalarBinary("add", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
                     ArrayFromJSON(float64(), "[0.25, 0.5, 0.75, 1.0]"),
@@ -1126,21 +1160,6 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     }
   }
 
-  // Fail on null type (with _checked variant)
-  for (std::string name : {"negate", "abs", "ln", "log2", "log10", "log1p", "sin", "cos",
-                           "tan", "asin", "acos"}) {
-    for (std::string suffix : {"", "_checked"}) {
-      name += suffix;
-      CheckDispatchFails(name, {null()});
-    }
-  }
-
-  // Fail on null type
-  for (std::string name :
-       {"atan", "sign", "floor", "ceil", "trunc", "round", "round_to_multiple"}) {
-    CheckDispatchFails(name, {null()});
-  }
-
   // Signed types
   for (std::string name : {"negate_checked"}) {
     for (const auto& ty : {int8(), int16(), int32(), int64(), float32(), float64()}) {
@@ -1191,6 +1210,21 @@ TEST(TestUnaryArithmetic, DispatchBest) {
       CheckDispatchBest(name, {ty}, {float64()});
       CheckDispatchBest(name, {dictionary(int8(), ty)}, {float64()});
     }
+  }
+}
+
+TEST(TestUnaryArithmetic, Null) {
+  for (std::string name : {"abs", "acos", "asin", "cos", "ln", "log10", "log1p", "log2",
+                           "negate", "sin", "tan"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      AssertNullToNull(name);
+    }
+  }
+
+  for (std::string name : {"atan", "bit_wise_not", "ceil", "floor", "round",
+                           "round_to_multiple", "sign", "trunc"}) {
+    AssertNullToNull(name);
   }
 }
 
