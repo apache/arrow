@@ -434,6 +434,8 @@ struct SchemaExporter {
 
   Status Visit(const DayTimeIntervalType& type) { return SetFormat("tiD"); }
 
+  Status Visit(const MonthDayNanoIntervalType& type) { return SetFormat("tin"); }
+
   Status Visit(const ListType& type) { return SetFormat("+l"); }
 
   Status Visit(const LargeListType& type) { return SetFormat("+L"); }
@@ -1002,6 +1004,8 @@ struct SchemaImporter {
         return ProcessPrimitive(day_time_interval());
       case 'M':
         return ProcessPrimitive(month_interval());
+      case 'n':
+        return ProcessPrimitive(month_day_nano_interval());
     }
     return f_parser_.Invalid();
   }
