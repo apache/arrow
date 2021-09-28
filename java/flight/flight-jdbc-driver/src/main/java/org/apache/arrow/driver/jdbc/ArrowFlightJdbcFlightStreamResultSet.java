@@ -118,7 +118,12 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
-    return execute(((ArrowFlightInfoStatement) statement).executeFlightInfoQuery());
+    final FlightInfo flightInfo = ((ArrowFlightInfoStatement) statement).executeFlightInfoQuery();
+
+    if (flightInfo != null) {
+      execute(flightInfo);
+    }
+    return this;
   }
 
   private AvaticaResultSet execute(final FlightInfo flightInfo) throws SQLException {
@@ -146,6 +151,9 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
 
   @Override
   public boolean next() throws SQLException {
+    if (currentVectorSchemaRoot == null) {
+      return false;
+    }
     while (true) {
       final boolean hasNext = super.next();
       final int maxRows = statement != null ? statement.getMaxRows() : 0;

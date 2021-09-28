@@ -21,6 +21,7 @@ import java.sql.SQLException;
 
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.calcite.avatica.AvaticaStatement;
+import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.Meta.StatementHandle;
 
 /**
@@ -41,6 +42,11 @@ public class ArrowFlightStatement extends AvaticaStatement implements ArrowFligh
 
   @Override
   public FlightInfo executeFlightInfoQuery() throws SQLException {
-    return getConnection().getClientHandler().getInfo(getSignature().sql);
+    final Meta.Signature signature = getSignature();
+    if (signature == null) {
+      return null;
+    }
+
+    return getConnection().getClientHandler().getInfo(signature.sql);
   }
 }
