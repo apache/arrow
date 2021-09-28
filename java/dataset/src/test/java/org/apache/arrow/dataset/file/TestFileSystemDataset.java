@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -89,7 +90,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(100, new String[]{"id"});
+    ScanOptions options = new ScanOptions(100, Optional.of(new String[]{"id"}));
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
     org.apache.avro.Schema expectedSchema = truncateAvroSchema(writeSupport.getAvroSchema(), 0, 1);
@@ -134,7 +135,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(100, new String[0]);
+    ScanOptions options = new ScanOptions(100, Optional.of(new String[0]));
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
     org.apache.avro.Schema expectedSchema = org.apache.avro.Schema.createRecord(Collections.emptyList());
@@ -157,7 +158,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(100, null);
+    ScanOptions options = new ScanOptions(100, Optional.empty());
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
