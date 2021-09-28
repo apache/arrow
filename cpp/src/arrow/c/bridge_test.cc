@@ -351,7 +351,7 @@ TEST_F(TestSchemaExport, Temporal) {
   TestPrimitive(duration(TimeUnit::MICRO), "tDu");
   TestPrimitive(duration(TimeUnit::NANO), "tDn");
   TestPrimitive(month_interval(), "tiM");
-  TestPrimitive(month_day_nano_interval(), "tiN");
+  TestPrimitive(month_day_nano_interval(), "tin");
   TestPrimitive(day_time_interval(), "tiD");
 
   TestPrimitive(timestamp(TimeUnit::SECOND), "tss:");
@@ -1305,7 +1305,7 @@ TEST_F(TestSchemaImport, Temporal) {
   CheckImport(month_interval());
   FillPrimitive("tiD");
   CheckImport(day_time_interval());
-  FillPrimitive("tiN");
+  FillPrimitive("tin");
   CheckImport(month_day_nano_interval());
 
   FillPrimitive("tss:");

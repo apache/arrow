@@ -187,7 +187,7 @@ Temporal types have multi-character format strings starting with ``t``:
 +-----------------+---------------------------------------------------+------------+
 | ``tiD``         | interval [days, time]                             |            |
 +-----------------+---------------------------------------------------+------------+
-| ``tiN``         | interval [month, day, nanoseconds]                |            |
+| ``tin``         | interval [month, day, nanoseconds]                |            |
 +-----------------+---------------------------------------------------+------------+
 
 
