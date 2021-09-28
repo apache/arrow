@@ -267,6 +267,8 @@ class SqlSchema {
 
   /// \brief Gets the Schema used on CommandGetSchemas response.
   static std::shared_ptr<Schema> GetSchemasSchema();
+  static std::shared_ptr<Schema> GetTablesSchema();
+  static std::shared_ptr<Schema> GetTablesSchemaWithSchema();
 };
 }  // namespace sql
 }  // namespace flight
