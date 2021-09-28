@@ -33,6 +33,8 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
   test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
 }
 
+skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13588
+
 test_df <- tibble::tibble(
   datetime = c(test_date, NA),
   date = c(as.Date("2021-09-09"), NA)
