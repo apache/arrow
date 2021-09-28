@@ -28,7 +28,6 @@ namespace example {
 
 class SqliteStatementBatchReader : public RecordBatchReader {
  public:
-
   /// \brief Creates a RecordBatchReader backed by a SQLite statement.
   /// \param[in] statement    SQLite statement to be read.
   /// \param[out] result      The resulting RecordBatchReader.

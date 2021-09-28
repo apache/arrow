@@ -77,9 +77,11 @@ add_arrow_lib(arrow_flight_sql
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS
-      arrow_flight_sql_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS} ${ARROW_TEST_LINK_LIBS})
+      arrow_flight_sql_static arrow_flight_testing_static
+      ${ARROW_FLIGHT_STATIC_LINK_LIBS} ${ARROW_TEST_LINK_LIBS})
 else()
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared arrow_flight_testing_shared ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared arrow_flight_testing_shared
+                                      ${ARROW_TEST_LINK_LIBS})
 endif()
 
 add_arrow_test(flight_sql_test
@@ -103,8 +105,10 @@ include_directories(${SQLite3_INCLUDE_DIRS})
 
 add_executable(flight_sql_test_server
                sql_server.cpp
-               test_server.cc example/sqlite_statement.cc
-               example/sqlite_statement_batch_reader.cc example/sqlite_server.cc)
+               test_server.cc
+               example/sqlite_statement.cc
+               example/sqlite_statement_batch_reader.cc
+               example/sqlite_server.cc)
 target_link_libraries(flight_sql_test_server
                       PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}
                               ${SQLite3_LIBRARIES})

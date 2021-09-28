@@ -28,7 +28,6 @@ namespace example {
 
 class SqliteStatement {
  public:
-
   /// \brief Creates a SQLite3 statement.
   /// \param[in] db        SQLite3 database instance.
   /// \param[in] sql       SQL statement.
