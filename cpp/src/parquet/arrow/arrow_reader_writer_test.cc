@@ -4191,5 +4191,57 @@ TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
 }
 #endif
 
+struct NestedFilterTestCase {
+  std::shared_ptr<::arrow::DataType> write_schema;
+  std::vector<int> indices_to_read;
+  std::shared_ptr<::arrow::DataType> expected_schema;
+};
+class TestNestedSchemaFilteredRead : public ::testing::TestWithParam<NestedFilterTestCase> {
+  const kWriteData = R"([[ {t1: { "a":1, "b":1}, t2: {"c":1, "d":1} ]])"
+};
+
+TEST_P(TestedNestedSchemaFilteredReader, ReadWrite) {
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                row_group_size, write_props, arrow_properties));
+  std::shared_ptr<::arrow::io::BufferOutputStream >sink = CreateOutputStream();
+  auto write_props = WriterProperties::Builder().write_batch_size(100)->build();
+  std::shared_ptr<::arrow::Array> array = ArrayFromJSON(GetParam().write_schema, kWriteData)
+
+  ASSERT_OK_NO_THROW(WriteTable(Table::FromArrays({array}, "col"), ::arrow::default_memory_pool(), sink,
+                                row_group_size, write_props, arrow_properties));
+  std::shared_ptr<::arrow::Buffer> buffer;
+  ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(arrow_reader_properties)->Build(&reader));
+  std::shared_ptr<::arrow::Table> read_table;
+  ASSERT_OK_NO_THROW(reader->ReadTable(GetParam().indices_to_read, &read_table));
+
+  AssertSchemaEqual(GetParam().expected_schema, read_table.schema().field(0));
+}
+
+std::vector<NestedFilteredTestCase> GenerateNestedFilteredCases() {
+  auto struct_type = arrow::struct_({arrow::field("t1", 
+                                                  arrow::struct_({::arrow::field("a",arrow::int64()),
+::arrow::field("b",arrow::int64())})),
+arrow::field("t2", 
+                                                  arrow::struct_({::arrow::field("c",arrow::int64()),
+::arrow::field("d",arrow::int64())}))});
+
+  std::vector<NestedFilterTestCase> cases;
+  auto first_selected_type = ::arrow::struct_({::arrow::field("t1",
+                                                                   ::arrow::struct_({::arrow::field("a", ::arrow::int64)}))})
+  cases.emplace_back({::arrow::list(struct_type(first_selected_type),
+    /*indices=*/{0},
+                    ::arrow::list(first_selected_type)});
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(NestedFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateNestedFilteredCases()));
+
+
 }  // namespace arrow
 }  // namespace parquet
