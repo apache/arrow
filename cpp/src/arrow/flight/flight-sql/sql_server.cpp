@@ -71,7 +71,7 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
     ARROW_RETURN_NOT_OK(GetFlightInfoImportedKeys(command, context, request, info));
   }
 
-  return Status::OK();
+  return Status::Invalid("The defined request is invalid.");
 }
 
 Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket& request,
@@ -123,7 +123,7 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
     ARROW_RETURN_NOT_OK(DoGetImportedKeys(command, context, stream));
   }
 
-  return Status::OK();
+  return Status::Invalid("The defined request is invalid.");
 }
 
 Status FlightSqlServerBase::GetFlightInfoCatalogs(const ServerCallContext& context,
