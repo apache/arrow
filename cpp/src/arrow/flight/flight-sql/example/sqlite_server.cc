@@ -25,6 +25,7 @@
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/flight-sql/sql_server.h"
+#include "SqliteTablesWithSchemaBatchreader.h"
 
 namespace arrow {
 namespace flight {
@@ -182,6 +183,63 @@ Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& com
   return Status::OK();
 }
 
+  Status
+  SQLiteFlightSqlServer::GetFlightInfoTables(const pb::sql::CommandGetTables &command, const ServerCallContext &context,
+                                             const FlightDescriptor &descriptor, std::unique_ptr<FlightInfo> *info) {
+  google::protobuf::Any ticketParsed;
+
+  ticketParsed.PackFrom(command);
+
+  std::vector<FlightEndpoint> endpoints{
+    FlightEndpoint{{ticketParsed.SerializeAsString()}, {}}};
+
+  if (command.include_schema()) {
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          FlightInfo::Make(*SqlSchema::GetTablesSchemaWithSchema(),
+                                           descriptor, endpoints, -1, -1))
+                                           *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*SqlSchema::GetTablesSchema(),
+                                                        descriptor, endpoints, -1, -1))
+                                                        *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
+  }
+
+  return Status::OK();
+  }
+
+  Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables &command, const ServerCallContext &context,
+                                            std::unique_ptr<FlightDataStream> *result) {
+  std::string table_query(
+      "SELECT 'sqlite_master' as catalog_name, 'main' as schema_name, name as "
+      "table_name, type as table_type FROM sqlite_master where 1=1");
+
+  std::shared_ptr<RecordBatchReader> batch_reader;
+
+  if (command.has_catalog()) {
+    table_query = table_query + " and catalog_name='" + command.catalog() + "'";
+  }
+
+  if (command.has_schema_filter_pattern()) {
+    table_query =
+        table_query + " and schema_name LIKE '" + command.schema_filter_pattern() + "'";
+  }
+
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, table_query, &statement));
+
+  std::shared_ptr<SqliteStatementBatchReader> reader;
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
+
+  if (command.include_schema()) {
+    std::shared_ptr<SqliteTablesWithSchemaBatchReader> pReader =
+        std::make_shared<SqliteTablesWithSchemaBatchReader>(reader, db_);
+    *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(pReader));
+  } else {
+    *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  }
+
+  return Status::OK();
+  }
 }  // namespace example
 }  // namespace sql
 }  // namespace flight

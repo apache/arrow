@@ -62,7 +62,12 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
                       const ServerCallContext& context,
                       std::unique_ptr<FlightDataStream>* result) override;
 
- private:
+  Status GetFlightInfoTables(const pb::sql::CommandGetTables &command, const ServerCallContext &context,
+                             const FlightDescriptor &descriptor, std::unique_ptr<FlightInfo> *info) override;
+
+  Status DoGetTables(const pb::sql::CommandGetTables &command, const ServerCallContext &context,
+                     std::unique_ptr<FlightDataStream> *result) override;
+private:
   sqlite3* db_;
 };
 
