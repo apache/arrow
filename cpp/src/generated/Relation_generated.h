@@ -194,21 +194,23 @@ enum class RelationImpl : uint8_t {
   NONE = 0,
   Aggregate = 1,
   Filter = 2,
-  Limit = 3,
-  LiteralRelation = 4,
-  OrderBy = 5,
-  Project = 6,
-  SetOperation = 7,
-  Source = 8,
+  Join = 3,
+  Limit = 4,
+  LiteralRelation = 5,
+  OrderBy = 6,
+  Project = 7,
+  SetOperation = 8,
+  Source = 9,
   MIN = NONE,
   MAX = Source
 };
 
-inline const RelationImpl (&EnumValuesRelationImpl())[9] {
+inline const RelationImpl (&EnumValuesRelationImpl())[10] {
   static const RelationImpl values[] = {
     RelationImpl::NONE,
     RelationImpl::Aggregate,
     RelationImpl::Filter,
+    RelationImpl::Join,
     RelationImpl::Limit,
     RelationImpl::LiteralRelation,
     RelationImpl::OrderBy,
@@ -220,10 +222,11 @@ inline const RelationImpl (&EnumValuesRelationImpl())[9] {
 }
 
 inline const char * const *EnumNamesRelationImpl() {
-  static const char * const names[10] = {
+  static const char * const names[11] = {
     "NONE",
     "Aggregate",
     "Filter",
+    "Join",
     "Limit",
     "LiteralRelation",
     "OrderBy",
@@ -251,6 +254,10 @@ template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Agg
 
 template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Filter> {
   static const RelationImpl enum_value = RelationImpl::Filter;
+};
+
+template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Join> {
+  static const RelationImpl enum_value = RelationImpl::Join;
 };
 
 template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Limit> {
@@ -1253,7 +1260,7 @@ inline flatbuffers::Offset<LiteralRelation> CreateLiteralRelationDirect(
       columns__);
 }
 
-/// A source of data that produces rows.
+/// An external source of tabular data
 struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SourceBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1355,6 +1362,9 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Filter *impl_as_Filter() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Filter ? static_cast<const org::apache::arrow::computeir::flatbuf::Filter *>(impl()) : nullptr;
   }
+  const org::apache::arrow::computeir::flatbuf::Join *impl_as_Join() const {
+    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Join ? static_cast<const org::apache::arrow::computeir::flatbuf::Join *>(impl()) : nullptr;
+  }
   const org::apache::arrow::computeir::flatbuf::Limit *impl_as_Limit() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Limit ? static_cast<const org::apache::arrow::computeir::flatbuf::Limit *>(impl()) : nullptr;
   }
@@ -1388,6 +1398,10 @@ template<> inline const org::apache::arrow::computeir::flatbuf::Aggregate *Relat
 
 template<> inline const org::apache::arrow::computeir::flatbuf::Filter *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Filter>() const {
   return impl_as_Filter();
+}
+
+template<> inline const org::apache::arrow::computeir::flatbuf::Join *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Join>() const {
+  return impl_as_Join();
 }
 
 template<> inline const org::apache::arrow::computeir::flatbuf::Limit *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Limit>() const {
@@ -1487,6 +1501,10 @@ inline bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj,
     }
     case RelationImpl::Filter: {
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Filter *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case RelationImpl::Join: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Join *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case RelationImpl::Limit: {
