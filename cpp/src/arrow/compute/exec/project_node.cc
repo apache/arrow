@@ -96,19 +96,25 @@ class ProjectNode : public ExecNode {
     }
     auto task = [this, batch]() {
       auto maybe_projected = DoProject(std::move(batch));
-      if (ErrorIfNotOk(maybe_projected.status())) return Status::OK();
+      if (ErrorIfNotOk(maybe_projected.status())) return maybe_projected.status();
       maybe_projected->guarantee = batch.guarantee;
       outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
       return Status::OK();
     };
+
     if (this->has_executor()) {
       DCHECK_OK(this->SubmitTask(task));
     } else {
       DCHECK_OK(task());
     }
     if (batch_count_.Increment()) {
-      task_group_.WaitForTasksToFinish().AddCallback(
-          [this](const Status& status) { this->finished_.MarkFinished(status); });
+      if (this->has_executor()) {
+        task_group_->FinishAsync().AddCallback([this](const Status& status) {
+          if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
+        });
+      } else {
+        this->finished_.MarkFinished();
+      }
     }
   }
 
@@ -119,11 +125,16 @@ class ProjectNode : public ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, total_batches);
     if (batch_count_.SetTotal(total_batches)) {
-      task_group_.WaitForTasksToFinish().AddCallback(
-          [this](const Status& status) { this->finished_.MarkFinished(status); });
+      if (this->has_executor()) {
+        task_group_->FinishAsync().AddCallback([this](const Status& status) {
+          if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
+        });
+      } else {
+        this->finished_.MarkFinished();
+      }
     }
+    outputs_[0]->InputFinished(this, total_batches);
   }
 
   Status StartProducing() override { return Status::OK(); }
@@ -139,8 +150,14 @@ class ProjectNode : public ExecNode {
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
-      task_group_.WaitForTasksToFinish().AddCallback(
-          [this](const Status& status) { this->finished_.MarkFinished(status); });
+      if (this->has_executor()) {
+        this->stop_source_.RequestStop();
+        task_group_->FinishAsync().AddCallback([this](const Status& status) {
+          if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
+        });
+      } else {
+        this->finished_.MarkFinished();
+      }
     }
     inputs_[0]->StopProducing(this);
   }

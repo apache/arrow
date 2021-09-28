@@ -218,7 +218,6 @@ set(ARROW_SRCS
     util/task_group.cc
     util/tdigest.cc
     util/thread_pool.cc
-    util/task_scheduler.cc
     util/time.cc
     util/trie.cc
     util/unreachable.cc

@@ -27,11 +27,16 @@
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_util.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/task_group.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+using internal::TaskGroup;
+
 namespace compute {
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
@@ -248,12 +253,14 @@ class ARROW_EXPORT ExecNode {
   int num_outputs_;
   NodeVector outputs_;
 
-  // Counter of batches received
+  // Counter for the number of batches received
   AtomicCounter batch_count_;
   // Future to sync finished
   Future<> finished_ = Future<>::MakeFinished();
-  // Async task group used when executor is available
-  util::AsyncTaskGroup task_group_;
+  // Variable used to stop producing from source
+  StopSource stop_source_;
+  // The task group for the corresponding batches
+  std::shared_ptr<TaskGroup> task_group_{nullptr};
 };
 
 /// \brief An extensible registry for factories of ExecNodes

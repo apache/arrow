@@ -226,6 +226,11 @@ ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
     input->outputs_.push_back(this);
   }
   finished_ = Future<>::Make();
+  auto executor = plan->exec_context()->executor();
+  if (executor) {
+    StopToken stop_token = stop_source_.token();
+    task_group_ = TaskGroup::MakeThreaded(executor, stop_token);
+  }
 }
 
 Status ExecNode::Validate() const {
@@ -290,15 +295,8 @@ bool ExecNode::ErrorIfNotOk(Status status) {
 }
 
 Status ExecNode::SubmitTask(std::function<Status()> task) {
-  auto executor = plan()->exec_context()->executor();
-  auto maybe_future = executor->Submit(std::move(task));
-  if (!maybe_future.ok()) {
-    outputs_[0]->ErrorReceived(this, maybe_future.status());
-  }
-  auto status = task_group_.AddTask(maybe_future.MoveValueUnsafe());
-  if (!status.ok()) {
-    outputs_[0]->ErrorReceived(this, std::move(status));
-  }
+  DCHECK(task_group_ != nullptr);
+  task_group_->Append(std::move(task));
   return Status::OK();
 }
 
