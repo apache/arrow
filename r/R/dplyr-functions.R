@@ -330,36 +330,34 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
   }
 }
 
-# Arrow does not supports a locale option for string case conversion functions,
-# contrast to stringr's API, so the `locale` argument is only valid for the
-# standard/default ones: "en", "C", and "POSIX". The following are string
-# functions that take a `locale` option as its second argument:
+# Currently, Arrow does not supports a locale option for string case conversion
+# functions, contrast to stringr's API, so the 'locale' argument is only valid
+# for stringr's default value ("en"). The following are string functions that
+# take a 'locale' option as its second argument:
 #   str_to_lower
 #   str_to_upper
 #   str_to_title
-.valid_locales_for_string_functions <- list("en", "C", "POSIX")
-
-arrow_string_function_with_locale_arg <- function(func, string, locale) {
-  assert_that(
-    locale %in% .valid_locales_for_string_functions,
-    msg = paste(
-      "`locale` must be any of: ",
-      paste(.valid_locales_for_string_functions, collapse=",")
-    )
-  )
-  Expression$create(func, string)
-}
-
+#
+# Arrow locale will be supported with ARROW-14126
 nse_funcs$str_to_lower <- function(string, locale = "en") {
-  arrow_string_function_with_locale_arg("utf8_lower", string, locale)
+  if (!identical(locale, "en")) {
+    stop("Providing 'locale' to 'str_to_lower' is not supported in Arrow; to change locale use 'Sys.setlocale()'", call. = FALSE)
+  }
+  Expression$create("utf8_lower", string)
 }
 
 nse_funcs$str_to_upper <- function(string, locale = "en") {
-  arrow_string_function_with_locale_arg("utf8_upper", string, locale)
+  if (!identical(locale, "en")) {
+    stop("Providing 'locale' to 'str_to_upper' is not supported in Arrow; to change locale use 'Sys.setlocale()'", call. = FALSE)
+  }
+  Expression$create("utf8_upper", string)
 }
 
 nse_funcs$str_to_title <- function(string, locale = "en") {
-  arrow_string_function_with_locale_arg("utf8_title", string, locale)
+  if (!identical(locale, "en")) {
+    stop("Providing 'locale' to 'str_to_title' is not supported in Arrow; to change locale use 'Sys.setlocale()'", call. = FALSE)
+  }
+  Expression$create("utf8_title", string)
 }
 
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
