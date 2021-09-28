@@ -130,6 +130,9 @@ class ARROW_EXPORT ChunkedArray {
 
   const std::shared_ptr<DataType>& type() const { return type_; }
 
+  /// \brief Return a Scalar containing the value of this array at index
+  Result<std::shared_ptr<Scalar>> GetScalar(int64_t index) const;
+
   /// \brief Determine if two chunked arrays are equal.
   ///
   /// Two chunked arrays can be equal only if they have equal datatypes.

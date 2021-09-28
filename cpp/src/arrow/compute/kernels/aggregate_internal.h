@@ -106,6 +106,10 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE);
 
+void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
+                  ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
+                  SimdLevel::type simd_level = SimdLevel::NONE);
+
 namespace detail {
 
 using arrow::internal::VisitSetBitRunsVoid;

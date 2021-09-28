@@ -55,7 +55,7 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> ExecPlan_run(
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options) {
   // For now, don't require R to construct SinkNodes.
@@ -77,11 +77,21 @@ std::shared_ptr<arrow::Table> ExecPlan_run(
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
 
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      final_node->output_schema(), std::move(sink_gen), gc_memory_pool());
+  // If the generator is destroyed before being completely drained, inform plan
+  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
+                                         bool not_finished_yet =
+                                             plan->finished().TryAddCallback([&plan] {
+                                               return [plan](const arrow::Status&) {};
+                                             });
 
-  plan->finished().Wait();
-  return ValueOrStop(arrow::Table::FromRecordBatchReader(sink_reader.get()));
+                                         if (not_finished_yet) {
+                                           plan->StopProducing();
+                                         }
+                                       }};
+
+  return compute::MakeGeneratorReader(
+      final_node->output_schema(),
+      [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
 }
 
 #if defined(ARROW_R_WITH_DATASET)

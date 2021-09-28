@@ -245,8 +245,12 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
     DataMember("field_nullability", &MakeStructOptions::field_nullability),
     DataMember("field_metadata", &MakeStructOptions::field_metadata));
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
-    DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
+    DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
     DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
+    DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
+    DataMember("count_from_zero", &WeekOptions::count_from_zero),
+    DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
@@ -406,11 +410,19 @@ MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
 MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
 constexpr char MakeStructOptions::kTypeName[];
 
-DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
+DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)
     : FunctionOptions(internal::kDayOfWeekOptionsType),
-      one_based_numbering(one_based_numbering),
+      count_from_zero(count_from_zero),
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
+
+WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
+                         bool first_week_is_fully_in_year)
+    : FunctionOptions(internal::kWeekOptionsType),
+      week_starts_monday(week_starts_monday),
+      count_from_zero(count_from_zero),
+      first_week_is_fully_in_year(first_week_is_fully_in_year) {}
+constexpr char WeekOptions::kTypeName[];
 
 NullOptions::NullOptions(bool nan_is_null)
     : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
@@ -438,6 +450,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kWeekOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
 }
 }  // namespace internal
@@ -629,6 +642,7 @@ SCALAR_EAGER_UNARY(Day, "day")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(ISOYear, "iso_year")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
+SCALAR_EAGER_UNARY(USWeek, "us_week")
 SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
 SCALAR_EAGER_UNARY(Quarter, "quarter")
 SCALAR_EAGER_UNARY(Hour, "hour")
@@ -646,6 +660,10 @@ Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext*
 Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
                              ExecContext* ctx) {
   return CallFunction("assume_timezone", {arg}, &options, ctx);
+}
+
+Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
+  return CallFunction("week", {arg}, &options, ctx);
 }
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {

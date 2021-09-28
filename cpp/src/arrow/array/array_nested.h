@@ -38,6 +38,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-arrays
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // ListArray
 
@@ -523,5 +527,7 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
 
   void SetData(const std::shared_ptr<ArrayData>& data);
 };
+
+/// @}
 
 }  // namespace arrow

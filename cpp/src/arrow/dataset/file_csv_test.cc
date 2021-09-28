@@ -387,6 +387,7 @@ INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
 class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
 
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestCsvFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }

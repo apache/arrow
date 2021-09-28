@@ -134,6 +134,7 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
 class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};
 
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestIpcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }

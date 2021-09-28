@@ -19,6 +19,7 @@ package arrow
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type BooleanType struct{}
@@ -58,6 +59,10 @@ const (
 	Millisecond
 	Second
 )
+
+func (u TimeUnit) Multiplier() time.Duration {
+	return [...]time.Duration{time.Nanosecond, time.Microsecond, time.Millisecond, time.Second}[uint(u)&3]
+}
 
 func (u TimeUnit) String() string { return [...]string{"ns", "us", "ms", "s"}[uint(u)&3] }
 

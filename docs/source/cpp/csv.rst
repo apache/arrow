@@ -79,7 +79,7 @@ A CSV file is written to a :class:`~arrow::io::OutputStream`.
        // ...
        std::shared_ptr<arrow::io::OutputStream> output = ...;
        auto write_options = arrow::csv::WriteOptions::Defaults();
-       if (WriteCSV(table, options, output.get()).ok()) {
+       if (WriteCSV(table, write_options, output.get()).ok()) {
            // Handle writer error...
        }
    }
@@ -88,7 +88,7 @@ A CSV file is written to a :class:`~arrow::io::OutputStream`.
        // ...
        std::shared_ptr<arrow::io::OutputStream> output = ...;
        auto write_options = arrow::csv::WriteOptions::Defaults();
-       auto maybe_writer = arrow::csv::MakeCSVWriter(output, schema, options);
+       auto maybe_writer = arrow::csv::MakeCSVWriter(output, schema, write_options);
        if (!maybe_writer.ok()) {
            // Handle writer instantiation error...
        }
