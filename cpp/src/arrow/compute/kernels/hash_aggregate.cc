@@ -253,7 +253,7 @@ struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
     auto dict =
         data.is_array()
             ? MakeArray(data.array()->dictionary)
-            : MakeArray(data.scalar_as<DictionaryScalar>().value.dictionary->data());
+            : data.scalar_as<DictionaryScalar>().value.dictionary;
     if (dictionary_) {
       if (!dictionary_->Equals(dict)) {
         // TODO(bkietz) unify if necessary. For now, just error if any batch's dictionary
@@ -616,7 +616,7 @@ struct GrouperFastImpl : Grouper {
   ~GrouperFastImpl() { map_.cleanup(); }
 
   Result<Datum> Consume(const ExecBatch& batch) override {
-    // ARROW-14027: expand scalar arguments for now
+    // ARROW-14027: broadcast scalar arguments for now
     for (int i = 0; i < batch.num_values(); i++) {
       if (batch.values[i].is_scalar()) {
         ExecBatch expanded = batch;
