@@ -479,7 +479,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   expect_error(
     nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
-    "`locale` must be any of"
+    "Providing 'locale' to 'str_to_lower' is not supported in Arrow"
   )
 
   expect_dplyr_equal(
@@ -491,7 +491,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   expect_error(
     nse_funcs$str_to_upper("Apache Arrow", locale = "sp"),
-    "`locale` must be any of"
+    "Providing 'locale' to 'str_to_upper' is not supported in Arrow"
   )
 
   expect_dplyr_equal(
@@ -503,7 +503,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   expect_error(
     nse_funcs$str_to_title("Apache Arrow", locale = "sp"),
-    "`locale` must be any of"
+    "Providing 'locale' to 'str_to_title' is not supported in Arrow"
   )
 })
 
