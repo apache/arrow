@@ -478,9 +478,9 @@ def deserialize_from(source, object base, SerializationContext context=None):
 
     Parameters
     ----------
-    source: NativeFile
+    source : NativeFile
         File to read the sequence from.
-    base: object
+    base : object
         This object will be the base object of all the numpy arrays
         contained in the sequence.
     context : SerializationContext

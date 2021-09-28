@@ -751,6 +751,11 @@ cdef class BaseExtensionType(DataType):
 cdef class ExtensionType(BaseExtensionType):
     """
     Concrete base class for Python-defined extension types.
+
+    Parameters
+    ----------
+    storage_type : DataType
+    extension_name : str
     """
 
     def __cinit__(self):
@@ -764,11 +769,6 @@ cdef class ExtensionType(BaseExtensionType):
 
         This should be called at the end of the subclass'
         ``__init__`` method.
-
-        Parameters
-        ----------
-        storage_type : DataType
-        extension_name : str
         """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
@@ -941,7 +941,16 @@ def unregister_extension_type(type_name):
 
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
+    """
+    KeyValueMetadata
 
+    Parameters
+    ----------
+    __arg0__ : dict
+        A dict of the key-value metadata
+    **kwargs : optional
+        additional key-value metadata
+    """
     def __init__(self, __arg0__=None, **kwargs):
         cdef:
             vector[c_string] keys, values
@@ -2741,7 +2750,7 @@ def schema(fields, metadata=None):
 
     Parameters
     ----------
-    field : iterable of Fields or tuples, or mapping of strings to DataTypes
+    fields : iterable of Fields or tuples, or mapping of strings to DataTypes
     metadata : dict, default None
         Keys and values must be coercible to bytes.
 
@@ -2797,6 +2806,10 @@ def schema(fields, metadata=None):
 def from_numpy_dtype(object dtype):
     """
     Convert NumPy dtype to pyarrow.DataType.
+
+    Parameters
+    ----------
+    dtype : the numpy dtype to convert
     """
     cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)

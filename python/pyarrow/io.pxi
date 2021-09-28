@@ -759,6 +759,16 @@ cdef class MemoryMappedFile(NativeFile):
 
     @staticmethod
     def create(path, size):
+        """
+        Create a MemoryMappedFile
+
+        Parameters
+        ----------
+        path : str
+            Where to create the file.
+        size : int
+            Size of the memory mapped file.
+        """
         cdef:
             shared_ptr[CMemoryMappedFile] handle
             c_string c_path = encode_file_path(path)
@@ -1430,6 +1440,14 @@ cdef void _cb_transform(transform_func, const shared_ptr[CBuffer]& src,
 
 
 cdef class TransformInputStream(NativeFile):
+    """
+    Transform and input stream.
+
+    stream : NativeFile
+        The stream to transform.
+    transform_func : callable
+        The transformation to apply.
+    """
 
     def __init__(self, NativeFile stream, transform_func):
         self.set_input_stream(TransformInputStream.make_native(
@@ -1502,6 +1520,18 @@ def foreign_buffer(address, size, base=None):
     The *base* object will be kept alive as long as this buffer is alive,
     including across language boundaries (for example if the buffer is
     referenced by C++ code).
+
+    Parameters
+    ----------
+    address : int
+        Specify the starting address of the buffer. The address can
+        refer to both device or host memory but it must be
+        accessible from device after mapping it with
+        `get_device_address` method.
+    size : int
+        Specify the size of device buffer in bytes.
+    base : {None, object}
+        Specify object that owns the referenced memory.
     """
     cdef:
         intptr_t c_addr = address
@@ -1649,7 +1679,7 @@ cdef class Codec(_Weakrefable):
         Type of compression codec to initialize, valid values are: 'gzip',
         'bz2', 'brotli', 'lz4' (or 'lz4_frame'), 'lz4_raw', 'zstd' and
         'snappy'.
-    compression_level: int, None
+    compression_level : int, None
         Optional parameter specifying how aggressively to compress.  The
         possible ranges and effect of this parameter depend on the specific
         codec chosen.  Higher values compress more but typically use more
@@ -1732,7 +1762,7 @@ cdef class Codec(_Weakrefable):
 
         Parameters
         ----------
-        compression: str
+        compression : str
              Type of compression codec, valid values are: gzip, bz2, brotli,
              lz4, zstd and snappy.
 
@@ -1984,15 +2014,15 @@ def input_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source: str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, file-like object, ...
         The source to open for reading.
-    compression: str optional, default 'detect'
+    compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
-    buffer_size: int, default None
+    buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary read buffer.
     """
@@ -2036,15 +2066,15 @@ def output_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source: str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, file-like object, ...
         The source to open for writing.
-    compression: str optional, default 'detect'
+    compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
-    buffer_size: int, default None
+    buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary write buffer.
     """

@@ -670,6 +670,14 @@ class CastOptions(_CastOptions):
 
     @staticmethod
     def safe(target_type=None):
+        """"
+        Cast operation options.
+
+        Parameters
+        ----------
+        target_type : optional
+            Target type for the safe cast.
+        """
         self = CastOptions()
         self._set_safe()
         self._set_type(target_type)
@@ -677,6 +685,14 @@ class CastOptions(_CastOptions):
 
     @staticmethod
     def unsafe(target_type=None):
+        """"
+        Cast operation options.
+
+        Parameters
+        ----------
+        target_type : optional
+            Target type for the unsafe cast.
+        """
         self = CastOptions()
         self._set_unsafe()
         self._set_type(target_type)

@@ -54,6 +54,14 @@ _WriteStats = namedtuple(
 
 class WriteStats(_WriteStats):
     """IPC write statistics
+
+    Parameters
+    ----------
+    num_messages : number of messages.
+    num_record_batches : number of record batches.
+    num_dictionary_batches : number of dictionary batches.
+    num_dictionary_deltas : delta of dictionaries.
+    num_replaced_dictionaries : number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -73,6 +81,14 @@ _ReadStats = namedtuple(
 
 class ReadStats(_ReadStats):
     """IPC read statistics
+
+    Parameters
+    ----------
+    num_messages : number of messages.
+    num_record_batches : number of record batches.
+    num_dictionary_batches : number of dictionary batches.
+    num_dictionary_deltas : delta of dictionaries.
+    num_replaced_dictionaries : number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -311,6 +327,13 @@ cdef class MessageReader(_Weakrefable):
 
     @staticmethod
     def open_stream(source):
+        """
+        Open stream from source.
+
+        Parameters
+        ----------
+        source : a readable source, like an InputStream
+        """
         cdef:
             MessageReader result = MessageReader.__new__(MessageReader)
             shared_ptr[CInputStream] in_stream
