@@ -78,7 +78,7 @@ SQLiteFlightSqlServer::~SQLiteFlightSqlServer() { sqlite3_close(db_); }
 
 void SQLiteFlightSqlServer::ExecuteSql(const std::string& sql) {
   char* zErrMsg = NULLPTR;
-  int rc = sqlite3_exec(db_, sql.data(), NULLPTR, NULLPTR, &zErrMsg);
+  int rc = sqlite3_exec(db_, sql.c_str(), NULLPTR, NULLPTR, &zErrMsg);
   if (rc != SQLITE_OK) {
     fprintf(stderr, "SQL error: %s\n", zErrMsg);
     sqlite3_free(zErrMsg);
@@ -115,11 +115,10 @@ Status SQLiteFlightSqlServer::GetFlightInfoStatement(
 Status SQLiteFlightSqlServer::DoGetStatement(const pb::sql::TicketStatementQuery& command,
                                              const ServerCallContext& context,
                                              std::unique_ptr<FlightDataStream>* result) {
-  const std::string& string = command.statement_handle();
-  std::shared_ptr<RecordBatchReader> batch_reader;
+  const std::string& sql = command.statement_handle();
 
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, string, &statement));
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, sql, &statement));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
   ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
