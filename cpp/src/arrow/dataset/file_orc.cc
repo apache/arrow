@@ -84,7 +84,8 @@ class OrcScanTask : public ScanTask {
         // optimize the column selection (see _column_index_lookup in python
         // orc.py for custom logic)
         // std::vector<int> included_fields;
-        // TODO pass scan_options_->batch_size
+        // TODO (https://issues.apache.org/jira/browse/ARROW-14153)
+        // pass scan_options_->batch_size
         return reader_->ReadStripe(i_++);
       }
 

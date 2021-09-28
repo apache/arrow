@@ -2680,7 +2680,7 @@ def test_orc_scan_options(tempdir, dataset_reader):
     assert len(result) == 1
     assert result[0].num_rows == 3
     assert result[0].equals(table.to_batches()[0])
-    # TODO batch_size is not yet supported
+    # TODO batch_size is not yet supported (ARROW-14153)
     # result = list(dataset_reader.to_batches(dataset, batch_size=2))
     # assert len(result) == 2
     # assert result[0].num_rows == 2
@@ -2689,7 +2689,7 @@ def test_orc_scan_options(tempdir, dataset_reader):
     # assert result[1].equals(table.slice(2, 1).to_batches()[0])
 
 
-def test_orc_format_not_supported(tempdir, dataset_reader):
+def test_orc_format_not_supported():
     try:
         from pyarrow.dataset import OrcFileFormat  # noqa
     except ImportError:
