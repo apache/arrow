@@ -300,6 +300,8 @@ class ARROW_DS_EXPORT Scanner {
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
+  /// \brief Get the dataset that this scanner will scan
+  virtual const std::shared_ptr<Dataset>& dataset() const = 0;
 
  protected:
   explicit Scanner(std::shared_ptr<ScanOptions> scan_options)
@@ -441,10 +443,7 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
 };
 
 namespace internal {
-
-/// This function must be called before using dataset ExecNode factories
-ARROW_DS_EXPORT void Initialize();
-
+ARROW_DS_EXPORT void InitializeScanner(arrow::compute::ExecFactoryRegistry* registry);
 }  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

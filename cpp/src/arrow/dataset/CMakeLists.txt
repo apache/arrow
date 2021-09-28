@@ -26,6 +26,7 @@ set(ARROW_DATASET_SRCS
     file_base.cc
     file_ipc.cc
     partition.cc
+    plan.cc
     projector.cc
     scanner.cc)
 

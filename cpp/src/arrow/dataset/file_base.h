@@ -418,5 +418,10 @@ class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
 
 /// @}
 
+namespace internal {
+ARROW_DS_EXPORT void InitializeDatasetWriter(
+    arrow::compute::ExecFactoryRegistry* registry);
+}
+
 }  // namespace dataset
 }  // namespace arrow

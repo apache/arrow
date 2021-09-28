@@ -324,49 +324,62 @@ Status FileWriter::Finish() {
 
 namespace {
 
-Future<> WriteNextBatch(internal::DatasetWriter* dataset_writer, std::shared_ptr<RecordBatch> batch,
-                        const FileSystemDatasetWriteOptions& write_options,
-                        util::optional<compute::Expression> guarantee = util::nullopt) {
-  ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
-  batch.reset();  // drop to hopefully conserve memory
+class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
+ public:
+  DatasetWritingSinkNodeConsumer(std::shared_ptr<Schema> schema,
+                                 std::unique_ptr<internal::DatasetWriter> dataset_writer,
+                                 const FileSystemDatasetWriteOptions& write_options)
+      : schema(std::move(schema)),
+        dataset_writer(std::move(dataset_writer)),
+        write_options(write_options) {}
 
-  if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
-    return Status::Invalid("Fragment would be written into ", groups.batches.size(),
-                           " partitions. This exceeds the maximum of ",
-                           write_options.max_partitions);
+  Status Consume(compute::ExecBatch batch) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
+                          batch.ToRecordBatch(schema));
+    return WriteNextBatch(std::move(record_batch), batch.guarantee);
   }
 
-  std::shared_ptr<size_t> counter = std::make_shared<size_t>(0);
+  Future<> Finish() {
+    RETURN_NOT_OK(task_group.AddTask([this] { return dataset_writer->Finish(); }));
+    return task_group.End();
+  }
 
-  AsyncGenerator<std::shared_ptr<RecordBatch>> partitioned_batch_gen =
-      [groups, counter, guarantee, &write_options,
-       dataset_writer]() -> Future<std::shared_ptr<RecordBatch>> {
-    auto index = *counter;
-    if (index >= groups.batches.size()) {
-      return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
-    }
-    auto partition_expression = groups.expressions[index];
-    if (guarantee.has_value()) {
-      partition_expression = and_(groups.expressions[index], *guarantee);
-    }
-    auto next_batch = groups.batches[index];
-    ARROW_ASSIGN_OR_RAISE(std::string destination,
-                          write_options.partitioning->Format(partition_expression));
-    (*counter)++;
-    return dataset_writer->WriteRecordBatch(next_batch, destination).Then([next_batch] {
-      return next_batch;
-    });
-  };
+ private:
+  Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
+                        compute::Expression guarantee) {
+    ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
+    batch.reset();  // drop to hopefully conserve memory
 
-  return VisitAsyncGenerator(
-      std::move(partitioned_batch_gen),
-      [](const std::shared_ptr<RecordBatch>&) -> Status { return Status::OK(); });
-}
+    if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
+      return Status::Invalid("Fragment would be written into ", groups.batches.size(),
+                             " partitions. This exceeds the maximum of ",
+                             write_options.max_partitions);
+    }
+
+    for (std::size_t index = 0; index < groups.batches.size(); index++) {
+      auto partition_expression = and_(groups.expressions[index], guarantee);
+      auto next_batch = groups.batches[index];
+      ARROW_ASSIGN_OR_RAISE(std::string destination,
+                            write_options.partitioning->Format(partition_expression));
+      RETURN_NOT_OK(task_group.AddTask([this, next_batch, destination] {
+        return dataset_writer->WriteRecordBatch(next_batch, destination);
+      }));
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<Schema> schema;
+  std::unique_ptr<DatasetWriter> dataset_writer;
+  const FileSystemDatasetWriteOptions& write_options;
+
+  util::SerializedAsyncTaskGroup task_group;
+};
 
 }  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
+<<<<<<< HEAD
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, scanner->ScanBatchesAsync());
   ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
                         internal::DatasetWriter::Make(write_options));
@@ -390,6 +403,34 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   ARROW_RETURN_NOT_OK(queue_fut.status());
   return dataset_writer->Finish().status();
+=======
+  const io::IOContext& io_context = scanner->options()->io_context;
+  std::shared_ptr<compute::ExecContext> exec_context =
+      std::make_shared<compute::ExecContext>(io_context.pool(),
+                                             ::arrow::internal::GetCpuThreadPool());
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
+
+  auto exprs = scanner->options()->projection.call()->arguments;
+  auto names = checked_cast<const compute::MakeStructOptions*>(
+                   scanner->options()->projection.call()->options.get())
+                   ->field_names;
+  std::shared_ptr<Dataset> dataset = scanner->dataset();
+
+  RETURN_NOT_OK(
+      compute::Declaration::Sequence(
+          {
+              {"scan", ScanNodeOptions{dataset, scanner->options()}},
+              {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
+              {"augmented_project",
+               compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+              {"write", WriteNodeOptions{write_options}},
+          })
+          .AddToPlan(plan.get()));
+
+  RETURN_NOT_OK(plan->StartProducing());
+  return plan->finished().status();
+>>>>>>> fd2b23717... ARROW-13542: Reworked dataset write node to simplify logic and create some new async utilities
 }
 
 Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
@@ -404,39 +445,27 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
   const FileSystemDatasetWriteOptions& write_options =
       checked_cast<const WriteNodeOptions&>(options).write_options;
 
-  AsyncGenerator<util::optional<compute::ExecBatch>> batches_to_write;
-  ARROW_ASSIGN_OR_RAISE(
-      auto node, compute::MakeExecNode("sink", plan, std::move(inputs),
-                                       compute::SinkNodeOptions{&batches_to_write}));
-
   std::shared_ptr<Schema> schema = input->output_schema();
-  return util::Nursery::RunInNurserySt([&](util::Nursery* nursery) -> Status {
-    ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                          DatasetWriter::Make(nursery, write_options));
+  ARROW_ASSIGN_OR_RAISE(auto dataset_writer, DatasetWriter::Make(write_options));
 
-    AsyncGenerator<std::shared_ptr<int>> queued_batch_gen =
-        [&, batches_to_write]() -> Future<std::shared_ptr<int>> {
-      Future<util::optional<compute::ExecBatch>> next_batch_fut = batches_to_write();
-      return next_batch_fut.Then([&](const util::optional<compute::ExecBatch>& batch)
-                                     -> Future<std::shared_ptr<int>> {
-        if (IsIterationEnd(batch)) {
-          return AsyncGeneratorEnd<std::shared_ptr<int>>();
-        }
-        ARROW_ASSIGN_OR_RAISE(auto record_batch, batch->ToRecordBatch(schema));
-        return WriteNextBatch(dataset_writer.get(), record_batch, write_options).Then([] {
-          return std::make_shared<int>(0);
-        });
-      });
-    };
-    Future<> queue_fut =
-        VisitAsyncGenerator(std::move(queued_batch_gen),
-                            [&](const std::shared_ptr<int>&) { return Status::OK(); });
+  std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
+      std::make_shared<DatasetWritingSinkNodeConsumer>(
+          std::move(schema), std::move(dataset_writer), write_options);
 
-    return queue_fut.status();
-  });
+  ARROW_ASSIGN_OR_RAISE(
+      auto node,
+      compute::MakeExecNode("sink", plan, std::move(inputs),
+                            compute::ConsumingSinkNodeOptions{std::move(consumer)}));
 
   return node;
 }
 
+namespace internal {
+void InitializeDatasetWriter(arrow::compute::ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("write", MakeWriteNode));
+}
+}  // namespace internal
+
 }  // namespace dataset
+
 }  // namespace arrow

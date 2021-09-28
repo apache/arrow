@@ -16,12 +16,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include <mutex>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/order_by_impl.h"
@@ -31,6 +30,7 @@
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
@@ -132,6 +132,88 @@ class SinkNode : public ExecNode {
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 
+// A sink node that owns consuming the data and will not finish until the consumption
+// is finished.  Use SinkNode if you are transferring the ownership of the data to another
+// system.  Use ConsumingSinkNode if the data is being consumed within the exec plan (e.g.
+// in a plan that consumes by writing the data out).
+class ConsumingSinkNode : public ExecNode {
+ public:
+  ConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                    std::shared_ptr<SinkNodeConsumer> consumer)
+      : ExecNode(plan, std::move(inputs), {"to_consume"}, {},
+                 /*num_outputs=*/0),
+        consumer_(std::move(consumer)) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SinkNode"));
+
+    const auto& sink_options = checked_cast<const ConsumingSinkNodeOptions&>(options);
+    return plan->EmplaceNode<ConsumingSinkNode>(plan, std::move(inputs),
+                                                std::move(sink_options.consumer));
+  }
+
+  const char* kind_name() const override { return "ConsumingSinkNode"; }
+
+  Status StartProducing() override {
+    finished_ = Future<>::Make();
+    return Status::OK();
+  }
+
+  // sink nodes have no outputs from which to feel backpressure
+  [[noreturn]] static void NoOutputs() {
+    Unreachable("no outputs; this should never be called");
+  }
+  [[noreturn]] void ResumeProducing(ExecNode* output) override { NoOutputs(); }
+  [[noreturn]] void PauseProducing(ExecNode* output) override { NoOutputs(); }
+  [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
+
+  void StopProducing() override {
+    Finish();
+    inputs_[0]->StopProducing(this);
+  }
+
+  Future<> finished() override { return finished_; }
+
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    if (ErrorIfNotOk(consumer_->Consume(std::move(batch)))) return;
+
+    if (input_counter_.Increment()) {
+      Finish();
+    }
+  }
+
+  void ErrorReceived(ExecNode* input, Status error) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    if (input_counter_.Cancel()) {
+      Finish();
+    }
+
+    inputs_[0]->StopProducing(this);
+  }
+
+  void InputFinished(ExecNode* input, int total_batches) override {
+    if (input_counter_.SetTotal(total_batches)) {
+      Finish();
+    }
+  }
+
+ protected:
+  virtual void Finish() {
+    consumer_->Finish().AddCallback(
+        [this](const Status& st) { finished_.MarkFinished(st); });
+  }
+
+  AtomicCounter input_counter_;
+
+  Future<> finished_ = Future<>::MakeFinished();
+  std::shared_ptr<SinkNodeConsumer> consumer_;
+};
+
+// A sink node that accumulates inputs, then sorts them before emitting them.
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                   std::unique_ptr<OrderByImpl> impl,
@@ -226,6 +308,8 @@ namespace internal {
 void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("select_k_sink", OrderBySinkNode::MakeSelectK));
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
+  DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
+  DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
 }
 
