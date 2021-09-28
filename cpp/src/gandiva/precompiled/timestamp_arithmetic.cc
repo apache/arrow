@@ -17,7 +17,10 @@
 
 #include "./epoch_time_point.h"
 
-static int days_in_a_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+// The first row is for non-leap years
+static int days_in_a_month[2][12] = {{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+                                     {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}};
+
 bool is_leap_year(int yy) {
   if ((yy % 4) != 0) {
     // not divisible by 4
@@ -33,41 +36,25 @@ bool is_leap_year(int yy) {
 }
 
 bool is_last_day_of_month(const EpochTimePoint& tp) {
-  if (tp.TmMon() != 1) {
-    // not February. Don't worry about leap year
-    return (tp.TmMday() == days_in_a_month[tp.TmMon()]);
-  } else if (tp.TmMday() < 28) {
-    // this is February, check if the day is 28 or 29
-    return false;
-  } else if (tp.TmMday() == 29) {
-    // Feb 29th
-    return true;
-  }
-  // check if year is non-leap year
-  return !is_leap_year(tp.TmYear());
+  int matrix_index = is_leap_year(tp.TmYear()) ? 1 : 0;
+
+  return (tp.TmMday() == days_in_a_month[matrix_index][tp.TmMon()]);
 }
 
 bool did_days_overflow(arrow_vendored::date::year_month_day ymd) {
   int year = static_cast<int>(ymd.year());
   int month = static_cast<unsigned int>(ymd.month());
   int days = static_cast<unsigned int>(ymd.day());
-  if (month != 2) {
-    // not February. Don't worry about leap year
-    return days > days_in_a_month[month - 1];
-  } else if (is_leap_year(year)) {
-    return days > 29;
-  }
 
-  return days > 28;
+  int matrix_index = is_leap_year(year) ? 1 : 0;
+
+  return days > days_in_a_month[matrix_index][month - 1];
 }
 
 int last_possible_day_in_month(int year, int month) {
-  if (month != 2) {
-    return days_in_a_month[month - 1];
-  } else if (is_leap_year(year)) {
-    return 29;
-  }
-  return 28;
+  int matrix_index = is_leap_year(year) ? 1 : 0;
+
+  return days_in_a_month[matrix_index][month - 1];
 }
 
 extern "C" {
