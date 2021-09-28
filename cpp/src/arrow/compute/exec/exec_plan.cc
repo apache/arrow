@@ -302,7 +302,7 @@ Status ExecNode::SubmitTask(std::function<Status()> task) {
     DCHECK(task_group_ != nullptr);
     task_group_->Append(std::move(task));
   } else {
-    std::move(task)();
+    return task();
   }
   if (batch_count_.Increment()) {
     this->MarkFinished();
