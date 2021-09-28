@@ -435,6 +435,7 @@ Temporal Difference
    month_day_nano_interval_between
    month_interval_between
    nanoseconds_between
+   quarters_between
    seconds_between
    weeks_between
    years_between

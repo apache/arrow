@@ -1675,11 +1675,11 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
           &months_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(month_interval_between)));
 
-  auto month_day_nano_between =
+  auto month_day_nano_interval_between =
       MakeTemporalBinary<MonthDayNanoBetween, TemporalBinary, MonthDayNanoIntervalType>(
           "month_day_nano_interval_between", {WithDates, WithTimes, WithTimestamps},
           month_day_nano_interval(), &month_day_nano_interval_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(month_day_nano_between)));
+  DCHECK_OK(registry->AddFunction(std::move(month_day_nano_interval_between)));
 
   auto weeks_between =
       MakeTemporalBinary<WeeksBetween, TemporalDayOfWeekBinary, Int64Type>(
@@ -1687,11 +1687,11 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
           &default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(weeks_between)));
 
-  auto day_time_between =
+  auto day_time_interval_between =
       MakeTemporalBinary<DayTimeBetween, TemporalBinary, DayTimeIntervalType>(
           "day_time_interval_between", {WithDates, WithTimes, WithTimestamps},
           day_time_interval(), &day_time_interval_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(day_time_between)));
+  DCHECK_OK(registry->AddFunction(std::move(day_time_interval_between)));
 
   auto days_between = MakeTemporalBinary<DaysBetween, TemporalBinary, Int64Type>(
       "days_between", {WithDates, WithTimestamps}, int64(), &days_between_doc);
