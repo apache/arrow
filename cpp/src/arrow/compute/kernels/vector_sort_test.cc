@@ -688,10 +688,71 @@ TYPED_TEST(TestArraySortIndicesForDecimal, DecimalSortTestTypes) {
 }
 
 TEST(TestArraySortIndices, Null) {
+  auto chunked = ChunkedArrayFromJSON(null(), {"[null, null]", "[]", "[null]", "[null]"});
+  auto schema = arrow::schema({
+      field("a", null()),
+      field("b", int32()),
+      field("c", int32()),
+      field("d", int32()),
+      field("e", int32()),
+      field("f", int32()),
+      field("g", int32()),
+      field("h", int32()),
+      field("i", int32()),
+  });
+  auto batch = RecordBatchFromJSON(schema, R"([
+    {"a": null, "b": 5, "c": 0, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
+    {"a": null, "b": 5, "c": 1, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
+    {"a": null, "b": 2, "c": 2, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
+    {"a": null, "b": 4, "c": 3, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5}
+])");
+  auto table = TableFromJSON(schema, {
+                                         R"([
+                                             {"a": null, "b": 5, "c": 0},
+                                             {"a": null, "b": 5, "c": 1},
+                                             {"a": null, "b": 2, "c": 2}
+                                         ])",
+                                         R"([])",
+                                         R"([{"a": null, "b": 4, "c": 3}])",
+                                     });
   for (const auto null_placement : AllNullPlacements()) {
     for (const auto order : AllOrders()) {
       AssertSortIndices(null(), "[null, null, null, null]", order, null_placement,
                         "[0, 1, 2, 3]");
+      AssertSortIndices(chunked, order, null_placement, "[0, 1, 2, 3]");
+      // Uses radix sorter
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+      // Uses multiple-key sorter
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                                SortKey("c", SortOrder::Ascending),
+                                SortKey("d", SortOrder::Ascending),
+                                SortKey("e", SortOrder::Ascending),
+                                SortKey("f", SortOrder::Ascending),
+                                SortKey("g", SortOrder::Ascending),
+                                SortKey("h", SortOrder::Ascending),
+                                SortKey("i", SortOrder::Ascending),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+      AssertSortIndices(table,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
     }
   }
 }
