@@ -112,6 +112,43 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
+TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
+  TestServer server("flight_sql_test_server");
+  server.Start();
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  ASSERT_TRUE(server.IsRunning());
+
+  std::stringstream ss;
+  ss << "grpc://localhost:" << server.port();
+  std::string uri = ss.str();
+
+  std::unique_ptr<FlightClient> client;
+  Location location;
+  ASSERT_OK(Location::Parse(uri, &location));
+  ASSERT_OK(FlightClient::Connect(location, &client));
+
+  FlightSqlClient sql_client(client);
+
+  std::unique_ptr<FlightInfo> flight_info;
+  ASSERT_OK(sql_client.GetCatalogs({}, &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  const std::shared_ptr<Schema>& expected_schema =
+      arrow::schema({arrow::field("catalog_name", utf8())});
+
+  DECLARE_ARRAY(catalog_name_array, String, ({"sqlite_master"}));
+
+  const std::shared_ptr<Table>& expected_table = Table::Make(
+      expected_schema, {catalog_name_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

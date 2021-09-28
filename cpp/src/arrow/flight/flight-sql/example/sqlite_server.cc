@@ -111,6 +111,48 @@ Status SQLiteFlightSqlServer::DoGetStatement(const pb::sql::TicketStatementQuery
   return Status::OK();
 }
 
+Status GetFlightInfoForCommand(const FlightDescriptor& descriptor,
+                               std::unique_ptr<FlightInfo>* info,
+                               google::protobuf::Message& command,
+                               const std::shared_ptr<Schema>& schema) {
+  google::protobuf::Any ticketParsed;
+  ticketParsed.PackFrom(command);
+
+  std::vector<FlightEndpoint> endpoints{
+      FlightEndpoint{{ticketParsed.SerializeAsString()}, {}}};
+  ARROW_ASSIGN_OR_RAISE(auto result,
+                        FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
+
+  *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
+
+  return Status::OK();
+}
+
+Status SQLiteFlightSqlServer::GetFlightInfoCatalogs(const ServerCallContext& context,
+                                                    const FlightDescriptor& descriptor,
+                                                    std::unique_ptr<FlightInfo>* info) {
+  pb::sql::CommandGetCatalogs command;
+  return GetFlightInfoForCommand(descriptor, info, command,
+                                 SqlSchema::GetCatalogsSchema());
+}
+
+Status SQLiteFlightSqlServer::DoGetCatalogs(const ServerCallContext& context,
+                                            std::unique_ptr<FlightDataStream>* result) {
+  const std::shared_ptr<Schema>& schema = SqlSchema::GetCatalogsSchema();
+  StringBuilder catalog_name_builder;
+  ARROW_RETURN_NOT_OK(catalog_name_builder.Append("sqlite_master"));
+
+  std::shared_ptr<Array> catalog_name;
+  ARROW_RETURN_NOT_OK(catalog_name_builder.Finish(&catalog_name));
+
+  const std::shared_ptr<RecordBatch>& batch =
+      RecordBatch::Make(schema, 1, {catalog_name});
+
+  ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
+  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  return Status::OK();
+}
+
 }  // namespace example
 }  // namespace sql
 }  // namespace flight

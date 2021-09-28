@@ -246,6 +246,10 @@ Status FlightSqlServerBase::GetFlightInfoImportedKeys(
   return Status::NotImplemented("DoGetExportedKeys not implemented");
 }
 
+std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
+  return arrow::schema({field("catalog_name", utf8())});
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

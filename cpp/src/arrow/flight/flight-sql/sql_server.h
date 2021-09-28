@@ -258,6 +258,14 @@ class FlightSqlServerBase : public FlightServerBase {
                                    const ServerCallContext& context,
                                    std::unique_ptr<FlightDataStream>* result);
 };
+
+/// \brief Auxiliary class containing all Schemas used on Flight SQL.
+class SqlSchema {
+ public:
+
+  /// \brief Gets the Schema used on CommandGetCatalogs response.
+  static std::shared_ptr<Schema> GetCatalogsSchema();
+};
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
