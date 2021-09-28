@@ -114,6 +114,13 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
+        public void ListArrayBuilderValidityBuffer()
+        {
+            ListArray listArray = new ListArray.Builder(Int64Type.Default).Append().AppendNull().Build();   
+            Assert.False(listArray.IsValid(2));
+        }
+
+        [Fact]
         public void NestedListArrayBuilder()
         {
             var childListType = new ListType(Int64Type.Default);

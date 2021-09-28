@@ -40,8 +40,8 @@ namespace Apache.Arrow.Tests
 
         private static class ArrayDataConcatenatorReflector
         {
-            private static readonly Type s_arrayDataConcatenatorType = Assembly.Load("Apache.Arrow").GetType("Apache.Arrow.ArrayDataConcatenator");
-            private static readonly MethodInfo s_concatenateInfo = s_arrayDataConcatenatorType.GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
+            private static readonly MethodInfo s_concatenateInfo = typeof(ArrayData).Assembly.GetType("Apache.Arrow.ArrayDataConcatenator")
+                .GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
 
             internal static ArrayData InvokeConcatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
             {

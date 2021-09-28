@@ -94,7 +94,7 @@ namespace Apache.Arrow
             {
                 CheckData(type, 2);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
-                ArrowBuffer offsetBuffer = ConcateneteOffsetBuffer();
+                ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
                 ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { child });
@@ -115,7 +115,7 @@ namespace Apache.Arrow
 
             public void Visit(IArrowType type)
             {
-                throw new NotImplementedException($"Concatination for {type.Name} is not supported yet.");
+                throw new NotImplementedException($"Concatenation for {type.Name} is not supported yet.");
             }
 
             private void CheckData(IArrowType type, int expectedBufferCount)
@@ -131,7 +131,7 @@ namespace Apache.Arrow
             {
                 CheckData(type, 3);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
-                ArrowBuffer offsetBuffer = ConcateneteOffsetBuffer();
+                ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
                 ArrowBuffer valueBuffer = ConcatenateVariableBinaryValueBuffer();
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer, valueBuffer });
@@ -194,7 +194,7 @@ namespace Apache.Arrow
                 return builder.Build(_allocator);
             }
 
-            private ArrowBuffer ConcateneteOffsetBuffer()
+            private ArrowBuffer ConcatenateOffsetBuffer()
             {
                 var builder = new ArrowBuffer.Builder<int>(_totalLength + 1);
                 int baseOffset = 0;

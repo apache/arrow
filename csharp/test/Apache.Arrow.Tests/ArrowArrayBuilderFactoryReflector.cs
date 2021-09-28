@@ -21,8 +21,8 @@ namespace Apache.Arrow.Tests
 {
     static class ArrayArrayBuilderFactoryReflector
     {
-        private static readonly Type s_arrowArrayBuilderFactoryType = Assembly.Load("Apache.Arrow").GetType("Apache.Arrow.ArrowArrayBuilderFactory");
-        private static readonly MethodInfo s_buildInfo = s_arrowArrayBuilderFactoryType.GetMethod("Build", BindingFlags.Static | BindingFlags.NonPublic);
+        private static readonly MethodInfo s_buildInfo = typeof(ArrayData).Assembly.GetType("Apache.Arrow.ArrowArrayBuilderFactory")
+            .GetMethod("Build", BindingFlags.Static | BindingFlags.NonPublic);
 
         internal static IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> InvokeBuild(IArrowType dataType)
         {

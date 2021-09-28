@@ -88,8 +88,8 @@ namespace Apache.Arrow.Tests
 
         private static class ArrowArrayConcatenatorReflector
         {
-            private static readonly Type s_arrowArrayConcatenatorType = Assembly.Load("Apache.Arrow").GetType("Apache.Arrow.ArrowArrayConcatenator");
-            private static readonly MethodInfo s_concatenateInfo = s_arrowArrayConcatenatorType.GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
+            private static readonly MethodInfo s_concatenateInfo = typeof(ArrayData).Assembly.GetType("Apache.Arrow.ArrowArrayConcatenator")
+                .GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
 
             internal static IArrowArray InvokeConcatenate(IReadOnlyList<IArrowArray> arrowArrayList, MemoryAllocator allocator = default)
             {
