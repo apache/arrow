@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-suppressPackageStartupMessages(library(dplyr))
+library(dplyr, warn.conflicts = FALSE)
 
 # randomize order of rows in test data
 tbl <- slice_sample(example_data_for_sorting, prop = 1L)

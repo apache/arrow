@@ -18,7 +18,7 @@
 skip_if_not_available("dataset")
 skip_if_not_available("utf8proc")
 
-suppressPackageStartupMessages(library(dplyr))
+library(dplyr, warn.conflicts = FALSE)
 library(lubridate)
 library(stringr)
 library(stringi)
@@ -768,7 +768,8 @@ test_that("strftime", {
     times
   )
 
-  withr::with_timezone("Pacific/Marquesas",
+  withr::with_timezone(
+    "Pacific/Marquesas",
     expect_dplyr_equal(
       input %>%
         mutate(x = strftime(datetime, format = formats, tz = "EST")) %>%

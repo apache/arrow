@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-suppressPackageStartupMessages(library(dplyr))
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
@@ -790,7 +790,7 @@ test_that("type checks with is.*()", {
 })
 
 test_that("type checks with is_*()", {
-  suppressPackageStartupMessages(library(rlang))
+  library(rlang, warn.conflicts = FALSE)
   expect_dplyr_equal(
     input %>%
       transmute(

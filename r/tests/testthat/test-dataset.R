@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-suppressPackageStartupMessages(library(dplyr))
+library(dplyr, warn.conflicts = FALSE)
 
 dataset_dir <- make_temp_dir()
 hive_dir <- make_temp_dir()

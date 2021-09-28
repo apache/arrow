@@ -17,8 +17,8 @@
 
 skip_if_not_available("dataset")
 
-suppressPackageStartupMessages(library(lubridate))
-suppressPackageStartupMessages(library(dplyr))
+library(lubridate, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
 
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
