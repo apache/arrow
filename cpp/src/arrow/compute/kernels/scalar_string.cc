@@ -3009,7 +3009,7 @@ struct ExtractRegex : public ExtractRegexBase {
         result->value.reserve(group_count);
         for (int i = 0; i < group_count; i++) {
           result->value.push_back(std::make_shared<ScalarType>(
-              std::make_shared<Buffer>(ToStringView(found_values[i]))));
+              Buffer::FromString(found_values[i].as_string())));
         }
         result->is_valid = true;
       } else {
