@@ -103,31 +103,46 @@ Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
   return Status::OK();
 }
 
+int64_t GetQuarter(const year_month_day& ymd) {
+  return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
+}
+
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
 struct TemporalBinary {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
+  template <typename OptionsType, typename T = InType>
+  static enable_if_timestamp<T, Status> ExecWithOptions(KernelContext* ctx,
+                                                        const OptionsType* options,
+                                                        const ExecBatch& batch,
+                                                        Datum* out) {
     RETURN_NOT_OK(CheckTimezones(batch));
 
     const auto& timezone = GetInputTimezone(batch.values[0]);
     if (timezone.empty()) {
       using ExecTemplate = Op<Duration, NonZonedLocalizer>;
       auto op = ExecTemplate(options, NonZonedLocalizer());
-      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, TimestampType,
-                                                        ExecTemplate>
-          kernel{op};
+      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
+          op};
       return kernel.Exec(ctx, batch, out);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
       using ExecTemplate = Op<Duration, ZonedLocalizer>;
       auto op = ExecTemplate(options, ZonedLocalizer{tz});
-      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, TimestampType,
-                                                        ExecTemplate>
-          kernel{op};
+      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
+          op};
       return kernel.Exec(ctx, batch, out);
     }
+  }
+
+  template <typename OptionsType, typename T = InType>
+  static enable_if_t<!is_timestamp_type<T>::value, Status> ExecWithOptions(
+      KernelContext* ctx, const OptionsType* options, const ExecBatch& batch,
+      Datum* out) {
+    using ExecTemplate = Op<Duration, NonZonedLocalizer>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
+        op};
+    return kernel.Exec(ctx, batch, out);
   }
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -156,7 +171,6 @@ struct TemporalDayOfWeekBinary : public TemporalBinary<Op, Duration, InType, Out
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
-    RETURN_NOT_OK(CheckTimezones(batch));
     RETURN_NOT_OK(ValidateDayOfWeekOptions(options));
     return Base::ExecWithOptions(ctx, &options, batch, out);
   }
@@ -406,7 +420,7 @@ struct Quarter {
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto ymd =
         year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)));
-    return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
+    return static_cast<T>(GetQuarter(ymd) + 1);
   }
 
   Localizer localizer_;
@@ -865,8 +879,7 @@ struct QuartersBetween {
       : localizer_(std::move(localizer)) {}
 
   static int64_t GetQuarters(const year_month_day& ymd) {
-    return static_cast<int64_t>(static_cast<int32_t>(ymd.year())) * 4 +
-           (static_cast<uint32_t>(ymd.month()) - 1) / 3;
+    return static_cast<int64_t>(static_cast<int32_t>(ymd.year())) * 4 + GetQuarter(ymd);
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -1181,36 +1194,77 @@ template <template <typename...> class Op,
           class ExecTemplate,
           typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporalBinary(
-    std::string name, const std::shared_ptr<arrow::DataType> out_type,
-    const FunctionDoc* doc, const FunctionOptions* default_options = NULLPTR,
-    KernelInit init = NULLPTR) {
+    std::string name, std::initializer_list<EnabledTypes> in_types,
+    const std::shared_ptr<arrow::DataType> out_type, const FunctionDoc* doc,
+    const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
+  DCHECK_GT(in_types.size(), 0);
   auto func =
       std::make_shared<ScalarFunction>(name, Arity::Binary(), doc, default_options);
 
-  for (auto unit : TimeUnit::values()) {
-    InputType in_type{match::TimestampTypeUnit(unit)};
-    switch (unit) {
-      case TimeUnit::SECOND: {
-        auto exec = ExecTemplate<Op, std::chrono::seconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+  for (const auto in_type : in_types) {
+    switch (in_type) {
+      case WithDates: {
+        auto exec32 = ExecTemplate<Op, days, Date32Type, OutType>::Exec;
+        DCHECK_OK(
+            func->AddKernel({date32(), date32()}, out_type, std::move(exec32), init));
+        auto exec64 =
+            ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
+        DCHECK_OK(
+            func->AddKernel({date64(), date64()}, out_type, std::move(exec64), init));
         break;
       }
-      case TimeUnit::MILLI: {
-        auto exec =
-            ExecTemplate<Op, std::chrono::milliseconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+      case WithTimes: {
+        auto exec32s = ExecTemplate<Op, std::chrono::seconds, Time32Type, OutType>::Exec;
+        auto ty = time32(TimeUnit::SECOND);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec32s), init));
+        auto exec32ms =
+            ExecTemplate<Op, std::chrono::milliseconds, Time32Type, OutType>::Exec;
+        ty = time32(TimeUnit::MILLI);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec32ms), init));
+        auto exec64us =
+            ExecTemplate<Op, std::chrono::microseconds, Time64Type, OutType>::Exec;
+        ty = time64(TimeUnit::MICRO);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec64us), init));
+        auto exec64ns =
+            ExecTemplate<Op, std::chrono::nanoseconds, Time64Type, OutType>::Exec;
+        ty = time64(TimeUnit::NANO);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec64ns), init));
         break;
       }
-      case TimeUnit::MICRO: {
-        auto exec =
-            ExecTemplate<Op, std::chrono::microseconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::NANO: {
-        auto exec =
-            ExecTemplate<Op, std::chrono::nanoseconds, TimestampType, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+      case WithTimestamps: {
+        for (auto unit : TimeUnit::values()) {
+          InputType in_type{match::TimestampTypeUnit(unit)};
+          switch (unit) {
+            case TimeUnit::SECOND: {
+              auto exec =
+                  ExecTemplate<Op, std::chrono::seconds, TimestampType, OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MILLI: {
+              auto exec = ExecTemplate<Op, std::chrono::milliseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MICRO: {
+              auto exec = ExecTemplate<Op, std::chrono::microseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::NANO: {
+              auto exec = ExecTemplate<Op, std::chrono::nanoseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+          }
+        }
         break;
       }
     }
@@ -1608,65 +1662,72 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
 
   auto years_between = MakeTemporalBinary<YearsBetween, TemporalBinary, Int64Type>(
-      "years_between", int64(), &years_between_doc);
+      "years_between", {WithDates, WithTimestamps}, int64(), &years_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(years_between)));
 
   auto quarters_between = MakeTemporalBinary<QuartersBetween, TemporalBinary, Int64Type>(
-      "quarters_between", int64(), &quarters_between_doc);
+      "quarters_between", {WithDates, WithTimestamps}, int64(), &quarters_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarters_between)));
 
   auto month_interval_between =
       MakeTemporalBinary<MonthsBetween, TemporalBinary, MonthIntervalType>(
-          "month_interval_between", month_interval(), &months_between_doc);
+          "month_interval_between", {WithDates, WithTimestamps}, month_interval(),
+          &months_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(month_interval_between)));
 
   auto month_day_nano_between =
       MakeTemporalBinary<MonthDayNanoBetween, TemporalBinary, MonthDayNanoIntervalType>(
-          "month_day_nano_interval_between", month_day_nano_interval(),
-          &month_day_nano_interval_between_doc);
+          "month_day_nano_interval_between", {WithDates, WithTimes, WithTimestamps},
+          month_day_nano_interval(), &month_day_nano_interval_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(month_day_nano_between)));
 
   auto weeks_between =
       MakeTemporalBinary<WeeksBetween, TemporalDayOfWeekBinary, Int64Type>(
-          "weeks_between", int64(), &weeks_between_doc, &default_day_of_week_options,
-          DayOfWeekState::Init);
+          "weeks_between", {WithDates, WithTimestamps}, int64(), &weeks_between_doc,
+          &default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(weeks_between)));
 
   auto day_time_between =
       MakeTemporalBinary<DayTimeBetween, TemporalBinary, DayTimeIntervalType>(
-          "day_time_interval_between", day_time_interval(),
-          &day_time_interval_between_doc);
+          "day_time_interval_between", {WithDates, WithTimes, WithTimestamps},
+          day_time_interval(), &day_time_interval_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_time_between)));
 
   auto days_between = MakeTemporalBinary<DaysBetween, TemporalBinary, Int64Type>(
-      "days_between", int64(), &days_between_doc);
+      "days_between", {WithDates, WithTimestamps}, int64(), &days_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(days_between)));
 
   auto hours_between = MakeTemporalBinary<HoursBetween, TemporalBinary, Int64Type>(
-      "hours_between", int64(), &hours_between_doc);
+      "hours_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+      &hours_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(hours_between)));
 
   auto minutes_between = MakeTemporalBinary<MinutesBetween, TemporalBinary, Int64Type>(
-      "minutes_between", int64(), &minutes_between_doc);
+      "minutes_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+      &minutes_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(minutes_between)));
 
   auto seconds_between = MakeTemporalBinary<SecondsBetween, TemporalBinary, Int64Type>(
-      "seconds_between", int64(), &seconds_between_doc);
+      "seconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+      &seconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(seconds_between)));
 
   auto milliseconds_between =
       MakeTemporalBinary<MillisecondsBetween, TemporalBinary, Int64Type>(
-          "milliseconds_between", int64(), &milliseconds_between_doc);
+          "milliseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+          &milliseconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(milliseconds_between)));
 
   auto microseconds_between =
       MakeTemporalBinary<MicrosecondsBetween, TemporalBinary, Int64Type>(
-          "microseconds_between", int64(), &microseconds_between_doc);
+          "microseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+          &microseconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(microseconds_between)));
 
   auto nanoseconds_between =
       MakeTemporalBinary<NanosecondsBetween, TemporalBinary, Int64Type>(
-          "nanoseconds_between", int64(), &nanoseconds_between_doc);
+          "nanoseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+          &nanoseconds_between_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanoseconds_between)));
 }
 
