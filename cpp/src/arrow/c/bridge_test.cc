@@ -2770,10 +2770,14 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSON(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
 
+  TestWithJSON(month_day_nano_interval(), R"([[1, -600, 5000], null])");
+
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
   TestWithJSONSliced(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSONSliced(month_day_nano_interval(),
+                     R"([[4, 5, 6], [1, -600, 5000], null, null])");
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {
