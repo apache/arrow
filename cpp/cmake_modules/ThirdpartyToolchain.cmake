@@ -2384,77 +2384,113 @@ macro(build_absl_once)
 
     # Abseil produces the following libraries, each is fairly small, but there
     # are (as you can see), many of them. We need to add the libraries first,
-    # and then describe how they depend on each other.
+    # and then describe how they depend on each other. The list can be
+    # refreshed using:
+    #   ls -1 $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//'
     set(_ABSL_LIBS
-        algorithm_container
-        algorithm
-        any
-        atomic_hook
         bad_any_cast_impl
-        bad_any_cast
         bad_optional_access
         bad_variant_access
-        base_internal
         base
+        city
+        civil_time
+        cord
+        debugging_internal
+        demangle_internal
+        examine_stack
+        exponential_biased
+        failure_signal_handler
+        flags
+        flags_commandlineflag
+        flags_commandlineflag_internal
+        flags_config
+        flags_internal
+        flags_marshalling
+        flags_parse
+        flags_private_handle_accessor
+        flags_program_name
+        flags_reflection
+        flags_usage
+        flags_usage_internal
+        graphcycles_internal
+        hash
+        hashtablez_sampler
+        int128
+        leak_check
+        leak_check_disable
+        log_severity
+        malloc_internal
+        periodic_sampler
+        random_distributions
+        random_internal_distribution_test_util
+        random_internal_platform
+        random_internal_pool_urbg
+        random_internal_randen
+        random_internal_randen_hwaes
+        random_internal_randen_hwaes_impl
+        random_internal_randen_slow
+        random_internal_seed_material
+        random_seed_gen_exception
+        random_seed_sequences
+        raw_hash_set
+        raw_logging_internal
+        scoped_set_env
+        spinlock_wait
+        stacktrace
+        status
+        statusor
+        strerror
+        str_format_internal
+        strings
+        strings_internal
+        symbolize
+        synchronization
+        throw_delegate
+        time
+        time_zone
+        wyhash)
+    # Abseil creates a number of header-only targets, which are needed to resolve dependencies.
+    # The list can be refreshed using:
+    #   comm -13 <(ls -l $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
+    #            <(ls -1 $PREFIX/lib/pkgconfig/absl_*.pc | sed -e 's/.*absl_//' -e 's/.pc$//' | sort -u)
+    set(_ABSL_INTERFACE_LIBS
+        algorithm
+        algorithm_container
+        any
+        atomic_hook
+        bad_any_cast
+        base_internal
         bind_front
         bits
         btree
-        city
-        civil_time
-        cleanup_internal
         cleanup
+        cleanup_internal
         compare
         compressed_tuple
         config
         container_common
         container_memory
-        cord
         core_headers
         counting_allocator
-        debugging_internal
         debugging
-        demangle_internal
         dynamic_annotations
         endian
         errno_saver
-        examine_stack
-        exponential_biased
-        failure_signal_handler
         fast_type_id
         fixed_array
-        flags_commandlineflag_internal
-        flags_commandlineflag
-        flags_config
-        flags_internal
-        flags_marshalling
-        flags_parse
         flags_path_util
-        flags
-        flags_private_handle_accessor
-        flags_program_name
-        flags_reflection
-        flags_usage_internal
-        flags_usage
         flat_hash_map
         flat_hash_set
         function_ref
-        graphcycles_internal
         hash_function_defaults
-        hash
         hash_policy_traits
-        hashtable_debug_hooks
         hashtable_debug
-        hashtablez_sampler
+        hashtable_debug_hooks
         have_sse
-        inlined_vector_internal
         inlined_vector
-        int128
+        inlined_vector_internal
         kernel_timeout_internal
         layout
-        leak_check_disable
-        leak_check
-        log_severity
-        malloc_internal
         memory
         meta
         node_hash_map
@@ -2463,12 +2499,9 @@ macro(build_absl_once)
         numeric
         numeric_representation
         optional
-        periodic_sampler
         pretty_function
         random_bit_gen_ref
-        random_distributions
         random_internal_distribution_caller
-        random_internal_distribution_test_util
         random_internal_fastmath
         random_internal_fast_uniform_bits
         random_internal_generate_real
@@ -2476,44 +2509,18 @@ macro(build_absl_once)
         random_internal_mock_helpers
         random_internal_nonsecure_base
         random_internal_pcg_engine
-        random_internal_platform
-        random_internal_pool_urbg
         random_internal_randen_engine
-        random_internal_randen_hwaes_impl
-        random_internal_randen_hwaes
-        random_internal_randen
-        random_internal_randen_slow
         random_internal_salted_seed_seq
-        random_internal_seed_material
         random_internal_traits
         random_internal_uniform_helper
         random_internal_wide_multiply
         random_random
-        random_seed_gen_exception
-        random_seed_sequences
         raw_hash_map
-        raw_hash_set
-        raw_logging_internal
-        scoped_set_env
         span
-        spinlock_wait
-        stacktrace
-        statusor
-        status
-        strerror
-        str_format_internal
         str_format
-        strings_internal
-        strings
-        symbolize
-        synchronization
-        throw_delegate
-        time
-        time_zone
         type_traits
         utility
-        variant
-        wyhash)
+        variant)
 
     foreach(_ABSL_LIB ${_ABSL_LIBS})
       set(_ABSL_STATIC_LIBRARY
@@ -2524,532 +2531,420 @@ macro(build_absl_once)
                                                           ${_ABSL_STATIC_LIBRARY})
       list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
     endforeach()
+    foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
+      add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
+      set_target_properties(absl::${_ABSL_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                          "${ABSL_PREFIX}/include")
+    endforeach()
 
     # Extracted the dependency information using the Abseil pkg-config files:
     #   grep Requires $PREFIX/pkgconfig/absl_*.pc | \
     #   sed -e 's;.*/absl_;set_target_properties(absl::;' \
-    #       -e 's/.pc:Requires:/ PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES /' \
+    #       -e 's/.pc:Requires:/ PROPERTIES INTERFACE_LINK_LIBRARIES "/' \
     #       -e 's/ = 20210324,//g' \
     #       -e 's/ = 20210324//g' \
-    #       -e 's/absl_/absl::/g' \
-    #        -e 's/$/)/'
+    #       -e 's/ absl_/;absl::/g' \
+    #       -e 's/$/")/' -e 's/";/"/' | \
+    #   grep -v '"")'
     set_target_properties(absl::algorithm_container
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::algorithm
-                                     absl::core_headers absl::meta)
-    set_target_properties(absl::algorithm PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                     absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::algorithm;absl::core_headers;absl::meta")
+    set_target_properties(absl::algorithm PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                     "absl::config")
     set_target_properties(absl::any
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::bad_any_cast
-                                     absl::config absl::core_headers
-                                     absl::fast_type_id absl::type_traits
-                                     absl::utility)
-    set_target_properties(absl::atomic_hook PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                       absl::config absl::core_headers)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bad_any_cast;absl::config;absl::core_headers;absl::fast_type_id;absl::type_traits;absl::utility"
+    )
+    set_target_properties(absl::atomic_hook PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                       "absl::config;absl::core_headers")
     set_target_properties(absl::bad_any_cast_impl
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::raw_logging_internal)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::raw_logging_internal")
     set_target_properties(absl::bad_any_cast
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::bad_any_cast_impl absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bad_any_cast_impl;absl::config")
     set_target_properties(absl::bad_optional_access
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::raw_logging_internal)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::raw_logging_internal")
     set_target_properties(absl::bad_variant_access
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::raw_logging_internal)
-    set_target_properties(absl::base_internal PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                         absl::config absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::raw_logging_internal")
+    set_target_properties(absl::base_internal PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                         "absl::config;absl::type_traits")
     set_target_properties(absl::base
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::atomic_hook
-                                     absl::base_internal absl::config
-                                     absl::core_headers absl::dynamic_annotations
-                                     absl::log_severity absl::raw_logging_internal
-                                     absl::spinlock_wait absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::atomic_hook;absl::base_internal;absl::config;absl::core_headers;absl::dynamic_annotations;absl::log_severity;absl::raw_logging_internal;absl::spinlock_wait;absl::type_traits"
+    )
     set_target_properties(absl::bind_front
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base_internal
-                                     absl::compressed_tuple)
-    set_target_properties(absl::bits PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                absl::core_headers)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base_internal;absl::compressed_tuple")
+    set_target_properties(absl::bits PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                "absl::core_headers")
     set_target_properties(absl::btree
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::container_common
-                                     absl::compare absl::compressed_tuple
-                                     absl::container_memory absl::cord
-                                     absl::core_headers absl::layout
-                                     absl::memory absl::strings
-                                     absl::throw_delegate absl::type_traits
-                                     absl::utility)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::container_common;absl::compare;absl::compressed_tuple;absl::container_memory;absl::cord;absl::core_headers;absl::layout;absl::memory;absl::strings;absl::throw_delegate;absl::type_traits;absl::utility"
+    )
     set_target_properties(absl::city
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::endian)
-    set_target_properties(absl::civil_time PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::endian")
     set_target_properties(absl::cleanup_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base_internal
-                                     absl::core_headers absl::utility)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base_internal;absl::core_headers;absl::utility"
+    )
     set_target_properties(absl::cleanup
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::cleanup_internal absl::config
-                                                            absl::core_headers)
-    set_target_properties(absl::compare PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                   absl::core_headers absl::type_traits)
-    set_target_properties(absl::compressed_tuple
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::utility)
-    set_target_properties(absl::config PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES)
-    set_target_properties(absl::container_common
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::cleanup_internal;absl::config;absl::core_headers"
+    )
+    set_target_properties(absl::compare PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                   "absl::core_headers;absl::type_traits")
+    set_target_properties(absl::compressed_tuple PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                            "absl::utility")
+    set_target_properties(absl::container_common PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                            "absl::type_traits")
     set_target_properties(absl::container_memory
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::memory absl::type_traits
-                                     absl::utility)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::memory;absl::type_traits;absl::utility"
+    )
     set_target_properties(absl::cord
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::base_internal absl::compressed_tuple
-                                     absl::config absl::core_headers
-                                     absl::endian absl::fixed_array
-                                     absl::function_ref absl::inlined_vector
-                                     absl::optional absl::raw_logging_internal
-                                     absl::strings absl::strings_internal
-                                     absl::throw_delegate absl::type_traits)
-    set_target_properties(absl::core_headers PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                        absl::config)
-    set_target_properties(absl::counting_allocator
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::base_internal;absl::compressed_tuple;absl::config;absl::core_headers;absl::endian;absl::fixed_array;absl::function_ref;absl::inlined_vector;absl::optional;absl::raw_logging_internal;absl::strings;absl::strings_internal;absl::throw_delegate;absl::type_traits"
+    )
+    set_target_properties(absl::core_headers PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                        "absl::config")
+    set_target_properties(absl::counting_allocator PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                              "absl::config")
     set_target_properties(absl::debugging_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::core_headers
-                                     absl::config absl::dynamic_annotations
-                                     absl::errno_saver absl::raw_logging_internal)
-    set_target_properties(absl::debugging PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                     absl::stacktrace absl::leak_check)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::core_headers;absl::config;absl::dynamic_annotations;absl::errno_saver;absl::raw_logging_internal"
+    )
+    set_target_properties(absl::debugging PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                     "absl::stacktrace;absl::leak_check")
     set_target_properties(absl::demangle_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::core_headers)
-    set_target_properties(absl::dynamic_annotations
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::core_headers")
+    set_target_properties(absl::dynamic_annotations PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                               "absl::config")
     set_target_properties(absl::endian
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::config absl::core_headers)
-    set_target_properties(absl::errno_saver PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                       absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::config;absl::core_headers")
+    set_target_properties(absl::errno_saver PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                       "absl::config")
     set_target_properties(absl::examine_stack
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::stacktrace
-                                     absl::symbolize absl::config
-                                     absl::core_headers absl::raw_logging_internal)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::stacktrace;absl::symbolize;absl::config;absl::core_headers;absl::raw_logging_internal"
+    )
     set_target_properties(absl::exponential_biased
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers")
     set_target_properties(absl::failure_signal_handler
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::examine_stack
-                                     absl::stacktrace absl::base
-                                     absl::config absl::core_headers
-                                     absl::errno_saver absl::raw_logging_internal)
-    set_target_properties(absl::fast_type_id PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                        absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::examine_stack;absl::stacktrace;absl::base;absl::config;absl::core_headers;absl::errno_saver;absl::raw_logging_internal"
+    )
+    set_target_properties(absl::fast_type_id PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                        "absl::config")
     set_target_properties(absl::fixed_array
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::compressed_tuple
-                                     absl::algorithm absl::config
-                                     absl::core_headers absl::dynamic_annotations
-                                     absl::throw_delegate absl::memory)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::compressed_tuple;absl::algorithm;absl::config;absl::core_headers;absl::dynamic_annotations;absl::throw_delegate;absl::memory"
+    )
     set_target_properties(absl::flags_commandlineflag_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::fast_type_id)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::fast_type_id")
     set_target_properties(absl::flags_commandlineflag
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::fast_type_id
-                                     absl::flags_commandlineflag_internal
-                                     absl::optional absl::strings)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::fast_type_id;absl::flags_commandlineflag_internal;absl::optional;absl::strings"
+    )
     set_target_properties(absl::flags_config
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::flags_path_util absl::flags_program_name
-                                     absl::core_headers absl::strings
-                                     absl::synchronization)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::flags_path_util;absl::flags_program_name;absl::core_headers;absl::strings;absl::synchronization"
+    )
     set_target_properties(absl::flags_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::config absl::flags_commandlineflag
-                                     absl::flags_commandlineflag_internal
-                                     absl::flags_config
-                                     absl::flags_marshalling absl::synchronization
-                                     absl::meta absl::utility)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::config;absl::flags_commandlineflag;absl::flags_commandlineflag_internal;absl::flags_config;absl::flags_marshalling;absl::synchronization;absl::meta;absl::utility"
+    )
     set_target_properties(absl::flags_marshalling
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::log_severity
-                                     absl::strings absl::str_format)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::log_severity;absl::strings;absl::str_format"
+    )
     set_target_properties(absl::flags_parse
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::flags_config
-                                     absl::flags absl::flags_commandlineflag
-                                     absl::flags_commandlineflag_internal
-                                     absl::flags_internal
-                                     absl::flags_private_handle_accessor
-                                     absl::flags_program_name
-                                     absl::flags_reflection absl::flags_usage
-                                     absl::strings absl::synchronization)
-    set_target_properties(absl::flags_path_util
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::strings)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::flags_config;absl::flags;absl::flags_commandlineflag;absl::flags_commandlineflag_internal;absl::flags_internal;absl::flags_private_handle_accessor;absl::flags_program_name;absl::flags_reflection;absl::flags_usage;absl::strings;absl::synchronization"
+    )
+    set_target_properties(absl::flags_path_util PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                           "absl::config;absl::strings")
     set_target_properties(absl::flags
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::flags_commandlineflag absl::flags_config
-                                     absl::flags_internal absl::flags_reflection
-                                     absl::base absl::core_headers
-                                     absl::strings)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::flags_commandlineflag;absl::flags_config;absl::flags_internal;absl::flags_reflection;absl::base;absl::core_headers;absl::strings"
+    )
     set_target_properties(absl::flags_private_handle_accessor
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::flags_commandlineflag
-                                     absl::flags_commandlineflag_internal
-                                     absl::strings)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::flags_commandlineflag;absl::flags_commandlineflag_internal;absl::strings"
+    )
     set_target_properties(absl::flags_program_name
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::flags_path_util
-                                     absl::strings absl::synchronization)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::flags_path_util;absl::strings;absl::synchronization"
+    )
     set_target_properties(absl::flags_reflection
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::flags_commandlineflag
-                                     absl::flags_private_handle_accessor
-                                     absl::flags_config absl::strings
-                                     absl::synchronization absl::flat_hash_map)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::flags_commandlineflag;absl::flags_private_handle_accessor;absl::flags_config;absl::strings;absl::synchronization;absl::flat_hash_map"
+    )
     set_target_properties(absl::flags_usage_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::flags_config absl::flags
-                                     absl::flags_commandlineflag absl::flags_internal
-                                     absl::flags_path_util
-                                     absl::flags_private_handle_accessor
-                                     absl::flags_program_name absl::flags_reflection
-                                     absl::strings absl::synchronization)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::flags_config;absl::flags;absl::flags_commandlineflag;absl::flags_internal;absl::flags_path_util;absl::flags_private_handle_accessor;absl::flags_program_name;absl::flags_reflection;absl::strings;absl::synchronization"
+    )
     set_target_properties(absl::flags_usage
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::flags_usage_internal
-                                     absl::strings absl::synchronization)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::flags_usage_internal;absl::strings;absl::synchronization"
+    )
     set_target_properties(absl::flat_hash_map
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::container_memory
-                                     absl::hash_function_defaults absl::raw_hash_map
-                                     absl::algorithm_container absl::memory)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::container_memory;absl::hash_function_defaults;absl::raw_hash_map;absl::algorithm_container;absl::memory"
+    )
     set_target_properties(absl::flat_hash_set
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::container_memory
-                                     absl::hash_function_defaults absl::raw_hash_set
-                                     absl::algorithm_container absl::core_headers
-                                     absl::memory)
-    set_target_properties(absl::function_ref PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                        absl::base_internal absl::meta)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::container_memory;absl::hash_function_defaults;absl::raw_hash_set;absl::algorithm_container;absl::core_headers;absl::memory"
+    )
+    set_target_properties(absl::function_ref PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                        "absl::base_internal;absl::meta")
     set_target_properties(absl::graphcycles_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::base_internal absl::config
-                                     absl::core_headers absl::malloc_internal
-                                     absl::raw_logging_internal)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::base_internal;absl::config;absl::core_headers;absl::malloc_internal;absl::raw_logging_internal"
+    )
     set_target_properties(absl::hash_function_defaults
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::cord absl::hash
-                                     absl::strings)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::cord;absl::hash;absl::strings")
     set_target_properties(absl::hash
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::city
-                                     absl::config absl::core_headers
-                                     absl::endian absl::fixed_array
-                                     absl::meta absl::int128
-                                     absl::strings absl::optional
-                                     absl::variant absl::utility
-                                     absl::wyhash)
-    set_target_properties(absl::hash_policy_traits
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::meta)
-    set_target_properties(absl::hashtable_debug_hooks
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
-    set_target_properties(absl::hashtable_debug
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::hashtable_debug_hooks)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::city;absl::config;absl::core_headers;absl::endian;absl::fixed_array;absl::meta;absl::int128;absl::strings;absl::optional;absl::variant;absl::utility;absl::wyhash"
+    )
+    set_target_properties(absl::hash_policy_traits PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                              "absl::meta")
+    set_target_properties(absl::hashtable_debug_hooks PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                                 "absl::config")
+    set_target_properties(absl::hashtable_debug PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                           "absl::hashtable_debug_hooks")
     set_target_properties(absl::hashtablez_sampler
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::exponential_biased absl::have_sse
-                                     absl::synchronization)
-    set_target_properties(absl::have_sse PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::exponential_biased;absl::have_sse;absl::synchronization"
+    )
     set_target_properties(absl::inlined_vector_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::compressed_tuple
-                                     absl::core_headers absl::memory
-                                     absl::span absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::compressed_tuple;absl::core_headers;absl::memory;absl::span;absl::type_traits"
+    )
     set_target_properties(absl::inlined_vector
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::algorithm
-                                     absl::core_headers absl::inlined_vector_internal
-                                     absl::throw_delegate absl::memory)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::algorithm;absl::core_headers;absl::inlined_vector_internal;absl::throw_delegate;absl::memory"
+    )
     set_target_properties(absl::int128
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::bits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::bits")
     set_target_properties(absl::kernel_timeout_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::core_headers
-                                     absl::raw_logging_internal absl::time)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::core_headers;absl::raw_logging_internal;absl::time"
+    )
     set_target_properties(absl::layout
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::meta
-                                     absl::strings absl::span
-                                     absl::utility)
-    set_target_properties(absl::leak_check_disable
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES)
-    set_target_properties(absl::leak_check PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                      absl::config absl::core_headers)
-    set_target_properties(absl::log_severity PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                        absl::core_headers)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::meta;absl::strings;absl::span;absl::utility"
+    )
+    set_target_properties(absl::leak_check PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                      "absl::config;absl::core_headers")
+    set_target_properties(absl::log_severity PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                        "absl::core_headers")
     set_target_properties(absl::malloc_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::base_internal absl::config
-                                     absl::core_headers absl::dynamic_annotations
-                                     absl::raw_logging_internal)
-    set_target_properties(absl::memory PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                  absl::core_headers absl::meta)
-    set_target_properties(absl::meta PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::base_internal;absl::config;absl::core_headers;absl::dynamic_annotations;absl::raw_logging_internal"
+    )
+    set_target_properties(absl::memory PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                  "absl::core_headers;absl::meta")
+    set_target_properties(absl::meta PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                "absl::type_traits")
     set_target_properties(absl::node_hash_map
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::container_memory
-                                     absl::hash_function_defaults absl::node_hash_policy
-                                     absl::raw_hash_map absl::algorithm_container
-                                     absl::memory)
-    set_target_properties(absl::node_hash_policy
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::container_memory;absl::hash_function_defaults;absl::node_hash_policy;absl::raw_hash_map;absl::algorithm_container;absl::memory"
+    )
+    set_target_properties(absl::node_hash_policy PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                            "absl::config")
     set_target_properties(absl::node_hash_set
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::hash_function_defaults
-                                     absl::node_hash_policy absl::raw_hash_set
-                                     absl::algorithm_container absl::memory)
-    set_target_properties(absl::numeric PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                   absl::int128)
-    set_target_properties(absl::numeric_representation
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::hash_function_defaults;absl::node_hash_policy;absl::raw_hash_set;absl::algorithm_container;absl::memory"
+    )
+    set_target_properties(absl::numeric PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                   "absl::int128")
+    set_target_properties(absl::numeric_representation PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                                  "absl::config")
     set_target_properties(absl::optional
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::bad_optional_access
-                                     absl::base_internal absl::config
-                                     absl::core_headers absl::memory
-                                     absl::type_traits absl::utility)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bad_optional_access;absl::base_internal;absl::config;absl::core_headers;absl::memory;absl::type_traits;absl::utility"
+    )
     set_target_properties(absl::periodic_sampler
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::core_headers
-                                     absl::exponential_biased)
-    set_target_properties(absl::pretty_function
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::core_headers;absl::exponential_biased")
     set_target_properties(absl::random_bit_gen_ref
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::core_headers
-                                     absl::random_internal_distribution_caller
-                                     absl::random_internal_fast_uniform_bits
-                                     absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::core_headers;absl::random_internal_distribution_caller;absl::random_internal_fast_uniform_bits;absl::type_traits"
+    )
     set_target_properties(absl::random_distributions
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base_internal
-                                     absl::config absl::core_headers
-                                     absl::random_internal_generate_real
-                                     absl::random_internal_distribution_caller
-                                     absl::random_internal_fast_uniform_bits
-                                     absl::random_internal_fastmath
-                                     absl::random_internal_iostream_state_saver
-                                     absl::random_internal_traits
-                                     absl::random_internal_uniform_helper
-                                     absl::random_internal_wide_multiply
-                                     absl::strings absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base_internal;absl::config;absl::core_headers;absl::random_internal_generate_real;absl::random_internal_distribution_caller;absl::random_internal_fast_uniform_bits;absl::random_internal_fastmath;absl::random_internal_iostream_state_saver;absl::random_internal_traits;absl::random_internal_uniform_helper;absl::random_internal_wide_multiply;absl::strings;absl::type_traits"
+    )
     set_target_properties(absl::random_internal_distribution_caller
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::utility absl::fast_type_id)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::utility;absl::fast_type_id")
     set_target_properties(absl::random_internal_distribution_test_util
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::raw_logging_internal
-                                     absl::strings absl::str_format
-                                     absl::span)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::raw_logging_internal;absl::strings;absl::str_format;absl::span"
+    )
     set_target_properties(absl::random_internal_fastmath
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::bits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES "absl::bits")
     set_target_properties(absl::random_internal_fast_uniform_bits
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES "absl::config")
     set_target_properties(absl::random_internal_generate_real
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::bits
-                                     absl::random_internal_fastmath
-                                     absl::random_internal_traits
-                                     absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bits;absl::random_internal_fastmath;absl::random_internal_traits;absl::type_traits"
+    )
     set_target_properties(absl::random_internal_iostream_state_saver
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::int128
-                                     absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::int128;absl::type_traits")
     set_target_properties(absl::random_internal_mock_helpers
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::fast_type_id
-                                     absl::optional)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::fast_type_id;absl::optional")
     set_target_properties(absl::random_internal_nonsecure_base
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::core_headers
-                                     absl::optional absl::random_internal_pool_urbg
-                                     absl::random_internal_salted_seed_seq
-                                     absl::random_internal_seed_material
-                                     absl::span absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::core_headers;absl::optional;absl::random_internal_pool_urbg;absl::random_internal_salted_seed_seq;absl::random_internal_seed_material;absl::span;absl::type_traits"
+    )
     set_target_properties(absl::random_internal_pcg_engine
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::int128 absl::random_internal_fastmath
-                                     absl::random_internal_iostream_state_saver
-                                     absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::int128;absl::random_internal_fastmath;absl::random_internal_iostream_state_saver;absl::type_traits"
+    )
     set_target_properties(absl::random_internal_platform
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES "absl::config")
     set_target_properties(absl::random_internal_pool_urbg
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::config absl::core_headers
-                                     absl::endian absl::random_internal_randen
-                                     absl::random_internal_seed_material
-                                     absl::random_internal_traits
-                                     absl::random_seed_gen_exception
-                                     absl::raw_logging_internal
-                                     absl::span)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::config;absl::core_headers;absl::endian;absl::random_internal_randen;absl::random_internal_seed_material;absl::random_internal_traits;absl::random_seed_gen_exception;absl::raw_logging_internal;absl::span"
+    )
     set_target_properties(absl::random_internal_randen_engine
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::endian
-                                     absl::random_internal_iostream_state_saver
-                                     absl::random_internal_randen
-                                     absl::raw_logging_internal absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::endian;absl::random_internal_iostream_state_saver;absl::random_internal_randen;absl::raw_logging_internal;absl::type_traits"
+    )
     set_target_properties(absl::random_internal_randen_hwaes_impl
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::random_internal_platform absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::random_internal_platform;absl::config")
     set_target_properties(absl::random_internal_randen_hwaes
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::random_internal_platform
-                                     absl::random_internal_randen_hwaes_impl absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::random_internal_platform;absl::random_internal_randen_hwaes_impl;absl::config"
+    )
     set_target_properties(absl::random_internal_randen
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::random_internal_platform
-                                     absl::random_internal_randen_hwaes
-                                     absl::random_internal_randen_slow)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::random_internal_platform;absl::random_internal_randen_hwaes;absl::random_internal_randen_slow"
+    )
     set_target_properties(absl::random_internal_randen_slow
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::random_internal_platform absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::random_internal_platform;absl::config")
     set_target_properties(absl::random_internal_salted_seed_seq
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::inlined_vector
-                                     absl::optional absl::span
-                                     absl::random_internal_seed_material
-                                     absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::inlined_vector;absl::optional;absl::span;absl::random_internal_seed_material;absl::type_traits"
+    )
     set_target_properties(absl::random_internal_seed_material
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::core_headers
-                                     absl::optional
-                                     absl::random_internal_fast_uniform_bits
-                                     absl::raw_logging_internal absl::span
-                                     absl::strings)
-    set_target_properties(absl::random_internal_traits
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::core_headers;absl::optional;absl::random_internal_fast_uniform_bits;absl::raw_logging_internal;absl::span;absl::strings"
+    )
+    set_target_properties(absl::random_internal_traits PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                                  "absl::config")
     set_target_properties(absl::random_internal_uniform_helper
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::random_internal_traits absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::random_internal_traits;absl::type_traits"
+    )
     set_target_properties(absl::random_internal_wide_multiply
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::bits
-                                     absl::config absl::int128)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bits;absl::config;absl::int128")
     set_target_properties(absl::random_random
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::random_distributions
-                                     absl::random_internal_nonsecure_base
-                                     absl::random_internal_pcg_engine
-                                     absl::random_internal_pool_urbg
-                                     absl::random_internal_randen_engine
-                                     absl::random_seed_sequences)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::random_distributions;absl::random_internal_nonsecure_base;absl::random_internal_pcg_engine;absl::random_internal_pool_urbg;absl::random_internal_randen_engine;absl::random_seed_sequences"
+    )
     set_target_properties(absl::random_seed_gen_exception
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES "absl::config")
     set_target_properties(absl::random_seed_sequences
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::inlined_vector
-                                     absl::random_internal_nonsecure_base
-                                     absl::random_internal_pool_urbg
-                                     absl::random_internal_salted_seed_seq
-                                     absl::random_internal_seed_material
-                                     absl::random_seed_gen_exception absl::span)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::inlined_vector;absl::random_internal_nonsecure_base;absl::random_internal_pool_urbg;absl::random_internal_salted_seed_seq;absl::random_internal_seed_material;absl::random_seed_gen_exception;absl::span"
+    )
     set_target_properties(absl::raw_hash_map
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::container_memory absl::raw_hash_set
-                                                            absl::throw_delegate)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::container_memory;absl::raw_hash_set;absl::throw_delegate"
+    )
     set_target_properties(absl::raw_hash_set
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::bits
-                                     absl::compressed_tuple absl::config
-                                     absl::container_common absl::container_memory
-                                     absl::core_headers absl::endian
-                                     absl::hash_policy_traits absl::hashtable_debug_hooks
-                                     absl::have_sse absl::layout
-                                     absl::memory absl::meta
-                                     absl::optional absl::utility
-                                     absl::hashtablez_sampler)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bits;absl::compressed_tuple;absl::config;absl::container_common;absl::container_memory;absl::core_headers;absl::endian;absl::hash_policy_traits;absl::hashtable_debug_hooks;absl::have_sse;absl::layout;absl::memory;absl::meta;absl::optional;absl::utility;absl::hashtablez_sampler"
+    )
     set_target_properties(absl::raw_logging_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::atomic_hook
-                                     absl::config absl::core_headers
-                                     absl::log_severity)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::atomic_hook;absl::config;absl::core_headers;absl::log_severity"
+    )
     set_target_properties(absl::scoped_set_env
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::raw_logging_internal)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::raw_logging_internal")
     set_target_properties(absl::span
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::algorithm
-                                     absl::core_headers absl::throw_delegate
-                                     absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::algorithm;absl::core_headers;absl::throw_delegate;absl::type_traits"
+    )
     set_target_properties(absl::spinlock_wait
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base_internal
-                                     absl::core_headers absl::errno_saver)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base_internal;absl::core_headers;absl::errno_saver"
+    )
     set_target_properties(absl::stacktrace
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::debugging_internal absl::config
-                                                              absl::core_headers)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::debugging_internal;absl::config;absl::core_headers"
+    )
     set_target_properties(absl::statusor
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::status
-                                     absl::core_headers absl::raw_logging_internal
-                                     absl::type_traits absl::strings
-                                     absl::utility absl::variant)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::status;absl::core_headers;absl::raw_logging_internal;absl::type_traits;absl::strings;absl::utility;absl::variant"
+    )
     set_target_properties(absl::status
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::atomic_hook
-                                     absl::config absl::core_headers
-                                     absl::raw_logging_internal absl::inlined_vector
-                                     absl::stacktrace absl::symbolize
-                                     absl::strings absl::cord
-                                     absl::str_format absl::optional)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::atomic_hook;absl::config;absl::core_headers;absl::raw_logging_internal;absl::inlined_vector;absl::stacktrace;absl::symbolize;absl::strings;absl::cord;absl::str_format;absl::optional"
+    )
     set_target_properties(absl::strerror
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::errno_saver)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::errno_saver")
     set_target_properties(absl::str_format_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::bits
-                                     absl::strings absl::config
-                                     absl::core_headers absl::numeric_representation
-                                     absl::type_traits absl::int128
-                                     absl::span)
-    set_target_properties(absl::str_format PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                      absl::str_format_internal)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bits;absl::strings;absl::config;absl::core_headers;absl::numeric_representation;absl::type_traits;absl::int128;absl::span"
+    )
+    set_target_properties(absl::str_format PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                      "absl::str_format_internal")
     set_target_properties(absl::strings_internal
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::core_headers absl::endian
-                                     absl::raw_logging_internal absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::core_headers;absl::endian;absl::raw_logging_internal;absl::type_traits"
+    )
     set_target_properties(absl::strings
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::strings_internal
-                                     absl::base absl::bits
-                                     absl::config absl::core_headers
-                                     absl::endian absl::int128
-                                     absl::memory absl::raw_logging_internal
-                                     absl::throw_delegate absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::strings_internal;absl::base;absl::bits;absl::config;absl::core_headers;absl::endian;absl::int128;absl::memory;absl::raw_logging_internal;absl::throw_delegate;absl::type_traits"
+    )
     set_target_properties(absl::symbolize
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::debugging_internal
-                                     absl::demangle_internal absl::base
-                                     absl::config absl::core_headers
-                                     absl::dynamic_annotations absl::malloc_internal
-                                     absl::raw_logging_internal absl::strings)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::debugging_internal;absl::demangle_internal;absl::base;absl::config;absl::core_headers;absl::dynamic_annotations;absl::malloc_internal;absl::raw_logging_internal;absl::strings"
+    )
     set_target_properties(absl::synchronization
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::graphcycles_internal
-                                     absl::kernel_timeout_internal absl::atomic_hook
-                                     absl::base absl::base_internal
-                                     absl::config absl::core_headers
-                                     absl::dynamic_annotations absl::malloc_internal
-                                     absl::raw_logging_internal absl::stacktrace
-                                     absl::symbolize absl::time)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::graphcycles_internal;absl::kernel_timeout_internal;absl::atomic_hook;absl::base;absl::base_internal;absl::config;absl::core_headers;absl::dynamic_annotations;absl::malloc_internal;absl::raw_logging_internal;absl::stacktrace;absl::symbolize;absl::time"
+    )
     set_target_properties(absl::throw_delegate
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::config
-                                     absl::raw_logging_internal)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::raw_logging_internal")
     set_target_properties(absl::time
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base
-                                     absl::civil_time absl::core_headers
-                                     absl::int128 absl::raw_logging_internal
-                                     absl::strings absl::time_zone)
-    set_target_properties(absl::time_zone PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES)
-    set_target_properties(absl::type_traits PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                       absl::config)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base;absl::civil_time;absl::core_headers;absl::int128;absl::raw_logging_internal;absl::strings;absl::time_zone"
+    )
+    set_target_properties(absl::type_traits PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                       "absl::config")
     set_target_properties(absl::utility
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES absl::base_internal
-                                     absl::config absl::type_traits)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::base_internal;absl::config;absl::type_traits")
     set_target_properties(absl::variant
-                          PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                     absl::bad_variant_access
-                                     absl::base_internal absl::config
-                                     absl::core_headers absl::type_traits
-                                     absl::utility)
-    set_target_properties(absl::wyhash PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES
-                                                  absl::config absl::endian absl::int128)
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::bad_variant_access;absl::base_internal;absl::config;absl::core_headers;absl::type_traits;absl::utility"
+    )
+    set_target_properties(absl::wyhash
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "absl::config;absl::endian;absl::int128")
 
     externalproject_add(absl_ep
                         ${EP_LOG_OPTIONS}
@@ -3202,15 +3097,12 @@ macro(build_grpc)
 
   set(GRPC_GPR_ABSL_LIBRARIES
       absl::base
-      absl::core_headers
-      absl::memory
+      absl::statusor
       absl::status
       absl::cord
-      absl::str_format
       absl::strings
       absl::synchronization
-      absl::time
-      absl::optional)
+      absl::time)
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
