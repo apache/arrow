@@ -1,5 +1,6 @@
 import re
 from abc import abstractmethod, ABC
+from collections import namedtuple
 from typing import List, Dict, Set, Tuple
 
 import pytest
@@ -117,8 +118,8 @@ def sample_time_types():
 
 def sample_temporal_types():
     return sample_date_only_types() + \
-        sample_time_only_types() + \
-        sample_timestamp_types()
+           sample_time_only_types() + \
+           sample_timestamp_types()
 
 
 def sample_logical_types():
@@ -150,9 +151,9 @@ def sample_string_types():
 
 def sample_primitive_types():
     return sample_numeric_types() + \
-        sample_temporal_types() + \
-        sample_timestamp_types() + \
-        sample_bytes_types()
+           sample_temporal_types() + \
+           sample_timestamp_types() + \
+           sample_bytes_types()
 
 
 def __listify_types(types):
@@ -178,8 +179,8 @@ def sample_struct_types():
 
 def sample_all_types():
     return sample_primitive_types() + \
-        sample_list_types() + \
-        sample_struct_types()
+           sample_list_types() + \
+           sample_struct_types()
 
 
 type_categories = {
@@ -340,7 +341,7 @@ class ConstrainedParameter(ABC):
 
     @abstractmethod
     def sample(self, parameters_map: Dict[str, pa.DataType]) -> List[
-            pa.DataType]:
+        pa.DataType]:
         pass
 
     @abstractmethod
@@ -503,11 +504,7 @@ def parse_parameters_string(parameters_str):
     return conditions, dynamic_parameters
 
 
-class FunctionSignatureArg:
-
-    def __init__(self, key, variadic):
-        self.key = key
-        self.variadic = variadic
+FunctionSignatureArg = namedtuple('FunctionSignatureArg', 'key variadic')
 
 
 class FunctionSignature:
@@ -826,14 +823,6 @@ def get_sample_calls(signature: FunctionSignature):
             has_variadic |= arg.variadic
         return_type = param_map[signature.output_key]
         yield args, return_type, param_map.copy()
-        # if has_variadic:
-        #     args.append(args[-1])
-        #     yield args, return_type, param_map.copy()
-
-
-if __name__ == '__main__':
-    for args, return_type in get_sample_calls(function_taxonomy['add'][1]):
-        print(f'{args} -> {return_type}')
 
 
 def get_sample_opts():
@@ -958,6 +947,13 @@ def test_all_functions_in_taxonomy(function_name):
     assert function_name in function_taxonomy
 
 
+class ExpectedFailure(Exception):
+
+    def __init__(self, message):
+        super(ExpectedFailure, self).__init__()
+        self.message = message
+
+
 def _check_expect_fail(sample_call: SampleCall, message: str,
                        signatures_map: List[Tuple[Set[str], List[str]]]):
     for possible_sig in signatures_map:
@@ -967,7 +963,7 @@ def _check_expect_fail(sample_call: SampleCall, message: str,
                 parsed_signature = parse_function_signature(signature)
                 if parsed_signature.matches_parameters(
                         sample_call.parameters_map):
-                    pytest.xfail(message)
+                    raise ExpectedFailure(message)
 
 
 def safe_str(o):
@@ -975,263 +971,283 @@ def safe_str(o):
     return re.sub(r'\s', '', raw_str).replace('(', '-').replace(')', '-')
 
 
-@pytest.mark.parametrize('sample_call', get_sample_empty_calls(), ids=safe_str)
-def test_supports_empty_arrays(sample_call):
-    _check_expect_fail(sample_call,
-                       'ARROW-13390: Improve type support for coalesce kernel',
-                       [
-                           ({'choose'}, ['<T:list,I:integral>(I,T...)=>T',
-                                         '<T:struct,I:integral>(I,T...)=>T']),
-                           ({'coalesce'},
-                            ['<T:list>(T)=>T', '<T:struct>(T)=>T']),
-                           ({'replace_with_mask'}, [
-                               '<T:list,B:boolean>(T,B,T)=>T',
-                               '<T:struct,B:boolean>(T,B,T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-13130: Add decimal support for arithmetic '
-                       'compute functions',
-                       [
-                           ({
-                               'abs',
-                               'abs_checked',
-                               'acos',
-                               'acos_checked',
-                               'any',
-                               'asin',
-                               'asin_checked',
-                               'atan',
-                               'atan2',
-                               'ceil',
-                               'cos',
-                               'cos_checked',
-                               'floor',
-                               'index',
-                               'is_finite',
-                               'is_inf',
-                               'is_nan',
-                               'ln',
-                               'ln_checked',
-                               'log10',
-                               'log10_checked',
-                               'log1p',
-                               'log1p_checked',
-                               'log2',
-                               'log2_checked',
-                               'max_element_wise',
-                               'min_element_wise',
-                               'mode',
-                               'negate',
-                               'negate_checked',
-                               'quantile',
-                               'round',
-                               'round_to_multiple',
-                               'sign',
-                               'sin',
-                               'sin_checked',
-                               'stddev',
-                               'tan',
-                               'tan_checked',
-                               'tdigest',
-                               'trunc',
-                               'variance',
-                           }, ['<T:decimal>(T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-13876: Uniform null handling in compute '
-                       'functions',
-                       [
-                           ({
-                               'add',
-                               'add_checked',
-                               'all',
-                               'and',
-                               'and_kleene',
-                               'and_not',
-                               'and_not_kleene',
-                               'ascii_capitalize',
-                               'ascii_center',
-                               'ascii_is_alnum',
-                               'ascii_is_alpha',
-                               'ascii_is_decimal',
-                               'ascii_is_lower',
-                               'ascii_is_printable',
-                               'ascii_is_space',
-                               'ascii_is_title',
-                               'ascii_is_upper',
-                               'ascii_lower',
-                               'ascii_lpad',
-                               'ascii_ltrim',
-                               'ascii_ltrim_whitespace',
-                               'ascii_reverse',
-                               'ascii_rpad',
-                               'ascii_rtrim',
-                               'ascii_rtrim_whitespace',
-                               'ascii_split_whitespace',
-                               'ascii_swapcase',
-                               'ascii_title',
-                               'ascii_trim',
-                               'ascii_trim_whitespace',
-                               'ascii_upper',
-                               'assume_timezone',
+def test_supports_empty_arrays():
+    expected_failures = {}
+    passed = 0
+    for sample_call in get_sample_empty_calls():
+        try:
+            _check_expect_fail(sample_call,
+                               'ARROW-13390: Improve type support for coalesce kernel',
+                               [
+                                   ({'choose'},
+                                    ['<T:list,I:integral>(I,T...)=>T',
+                                     '<T:struct,I:integral>(I,T...)=>T']),
+                                   ({'coalesce'},
+                                    ['<T:list>(T)=>T', '<T:struct>(T)=>T']),
+                                   ({'replace_with_mask'}, [
+                                       '<T:list,B:boolean>(T,B,T)=>T',
+                                       '<T:struct,B:boolean>(T,B,T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13130: Add decimal support for arithmetic '
+                               'compute functions',
+                               [
+                                   ({
+                                        'abs',
+                                        'abs_checked',
+                                        'acos',
+                                        'acos_checked',
+                                        'any',
+                                        'asin',
+                                        'asin_checked',
+                                        'atan',
+                                        'atan2',
+                                        'ceil',
+                                        'cos',
+                                        'cos_checked',
+                                        'floor',
+                                        'index',
+                                        'is_finite',
+                                        'is_inf',
+                                        'is_nan',
+                                        'ln',
+                                        'ln_checked',
+                                        'log10',
+                                        'log10_checked',
+                                        'log1p',
+                                        'log1p_checked',
+                                        'log2',
+                                        'log2_checked',
+                                        'max_element_wise',
+                                        'min_element_wise',
+                                        'mode',
+                                        'negate',
+                                        'negate_checked',
+                                        'quantile',
+                                        'round',
+                                        'round_to_multiple',
+                                        'sign',
+                                        'sin',
+                                        'sin_checked',
+                                        'stddev',
+                                        'tan',
+                                        'tan_checked',
+                                        'tdigest',
+                                        'trunc',
+                                        'variance',
+                                    }, ['<T:decimal>(T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13876: Uniform null handling in compute '
+                               'functions',
+                               [
+                                   ({
+                                        'add',
+                                        'add_checked',
+                                        'all',
+                                        'and',
+                                        'and_kleene',
+                                        'and_not',
+                                        'and_not_kleene',
+                                        'ascii_capitalize',
+                                        'ascii_center',
+                                        'ascii_is_alnum',
+                                        'ascii_is_alpha',
+                                        'ascii_is_decimal',
+                                        'ascii_is_lower',
+                                        'ascii_is_printable',
+                                        'ascii_is_space',
+                                        'ascii_is_title',
+                                        'ascii_is_upper',
+                                        'ascii_lower',
+                                        'ascii_lpad',
+                                        'ascii_ltrim',
+                                        'ascii_ltrim_whitespace',
+                                        'ascii_reverse',
+                                        'ascii_rpad',
+                                        'ascii_rtrim',
+                                        'ascii_rtrim_whitespace',
+                                        'ascii_split_whitespace',
+                                        'ascii_swapcase',
+                                        'ascii_title',
+                                        'ascii_trim',
+                                        'ascii_trim_whitespace',
+                                        'ascii_upper',
+                                        'assume_timezone',
+                                        'binary_join',
+                                        'binary_join_element_wise',
+                                        'bit_wise_and',
+                                        'bit_wise_not',
+                                        'bit_wise_or',
+                                        'bit_wise_xor',
+                                        'day',
+                                        'day_of_week',
+                                        'day_of_year',
+                                        'divide',
+                                        'divide_checked',
+                                        'ends_with',
+                                        'find_substring',
+                                        'find_substring_regex',
+                                        'invert',
+                                        'iso_calendar',
+                                        'iso_week',
+                                        'iso_year',
+                                        'list_flatten',
+                                        'list_parent_indices',
+                                        'list_value_length',
+                                        'logb',
+                                        'logb_checked',
+                                        'match_like',
+                                        'match_substring',
+                                        'match_substring_regex',
+                                        'mean',
+                                        'multiply',
+                                        'multiply_checked',
+                                        'or',
+                                        'or_kleene',
+                                        'partition_nth_indices',
+                                        'power',
+                                        'power_checked',
+                                        'product',
+                                        'quarter',
+                                        'replace_substring',
+                                        'replace_substring_regex',
+                                        'select_k_unstable',
+                                        'shift_left',
+                                        'shift_left_checked',
+                                        'shift_right',
+                                        'shift_right_checked',
+                                        'sort_indices',
+                                        'string_is_ascii',
+                                        'strptime',
+                                        'subtract',
+                                        'subtract_checked',
+                                        'sum',
+                                        'take',
+                                        'utf8_capitalize',
+                                        'utf8_center',
+                                        'utf8_is_alnum',
+                                        'utf8_is_alpha',
+                                        'utf8_is_decimal',
+                                        'utf8_is_digit',
+                                        'utf8_is_lower',
+                                        'utf8_is_numeric',
+                                        'utf8_is_types_numeric',
+                                        'utf8_is_printable',
+                                        'utf8_is_space',
+                                        'utf8_is_title',
+                                        'utf8_is_upper',
+                                        'utf8_length',
+                                        'utf8_lower',
+                                        'utf8_lpad',
+                                        'utf8_ltrim',
+                                        'utf8_ltrim_whitespace',
+                                        'utf8_replace_slice',
+                                        'utf8_reverse',
+                                        'utf8_rpad',
+                                        'utf8_rtrim',
+                                        'utf8_rtrim_whitespace',
+                                        'utf8_slice_codeunits',
+                                        'utf8_split_whitespace',
+                                        'utf8_swapcase',
+                                        'utf8_title',
+                                        'utf8_trim',
+                                        'utf8_trim_whitespace',
+                                        'utf8_upper',
+                                        'xor',
+                                        'year'
+                                    }, ['<T:null>(T)=>T', '<T:null>(T,T)=>T',
+                                        '<T:decimal,V:null>(T,V)=>T',
+                                        '<T:null,V:decimal>(T,V)=>T']),
+                                   ({'filter'}, ['<T,B:null>(T,B)=>T']),
+                                   ({'take'}, ['<T,I:null>(T,I)=>T']),
+                                   ({'replace_with_mask'},
+                                    ['<T,B:null>(T,B,T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13945: fixed list support missing for '
                                'binary_join',
-                               'binary_join_element_wise',
-                               'bit_wise_and',
-                               'bit_wise_not',
-                               'bit_wise_or',
-                               'bit_wise_xor',
-                               'day',
-                               'day_of_week',
-                               'day_of_year',
-                               'divide',
-                               'divide_checked',
-                               'ends_with',
-                               'find_substring',
-                               'find_substring_regex',
-                               'invert',
-                               'iso_calendar',
-                               'iso_week',
-                               'iso_year',
-                               'list_flatten',
-                               'list_parent_indices',
-                               'list_value_length',
-                               'logb',
-                               'logb_checked',
-                               'match_like',
-                               'match_substring',
-                               'match_substring_regex',
-                               'mean',
-                               'multiply',
-                               'multiply_checked',
-                               'or',
-                               'or_kleene',
-                               'partition_nth_indices',
-                               'power',
-                               'power_checked',
-                               'product',
-                               'quarter',
-                               'replace_substring',
-                               'replace_substring_regex',
-                               'select_k_unstable',
-                               'shift_left',
-                               'shift_left_checked',
-                               'shift_right',
-                               'shift_right_checked',
-                               'sort_indices',
-                               'string_is_ascii',
-                               'strptime',
-                               'subtract',
-                               'subtract_checked',
-                               'sum',
-                               'take',
-                               'utf8_capitalize',
-                               'utf8_center',
-                               'utf8_is_alnum',
-                               'utf8_is_alpha',
-                               'utf8_is_decimal',
-                               'utf8_is_digit',
-                               'utf8_is_lower',
-                               'utf8_is_numeric',
-                               'utf8_is_types_numeric',
-                               'utf8_is_printable',
-                               'utf8_is_space',
-                               'utf8_is_title',
-                               'utf8_is_upper',
-                               'utf8_length',
-                               'utf8_lower',
-                               'utf8_lpad',
-                               'utf8_ltrim',
-                               'utf8_ltrim_whitespace',
-                               'utf8_replace_slice',
-                               'utf8_reverse',
-                               'utf8_rpad',
-                               'utf8_rtrim',
-                               'utf8_rtrim_whitespace',
-                               'utf8_slice_codeunits',
-                               'utf8_split_whitespace',
-                               'utf8_swapcase',
-                               'utf8_title',
-                               'utf8_trim',
-                               'utf8_trim_whitespace',
-                               'utf8_upper',
-                               'xor',
-                               'year'
-                           }, ['<T:null>(T)=>T', '<T:null>(T,T)=>T',
-                               '<T:decimal,V:null>(T,V)=>T',
-                               '<T:null,V:decimal>(T,V)=>T']),
-                           ({'filter'}, ['<T,B:null>(T,B)=>T']),
-                           ({'take'}, ['<T,I:null>(T,I)=>T']),
-                           ({'replace_with_mask'}, ['<T,B:null>(T,B,T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-13945: fixed list support missing for '
-                       'binary_join',
-                       [
-                           ({'binary_join'},
-                            ['<T:string,L:~FIXED_SIZE_LIST(T)>(L,T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-13878: Add fixed_size_binary support to compute '
-                       'functions',
-                       [
-                           ({
-                               'binary_length',
-                               'binary_replace_slice',
-                               'count_substring',
-                               'count_substring_regex',
-                               'equal',
-                               'greater',
-                               'greater_equal',
-                               'index',
-                               'less',
-                               'less_equal',
-                               'month',
-                               'multiply',
-                               'multiply_checked',
-                               'not_equal'
-                           },
-                               ['<T:fixed_bytes>(T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-13879: Mixed support for binary types in regex '
-                       'functions',
-                       [
-                           ({'extract_regex', 'split_pattern',
-                             'split_pattern_regex', 'starts_with'},
-                            ['<T:bytes>(T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-14111: Add extraction function support for '
-                       'time32/time64',
-                       [
-                           ({'hour', 'microsecond', 'millisecond', 'minute',
-                             'nanosecond', 'second', 'subsecond'},
-                            ['<T:timelike>(T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-13358: Extend type support for if_else kernel', [
-                           ({'if_else'},
-                            ['<T:timestamp_all,B:boolean>(B, T, T)=>T',
-                             '<T:decimal,B:boolean>(B, T, T)=>T',
-                             '<T:list,B:boolean>(B, T, T)=>T',
-                             '<T:struct,B:boolean>(B, T, T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-14112: index_in/is_in does not support '
-                       'timestamptz',
-                       [
-                           ({'index_in'}, ['<T:timestamptz>(T)=>T']),
-                           ({'is_in'}, ['<T:timestamptz>(T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-14113: max_element_wise does not support binary',
-                       [
-                           ({'max_element_wise', 'min_element_wise'},
-                            ['<T:bytes>(T)=>T'])
-                       ])
-    _check_expect_fail(sample_call,
-                       'ARROW-13916: Implement strftime on date32/64 types', [
-                           ({'strftime'}, ['<T:time>(T)=>T', '<T:date>(T)=>T'])
-                       ])
-    pc.call_function(sample_call.function_name,
-                     sample_call.args, sample_call.options)
+                               [
+                                   ({'binary_join'},
+                                    [
+                                        '<T:string,L:~FIXED_SIZE_LIST(T)>(L,T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13878: Add fixed_size_binary support to compute '
+                               'functions',
+                               [
+                                   ({
+                                        'binary_length',
+                                        'binary_replace_slice',
+                                        'count_substring',
+                                        'count_substring_regex',
+                                        'equal',
+                                        'greater',
+                                        'greater_equal',
+                                        'index',
+                                        'less',
+                                        'less_equal',
+                                        'month',
+                                        'multiply',
+                                        'multiply_checked',
+                                        'not_equal'
+                                    },
+                                    ['<T:fixed_bytes>(T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13879: Mixed support for binary types in regex '
+                               'functions',
+                               [
+                                   ({'extract_regex', 'split_pattern',
+                                     'split_pattern_regex', 'starts_with'},
+                                    ['<T:bytes>(T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-14111: Add extraction function support for '
+                               'time32/time64',
+                               [
+                                   ({'hour', 'microsecond', 'millisecond',
+                                     'minute',
+                                     'nanosecond', 'second', 'subsecond'},
+                                    ['<T:timelike>(T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13358: Extend type support for if_else kernel',
+                               [
+                                   ({'if_else'},
+                                    ['<T:timestamp_all,B:boolean>(B, T, T)=>T',
+                                     '<T:decimal,B:boolean>(B, T, T)=>T',
+                                     '<T:list,B:boolean>(B, T, T)=>T',
+                                     '<T:struct,B:boolean>(B, T, T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-14112: index_in/is_in does not support '
+                               'timestamptz',
+                               [
+                                   ({'index_in'}, ['<T:timestamptz>(T)=>T']),
+                                   ({'is_in'}, ['<T:timestamptz>(T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-14113: max_element_wise does not support binary',
+                               [
+                                   ({'max_element_wise', 'min_element_wise'},
+                                    ['<T:bytes>(T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13916: Implement strftime on date32/64 types',
+                               [
+                                   ({'strftime'},
+                                    ['<T:time>(T)=>T', '<T:date>(T)=>T'])
+                               ])
+            pc.call_function(sample_call.function_name,
+                             sample_call.args, sample_call.options)
+            passed += 1
+        except ExpectedFailure as e:
+            msg = e.message
+            if msg not in expected_failures:
+                expected_failures[msg] = 0
+            expected_failures[msg] += 1
+    print(f'{passed} combinations passed')
+    for key in sorted(expected_failures.keys()):
+        num_skipped = expected_failures[key]
+        print(f'{num_skipped} skipped due to {key}')
