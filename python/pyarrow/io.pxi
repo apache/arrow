@@ -1307,6 +1307,18 @@ ctypedef CRandomAccessFile* _RandomAccessFilePtr
 
 
 cdef class BufferedInputStream(NativeFile):
+    """
+    Wraps an input stream making it buffered.
+
+    Parameters
+    ----------
+    stream : NativeFile
+        The stream to wrap with the buffer
+    buffer_size : int
+        Size of the buffer that should be added.
+    memory_pool : MemoryPool
+        The memory pool used to allocate the buffer.
+    """
 
     def __init__(self, NativeFile stream, int buffer_size,
                  MemoryPool memory_pool=None):
@@ -1357,6 +1369,18 @@ cdef class BufferedInputStream(NativeFile):
 
 
 cdef class BufferedOutputStream(NativeFile):
+    """
+    Wraps an output stream making it buffered.
+
+    Parameters
+    ----------
+    stream : NativeFile
+        The stream to wrap with the buffer
+    buffer_size : int
+        Size of the buffer that should be added.
+    memory_pool : MemoryPool
+        The memory pool used to allocate the buffer.
+    """
 
     def __init__(self, NativeFile stream, int buffer_size,
                  MemoryPool memory_pool=None):
@@ -1724,6 +1748,12 @@ cdef class Codec(_Weakrefable):
         """
         Returns true if the compression level parameter is supported
         for the given codec.
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec, valid values are: gzip, bz2, brotli,
+            lz4, zstd and snappy.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return CCodec.SupportsCompressionLevel(typ)
@@ -1733,6 +1763,12 @@ cdef class Codec(_Weakrefable):
         """
         Returns the compression level that Arrow will use for the codec if
         None is specified.
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec, valid values are: gzip, bz2, brotli,
+            lz4, zstd and snappy.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.DefaultCompressionLevel(typ))
@@ -1741,6 +1777,12 @@ cdef class Codec(_Weakrefable):
     def minimum_compression_level(str compression not None):
         """
         Returns the smallest valid value for the compression level
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec, valid values are: gzip, bz2, brotli,
+            lz4, zstd and snappy.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.MinimumCompressionLevel(typ))
@@ -1749,6 +1791,12 @@ cdef class Codec(_Weakrefable):
     def maximum_compression_level(str compression not None):
         """
         Returns the largest valid value for the compression level
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec, valid values are: gzip, bz2, brotli,
+            lz4, zstd and snappy.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.MaximumCompressionLevel(typ))

@@ -782,6 +782,11 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 def get_tensor_size(Tensor tensor):
     """
     Return total size of serialized Tensor including metadata and padding.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tensor for which we want to known the size.
     """
     cdef int64_t size
     with nogil:
@@ -792,6 +797,11 @@ def get_tensor_size(Tensor tensor):
 def get_record_batch_size(RecordBatch batch):
     """
     Return total size of serialized RecordBatch including metadata and padding.
+
+    Parameters
+    ----------
+    batch : RecordBatch
+        The recordbatch for which we want to know the size.
     """
     cdef int64_t size
     with nogil:

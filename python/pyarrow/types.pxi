@@ -2807,14 +2807,38 @@ def from_numpy_dtype(object dtype):
 
 
 def is_boolean_value(object obj):
+    """
+    Check if the object is a boolean.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyBool(obj)
 
 
 def is_integer_value(object obj):
+    """
+    Check if the object is an integer.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyInt(obj)
 
 
 def is_float_value(object obj):
+    """
+    Check if the object is a float.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyFloat(obj)
 
 
