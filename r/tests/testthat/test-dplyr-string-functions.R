@@ -815,26 +815,49 @@ test_that("format_ISO8601", {
     times
   )
 
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
-      collect(),
-    times
-  )
+  if (getRversion() < "3.5") {
+    # before 3.5, times$x will have no timezone attribute, so Arrow faithfully
+    # errors that there is no timezone to format:
+    expect_error(
+      times %>%
+        Table$create() %>%
+        mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
+        collect(),
+      "Timezone not present, cannot convert to string with timezone: %Y-%m-%d%z"
+    )
+
+    # See comment regarding %S flag in strftime tests
+    expect_error(
+      times %>%
+        Table$create() %>%
+        mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
+        mutate(x = gsub("\\.0*", "", x)) %>%
+        collect(),
+      "Timezone not present, cannot convert to string with timezone: %Y-%m-%dT%H:%M:%S%z"
+    )
+  } else {
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
+        collect(),
+      times
+    )
+
+    # See comment regarding %S flag in strftime tests
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
+        mutate(x = gsub("\\.0*", "", x)) %>%
+        collect(),
+      times
+    )
+  }
+
 
   # See comment regarding %S flag in strftime tests
   expect_dplyr_equal(
     input %>%
       mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = FALSE)) %>%
-      mutate(x = gsub("\\.0*", "", x)) %>%
-      collect(),
-    times
-  )
-
-  # See comment regarding %S flag in strftime tests
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
       mutate(x = gsub("\\.0*", "", x)) %>%
       collect(),
     times
