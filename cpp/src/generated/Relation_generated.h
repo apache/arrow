@@ -55,8 +55,8 @@ struct LiteralColumnBuilder;
 struct LiteralRelation;
 struct LiteralRelationBuilder;
 
-struct Table;
-struct TableBuilder;
+struct Source;
+struct SourceBuilder;
 
 struct Relation;
 struct RelationBuilder;
@@ -193,28 +193,28 @@ inline const char *EnumNameSetOpKind(SetOpKind e) {
 enum class RelationImpl : uint8_t {
   NONE = 0,
   Aggregate = 1,
-  SetOperation = 2,
-  Filter = 3,
-  Limit = 4,
-  LiteralRelation = 5,
-  OrderBy = 6,
-  Project = 7,
-  Table = 8,
+  Filter = 2,
+  Limit = 3,
+  LiteralRelation = 4,
+  OrderBy = 5,
+  Project = 6,
+  SetOperation = 7,
+  Source = 8,
   MIN = NONE,
-  MAX = Table
+  MAX = Source
 };
 
 inline const RelationImpl (&EnumValuesRelationImpl())[9] {
   static const RelationImpl values[] = {
     RelationImpl::NONE,
     RelationImpl::Aggregate,
-    RelationImpl::SetOperation,
     RelationImpl::Filter,
     RelationImpl::Limit,
     RelationImpl::LiteralRelation,
     RelationImpl::OrderBy,
     RelationImpl::Project,
-    RelationImpl::Table
+    RelationImpl::SetOperation,
+    RelationImpl::Source
   };
   return values;
 }
@@ -223,20 +223,20 @@ inline const char * const *EnumNamesRelationImpl() {
   static const char * const names[10] = {
     "NONE",
     "Aggregate",
-    "SetOperation",
     "Filter",
     "Limit",
     "LiteralRelation",
     "OrderBy",
     "Project",
-    "Table",
+    "SetOperation",
+    "Source",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameRelationImpl(RelationImpl e) {
-  if (flatbuffers::IsOutRange(e, RelationImpl::NONE, RelationImpl::Table)) return "";
+  if (flatbuffers::IsOutRange(e, RelationImpl::NONE, RelationImpl::Source)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRelationImpl()[index];
 }
@@ -247,10 +247,6 @@ template<typename T> struct RelationImplTraits {
 
 template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Aggregate> {
   static const RelationImpl enum_value = RelationImpl::Aggregate;
-};
-
-template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::SetOperation> {
-  static const RelationImpl enum_value = RelationImpl::SetOperation;
 };
 
 template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Filter> {
@@ -273,8 +269,12 @@ template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Pro
   static const RelationImpl enum_value = RelationImpl::Project;
 };
 
-template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Table> {
-  static const RelationImpl enum_value = RelationImpl::Table;
+template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::SetOperation> {
+  static const RelationImpl enum_value = RelationImpl::SetOperation;
+};
+
+template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Source> {
+  static const RelationImpl enum_value = RelationImpl::Source;
 };
 
 bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj, RelationImpl type);
@@ -1253,9 +1253,9 @@ inline flatbuffers::Offset<LiteralRelation> CreateLiteralRelationDirect(
       columns__);
 }
 
-/// A table read
-struct Table FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TableBuilder Builder;
+/// A source of data that produces rows.
+struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SourceBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BASE = 4,
     VT_NAME = 6,
@@ -1282,53 +1282,53 @@ struct Table FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct TableBuilder {
-  typedef Table Table;
+struct SourceBuilder {
+  typedef Source Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(Table::VT_BASE, base);
+    fbb_.AddOffset(Source::VT_BASE, base);
   }
   void add_name(flatbuffers::Offset<flatbuffers::String> name) {
-    fbb_.AddOffset(Table::VT_NAME, name);
+    fbb_.AddOffset(Source::VT_NAME, name);
   }
   void add_schema(flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema) {
-    fbb_.AddOffset(Table::VT_SCHEMA, schema);
+    fbb_.AddOffset(Source::VT_SCHEMA, schema);
   }
-  explicit TableBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit SourceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TableBuilder &operator=(const TableBuilder &);
-  flatbuffers::Offset<Table> Finish() {
+  SourceBuilder &operator=(const SourceBuilder &);
+  flatbuffers::Offset<Source> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Table>(end);
-    fbb_.Required(o, Table::VT_BASE);
-    fbb_.Required(o, Table::VT_NAME);
-    fbb_.Required(o, Table::VT_SCHEMA);
+    auto o = flatbuffers::Offset<Source>(end);
+    fbb_.Required(o, Source::VT_BASE);
+    fbb_.Required(o, Source::VT_NAME);
+    fbb_.Required(o, Source::VT_SCHEMA);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Table> CreateTable(
+inline flatbuffers::Offset<Source> CreateSource(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
     flatbuffers::Offset<flatbuffers::String> name = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
-  TableBuilder builder_(_fbb);
+  SourceBuilder builder_(_fbb);
   builder_.add_schema(schema);
   builder_.add_name(name);
   builder_.add_base(base);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Table> CreateTableDirect(
+inline flatbuffers::Offset<Source> CreateSourceDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
     const char *name = nullptr,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
-  return org::apache::arrow::computeir::flatbuf::CreateTable(
+  return org::apache::arrow::computeir::flatbuf::CreateSource(
       _fbb,
       base,
       name__,
@@ -1352,9 +1352,6 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Aggregate *impl_as_Aggregate() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Aggregate ? static_cast<const org::apache::arrow::computeir::flatbuf::Aggregate *>(impl()) : nullptr;
   }
-  const org::apache::arrow::computeir::flatbuf::SetOperation *impl_as_SetOperation() const {
-    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::SetOperation ? static_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(impl()) : nullptr;
-  }
   const org::apache::arrow::computeir::flatbuf::Filter *impl_as_Filter() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Filter ? static_cast<const org::apache::arrow::computeir::flatbuf::Filter *>(impl()) : nullptr;
   }
@@ -1370,8 +1367,11 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Project *impl_as_Project() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Project ? static_cast<const org::apache::arrow::computeir::flatbuf::Project *>(impl()) : nullptr;
   }
-  const org::apache::arrow::computeir::flatbuf::Table *impl_as_Table() const {
-    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Table ? static_cast<const org::apache::arrow::computeir::flatbuf::Table *>(impl()) : nullptr;
+  const org::apache::arrow::computeir::flatbuf::SetOperation *impl_as_SetOperation() const {
+    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::SetOperation ? static_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(impl()) : nullptr;
+  }
+  const org::apache::arrow::computeir::flatbuf::Source *impl_as_Source() const {
+    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Source ? static_cast<const org::apache::arrow::computeir::flatbuf::Source *>(impl()) : nullptr;
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1384,10 +1384,6 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 
 template<> inline const org::apache::arrow::computeir::flatbuf::Aggregate *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Aggregate>() const {
   return impl_as_Aggregate();
-}
-
-template<> inline const org::apache::arrow::computeir::flatbuf::SetOperation *Relation::impl_as<org::apache::arrow::computeir::flatbuf::SetOperation>() const {
-  return impl_as_SetOperation();
 }
 
 template<> inline const org::apache::arrow::computeir::flatbuf::Filter *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Filter>() const {
@@ -1410,8 +1406,12 @@ template<> inline const org::apache::arrow::computeir::flatbuf::Project *Relatio
   return impl_as_Project();
 }
 
-template<> inline const org::apache::arrow::computeir::flatbuf::Table *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Table>() const {
-  return impl_as_Table();
+template<> inline const org::apache::arrow::computeir::flatbuf::SetOperation *Relation::impl_as<org::apache::arrow::computeir::flatbuf::SetOperation>() const {
+  return impl_as_SetOperation();
+}
+
+template<> inline const org::apache::arrow::computeir::flatbuf::Source *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Source>() const {
+  return impl_as_Source();
 }
 
 struct RelationBuilder {
@@ -1485,10 +1485,6 @@ inline bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj,
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Aggregate *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case RelationImpl::SetOperation: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
     case RelationImpl::Filter: {
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Filter *>(obj);
       return verifier.VerifyTable(ptr);
@@ -1509,8 +1505,12 @@ inline bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj,
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Project *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case RelationImpl::Table: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Table *>(obj);
+    case RelationImpl::SetOperation: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case RelationImpl::Source: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Source *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
