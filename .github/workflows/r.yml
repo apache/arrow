@@ -368,7 +368,7 @@ jobs:
           )
       - name: Dump install logs
         shell: cmd
-        run: cat check/arrow.Rcheck/00install.out
+        run: cat r/check/arrow.Rcheck/00install.out
         if: always()
       # We can remove this when we drop support for Rtools 3.5.
       - name: Ensure using system tar in actions/cache
