@@ -68,6 +68,23 @@ void SQLiteFlightSqlServer::ExecuteSql(const std::string& sql) {
   }
 }
 
+Status GetFlightInfoForCommand(const FlightDescriptor& descriptor,
+                               std::unique_ptr<FlightInfo>* info,
+                               google::protobuf::Message& command,
+                               const std::shared_ptr<Schema>& schema) {
+  google::protobuf::Any ticketParsed;
+  ticketParsed.PackFrom(command);
+
+  std::vector<FlightEndpoint> endpoints{
+      FlightEndpoint{{ticketParsed.SerializeAsString()}, {}}};
+  ARROW_ASSIGN_OR_RAISE(auto result,
+                        FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
+
+  *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
+
+  return Status::OK();
+}
+
 Status SQLiteFlightSqlServer::GetFlightInfoStatement(
     const pb::sql::CommandStatementQuery& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
@@ -107,23 +124,6 @@ Status SQLiteFlightSqlServer::DoGetStatement(const pb::sql::TicketStatementQuery
   ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
 
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
-
-  return Status::OK();
-}
-
-Status GetFlightInfoForCommand(const FlightDescriptor& descriptor,
-                               std::unique_ptr<FlightInfo>* info,
-                               google::protobuf::Message& command,
-                               const std::shared_ptr<Schema>& schema) {
-  google::protobuf::Any ticketParsed;
-  ticketParsed.PackFrom(command);
-
-  std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{ticketParsed.SerializeAsString()}, {}}};
-  ARROW_ASSIGN_OR_RAISE(auto result,
-                        FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
-
-  *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
 
   return Status::OK();
 }
