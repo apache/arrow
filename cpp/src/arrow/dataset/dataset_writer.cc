@@ -351,6 +351,11 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
   if (token_start == util::string_view::npos) {
     return Status::Invalid("basename_template did not contain '", kIntegerToken, "'");
   }
+  size_t next_token_start = basename_template.find(kIntegerToken, token_start + 1);
+  if (next_token_start != util::string_view::npos) {
+    return Status::Invalid("basename_template contained '", kIntegerToken,
+                           "' more than once");
+  }
   return Status::OK();
 }
 
@@ -381,7 +386,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
   DatasetWriterImpl(FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued)
       : write_options_(std::move(write_options)),
         rows_in_flight_throttle_(max_rows_queued),
-        open_files_throttle_(write_options.max_open_files) {}
+        open_files_throttle_(write_options_.max_open_files) {}
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory) {
@@ -451,14 +456,14 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
     }
 
     for (auto& scheduled_write : scheduled_writes) {
-      // One of the below callbacks could run immediately and set err_ so we check
-      // it each time through the loop
-      RETURN_NOT_OK(CheckError());
       RETURN_NOT_OK(task_group_.AddTask(scheduled_write.Then(
           [this](const WriteTask& write) {
             rows_in_flight_throttle_.Release(write.num_rows);
           },
           [this](const Status& err) { SetError(err); })));
+      // The previously added callback could run immediately and set err_ so we check
+      // it each time through the loop
+      RETURN_NOT_OK(CheckError());
     }
     if (batch) {
       return backpressure.Then(

@@ -109,9 +109,9 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
                        std::move(partition_expression), std::move(physical_schema)));
 }
 
-// TODO(ARROW-12355[CSV], ARROW-11772[IPC], ARROW-11843[Parquet]) The following
-// implementation of ScanBatchesAsync is both ugly and terribly inefficient.  Each of the
-// formats should provide their own efficient implementation.
+// The following implementation of ScanBatchesAsync is both ugly and terribly inefficient.
+// Each of the formats should provide their own efficient implementation.  However, this
+// is a reasonable starting point or implementation for a dummy/mock format.
 Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& scan_options,
     const std::shared_ptr<FileFragment>& file) const {
