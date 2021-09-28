@@ -702,6 +702,11 @@ def test_file_format_pickling():
             buffer_size=4096,
         )
     ]
+    try:
+        formats.append(ds.OrcFileFormat())
+    except ImportError:
+        pass
+
     for file_format in formats:
         assert pickle.loads(pickle.dumps(file_format)) == file_format
 
@@ -2632,6 +2637,67 @@ def test_ipc_format(tempdir, dataset_reader):
         dataset = ds.dataset(path, format=format_str)
         result = dataset_reader.to_table(dataset)
         assert result.equals(table)
+
+
+@pytest.mark.orc
+def test_orc_format(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format=ds.OrcFileFormat())
+    result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
+    assert result.equals(table)
+
+    dataset = ds.dataset(path, format="orc")
+    result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
+    assert result.equals(table)
+
+    result = dataset_reader.to_table(dataset, columns=["b"])
+    result.validate(full=True)
+    assert result.equals(table.select(["b"]))
+
+    assert dataset_reader.count_rows(dataset) == 3
+    assert dataset_reader.count_rows(dataset, filter=ds.field("a") > 2) == 1
+
+
+@pytest.mark.orc
+def test_orc_scan_options(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format="orc")
+    result = list(dataset_reader.to_batches(dataset))
+    assert len(result) == 1
+    assert result[0].num_rows == 3
+    assert result[0].equals(table.to_batches()[0])
+    # TODO batch_size is not yet supported (ARROW-14153)
+    # result = list(dataset_reader.to_batches(dataset, batch_size=2))
+    # assert len(result) == 2
+    # assert result[0].num_rows == 2
+    # assert result[0].equals(table.slice(0, 2).to_batches()[0])
+    # assert result[1].num_rows == 1
+    # assert result[1].equals(table.slice(2, 1).to_batches()[0])
+
+
+def test_orc_format_not_supported():
+    try:
+        from pyarrow.dataset import OrcFileFormat  # noqa
+    except ImportError:
+        # ORC is not available, test error message
+        with pytest.raises(
+            ValueError, match="not built with support for the ORC file"
+        ):
+            ds.dataset(".", format="orc")
 
 
 @pytest.mark.pandas

@@ -56,6 +56,27 @@ from pyarrow._dataset import (  # noqa
     _filesystemdataset_write,
 )
 
+_orc_available = False
+_orc_msg = (
+    "The pyarrow installation is not built with support for the ORC file "
+    "format."
+)
+
+try:
+    from pyarrow._dataset_orc import OrcFileFormat
+    _orc_available = True
+except ImportError:
+    pass
+
+
+def __getattr__(name):
+    if name == "OrcFileFormat" and not _orc_available:
+        raise ImportError(_orc_msg)
+
+    raise AttributeError(
+        "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
+    )
+
 
 def field(name):
     """Reference a named column of the dataset.
@@ -251,6 +272,10 @@ def _ensure_format(obj):
         return IpcFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
+    elif obj == "orc":
+        if not _orc_available:
+            raise ValueError(_orc_msg)
+        return OrcFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
