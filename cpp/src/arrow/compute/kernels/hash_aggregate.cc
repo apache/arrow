@@ -250,10 +250,8 @@ struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
 
   Status Encode(const Datum& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override {
-    auto dict =
-        data.is_array()
-            ? MakeArray(data.array()->dictionary)
-            : data.scalar_as<DictionaryScalar>().value.dictionary;
+    auto dict = data.is_array() ? MakeArray(data.array()->dictionary)
+                                : data.scalar_as<DictionaryScalar>().value.dictionary;
     if (dictionary_) {
       if (!dictionary_->Equals(dict)) {
         // TODO(bkietz) unify if necessary. For now, just error if any batch's dictionary
