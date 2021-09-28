@@ -228,9 +228,17 @@ class ARROW_EXPORT ExecNode {
 
   std::string ToString() const;
 
+  /// \brief Is an executor available?
   bool has_executor() { return plan()->exec_context()->executor() != nullptr; }
 
+  /// \brief submit a task, independently if an executor is available or not
   Status SubmitTask(std::function<Status()> task);
+
+  /// \brief Mark Future<> `finished_` as Finished, independently if an executor is
+  /// available or not
+  ///
+  /// A boolean var `request_stop` can be send to cancel remaining tasks in the executor.
+  void MarkFinished(bool request_stop = false);
 
  protected:
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
@@ -257,7 +265,7 @@ class ARROW_EXPORT ExecNode {
   AtomicCounter batch_count_;
   // Future to sync finished
   Future<> finished_ = Future<>::MakeFinished();
-  // Variable used to stop producing from source
+  // Variable used to cancel remaining tasks in the executor
   StopSource stop_source_;
   // The task group for the corresponding batches
   std::shared_ptr<TaskGroup> task_group_{nullptr};

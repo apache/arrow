@@ -295,9 +295,32 @@ bool ExecNode::ErrorIfNotOk(Status status) {
 }
 
 Status ExecNode::SubmitTask(std::function<Status()> task) {
-  DCHECK(task_group_ != nullptr);
-  task_group_->Append(std::move(task));
+  if (finished_.is_finished()) {
+    return Status::OK();
+  }
+  if (this->has_executor()) {
+    DCHECK(task_group_ != nullptr);
+    task_group_->Append(std::move(task));
+  } else {
+    std::move(task)();
+  }
+  if (batch_count_.Increment()) {
+    this->MarkFinished();
+  }
   return Status::OK();
+}
+
+void ExecNode::MarkFinished(bool request_stop) {
+  if (this->has_executor()) {
+    if (request_stop) {
+      this->stop_source_.RequestStop();
+    }
+    task_group_->FinishAsync().AddCallback([this](const Status& status) {
+      if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
+    });
+  } else {
+    this->finished_.MarkFinished();
+  }
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(

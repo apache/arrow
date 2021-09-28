@@ -97,9 +97,6 @@ class FilterNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
-    if (finished_.is_finished()) {
-      return;
-    }
     auto task = [this, batch]() {
       auto maybe_filtered = DoFilter(std::move(batch));
       if (ErrorIfNotOk(maybe_filtered.status())) return maybe_filtered.status();
@@ -107,20 +104,7 @@ class FilterNode : public ExecNode {
       outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
       return Status::OK();
     };
-    if (this->has_executor()) {
-      DCHECK_OK(this->SubmitTask(task));
-    } else {
-      DCHECK_OK(task());
-    }
-    if (batch_count_.Increment()) {
-      if (this->has_executor()) {
-        task_group_->FinishAsync().AddCallback([this](const Status& status) {
-          if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
-        });
-      } else {
-        this->finished_.MarkFinished();
-      }
-    }
+    DCHECK_OK(this->SubmitTask(task));
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -132,13 +116,7 @@ class FilterNode : public ExecNode {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->InputFinished(this, total_batches);
     if (batch_count_.SetTotal(total_batches)) {
-      if (this->has_executor()) {
-        task_group_->FinishAsync().AddCallback([this](const Status& status) {
-          if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
-        });
-      } else {
-        this->finished_.MarkFinished();
-      }
+      this->MarkFinished();
     }
   }
 
@@ -155,14 +133,7 @@ class FilterNode : public ExecNode {
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
-      if (this->has_executor()) {
-        this->stop_source_.RequestStop();
-        task_group_->FinishAsync().AddCallback([this](const Status& status) {
-          if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
-        });
-      } else {
-        this->finished_.MarkFinished();
-      }
+      this->MarkFinished(/*request_stop=*/true);
     }
     inputs_[0]->StopProducing(this);
   }
