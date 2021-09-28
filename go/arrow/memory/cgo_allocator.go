@@ -25,6 +25,23 @@ import (
 	cga "github.com/apache/arrow/go/arrow/memory/internal/cgoalloc"
 )
 
+// CgoArrowAllocator is an allocator which exposes the C++ memory pool class
+// from the Arrow C++ Library as an allocator for memory buffers to use in Go.
+// The build tag 'ccalloc' must be used in order to include it as it requires
+// linking against the arrow library.
+//
+// The primary reason to use this would be as an allocator when dealing with
+// exporting data across the cdata interface in order to ensure that the memory
+// is allocated safely on the C side so it can be held on the CGO side beyond
+// the context of a single function call. If the memory in use isn't allocated
+// on the C side, then it is not safe for any pointers to data to be held outside
+// of Go beyond the context of a single Cgo function call as it will be invisible
+// to the Go garbage collector and could potentially get moved without being updated.
+//
+// As an alternative, if the arrow C++ libraries aren't available, remember that
+// Allocator is an interface, so anything which can allocate data using C/C++ can
+// be exposed and then used to meet the Allocator interface if wanting to export data
+// across the Cgo interfaces.
 type CgoArrowAllocator struct {
 	pool cga.CGOMemPool
 }
@@ -50,10 +67,14 @@ func (alloc *CgoArrowAllocator) Reallocate(size int, b []byte) []byte {
 	return out
 }
 
+// AllocatedBytes returns the current total of bytes that have been allocated by
+// the memory pool on the C++ side.
 func (alloc *CgoArrowAllocator) AllocatedBytes() int64 {
 	return cga.CgoPoolCurBytes(alloc.pool)
 }
 
+// AssertSize can be used for testing to ensure and check that there are no memory
+// leaks using the allocator.
 func (alloc *CgoArrowAllocator) AssertSize(t TestingT, sz int) {
 	cur := alloc.AllocatedBytes()
 	if int64(sz) != cur {
@@ -62,6 +83,15 @@ func (alloc *CgoArrowAllocator) AssertSize(t TestingT, sz int) {
 	}
 }
 
+// NewCgoArrowAllocator creates a new allocator which is backed by the C++ Arrow
+// memory pool object which could potentially be using jemalloc or mimalloc or
+// otherwise as its backend. Memory allocated by this is invisible to the Go
+// garbage collector, and as such care should be taken to avoid any memory leaks.
+//
+// A finalizer is set on the allocator so when the allocator object itself is eventually
+// cleaned up by the garbage collector, it will delete the associated C++ memory pool
+// object. If the build tag 'cclog' is added, then the memory pool will output a log line
+// for every time memory is allocated, freed or reallocated.
 func NewCgoArrowAllocator() *CgoArrowAllocator {
 	alloc := &CgoArrowAllocator{pool: cga.NewCgoArrowAllocator(enableLogging)}
 	runtime.SetFinalizer(alloc, func(a *CgoArrowAllocator) { cga.ReleaseCGOMemPool(a.pool) })
