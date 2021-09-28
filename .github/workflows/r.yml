@@ -269,12 +269,6 @@ jobs:
         if: ${{ matrix.rtools == 35 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools35-mingw32.zip
-          path: r/windows
-      - name: Download artifacts
-        if: ${{ matrix.rtools == 35 }}
-        uses: actions/download-artifact@v2
-        with:
           name: libarrow-rtools35-mingw64.zip
           path: r/windows
       - name: Download artifacts
@@ -293,7 +287,7 @@ jobs:
         if: ${{ matrix.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools40-mingw64.zip
+          name: libarrow-rtools40-ucrt64.zip
           path: r/windows
       - name: Unzip and rezip libarrows
         shell: bash
