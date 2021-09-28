@@ -1182,13 +1182,13 @@ TEST_F(TestRecordBatchSortIndices, NullType) {
       field("f", int32()),
       field("g", int32()),
       field("h", int32()),
-      field("i", int32()),
+      field("i", null()),
   });
   auto batch = RecordBatchFromJSON(schema, R"([
-    {"a": null, "b": 5, "c": 0, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
-    {"a": null, "b": 5, "c": 1, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
-    {"a": null, "b": 2, "c": 2, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
-    {"a": null, "b": 4, "c": 3, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5}
+    {"a": null, "b": 5, "c": 0, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 5, "c": 1, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 2, "c": 2, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 4, "c": 3, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null}
 ])");
   for (const auto null_placement : AllNullPlacements()) {
     for (const auto order : AllOrders()) {
@@ -1197,7 +1197,16 @@ TEST_F(TestRecordBatchSortIndices, NullType) {
                         SortOptions(
                             {
                                 SortKey("a", order),
+                                SortKey("i", order),
+                            },
+                            null_placement),
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
                                 SortKey("b", SortOrder::Ascending),
+                                SortKey("i", order),
                             },
                             null_placement),
                         "[2, 3, 0, 1]");
@@ -1213,7 +1222,7 @@ TEST_F(TestRecordBatchSortIndices, NullType) {
                                 SortKey("f", SortOrder::Ascending),
                                 SortKey("g", SortOrder::Ascending),
                                 SortKey("h", SortOrder::Ascending),
-                                SortKey("i", SortOrder::Ascending),
+                                SortKey("i", order),
                             },
                             null_placement),
                         "[2, 3, 0, 1]");
@@ -1444,15 +1453,16 @@ TEST_F(TestTableSortIndices, NullType) {
       field("a", null()),
       field("b", int32()),
       field("c", int32()),
+      field("d", null()),
   });
   auto table = TableFromJSON(schema, {
                                          R"([
-                                             {"a": null, "b": 5, "c": 0},
-                                             {"a": null, "b": 5, "c": 1},
-                                             {"a": null, "b": 2, "c": 2}
+                                             {"a": null, "b": 5, "c": 0, "d": null},
+                                             {"a": null, "b": 5, "c": 1, "d": null},
+                                             {"a": null, "b": 2, "c": 2, "d": null}
                                          ])",
                                          R"([])",
-                                         R"([{"a": null, "b": 4, "c": 3}])",
+                                         R"([{"a": null, "b": 4, "c": 3, "d": null}])",
                                      });
   for (const auto null_placement : AllNullPlacements()) {
     for (const auto order : AllOrders()) {
@@ -1460,7 +1470,16 @@ TEST_F(TestTableSortIndices, NullType) {
                         SortOptions(
                             {
                                 SortKey("a", order),
+                                SortKey("d", order),
+                            },
+                            null_placement),
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(table,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
                                 SortKey("b", SortOrder::Ascending),
+                                SortKey("d", order),
                             },
                             null_placement),
                         "[2, 3, 0, 1]");
