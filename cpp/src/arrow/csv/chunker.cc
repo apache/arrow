@@ -120,7 +120,7 @@ class Lexer {
     if (ARROW_PREDICT_FALSE(c == '\n')) {
       goto LineEnd;
     }
-    // treat delimiter as a normal token in quoting is disabled
+    // treat delimiter as a normal token if quoting is disabled
     if (ARROW_PREDICT_FALSE(quoting && c == options_.delimiter)) {
       goto FieldEnd;
     }
