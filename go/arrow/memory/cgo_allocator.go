@@ -46,6 +46,15 @@ type CgoArrowAllocator struct {
 	pool cga.CGOMemPool
 }
 
+// Allocate does what it says on the tin, allocates a chunk of memory using the underlying
+// memory pool, however CGO calls are 'relatively' expensive, which means doing tons of
+// small allocations can end up being expensive and potentially slower than just using
+// go memory. This means that preallocating via reserve becomes much more important when
+// using this allocator.
+//
+// Future development TODO: look into converting this more into a slab style allocator
+// which amortizes the cost of smaller allocations by allocating bigger chunks of memory
+// and passes them out.
 func (alloc *CgoArrowAllocator) Allocate(size int) []byte {
 	b := cga.CgoPoolAlloc(alloc.pool, size)
 	return b
