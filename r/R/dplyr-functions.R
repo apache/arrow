@@ -341,7 +341,7 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 
 arrow_string_function_with_locale_arg <- function(func, string, locale) {
   assert_that(
-    exists(locale, .valid_locales_for_string_functions),
+    locale %in% .valid_locales_for_string_functions,
     msg = paste(
       "`locale` must be any of: ",
       paste(.valid_locales_for_string_functions, collapse=",")
