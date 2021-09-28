@@ -22,17 +22,22 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.*;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForUtf8Field;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setInfoName;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setValues;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.ObjIntConsumer;
@@ -68,6 +73,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -608,6 +614,367 @@ public class ArrowDatabaseMetadataTest {
               "IS_GENERATEDCOLUMN"),
           EXPECTED_GET_COLUMNS_RESULTS
       );
+    }
+  }
+
+  @Test
+  public void testGetProcedures() throws SQLException {
+    try (final ResultSet resultSet = connection.getMetaData().getProcedures(null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetProceduresSchema = new HashMap<Integer, String>() {{
+        put(1, "PROCEDURE_CAT");
+        put(2, "PROCEDURE_SCHEM");
+        put(3, "PROCEDURE_NAME");
+        put(4, "FUTURE_USE1");
+        put(5, "FUTURE_USE2");
+        put(6, "FUTURE_USE3");
+        put(7, "REMARKS");
+        put(8, "PROCEDURE_TYPE");
+        put(9, "SPECIFIC_NAME");
+      }};
+      testEmptyResultSet(resultSet, expectedGetProceduresSchema);
+    }
+  }
+
+  @Test
+  public void testGetProcedureColumns() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getProcedureColumns(null, null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetProcedureColumnsSchema = new HashMap<Integer, String>() {{
+        put(1, "PROCEDURE_CAT");
+        put(2, "PROCEDURE_SCHEM");
+        put(3, "PROCEDURE_NAME");
+        put(4, "COLUMN_NAME");
+        put(5, "COLUMN_TYPE");
+        put(6, "DATA_TYPE");
+        put(7, "TYPE_NAME");
+        put(8, "PRECISION");
+        put(9, "LENGTH");
+        put(10, "SCALE");
+        put(11, "RADIX");
+        put(12, "NULLABLE");
+        put(13, "REMARKS");
+        put(14, "COLUMN_DEF");
+        put(15, "SQL_DATA_TYPE");
+        put(16, "SQL_DATETIME_SUB");
+        put(17, "CHAR_OCTET_LENGTH");
+        put(18, "ORDINAL_POSITION");
+        put(19, "IS_NULLABLE");
+        put(20, "SPECIFIC_NAME");
+      }};
+      testEmptyResultSet(resultSet, expectedGetProcedureColumnsSchema);
+    }
+  }
+
+  @Test
+  public void testGetColumnPrivileges() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getColumnPrivileges(null, null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetColumnPrivilegesSchema = new HashMap<Integer, String>() {{
+        put(1, "TABLE_CAT");
+        put(2, "TABLE_SCHEM");
+        put(3, "TABLE_NAME");
+        put(4, "COLUMN_NAME");
+        put(5, "GRANTOR");
+        put(6, "GRANTEE");
+        put(7, "PRIVILEGE");
+        put(8, "IS_GRANTABLE");
+      }};
+      testEmptyResultSet(resultSet, expectedGetColumnPrivilegesSchema);
+    }
+  }
+
+  @Test
+  public void testGetTablePrivileges() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getTablePrivileges(null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetTablePrivilegesSchema = new HashMap<Integer, String>() {{
+        put(1, "TABLE_CAT");
+        put(2, "TABLE_SCHEM");
+        put(3, "TABLE_NAME");
+        put(4, "GRANTOR");
+        put(5, "GRANTEE");
+        put(6, "PRIVILEGE");
+        put(7, "IS_GRANTABLE");
+      }};
+      testEmptyResultSet(resultSet, expectedGetTablePrivilegesSchema);
+    }
+  }
+
+  @Test
+  public void testGetBestRowIdentifier() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getBestRowIdentifier(null, null, null, 0, true)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetBestRowIdentifierSchema = new HashMap<Integer, String>() {{
+        put(1, "SCOPE");
+        put(2, "COLUMN_NAME");
+        put(3, "DATA_TYPE");
+        put(4, "TYPE_NAME");
+        put(5, "COLUMN_SIZE");
+        put(6, "BUFFER_LENGTH");
+        put(7, "DECIMAL_DIGITS");
+        put(8, "PSEUDO_COLUMN");
+      }};
+      testEmptyResultSet(resultSet, expectedGetBestRowIdentifierSchema);
+    }
+  }
+
+  @Test
+  public void testGetVersionColumns() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getVersionColumns(null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetVersionColumnsSchema = new HashMap<Integer, String>() {{
+        put(1, "SCOPE");
+        put(2, "COLUMN_NAME");
+        put(3, "DATA_TYPE");
+        put(4, "TYPE_NAME");
+        put(5, "COLUMN_SIZE");
+        put(6, "BUFFER_LENGTH");
+        put(7, "DECIMAL_DIGITS");
+        put(8, "PSEUDO_COLUMN");
+      }};
+      testEmptyResultSet(resultSet, expectedGetVersionColumnsSchema);
+    }
+  }
+
+  @Test
+  public void testGetCrossReference() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getCrossReference(null, null, null, null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetCrossReferenceSchema = new HashMap<Integer, String>() {{
+        put(1, "PKTABLE_CAT");
+        put(2, "PKTABLE_SCHEM");
+        put(3, "PKTABLE_NAME");
+        put(4, "PKCOLUMN_NAME");
+        put(5, "FKTABLE_CAT");
+        put(6, "FKTABLE_SCHEM");
+        put(7, "FKTABLE_NAME");
+        put(8, "FKCOLUMN_NAME");
+        put(9, "KEY_SEQ");
+        put(10, "UPDATE_RULE");
+        put(11, "DELETE_RULE");
+        put(12, "FK_NAME");
+        put(13, "PK_NAME");
+        put(14, "DEFERABILITY");
+      }};
+      testEmptyResultSet(resultSet, expectedGetCrossReferenceSchema);
+    }
+  }
+
+  @Test
+  public void testGetTypeInfo() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getTypeInfo()) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetTypeInfoSchema = new HashMap<Integer, String>() {{
+        put(1, "TYPE_NAME");
+        put(2, "DATA_TYPE");
+        put(3, "PRECISION");
+        put(4, "LITERAL_PREFIX");
+        put(5, "LITERAL_SUFFIX");
+        put(6, "CREATE_PARAMS");
+        put(7, "NULLABLE");
+        put(8, "CASE_SENSITIVE");
+        put(9, "SEARCHABLE");
+        put(10, "UNSIGNED_ATTRIBUTE");
+        put(11, "FIXED_PREC_SCALE");
+        put(12, "AUTO_INCREMENT");
+        put(13, "LOCAL_TYPE_NAME");
+        put(14, "MINIMUM_SCALE");
+        put(15, "MAXIMUM_SCALE");
+        put(16, "SQL_DATA_TYPE");
+        put(17, "SQL_DATETIME_SUB");
+        put(18, "NUM_PREC_RADIX");
+      }};
+      testEmptyResultSet(resultSet, expectedGetTypeInfoSchema);
+    }
+  }
+
+  @Test
+  public void testGetIndexInfo() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getIndexInfo(null, null, null, false, true)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetIndexInfoSchema = new HashMap<Integer, String>() {{
+        put(1, "TABLE_CAT");
+        put(2, "TABLE_SCHEM");
+        put(3, "TABLE_NAME");
+        put(4, "NON_UNIQUE");
+        put(5, "INDEX_QUALIFIER");
+        put(6, "INDEX_NAME");
+        put(7, "TYPE");
+        put(8, "ORDINAL_POSITION");
+        put(9, "COLUMN_NAME");
+        put(10, "ASC_OR_DESC");
+        put(11, "CARDINALITY");
+        put(12, "PAGES");
+        put(13, "FILTER_CONDITION");
+      }};
+      testEmptyResultSet(resultSet, expectedGetIndexInfoSchema);
+    }
+  }
+
+  @Test
+  public void testGetUDTs() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getUDTs(null, null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetUDTsSchema = new HashMap<Integer, String>() {{
+        put(1, "TYPE_CAT");
+        put(2, "TYPE_SCHEM");
+        put(3, "TYPE_NAME");
+        put(4, "CLASS_NAME");
+        put(5, "DATA_TYPE");
+        put(6, "REMARKS");
+        put(7, "BASE_TYPE");
+      }};
+      testEmptyResultSet(resultSet, expectedGetUDTsSchema);
+    }
+  }
+
+  @Test
+  public void testGetSuperTypes() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getSuperTypes(null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetSuperTypesSchema = new HashMap<Integer, String>() {{
+        put(1, "TYPE_CAT");
+        put(2, "TYPE_SCHEM");
+        put(3, "TYPE_NAME");
+        put(4, "SUPERTYPE_CAT");
+        put(5, "SUPERTYPE_SCHEM");
+        put(6, "SUPERTYPE_NAME");
+      }};
+      testEmptyResultSet(resultSet, expectedGetSuperTypesSchema);
+    }
+  }
+
+  @Test
+  public void testGetSuperTables() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getSuperTables(null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetSuperTablesSchema = new HashMap<Integer, String>() {{
+        put(1, "TABLE_CAT");
+        put(2, "TABLE_SCHEM");
+        put(3, "TABLE_NAME");
+        put(4, "SUPERTABLE_NAME");
+      }};
+      testEmptyResultSet(resultSet, expectedGetSuperTablesSchema);
+    }
+  }
+
+  @Test
+  public void testGetAttributes() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getAttributes(null, null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetAttributesSchema = new HashMap<Integer, String>() {{
+        put(1, "TYPE_CAT");
+        put(2, "TYPE_SCHEM");
+        put(3, "TYPE_NAME");
+        put(4, "ATTR_NAME");
+        put(5, "DATA_TYPE");
+        put(6, "ATTR_TYPE_NAME");
+        put(7, "ATTR_SIZE");
+        put(8, "DECIMAL_DIGITS");
+        put(9, "NUM_PREC_RADIX");
+        put(10, "NULLABLE");
+        put(11, "REMARKS");
+        put(12, "ATTR_DEF");
+        put(13, "SQL_DATA_TYPE");
+        put(14, "SQL_DATETIME_SUB");
+        put(15, "CHAR_OCTET_LENGTH");
+        put(16, "ORDINAL_POSITION");
+        put(17, "IS_NULLABLE");
+        put(18, "SCOPE_CATALOG");
+        put(19, "SCOPE_SCHEMA");
+        put(20, "SCOPE_TABLE");
+        put(21, "SOURCE_DATA_TYPE");
+      }};
+      testEmptyResultSet(resultSet, expectedGetAttributesSchema);
+    }
+  }
+
+  @Test
+  public void testGetClientInfoProperties() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getClientInfoProperties()) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetClientInfoPropertiesSchema = new HashMap<Integer, String>() {{
+        put(1, "NAME");
+        put(2, "MAX_LEN");
+        put(3, "DEFAULT_VALUE");
+        put(4, "DESCRIPTION");
+      }};
+      testEmptyResultSet(resultSet, expectedGetClientInfoPropertiesSchema);
+    }
+  }
+
+  @Test
+  public void testGetFunctions() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getFunctions(null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetFunctionsSchema = new HashMap<Integer, String>() {{
+        put(1, "FUNCTION_CAT");
+        put(2, "FUNCTION_SCHEM");
+        put(3, "FUNCTION_NAME");
+        put(4, "REMARKS");
+        put(5, "FUNCTION_TYPE");
+        put(6, "SPECIFIC_NAME");
+      }};
+      testEmptyResultSet(resultSet, expectedGetFunctionsSchema);
+    }
+  }
+
+  @Test
+  public void testGetFunctionColumns() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getFunctionColumns(null, null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetFunctionColumnsSchema = new HashMap<Integer, String>() {{
+        put(1, "FUNCTION_CAT");
+        put(2, "FUNCTION_SCHEM");
+        put(3, "FUNCTION_NAME");
+        put(4, "COLUMN_NAME");
+        put(5, "COLUMN_TYPE");
+        put(6, "DATA_TYPE");
+        put(7, "TYPE_NAME");
+        put(8, "PRECISION");
+        put(9, "LENGTH");
+        put(10, "SCALE");
+        put(11, "RADIX");
+        put(12, "NULLABLE");
+        put(13, "REMARKS");
+        put(14, "CHAR_OCTET_LENGTH");
+        put(15, "ORDINAL_POSITION");
+        put(16, "IS_NULLABLE");
+        put(17, "SPECIFIC_NAME");
+      }};
+      testEmptyResultSet(resultSet, expectedGetFunctionColumnsSchema);
+    }
+  }
+
+  @Test
+  public void testGetPseudoColumns() throws SQLException {
+    try (ResultSet resultSet = connection.getMetaData().getPseudoColumns(null, null, null, null)) {
+      // Maps ordinal index to column name according to JDBC documentation
+      final Map<Integer, String> expectedGetPseudoColumnsSchema = new HashMap<Integer, String>() {{
+        put(1, "TABLE_CAT");
+        put(2, "TABLE_SCHEM");
+        put(3, "TABLE_NAME");
+        put(4, "COLUMN_NAME");
+        put(5, "DATA_TYPE");
+        put(6, "COLUMN_SIZE");
+        put(7, "DECIMAL_DIGITS");
+        put(8, "NUM_PREC_RADIX");
+        put(9, "COLUMN_USAGE");
+        put(10, "REMARKS");
+        put(11, "CHAR_OCTET_LENGTH");
+        put(12, "IS_NULLABLE");
+      }};
+      testEmptyResultSet(resultSet, expectedGetPseudoColumnsSchema);
+    }
+  }
+
+  private void testEmptyResultSet(final ResultSet resultSet, final Map<Integer, String> expectedResultSetSchema)
+      throws SQLException {
+    Assert.assertFalse(resultSet.next());
+    final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
+    for (final Map.Entry<Integer, String> entry : expectedResultSetSchema.entrySet()) {
+      Assert.assertEquals(entry.getValue(), resultSetMetaData.getColumnLabel(entry.getKey()));
     }
   }
 }
