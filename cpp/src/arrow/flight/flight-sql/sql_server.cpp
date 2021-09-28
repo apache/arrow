@@ -266,6 +266,17 @@ std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithIncludedSchema() {
                         field("table_schema", binary())});
 }
 
+std::shared_ptr<Schema> SqlSchema::GetTablesSchema() {
+  return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
+                        field("table_name", utf8()), field("table_type", utf8())});
+}
+
+std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithSchema() {
+  return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
+                        field("table_name", utf8()), field("table_type", utf8()),
+                        field("table_schema", binary())});
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
