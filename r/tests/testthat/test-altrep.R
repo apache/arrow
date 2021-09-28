@@ -195,7 +195,7 @@ test_that("altrep min/max/sum identical to R versions for int", {
 test_that("altrep vectors handle serialization", {
   ints <- c(1L, 2L, NA_integer_)
   dbls <- c(1, 2, NA_real_)
-  strs <- c("un", "deux" , NA_character_)
+  strs <- c("un", "deux", NA_character_)
 
   expect_identical(ints, unserialize(serialize(Array$create(ints)$as_vector(), NULL)))
   expect_identical(dbls, unserialize(serialize(Array$create(dbls)$as_vector(), NULL)))
@@ -206,7 +206,7 @@ test_that("altrep vectors handle serialization", {
 test_that("altrep vectors handle coercion", {
   ints <- c(1L, 2L, NA_integer_)
   dbls <- c(1, 2, NA_real_)
-  strs <- c("1", "2" , NA_character_)
+  strs <- c("1", "2", NA_character_)
 
   expect_identical(ints, as.integer(Array$create(dbls)$as_vector()))
   expect_identical(ints, as.integer(Array$create(strs)$as_vector()))

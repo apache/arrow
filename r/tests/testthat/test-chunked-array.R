@@ -452,4 +452,3 @@ test_that("Handling string data with embedded nuls", {
     )
   })
 })
-
