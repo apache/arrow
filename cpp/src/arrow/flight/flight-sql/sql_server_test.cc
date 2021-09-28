@@ -46,7 +46,36 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-void ASSERT_OK(Status x) {}
+TestServer* server;
+FlightSqlClient* sql_client;
+
+class TestFlightSqlServer : public ::testing::Environment {
+ protected:
+  void SetUp() override {
+    server = new TestServer("flight_sql_test_server");
+    server->Start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    ASSERT_TRUE(server->IsRunning());
+
+    std::stringstream ss;
+    ss << "grpc://localhost:" << server->port();
+    std::string uri = ss.str();
+
+    std::unique_ptr<FlightClient> client;
+    Location location;
+    ASSERT_OK(Location::Parse(uri, &location));
+    ASSERT_OK(FlightClient::Connect(location, &client));
+
+    sql_client = new FlightSqlClient(client);
+  }
+
+  void TearDown() override {
+    server->Stop();
+
+    free(server);
+    free(sql_client);
+  }
+};
 
 /*
  * FIXME
@@ -72,27 +101,11 @@ TEST(TestFlightSqlServer, FIX_PROTOBUF_BUG) {
 }
 
 TEST(TestFlightSqlServer, TestCommandStatementQuery) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client.Execute({}, "SELECT * FROM intTable", &flight_info));
+  ASSERT_OK(sql_client->Execute({}, "SELECT * FROM intTable", &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -113,27 +126,11 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client.GetCatalogs({}, &flight_info));
+  ASSERT_OK(sql_client->GetCatalogs({}, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -143,11 +140,13 @@ TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
 
   DECLARE_ARRAY(catalog_name_array, String, ({"sqlite_master"}));
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      expected_schema, {catalog_name_array});
+  const std::shared_ptr<Table>& expected_table =
+      Table::Make(expected_schema, {catalog_name_array});
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
+
+::testing::Environment* env = ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);
 
 }  // namespace sql
 }  // namespace flight
