@@ -118,8 +118,8 @@ def sample_time_types():
 
 def sample_temporal_types():
     return sample_date_only_types() + \
-           sample_time_only_types() + \
-           sample_timestamp_types()
+        sample_time_only_types() + \
+        sample_timestamp_types()
 
 
 def sample_logical_types():
@@ -133,6 +133,14 @@ def sample_bytes_types():
         pa.large_binary(),
         pa.string(),
         pa.large_string()
+    ]
+
+
+def sample_strict_bytes_types():
+    return [
+        pa.binary(),
+        pa.binary(32),
+        pa.large_binary()
     ]
 
 
@@ -151,9 +159,9 @@ def sample_string_types():
 
 def sample_primitive_types():
     return sample_numeric_types() + \
-           sample_temporal_types() + \
-           sample_timestamp_types() + \
-           sample_bytes_types()
+        sample_temporal_types() + \
+        sample_timestamp_types() + \
+        sample_bytes_types()
 
 
 def __listify_types(types):
@@ -179,8 +187,8 @@ def sample_struct_types():
 
 def sample_all_types():
     return sample_primitive_types() + \
-           sample_list_types() + \
-           sample_struct_types()
+        sample_list_types() + \
+        sample_struct_types()
 
 
 type_categories = {
@@ -200,6 +208,7 @@ type_categories = {
     'signed_numeric': sample_signed_numeric_types(),
     'simple_numeric': sample_simple_numeric_types(),
     'sortable': sample_sortable_types(),
+    'strict_bytes': sample_strict_bytes_types(),
     'string': sample_string_types(),
     'struct': sample_struct_types(),
     'temporal': sample_temporal_types(),
@@ -341,7 +350,7 @@ class ConstrainedParameter(ABC):
 
     @abstractmethod
     def sample(self, parameters_map: Dict[str, pa.DataType]) -> List[
-        pa.DataType]:
+            pa.DataType]:
         pass
 
     @abstractmethod
@@ -567,30 +576,30 @@ function_taxonomy_input = {
     'and_not': ['<T:logical>(T,T)=>T'],
     'and_not_kleene': ['<T:logical>(T,T)=>T'],
     'any': ['<T:logical>(T)=>T'],
-    'ascii_capitalize': ['<T:string>(T)=>T'],
-    'ascii_center': ['<T:string>(T)=>T'],
-    'ascii_is_alnum': ['<T:string>(T)=>T'],
-    'ascii_is_alpha': ['<T:string>(T)=>T'],
-    'ascii_is_decimal': ['<T:string>(T)=>T'],
-    'ascii_is_lower': ['<T:string>(T)=>T'],
-    'ascii_is_printable': ['<T:string>(T)=>T'],
-    'ascii_is_space': ['<T:string>(T)=>T'],
-    'ascii_is_title': ['<T:string>(T)=>T'],
-    'ascii_is_upper': ['<T:string>(T)=>T'],
-    'ascii_lower': ['<T:string>(T)=>T'],
-    'ascii_lpad': ['<T:string>(T)=>T'],
-    'ascii_ltrim': ['<T:string>(T)=>T'],
-    'ascii_ltrim_whitespace': ['<T:string>(T)=>T'],
-    'ascii_reverse': ['<T:string>(T)=>T'],
-    'ascii_rpad': ['<T:string>(T)=>T'],
-    'ascii_rtrim': ['<T:string>(T)=>T'],
-    'ascii_rtrim_whitespace': ['<T:string>(T)=>T'],
-    'ascii_split_whitespace': ['<T:string>(T)=>T'],
-    'ascii_swapcase': ['<T:string>(T)=>T'],
-    'ascii_title': ['<T:string>(T)=>T'],
-    'ascii_trim': ['<T:string>(T)=>T'],
-    'ascii_trim_whitespace': ['<T:string>(T)=>T'],
-    'ascii_upper': ['<T:string>(T)=>T'],
+    'ascii_capitalize': ['<T:bytes>(T)=>T'],
+    'ascii_center': ['<T:bytes>(T)=>T'],
+    'ascii_is_alnum': ['<T:bytes>(T)=>T'],
+    'ascii_is_alpha': ['<T:bytes>(T)=>T'],
+    'ascii_is_decimal': ['<T:bytes>(T)=>T'],
+    'ascii_is_lower': ['<T:bytes>(T)=>T'],
+    'ascii_is_printable': ['<T:bytes>(T)=>T'],
+    'ascii_is_space': ['<T:bytes>(T)=>T'],
+    'ascii_is_title': ['<T:bytes>(T)=>T'],
+    'ascii_is_upper': ['<T:bytes>(T)=>T'],
+    'ascii_lower': ['<T:bytes>(T)=>T'],
+    'ascii_lpad': ['<T:bytes>(T)=>T'],
+    'ascii_ltrim': ['<T:bytes>(T)=>T'],
+    'ascii_ltrim_whitespace': ['<T:bytes>(T)=>T'],
+    'ascii_reverse': ['<T:bytes>(T)=>T'],
+    'ascii_rpad': ['<T:bytes>(T)=>T'],
+    'ascii_rtrim': ['<T:bytes>(T)=>T'],
+    'ascii_rtrim_whitespace': ['<T:bytes>(T)=>T'],
+    'ascii_split_whitespace': ['<T:bytes>(T)=>T'],
+    'ascii_swapcase': ['<T:bytes>(T)=>T'],
+    'ascii_title': ['<T:bytes>(T)=>T'],
+    'ascii_trim': ['<T:bytes>(T)=>T'],
+    'ascii_trim_whitespace': ['<T:bytes>(T)=>T'],
+    'ascii_upper': ['<T:bytes>(T)=>T'],
     'asin': ['<T:numeric>(T)=>T'],
     'asin_checked': ['<T:numeric>(T)=>T'],
     'assume_timezone': ['<T:timestamp,O=WITH_TZ(T)>(T)=>O'],
@@ -977,7 +986,8 @@ def test_supports_empty_arrays():
     for sample_call in get_sample_empty_calls():
         try:
             _check_expect_fail(sample_call,
-                               'ARROW-13390: Improve type support for coalesce kernel',
+                               'ARROW-13390: Improve type support for '
+                               'coalesce kernel',
                                [
                                    ({'choose'},
                                     ['<T:list,I:integral>(I,T...)=>T',
@@ -989,176 +999,176 @@ def test_supports_empty_arrays():
                                        '<T:struct,B:boolean>(T,B,T)=>T'])
                                ])
             _check_expect_fail(sample_call,
-                               'ARROW-13130: Add decimal support for arithmetic '
-                               'compute functions',
+                               'ARROW-13130: Add decimal support for '
+                               'arithmetic compute functions',
                                [
                                    ({
-                                        'abs',
-                                        'abs_checked',
-                                        'acos',
-                                        'acos_checked',
-                                        'any',
-                                        'asin',
-                                        'asin_checked',
-                                        'atan',
-                                        'atan2',
-                                        'ceil',
-                                        'cos',
-                                        'cos_checked',
-                                        'floor',
-                                        'index',
-                                        'is_finite',
-                                        'is_inf',
-                                        'is_nan',
-                                        'ln',
-                                        'ln_checked',
-                                        'log10',
-                                        'log10_checked',
-                                        'log1p',
-                                        'log1p_checked',
-                                        'log2',
-                                        'log2_checked',
-                                        'max_element_wise',
-                                        'min_element_wise',
-                                        'mode',
-                                        'negate',
-                                        'negate_checked',
-                                        'quantile',
-                                        'round',
-                                        'round_to_multiple',
-                                        'sign',
-                                        'sin',
-                                        'sin_checked',
-                                        'stddev',
-                                        'tan',
-                                        'tan_checked',
-                                        'tdigest',
-                                        'trunc',
-                                        'variance',
-                                    }, ['<T:decimal>(T)=>T'])
+                                       'abs',
+                                       'abs_checked',
+                                       'acos',
+                                       'acos_checked',
+                                       'any',
+                                       'asin',
+                                       'asin_checked',
+                                       'atan',
+                                       'atan2',
+                                       'ceil',
+                                       'cos',
+                                       'cos_checked',
+                                       'floor',
+                                       'index',
+                                       'is_finite',
+                                       'is_inf',
+                                       'is_nan',
+                                       'ln',
+                                       'ln_checked',
+                                       'log10',
+                                       'log10_checked',
+                                       'log1p',
+                                       'log1p_checked',
+                                       'log2',
+                                       'log2_checked',
+                                       'max_element_wise',
+                                       'min_element_wise',
+                                       'mode',
+                                       'negate',
+                                       'negate_checked',
+                                       'quantile',
+                                       'round',
+                                       'round_to_multiple',
+                                       'sign',
+                                       'sin',
+                                       'sin_checked',
+                                       'stddev',
+                                       'tan',
+                                       'tan_checked',
+                                       'tdigest',
+                                       'trunc',
+                                       'variance',
+                                   }, ['<T:decimal>(T)=>T'])
                                ])
             _check_expect_fail(sample_call,
                                'ARROW-13876: Uniform null handling in compute '
                                'functions',
                                [
                                    ({
-                                        'add',
-                                        'add_checked',
-                                        'all',
-                                        'and',
-                                        'and_kleene',
-                                        'and_not',
-                                        'and_not_kleene',
-                                        'ascii_capitalize',
-                                        'ascii_center',
-                                        'ascii_is_alnum',
-                                        'ascii_is_alpha',
-                                        'ascii_is_decimal',
-                                        'ascii_is_lower',
-                                        'ascii_is_printable',
-                                        'ascii_is_space',
-                                        'ascii_is_title',
-                                        'ascii_is_upper',
-                                        'ascii_lower',
-                                        'ascii_lpad',
-                                        'ascii_ltrim',
-                                        'ascii_ltrim_whitespace',
-                                        'ascii_reverse',
-                                        'ascii_rpad',
-                                        'ascii_rtrim',
-                                        'ascii_rtrim_whitespace',
-                                        'ascii_split_whitespace',
-                                        'ascii_swapcase',
-                                        'ascii_title',
-                                        'ascii_trim',
-                                        'ascii_trim_whitespace',
-                                        'ascii_upper',
-                                        'assume_timezone',
-                                        'binary_join',
-                                        'binary_join_element_wise',
-                                        'bit_wise_and',
-                                        'bit_wise_not',
-                                        'bit_wise_or',
-                                        'bit_wise_xor',
-                                        'day',
-                                        'day_of_week',
-                                        'day_of_year',
-                                        'divide',
-                                        'divide_checked',
-                                        'ends_with',
-                                        'find_substring',
-                                        'find_substring_regex',
-                                        'invert',
-                                        'iso_calendar',
-                                        'iso_week',
-                                        'iso_year',
-                                        'list_flatten',
-                                        'list_parent_indices',
-                                        'list_value_length',
-                                        'logb',
-                                        'logb_checked',
-                                        'match_like',
-                                        'match_substring',
-                                        'match_substring_regex',
-                                        'mean',
-                                        'multiply',
-                                        'multiply_checked',
-                                        'or',
-                                        'or_kleene',
-                                        'partition_nth_indices',
-                                        'power',
-                                        'power_checked',
-                                        'product',
-                                        'quarter',
-                                        'replace_substring',
-                                        'replace_substring_regex',
-                                        'select_k_unstable',
-                                        'shift_left',
-                                        'shift_left_checked',
-                                        'shift_right',
-                                        'shift_right_checked',
-                                        'sort_indices',
-                                        'string_is_ascii',
-                                        'strptime',
-                                        'subtract',
-                                        'subtract_checked',
-                                        'sum',
-                                        'take',
-                                        'utf8_capitalize',
-                                        'utf8_center',
-                                        'utf8_is_alnum',
-                                        'utf8_is_alpha',
-                                        'utf8_is_decimal',
-                                        'utf8_is_digit',
-                                        'utf8_is_lower',
-                                        'utf8_is_numeric',
-                                        'utf8_is_types_numeric',
-                                        'utf8_is_printable',
-                                        'utf8_is_space',
-                                        'utf8_is_title',
-                                        'utf8_is_upper',
-                                        'utf8_length',
-                                        'utf8_lower',
-                                        'utf8_lpad',
-                                        'utf8_ltrim',
-                                        'utf8_ltrim_whitespace',
-                                        'utf8_replace_slice',
-                                        'utf8_reverse',
-                                        'utf8_rpad',
-                                        'utf8_rtrim',
-                                        'utf8_rtrim_whitespace',
-                                        'utf8_slice_codeunits',
-                                        'utf8_split_whitespace',
-                                        'utf8_swapcase',
-                                        'utf8_title',
-                                        'utf8_trim',
-                                        'utf8_trim_whitespace',
-                                        'utf8_upper',
-                                        'xor',
-                                        'year'
-                                    }, ['<T:null>(T)=>T', '<T:null>(T,T)=>T',
-                                        '<T:decimal,V:null>(T,V)=>T',
-                                        '<T:null,V:decimal>(T,V)=>T']),
+                                       'add',
+                                       'add_checked',
+                                       'all',
+                                       'and',
+                                       'and_kleene',
+                                       'and_not',
+                                       'and_not_kleene',
+                                       'ascii_capitalize',
+                                       'ascii_center',
+                                       'ascii_is_alnum',
+                                       'ascii_is_alpha',
+                                       'ascii_is_decimal',
+                                       'ascii_is_lower',
+                                       'ascii_is_printable',
+                                       'ascii_is_space',
+                                       'ascii_is_title',
+                                       'ascii_is_upper',
+                                       'ascii_lower',
+                                       'ascii_lpad',
+                                       'ascii_ltrim',
+                                       'ascii_ltrim_whitespace',
+                                       'ascii_reverse',
+                                       'ascii_rpad',
+                                       'ascii_rtrim',
+                                       'ascii_rtrim_whitespace',
+                                       'ascii_split_whitespace',
+                                       'ascii_swapcase',
+                                       'ascii_title',
+                                       'ascii_trim',
+                                       'ascii_trim_whitespace',
+                                       'ascii_upper',
+                                       'assume_timezone',
+                                       'binary_join',
+                                       'binary_join_element_wise',
+                                       'bit_wise_and',
+                                       'bit_wise_not',
+                                       'bit_wise_or',
+                                       'bit_wise_xor',
+                                       'day',
+                                       'day_of_week',
+                                       'day_of_year',
+                                       'divide',
+                                       'divide_checked',
+                                       'ends_with',
+                                       'find_substring',
+                                       'find_substring_regex',
+                                       'invert',
+                                       'iso_calendar',
+                                       'iso_week',
+                                       'iso_year',
+                                       'list_flatten',
+                                       'list_parent_indices',
+                                       'list_value_length',
+                                       'logb',
+                                       'logb_checked',
+                                       'match_like',
+                                       'match_substring',
+                                       'match_substring_regex',
+                                       'mean',
+                                       'multiply',
+                                       'multiply_checked',
+                                       'or',
+                                       'or_kleene',
+                                       'partition_nth_indices',
+                                       'power',
+                                       'power_checked',
+                                       'product',
+                                       'quarter',
+                                       'replace_substring',
+                                       'replace_substring_regex',
+                                       'select_k_unstable',
+                                       'shift_left',
+                                       'shift_left_checked',
+                                       'shift_right',
+                                       'shift_right_checked',
+                                       'sort_indices',
+                                       'string_is_ascii',
+                                       'strptime',
+                                       'subtract',
+                                       'subtract_checked',
+                                       'sum',
+                                       'take',
+                                       'utf8_capitalize',
+                                       'utf8_center',
+                                       'utf8_is_alnum',
+                                       'utf8_is_alpha',
+                                       'utf8_is_decimal',
+                                       'utf8_is_digit',
+                                       'utf8_is_lower',
+                                       'utf8_is_numeric',
+                                       'utf8_is_types_numeric',
+                                       'utf8_is_printable',
+                                       'utf8_is_space',
+                                       'utf8_is_title',
+                                       'utf8_is_upper',
+                                       'utf8_length',
+                                       'utf8_lower',
+                                       'utf8_lpad',
+                                       'utf8_ltrim',
+                                       'utf8_ltrim_whitespace',
+                                       'utf8_replace_slice',
+                                       'utf8_reverse',
+                                       'utf8_rpad',
+                                       'utf8_rtrim',
+                                       'utf8_rtrim_whitespace',
+                                       'utf8_slice_codeunits',
+                                       'utf8_split_whitespace',
+                                       'utf8_swapcase',
+                                       'utf8_title',
+                                       'utf8_trim',
+                                       'utf8_trim_whitespace',
+                                       'utf8_upper',
+                                       'xor',
+                                       'year'
+                                   }, ['<T:null>(T)=>T', '<T:null>(T,T)=>T',
+                                       '<T:decimal,V:null>(T,V)=>T',
+                                       '<T:null,V:decimal>(T,V)=>T']),
                                    ({'filter'}, ['<T,B:null>(T,B)=>T']),
                                    ({'take'}, ['<T,I:null>(T,I)=>T']),
                                    ({'replace_with_mask'},
@@ -1170,41 +1180,74 @@ def test_supports_empty_arrays():
                                [
                                    ({'binary_join'},
                                     [
-                                        '<T:string,L:~FIXED_SIZE_LIST(T)>(L,T)=>T'])
+                                        '<T:string,L:~FIXED_SIZE_LIST(T)>'
+                                        '(L,T)=>T'])
                                ])
             _check_expect_fail(sample_call,
-                               'ARROW-13878: Add fixed_size_binary support to compute '
-                               'functions',
+                               'ARROW-14151: ascii_* kernels should support '
+                               'binary',
                                [
                                    ({
-                                        'binary_length',
-                                        'binary_replace_slice',
-                                        'count_substring',
-                                        'count_substring_regex',
-                                        'equal',
-                                        'greater',
-                                        'greater_equal',
-                                        'index',
-                                        'less',
-                                        'less_equal',
-                                        'month',
-                                        'multiply',
-                                        'multiply_checked',
-                                        'not_equal'
-                                    },
-                                    ['<T:fixed_bytes>(T)=>T'])
+                                       'ascii_capitalize',
+                                       'ascii_center',
+                                       'ascii_is_alnum',
+                                       'ascii_is_alpha',
+                                       'ascii_is_decimal',
+                                       'ascii_is_lower',
+                                       'ascii_is_printable',
+                                       'ascii_is_space',
+                                       'ascii_is_title',
+                                       'ascii_is_upper',
+                                       'ascii_lower',
+                                       'ascii_lpad',
+                                       'ascii_ltrim',
+                                       'ascii_ltrim_whitespace',
+                                       'ascii_reverse',
+                                       'ascii_rpad',
+                                       'ascii_rtrim',
+                                       'ascii_rtrim_whitespace',
+                                       'ascii_split_whitespace',
+                                       'ascii_swapcase',
+                                       'ascii_title',
+                                       'ascii_trim',
+                                       'ascii_trim_whitespace',
+                                       'ascii_upper'
+                                   },
+                                       ['<T:strict_bytes>(T)=>T'])
                                ])
             _check_expect_fail(sample_call,
-                               'ARROW-13879: Mixed support for binary types in regex '
-                               'functions',
+                               'ARROW-13878: Add fixed_size_binary support to '
+                               'compute functions',
+                               [
+                                   ({
+                                       'binary_length',
+                                       'binary_replace_slice',
+                                       'count_substring',
+                                       'count_substring_regex',
+                                       'equal',
+                                       'greater',
+                                       'greater_equal',
+                                       'index',
+                                       'less',
+                                       'less_equal',
+                                       'month',
+                                       'multiply',
+                                       'multiply_checked',
+                                       'not_equal'
+                                   },
+                                       ['<T:fixed_bytes>(T)=>T'])
+                               ])
+            _check_expect_fail(sample_call,
+                               'ARROW-13879: Mixed support for binary types '
+                               'in regex functions',
                                [
                                    ({'extract_regex', 'split_pattern',
                                      'split_pattern_regex', 'starts_with'},
                                     ['<T:bytes>(T)=>T'])
                                ])
             _check_expect_fail(sample_call,
-                               'ARROW-14111: Add extraction function support for '
-                               'time32/time64',
+                               'ARROW-14111: Add extraction function support '
+                               'for time32/time64',
                                [
                                    ({'hour', 'microsecond', 'millisecond',
                                      'minute',
@@ -1212,7 +1255,8 @@ def test_supports_empty_arrays():
                                     ['<T:timelike>(T)=>T'])
                                ])
             _check_expect_fail(sample_call,
-                               'ARROW-13358: Extend type support for if_else kernel',
+                               'ARROW-13358: Extend type support for if_else '
+                               'kernel',
                                [
                                    ({'if_else'},
                                     ['<T:timestamp_all,B:boolean>(B, T, T)=>T',
@@ -1228,13 +1272,15 @@ def test_supports_empty_arrays():
                                    ({'is_in'}, ['<T:timestamptz>(T)=>T'])
                                ])
             _check_expect_fail(sample_call,
-                               'ARROW-14113: max_element_wise does not support binary',
+                               'ARROW-14113: max_element_wise does not '
+                               'support binary',
                                [
                                    ({'max_element_wise', 'min_element_wise'},
                                     ['<T:bytes>(T)=>T'])
                                ])
             _check_expect_fail(sample_call,
-                               'ARROW-13916: Implement strftime on date32/64 types',
+                               'ARROW-13916: Implement strftime on date32/64 '
+                               'types',
                                [
                                    ({'strftime'},
                                     ['<T:time>(T)=>T', '<T:date>(T)=>T'])
