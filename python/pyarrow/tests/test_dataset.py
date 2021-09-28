@@ -3361,8 +3361,8 @@ def test_write_dataset_with_scanner(tempdir):
     dataset = ds.dataset(tempdir, partitioning=["b"])
 
     with tempfile.TemporaryDirectory() as tempdir2:
-        ds.write_dataset(dataset.scanner(columns=["b", "c"]), tempdir2,
-                         format='parquet', partitioning=["b"])
+        ds.write_dataset(dataset.scanner(columns=["b", "c"], use_async=True),
+                         tempdir2, format='parquet', partitioning=["b"])
 
         load_back = ds.dataset(tempdir2, partitioning=["b"])
         load_back_table = load_back.to_table()
