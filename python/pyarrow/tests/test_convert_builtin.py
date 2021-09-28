@@ -304,7 +304,7 @@ def test_nested_fixed_size_list(seq):
 
 
 @parametrize_with_sequence_types
-def test_sequence_sequence_types(seq):
+def test_sequence_all_none(seq):
     arr = pa.array(seq([None, None]))
     assert len(arr) == 2
     assert arr.null_count == 2
