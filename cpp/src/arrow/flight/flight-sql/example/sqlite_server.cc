@@ -36,42 +36,25 @@ SQLiteFlightSqlServer::SQLiteFlightSqlServer() {
     throw std::runtime_error(std::string("Can't open database: ") + sqlite3_errmsg(db_));
   }
 
-  ExecuteSql(
-      "CREATE TABLE foreignTable ("
-      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-      "foreignName varchar(100), "
-      "value int)");
-  ExecuteSql(
-      "CREATE TABLE intTable ("
-      "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-      "keyName varchar(100), "
-      "value int, "
-      "foreignId int references foreignTable(id))");
-  ExecuteSql("INSERT INTO foreignTable (foreignName, value) VALUES ('keyOne', 1)");
-  ExecuteSql("INSERT INTO foreignTable (foreignName, value) VALUES ('keyTwo', 0)");
-  ExecuteSql("INSERT INTO foreignTable (foreignName, value) VALUES ('keyThree', -1)");
-  ExecuteSql("INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1)");
-  ExecuteSql("INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1)");
-  ExecuteSql(
-      "INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1)");
+  ExecuteSql(R"(
+CREATE TABLE foreignTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  foreignName varchar(100),
+  value int);
 
-  ExecuteSql(
-      "CREATE TABLE COMPANY("
-      "ID INT PRIMARY KEY     NOT NULL,"
-      "NAME           TEXT    NOT NULL,"
-      "AGE            INT     NOT NULL,"
-      "ADDRESS        CHAR(50),"
-      "SALARY         REAL );");
+CREATE TABLE intTable (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  keyName varchar(100),
+  value int,
+  foreignId int references foreignTable(id));
 
-  ExecuteSql(
-      "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY) "
-      "VALUES (1, 'Paul', 32, 'California', 20000.00 ); "
-      "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)"
-      "VALUES (2, 'Allen', 25, 'Texas', 15000.00 ); "
-      "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)"
-      "VALUES (3, 'Teddy', 23, 'Norway', 20000.00 );"
-      "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)"
-      "VALUES (4, 'Mark', 25, 'Rich', 65000.00 );");
+INSERT INTO foreignTable (foreignName, value) VALUES ('keyOne', 1);
+INSERT INTO foreignTable (foreignName, value) VALUES ('keyTwo', 0);
+INSERT INTO foreignTable (foreignName, value) VALUES ('keyThree', -1);
+INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1);
+INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1);
+INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1);
+)");
 }
 
 SQLiteFlightSqlServer::~SQLiteFlightSqlServer() { sqlite3_close(db_); }
