@@ -445,8 +445,6 @@ test_that("mutate and write_dataset", {
   skip_if_not_available("dataset")
   # See related test in test-dataset.R
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-
   first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
   df1 <- tibble(
     int = 1:10,

@@ -135,6 +135,9 @@ open_dataset <- function(sources,
                          unify_schemas = NULL,
                          format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
                          ...) {
+  if (!arrow_with_dataset()) {
+    stop("This build of the arrow package does not support Datasets", call. = FALSE)
+  }
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
@@ -309,6 +312,9 @@ UnionDataset <- R6Class("UnionDataset",
 #' @export
 InMemoryDataset <- R6Class("InMemoryDataset", inherit = Dataset)
 InMemoryDataset$create <- function(x) {
+  if (!arrow_with_dataset()) {
+    stop("This build of the arrow package does not support Datasets", call. = FALSE)
+  }
   if (!inherits(x, "Table")) {
     x <- Table$create(x)
   }
