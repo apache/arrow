@@ -1284,13 +1284,16 @@ ARROW_EXPORT
 void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
 
 ARROW_EXPORT
+void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
+
+ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
@@ -1302,8 +1305,16 @@ enum class DecimalPromotion : uint8_t {
   kDivide,
 };
 
+/// Given two arguments, at least one of which is decimal, promote all
+/// to not necessarily identical types, but types which are compatible
+/// for the given operator (add/multiply/divide).
 ARROW_EXPORT
 Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<ValueDescr>* descrs);
+
+/// Given one or more arguments, at least one of which is decimal,
+/// promote all to an identical type.
+ARROW_EXPORT
+Status CastDecimalArgs(ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 bool HasDecimal(const std::vector<ValueDescr>& descrs);

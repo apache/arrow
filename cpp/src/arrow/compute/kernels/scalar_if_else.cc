@@ -63,6 +63,20 @@ inline Bitmap GetBitmap(const Datum& datum, int i) {
   return Bitmap{a.buffers[i], a.offset, a.length};
 }
 
+// Ensure parameterized types are identical.
+Status CheckIdenticalTypes(const Datum* begin, size_t count) {
+  const auto& ty = begin->type();
+  const auto* end = begin + count;
+  for (auto it = begin + 1; it != end; ++it) {
+    const DataType& other_ty = *it->type();
+    if (!ty->Equals(other_ty)) {
+      return Status::TypeError("All types must be compatible, expected: ", *ty,
+                               ", but got: ", other_ty);
+    }
+  }
+  return Status::OK();
+}
+
 // if the condition is null then output is null otherwise we take validity from the
 // selected argument
 // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
@@ -1737,10 +1751,19 @@ struct CoalesceFunction : ScalarFunction {
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    // Do not DispatchExact here since we want to rescale decimals if necessary
     EnsureDictionaryDecoded(values);
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
+    }
+    if (auto type = CommonBinary(*values)) {
+      ReplaceTypes(type, values);
+    }
+    if (auto type = CommonTemporal(*values)) {
+      ReplaceTypes(type, values);
+    }
+    if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastDecimalArgs(values->data(), values->size()));
     }
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);
@@ -2018,9 +2041,71 @@ Status ExecBinaryCoalesce(KernelContext* ctx, Datum left, Datum right, int64_t l
   return Status::OK();
 }
 
+template <typename AppendScalar>
+static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecBatch& batch,
+                                       Datum* out,
+                                       std::function<Status(ArrayBuilder*)> reserve_data,
+                                       AppendScalar append_scalar) {
+  // Special case: grab any leading non-null scalar or array arguments
+  for (const auto& datum : batch.values) {
+    if (datum.is_scalar()) {
+      if (!datum.scalar()->is_valid) continue;
+      ARROW_ASSIGN_OR_RAISE(
+          *out, MakeArrayFromScalar(*datum.scalar(), batch.length, ctx->memory_pool()));
+      return Status::OK();
+    } else if (datum.is_array() && !datum.array()->MayHaveNulls()) {
+      *out = datum;
+      return Status::OK();
+    }
+    break;
+  }
+  ArrayData* output = out->mutable_array();
+  std::unique_ptr<ArrayBuilder> raw_builder;
+  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+  RETURN_NOT_OK(raw_builder->Reserve(batch.length));
+  RETURN_NOT_OK(reserve_data(raw_builder.get()));
+
+  for (int64_t i = 0; i < batch.length; i++) {
+    bool set = false;
+    for (const auto& datum : batch.values) {
+      if (datum.is_scalar()) {
+        if (datum.scalar()->is_valid) {
+          RETURN_NOT_OK(append_scalar(raw_builder.get(), *datum.scalar()));
+          set = true;
+          break;
+        }
+      } else {
+        const ArrayData& source = *datum.array();
+        if (!source.MayHaveNulls() ||
+            BitUtil::GetBit(source.buffers[0]->data(), source.offset + i)) {
+          RETURN_NOT_OK(raw_builder->AppendArraySlice(source, i, /*length=*/1));
+          set = true;
+          break;
+        }
+      }
+    }
+    if (!set) RETURN_NOT_OK(raw_builder->AppendNull());
+  }
+  ARROW_ASSIGN_OR_RAISE(auto temp_output, raw_builder->Finish());
+  *output = *temp_output->data();
+  output->type = batch[0].type();
+  return Status::OK();
+}
+
+static Status ExecVarWidthCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out,
+                                   std::function<Status(ArrayBuilder*)> reserve_data) {
+  return ExecVarWidthCoalesceImpl(ctx, batch, out, std::move(reserve_data),
+                                  [](ArrayBuilder* builder, const Scalar& scalar) {
+                                    return builder->AppendScalar(scalar);
+                                  });
+}
+
 template <typename Type, typename Enable = void>
 struct CoalesceFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (!TypeTraits<Type>::is_parameter_free) {
+      RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
+    }
     // Special case for two arguments (since "fill_null" is a common operation)
     if (batch.num_values() == 2) {
       return ExecBinaryCoalesce<Type>(ctx, batch[0], batch[1], batch.length, out);
@@ -2093,51 +2178,125 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // Special case: grab any leading non-null scalar or array arguments
+    return ExecVarWidthCoalesceImpl(
+        ctx, batch, out,
+        [&](ArrayBuilder* builder) {
+          int64_t reservation = 0;
+          for (const auto& datum : batch.values) {
+            if (datum.is_array()) {
+              const ArrayType array(datum.array());
+              reservation = std::max<int64_t>(reservation, array.total_values_length());
+            } else {
+              const auto& scalar = *datum.scalar();
+              if (scalar.is_valid) {
+                const int64_t size = UnboxScalar<Type>::Unbox(scalar).size();
+                reservation = std::max<int64_t>(reservation, batch.length * size);
+              }
+            }
+          }
+          return checked_cast<BuilderType*>(builder)->ReserveData(reservation);
+        },
+        [&](ArrayBuilder* builder, const Scalar& scalar) {
+          return checked_cast<BuilderType*>(builder)->Append(
+              UnboxScalar<Type>::Unbox(scalar));
+        });
+  }
+};
+
+template <typename Type>
+struct CoalesceFunctor<
+    Type, enable_if_t<is_nested_type<Type>::value && !is_union_type<Type>::value>> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
     for (const auto& datum : batch.values) {
-      if (datum.is_scalar()) {
-        if (!datum.scalar()->is_valid) continue;
-        ARROW_ASSIGN_OR_RAISE(
-            *out, MakeArrayFromScalar(*datum.scalar(), batch.length, ctx->memory_pool()));
-        return Status::OK();
-      } else if (datum.is_array() && !datum.array()->MayHaveNulls()) {
-        *out = datum;
-        return Status::OK();
+      if (datum.is_array()) {
+        return ExecArray(ctx, batch, out);
       }
-      break;
     }
+    return ExecScalarCoalesce(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthCoalesce(ctx, batch, out, reserve_data);
+  }
+};
+
+template <typename Type>
+struct CoalesceFunctor<Type, enable_if_union<Type>> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // Unions don't have top-level nulls, so a specialized implementation is needed
+    RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
+
+    for (const auto& datum : batch.values) {
+      if (datum.is_array()) {
+        return ExecArray(ctx, batch, out);
+      }
+    }
+    return ExecScalar(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayData* output = out->mutable_array();
-    BuilderType builder(batch[0].type(), ctx->memory_pool());
-    RETURN_NOT_OK(builder.Reserve(batch.length));
+    std::unique_ptr<ArrayBuilder> raw_builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+    RETURN_NOT_OK(raw_builder->Reserve(batch.length));
+
+    const UnionType& type = checked_cast<const UnionType&>(*out->type());
     for (int64_t i = 0; i < batch.length; i++) {
       bool set = false;
       for (const auto& datum : batch.values) {
         if (datum.is_scalar()) {
-          if (datum.scalar()->is_valid) {
-            RETURN_NOT_OK(builder.Append(UnboxScalar<Type>::Unbox(*datum.scalar())));
+          const auto& scalar = checked_cast<const UnionScalar&>(*datum.scalar());
+          if (scalar.is_valid && scalar.value->is_valid) {
+            RETURN_NOT_OK(raw_builder->AppendScalar(scalar));
             set = true;
             break;
           }
         } else {
           const ArrayData& source = *datum.array();
-          if (!source.MayHaveNulls() ||
-              BitUtil::GetBit(source.buffers[0]->data(), source.offset + i)) {
-            const uint8_t* data = source.buffers[2]->data();
-            const offset_type* offsets = source.GetValues<offset_type>(1);
-            const offset_type offset0 = offsets[i];
-            const offset_type offset1 = offsets[i + 1];
-            RETURN_NOT_OK(builder.Append(data + offset0, offset1 - offset0));
-            set = true;
-            break;
+          // Peek at the relevant child array's validity bitmap
+          if (std::is_same<Type, SparseUnionType>::value) {
+            const int8_t type_id = source.GetValues<int8_t>(1)[i];
+            const int child_id = type.child_ids()[type_id];
+            const ArrayData& child = *source.child_data[child_id];
+            if (!child.MayHaveNulls() ||
+                BitUtil::GetBit(child.buffers[0]->data(),
+                                source.offset + child.offset + i)) {
+              RETURN_NOT_OK(raw_builder->AppendArraySlice(source, i, /*length=*/1));
+              set = true;
+              break;
+            }
+          } else {
+            const int8_t type_id = source.GetValues<int8_t>(1)[i];
+            const int32_t offset = source.GetValues<int32_t>(2)[i];
+            const int child_id = type.child_ids()[type_id];
+            const ArrayData& child = *source.child_data[child_id];
+            if (!child.MayHaveNulls() ||
+                BitUtil::GetBit(child.buffers[0]->data(), child.offset + offset)) {
+              RETURN_NOT_OK(raw_builder->AppendArraySlice(source, i, /*length=*/1));
+              set = true;
+              break;
+            }
           }
         }
       }
-      if (!set) RETURN_NOT_OK(builder.AppendNull());
+      if (!set) RETURN_NOT_OK(raw_builder->AppendNull());
     }
-    ARROW_ASSIGN_OR_RAISE(auto temp_output, builder.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto temp_output, raw_builder->Finish());
     *output = *temp_output->data();
-    // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
-    output->type = batch[0].type();
+    return Status::OK();
+  }
+
+  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    for (const auto& datum : batch.values) {
+      const auto& scalar = checked_cast<const UnionScalar&>(*datum.scalar());
+      // Union scalars can have top-level validity
+      if (scalar.is_valid && scalar.value->is_valid) {
+        *out = datum;
+        break;
+      }
+    }
     return Status::OK();
   }
 };
@@ -2511,6 +2670,14 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
+    AddCoalesceKernel(func, Type::FIXED_SIZE_LIST,
+                      CoalesceFunctor<FixedSizeListType>::Exec);
+    AddCoalesceKernel(func, Type::LIST, CoalesceFunctor<ListType>::Exec);
+    AddCoalesceKernel(func, Type::LARGE_LIST, CoalesceFunctor<LargeListType>::Exec);
+    AddCoalesceKernel(func, Type::MAP, CoalesceFunctor<MapType>::Exec);
+    AddCoalesceKernel(func, Type::STRUCT, CoalesceFunctor<StructType>::Exec);
+    AddCoalesceKernel(func, Type::DENSE_UNION, CoalesceFunctor<DenseUnionType>::Exec);
+    AddCoalesceKernel(func, Type::SPARSE_UNION, CoalesceFunctor<SparseUnionType>::Exec);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

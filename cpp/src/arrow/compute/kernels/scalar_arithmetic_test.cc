@@ -1656,31 +1656,30 @@ TEST(TestBinaryDecimalArithmetic, DispatchBest) {
     }
   }
 
-  // decimal, integer
-  for (std::string name : {"add", "subtract", "multiply", "divide"}) {
-    for (std::string suffix : {"", "_checked"}) {
-      name += suffix;
-
-      CheckDispatchBest(name, {int64(), decimal128(1, 0)},
-                        {decimal128(1, 0), decimal128(1, 0)});
-      CheckDispatchBest(name, {decimal128(1, 0), int64()},
-                        {decimal128(1, 0), decimal128(1, 0)});
-    }
-  }
-
-  // decimal, decimal
+  // decimal, decimal -> decimal
+  // decimal, integer -> decimal
   for (std::string name : {"add", "subtract"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
 
+      CheckDispatchBest(name, {int64(), decimal128(1, 0)},
+                        {decimal128(19, 0), decimal128(1, 0)});
+      CheckDispatchBest(name, {decimal128(1, 0), int64()},
+                        {decimal128(1, 0), decimal128(19, 0)});
+
       CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
-                        {decimal128(3, 1), decimal128(3, 1)});
+                        {decimal128(2, 1), decimal128(2, 1)});
       CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
-                        {decimal256(3, 1), decimal256(3, 1)});
+                        {decimal256(2, 1), decimal256(2, 1)});
       CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
-                        {decimal256(3, 1), decimal256(3, 1)});
+                        {decimal256(2, 1), decimal256(2, 1)});
       CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
-                        {decimal256(3, 1), decimal256(3, 1)});
+                        {decimal256(2, 1), decimal256(2, 1)});
+
+      CheckDispatchBest(name, {decimal128(2, 0), decimal128(2, 1)},
+                        {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 0)},
+                        {decimal128(2, 1), decimal128(3, 1)});
     }
   }
   {
@@ -1688,29 +1687,50 @@ TEST(TestBinaryDecimalArithmetic, DispatchBest) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
 
+      CheckDispatchBest(name, {int64(), decimal128(1, 0)},
+                        {decimal128(19, 0), decimal128(1, 0)});
+      CheckDispatchBest(name, {decimal128(1, 0), int64()},
+                        {decimal128(1, 0), decimal128(19, 0)});
+
       CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
-                        {decimal128(5, 2), decimal128(5, 2)});
+                        {decimal128(2, 1), decimal128(2, 1)});
       CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
-                        {decimal256(5, 2), decimal256(5, 2)});
+                        {decimal256(2, 1), decimal256(2, 1)});
       CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
-                        {decimal256(5, 2), decimal256(5, 2)});
+                        {decimal256(2, 1), decimal256(2, 1)});
       CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
-                        {decimal256(5, 2), decimal256(5, 2)});
+                        {decimal256(2, 1), decimal256(2, 1)});
+
+      CheckDispatchBest(name, {decimal128(2, 0), decimal128(2, 1)},
+                        {decimal128(2, 0), decimal128(2, 1)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 0)},
+                        {decimal128(2, 1), decimal128(2, 0)});
     }
   }
   {
     std::string name = "divide";
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
+      SCOPED_TRACE(name);
+
+      CheckDispatchBest(name, {int64(), decimal128(1, 0)},
+                        {decimal128(23, 4), decimal128(1, 0)});
+      CheckDispatchBest(name, {decimal128(1, 0), int64()},
+                        {decimal128(21, 20), decimal128(19, 0)});
 
       CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
-                        {decimal128(6, 4), decimal128(6, 4)});
+                        {decimal128(6, 5), decimal128(2, 1)});
       CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
-                        {decimal256(6, 4), decimal256(6, 4)});
+                        {decimal256(6, 5), decimal256(2, 1)});
       CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
-                        {decimal256(6, 4), decimal256(6, 4)});
+                        {decimal256(6, 5), decimal256(2, 1)});
       CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
-                        {decimal256(6, 4), decimal256(6, 4)});
+                        {decimal256(6, 5), decimal256(2, 1)});
+
+      CheckDispatchBest(name, {decimal128(2, 0), decimal128(2, 1)},
+                        {decimal128(7, 5), decimal128(2, 1)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 0)},
+                        {decimal128(5, 4), decimal128(2, 0)});
     }
   }
 }
