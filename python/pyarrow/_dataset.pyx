@@ -1159,7 +1159,7 @@ cdef class FileFragment(Fragment):
 class RowGroupInfo:
     """
     A wrapper class for RowGroup information
-    
+
     Parameters
     ----------
     id : the group id.
@@ -1904,7 +1904,7 @@ cdef class CsvFileFormat(FileFormat):
 cdef class CsvFragmentScanOptions(FragmentScanOptions):
     """
     Scan-specific options for CSV fragments.
-    
+
     Parameters
     ----------
     convert_options : ConvertOptions
@@ -2840,7 +2840,7 @@ class TaggedRecordBatch(collections.namedtuple(
         "TaggedRecordBatch", ["record_batch", "fragment"])):
     """
     A combination of a record batch and the fragment it came from.
-    
+
     Parameters
     ----------
     record_batch : The record batch.
@@ -3011,7 +3011,7 @@ cdef class Scanner(_Weakrefable):
         filter : Expression, default None
             Scan will return only the rows matching the filter.
         batch_size : int, default 1M
-            The maximum row count for scanned record batches. 
+            The maximum row count for scanned record batches.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -3060,7 +3060,7 @@ cdef class Scanner(_Weakrefable):
         filter : Expression, default None
             Scan will return only the rows matching the filter.
         batch_size : int, default 1M
-            The maximum row count for scanned record batches. 
+            The maximum row count for scanned record batches.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -3117,7 +3117,7 @@ cdef class Scanner(_Weakrefable):
         filter : Expression, default None
             Scan will return only the rows matching the filter.
         batch_size : int, default 1M
-            The maximum row count for scanned record batches. 
+            The maximum row count for scanned record batches.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.

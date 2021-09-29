@@ -455,7 +455,7 @@ shape: {0.shape}""".format(self)
         data : numpy.ndarray
             Data used to populate the rows.
         indptr : numpy.ndarray
-            Range of the rows, 
+            Range of the rows,
             The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
         indices : numpy.ndarray
             Column indices of the corresponding non-zero values.
@@ -664,7 +664,7 @@ shape: {0.shape}""".format(self)
         data : numpy.ndarray
             Data used to populate the rows.
         indptr : numpy.ndarray
-            Range of the rows, 
+            Range of the rows,
             The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
         indices : numpy.ndarray
             Column indices of the corresponding non-zero values.
@@ -708,7 +708,7 @@ shape: {0.shape}""".format(self)
         obj : scipy.sparse.csc_matrix
             The SciPy matrix that should be converted.
         dim_names : list, optional
-            Names of the dimensions. 
+            Names of the dimensions.
         """
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.csc_matrix):
@@ -876,7 +876,7 @@ shape: {0.shape}""".format(self)
         data : numpy.ndarray
             Data used to populate the rows.
         indptr : numpy.ndarray
-            Range of the rows, 
+            Range of the rows,
             The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
         indices : numpy.ndarray
             Column indices of the corresponding non-zero values.

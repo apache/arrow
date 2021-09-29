@@ -963,6 +963,7 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
     **kwargs : optional
         additional key-value metadata
     """
+
     def __init__(self, __arg0__=None, **kwargs):
         cdef:
             vector[c_string] keys, values

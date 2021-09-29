@@ -1082,6 +1082,7 @@ class FileSystemHandler(ABC):
 
 # Callback definitions for CPyFileSystemVtable
 
+
 cdef void _cb_get_type_name(handler, c_string* out) except *:
     out[0] = tobytes("py::" + handler.get_type_name())
 
