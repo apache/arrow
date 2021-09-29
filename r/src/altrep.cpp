@@ -395,6 +395,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
         }
       }
 
+      nul_was_stripped_ = true;
       return Rf_mkCharLenCE(stripped_string_.data(), stripped_len, CE_UTF8);
     }
 
