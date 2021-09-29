@@ -2143,11 +2143,11 @@ TEST_F(TestFWBinaryArray, ReserveThenAdvance) {
 
   ASSERT_OK(builder.Reserve(100));
   ASSERT_EQ(builder.length(), 0);
-  ASSERT_GE(builder.capacity(), 100 * 7);
+  ASSERT_GE(builder.capacity(), 100);
 
   ASSERT_OK(builder.Advance(100));
   ASSERT_EQ(builder.length(), 100);
-  ASSERT_GE(builder.capacity(), 100 * 7);
+  ASSERT_GE(builder.capacity(), 100);
 
   std::shared_ptr<FixedSizeBinaryArray> array;
   ASSERT_OK(builder.Finish(&array));
