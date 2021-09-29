@@ -106,3 +106,14 @@ func NewCgoArrowAllocator() *CgoArrowAllocator {
 	runtime.SetFinalizer(alloc, func(a *CgoArrowAllocator) { cga.ReleaseCGOMemPool(a.pool) })
 	return alloc
 }
+
+// DefaultCgoArrowAllocator is a reference to the arrow::default_memory_pool in the
+// underlying C++ libarrow library and is available for use if desired. Alternately
+// one can use NewCgoArrowAllocator to create a new, separate memory pool which can
+// then be used to have a separate memory pool from the default to pull from.
+var DefaultCgoArrowAllocator *CgoArrowAllocator
+
+func init() {
+	DefaultCgoArrowAllocator = &CgoArrowAllocator{pool: cga.DefaultMemoryPool()}
+	runtime.SetFinalizer(DefaultCgoArrowAllocator, func(a *CgoArrowAllocator) { cga.ReleaseCGOMemPool(a.pool) })
+}

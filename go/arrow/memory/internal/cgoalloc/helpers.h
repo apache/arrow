@@ -32,13 +32,6 @@ uintptr_t create_ref(std::shared_ptr<T> t) {
     return reinterpret_cast<uintptr_t>(retained_ptr);
 }
 
-// specialization for shared_ptrs to const objects
-template <typename T>
-uintptr_t create_ref(std::shared_ptr<const T> t) {
-    std::shared_ptr<const T>* retained_ptr = new std::shared_ptr<const T>(t);
-    return reinterpret_cast<uintptr_t>(retained_ptr);
-}
-
 // retrieve_instance is used to get back the shared_ptr which was created with
 // create_ref in order to use it in functions where the caller passes back the
 // uintptr_t so that an object can be managed by C++ while a reference to it

@@ -31,13 +31,21 @@ import (
 // CGOMemPool is an alias to the typedef'd uintptr from the allocator.h file
 type CGOMemPool = C.ArrowMemoryPool
 
+func DefaultMemoryPool() CGOMemPool {
+	return C.arrow_default_memory_pool()
+}
+
 // CgoPoolAlloc allocates a block of memory of length 'size' using the memory
 // pool that is passed in.
 func CgoPoolAlloc(pool CGOMemPool, size int) []byte {
+	var ret []byte
+	if size == 0 {
+		return ret
+	}
+
 	var out *C.uint8_t
 	C.arrow_pool_allocate(pool, C.int64_t(size), (**C.uint8_t)(unsafe.Pointer(&out)))
 
-	var ret []byte
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
 	s.Data = uintptr(unsafe.Pointer(out))
 	s.Len = size
@@ -49,6 +57,10 @@ func CgoPoolAlloc(pool CGOMemPool, size int) []byte {
 // CgoPoolRealloc calls 'reallocate' on the block of memory passed in which must
 // be a slice that was returned by CgoPoolAlloc or CgoPoolRealloc.
 func CgoPoolRealloc(pool CGOMemPool, size int, b []byte) []byte {
+	if len(b) == 0 {
+		return CgoPoolAlloc(pool, size)
+	}
+
 	oldSize := C.int64_t(len(b))
 	data := (*C.uint8_t)(unsafe.Pointer(&b[0]))
 	C.arrow_pool_reallocate(pool, oldSize, C.int64_t(size), &data)

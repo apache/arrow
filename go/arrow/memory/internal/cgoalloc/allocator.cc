@@ -23,8 +23,21 @@
 
 struct mem_holder {
     std::unique_ptr<arrow::MemoryPool> pool;
+    // the purpose of the raw pointer here is because arrow::default_memory_pool
+    // returns a raw pointer rather than a unique_ptr and we don't want to
+    // have to distinguish between the scenarios when allocating.
+    // so when creating a mem_holder, this should be populated with the raw
+    // pointer which underlies the unique_ptr in the pool variable OR should
+    // be a pointer to the arrow::default_memory_pool which isn't owned by
+    // this struct.
     arrow::MemoryPool* current_pool;
 };
+
+ArrowMemoryPool arrow_default_memory_pool() {
+    auto holder = std::make_shared<mem_holder>();
+    holder->current_pool = arrow::default_memory_pool();
+    return create_ref(holder);
+}
 
 ArrowMemoryPool arrow_create_memory_pool(bool enable_logging) {
     auto holder = std::make_shared<mem_holder>();
