@@ -1598,7 +1598,7 @@ test_that("coalesce()", {
   )
 
   # factors
-  # TODO: remove the mutate + warning after ARROW-13390 is merged and Arrow
+  # TODO: remove the mutate + warning after ARROW-14167 is merged and Arrow
   # supports factors in coalesce
   df <- tibble(
     x = factor("a", levels = c("a", "z")),
