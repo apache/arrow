@@ -76,7 +76,7 @@ jobs:
         run: archery docker push debian-go
 
   docker_cgo:
-    name: AMD64 Debian 10 GO ${{ matrix.go }} - CGO
+    name: AMD64 Debian 11 GO ${{ matrix.go }} - CGO
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
