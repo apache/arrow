@@ -24,6 +24,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/select_k.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
@@ -207,11 +208,92 @@ struct OrderBySinkNode final : public SinkNode {
   std::vector<std::shared_ptr<RecordBatch>> batches_;
 };
 
+// A sink node that receives inputs and then compute top_k/bottom_k.
+struct SelectKSinkNode final : public SinkNode {
+  SelectKSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                  SelectKOptions select_k_options, std::unique_ptr<SelectKImpl> impl,
+                  AsyncGenerator<util::optional<ExecBatch>>* generator)
+      : SinkNode(plan, std::move(inputs), generator),
+        select_k_options_(std::move(select_k_options)),
+        impl_{std::move(impl)} {}
+
+  const char* kind_name() const override { return "SelectKSinkNode"; }
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SelectKSinkNode"));
+
+    const auto& sink_options = checked_cast<const SelectKSinkNodeOptions&>(options);
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<SelectKImpl> impl, SelectKImpl::MakeBasic());
+    return plan->EmplaceNode<SelectKSinkNode>(plan, std::move(inputs),
+                                              sink_options.select_k_options,
+                                              std::move(impl), sink_options.generator);
+  }
+
+  Status StartProducing() override {
+    finished_ = Future<>::Make();
+    RETURN_NOT_OK(impl_->Init(plan_->exec_context(), select_k_options_,
+                              inputs_[0]->output_schema()));
+    return Status::OK();
+  }
+
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
+                                           plan()->exec_context()->memory_pool());
+    if (ErrorIfNotOk(maybe_batch.status())) return;
+    auto record_batch = maybe_batch.MoveValueUnsafe();
+
+    Status status = impl_->InputReceived(std::move(record_batch));
+    if (!status.ok()) {
+      StopProducing();
+      ErrorIfNotOk(status);
+      return;
+    }
+    if (input_counter_.Increment()) {
+      Finish();
+    }
+  }
+
+ protected:
+  Status DoFinish() {
+    ARROW_ASSIGN_OR_RAISE(Datum sorted, impl_->DoFinish());
+    TableBatchReader reader(*sorted.table());
+    while (true) {
+      std::shared_ptr<RecordBatch> batch;
+      RETURN_NOT_OK(reader.ReadNext(&batch));
+      if (!batch) break;
+      bool did_push = producer_.Push(ExecBatch(*batch));
+      if (!did_push) break;  // producer_ was Closed already
+    }
+    return Status::OK();
+  }
+
+  void Finish() override {
+    Status st = DoFinish();
+    if (ErrorIfNotOk(st)) {
+      producer_.Push(std::move(st));
+    }
+    SinkNode::Finish();
+  }
+
+ protected:
+  std::string ToStringExtra() const override {
+    return "by=" + select_k_options_.ToString();
+  }
+
+ private:
+  SelectKOptions select_k_options_;
+  std::unique_ptr<SelectKImpl> impl_;
+};
+
 }  // namespace
 
 namespace internal {
 
 void RegisterSinkNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("select_k_sink", SelectKSinkNode::Make));
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
 }
