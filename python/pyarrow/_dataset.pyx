@@ -508,12 +508,13 @@ cdef class Dataset(_Weakrefable):
 
 
 cdef class InMemoryDataset(Dataset):
-    """A Dataset wrapping in-memory data.
+    """
+    A Dataset wrapping in-memory data.
 
     Parameters
     ----------
-    source
-        The data for this dataset. Can be a RecordBatch, Table, list of
+    source : The data for this dataset.
+        Can be a RecordBatch, Table, list of
         RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader.
         If an iterable is provided, the schema must also be provided.
     schema : Schema, optional
@@ -612,7 +613,8 @@ cdef class UnionDataset(Dataset):
 
 
 cdef class FileSystemDataset(Dataset):
-    """A Dataset of file fragments.
+    """
+    A Dataset of file fragments.
 
     A FileSystemDataset is composed of one or more FileFragment.
 
@@ -1155,7 +1157,15 @@ cdef class FileFragment(Fragment):
 
 
 class RowGroupInfo:
-    """A wrapper class for RowGroup information"""
+    """
+    A wrapper class for RowGroup information
+    
+    Parameters
+    ----------
+    id : the group id.
+    metadata : the rowgroup metadata.
+    schema : schema of the rows.
+    """
 
     def __init__(self, id, metadata, schema):
         self.id = id
@@ -1535,6 +1545,18 @@ cdef set _PARQUET_READ_OPTIONS = {
 
 
 cdef class ParquetFileFormat(FileFormat):
+    """
+    FileFormat for Parquet
+
+    Parameters
+    ----------
+    read_options : ParquetReadOptions
+        Read options for the file.
+    default_fragment_scan_options : ParquetFragmentScanOptions
+        Scan Options for the file.
+    **kwargs : dict
+        Additional options for read option or scan option.
+    """
 
     cdef:
         CParquetFileFormat* parquet_format
@@ -1669,7 +1691,8 @@ cdef class ParquetFileFormat(FileFormat):
 
 
 cdef class ParquetFragmentScanOptions(FragmentScanOptions):
-    """Scan-specific options for Parquet fragments.
+    """
+    Scan-specific options for Parquet fragments.
 
     Parameters
     ----------
@@ -2330,7 +2353,7 @@ cdef class DatasetFactory(_Weakrefable):
         shared_ptr[CDatasetFactory] wrapped
         CDatasetFactory* factory
 
-    def __init__(self, list children):
+    def __init__(self):
         _forbid_instantiation(self.__class__)
 
     cdef init(self, const shared_ptr[CDatasetFactory]& sp):
@@ -2388,7 +2411,7 @@ cdef class DatasetFactory(_Weakrefable):
 
         Parameters
         ----------
-        schema: Schema, default None
+        schema : Schema, default None
             The schema to conform the source to.  If None, the inspected
             schema is used.
 
@@ -2423,7 +2446,7 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
         partition_base_dir prefix will be skipped for partitioning discovery.
         The ignored files will still be part of the Dataset, but will not
         have partition information.
-    partitioning: Partitioning/PartitioningFactory, optional
+    partitioning : Partitioning/PartitioningFactory, optional
        Apply the Partitioning to every discovered Fragment. See Partitioning or
        PartitioningFactory documentation.
     exclude_invalid_files : bool, optional (default True)
@@ -2533,7 +2556,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
     ----------
     filesystem : pyarrow.fs.FileSystem
         Filesystem to discover.
-    paths_or_selector: pyarrow.fs.Selector or list of path-likes
+    paths_or_selector : pyarrow.fs.Selector or list of path-likes
         Either a Selector object or a list of path-like objects.
     format : FileFormat
         Currently only ParquetFileFormat and IpcFileFormat are supported.
