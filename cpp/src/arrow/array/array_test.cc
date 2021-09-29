@@ -2137,6 +2137,26 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
+TEST_F(TestFWBinaryArray, ReserveThenAdvance) {
+  auto type = fixed_size_binary(7);
+  FixedSizeBinaryBuilder builder(type);
+
+  ASSERT_OK(builder.Reserve(100));
+  ASSERT_EQ(builder.length(), 0);
+  ASSERT_GE(builder.capacity(), 100 * 7);
+
+  ASSERT_OK(builder.Advance(100));
+  ASSERT_EQ(builder.length(), 100);
+  ASSERT_GE(builder.capacity(), 100 * 7);
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  ASSERT_EQ(array->length(), 100);
+  // check the size of underlying buffer
+  ASSERT_EQ(array->values()->size, 7 * 100);
+}
+
 // ----------------------------------------------------------------------
 // AdaptiveInt tests
 

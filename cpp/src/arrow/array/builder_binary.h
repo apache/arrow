@@ -565,6 +565,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   void Reset() override;
   Status Resize(int64_t capacity) override;
+  Status Advance(int64_t elements) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \cond FALSE

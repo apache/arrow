@@ -134,7 +134,7 @@ class ARROW_EXPORT ArrayBuilder {
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
   /// this function responsibly.
-  Status Advance(int64_t elements);
+  virtual Status Advance(int64_t elements);
 
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
