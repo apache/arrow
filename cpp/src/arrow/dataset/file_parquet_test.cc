@@ -38,6 +38,9 @@
 #include "parquet/metadata.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace dataset {
 
 using parquet::ArrowWriterProperties;
@@ -50,8 +53,6 @@ using parquet::CreateOutputStream;
 using parquet::arrow::WriteTable;
 
 using testing::Pointee;
-
-using internal::checked_pointer_cast;
 
 class ParquetFormatHelper {
  public:
@@ -381,6 +382,7 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
 };
 
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestParquetFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
   TestScanProjectedMissingCols();
@@ -488,7 +490,7 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
   SetSchema(reader->schema()->fields());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  auto all_row_groups = internal::Iota(static_cast<int>(kNumRowGroups));
+  auto all_row_groups = ::arrow::internal::Iota(static_cast<int>(kNumRowGroups));
   CountRowGroupsInFragment(fragment, all_row_groups, literal(true));
 
   for (int i = 0; i < kNumRowGroups; ++i) {
@@ -520,7 +522,8 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
 
   CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4}, less(field_ref("i64"), literal(6)));
 
-  CountRowGroupsInFragment(fragment, internal::Iota(5, static_cast<int>(kNumRowGroups)),
+  CountRowGroupsInFragment(fragment,
+                           ::arrow::internal::Iota(5, static_cast<int>(kNumRowGroups)),
                            greater_equal(field_ref("i64"), literal(6)));
 
   CountRowGroupsInFragment(fragment, {5, 6},
@@ -546,12 +549,11 @@ TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   };
 
   // select all row groups
-  EXPECT_OK_AND_ASSIGN(
-      auto all_row_groups_fragment,
-      format_->MakeFragment(*source, literal(true))
-          .Map([](std::shared_ptr<FileFragment> f) {
-            return internal::checked_pointer_cast<ParquetFileFragment>(f);
-          }));
+  EXPECT_OK_AND_ASSIGN(auto all_row_groups_fragment,
+                       format_->MakeFragment(*source, literal(true))
+                           .Map([](std::shared_ptr<FileFragment> f) {
+                             return checked_pointer_cast<ParquetFileFragment>(f);
+                           }));
 
   EXPECT_EQ(all_row_groups_fragment->row_groups(), std::vector<int>{});
 

@@ -23,8 +23,11 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -35,6 +38,7 @@
 #include "arrow/util/vector.h"
 
 using testing::ElementsAre;
+using testing::ElementsAreArray;
 using testing::HasSubstr;
 using testing::Optional;
 using testing::UnorderedElementsAreArray;
@@ -194,88 +198,6 @@ TEST(ExecPlan, DummyStartProducingError) {
   ASSERT_THAT(t.stopped, ElementsAre("process2", "process3", "sink"));
 }
 
-namespace {
-
-struct BatchesWithSchema {
-  std::vector<ExecBatch> batches;
-  std::shared_ptr<Schema> schema;
-};
-
-Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
-                                     BatchesWithSchema batches_with_schema, bool parallel,
-                                     bool slow) {
-  DCHECK_GT(batches_with_schema.batches.size(), 0);
-
-  auto opt_batches = ::arrow::internal::MapVector(
-      [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
-      std::move(batches_with_schema.batches));
-
-  AsyncGenerator<util::optional<ExecBatch>> gen;
-
-  if (parallel) {
-    // emulate batches completing initial decode-after-scan on a cpu thread
-    ARROW_ASSIGN_OR_RAISE(
-        gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
-                                     ::arrow::internal::GetCpuThreadPool()));
-
-    // ensure that callbacks are not executed immediately on a background thread
-    gen = MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
-  } else {
-    gen = MakeVectorGenerator(std::move(opt_batches));
-  }
-
-  if (slow) {
-    gen = MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
-      SleepABit();
-      return batch;
-    });
-  }
-
-  return MakeSourceNode(plan, label, std::move(batches_with_schema.schema),
-                        std::move(gen));
-}
-
-Future<std::vector<ExecBatch>> StartAndCollect(
-    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
-  RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
-
-  auto collected_fut = CollectAsyncGenerator(gen);
-
-  return AllComplete({plan->finished(), Future<>(collected_fut)})
-      .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
-        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
-        return ::arrow::internal::MapVector(
-            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
-            std::move(collected));
-      });
-}
-
-BatchesWithSchema MakeBasicBatches() {
-  BatchesWithSchema out;
-  out.batches = {
-      ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
-      ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
-  out.schema = schema({field("i32", int32()), field("bool", boolean())});
-  return out;
-}
-
-BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches = 10, int batch_size = 4) {
-  BatchesWithSchema out;
-
-  random::RandomArrayGenerator rng(42);
-  out.batches.resize(num_batches);
-
-  for (int i = 0; i < num_batches; ++i) {
-    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
-    // add a tag scalar to ensure the batches are unique
-    out.batches[i].values.emplace_back(i);
-  }
-  return out;
-}
-}  // namespace
-
 TEST(ExecPlanExecution, SourceSink) {
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");
@@ -284,13 +206,17 @@ TEST(ExecPlanExecution, SourceSink) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
       auto basic_data = MakeBasicBatches();
 
-      ASSERT_OK_AND_ASSIGN(auto source, MakeTestSourceNode(plan.get(), "source",
-                                                           basic_data, parallel, slow));
-
-      auto sink_gen = MakeSinkNode(source, "sink");
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(parallel, slow)}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(UnorderedElementsAreArray(basic_data.batches))));
@@ -298,12 +224,137 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlan, ToString) {
+  auto basic_data = MakeBasicBatches();
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{basic_data.schema,
+                                                 basic_data.gen(/*parallel=*/false,
+                                                                /*slow=*/false)}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+  EXPECT_EQ(plan->sources()[0]->ToString(), R"(SourceNode{"source", outputs=["sink"]})");
+  EXPECT_EQ(plan->sinks()[0]->ToString(),
+            R"(SinkNode{"sink", inputs=[collected: "source"]})");
+  EXPECT_EQ(plan->ToString(), R"(ExecPlan with 2 nodes:
+SourceNode{"source", outputs=["sink"]}
+SinkNode{"sink", inputs=[collected: "source"]}
+)");
+
+  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
+  CountOptions options(CountOptions::ONLY_VALID);
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              {"source",
+               SourceNodeOptions{basic_data.schema,
+                                 basic_data.gen(/*parallel=*/false, /*slow=*/false)}},
+              {"filter", FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
+              {"project", ProjectNodeOptions{{
+                              field_ref("bool"),
+                              call("multiply", {field_ref("i32"), literal(2)}),
+                          }}},
+              {"aggregate",
+               AggregateNodeOptions{
+                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", &options}},
+                   /*targets=*/{"multiply(i32, 2)", "multiply(i32, 2)"},
+                   /*names=*/{"sum(multiply(i32, 2))", "count(multiply(i32, 2))"},
+                   /*keys=*/{"bool"}}},
+              {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
+                                                   literal(10))}},
+              {"order_by_sink",
+               OrderBySinkNodeOptions{
+                   SortOptions({SortKey{"sum(multiply(i32, 2))", SortOrder::Ascending}}),
+                   &sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+  EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 6 nodes:
+SourceNode{"source", outputs=["filter"]}
+FilterNode{"filter", inputs=[target: "source"], outputs=["project"], filter=(i32 >= 0)}
+ProjectNode{"project", inputs=[target: "filter"], outputs=["aggregate"], projection=[bool, multiply(i32, 2)]}
+GroupByNode{"aggregate", inputs=[groupby: "project"], outputs=["filter"], keys=["bool"], aggregates=[
+	hash_sum(multiply(i32, 2)),
+	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+]}
+FilterNode{"filter", inputs=[target: "aggregate"], outputs=["order_by_sink"], filter=(sum(multiply(i32, 2)) > 10)}
+OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[sum(multiply(i32, 2)) ASC], null_placement=AtEnd}}
+)a");
+
+  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
+  Declaration union_node{"union", ExecNodeOptions{}};
+  Declaration lhs{"source",
+                  SourceNodeOptions{basic_data.schema,
+                                    basic_data.gen(/*parallel=*/false, /*slow=*/false)}};
+  lhs.label = "lhs";
+  Declaration rhs{"source",
+                  SourceNodeOptions{basic_data.schema,
+                                    basic_data.gen(/*parallel=*/false, /*slow=*/false)}};
+  rhs.label = "rhs";
+  union_node.inputs.emplace_back(lhs);
+  union_node.inputs.emplace_back(rhs);
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              union_node,
+              {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count", &options}},
+                                                 /*targets=*/{"i32"},
+                                                 /*names=*/{"count(i32)"},
+                                                 /*keys=*/{}}},
+              {"sink", SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+  EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
+SourceNode{"lhs", outputs=["union"]}
+SourceNode{"rhs", outputs=["union"]}
+UnionNode{"union", inputs=[input_0_label: "lhs", input_1_label: "rhs"], outputs=["aggregate"]}
+ScalarAggregateNode{"aggregate", inputs=[target: "union"], outputs=["sink"], aggregates=[
+	count(i32, {mode=NON_NULL}),
+]}
+SinkNode{"sink", inputs=[collected: "aggregate"]}
+)a");
+}
+
+TEST(ExecPlanExecution, SourceOrderBy) {
+  std::vector<ExecBatch> expected = {
+      ExecBatchFromJSON({int32(), boolean()},
+                        "[[4, false], [5, null], [6, false], [7, false], [null, true]]")};
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto basic_data = MakeBasicBatches();
+
+      SortOptions options({SortKey("i32", SortOrder::Ascending)});
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(parallel, slow)}},
+                        {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  Finishes(ResultWith(ElementsAreArray(expected))));
+    }
+  }
+}
+
 TEST(ExecPlanExecution, SourceSinkError) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
   auto basic_data = MakeBasicBatches();
   auto it = basic_data.batches.begin();
-  AsyncGenerator<util::optional<ExecBatch>> gen =
+  AsyncGenerator<util::optional<ExecBatch>> error_source_gen =
       [&]() -> Result<util::optional<ExecBatch>> {
     if (it == basic_data.batches.end()) {
       return Status::Invalid("Artificial error");
@@ -311,8 +362,12 @@ TEST(ExecPlanExecution, SourceSinkError) {
     return util::make_optional(*it++);
   };
 
-  auto source = MakeSourceNode(plan.get(), "source", {}, gen);
-  auto sink_gen = MakeSinkNode(source, "sink");
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{basic_data.schema, error_source_gen}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
@@ -328,17 +383,58 @@ TEST(ExecPlanExecution, StressSourceSink) {
       int num_batches = slow && !parallel ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
       auto random_data = MakeRandomBatches(
           schema({field("a", int32()), field("b", boolean())}), num_batches);
 
-      ASSERT_OK_AND_ASSIGN(auto source, MakeTestSourceNode(plan.get(), "source",
-                                                           random_data, parallel, slow));
-
-      auto sink_gen = MakeSinkNode(source, "sink");
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{random_data.schema,
+                                                     random_data.gen(parallel, slow)}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(UnorderedElementsAreArray(random_data.batches))));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, StressSourceOrderBy) {
+  auto input_schema = schema({field("a", int32()), field("b", boolean())});
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      int num_batches = slow && !parallel ? 30 : 300;
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto random_data = MakeRandomBatches(input_schema, num_batches);
+
+      SortOptions options({SortKey("a", SortOrder::Ascending)});
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{random_data.schema,
+                                                     random_data.gen(parallel, slow)}},
+                        {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      // Check that data is sorted appropriately
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto exec_batches,
+                                    StartAndCollect(plan.get(), sink_gen));
+      ASSERT_OK_AND_ASSIGN(auto actual, TableFromExecBatches(input_schema, exec_batches));
+      ASSERT_OK_AND_ASSIGN(auto original,
+                           TableFromExecBatches(input_schema, random_data.batches));
+      ASSERT_OK_AND_ASSIGN(auto sort_indices, SortIndices(original, options));
+      ASSERT_OK_AND_ASSIGN(auto expected, Take(original, sort_indices));
+      AssertTablesEqual(*actual, *expected.table());
     }
   }
 }
@@ -353,14 +449,18 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
       int num_batches = slow && !parallel ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
       auto random_data = MakeRandomBatches(
           schema({field("a", int32()), field("b", boolean())}), num_batches);
 
-      ASSERT_OK_AND_ASSIGN(auto source, MakeTestSourceNode(plan.get(), "source",
-                                                           random_data, parallel, slow));
-
-      auto sink_gen = MakeSinkNode(source, "sink");
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{random_data.schema,
+                                                     random_data.gen(parallel, slow)}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
 
       ASSERT_OK(plan->Validate());
       ASSERT_OK(plan->StartProducing());
@@ -374,18 +474,20 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
 }
 
 TEST(ExecPlanExecution, SourceFilterSink) {
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-
   auto basic_data = MakeBasicBatches();
 
-  ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", basic_data,
-                                          /*parallel=*/false, /*slow=*/false));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-  ASSERT_OK_AND_ASSIGN(
-      auto filter, MakeFilterNode(source, "filter", equal(field_ref("i32"), literal(6))));
-
-  auto sink_gen = MakeSinkNode(filter, "sink");
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{basic_data.schema,
+                                                 basic_data.gen(/*parallel=*/false,
+                                                                /*slow=*/false)}},
+                    {"filter", FilterNodeOptions{equal(field_ref("i32"), literal(6))}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(ResultWith(UnorderedElementsAreArray(
@@ -394,26 +496,25 @@ TEST(ExecPlanExecution, SourceFilterSink) {
 }
 
 TEST(ExecPlanExecution, SourceProjectSink) {
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-
   auto basic_data = MakeBasicBatches();
 
-  ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", basic_data,
-                                          /*parallel=*/false, /*slow=*/false));
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-  std::vector<Expression> exprs{
-      not_(field_ref("bool")),
-      call("add", {field_ref("i32"), literal(1)}),
-  };
-  for (auto& expr : exprs) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*basic_data.schema));
-  }
-
-  ASSERT_OK_AND_ASSIGN(auto projection,
-                       MakeProjectNode(source, "project", exprs, {"!bool", "i32 + 1"}));
-
-  auto sink_gen = MakeSinkNode(projection, "sink");
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{basic_data.schema,
+                                                 basic_data.gen(/*parallel=*/false,
+                                                                /*slow=*/false)}},
+                    {"project",
+                     ProjectNodeOptions{{
+                                            not_(field_ref("bool")),
+                                            call("add", {field_ref("i32"), literal(1)}),
+                                        },
+                                        {"!bool", "i32 + 1"}}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(ResultWith(UnorderedElementsAreArray(
@@ -454,6 +555,7 @@ BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
 
   return out;
 }
+
 }  // namespace
 
 TEST(ExecPlanExecution, SourceGroupedSum) {
@@ -463,14 +565,19 @@ TEST(ExecPlanExecution, SourceGroupedSum) {
     auto input = MakeGroupableBatches(/*multiplicity=*/parallel ? 100 : 1);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-    ASSERT_OK_AND_ASSIGN(auto source,
-                         MakeTestSourceNode(plan.get(), "source", input,
-                                            /*parallel=*/parallel, /*slow=*/false));
-    ASSERT_OK_AND_ASSIGN(
-        auto gby, MakeGroupByNode(source, "gby", /*keys=*/{"str"}, /*targets=*/{"i32"},
-                                  {{"hash_sum", nullptr}}));
-    auto sink_gen = MakeSinkNode(gby, "sink");
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"source", SourceNodeOptions{input.schema,
+                                                   input.gen(parallel, /*slow=*/false)}},
+                      {"aggregate",
+                       AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                            /*targets=*/{"i32"}, /*names=*/{"sum(i32)"},
+                                            /*keys=*/{"str"}}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                 Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
@@ -488,32 +595,28 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
     auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-    ASSERT_OK_AND_ASSIGN(auto source,
-                         MakeTestSourceNode(plan.get(), "source", input,
-                                            /*parallel=*/parallel, /*slow=*/false));
-    ASSERT_OK_AND_ASSIGN(
-        auto filter,
-        MakeFilterNode(source, "filter", greater_equal(field_ref("i32"), literal(0))));
-
-    ASSERT_OK_AND_ASSIGN(
-        auto projection,
-        MakeProjectNode(filter, "project",
-                        {
-                            field_ref("str"),
-                            call("multiply", {field_ref("i32"), literal(2)}),
-                        }));
-
-    ASSERT_OK_AND_ASSIGN(auto gby, MakeGroupByNode(projection, "gby", /*keys=*/{"str"},
+    ASSERT_OK(
+        Declaration::Sequence(
+            {
+                {"source",
+                 SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+                {"filter",
+                 FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
+                {"project", ProjectNodeOptions{{
+                                field_ref("str"),
+                                call("multiply", {field_ref("i32"), literal(2)}),
+                            }}},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
                                                    /*targets=*/{"multiply(i32, 2)"},
-                                                   {{"hash_sum", nullptr}}));
-
-    ASSERT_OK_AND_ASSIGN(
-        auto having,
-        MakeFilterNode(gby, "having",
-                       greater(field_ref("hash_sum"), literal(10 * batch_multiplicity))));
-
-    auto sink_gen = MakeSinkNode(having, "sink");
+                                                   /*names=*/{"sum(multiply(i32, 2))"},
+                                                   /*keys=*/{"str"}}},
+                {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
+                                                     literal(10 * batch_multiplicity))}},
+                {"sink", SinkNodeOptions{&sink_gen}},
+            })
+            .AddToPlan(plan.get()));
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                 Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
@@ -522,22 +625,63 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
   }
 }
 
+TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    int batch_multiplicity = parallel ? 100 : 1;
+    auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    SortOptions options({SortKey("str", SortOrder::Descending)});
+    ASSERT_OK(
+        Declaration::Sequence(
+            {
+                {"source",
+                 SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+                {"filter",
+                 FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
+                {"project", ProjectNodeOptions{{
+                                field_ref("str"),
+                                call("multiply", {field_ref("i32"), literal(2)}),
+                            }}},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                                   /*targets=*/{"multiply(i32, 2)"},
+                                                   /*names=*/{"sum(multiply(i32, 2))"},
+                                                   /*keys=*/{"str"}}},
+                {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
+                                                     literal(10 * batch_multiplicity))}},
+                {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+            })
+            .AddToPlan(plan.get()));
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
+                    {int64(), utf8()}, parallel ? R"([[2000, "beta"], [3600, "alfa"]])"
+                                                : R"([[20, "beta"], [36, "alfa"]])")}))));
+  }
+}
+
 TEST(ExecPlanExecution, SourceScalarAggSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
   auto basic_data = MakeBasicBatches();
 
-  ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", basic_data,
-                                          /*parallel=*/false, /*slow=*/false));
-
-  ASSERT_OK_AND_ASSIGN(
-      auto scalar_agg,
-      MakeScalarAggregateNode(source, "scalar_agg", {{"sum", nullptr}, {"any", nullptr}},
-                              /*targets=*/{"i32", "bool"},
-                              /*out_field_names=*/{"sum(i32)", "any(bool)"}));
-
-  auto sink_gen = MakeSinkNode(scalar_agg, "sink");
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{basic_data.schema,
+                                                 basic_data.gen(/*parallel=*/false,
+                                                                /*slow=*/false)}},
+                    {"aggregate", AggregateNodeOptions{
+                                      /*aggregates=*/{{"sum", nullptr}, {"any", nullptr}},
+                                      /*targets=*/{"i32", "bool"},
+                                      /*names=*/{"sum(i32)", "any(bool)"}}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
 
   ASSERT_THAT(
       StartAndCollect(plan.get(), sink_gen),
@@ -547,37 +691,116 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
       }))));
 }
 
+TEST(ExecPlanExecution, AggregationPreservesOptions) {
+  // ARROW-13638: aggregation nodes initialize per-thread kernel state lazily
+  // and need to keep a copy/strong reference to function options
+  {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    auto basic_data = MakeBasicBatches();
+
+    {
+      auto options = std::make_shared<TDigestOptions>(TDigestOptions::Defaults());
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(/*parallel=*/false,
+                                                                    /*slow=*/false)}},
+                        {"aggregate",
+                         AggregateNodeOptions{/*aggregates=*/{{"tdigest", options.get()}},
+                                              /*targets=*/{"i32"},
+                                              /*names=*/{"tdigest(i32)"}}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+    }
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray({
+                    ExecBatchFromJSON({ValueDescr::Array(float64())}, "[[5.5]]"),
+                }))));
+  }
+  {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    auto data = MakeGroupableBatches(/*multiplicity=*/100);
+
+    {
+      auto options = std::make_shared<CountOptions>(CountOptions::Defaults());
+      ASSERT_OK(
+          Declaration::Sequence(
+              {
+                  {"source", SourceNodeOptions{data.schema, data.gen(/*parallel=*/false,
+                                                                     /*slow=*/false)}},
+                  {"aggregate",
+                   AggregateNodeOptions{/*aggregates=*/{{"hash_count", options.get()}},
+                                        /*targets=*/{"i32"},
+                                        /*names=*/{"count(i32)"},
+                                        /*keys=*/{"str"}}},
+                  {"sink", SinkNodeOptions{&sink_gen}},
+              })
+              .AddToPlan(plan.get()));
+    }
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray({
+                    ExecBatchFromJSON({int64(), utf8()},
+                                      R"([[500, "alfa"], [200, "beta"], [200, "gama"]])"),
+                }))));
+  }
+}
+
 TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
+  // ARROW-9056: scalar aggregation can be done over scalars, taking
+  // into account batch.length > 1 (e.g. a partition column)
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-  BatchesWithSchema basic_data;
-  basic_data.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(int32()),
-                         ValueDescr::Scalar(int32())},
-                        "[[5, 5, 5], [5, 5, 5], [5, 5, 5]]"),
-      ExecBatchFromJSON({int32(), int32(), int32()},
-                        "[[5, 5, 5], [6, 6, 6], [7, 7, 7]]")};
-  basic_data.schema =
-      schema({field("a", int32()), field("b", int32()), field("c", int32())});
+  BatchesWithSchema scalar_data;
+  scalar_data.batches = {
+      ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(boolean())},
+                        "[[5, false], [5, false], [5, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [6, false], [7, true]]")};
+  scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
 
-  ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", basic_data,
-                                          /*parallel=*/false, /*slow=*/false));
-
-  ASSERT_OK_AND_ASSIGN(
-      auto scalar_agg,
-      MakeScalarAggregateNode(source, "scalar_agg",
-                              {{"count", nullptr}, {"sum", nullptr}, {"mean", nullptr}},
-                              {"a", "b", "c"}, {"sum a", "sum b", "sum c"}));
-
-  auto sink_gen = MakeSinkNode(scalar_agg, "sink");
+  // index can't be tested as it's order-dependent
+  // mode/quantile can't be tested as they're technically vector kernels
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              {"source",
+               SourceNodeOptions{scalar_data.schema, scalar_data.gen(/*parallel=*/false,
+                                                                     /*slow=*/false)}},
+              {"aggregate", AggregateNodeOptions{
+                                /*aggregates=*/{{"all", nullptr},
+                                                {"any", nullptr},
+                                                {"count", nullptr},
+                                                {"mean", nullptr},
+                                                {"product", nullptr},
+                                                {"stddev", nullptr},
+                                                {"sum", nullptr},
+                                                {"tdigest", nullptr},
+                                                {"variance", nullptr}},
+                                /*targets=*/{"b", "b", "a", "a", "a", "a", "a", "a", "a"},
+                                /*names=*/
+                                {"all(b)", "any(b)", "count(a)", "mean(a)", "product(a)",
+                                 "stddev(a)", "sum(a)", "tdigest(a)", "variance(a)"}}},
+              {"sink", SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
 
   ASSERT_THAT(
       StartAndCollect(plan.get(), sink_gen),
       Finishes(ResultWith(UnorderedElementsAreArray({
-          ExecBatchFromJSON({ValueDescr::Scalar(int64()), ValueDescr::Scalar(int64()),
-                             ValueDescr::Scalar(float64())},
-                            "[[6, 33, 5.5]]"),
+          ExecBatchFromJSON(
+              {ValueDescr::Scalar(boolean()), ValueDescr::Scalar(boolean()),
+               ValueDescr::Scalar(int64()), ValueDescr::Scalar(float64()),
+               ValueDescr::Scalar(int64()), ValueDescr::Scalar(float64()),
+               ValueDescr::Scalar(int64()), ValueDescr::Array(float64()),
+               ValueDescr::Scalar(float64())},
+              R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
       }))));
 }
 

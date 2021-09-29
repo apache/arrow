@@ -37,9 +37,10 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
-namespace dataset {
 
 using internal::checked_pointer_cast;
+
+namespace dataset {
 
 class IpcFormatHelper {
  public:
@@ -133,6 +134,7 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
 class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};
 
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestIpcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }

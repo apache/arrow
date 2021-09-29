@@ -58,6 +58,11 @@ module Arrow
             builder: StringArrayBuilder.new,
             detected: true,
           }
+        when Symbol
+          {
+            builder: StringDictionaryArrayBuilder.new,
+            detected: true,
+          }
         when Float
           {
             builder: DoubleArrayBuilder.new,

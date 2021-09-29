@@ -45,6 +45,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::Iota;
 
 namespace dataset {
 
@@ -488,10 +489,14 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         auto parquet_scan_options,
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, options.get(), default_fragment_scan_options));
-    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
-                                              reader, row_groups, column_projection,
-                                              internal::GetCpuThreadPool()));
-    return MakeReadaheadGenerator(std::move(generator), options->batch_readahead);
+    // Assume 1 row group corresponds to 1 batch (this factor could be
+    // improved by looking at metadata)
+    int row_group_readahead = options->batch_readahead;
+    ARROW_ASSIGN_OR_RAISE(
+        auto generator, reader->GetRecordBatchGenerator(
+                            reader, row_groups, column_projection,
+                            ::arrow::internal::GetCpuThreadPool(), row_group_readahead));
+    return generator;
   };
   return MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
                             .Then(std::move(make_generator)));
@@ -500,7 +505,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
 Future<util::optional<int64_t>> ParquetFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
-  auto parquet_file = internal::checked_pointer_cast<ParquetFileFragment>(file);
+  auto parquet_file = checked_pointer_cast<ParquetFileFragment>(file);
   if (parquet_file->metadata()) {
     ARROW_ASSIGN_OR_RAISE(auto maybe_count,
                           parquet_file->TryCountRows(std::move(predicate)));
@@ -613,7 +618,7 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   physical_schema_ = std::move(schema);
 
   if (!row_groups_) {
-    row_groups_ = internal::Iota(reader->num_row_groups());
+    row_groups_ = Iota(reader->num_row_groups());
   }
 
   ARROW_ASSIGN_OR_RAISE(
@@ -905,7 +910,7 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
     const auto& path = e.first;
     auto metadata_subset = metadata_->Subset(e.second);
 
-    auto row_groups = internal::Iota(metadata_subset->num_row_groups());
+    auto row_groups = Iota(metadata_subset->num_row_groups());
 
     auto partition_expression =
         partitioning.Parse(StripPrefixAndFilename(path, options_.partition_base_dir))

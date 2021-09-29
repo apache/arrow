@@ -50,7 +50,6 @@ import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
@@ -83,26 +82,6 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
    * The maximum index that is actually set.
    */
   private int lastSet;
-
-  /**
-   * Creates a ListVector.
-   *
-   * @deprecated Use FieldType or static constructor instead.
-   */
-  @Deprecated
-  public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
-    this(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), callBack);
-  }
-
-  /**
-   * Creates a ListVector.
-   *
-   * @deprecated Use FieldType or static constructor instead.
-   */
-  @Deprecated
-  public ListVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
-    this(name, allocator, new FieldType(true, ArrowType.List.INSTANCE, dictionary, null), callBack);
-  }
 
   /**
    * Constructs a new instance.
@@ -680,7 +659,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector("$data$", allocator, callBack);
+    UnionVector vector = new UnionVector("$data$", allocator, /* field type*/ null, callBack);
     replaceDataVector(vector);
     invalidateReader();
     if (callBack != null) {

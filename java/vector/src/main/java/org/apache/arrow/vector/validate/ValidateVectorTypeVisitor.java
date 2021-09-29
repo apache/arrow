@@ -29,11 +29,13 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
@@ -145,6 +147,17 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     }
   }
 
+  private void validateExtensionTypeVector(ExtensionTypeVector<?> vector) {
+    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.ExtensionType,
+        "Vector %s is not an extension type vector.", vector.getClass());
+    validateOrThrow(vector.getField().getMetadata().containsKey(ArrowType.ExtensionType.EXTENSION_METADATA_KEY_NAME),
+            "Field %s does not have proper extension type metadata: %s",
+            vector.getField().getName(),
+            vector.getField().getMetadata());
+    // Validate the storage vector type
+    vector.getUnderlyingVector().accept(this, null);
+  }
+
   @Override
   public Void visit(BaseFixedWidthVector vector, Void value) {
     if (vector instanceof TinyIntVector) {
@@ -200,6 +213,9 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     } else if (vector instanceof IntervalDayVector) {
       validateVectorCommon(vector, ArrowType.Interval.class);
       validateIntervalVector(vector, IntervalUnit.DAY_TIME);
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      validateVectorCommon(vector, ArrowType.Interval.class);
+      validateIntervalVector(vector, IntervalUnit.MONTH_DAY_NANO);
     } else if (vector instanceof IntervalYearVector) {
       validateVectorCommon(vector, ArrowType.Interval.class);
       validateIntervalVector(vector, IntervalUnit.YEAR_MONTH);
@@ -351,6 +367,12 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(NullVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.Null.class);
+    return null;
+  }
+
+  @Override
+  public Void visit(ExtensionTypeVector<?> vector, Void value) {
+    validateExtensionTypeVector(vector);
     return null;
   }
 }

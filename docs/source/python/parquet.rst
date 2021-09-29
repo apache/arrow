@@ -141,11 +141,11 @@ Parquet file writing options
 :func:`~pyarrow.parquet.write_table()` has a number of options to
 control various settings when writing a Parquet file.
 
-* ``version``, the Parquet format version to use, whether ``'1.0'``
-  for compatibility with older readers, or ``'2.0'`` to unlock more
-  recent features.
+* ``version``, the Parquet format version to use.  ``'1.0'`` ensures
+  compatibility with older readers, while ``'2.4'`` and greater values
+  enable more Parquet types and encodings.
 * ``data_page_size``, to control the approximate size of encoded data
-  pages within a column chunk. This currently defaults to 1MB
+  pages within a column chunk. This currently defaults to 1MB.
 * ``flavor``, to set compatibility options particular to a Parquet
   consumer like ``'spark'`` for Apache Spark.
 
@@ -208,21 +208,12 @@ We can similarly write a Parquet file with multiple row groups by using
 
 .. ipython:: python
 
-   writer = pq.ParquetWriter('example2.parquet', table.schema)
-   for i in range(3):
-       writer.write_table(table)
-   writer.close()
+   with pq.ParquetWriter('example2.parquet', table.schema) as writer:
+      for i in range(3):
+         writer.write_table(table)
 
    pf2 = pq.ParquetFile('example2.parquet')
    pf2.num_row_groups
-
-Alternatively python ``with`` syntax can also be use:
-
-.. ipython:: python
-
-   with pq.ParquetWriter('example3.parquet', table.schema) as writer:
-       for i in range(3):
-           writer.write_table(table)
 
 Inspecting the Parquet File Metadata
 ------------------------------------
@@ -301,11 +292,11 @@ an exception will be raised. This can be suppressed by passing
                   allow_truncated_timestamps=True)
 
 Timestamps with nanoseconds can be stored without casting when using the
-more recent Parquet format version 2.0:
+more recent Parquet format version 2.6:
 
 .. code-block:: python
 
-   pq.write_table(table, where, version='2.0')
+   pq.write_table(table, where, version='2.6')
 
 However, many Parquet readers do not yet support this newer format version, and
 therefore the default is to write version 1.0 files. When compatibility across
@@ -492,7 +483,7 @@ Reading from Partitioned Datasets
 ------------------------------------------------
 
 The :class:`~.ParquetDataset` class accepts either a directory name or a list
-or file paths, and can discover and infer some common partition structures,
+of file paths, and can discover and infer some common partition structures,
 such as those produced by Hive:
 
 .. code-block:: python

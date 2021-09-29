@@ -28,7 +28,8 @@
 #'
 #' * `dataset`: A `Dataset` or `arrow_dplyr_query` object, as returned by the
 #'    `dplyr` methods on `Dataset`.
-#' * `projection`: A character vector of column names to select
+#' * `projection`: A character vector of column names to select columns or a
+#'    named list of expressions
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
@@ -72,22 +73,38 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
-                           use_async = NULL,
+                           use_async = getOption("arrow.use_async", FALSE),
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
-  if (is.null(use_async)) {
-    use_async <- getOption("arrow.use_async", FALSE)
-  }
-
   if (inherits(dataset, "arrow_dplyr_query")) {
-    if (inherits(dataset$.data, "ArrowTabular")) {
-      # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
-      dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
+    if (is_collapsed(dataset)) {
+      # TODO: Is there a way to get a RecordBatchReader rather than evaluating?
+      dataset$.data <- as_adq(dplyr::compute(dataset$.data))$.data
     }
+
+    proj <- c(dataset$selected_columns, dataset$temp_columns)
+
+    if (!is.null(projection)) {
+      if (is.character(projection)) {
+        stopifnot("attempting to project with unknown columns" = all(projection %in% names(proj)))
+        proj <- proj[projection]
+      } else {
+        # TODO: ARROW-13802 accepting lists of Expressions as a projection
+        warning(
+          "Scanner$create(projection = ...) must be a character vector, ",
+          "ignoring the projection argument."
+        )
+      }
+    }
+
+    if (!isTRUE(filter)) {
+      dataset <- set_filters(dataset, filter)
+    }
+
     return(Scanner$create(
       dataset$.data,
-      c(dataset$selected_columns, dataset$temp_columns),
+      proj,
       dataset$filtered_rows,
       use_threads,
       use_async,
@@ -96,7 +113,7 @@ Scanner$create <- function(dataset,
       ...
     ))
   }
-  if (inherits(dataset, c("data.frame", "RecordBatch", "Table"))) {
+  if (inherits(dataset, c("data.frame", "ArrowTabular"))) {
     dataset <- InMemoryDataset$create(dataset)
   }
   assert_is(dataset, "Dataset")

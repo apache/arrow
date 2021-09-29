@@ -35,6 +35,7 @@
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
@@ -50,10 +51,9 @@ namespace compute {
 namespace {
 
 struct DummyNode : ExecNode {
-  DummyNode(ExecPlan* plan, std::string label, NodeVector inputs, int num_outputs,
+  DummyNode(ExecPlan* plan, NodeVector inputs, int num_outputs,
             StartProducingFunc start_producing, StopProducingFunc stop_producing)
-      : ExecNode(plan, std::move(label), std::move(inputs), {}, dummy_schema(),
-                 num_outputs),
+      : ExecNode(plan, std::move(inputs), {}, dummy_schema(), num_outputs),
         start_producing_(std::move(start_producing)),
         stop_producing_(std::move(stop_producing)) {
     input_labels_.resize(inputs_.size());
@@ -62,13 +62,13 @@ struct DummyNode : ExecNode {
     }
   }
 
-  const char* kind_name() override { return "Dummy"; }
+  const char* kind_name() const override { return "Dummy"; }
 
-  void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {}
+  void InputReceived(ExecNode* input, ExecBatch batch) override {}
 
   void ErrorReceived(ExecNode* input, Status error) override {}
 
-  void InputFinished(ExecNode* input, int seq_stop) override {}
+  void InputFinished(ExecNode* input, int total_batches) override {}
 
   Status StartProducing() override {
     if (start_producing_) {
@@ -127,9 +127,11 @@ struct DummyNode : ExecNode {
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         int num_outputs, StartProducingFunc start_producing,
                         StopProducingFunc stop_producing) {
-  return plan->EmplaceNode<DummyNode>(plan, std::move(label), std::move(inputs),
-                                      num_outputs, std::move(start_producing),
-                                      std::move(stop_producing));
+  auto node =
+      plan->EmplaceNode<DummyNode>(plan, std::move(inputs), num_outputs,
+                                   std::move(start_producing), std::move(stop_producing));
+  node->SetLabel(std::move(label));
+  return node;
 }
 
 ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
@@ -152,6 +154,48 @@ ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
   }
 
   return batch;
+}
+
+Future<std::vector<ExecBatch>> StartAndCollect(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+
+  auto collected_fut = CollectAsyncGenerator(gen);
+
+  return AllComplete({plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        return ::arrow::internal::MapVector(
+            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+            std::move(collected));
+      });
+}
+
+BatchesWithSchema MakeBasicBatches() {
+  BatchesWithSchema out;
+  out.batches = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
+  out.schema = schema({field("i32", int32()), field("bool", boolean())});
+  return out;
+}
+
+BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
+                                    int num_batches, int batch_size) {
+  BatchesWithSchema out;
+
+  random::RandomArrayGenerator rng(42);
+  out.batches.resize(num_batches);
+
+  for (int i = 0; i < num_batches; ++i) {
+    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
+    // add a tag scalar to ensure the batches are unique
+    out.batches[i].values.emplace_back(i);
+  }
+
+  out.schema = schema;
+  return out;
 }
 
 }  // namespace compute

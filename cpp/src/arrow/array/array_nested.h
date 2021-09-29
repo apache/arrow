@@ -38,6 +38,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-arrays
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // ListArray
 
@@ -292,6 +296,13 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
     return values_->Slice(value_offset(i), value_length(i));
   }
 
+  /// \brief Return an Array that is a concatenation of the lists in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration null elements (they are skipped, thus copying may be needed).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
+
   /// \brief Construct FixedSizeListArray from child value array and value_length
   ///
   /// \param[in] values Array containing list values
@@ -516,5 +527,7 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
 
   void SetData(const std::shared_ptr<ArrayData>& data);
 };
+
+/// @}
 
 }  // namespace arrow

@@ -81,6 +81,23 @@ ctest \
     --timeout 300 \
     "${ctest_options[@]}"
 
+if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
+    examples=$(find ${binary_output_dir} -executable -name "*example")
+    if [ "${examples}" == "" ]; then
+        echo "=================="
+        echo "No examples found!"
+        echo "=================="
+        exit 1
+    fi
+    for ex in ${examples}
+    do
+        echo "=================="
+        echo "Executing ${ex}"
+        echo "=================="
+        ${ex}
+    done
+fi
+
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
     ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/crash-*

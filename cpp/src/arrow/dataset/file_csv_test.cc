@@ -66,7 +66,8 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
 
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     if (GetCompression() == Compression::UNCOMPRESSED) {
-      return internal::make_unique<FileSource>(Buffer::FromString(std::move(csv)));
+      return ::arrow::internal::make_unique<FileSource>(
+          Buffer::FromString(std::move(csv)));
     }
     std::string path = "test.csv";
     switch (GetCompression()) {
@@ -94,7 +95,7 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     ARROW_EXPECT_OK(stream->Write(csv));
     ARROW_EXPECT_OK(stream->Close());
     EXPECT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
-    return internal::make_unique<FileSource>(info, fs, GetCompression());
+    return ::arrow::internal::make_unique<FileSource>(info, fs, GetCompression());
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
@@ -386,6 +387,7 @@ INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
 class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
 
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestCsvFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }

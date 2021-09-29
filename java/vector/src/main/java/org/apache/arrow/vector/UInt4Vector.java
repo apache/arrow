@@ -29,6 +29,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * UInt4Vector implements a fixed width (4 bytes) vector of
@@ -47,7 +48,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
    */
   public static final int MAX_UINT4 = 0XFFFFFFFF;
 
-  private static final byte TYPE_WIDTH = 4;
+  public static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   public UInt4Vector(String name, BufferAllocator allocator) {
@@ -298,6 +299,11 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
   @Override
   public long getValueAsLong(int index) {
     return this.get(index) & PROMOTION_MASK;
+  }
+
+  @Override
+  public String toString() {
+    return ValueVectorUtility.getToString(this, 0, getValueCount(), (v, i) -> v.getObjectNoOverflow(i));
   }
 
   private class TransferImpl implements TransferPair {

@@ -27,15 +27,6 @@ ipc_dir <- make_temp_dir()
 csv_dir <- make_temp_dir()
 tsv_dir <- make_temp_dir()
 
-skip_if_multithreading_disabled <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-  if (is_32bit && is_old_r && is_windows) {
-    skip("Multithreading does not work properly on this system")
-  }
-}
-
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
@@ -133,7 +124,7 @@ test_that("Simple interface for datasets", {
 
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part),
     c(rep(1, 10), rep(2, 10))
   )
 })
@@ -348,13 +339,12 @@ test_that("IPC/Feather format data", {
 
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part),
     c(rep(3, 10), rep(4, 10))
   )
 })
 
 test_that("CSV dataset", {
-  skip_if_multithreading_disabled()
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
@@ -376,13 +366,12 @@ test_that("CSV dataset", {
   )
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% pull(part),
+    collect(ds) %>% arrange(part) %>% pull(part),
     c(rep(5, 10), rep(6, 10))
   )
 })
 
 test_that("CSV scan options", {
-  skip_if_multithreading_disabled()
   options <- FragmentScanOptions$create("text")
   expect_equal(options$type, "csv")
   options <- FragmentScanOptions$create("csv",
@@ -429,7 +418,6 @@ test_that("CSV scan options", {
 })
 
 test_that("compressed CSV dataset", {
-  skip_if_multithreading_disabled()
   skip_if_not_available("gzip")
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv.gz")
@@ -453,7 +441,6 @@ test_that("compressed CSV dataset", {
 })
 
 test_that("CSV dataset options", {
-  skip_if_multithreading_disabled()
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
   df <- tibble(chr = letters[1:10])
@@ -481,7 +468,6 @@ test_that("CSV dataset options", {
 })
 
 test_that("Other text delimited dataset", {
-  skip_if_multithreading_disabled()
   ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
   expect_equivalent(
     ds1 %>%
@@ -510,7 +496,6 @@ test_that("Other text delimited dataset", {
 })
 
 test_that("readr parse options", {
-  skip_if_multithreading_disabled()
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
 
@@ -636,17 +621,15 @@ test_that("Creating UnionDataset", {
 })
 
 test_that("map_batches", {
+  skip("map_batches() is broken (ARROW-14029)")
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = "part")
-  expect_warning(
-    expect_equivalent(
-      ds %>%
-        filter(int > 5) %>%
-        select(int, lgl) %>%
-        map_batches(~ summarize(., min_int = min(int))),
-      tibble(min_int = c(6L, 101L))
-    ),
-    "pulling data into R" # ARROW-13502
+  expect_equivalent(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ summarize(., min_int = min(int))),
+    tibble(min_int = c(6L, 101L))
   )
 })
 
@@ -787,7 +770,7 @@ test_that("mutate() features not yet implemented", {
     ds %>%
       group_by(int) %>%
       mutate(avg = mean(int)),
-    "mutate() on grouped data not supported in Arrow\nCall collect() first to pull data into R.",
+    "window functions not currently supported in Arrow\nCall collect() first to pull data into R.",
     fixed = TRUE
   )
 })
@@ -804,7 +787,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
 test_that("collect() on Dataset works (if fits in memory)", {
   skip_if_not_available("parquet")
   expect_equal(
-    collect(open_dataset(dataset_dir)),
+    collect(open_dataset(dataset_dir)) %>% arrange(int),
     rbind(df1, df2)
   )
 })
@@ -1068,6 +1051,58 @@ test_that("Scanner$ToRecordBatchReader()", {
   expect_identical(
     as.data.frame(reader$read_table()),
     df1[df1$int > 6, c("int", "lgl")]
+  )
+})
+
+test_that("Scanner$create() filter/projection pushdown", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+
+  # the standard to compare all Scanner$create()s against
+  scan_one <- ds %>%
+    filter(int > 7 & dbl < 57) %>%
+    select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create()
+
+  # select a column in projection
+  scan_two <- ds %>%
+    filter(int > 7 & dbl < 57) %>%
+    # select an extra column, since we are going to
+    select(int, dbl, lgl, chr) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create(projection = c("int", "dbl", "lgl", "int_plus", "dbl_minus"))
+  expect_identical(
+    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
+    as.data.frame(scan_two$ToRecordBatchReader()$read_table())
+  )
+
+  # adding filters to Scanner$create
+  scan_three <- ds %>%
+    filter(int > 7) %>%
+    select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create(
+      filter = Expression$create("less", Expression$field_ref("dbl"), Expression$scalar(57))
+    )
+  expect_identical(
+    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
+    as.data.frame(scan_three$ToRecordBatchReader()$read_table())
+  )
+
+  expect_error(
+    ds %>%
+      select(int, dbl, lgl) %>%
+      Scanner$create(projection = "not_a_col"),
+    # Full message is "attempting to project with unknown columns" >= 4.0.0, but
+    # prior versions have a less nice "all(projection %in% names(proj)) is not TRUE"
+    "project"
+  )
+
+  expect_error(
+    ds %>%
+      select(int, dbl, lgl) %>%
+      Scanner$create(filter = list("foo", "bar")),
+    "filter expressions must be either an expression or a list of expressions"
   )
 })
 
@@ -1610,7 +1645,6 @@ test_that("Writing a dataset: Parquet format options", {
 })
 
 test_that("Writing a dataset: CSV format options", {
-  skip_if_multithreading_disabled()
   df <- tibble(
     int = 1:10,
     dbl = as.numeric(1:10),

@@ -21,12 +21,12 @@ namespace Apache.Arrow.Tests
 {
     public static class TestData
     {
-        public static RecordBatch CreateSampleRecordBatch(int length)
+        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = false)
         {
-            return CreateSampleRecordBatch(length, columnSetCount: 1);
+            return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray);
         }
 
-        public static RecordBatch CreateSampleRecordBatch(int length, int columnSetCount)
+        public static RecordBatch CreateSampleRecordBatch(int length, int columnSetCount, bool createDictionaryArray)
         {
             Schema.Builder builder = new Schema.Builder();
             for (int i = 0; i < columnSetCount; i++)
@@ -50,6 +50,12 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
                 builder.Field(CreateField(new Decimal128Type(10, 6), i));
                 builder.Field(CreateField(new Decimal256Type(16, 8), i));
+
+                if (createDictionaryArray)
+                {
+                    builder.Field(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
+                }
+
                 //builder.Field(CreateField(new FixedSizeBinaryType(16), i));
                 //builder.Field(CreateField(HalfFloatType.Default));
                 //builder.Field(CreateField(StringType.Default));
@@ -74,7 +80,7 @@ namespace Apache.Arrow.Tests
             return new Field(type.Name + iteration, type, nullable: false);
         }
 
-        private static IEnumerable<IArrowArray> CreateArrays(Schema schema, int length)
+        public static IEnumerable<IArrowArray> CreateArrays(Schema schema, int length)
         {
             int fieldCount = schema.Fields.Count;
             List<IArrowArray> arrays = new List<IArrowArray>(fieldCount);
@@ -114,7 +120,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<Decimal128Type>,
-            IArrowTypeVisitor<Decimal256Type>
+            IArrowTypeVisitor<Decimal256Type>,
+            IArrowTypeVisitor<DictionaryType>
         {
             private int Length { get; }
             public IArrowArray Array { get; private set; }
@@ -246,8 +253,22 @@ namespace Apache.Arrow.Tests
                 {
                     nullBitmap.Append(true);
                 }
-                
+
                 Array = new StructArray(type, Length, childArrays, nullBitmap.Build());
+            }
+
+            public void Visit(DictionaryType type)
+            {
+                Int32Array.Builder indicesBuilder = new Int32Array.Builder().Reserve(Length);
+                StringArray.Builder valueBuilder = new StringArray.Builder().Reserve(Length);
+
+                for (int i = 0; i < Length; i++)
+                {
+                    indicesBuilder.Append(i);
+                    valueBuilder.Append($"{i}");
+                }
+
+                Array = new DictionaryArray(type, indicesBuilder.Build(), valueBuilder.Build());
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)

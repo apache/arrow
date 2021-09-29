@@ -67,6 +67,7 @@ namespace Apache.Arrow
                 case ArrowTypeId.Decimal256:
                     return new Decimal256Array(data);
                 case ArrowTypeId.Dictionary:
+                    return new DictionaryArray(data);
                 case ArrowTypeId.FixedSizedBinary:
                 case ArrowTypeId.HalfFloat:
                 case ArrowTypeId.Interval:

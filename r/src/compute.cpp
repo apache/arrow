@@ -171,12 +171,48 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
-  if (func_name == "min_max" || func_name == "sum" || func_name == "mean" ||
-      func_name == "count" || func_name == "any" || func_name == "all") {
+  if (func_name == "all" || func_name == "hash_all" || func_name == "any" ||
+      func_name == "hash_any" || func_name == "approximate_median" ||
+      func_name == "hash_approximate_median" || func_name == "mean" ||
+      func_name == "hash_mean" || func_name == "min_max" || func_name == "hash_min_max" ||
+      func_name == "min" || func_name == "hash_min" || func_name == "max" ||
+      func_name == "hash_max" || func_name == "sum" || func_name == "hash_sum") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
-    out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
-    out->skip_nulls = cpp11::as_cpp<bool>(options["na.rm"]);
+    if (!Rf_isNull(options["min_count"])) {
+      out->min_count = cpp11::as_cpp<int>(options["min_count"]);
+    }
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
+    }
+    return out;
+  }
+
+  if (func_name == "tdigest" || func_name == "hash_tdigest") {
+    using Options = arrow::compute::TDigestOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["q"])) {
+      out->q = cpp11::as_cpp<std::vector<double>>(options["q"]);
+    }
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
+    }
+    return out;
+  }
+
+  if (func_name == "count") {
+    using Options = arrow::compute::CountOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    out->mode =
+        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::ONLY_VALID : Options::ONLY_NULL;
+    return out;
+  }
+
+  if (func_name == "hash_count_distinct") {
+    using Options = arrow::compute::CountOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    out->mode =
+        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::ONLY_VALID : Options::ALL;
     return out;
   }
 
@@ -203,6 +239,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
           cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
               interpolation);
     }
+    if (!Rf_isNull(options["min_count"])) {
+      out->min_count = cpp11::as_cpp<int64_t>(options["min_count"]);
+    }
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<int64_t>(options["skip_nulls"]);
+    }
     return out;
   }
 
@@ -210,6 +252,15 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::SetLookupOptions;
     return std::make_shared<Options>(cpp11::as_cpp<arrow::Datum>(options["value_set"]),
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
+  }
+
+  if (func_name == "is_null") {
+    using Options = arrow::compute::NullOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["nan_is_null"])) {
+      out->nan_is_null = cpp11::as_cpp<bool>(options["nan_is_null"]);
+    }
+    return out;
   }
 
   if (func_name == "dictionary_encode") {
@@ -250,7 +301,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "match_substring" || func_name == "match_substring_regex" ||
       func_name == "find_substring" || func_name == "find_substring_regex" ||
-      func_name == "match_like") {
+      func_name == "match_like" || func_name == "starts_with" ||
+      func_name == "ends_with" || func_name == "count_substring" ||
+      func_name == "count_substring_regex") {
     using Options = arrow::compute::MatchSubstringOptions;
     bool ignore_case = false;
     if (!Rf_isNull(options["ignore_case"])) {
@@ -271,14 +324,47 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      max_replacements);
   }
 
+  if (func_name == "extract_regex") {
+    using Options = arrow::compute::ExtractRegexOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]));
+  }
+
   if (func_name == "day_of_week") {
     using Options = arrow::compute::DayOfWeekOptions;
-    bool one_based_numbering = true;
-    if (!Rf_isNull(options["one_based_numbering"])) {
-      one_based_numbering = cpp11::as_cpp<bool>(options["one_based_numbering"]);
+    bool count_from_zero = false;
+    if (!Rf_isNull(options["count_from_zero"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["count_from_zero"]);
     }
-    return std::make_shared<Options>(one_based_numbering,
+    return std::make_shared<Options>(count_from_zero,
                                      cpp11::as_cpp<uint32_t>(options["week_start"]));
+  }
+
+  if (func_name == "iso_week") {
+    return std::make_shared<arrow::compute::WeekOptions>(
+        arrow::compute::WeekOptions::ISODefaults());
+  }
+
+  if (func_name == "us_week") {
+    return std::make_shared<arrow::compute::WeekOptions>(
+        arrow::compute::WeekOptions::USDefaults());
+  }
+
+  if (func_name == "week") {
+    using Options = arrow::compute::WeekOptions;
+    bool week_starts_monday = true;
+    bool count_from_zero = false;
+    bool first_week_is_fully_in_year = false;
+    if (!Rf_isNull(options["week_starts_monday"])) {
+      week_starts_monday = cpp11::as_cpp<bool>(options["week_starts_monday"]);
+    }
+    if (!Rf_isNull(options["count_from_zero"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["count_from_zero"]);
+    }
+    if (!Rf_isNull(options["first_week_is_fully_in_year"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["first_week_is_fully_in_year"]);
+    }
+    return std::make_shared<Options>(week_starts_monday, count_from_zero,
+                                     first_week_is_fully_in_year);
   }
 
   if (func_name == "strptime") {
@@ -286,6 +372,29 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(
         cpp11::as_cpp<std::string>(options["format"]),
         cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
+  }
+
+  if (func_name == "strftime") {
+    using Options = arrow::compute::StrftimeOptions;
+    return std::make_shared<Options>(
+        Options(cpp11::as_cpp<std::string>(options["format"]),
+                cpp11::as_cpp<std::string>(options["locale"])));
+  }
+
+  if (func_name == "assume_timezone") {
+    using Options = arrow::compute::AssumeTimezoneOptions;
+    enum Options::Ambiguous ambiguous;
+    enum Options::Nonexistent nonexistent;
+
+    if (!Rf_isNull(options["ambiguous"])) {
+      ambiguous = cpp11::as_cpp<enum Options::Ambiguous>(options["ambiguous"]);
+    }
+    if (!Rf_isNull(options["nonexistent"])) {
+      nonexistent = cpp11::as_cpp<enum Options::Nonexistent>(options["nonexistent"]);
+    }
+
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["timezone"]),
+                                     ambiguous, nonexistent);
   }
 
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {
@@ -323,6 +432,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(max_splits, reverse);
   }
 
+  if (func_name == "utf8_trim" || func_name == "utf8_ltrim" ||
+      func_name == "utf8_rtrim" || func_name == "ascii_trim" ||
+      func_name == "ascii_ltrim" || func_name == "ascii_rtrim") {
+    using Options = arrow::compute::TrimOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["characters"]));
+  }
+
   if (func_name == "utf8_slice_codeunits") {
     using Options = arrow::compute::SliceOptions;
 
@@ -340,9 +456,72 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      step);
   }
 
-  if (func_name == "variance" || func_name == "stddev") {
+  if (func_name == "utf8_replace_slice" || func_name == "binary_replace_slice") {
+    using Options = arrow::compute::ReplaceSliceOptions;
+
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["start"]),
+                                     cpp11::as_cpp<int64_t>(options["stop"]),
+                                     cpp11::as_cpp<std::string>(options["replacement"]));
+  }
+
+  if (func_name == "variance" || func_name == "stddev" || func_name == "hash_variance" ||
+      func_name == "hash_stddev") {
     using Options = arrow::compute::VarianceOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
+    auto out = std::make_shared<Options>();
+    out->ddof = cpp11::as_cpp<int64_t>(options["ddof"]);
+    if (!Rf_isNull(options["min_count"])) {
+      out->min_count = cpp11::as_cpp<int64_t>(options["min_count"]);
+    }
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
+    }
+    return out;
+  }
+
+  if (func_name == "mode") {
+    using Options = arrow::compute::ModeOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["n"])) {
+      out->n = cpp11::as_cpp<int64_t>(options["n"]);
+    }
+    if (!Rf_isNull(options["min_count"])) {
+      out->min_count = cpp11::as_cpp<uint32_t>(options["min_count"]);
+    }
+    if (!Rf_isNull(options["skip_nulls"])) {
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
+    }
+    return out;
+  }
+
+  if (func_name == "partition_nth_indices") {
+    using Options = arrow::compute::PartitionNthOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["pivot"]));
+  }
+
+  if (func_name == "round") {
+    using Options = arrow::compute::RoundOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["ndigits"])) {
+      out->ndigits = cpp11::as_cpp<int64_t>(options["ndigits"]);
+    }
+    SEXP round_mode = options["round_mode"];
+    if (!Rf_isNull(round_mode)) {
+      out->round_mode = cpp11::as_cpp<enum arrow::compute::RoundMode>(round_mode);
+    }
+    return out;
+  }
+
+  if (func_name == "round_to_multiple") {
+    using Options = arrow::compute::RoundToMultipleOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["multiple"])) {
+      out->multiple = cpp11::as_cpp<double>(options["multiple"]);
+    }
+    SEXP round_mode = options["round_mode"];
+    if (!Rf_isNull(round_mode)) {
+      out->round_mode = cpp11::as_cpp<enum arrow::compute::RoundMode>(round_mode);
+    }
+    return out;
   }
 
   return nullptr;
@@ -379,29 +558,6 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
   auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
   auto out = ValueOrStop(
       arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
-  return from_datum(std::move(out));
-}
-
-// [[arrow::export]]
-SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options) {
-  // options is a list of pairs: string function name, list of options
-
-  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
-  std::vector<arrow::compute::internal::Aggregate> aggregates;
-
-  for (cpp11::list name_opts : options) {
-    auto name = cpp11::as_cpp<std::string>(name_opts[0]);
-    auto opts = make_compute_options(name, name_opts[1]);
-
-    aggregates.push_back(
-        arrow::compute::internal::Aggregate{std::move(name), opts.get()});
-    keep_alives.push_back(std::move(opts));
-  }
-
-  auto datum_arguments = arrow::r::from_r_list<arrow::Datum>(arguments);
-  auto datum_keys = arrow::r::from_r_list<arrow::Datum>(keys);
-  auto out = ValueOrStop(arrow::compute::internal::GroupBy(datum_arguments, datum_keys,
-                                                           aggregates, gc_context()));
   return from_datum(std::move(out));
 }
 

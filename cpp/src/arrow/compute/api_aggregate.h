@@ -42,15 +42,38 @@ class ExecContext;
 
 /// \brief Control general scalar aggregate kernel behavior
 ///
-/// By default, null values are ignored
+/// By default, null values are ignored (skip_nulls = true).
 class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
  public:
   explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1);
   constexpr static char const kTypeName[] = "ScalarAggregateOptions";
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
   bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
+};
+
+/// \brief Control count aggregate kernel behavior.
+///
+/// By default, only non-null values are counted.
+class ARROW_EXPORT CountOptions : public FunctionOptions {
+ public:
+  enum CountMode {
+    /// Count only non-null values.
+    ONLY_VALID = 0,
+    /// Count only null values.
+    ONLY_NULL,
+    /// Count both non-null and null values.
+    ALL,
+  };
+  explicit CountOptions(CountMode mode = CountMode::ONLY_VALID);
+  constexpr static char const kTypeName[] = "CountOptions";
+  static CountOptions Defaults() { return CountOptions{}; }
+
+  CountMode mode;
 };
 
 /// \brief Control Mode kernel behavior
@@ -59,11 +82,16 @@ class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
 /// By default, returns the most common value and count.
 class ARROW_EXPORT ModeOptions : public FunctionOptions {
  public:
-  explicit ModeOptions(int64_t n = 1);
+  explicit ModeOptions(int64_t n = 1, bool skip_nulls = true, uint32_t min_count = 0);
   constexpr static char const kTypeName[] = "ModeOptions";
   static ModeOptions Defaults() { return ModeOptions{}; }
 
   int64_t n = 1;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel
@@ -72,11 +100,16 @@ class ARROW_EXPORT ModeOptions : public FunctionOptions {
 /// By default, ddof is zero, and population variance or stddev is returned.
 class ARROW_EXPORT VarianceOptions : public FunctionOptions {
  public:
-  explicit VarianceOptions(int ddof = 0);
+  explicit VarianceOptions(int ddof = 0, bool skip_nulls = true, uint32_t min_count = 0);
   constexpr static char const kTypeName[] = "VarianceOptions";
   static VarianceOptions Defaults() { return VarianceOptions{}; }
 
   int ddof = 0;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control Quantile kernel behavior
@@ -93,10 +126,12 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
     MIDPOINT,
   };
 
-  explicit QuantileOptions(double q = 0.5, enum Interpolation interpolation = LINEAR);
+  explicit QuantileOptions(double q = 0.5, enum Interpolation interpolation = LINEAR,
+                           bool skip_nulls = true, uint32_t min_count = 0);
 
   explicit QuantileOptions(std::vector<double> q,
-                           enum Interpolation interpolation = LINEAR);
+                           enum Interpolation interpolation = LINEAR,
+                           bool skip_nulls = true, uint32_t min_count = 0);
 
   constexpr static char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
@@ -104,6 +139,11 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
   /// quantile must be between 0 and 1 inclusive
   std::vector<double> q;
   enum Interpolation interpolation;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control TDigest approximate quantile kernel behavior
@@ -112,9 +152,11 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
 class ARROW_EXPORT TDigestOptions : public FunctionOptions {
  public:
   explicit TDigestOptions(double q = 0.5, uint32_t delta = 100,
-                          uint32_t buffer_size = 500);
+                          uint32_t buffer_size = 500, bool skip_nulls = true,
+                          uint32_t min_count = 0);
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
-                          uint32_t buffer_size = 500);
+                          uint32_t buffer_size = 500, bool skip_nulls = true,
+                          uint32_t min_count = 0);
   constexpr static char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
@@ -124,6 +166,11 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t delta;
   /// input buffer size, default 500
   uint32_t buffer_size;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control Index kernel behavior
@@ -139,9 +186,9 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
 
 /// @}
 
-/// \brief Count non-null (or null) values in an array.
+/// \brief Count values in an array.
 ///
-/// \param[in] options counting options, see ScalarAggregateOptions for more information
+/// \param[in] options counting options, see CountOptions for more information
 /// \param[in] datum to count
 /// \param[in] ctx the function execution context, optional
 /// \return out resulting datum
@@ -149,10 +196,9 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Count(
-    const Datum& datum,
-    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
-    ExecContext* ctx = NULLPTR);
+Result<Datum> Count(const Datum& datum,
+                    const CountOptions& options = CountOptions::Defaults(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the mean of a numeric array.
 ///
@@ -165,6 +211,21 @@ Result<Datum> Count(
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Mean(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the product of values of a numeric array.
+///
+/// \param[in] value datum to compute product of, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed sum as a Scalar
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Product(
     const Datum& value,
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);

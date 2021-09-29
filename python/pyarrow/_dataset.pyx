@@ -53,6 +53,28 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
+_orc_fileformat = None
+_orc_imported = False
+
+
+def _get_orc_fileformat():
+    """
+    Import OrcFileFormat on first usage (to avoid circular import issue
+    when `pyarrow._dataset_orc` would be imported first)
+    """
+    global _orc_fileformat
+    global _orc_imported
+    if not _orc_imported:
+        try:
+            from pyarrow._dataset_orc import OrcFileFormat
+            _orc_fileformat = OrcFileFormat
+        except ImportError as e:
+            _orc_fileformat = None
+        finally:
+            _orc_imported = True
+    return _orc_fileformat
+
+
 cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
     cdef:
@@ -234,9 +256,13 @@ cdef class Expression(_Weakrefable):
         """Checks whether the expression is not-null (valid)"""
         return Expression._call("is_valid", [self])
 
-    def is_null(self):
+    def is_null(self, bint nan_is_null=False):
         """Checks whether the expression is null"""
-        return Expression._call("is_null", [self])
+        cdef:
+            shared_ptr[CFunctionOptions] c_options
+
+        c_options.reset(new CNullOptions(nan_is_null))
+        return Expression._call("is_null", [self], c_options)
 
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
@@ -818,10 +844,6 @@ cdef class FileWriteOptions(_Weakrefable):
 
 cdef class FileFormat(_Weakrefable):
 
-    cdef:
-        shared_ptr[CFileFormat] wrapped
-        CFileFormat* format
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -837,6 +859,7 @@ cdef class FileFormat(_Weakrefable):
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
             'parquet': ParquetFileFormat,
+            'orc': _get_orc_fileformat(),
         }
 
         class_ = classes.get(type_name, None)
@@ -1204,9 +1227,6 @@ class RowGroupInfo:
 
 cdef class FragmentScanOptions(_Weakrefable):
     """Scan options specific to a particular fragment and scan operation."""
-
-    cdef:
-        shared_ptr[CFragmentScanOptions] wrapped
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
@@ -1948,7 +1968,7 @@ cdef class Partitioning(_Weakrefable):
         type_name = frombytes(sp.get().type_name())
 
         classes = {
-            'schema': DirectoryPartitioning,
+            'directory': DirectoryPartitioning,
             'hive': HivePartitioning,
         }
 
@@ -1997,6 +2017,10 @@ cdef class PartitioningFactory(_Weakrefable):
 
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
+
+    @property
+    def type_name(self):
+        return frombytes(self.factory.type_name())
 
 
 cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(

@@ -28,6 +28,8 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -84,13 +86,17 @@ arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
     return Status::Invalid("FragmentScanOptions of type ", source->type_name(),
                            " were provided for scanning a fragment of type ", type_name);
   }
-  return internal::checked_pointer_cast<T>(source);
+  return ::arrow::internal::checked_pointer_cast<T>(source);
 }
 
 class FragmentDataset : public Dataset {
  public:
   FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
       : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
+
+  FragmentDataset(std::shared_ptr<Schema> schema,
+                  AsyncGenerator<std::shared_ptr<Fragment>> fragments)
+      : Dataset(std::move(schema)), fragment_gen_(std::move(fragments)) {}
 
   std::string type_name() const override { return "fragment"; }
 
@@ -101,6 +107,14 @@ class FragmentDataset : public Dataset {
 
  protected:
   Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
+    if (fragment_gen_) {
+      // TODO(ARROW-8163): Async fragment scanning can be forwarded rather than waiting
+      // for the whole generator here. For now, all Dataset impls have a vector of
+      // Fragments anyway
+      auto fragments_fut = CollectAsyncGenerator(std::move(fragment_gen_));
+      ARROW_ASSIGN_OR_RAISE(fragments_, fragments_fut.result());
+    }
+
     // TODO(ARROW-12891) Provide subtree pruning for any vector of fragments
     FragmentVector fragments;
     for (const auto& fragment : fragments_) {
@@ -114,8 +128,33 @@ class FragmentDataset : public Dataset {
     }
     return MakeVectorIterator(std::move(fragments));
   }
+
   FragmentVector fragments_;
+  AsyncGenerator<std::shared_ptr<Fragment>> fragment_gen_;
 };
+
+// Given a record batch generator, creates a new generator that slices
+// batches so individual batches have at most batch_size rows. The
+// resulting generator is async-reentrant, but does not forward
+// reentrant pulls, so apply readahead before using this helper.
+inline RecordBatchGenerator MakeChunkedBatchGenerator(RecordBatchGenerator gen,
+                                                      int64_t batch_size) {
+  return MakeFlatMappedGenerator(
+      std::move(gen),
+      [batch_size](const std::shared_ptr<RecordBatch>& batch)
+          -> ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> {
+        const int64_t rows = batch->num_rows();
+        if (rows <= batch_size) {
+          return ::arrow::MakeVectorGenerator<std::shared_ptr<RecordBatch>>({batch});
+        }
+        std::vector<std::shared_ptr<RecordBatch>> slices;
+        slices.reserve(rows / batch_size + (rows % batch_size != 0));
+        for (int64_t i = 0; i < rows; i += batch_size) {
+          slices.push_back(batch->Slice(i, batch_size));
+        }
+        return ::arrow::MakeVectorGenerator(std::move(slices));
+      });
+}
 
 }  // namespace dataset
 }  // namespace arrow

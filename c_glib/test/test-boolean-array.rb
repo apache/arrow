@@ -27,6 +27,15 @@ class TestBooleanArray < Test::Unit::TestCase
                                          -1))
   end
 
+  def test_export
+    require_gi_bindings(3, 4, 8)
+    array = build_boolean_array([true, false, nil])
+    success, c_abi_array, c_abi_schema = array.export
+    data_type = Arrow::DataType.import(c_abi_schema)
+    assert_equal([success, array],
+                 [true, Arrow::Array.import(c_abi_array, data_type)])
+  end
+
   def test_buffer
     builder = Arrow::BooleanArrayBuilder.new
     builder.append_value(true)

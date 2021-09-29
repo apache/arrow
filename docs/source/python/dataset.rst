@@ -31,16 +31,16 @@ The ``pyarrow.dataset`` module provides functionality to efficiently work with
 tabular, potentially larger than memory, and multi-file datasets. This includes:
 
 * A unified interface that supports different sources and file formats
-  (Parquet, Feather / Arrow IPC, and CSV files) and different file systems
+  (Parquet, ORC, Feather / Arrow IPC, and CSV files) and different file systems
   (local, cloud).
 * Discovery of sources (crawling directories, handle directory-based partitioned
   datasets, basic schema normalization, ..)
 * Optimized reading with predicate pushdown (filtering rows), projection
   (selecting and deriving columns), and optionally parallel reading.
 
-Currently, only Parquet, Feather / Arrow IPC, and CSV files are supported. The
-goal is to expand this in the future to other file formats and data sources
-(e.g. database connections).
+Currently, only Parquet, ORC, Feather / Arrow IPC, and CSV files are
+supported. The goal is to expand this in the future to other file formats and
+data sources (e.g. database connections).
 
 For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
 reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific
@@ -119,8 +119,8 @@ Reading different file formats
 
 The above examples use Parquet files as dataset sources but the Dataset API
 provides a consistent interface across multiple file formats and filesystems.
-Currently, Parquet, Feather / Arrow IPC, and CSV file formats are supported;
-more formats are planned in the future.
+Currently, Parquet, ORC, Feather / Arrow IPC, and CSV file formats are
+supported; more formats are planned in the future.
 
 If we save the table as Feather files instead of Parquet files:
 
@@ -147,7 +147,7 @@ The format name as a string, like::
 
 is short hand for a default constructed :class:`ParquetFileFormat`::
 
-    ds.dataset(..., format=ds.ParquetFileForma())
+    ds.dataset(..., format=ds.ParquetFileFormat())
 
 The :class:`FileFormat` objects can be customized using keywords. For example::
 
@@ -273,7 +273,7 @@ and the Parquet files written in those directories no longer include the "part"
 column.
 
 Reading this dataset with :func:`dataset`, we now specify that the dataset
-should use a hive-like partitioning scheme with the `partitioning` keyword:
+should use a hive-like partitioning scheme with the ``partitioning`` keyword:
 
 .. ipython:: python
 
@@ -491,14 +491,14 @@ Customizing the batch size
 
 An iterative read of a dataset is often called a "scan" of the dataset and pyarrow
 uses an object called a :class:`Scanner` to do this.  A Scanner is created for you
-automatically by the to_table and to_batches method of the dataset.  Any arguments
-you pass to these methods will be passed on to the Scanner constructor.
+automatically by the :func:`~Dataset.to_table` and :func:`~Dataset.to_batches` method of the dataset.
+Any arguments you pass to these methods will be passed on to the Scanner constructor.
 
 One of those parameters is the ``batch_size``.  This controls the maximum size of the
-batches returned by the scanner.  Batches can still be smaller than the `batch_size`
+batches returned by the scanner.  Batches can still be smaller than the ``batch_size``
 if the dataset consists of small files or those files themselves consist of small
 row groups.  For example, a parquet file with 10,000 rows per row group will yield
-batches with, at most, 10,000 rows unless the batch_size is set to a smaller value.
+batches with, at most, 10,000 rows unless the ``batch_size`` is set to a smaller value.
 
 The default batch size is one million rows and this is typically a good default but
 you may want to customize it if you are reading a large number of columns.
@@ -553,7 +553,7 @@ Writing large amounts of data
 
 The above examples wrote data from a table.  If you are writing a large amount of data
 you may not be able to load everything into a single in-memory table.  Fortunately, the
-write_dataset method also accepts an iterable of record batches.  This makes it really
+:func:`~Dataset.write_dataset` method also accepts an iterable of record batches.  This makes it really
 simple, for example, to repartition a large dataset without loading the entire dataset
 into memory:
 

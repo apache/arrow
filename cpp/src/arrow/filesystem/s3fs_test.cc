@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <exception>
 #include <memory>
 #include <sstream>
@@ -55,6 +56,7 @@
 #include <aws/core/Version.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProvider.h>
+#include <aws/core/client/CoreErrors.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/s3/S3Client.h>
@@ -983,6 +985,52 @@ TEST_F(TestS3FS, FileSystemFromUri) {
 
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);
+}
+
+// Simple retry strategy that records errors encountered and its emitted retry delays
+class TestRetryStrategy : public S3RetryStrategy {
+ public:
+  bool ShouldRetry(const S3RetryStrategy::AWSErrorDetail& error,
+                   int64_t attempted_retries) final {
+    errors_encountered_.emplace_back(error);
+    constexpr int64_t MAX_RETRIES = 2;
+    return attempted_retries < MAX_RETRIES;
+  }
+
+  int64_t CalculateDelayBeforeNextRetry(const S3RetryStrategy::AWSErrorDetail& error,
+                                        int64_t attempted_retries) final {
+    int64_t delay = attempted_retries;
+    retry_delays_.emplace_back(delay);
+    return delay;
+  }
+
+  std::vector<S3RetryStrategy::AWSErrorDetail> GetErrorsEncountered() {
+    return errors_encountered_;
+  }
+  std::vector<int64_t> GetRetryDelays() { return retry_delays_; }
+
+ private:
+  std::vector<S3RetryStrategy::AWSErrorDetail> errors_encountered_;
+  std::vector<int64_t> retry_delays_;
+};
+
+TEST_F(TestS3FS, CustomRetryStrategy) {
+  auto retry_strategy = std::make_shared<TestRetryStrategy>();
+  options_.retry_strategy = retry_strategy;
+  MakeFileSystem();
+  // Attempt to open file that doesn't exist. Should hit TestRetryStrategy::ShouldRetry()
+  // 3 times before bubbling back up here.
+  ASSERT_RAISES(IOError, fs_->OpenInputStream("nonexistent-bucket/somefile"));
+  ASSERT_EQ(retry_strategy->GetErrorsEncountered().size(), 3);
+  for (const auto& error : retry_strategy->GetErrorsEncountered()) {
+    ASSERT_EQ(static_cast<Aws::Client::CoreErrors>(error.error_type),
+              Aws::Client::CoreErrors::RESOURCE_NOT_FOUND);
+    ASSERT_EQ(error.message, "No response body.");
+    ASSERT_EQ(error.exception_name, "");
+    ASSERT_EQ(error.should_retry, false);
+  }
+  std::vector<int64_t> expected_retry_delays = {0, 1, 2};
+  ASSERT_EQ(retry_strategy->GetRetryDelays(), expected_retry_delays);
 }
 
 ////////////////////////////////////////////////////////////////////////////

@@ -24,6 +24,7 @@
 #include "arrow/array.h"
 #include "arrow/array/validate.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
@@ -44,13 +45,6 @@ DatumVector GetDatums(const std::vector<T>& inputs) {
     datums.emplace_back(input);
   }
   return datums;
-}
-
-void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
-                             const Datum& expected, const FunctionOptions* options) {
-  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
-  ValidateOutput(out);
-  AssertDatumsEqual(expected, out, /*verbose=*/true);
 }
 
 template <typename... SliceArgs>
@@ -80,9 +74,17 @@ ScalarVector GetScalars(const DatumVector& inputs, int64_t index) {
 
 }  // namespace
 
+void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
+                             const Datum& expected, const FunctionOptions* options) {
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
+  ValidateOutput(out);
+  AssertDatumsEqual(expected, out, /*verbose=*/true);
+}
+
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
+  ValidateOutput(out);
   if (!out.scalar()->Equals(expected)) {
     std::string summary = func_name + "(";
     for (const auto& input : inputs) {
@@ -120,14 +122,9 @@ void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expecte
   }
   ASSERT_TRUE(has_array) << "Must have at least 1 array input to have an array output";
 
-  // Check all the input scalars, if scalars are implemented
-  if (std::none_of(inputs.begin(), inputs.end(), [](const Datum& datum) {
-        return datum.type()->id() == Type::EXTENSION;
-      })) {
-    // Check all the input scalars
-    for (int64_t i = 0; i < expected->length(); ++i) {
-      CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
-    }
+  // Check all the input scalars
+  for (int64_t i = 0; i < expected->length(); ++i) {
+    CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
   }
 
   // Since it's a scalar function, calling it on sliced inputs should
@@ -174,6 +171,83 @@ void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expecte
   }
 }
 
+Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVector& args,
+                                  bool result_is_encoded) {
+  EXPECT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, args));
+  ValidateOutput(actual);
+
+  DatumVector decoded_args;
+  decoded_args.reserve(args.size());
+  for (const auto& arg : args) {
+    if (arg.type()->id() == Type::DICTIONARY) {
+      const auto& to_type = checked_cast<const DictionaryType&>(*arg.type()).value_type();
+      EXPECT_OK_AND_ASSIGN(auto decoded, Cast(arg, to_type));
+      decoded_args.push_back(decoded);
+    } else {
+      decoded_args.push_back(arg);
+    }
+  }
+  EXPECT_OK_AND_ASSIGN(Datum expected, CallFunction(func_name, decoded_args));
+
+  if (result_is_encoded) {
+    EXPECT_EQ(Type::DICTIONARY, actual.type()->id())
+        << "Result should have been dictionary-encoded";
+    // Decode before comparison - we care about equivalent not identical results
+    const auto& to_type =
+        checked_cast<const DictionaryType&>(*actual.type()).value_type();
+    EXPECT_OK_AND_ASSIGN(auto decoded, Cast(actual, to_type));
+    AssertDatumsApproxEqual(expected, decoded, /*verbose=*/true);
+  } else {
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+  return actual;
+}
+
+void CheckDictionary(const std::string& func_name, const DatumVector& args,
+                     bool result_is_encoded) {
+  auto actual = CheckDictionaryNonRecursive(func_name, args, result_is_encoded);
+
+  if (actual.is_scalar()) return;
+  ASSERT_TRUE(actual.is_array());
+  ASSERT_GE(actual.length(), 0);
+
+  // Check all scalars
+  for (int64_t i = 0; i < actual.length(); i++) {
+    CheckDictionaryNonRecursive(func_name, GetDatums(GetScalars(args, i)),
+                                result_is_encoded);
+  }
+
+  // Check slices of the input
+  const auto slice_length = actual.length() / 3;
+  if (slice_length > 0) {
+    CheckDictionaryNonRecursive(func_name, SliceArrays(args, 0, slice_length),
+                                result_is_encoded);
+    CheckDictionaryNonRecursive(func_name, SliceArrays(args, slice_length, slice_length),
+                                result_is_encoded);
+    CheckDictionaryNonRecursive(func_name, SliceArrays(args, 2 * slice_length),
+                                result_is_encoded);
+  }
+
+  // Check empty slice
+  CheckDictionaryNonRecursive(func_name, SliceArrays(args, 0, 0), result_is_encoded);
+
+  // Check chunked arrays
+  if (slice_length > 0) {
+    DatumVector chunked_args;
+    chunked_args.reserve(args.size());
+    for (const auto& arg : args) {
+      if (arg.is_array()) {
+        auto arr = arg.make_array();
+        ArrayVector chunks{arr->Slice(0, slice_length), arr->Slice(slice_length)};
+        chunked_args.push_back(std::make_shared<ChunkedArray>(std::move(chunks)));
+      } else {
+        chunked_args.push_back(arg);
+      }
+    }
+    CheckDictionaryNonRecursive(func_name, chunked_args, result_is_encoded);
+  }
+}
+
 void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options) {
   std::vector<Datum> input_vector = {std::move(input)};
@@ -187,12 +261,11 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                    ArrayFromJSON(out_ty, json_expected), options);
 }
 
-void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
+void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options) {
-  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, {input}, options));
-  std::shared_ptr<Array> actual = std::move(out).make_array();
-  ValidateOutput(*actual);
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, {input}, options));
+  ValidateOutput(actual);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
 void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
@@ -230,6 +303,8 @@ void ValidateOutput(const Table& output) {
   }
 }
 
+void ValidateOutput(const Scalar& output) { ASSERT_OK(output.ValidateFull()); }
+
 }  // namespace
 
 void ValidateOutput(const Datum& output) {
@@ -245,6 +320,9 @@ void ValidateOutput(const Datum& output) {
       break;
     case Datum::TABLE:
       ValidateOutput(*output.table());
+      break;
+    case Datum::SCALAR:
+      ValidateOutput(*output.scalar());
       break;
     default:
       break;

@@ -193,10 +193,10 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// If it doesn't exist, see `FileSelector::allow_not_found`.
   virtual Result<FileInfoVector> GetFileInfo(const FileSelector& select) = 0;
 
-  /// EXPERIMENTAL: async version of GetFileInfo
+  /// Async version of GetFileInfo
   virtual Future<FileInfoVector> GetFileInfoAsync(const std::vector<std::string>& paths);
 
-  /// EXPERIMENTAL: streaming async version of GetFileInfo
+  /// Streaming async version of GetFileInfo
   ///
   /// The returned generator is not async-reentrant, i.e. you need to wait for
   /// the returned future to complete before calling the generator again.
@@ -265,17 +265,17 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const FileInfo& info);
 
-  /// EXPERIMENTAL: async version of OpenInputStream
+  /// Async version of OpenInputStream
   virtual Future<std::shared_ptr<io::InputStream>> OpenInputStreamAsync(
       const std::string& path);
-  /// EXPERIMENTAL: async version of OpenInputStream
+  /// Async version of OpenInputStream
   virtual Future<std::shared_ptr<io::InputStream>> OpenInputStreamAsync(
       const FileInfo& info);
 
-  /// EXPERIMENTAL: async version of OpenInputFile
+  /// Async version of OpenInputFile
   virtual Future<std::shared_ptr<io::RandomAccessFile>> OpenInputFileAsync(
       const std::string& path);
-  /// EXPERIMENTAL: async version of OpenInputFile
+  /// Async version of OpenInputFile
   virtual Future<std::shared_ptr<io::RandomAccessFile>> OpenInputFileAsync(
       const FileInfo& info);
 
@@ -290,6 +290,9 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Open an output stream for appending.
   ///
   /// If the target doesn't exist, a new empty file is created.
+  ARROW_DEPRECATED(
+      "Deprecated in 6.0.0. "
+      "OpenAppendStream is unsupported on several filesystems and will be later removed.")
   virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) = 0;
@@ -521,7 +524,7 @@ struct FileSystemGlobalOptions {
   std::string tls_ca_dir_path;
 };
 
-/// Experimental: optional global initialization routine
+/// EXPERIMENTAL: optional global initialization routine
 ///
 /// This is for environments (such as manylinux) where the path
 /// to TLS CA certificates needs to be configured at runtime.

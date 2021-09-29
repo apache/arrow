@@ -39,7 +39,12 @@ cdef class Scalar(_Weakrefable):
         if type_id == _Type_NA:
             return _NULL
 
-        typ = _scalar_classes[type_id]
+        try:
+            typ = _scalar_classes[type_id]
+        except KeyError:
+            raise NotImplementedError(
+                "Wrapping scalar of type " +
+                frombytes(wrapped.get().type.get().ToString()))
         self = typ.__new__(typ)
         self.init(wrapped)
 
@@ -445,8 +450,9 @@ cdef class TimestampScalar(Scalar):
 
     def as_py(self):
         """
-        Return this value as a Pandas Timestamp instance (if available),
-        otherwise as a Python datetime.timedelta instance.
+        Return this value as a Pandas Timestamp instance (if units are
+        nanoseconds and pandas is available), otherwise as a Python
+        datetime.datetime instance.
         """
         cdef:
             CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
@@ -475,8 +481,9 @@ cdef class DurationScalar(Scalar):
 
     def as_py(self):
         """
-        Return this value as a Pandas Timestamp instance (if available),
-        otherwise as a Python datetime.timedelta instance.
+        Return this value as a Pandas Timedelta instance (if units are
+        nanoseconds and pandas is available), otherwise as a Python
+        datetime.timedelta instance.
         """
         cdef:
             CDurationScalar* sp = <CDurationScalar*> self.wrapped.get()
@@ -838,6 +845,67 @@ cdef class UnionScalar(Scalar):
         return sp.type_code
 
 
+cdef class ExtensionScalar(Scalar):
+    """
+    Concrete class for Extension scalars.
+    """
+
+    @property
+    def value(self):
+        """
+        Return storage value as a scalar.
+        """
+        cdef CExtensionScalar* sp = <CExtensionScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value) if sp.is_valid else None
+
+    def as_py(self):
+        """
+        Return this scalar as a Python object.
+        """
+        # XXX should there be a hook to wrap the result in a custom class?
+        value = self.value
+        return None if value is None else value.as_py()
+
+    @staticmethod
+    def from_storage(BaseExtensionType typ, value):
+        """
+        Construct ExtensionScalar from type and storage value.
+
+        Parameters
+        ----------
+        typ: DataType
+            The extension type for the result scalar.
+        value: object
+            The storage value for the result scalar.
+
+        Returns
+        -------
+        ext_scalar : ExtensionScalar
+        """
+        cdef:
+            shared_ptr[CExtensionScalar] sp_scalar
+            CExtensionScalar* ext_scalar
+
+        if value is None:
+            storage = None
+        elif isinstance(value, Scalar):
+            if value.type != typ.storage_type:
+                raise TypeError("Incompatible storage type {0} "
+                                "for extension type {1}"
+                                .format(value.type, typ))
+            storage = value
+        else:
+            storage = scalar(value, typ.storage_type)
+
+        sp_scalar = make_shared[CExtensionScalar](typ.sp_type)
+        ext_scalar = sp_scalar.get()
+        ext_scalar.is_valid = storage is not None and storage.is_valid
+        if ext_scalar.is_valid:
+            ext_scalar.value = pyarrow_unwrap_scalar(storage)
+        check_status(ext_scalar.Validate())
+        return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
+
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
@@ -872,6 +940,7 @@ cdef dict _scalar_classes = {
     _Type_DICTIONARY: DictionaryScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
+    _Type_EXTENSION: ExtensionScalar,
 }
 
 

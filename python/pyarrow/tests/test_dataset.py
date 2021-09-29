@@ -21,6 +21,7 @@ import posixpath
 import pathlib
 import pickle
 import textwrap
+import tempfile
 
 import numpy as np
 import pytest
@@ -575,7 +576,7 @@ def test_expression_construction():
         field.isin(1)
 
     with pytest.raises(pa.ArrowInvalid):
-        field != {1}
+        field != object()
 
 
 def test_expression_boolean_operators():
@@ -701,6 +702,11 @@ def test_file_format_pickling():
             buffer_size=4096,
         )
     ]
+    try:
+        formats.append(ds.OrcFileFormat())
+    except ImportError:
+        pass
+
     for file_format in formats:
         assert pickle.loads(pickle.dumps(file_format)) == file_format
 
@@ -2594,6 +2600,25 @@ def test_specified_schema(tempdir, dataset_reader):
         dataset_reader.to_table(dataset)
 
 
+@pytest.mark.parquet
+def test_incompatible_schema_hang(tempdir, dataset_reader):
+    # ARROW-13480: deadlock when reading past an errored fragment
+    import pyarrow.parquet as pq
+
+    fn = tempdir / "data.parquet"
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, fn)
+
+    schema = pa.schema([('a', pa.null())])
+    dataset = ds.dataset([str(fn)] * 100, schema=schema)
+    assert dataset.schema.equals(schema)
+    scanner = dataset_reader.scanner(dataset)
+    reader = scanner.to_reader()
+    with pytest.raises(NotImplementedError,
+                       match='Unsupported cast from int64 to null'):
+        reader.read_all()
+
+
 def test_ipc_format(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
                       'b': pa.array([.1, .2, .3], type="float64")})
@@ -2612,6 +2637,67 @@ def test_ipc_format(tempdir, dataset_reader):
         dataset = ds.dataset(path, format=format_str)
         result = dataset_reader.to_table(dataset)
         assert result.equals(table)
+
+
+@pytest.mark.orc
+def test_orc_format(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format=ds.OrcFileFormat())
+    result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
+    assert result.equals(table)
+
+    dataset = ds.dataset(path, format="orc")
+    result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
+    assert result.equals(table)
+
+    result = dataset_reader.to_table(dataset, columns=["b"])
+    result.validate(full=True)
+    assert result.equals(table.select(["b"]))
+
+    assert dataset_reader.count_rows(dataset) == 3
+    assert dataset_reader.count_rows(dataset, filter=ds.field("a") > 2) == 1
+
+
+@pytest.mark.orc
+def test_orc_scan_options(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format="orc")
+    result = list(dataset_reader.to_batches(dataset))
+    assert len(result) == 1
+    assert result[0].num_rows == 3
+    assert result[0].equals(table.to_batches()[0])
+    # TODO batch_size is not yet supported (ARROW-14153)
+    # result = list(dataset_reader.to_batches(dataset, batch_size=2))
+    # assert len(result) == 2
+    # assert result[0].num_rows == 2
+    # assert result[0].equals(table.slice(0, 2).to_batches()[0])
+    # assert result[1].num_rows == 1
+    # assert result[1].equals(table.slice(2, 1).to_batches()[0])
+
+
+def test_orc_format_not_supported():
+    try:
+        from pyarrow.dataset import OrcFileFormat  # noqa
+    except ImportError:
+        # ORC is not available, test error message
+        with pytest.raises(
+            ValueError, match="not built with support for the ORC file"
+        ):
+            ds.dataset(".", format="orc")
 
 
 @pytest.mark.pandas
@@ -3231,6 +3317,76 @@ def test_write_dataset_partitioned(tempdir):
         partitioning=partitioning_schema)
 
 
+def test_write_dataset_with_field_names(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"])
+
+    load_back = ds.dataset(tempdir, partitioning=["b"])
+    files = load_back.files
+    partitioning_dirs = {
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in files
+    }
+    assert partitioning_dirs == {"x", "y", "z"}
+
+    load_back_table = load_back.to_table()
+    assert load_back_table.equals(table)
+
+
+def test_write_dataset_with_field_names_hive(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"], partitioning_flavor="hive")
+
+    load_back = ds.dataset(tempdir, partitioning="hive")
+    files = load_back.files
+    partitioning_dirs = {
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in files
+    }
+    assert partitioning_dirs == {"b=x", "b=y", "b=z"}
+
+    load_back_table = load_back.to_table()
+    assert load_back_table.equals(table)
+
+
+def test_write_dataset_with_scanner(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z'],
+                      'c': [1, 2, 3]})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"])
+
+    dataset = ds.dataset(tempdir, partitioning=["b"])
+
+    with tempfile.TemporaryDirectory() as tempdir2:
+        ds.write_dataset(dataset.scanner(columns=["b", "c"]), tempdir2,
+                         format='parquet', partitioning=["b"])
+
+        load_back = ds.dataset(tempdir2, partitioning=["b"])
+        load_back_table = load_back.to_table()
+        assert dict(load_back_table.to_pydict()
+                    ) == table.drop(["a"]).to_pydict()
+
+
+def test_write_dataset_with_dataset(tempdir):
+    table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"])
+
+    dataset = ds.dataset(tempdir, partitioning=["b"])
+
+    with tempfile.TemporaryDirectory() as tempdir2:
+        ds.write_dataset(dataset, tempdir2,
+                         format='parquet', partitioning=["b"])
+
+        load_back = ds.dataset(tempdir2, partitioning=["b"])
+        load_back_table = load_back.to_table()
+        assert dict(load_back_table.to_pydict()) == table.to_pydict()
+
+
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_write_dataset_partitioned_dict(tempdir):
@@ -3481,13 +3637,14 @@ def test_write_dataset_parquet(tempdir):
     assert result.equals(table)
 
     # using custom options
-    for version in ["1.0", "2.0"]:
+    for version in ["1.0", "2.4", "2.6"]:
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
-        assert meta.format_version == version
+        expected_version = "1.0" if version == "1.0" else "2.6"
+        assert meta.format_version == expected_version
 
 
 def test_write_dataset_csv(tempdir):

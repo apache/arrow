@@ -39,6 +39,8 @@ conda config --set auto_update_conda false
 conda config --set show_channel_urls True
 @rem Help with SSL timeouts to S3
 conda config --set remote_connect_timeout_secs 12
+@rem Workaround for ARROW-13636
+conda config --append disallowed_packages pypy3
 conda info -a
 
 @rem
@@ -68,6 +70,12 @@ if "%JOB%" NEQ "Build_Debug" (
     "fsspec" ^
     "python=%PYTHON%" ^
     || exit /B
+
+  @rem On Windows, GTest is always bundled from source instead of using
+  @rem conda binaries, avoid any interference between the two versions.
+  if "%JOB%" == "Toolchain" (
+    conda uninstall -n arrow -q -y -c conda-forge gtest
+  )
 )
 
 @rem

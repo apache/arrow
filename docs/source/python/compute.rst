@@ -22,12 +22,10 @@
 Compute Functions
 =================
 
-Arrow supports logical compute operations over inputs of possibly 
-varying types.  Many compute functions support both array (chunked or not) 
-and scalar inputs, but some will mandate either.  For example, 
-the ``fill_null`` function requires its second input to be a scalar, 
-while ``sort_indices`` requires its first and only input to
-be an array.
+Arrow supports logical compute operations over inputs of possibly
+varying types.  Many compute functions support both array (chunked or not)
+and scalar inputs, but some will mandate either.  For example,
+``sort_indices`` requires its first and only input to be an array.
 
 Below are a few simple examples:
 
@@ -44,10 +42,26 @@ Below are a few simple examples:
      true,
      true,
      false
-   ]   
+   ]
    >>> x, y = pa.scalar(7.8), pa.scalar(9.3)
    >>> pc.multiply(x, y)
    <pyarrow.DoubleScalar: 72.54>
+
+These functions can do more than just element-by-element operations.
+Here is an example of sorting a table:
+
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> t = pa.table({'x':[1,2,3],'y':[3,2,1]})
+    >>> i = pc.sort_indices(t, sort_keys=[('y', 'ascending')])
+    >>> i
+    <pyarrow.lib.UInt64Array object at 0x7fcee5df75e8>
+    [
+      2,
+      1,
+      0
+    ]
+
 
 
 .. seealso::

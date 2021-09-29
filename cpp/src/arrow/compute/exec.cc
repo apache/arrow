@@ -594,6 +594,16 @@ class KernelExecutorImpl : public KernelExecutor {
     return out;
   }
 
+  Status CheckResultType(const Datum& out, const char* function_name) override {
+    const auto& type = out.type();
+    if (type != nullptr && !type->Equals(output_descr_.type)) {
+      return Status::TypeError(
+          "kernel type result mismatch for function '", function_name, "': declared as ",
+          output_descr_.type->ToString(), ", actual is ", type->ToString());
+    }
+    return Status::OK();
+  }
+
   ExecContext* exec_context() { return kernel_ctx_->exec_context(); }
   KernelState* state() { return kernel_ctx_->state(); }
 
@@ -844,11 +854,6 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
 
  protected:
   Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
-    if (batch.length == 0) {
-      // Skip empty batches. This may only happen when not using
-      // ExecBatchIterator
-      return Status::OK();
-    }
     Datum out;
     if (output_descr_.shape == ValueDescr::ARRAY) {
       // We preallocate (maybe) only for the output of processing the current

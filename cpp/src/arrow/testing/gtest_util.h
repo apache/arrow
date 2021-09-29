@@ -32,6 +32,7 @@
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_compat.h"
@@ -159,10 +160,29 @@ using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
 
 using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
                                             Int8Type, Int16Type, Int32Type, Int64Type>;
+
+using PhysicalIntegralArrowTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, Date32Type, Date64Type, Time32Type, Time64Type,
+                     TimestampType, MonthIntervalType>;
+
+using PrimitiveArrowTypes =
+    ::testing::Types<BooleanType, Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
+                     UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
+
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
 using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+
+using BinaryArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
+
+using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
+
+using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
+
+using UnionArrowTypes = ::testing::Types<SparseUnionType, DenseUnionType>;
 
 class Array;
 class ChunkedArray;
@@ -317,6 +337,11 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 ARROW_TESTING_EXPORT
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
                                        util::string_view json);
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>&,
+                                           util::string_view index_json,
+                                           util::string_view dictionary_json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
@@ -486,6 +511,9 @@ std::vector<T> IteratorToVector(Iterator<T> iterator) {
   return out;
 }
 
+ARROW_TESTING_EXPORT
+bool LocaleExists(const char* locale);
+
 // A RAII-style object that switches to a new locale, and switches back
 // to the old locale when going out of scope.  Doesn't do anything if the
 // new locale doesn't exist on the local machine.
@@ -546,7 +574,7 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
   }
 }
 
-// A data type with only move constructors.
+// A data type with only move constructors (no copy, no default).
 struct MoveOnlyDataType {
   explicit MoveOnlyDataType(int x) : data(new int(x)) {}
 
@@ -556,6 +584,14 @@ struct MoveOnlyDataType {
   MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
   MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
     MoveFrom(&other);
+    return *this;
+  }
+
+  MoveOnlyDataType& operator=(int x) {
+    if (data != nullptr) {
+      delete data;
+    }
+    data = new int(x);
     return *this;
   }
 
@@ -578,10 +614,14 @@ struct MoveOnlyDataType {
 
   int ToInt() const { return data == nullptr ? -42 : *data; }
 
-  bool operator==(int other) const { return data != nullptr && *data == other; }
   bool operator==(const MoveOnlyDataType& other) const {
     return data != nullptr && other.data != nullptr && *data == *other.data;
   }
+  bool operator<(const MoveOnlyDataType& other) const {
+    return data == nullptr || (other.data != nullptr && *data < *other.data);
+  }
+
+  bool operator==(int other) const { return data != nullptr && *data == other; }
   friend bool operator==(int left, const MoveOnlyDataType& right) {
     return right == left;
   }

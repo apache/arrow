@@ -37,6 +37,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/mutex.h"
@@ -45,6 +46,9 @@
 #include "arrow/util/variant.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace dataset {
 
 Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
@@ -183,7 +187,7 @@ Future<util::optional<int64_t>> FileFragment::CountRows(
   if (!predicate.IsSatisfiable()) {
     return Future<util::optional<int64_t>>::MakeFinished(0);
   }
-  auto self = internal::checked_pointer_cast<FileFragment>(shared_from_this());
+  auto self = checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), options);
 }
 
@@ -388,8 +392,8 @@ class WriteQueue {
     auto dir =
         fs::internal::EnsureTrailingSlash(write_options.base_dir) + partition_expression_;
 
-    auto basename = internal::Replace(write_options.basename_template, kIntegerToken,
-                                      std::to_string(index_));
+    auto basename = ::arrow::internal::Replace(write_options.basename_template,
+                                               kIntegerToken, std::to_string(index_));
     if (!basename) {
       return Status::Invalid("string interpolation of basename template failed");
     }
@@ -455,15 +459,15 @@ Status WriteNextBatch(WriteState* state, const std::shared_ptr<Fragment>& fragme
       // lookup the queue to which batch should be appended
       auto queues_lock = state->mutex.Lock();
 
-      queue = internal::GetOrInsertGenerated(
+      queue = ::arrow::internal::GetOrInsertGenerated(
                   &state->queues, std::move(part),
                   [&](const std::string& emplaced_part) {
                     // lookup in `queues` also failed,
                     // generate a new WriteQueue
                     size_t queue_index = state->queues.size() - 1;
 
-                    return internal::make_unique<WriteQueue>(emplaced_part, queue_index,
-                                                             batch->schema());
+                    return ::arrow::internal::make_unique<WriteQueue>(
+                        emplaced_part, queue_index, batch->schema());
                   })
                   ->second.get();
     }
@@ -493,10 +497,8 @@ Status WriteInternal(const ScanOptions& scan_options, WriteState* state,
           [&](std::shared_ptr<RecordBatch> batch) {
             return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
           };
-      return internal::RunSynchronously<Future<>>(
-          [&](internal::Executor* executor) {
-            return scan_task->SafeVisit(executor, visitor);
-          },
+      return ::arrow::internal::RunSynchronously<Future<>>(
+          [&](Executor* executor) { return scan_task->SafeVisit(executor, visitor); },
           /*use_threads=*/false);
     });
   }
@@ -521,23 +523,13 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // NB: neither of these will have any impact whatsoever on the common case of writing
   //     an in-memory table to disk.
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
+  ARROW_SUPPRESS_DEPRECATION_WARNING
 
   // TODO(ARROW-11782/ARROW-12288) Remove calls to Scan()
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
   ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#elif defined(_MSC_VER)
-#pragma warning(pop)
-#endif
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   WriteState state(write_options);
   RETURN_NOT_OK(WriteInternal(*scanner->options(), &state, std::move(scan_tasks)));

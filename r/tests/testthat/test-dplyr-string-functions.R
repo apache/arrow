@@ -19,6 +19,7 @@ skip_if_not_available("dataset")
 skip_if_not_available("utf8proc")
 
 library(dplyr)
+library(lubridate)
 library(stringr)
 library(stringi)
 
@@ -410,49 +411,63 @@ test_that("strsplit and str_split", {
     input %>%
       mutate(x = strsplit(x, "and")) %>%
       collect(),
-    df
+    df,
+    # Pass check.attributes = FALSE through to expect_equal
+    # (which gives you expect_equivalent() behavior).
+    # This is because the vctr that comes back from arrow (ListArray)
+    # has type information in it, but it's just a bare list from R/dplyr.
+    # Note also that whenever we bump up to testthat 3rd edition (ARROW-12871),
+    # the parameter is called `ignore_attr = TRUE`
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, " +and +")) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and")) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and", n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, fixed("and"), n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, regex("and"), n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "Foo|bar", n = 2)) %>%
       collect(),
-    df
+    df,
+    check.attributes = FALSE
   )
 })
 
@@ -716,6 +731,136 @@ test_that("errors in strptime", {
   expect_error(
     nse_funcs$strptime(x, tz = "PDT"),
     "Time zone argument not supported by Arrow"
+  )
+})
+
+test_that("strftime", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  times <- tibble(
+    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
+    date = c(as.Date("2021-09-09"), NA)
+  )
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(datetime, format = formats)) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(date, format = formats)) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(datetime, format = formats, tz = "Pacific/Marquesas")) %>%
+      collect(),
+    times
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  withr::with_timezone("Pacific/Marquesas",
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = strftime(datetime, format = formats, tz = "EST")) %>%
+        collect(),
+      times
+    )
+  )
+
+  # This check is due to differences in the way %c currently works in Arrow and R's strftime.
+  # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
+  expect_error(
+    times %>%
+      Table$create() %>%
+      mutate(x = strftime(datetime, format = "%c")) %>%
+      collect(),
+    "%c flag is not supported in non-C locales."
+  )
+
+  # Output precision of %S depends on the input timestamp precision.
+  # Timestamps with second precision are represented as integers while
+  # milliseconds, microsecond and nanoseconds are represented as fixed floating
+  # point numbers with 3, 6 and 9 decimal places respectively.
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strftime(datetime, format = "%S")) %>%
+      transmute(as.double(substr(x, 1, 2))) %>%
+      collect(),
+    times,
+    tolerance = 1e-6
+  )
+})
+
+test_that("format_ISO8601", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
+      collect(),
+    times
+  )
+
+  if (getRversion() < "3.5") {
+    # before 3.5, times$x will have no timezone attribute, so Arrow faithfully
+    # errors that there is no timezone to format:
+    expect_error(
+      times %>%
+        Table$create() %>%
+        mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
+        collect(),
+      "Timezone not present, cannot convert to string with timezone: %Y-%m-%d%z"
+    )
+
+    # See comment regarding %S flag in strftime tests
+    expect_error(
+      times %>%
+        Table$create() %>%
+        mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
+        mutate(x = gsub("\\.0*", "", x)) %>%
+        collect(),
+      "Timezone not present, cannot convert to string with timezone: %Y-%m-%dT%H:%M:%S%z"
+    )
+  } else {
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
+        collect(),
+      times
+    )
+
+    # See comment regarding %S flag in strftime tests
+    expect_dplyr_equal(
+      input %>%
+        mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
+        mutate(x = gsub("\\.0*", "", x)) %>%
+        collect(),
+      times
+    )
+  }
+
+
+  # See comment regarding %S flag in strftime tests
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = FALSE)) %>%
+      mutate(x = gsub("\\.0*", "", x)) %>%
+      collect(),
+    times
   )
 })
 

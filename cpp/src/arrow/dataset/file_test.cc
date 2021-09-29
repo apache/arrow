@@ -34,10 +34,12 @@
 #include "arrow/util/io_util.h"
 
 namespace arrow {
+
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using fs::internal::GetAbstractPathExtension;
-using internal::TemporaryDir;
 using testing::ContainerEq;
 
 TEST(FileSource, PathBased) {

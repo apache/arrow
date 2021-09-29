@@ -25,6 +25,8 @@
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/type.hpp>
 
+#include <arrow/c/bridge.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -194,6 +196,58 @@ garrow_data_type_class_init(GArrowDataTypeClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATA_TYPE, spec);
+}
+
+/**
+ * garrow_data_type_import:
+ * @c_abi_schema: (not nullable): A `struct ArrowSchema *`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported #GArrowDataType on success,
+ *   %NULL on error.
+ *
+ *   You don't need to release the passed `struct ArrowSchema *`,
+ *   even if this function reports an error.
+ *
+ * Since: 6.0.0
+ */
+GArrowDataType *
+garrow_data_type_import(gpointer c_abi_schema, GError **error)
+{
+  auto arrow_data_type_result =
+    arrow::ImportType(static_cast<ArrowSchema *>(c_abi_schema));
+  if (garrow::check(error, arrow_data_type_result, "[data-type][import]")) {
+    return garrow_data_type_new_raw(&(*arrow_data_type_result));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_data_type_export:
+ * @data_type: A #GArrowDataType.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An exported #GArrowDataType as
+ *   `struct ArrowStruct *` on success, %NULL on error.
+ *
+ *   It should be freed with the `ArrowSchema::release` callback then
+ *   g_free() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gpointer
+garrow_data_type_export(GArrowDataType *data_type, GError **error)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto c_abi_schema = g_new(ArrowSchema, 1);
+  auto status = arrow::ExportType(*arrow_data_type, c_abi_schema);
+  if (garrow::check(error, status, "[data-type][export]")) {
+    return c_abi_schema;
+  } else {
+    g_free(c_abi_schema);
+    return NULL;
+  }
 }
 
 /**

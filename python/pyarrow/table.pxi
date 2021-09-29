@@ -170,15 +170,25 @@ cdef class ChunkedArray(_PandasConvertible):
             else:
                 index -= self.chunked_array.chunk(j).get().length()
 
-    def is_null(self):
+    def is_null(self, *, nan_is_null=False):
         """
-        Return BooleanArray indicating the null values.
+        Return boolean array indicating the null values.
+
+        Parameters
+        ----------
+        nan_is_null : bool (optional, default False)
+            Whether floating-point NaN values should also be considered null.
+
+        Returns
+        -------
+        array : boolean Array or ChunkedArray
         """
-        return _pc().is_null(self)
+        options = _pc().NullOptions(nan_is_null=nan_is_null)
+        return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
         """
-        Return BooleanArray indicating the non-null values.
+        Return boolean array indicating the non-null values.
         """
         return _pc().is_valid(self)
 
@@ -396,6 +406,13 @@ cdef class ChunkedArray(_PandasConvertible):
         usage.
         """
         return _pc().take(self, indices)
+
+    def drop_null(self):
+        """
+        Remove missing values from a chunked array.
+        See pyarrow.compute.drop_null for full description.
+        """
+        return _pc().drop_null(self)
 
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
@@ -914,7 +931,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         return pyarrow_wrap_batch(result)
 
-    def filter(self, Array mask, object null_selection_behavior="drop"):
+    def filter(self, mask, object null_selection_behavior="drop"):
         """
         Select record from a record batch. See pyarrow.compute.filter for full
         usage.
@@ -951,10 +968,17 @@ cdef class RecordBatch(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select records from an RecordBatch. See pyarrow.compute.take for full
+        Select records from a RecordBatch. See pyarrow.compute.take for full
         usage.
         """
         return _pc().take(self, indices)
+
+    def drop_null(self):
+        """
+        Remove missing values from a RecordBatch.
+        See pyarrow.compute.drop_null for full usage.
+        """
+        return _pc().drop_null(self)
 
     def to_pydict(self):
         """
@@ -1318,10 +1342,17 @@ cdef class Table(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select records from an Table. See :func:`pyarrow.compute.take` for full
+        Select records from a Table. See :func:`pyarrow.compute.take` for full
         usage.
         """
         return _pc().take(self, indices)
+
+    def drop_null(self):
+        """
+        Remove missing values from a Table.
+        See :func:`pyarrow.compute.drop_null` for full usage.
+        """
+        return _pc().drop_null(self)
 
     def select(self, object columns):
         """

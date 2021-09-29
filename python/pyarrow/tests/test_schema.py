@@ -606,7 +606,9 @@ def test_type_schema_pickling():
         pa.decimal256(76, 38),
         pa.field('a', 'string', metadata={b'foo': b'bar'}),
         pa.list_(pa.field("element", pa.int64())),
-        pa.large_list(pa.field("element", pa.int64()))
+        pa.large_list(pa.field("element", pa.int64())),
+        pa.map_(pa.field("key", pa.string(), nullable=False),
+                pa.field("value", pa.int8()))
     ]
 
     for val in cases:
@@ -710,6 +712,10 @@ def test_schema_merge():
 
     with pytest.raises(pa.ArrowInvalid):
         pa.unify_schemas([b, d])
+
+    # ARROW-14002: Try with tuple instead of list
+    result = pa.unify_schemas((a, b, c))
+    assert result.equals(expected)
 
 
 def test_undecodable_metadata():

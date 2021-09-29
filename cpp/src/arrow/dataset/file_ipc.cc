@@ -124,23 +124,38 @@ class IpcScanTask : public ScanTask {
         ARROW_ASSIGN_OR_RAISE(auto options,
                               GetReadOptions(*reader->schema(), format, scan_options));
         ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
-        return RecordBatchIterator(Impl{std::move(reader), 0});
+        return RecordBatchIterator(
+            Impl{std::move(reader), scan_options.batch_size, nullptr, 0});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
+        if (leftover_) {
+          if (leftover_->num_rows() > batch_size) {
+            auto chunk = leftover_->Slice(0, batch_size);
+            leftover_ = leftover_->Slice(batch_size);
+            return chunk;
+          }
+          return std::move(leftover_);
+        }
         if (i_ == reader_->num_record_batches()) {
           return nullptr;
         }
 
-        return reader_->ReadRecordBatch(i_++);
+        ARROW_ASSIGN_OR_RAISE(auto batch, reader_->ReadRecordBatch(i_++));
+        if (batch->num_rows() > batch_size) {
+          leftover_ = batch->Slice(batch_size);
+          return batch->Slice(0, batch_size);
+        }
+        return batch;
       }
 
       std::shared_ptr<ipc::RecordBatchFileReader> reader_;
+      const int64_t batch_size;
+      std::shared_ptr<RecordBatch> leftover_;
       int i_;
     };
 
-    return Impl::Make(source_,
-                      *internal::checked_pointer_cast<FileFragment>(fragment_)->format(),
+    return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),
                       *options_);
   }
 
@@ -216,15 +231,16 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     RecordBatchGenerator generator;
     if (ipc_scan_options->cache_options) {
       // Transferring helps performance when coalescing
-      ARROW_ASSIGN_OR_RAISE(
-          generator, reader->GetRecordBatchGenerator(
-                         /*coalesce=*/true, options->io_context,
-                         *ipc_scan_options->cache_options, internal::GetCpuThreadPool()));
+      ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
+                                           /*coalesce=*/true, options->io_context,
+                                           *ipc_scan_options->cache_options,
+                                           ::arrow::internal::GetCpuThreadPool()));
     } else {
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
-    return MakeReadaheadGenerator(std::move(generator), readahead_level);
+    auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
+    return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };
   return MakeFromFuture(open_reader.Then(reopen_reader).Then(open_generator));
 }
@@ -235,7 +251,7 @@ Future<util::optional<int64_t>> IpcFileFormat::CountRows(
   if (ExpressionHasFieldRefs(predicate)) {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
-  auto self = internal::checked_pointer_cast<IpcFileFormat>(shared_from_this());
+  auto self = checked_pointer_cast<IpcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
       [self, file]() -> Result<util::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));

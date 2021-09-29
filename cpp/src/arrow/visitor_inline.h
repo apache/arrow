@@ -65,6 +65,7 @@ namespace arrow {
   ACTION(Timestamp);                            \
   ACTION(Time32);                               \
   ACTION(Time64);                               \
+  ACTION(MonthDayNanoInterval);                 \
   ACTION(MonthInterval);                        \
   ACTION(DayTimeInterval);                      \
   ACTION(Decimal128);                           \

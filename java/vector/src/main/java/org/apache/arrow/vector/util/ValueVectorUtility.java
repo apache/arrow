@@ -19,6 +19,8 @@ package org.apache.arrow.vector.util;
 
 import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 
+import java.util.function.BiFunction;
+
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.ValueVector;
@@ -37,7 +39,7 @@ public class ValueVectorUtility {
 
   /**
    * Get the toString() representation of vector suitable for debugging.
-   * Note since vectors may have millions of values, this method only show max 20 values.
+   * Note since vectors may have millions of values, this method only shows max 20 values.
    * Examples as below (v represents value):
    * <li>
    *   vector with 0 value:
@@ -52,7 +54,20 @@ public class ValueVectorUtility {
    *  [v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, ..., v90, v91, v92, v93, v94, v95, v96, v97, v98, v99]
    * </li>
    */
-  public static String getToString(ValueVector vector, int start, int end) {
+  public static <V extends ValueVector> String getToString(V vector, int start, int end) {
+    return getToString(vector, start, end, (v, i) -> v.getObject(i));
+  }
+
+  /**
+   * Get the toString() representation of vector suitable for debugging.
+   * Note since vectors may have millions of values, this method only shows at most 20 values.
+   * @param vector the vector for which to get toString representation.
+   * @param start the starting index, inclusive.
+   * @param end the end index, exclusive.
+   * @param valueToString the function to transform individual elements to strings.
+   */
+  public static <V extends ValueVector> String getToString(
+      V vector, int start, int end, BiFunction<V, Integer, Object> valueToString) {
     Preconditions.checkNotNull(vector);
     final int length = end - start;
     Preconditions.checkArgument(length >= 0);
@@ -77,7 +92,7 @@ public class ValueVectorUtility {
         i = end - window - 1;
         skipComma = true;
       } else {
-        sb.append(vector.getObject(i));
+        sb.append(valueToString.apply(vector, i));
       }
 
       if (i == end - 1) {

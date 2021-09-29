@@ -36,6 +36,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -48,6 +49,10 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+
+#ifdef ARROW_CSV
+#include "arrow/csv/api.h"
+#endif
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -1238,11 +1243,11 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compatibility) {
   ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
 
-  // Parquet 2.0 roundtrip should yield an uint32_t column again
+  // Parquet 2.4 roundtrip should yield an uint32_t column again
   this->ResetSink();
   std::shared_ptr<::parquet::WriterProperties> properties =
       ::parquet::WriterProperties::Builder()
-          .version(ParquetVersion::PARQUET_2_0)
+          .version(ParquetVersion::PARQUET_2_4)
           ->build();
   ASSERT_OK_NO_THROW(
       WriteTable(*table, default_memory_pool(), this->sink_, 512, properties));
@@ -1941,27 +1946,42 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
   auto input_table = Table::Make(input_schema, {a_s, a_ms, a_us, a_ns});
 
   auto parquet_version_1_properties = ::parquet::default_writer_properties();
-  auto parquet_version_2_properties = ::parquet::WriterProperties::Builder()
-                                          .version(ParquetVersion::PARQUET_2_0)
-                                          ->build();
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  auto parquet_version_2_0_properties = ::parquet::WriterProperties::Builder()
+                                            .version(ParquetVersion::PARQUET_2_0)
+                                            ->build();
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  auto parquet_version_2_4_properties = ::parquet::WriterProperties::Builder()
+                                            .version(ParquetVersion::PARQUET_2_4)
+                                            ->build();
+  auto parquet_version_2_6_properties = ::parquet::WriterProperties::Builder()
+                                            .version(ParquetVersion::PARQUET_2_6)
+                                            ->build();
+  const std::vector<std::shared_ptr<WriterProperties>> all_properties = {
+      parquet_version_1_properties, parquet_version_2_0_properties,
+      parquet_version_2_4_properties, parquet_version_2_6_properties};
 
   {
-    // Using Parquet version 1.0 defaults, seconds should be coerced to milliseconds
-    // and nanoseconds should be coerced to microseconds
+    // Using Parquet version 1.0 and 2.4 defaults, seconds should be coerced to
+    // milliseconds and nanoseconds should be coerced to microseconds
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_us), field("ts:ns", t_us)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_us});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_1_properties));
+    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
+                                                     parquet_version_2_4_properties));
   }
   {
-    // Using Parquet version 2.0 defaults, seconds should be coerced to milliseconds
-    // and nanoseconds should be retained
+    // Using Parquet version 2.0 and 2.6 defaults, seconds should be coerced to
+    // milliseconds and nanoseconds should be retained
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_us), field("ts:ns", t_ns)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_ns});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_properties));
+                                                     parquet_version_2_0_properties));
+    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
+                                                     parquet_version_2_6_properties));
   }
 
   auto arrow_coerce_to_seconds_properties =
@@ -1972,85 +1992,61 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build();
   auto arrow_coerce_to_nanos_properties =
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::NANO)->build();
-  {
-    // Neither Parquet version 1.0 nor 2.0 allow coercing to seconds
-    std::shared_ptr<Table> actual_table;
-    ASSERT_RAISES(
-        NotImplemented,
-        WriteTable(*input_table, ::arrow::default_memory_pool(), CreateOutputStream(),
-                   input_table->num_rows(), parquet_version_1_properties,
-                   arrow_coerce_to_seconds_properties));
-    ASSERT_RAISES(
-        NotImplemented,
-        WriteTable(*input_table, ::arrow::default_memory_pool(), CreateOutputStream(),
-                   input_table->num_rows(), parquet_version_2_properties,
-                   arrow_coerce_to_seconds_properties));
-  }
-  {
-    // Using Parquet version 1.0, coercing to milliseconds or microseconds is allowed
+
+  for (const auto& properties : all_properties) {
+    // Using all Parquet versions, coercing to milliseconds or microseconds is allowed
+    ARROW_SCOPED_TRACE("format = ", ParquetVersionToString(properties->version()));
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_ms), field("ts:ns", t_ms)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_ms, a_ms});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_1_properties,
-                                                     arrow_coerce_to_millis_properties));
+    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(
+        input_table, expected_table, properties, arrow_coerce_to_millis_properties));
 
     expected_schema = schema({field("ts:s", t_us), field("ts:ms", t_us),
                               field("ts:us", t_us), field("ts:ns", t_us)});
     expected_table = Table::Make(expected_schema, {a_us, a_us, a_us, a_us});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_1_properties,
-                                                     arrow_coerce_to_micros_properties));
-  }
-  {
-    // Using Parquet version 2.0, coercing to milliseconds or microseconds is allowed
-    auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
-                                   field("ts:us", t_ms), field("ts:ns", t_ms)});
-    auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_ms, a_ms});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_properties,
-                                                     arrow_coerce_to_millis_properties));
+    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(
+        input_table, expected_table, properties, arrow_coerce_to_micros_properties));
 
-    expected_schema = schema({field("ts:s", t_us), field("ts:ms", t_us),
-                              field("ts:us", t_us), field("ts:ns", t_us)});
-    expected_table = Table::Make(expected_schema, {a_us, a_us, a_us, a_us});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_properties,
-                                                     arrow_coerce_to_micros_properties));
-  }
-  {
-    // Using Parquet version 1.0, coercing to (int64) nanoseconds is not allowed
+    // Neither Parquet version allows coercing to seconds
     std::shared_ptr<Table> actual_table;
-    ASSERT_RAISES(
-        NotImplemented,
-        WriteTable(*input_table, ::arrow::default_memory_pool(), CreateOutputStream(),
-                   input_table->num_rows(), parquet_version_1_properties,
-                   arrow_coerce_to_nanos_properties));
+    ASSERT_RAISES(NotImplemented,
+                  WriteTable(*input_table, ::arrow::default_memory_pool(),
+                             CreateOutputStream(), input_table->num_rows(), properties,
+                             arrow_coerce_to_seconds_properties));
   }
-  {
-    // Using Parquet version 2.0, coercing to (int64) nanoseconds is allowed
+  // Using Parquet versions 1.0 and 2.4, coercing to (int64) nanoseconds is not allowed
+  for (const auto& properties :
+       {parquet_version_1_properties, parquet_version_2_4_properties}) {
+    ARROW_SCOPED_TRACE("format = ", ParquetVersionToString(properties->version()));
+    std::shared_ptr<Table> actual_table;
+    ASSERT_RAISES(NotImplemented,
+                  WriteTable(*input_table, ::arrow::default_memory_pool(),
+                             CreateOutputStream(), input_table->num_rows(), properties,
+                             arrow_coerce_to_nanos_properties));
+  }
+  // Using Parquet versions "2.0" and 2.6, coercing to (int64) nanoseconds is allowed
+  for (const auto& properties :
+       {parquet_version_2_0_properties, parquet_version_2_6_properties}) {
+    ARROW_SCOPED_TRACE("format = ", ParquetVersionToString(properties->version()));
     auto expected_schema = schema({field("ts:s", t_ns), field("ts:ms", t_ns),
                                    field("ts:us", t_ns), field("ts:ns", t_ns)});
     auto expected_table = Table::Make(expected_schema, {a_ns, a_ns, a_ns, a_ns});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_properties,
-                                                     arrow_coerce_to_nanos_properties));
+    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(
+        input_table, expected_table, properties, arrow_coerce_to_nanos_properties));
   }
 
+  // Using all Parquet versions, coercing to nanoseconds is allowed if Int96
+  // storage is used
   auto arrow_enable_int96_properties =
       ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build();
-  {
-    // For either Parquet version, coercing to nanoseconds is allowed if Int96
-    // storage is used
+  for (const auto& properties : all_properties) {
+    ARROW_SCOPED_TRACE("format = ", ParquetVersionToString(properties->version()));
     auto expected_schema = schema({field("ts:s", t_ns), field("ts:ms", t_ns),
                                    field("ts:us", t_ns), field("ts:ns", t_ns)});
     auto expected_table = Table::Make(expected_schema, {a_ns, a_ns, a_ns, a_ns});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_1_properties,
-                                                     arrow_enable_int96_properties));
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_properties,
-                                                     arrow_enable_int96_properties));
+    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(
+        input_table, expected_table, properties, arrow_enable_int96_properties));
   }
 }
 
@@ -3796,6 +3792,110 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
 }
 
+class TestArrowWriteDictionary : public ::testing::TestWithParam<ParquetDataPageVersion> {
+ public:
+  ParquetDataPageVersion GetParquetDataPageVersion() { return GetParam(); }
+};
+
+TEST_P(TestArrowWriteDictionary, Statistics) {
+  std::vector<std::shared_ptr<::arrow::Array>> test_dictionaries = {
+      ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a", "b", "c", "d", "a"])"),
+      ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a", "b", "c", "d", "a"])"),
+      ArrayFromJSON(::arrow::binary(), R"(["d", "c", "b", "a", "d", "c", "b", "a"])"),
+      ArrayFromJSON(::arrow::large_utf8(), R"(["a", "b", "c", "a", "b", "c"])")};
+  std::vector<std::shared_ptr<::arrow::Array>> test_indices = {
+      ArrayFromJSON(::arrow::int32(), R"([0, null, 3, 0, null, 3])"),
+      ArrayFromJSON(::arrow::int32(), R"([0, 1, null, 0, 1, null])"),
+      ArrayFromJSON(::arrow::int32(), R"([0, 1, 3, 0, 1, 3])"),
+      ArrayFromJSON(::arrow::int32(), R"([null, null, null, null, null, null])")};
+  // Arrays will be written with 3 values per row group, 2 values per data page.  The
+  // row groups are identical for ease of testing.
+  std::vector<int32_t> expected_valid_counts = {2, 2, 3, 0};
+  std::vector<int32_t> expected_null_counts = {1, 1, 0, 3};
+  std::vector<int> expected_num_data_pages = {2, 2, 2, 1};
+  std::vector<std::vector<int32_t>> expected_valid_by_page = {
+      {1, 1}, {2, 0}, {2, 1}, {0}};
+  std::vector<std::vector<int64_t>> expected_null_by_page = {{1, 0}, {0, 1}, {0, 0}, {3}};
+  std::vector<int32_t> expected_dict_counts = {4, 4, 4, 3};
+  // Pairs of (min, max)
+  std::vector<std::vector<std::string>> expected_min_max_ = {
+      {"a", "b"}, {"b", "c"}, {"a", "d"}, {"", ""}};
+
+  for (std::size_t case_index = 0; case_index < test_dictionaries.size(); case_index++) {
+    SCOPED_TRACE(test_dictionaries[case_index]->type()->ToString());
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<::arrow::Array> dict_encoded,
+                         ::arrow::DictionaryArray::FromArrays(
+                             test_indices[case_index], test_dictionaries[case_index]));
+    std::shared_ptr<::arrow::Schema> schema =
+        ::arrow::schema({::arrow::field("values", dict_encoded->type())});
+    std::shared_ptr<::arrow::Table> table = ::arrow::Table::Make(schema, {dict_encoded});
+
+    std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+    auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+    std::shared_ptr<WriterProperties> writer_properties =
+        WriterProperties::Builder()
+            .max_row_group_length(3)
+            ->data_page_version(this->GetParquetDataPageVersion())
+            ->write_batch_size(2)
+            ->data_pagesize(2)
+            ->build();
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK(FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                               writer_properties, default_arrow_writer_properties(),
+                               &writer));
+    ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK(out_stream->Close());
+
+    auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+    std::unique_ptr<ParquetFileReader> parquet_reader =
+        ParquetFileReader::Open(std::move(buffer_reader));
+
+    // Check row group statistics
+    std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
+    ASSERT_EQ(metadata->num_row_groups(), 2);
+    for (int row_group_index = 0; row_group_index < 2; row_group_index++) {
+      ASSERT_EQ(metadata->RowGroup(row_group_index)->num_columns(), 1);
+      std::shared_ptr<Statistics> stats =
+          metadata->RowGroup(row_group_index)->ColumnChunk(0)->statistics();
+
+      EXPECT_EQ(stats->num_values(), expected_valid_counts[case_index]);
+      EXPECT_EQ(stats->null_count(), expected_null_counts[case_index]);
+
+      std::vector<std::string> case_expected_min_max = expected_min_max_[case_index];
+      EXPECT_EQ(stats->EncodeMin(), case_expected_min_max[0]);
+      EXPECT_EQ(stats->EncodeMax(), case_expected_min_max[1]);
+    }
+
+    for (int row_group_index = 0; row_group_index < 2; row_group_index++) {
+      std::unique_ptr<PageReader> page_reader =
+          parquet_reader->RowGroup(row_group_index)->GetColumnPageReader(0);
+      std::shared_ptr<Page> page = page_reader->NextPage();
+      ASSERT_NE(page, nullptr);
+      DictionaryPage* dict_page = (DictionaryPage*)page.get();
+      ASSERT_EQ(dict_page->num_values(), expected_dict_counts[case_index]);
+      for (int page_index = 0; page_index < expected_num_data_pages[case_index];
+           page_index++) {
+        page = page_reader->NextPage();
+        ASSERT_NE(page, nullptr);
+        DataPage* data_page = (DataPage*)page.get();
+        const EncodedStatistics& stats = data_page->statistics();
+        EXPECT_EQ(stats.null_count, expected_null_by_page[case_index][page_index]);
+        EXPECT_EQ(stats.has_min, false);
+        EXPECT_EQ(stats.has_max, false);
+        EXPECT_EQ(data_page->num_values(),
+                  expected_valid_by_page[case_index][page_index] +
+                      expected_null_by_page[case_index][page_index]);
+      }
+      ASSERT_EQ(page_reader->NextPage(), nullptr);
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(WriteDictionary, TestArrowWriteDictionary,
+                         ::testing::Values(ParquetDataPageVersion::V1,
+                                           ParquetDataPageVersion::V2));
+
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
 
@@ -3904,6 +4004,7 @@ TEST_P(TestArrowReadDictionary, ZeroChunksListOfDictionary) {
   auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{},
                                                ::arrow::list(::arrow::utf8()));
   options.num_rows = 0;
+  options.num_uniques = 0;
   options.num_row_groups = 1;
   expected_dense_ = MakeSimpleTable(values, false);
 
@@ -3964,6 +4065,7 @@ TEST_P(TestArrowReadDictionary, StreamReadWholeFileDict) {
   // Recompute generated data with only one row-group
   options.num_row_groups = 1;
   options.num_rows = 16;
+  options.num_uniques = 7;
   SetUp();
   WriteSimple();
 
@@ -4055,6 +4157,39 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
 
   ::arrow::AssertTablesEqual(*table, *actual);
 }
+
+#ifdef ARROW_CSV
+TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
+  auto file = test::get_data_file("delta_binary_packed.parquet");
+  auto expect_file = test::get_data_file("delta_binary_packed_expect.csv");
+  auto pool = ::arrow::default_memory_pool();
+  std::unique_ptr<FileReader> parquet_reader;
+  std::shared_ptr<::arrow::Table> table;
+  ASSERT_OK(
+      FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), &parquet_reader));
+  ASSERT_OK(parquet_reader->ReadTable(&table));
+
+  ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(expect_file));
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  for (int i = 0; i <= 64; ++i) {
+    std::string column_name = "bitwidth" + std::to_string(i);
+    convert_options.column_types[column_name] = ::arrow::int64();
+  }
+  convert_options.column_types["int_value"] = ::arrow::int32();
+  ASSERT_OK_AND_ASSIGN(auto csv_reader,
+                       ::arrow::csv::TableReader::Make(
+                           ::arrow::io::default_io_context(), input_file,
+                           ::arrow::csv::ReadOptions::Defaults(),
+                           ::arrow::csv::ParseOptions::Defaults(), convert_options));
+  ASSERT_OK_AND_ASSIGN(auto expect_table, csv_reader->Read());
+
+  ::arrow::AssertTablesEqual(*table, *expect_table);
+}
+#else
+TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+#endif
 
 }  // namespace arrow
 }  // namespace parquet

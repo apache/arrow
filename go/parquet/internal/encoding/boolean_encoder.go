@@ -69,16 +69,16 @@ func (enc *PlainBooleanEncoder) PutSpaced(in []bool, validBits []byte, validBits
 // EstimatedDataEncodedSize returns the current number of bytes that have
 // been buffered so far
 func (enc *PlainBooleanEncoder) EstimatedDataEncodedSize() int64 {
-	return int64(enc.sink.Len() + int(bitutil.BytesForBits(enc.wr.Pos())))
+	return int64(enc.sink.Len() + int(bitutil.BytesForBits(int64(enc.wr.Pos()))))
 }
 
 // FlushValues returns the buffered data, the responsibility is on the caller
 // to release the buffer memory
-func (enc *PlainBooleanEncoder) FlushValues() Buffer {
+func (enc *PlainBooleanEncoder) FlushValues() (Buffer, error) {
 	if enc.wr.Pos() > 0 {
 		toFlush := int(enc.wr.Pos())
 		enc.append(enc.bitsBuffer[:bitutil.BytesForBits(int64(toFlush))])
 	}
 
-	return enc.sink.Finish()
+	return enc.sink.Finish(), nil
 }

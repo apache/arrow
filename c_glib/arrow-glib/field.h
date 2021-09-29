@@ -34,11 +34,21 @@ struct _GArrowFieldClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+GArrowField *
+garrow_field_import(gpointer c_abi_schema,
+                    GError **error);
+
 GArrowField    *garrow_field_new           (const gchar *name,
                                             GArrowDataType *data_type);
 GArrowField    *garrow_field_new_full      (const gchar *name,
                                             GArrowDataType *data_type,
                                             gboolean nullable);
+
+GARROW_AVAILABLE_IN_6_0
+gpointer
+garrow_field_export(GArrowField *field,
+                    GError **error);
 
 const gchar    *garrow_field_get_name      (GArrowField *field);
 GArrowDataType *garrow_field_get_data_type (GArrowField *field);

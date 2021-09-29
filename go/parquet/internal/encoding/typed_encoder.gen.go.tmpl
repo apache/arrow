@@ -60,13 +60,13 @@ type {{.lower}}EncoderTraits struct{}
 // dictionary encoding does not exist for this type and Encoder will panic if useDict is true
 {{- end }}
 func ({{.lower}}EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
-  {{/* if useDict {
+  if useDict {
 {{- if or (eq .Name "Boolean") (eq .Name "Int96")}}
     panic("parquet: no {{.name}} dictionary encoding")
 {{- else}}
     return &Dict{{.Name}}Encoder{newDictEncoderBase(descr, New{{if and (ne .Name "ByteArray") (ne .Name "FixedLenByteArray")}}{{.Name}}Dictionary(){{else}}BinaryDictionary(mem){{end}}, mem)}
 {{- end}}
-  } */}}
+  }
 
   switch e {
   case format.Encoding_PLAIN:
