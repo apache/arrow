@@ -43,6 +43,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
+  @ClassRule
+  public static RootAllocatorTestRule rule = new RootAllocatorTestRule();
   private static UInt4Vector int4Vector;
   private static UInt8Vector int8Vector;
   private static IntVector intVectorWithNull;
@@ -50,34 +52,30 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   private static SmallIntVector smallIntVector;
   private static IntVector intVector;
   private static BigIntVector bigIntVector;
-
-  @ClassRule
-  public static RootAllocatorTestRule rule = new RootAllocatorTestRule();
-
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor>
-      accessorSupplier = (vector, getCurrentRow) -> {
-    if (vector instanceof UInt1Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow);
-    } else if (vector instanceof UInt2Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow);
-    } else if (vector instanceof UInt4Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow);
-    } else if (vector instanceof UInt8Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow);
-    } else if (vector instanceof TinyIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow);
-    } else if (vector instanceof SmallIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow);
-    } else if (vector instanceof IntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow);
-    } else if (vector instanceof BigIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow);
-    }
-    return null;
-  };
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor> accessorSupplier =
+      (vector, getCurrentRow) -> {
+        if (vector instanceof UInt1Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow);
+        } else if (vector instanceof UInt2Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow);
+        } else if (vector instanceof UInt4Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow);
+        } else if (vector instanceof UInt8Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow);
+        } else if (vector instanceof TinyIntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow);
+        } else if (vector instanceof SmallIntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow);
+        } else if (vector instanceof IntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow);
+        } else if (vector instanceof BigIntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow);
+        }
+        return null;
+      };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor> accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);

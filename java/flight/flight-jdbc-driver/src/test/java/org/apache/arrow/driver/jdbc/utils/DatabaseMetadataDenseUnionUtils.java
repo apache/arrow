@@ -60,8 +60,8 @@ public final class DatabaseMetadataDenseUnionUtils {
    * @param root       the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
    * @param index      the index to {@link DenseUnionVector#setSafe}.
    * @param typeId     the {@link DenseUnionVector#registerNewTypeId} output for the given type to be registered.
-   * @param dataSetter the {@link Consumer<DenseUnionVector>} that should decide which {@link DenseUnionVector#setSafe}
-   *                   to use.
+   * @param dataSetter the {@link Consumer}&lt;{@link DenseUnionVector}&gt; that should decide
+   *                   which {@link DenseUnionVector#setSafe} to use.
    */
   public static void setValues(final VectorSchemaRoot root, final int index, final byte typeId,
                                final Consumer<DenseUnionVector> dataSetter) {
