@@ -341,21 +341,24 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 # Arrow locale will be supported with ARROW-14126
 nse_funcs$str_to_lower <- function(string, locale = "en") {
   if (!identical(locale, "en")) {
-    stop("Providing 'locale' to 'str_to_lower' is not supported in Arrow; to change locale use 'Sys.setlocale()'", call. = FALSE)
+    stop("Providing 'locale' to 'str_to_lower' is not supported in Arrow; ",
+    "to change locale use 'Sys.setlocale()'", call. = FALSE)
   }
   Expression$create("utf8_lower", string)
 }
 
 nse_funcs$str_to_upper <- function(string, locale = "en") {
   if (!identical(locale, "en")) {
-    stop("Providing 'locale' to 'str_to_upper' is not supported in Arrow; to change locale use 'Sys.setlocale()'", call. = FALSE)
+    stop("Providing 'locale' to 'str_to_upper' is not supported in Arrow; ",
+    "to change locale use 'Sys.setlocale()'", call. = FALSE)
   }
   Expression$create("utf8_upper", string)
 }
 
 nse_funcs$str_to_title <- function(string, locale = "en") {
   if (!identical(locale, "en")) {
-    stop("Providing 'locale' to 'str_to_title' is not supported in Arrow; to change locale use 'Sys.setlocale()'", call. = FALSE)
+    stop("Providing 'locale' to 'str_to_title' is not supported in Arrow; ",
+    "to change locale use 'Sys.setlocale()'", call. = FALSE)
   }
   Expression$create("utf8_title", string)
 }
