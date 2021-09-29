@@ -93,26 +93,14 @@ table BooleanLiteral {
 
 table DateLiteral {
   value: int64;
-
-  // unit of `value`
-  unit: org.apache.arrow.flatbuf.DateUnit = MILLISECOND;
 }
 
 table TimeLiteral {
   value: int64;
-
-  // unit of `value`
-  unit: org.apache.arrow.flatbuf.TimeUnit = MILLISECOND;
 }
 
 table TimestampLiteral {
   value: int64;
-
-  // unit of `value`
-  unit: org.apache.arrow.flatbuf.TimeUnit;
-
-  // timezone value, same definition as used in Schema.fbs.
-  timezone: string;
 }
 
 table IntervalLiteralMonths {
@@ -135,9 +123,6 @@ table IntervalLiteral {
 
 table DurationLiteral {
   value: int64;
-
-  // unit of `value`
-  unit: org.apache.arrow.flatbuf.TimeUnit = MILLISECOND;
 }
 
 table BinaryLiteral {
