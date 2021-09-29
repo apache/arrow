@@ -138,12 +138,8 @@ TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
   const std::shared_ptr<Schema>& expected_schema =
       arrow::schema({arrow::field("catalog_name", utf8())});
 
-  DECLARE_ARRAY(catalog_name_array, String, ({"sqlite_master"}));
-
-  const std::shared_ptr<Table>& expected_table =
-      Table::Make(expected_schema, {catalog_name_array});
-
-  ASSERT_TRUE(expected_table->Equals(*table));
+  ASSERT_TRUE(table->schema()->Equals(*expected_schema));
+  ASSERT_EQ(0, table->num_rows());
 }
 
 ::testing::Environment* env = ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);

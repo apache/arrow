@@ -138,19 +138,15 @@ Status SQLiteFlightSqlServer::GetFlightInfoCatalogs(const ServerCallContext& con
 
 Status SQLiteFlightSqlServer::DoGetCatalogs(const ServerCallContext& context,
                                             std::unique_ptr<FlightDataStream>* result) {
-  // For the purpose of demonstrating a full Flight SQL server implementation, this
-  // returns a hard-coded catalog named "sqlite_master", although SQLite actually doesn't
-  // have support for catalogs.
+  // As SQLite doesn't support catalogs, this will return an empty record batch.
 
   const std::shared_ptr<Schema>& schema = SqlSchema::GetCatalogsSchema();
-  StringBuilder catalog_name_builder;
-  ARROW_RETURN_NOT_OK(catalog_name_builder.Append("sqlite_master"));
 
-  std::shared_ptr<Array> catalog_name;
-  ARROW_RETURN_NOT_OK(catalog_name_builder.Finish(&catalog_name));
+  StringBuilder catalog_name_builder;
+  ARROW_ASSIGN_OR_RAISE(auto catalog_name, catalog_name_builder.Finish());
 
   const std::shared_ptr<RecordBatch>& batch =
-      RecordBatch::Make(schema, 1, {catalog_name});
+      RecordBatch::Make(schema, 0, {catalog_name});
 
   ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
