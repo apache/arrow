@@ -1443,6 +1443,8 @@ cdef class TransformInputStream(NativeFile):
     """
     Transform and input stream.
 
+    Parameters
+    ----------
     stream : NativeFile
         The stream to transform.
     transform_func : callable
@@ -1478,6 +1480,20 @@ class Transcoder:
 
 
 def transcoding_input_stream(stream, src_encoding, dest_encoding):
+    """
+    Add a transcoding transformation to the stream.
+    Incoming data will be decoded according to ``src_encoding`` and
+    emitted data will be encoded according to ``dest_encoding``.
+
+    Parameters
+    ----------
+    stream : NativeFile
+        The stream to which the transformation should be applied.
+    src_encoding : str
+        The codec to use when reading data data.
+    dest_encoding : str
+        The codec to use for emitted data.
+    """
     src_codec = codecs.lookup(src_encoding)
     dest_codec = codecs.lookup(dest_encoding)
     if src_codec.name == dest_codec.name:
@@ -1506,6 +1522,11 @@ cdef shared_ptr[CInputStream] native_transcoding_input_stream(
 def py_buffer(object obj):
     """
     Construct an Arrow buffer from a Python bytes-like or buffer-like object
+
+    Parameters
+    ----------
+    obj : object
+        the object from which the buffer should be constructed.
     """
     cdef shared_ptr[CBuffer] buf
     buf = GetResultValue(PyBuffer.FromPyObject(obj))

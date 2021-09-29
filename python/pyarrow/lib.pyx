@@ -60,6 +60,11 @@ def set_cpu_count(int count):
     """
     Set the number of threads to use in parallel operations.
 
+    Parameters
+    ----------
+    count : int
+        The number of concurrent cpu that should be set.
+
     See Also
     --------
     cpu_count : Get the size of this pool.

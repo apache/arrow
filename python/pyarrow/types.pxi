@@ -841,6 +841,11 @@ cdef class PyExtensionType(ExtensionType):
     """
     Concrete base class for Python-defined extension types based on pickle
     for (de)serialization.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
     """
 
     def __cinit__(self):
@@ -880,6 +885,13 @@ cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
+    serialized : bytes
+        The serialised output.
     """
 
     cdef:
@@ -2717,6 +2729,11 @@ cdef dict _type_aliases = {
 def type_for_alias(name):
     """
     Return DataType given a string alias if one exists.
+
+    Parameters
+    ----------
+    name : str
+        The alias of the DataType that should be retrieved.
 
     Returns
     -------
