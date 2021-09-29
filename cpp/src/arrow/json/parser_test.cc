@@ -179,6 +179,17 @@ TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
       testing::StartsWith("JSON parse error: Column(/a) was specified twice in row 0"));
 }
 
+TEST_P(BlockParserTypeError, FailOnDuplicateKeysNoSchema) {
+  std::shared_ptr<Array> parsed;
+  Status error =
+      ParseFromString(ParseOptions::Defaults(), "{\"a\":0, \"a\":1}\n", &parsed);
+
+  ASSERT_RAISES(Invalid, error);
+  EXPECT_THAT(
+      error.message(),
+      testing::StartsWith("JSON parse error: Column(/a) was specified twice in row 0"));
+}
+
 INSTANTIATE_TEST_SUITE_P(BlockParserTypeError, BlockParserTypeError,
                          ::testing::Values(UnexpectedFieldBehavior::Ignore,
                                            UnexpectedFieldBehavior::Error,
