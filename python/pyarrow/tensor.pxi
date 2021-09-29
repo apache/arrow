@@ -45,7 +45,7 @@ strides: {0.strides}""".format(self)
         ----------
         obj : numpy.ndarray
             The source numpy array
-        dim_names : list
+        dim_names : list, optional
             Names of each dimension of the Tensor.
         """
         cdef:

@@ -215,7 +215,7 @@ class ParquetFile:
         high-latency filesystems (e.g. S3). If True, Arrow will use a
         background I/O thread pool.
     read_dictionary : list
-        List of names to read directly as DictionaryArray
+        List of names to read directly as DictionaryArray.
     coerce_int96_timestamp_unit : str, default None.
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
