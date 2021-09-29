@@ -27,6 +27,20 @@
 namespace arrow {
 namespace compute {
 
+// Helper that combines a dictionary and the value type so it can
+// later be used with DictArrayFromJSON
+struct JsonDict {
+  std::shared_ptr<DataType> type;
+  std::string value;
+};
+
+// Helper that makes a list of dictionary indices
+std::shared_ptr<Array> MakeListOfDict(const std::shared_ptr<Array>& indices,
+                                      const std::shared_ptr<Array>& backing_array) {
+  EXPECT_OK_AND_ASSIGN(auto result, ListArray::FromArrays(*indices, *backing_array));
+  return result;
+}
+
 void CheckIfElseOutput(const Datum& cond, const Datum& left, const Datum& right,
                        const Datum& expected) {
   ASSERT_OK_AND_ASSIGN(Datum datum_out, IfElse(cond, left, right));
@@ -825,11 +839,6 @@ class TestIfElseDict : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestIfElseDict, IntegralArrowTypes);
 
-struct JsonDict {
-  std::shared_ptr<DataType> type;
-  std::string value;
-};
-
 TYPED_TEST(TestIfElseDict, Simple) {
   auto cond = ArrayFromJSON(boolean(), "[true, false, true, null]");
   for (const auto& dict :
@@ -895,22 +904,19 @@ TYPED_TEST(TestIfElseDict, Mixed) {
 }
 
 TYPED_TEST(TestIfElseDict, NestedSimple) {
-  auto make_list = [](const std::shared_ptr<Array>& indices,
-                      const std::shared_ptr<Array>& backing_array) {
-    EXPECT_OK_AND_ASSIGN(auto result, ListArray::FromArrays(*indices, *backing_array));
-    return result;
-  };
   auto index_type = default_type_instance<TypeParam>();
   auto inner_type = dictionary(index_type, utf8());
   auto type = list(inner_type);
   auto dict = R"(["a", null, "bc", "def"])";
   auto cond = ArrayFromJSON(boolean(), "[true, false, true, null]");
-  auto values_null = make_list(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
-                               DictArrayFromJSON(inner_type, "[]", dict));
+  auto values_null = MakeListOfDict(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
+                                    DictArrayFromJSON(inner_type, "[]", dict));
   auto values1_backing = DictArrayFromJSON(inner_type, "[0, null, 3, 1]", dict);
   auto values2_backing = DictArrayFromJSON(inner_type, "[2, 1, null, 0]", dict);
-  auto values1 = make_list(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
-  auto values2 = make_list(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
+  auto values1 =
+      MakeListOfDict(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
+  auto values2 =
+      MakeListOfDict(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
   auto scalar =
       Datum(std::make_shared<ListScalar>(DictArrayFromJSON(inner_type, "[0, 1]", dict)));
 
@@ -1133,35 +1139,33 @@ TYPED_TEST(TestCaseWhenDict, Mixed) {
 }
 
 TYPED_TEST(TestCaseWhenDict, NestedSimple) {
-  auto make_list = [](const std::shared_ptr<Array>& indices,
-                      const std::shared_ptr<Array>& backing_array) {
-    EXPECT_OK_AND_ASSIGN(auto result, ListArray::FromArrays(*indices, *backing_array));
-    return result;
-  };
   auto index_type = default_type_instance<TypeParam>();
   auto inner_type = dictionary(index_type, utf8());
   auto type = list(inner_type);
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto dict = R"(["a", null, "bc", "def"])";
-  auto values_null = make_list(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
-                               DictArrayFromJSON(inner_type, "[]", dict));
+  auto values_null = MakeListOfDict(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
+                                    DictArrayFromJSON(inner_type, "[]", dict));
   auto values1_backing = DictArrayFromJSON(inner_type, "[0, null, 3, 1]", dict);
   auto values2_backing = DictArrayFromJSON(inner_type, "[2, 1, null, 0]", dict);
-  auto values1 = make_list(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
-  auto values2 = make_list(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
+  auto values1 =
+      MakeListOfDict(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
+  auto values2 =
+      MakeListOfDict(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
 
   CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2},
                   /*result_is_encoded=*/false);
   CheckDictionary(
       "case_when",
       {MakeStruct({cond1, cond2}), values1,
-       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing)},
+       MakeListOfDict(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing)},
       /*result_is_encoded=*/false);
   CheckDictionary(
       "case_when",
       {MakeStruct({cond1, cond2}), values1,
-       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing), values1},
+       MakeListOfDict(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing),
+       values1},
       /*result_is_encoded=*/false);
 
   CheckDictionary("case_when",
