@@ -176,4 +176,172 @@ public class ArrowFlightJdbcAccessorTest {
     accessor.getObject(objectClass);
     verify(accessor).getObject(objectClass);
   }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetBoolean() {
+    when(accessor.getBoolean()).thenCallRealMethod();
+    accessor.getBoolean();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetByte() {
+    when(accessor.getByte()).thenCallRealMethod();
+    accessor.getByte();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetShort() {
+    when(accessor.getShort()).thenCallRealMethod();
+    accessor.getShort();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetInt() {
+    when(accessor.getInt()).thenCallRealMethod();
+    accessor.getInt();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetLong() {
+    when(accessor.getLong()).thenCallRealMethod();
+    accessor.getLong();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetFloat() {
+    when(accessor.getFloat()).thenCallRealMethod();
+    accessor.getFloat();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetDouble() {
+    when(accessor.getDouble()).thenCallRealMethod();
+    accessor.getDouble();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetBigDecimal() {
+    when(accessor.getBigDecimal()).thenCallRealMethod();
+    accessor.getBigDecimal();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetBytes() {
+    when(accessor.getBytes()).thenCallRealMethod();
+    accessor.getBytes();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetAsciiStream() {
+    when(accessor.getAsciiStream()).thenCallRealMethod();
+    accessor.getAsciiStream();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetUnicodeStream() {
+    when(accessor.getUnicodeStream()).thenCallRealMethod();
+    accessor.getUnicodeStream();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetBinaryStream() {
+    when(accessor.getBinaryStream()).thenCallRealMethod();
+    accessor.getBinaryStream();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetObject() {
+    when(accessor.getObject()).thenCallRealMethod();
+    accessor.getObject();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetCharacterStream() {
+    when(accessor.getCharacterStream()).thenCallRealMethod();
+    accessor.getCharacterStream();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetRef() {
+    when(accessor.getRef()).thenCallRealMethod();
+    accessor.getRef();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetBlob() {
+    when(accessor.getBlob()).thenCallRealMethod();
+    accessor.getBlob();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetClob() {
+    when(accessor.getClob()).thenCallRealMethod();
+    accessor.getClob();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetArray() {
+    when(accessor.getArray()).thenCallRealMethod();
+    accessor.getArray();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetStruct() {
+    when(accessor.getStruct()).thenCallRealMethod();
+    accessor.getStruct();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetURL() {
+    when(accessor.getURL()).thenCallRealMethod();
+    accessor.getURL();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetNClob() {
+    when(accessor.getNClob()).thenCallRealMethod();
+    accessor.getNClob();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetSQLXML() {
+    when(accessor.getSQLXML()).thenCallRealMethod();
+    accessor.getSQLXML();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetNString() {
+    when(accessor.getNString()).thenCallRealMethod();
+    accessor.getNString();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetNCharacterStream() {
+    when(accessor.getNCharacterStream()).thenCallRealMethod();
+    accessor.getNCharacterStream();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetDate() {
+    when(accessor.getDate(null)).thenCallRealMethod();
+    accessor.getDate(null);
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetTime() {
+    when(accessor.getTime(null)).thenCallRealMethod();
+    accessor.getTime(null);
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetTimestamp() {
+    when(accessor.getTimestamp(null)).thenCallRealMethod();
+    accessor.getTimestamp(null);
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetBigDecimalWithValue() {
+    when(accessor.getBigDecimal(0)).thenCallRealMethod();
+    accessor.getBigDecimal(0);
+  }
 }
