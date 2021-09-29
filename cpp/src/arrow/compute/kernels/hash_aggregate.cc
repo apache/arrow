@@ -450,7 +450,7 @@ struct GrouperImpl : Grouper {
                          std::vector<uint8_t*>* key_buf_ptrs) const {
     offsets_batch->resize(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
-      encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
+      encoders_[i]->AddLength(batch[i], batch.length, offsets_batch->data());
     }
 
     int32_t total_length = 0;
@@ -468,7 +468,7 @@ struct GrouperImpl : Grouper {
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {
-      RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
+      RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs->data()));
     }
 
     return Status::OK();
