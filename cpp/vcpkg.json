@@ -42,5 +42,5 @@
   "overrides": [
     { "name": "gtest", "version": "1.10.0", "port-version": 4 }
   ],
-  "builtin-baseline": "a267ab118c09f56f3dae96c9a4b3410820ad2f0b"
+  "builtin-baseline": "b5865bfeba430cd44063fc54a45a8861195a715f"
 }
