@@ -39,11 +39,11 @@ class ARROW_EXPORT CountingSemaphore {
   Status Acquire(uint32_t num_permits);
   /// \brief Make num_permits permits available
   Status Release(uint32_t num_permits);
-  /// \brief Waits until num_waiters are waiting on permits
+  /// \brief Wait until num_waiters are waiting on permits
   ///
   /// This method is non-standard but useful in unit tests to ensure sequencing
   Status WaitForWaiters(uint32_t num_waiters);
-  /// \brief Immediately times out any waiters
+  /// \brief Immediately time out any waiters
   ///
   /// This method will return Status::OK only if there were no waiters to time out.
   /// Once closed any operation on this instance will return an invalid status.

@@ -322,7 +322,7 @@ Status FileWriter::Finish() {
 
 namespace {
 
-Future<> WriteNextBatch(DatasetWriter* dataset_writer, TaggedRecordBatch batch,
+Future<> WriteNextBatch(internal::DatasetWriter* dataset_writer, TaggedRecordBatch batch,
                         const FileSystemDatasetWriteOptions& write_options) {
   ARROW_ASSIGN_OR_RAISE(auto groups,
                         write_options.partitioning->Partition(batch.record_batch));
@@ -365,7 +365,8 @@ Future<> WriteNextBatch(DatasetWriter* dataset_writer, TaggedRecordBatch batch,
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, scanner->ScanBatchesAsync());
-  ARROW_ASSIGN_OR_RAISE(auto dataset_writer, DatasetWriter::Make(write_options));
+  ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
+                        internal::DatasetWriter::Make(write_options));
 
   AsyncGenerator<std::shared_ptr<int>> queued_batch_gen =
       [batch_gen, &dataset_writer, &write_options]() -> Future<std::shared_ptr<int>> {

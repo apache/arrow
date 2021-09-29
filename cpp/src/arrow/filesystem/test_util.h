@@ -40,6 +40,14 @@ static inline FileInfo Dir(std::string path) {
   return FileInfo(std::move(path), FileType::Directory);
 }
 
+// A subclass of MockFileSystem that blocks operations until an unlock method is
+// called.
+//
+// This is intended for testing fine-grained ordering of filesystem operations.
+//
+// N.B. Only OpenOutputStream supports gating at the moment but this is simply because
+//      it is all that has been needed so far.  Feel free to add support for more methods
+//      as required.
 class ARROW_TESTING_EXPORT GatedMockFilesystem : public internal::MockFileSystem {
  public:
   GatedMockFilesystem(TimePoint current_time,
@@ -50,7 +58,9 @@ class ARROW_TESTING_EXPORT GatedMockFilesystem : public internal::MockFileSystem
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
+  // Wait until at least num_waiters are waiting on OpenOutputStream
   Status WaitForOpenOutputStream(uint32_t num_waiters);
+  // Unlock `num_waiters` individual calls to OpenOutputStream
   Status UnlockOpenOutputStream(uint32_t num_waiters);
 
  private:

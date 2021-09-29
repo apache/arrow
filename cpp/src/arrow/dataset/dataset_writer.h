@@ -27,6 +27,7 @@
 
 namespace arrow {
 namespace dataset {
+namespace internal {
 
 constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 64 * 1024 * 1024;
 
@@ -39,7 +40,7 @@ constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 64 * 1024 * 1024;
 /// to # of batches which is how it is typically enforced elsewhere) and # of files.
 class ARROW_DS_EXPORT DatasetWriter {
  public:
-  /// \brief Creates a dataset writer
+  /// \brief Create a dataset writer
   ///
   /// Will fail if basename_template is invalid or if there is existing data and
   /// existing_data_behavior is kError
@@ -53,7 +54,7 @@ class ARROW_DS_EXPORT DatasetWriter {
 
   ~DatasetWriter();
 
-  /// \brief Writes a batch to the dataset
+  /// \brief Write a batch to the dataset
   /// \param[in] batch The batch to write
   /// \param[in] directory The directory to write to
   ///
@@ -67,7 +68,7 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// to be written.  If the returned future is unfinished then this indicates the dataset
   /// writer's queue is full and the data provider should pause.
   ///
-  /// This method is NOT async reentrant.  The returned future will only be incomplete
+  /// This method is NOT async reentrant.  The returned future will only be unfinished
   /// if back pressure needs to be applied.  Async reentrancy is not necessary for
   /// concurrent writes to happen.  Calling this method again before the previous future
   /// completes will not just violate max_rows_queued but likely lead to race conditions.
@@ -91,5 +92,6 @@ class ARROW_DS_EXPORT DatasetWriter {
   std::unique_ptr<DatasetWriterImpl, util::DestroyingDeleter<DatasetWriterImpl>> impl_;
 };
 
+}  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

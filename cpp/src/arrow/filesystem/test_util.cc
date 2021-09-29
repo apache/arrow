@@ -15,17 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/filesystem/test_util.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <chrono>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
 #include "arrow/filesystem/mockfs.h"
-#include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
@@ -176,12 +177,10 @@ Result<std::shared_ptr<io::OutputStream>> GatedMockFilesystem::OpenOutputStream(
   return MockFileSystem::OpenOutputStream(path, metadata);
 }
 
-// Wait until at least num_waiters are waiting on OpenOutputStream
 Status GatedMockFilesystem::WaitForOpenOutputStream(uint32_t num_waiters) {
   return open_output_sem_.WaitForWaiters(num_waiters);
 }
 
-// Unlocks `num_waiters` individual calls to OpenOutputStream
 Status GatedMockFilesystem::UnlockOpenOutputStream(uint32_t num_waiters) {
   return open_output_sem_.Release(num_waiters);
 }

@@ -31,6 +31,7 @@
 
 namespace arrow {
 namespace dataset {
+namespace internal {
 
 namespace {
 
@@ -522,5 +523,6 @@ Future<> DatasetWriter::Finish() {
   return finished;
 }
 
+}  // namespace internal
 }  // namespace dataset
 }  // namespace arrow
