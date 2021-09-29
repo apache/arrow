@@ -468,43 +468,22 @@ test_that("strsplit and str_split", {
 })
 
 test_that("str_to_lower, str_to_upper, and str_to_title", {
-  df <- tibble(x = c("Foo", " B\na R", "ⱭɽⱤoW", "ıI"))
+  df <- tibble(x = c("1Foo1", " \tB a R\n", "!apACHe aRroW!"))
+  funcs <- c(str_to_lower, str_to_upper, str_to_title)
+  for (func in funcs) {
+    expect_dplyr_equal(
+      input %>%
+        transmute(x = func(x)) %>%
+        collect(),
+      df
+    )
 
-  expect_dplyr_equal(
-    input %>%
-      transmute(x = str_to_lower(x)) %>%
-      collect(),
-    df
-  )
-
-  expect_error(
-    nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
-    "Providing 'locale' to 'str_to_lower' is not supported in Arrow"
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      transmute(x = str_to_upper(x)) %>%
-      collect(),
-    df
-  )
-
-  expect_error(
-    nse_funcs$str_to_upper("Apache Arrow", locale = "sp"),
-    "Providing 'locale' to 'str_to_upper' is not supported in Arrow"
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      transmute(x = str_to_title(x)) %>%
-      collect(),
-    df
-  )
-
-  expect_error(
-    nse_funcs$str_to_title("Apache Arrow", locale = "sp"),
-    "Providing 'locale' to 'str_to_title' is not supported in Arrow"
-  )
+    funcname = as.character(substitute(func))
+    expect_error(
+      nse_funcs[[funcname]]("Apache Arrow", locale = "sp"),
+      "Providing a value for 'locale' other than the default ('en') is not supported by Arrow"
+    )
+  }
 })
 
 test_that("arrow_*_split_whitespace functions", {
