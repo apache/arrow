@@ -138,6 +138,10 @@ Status SQLiteFlightSqlServer::GetFlightInfoCatalogs(const ServerCallContext& con
 
 Status SQLiteFlightSqlServer::DoGetCatalogs(const ServerCallContext& context,
                                             std::unique_ptr<FlightDataStream>* result) {
+  // For the purpose of demonstrating a full Flight SQL server implementation, this
+  // returns a hard-coded catalog named "sqlite_master", although SQLite actually doesn't
+  // have support for catalogs.
+
   const std::shared_ptr<Schema>& schema = SqlSchema::GetCatalogsSchema();
   StringBuilder catalog_name_builder;
   ARROW_RETURN_NOT_OK(catalog_name_builder.Append("sqlite_master"));
