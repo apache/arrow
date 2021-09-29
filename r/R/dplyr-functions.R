@@ -339,24 +339,26 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 #   str_to_title
 #
 # Arrow locale will be supported with ARROW-14126
-.arrow_string_function_with_locale_arg <- function(func, string, locale) {
+stop_if_locale_provided <- function(locale) {
   if (!identical(locale, "en")) {
     stop("Providing a value for 'locale' other than the default ('en') is not supported by Arrow. ",
     "To change locale, use 'Sys.setlocale()'", call. = FALSE)
   }
-  Expression$create(func, string)
 }
 
 nse_funcs$str_to_lower <- function(string, locale = "en") {
-  .arrow_string_function_with_locale_arg("utf8_lower", string, locale)
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_lower", string)
 }
 
 nse_funcs$str_to_upper <- function(string, locale = "en") {
-  .arrow_string_function_with_locale_arg("utf8_upper", string, locale)
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_upper", string)
 }
 
 nse_funcs$str_to_title <- function(string, locale = "en") {
-  .arrow_string_function_with_locale_arg("utf8_title", string, locale)
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_title", string)
 }
 
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
