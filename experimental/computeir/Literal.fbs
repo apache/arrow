@@ -23,13 +23,10 @@ table ListLiteral {
   values: [Literal] (required);
 }
 
-table StructLiteralField {
-  name: string (required);
-  value: Literal (required);
-}
-
 table StructLiteral {
-  values: [StructLiteralField] (required);
+  /// Values for each struct field; the order must match the order of fields
+  /// in the `type` field of `Literal`.
+  values: [Literal] (required);
 }
 
 table KeyValue {
