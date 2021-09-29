@@ -68,9 +68,6 @@ struct DecimalLiteralBuilder;
 struct BooleanLiteral;
 struct BooleanLiteralBuilder;
 
-struct NullLiteral;
-struct NullLiteralBuilder;
-
 struct DateLiteral;
 struct DateLiteralBuilder;
 
@@ -154,39 +151,37 @@ bool VerifyIntervalLiteralImplVector(flatbuffers::Verifier &verifier, const flat
 
 enum class LiteralImpl : uint8_t {
   NONE = 0,
-  NullLiteral = 1,
-  BooleanLiteral = 2,
-  Int8Literal = 3,
-  Int16Literal = 4,
-  Int32Literal = 5,
-  Int64Literal = 6,
-  UInt8Literal = 7,
-  UInt16Literal = 8,
-  UInt32Literal = 9,
-  UInt64Literal = 10,
-  DateLiteral = 11,
-  TimeLiteral = 12,
-  TimestampLiteral = 13,
-  IntervalLiteral = 14,
-  DurationLiteral = 15,
-  DecimalLiteral = 16,
-  Float16Literal = 17,
-  Float32Literal = 18,
-  Float64Literal = 19,
-  ListLiteral = 20,
-  StructLiteral = 21,
-  MapLiteral = 22,
-  StringLiteral = 23,
-  BinaryLiteral = 24,
-  FixedSizeBinaryLiteral = 25,
+  BooleanLiteral = 1,
+  Int8Literal = 2,
+  Int16Literal = 3,
+  Int32Literal = 4,
+  Int64Literal = 5,
+  UInt8Literal = 6,
+  UInt16Literal = 7,
+  UInt32Literal = 8,
+  UInt64Literal = 9,
+  DateLiteral = 10,
+  TimeLiteral = 11,
+  TimestampLiteral = 12,
+  IntervalLiteral = 13,
+  DurationLiteral = 14,
+  DecimalLiteral = 15,
+  Float16Literal = 16,
+  Float32Literal = 17,
+  Float64Literal = 18,
+  ListLiteral = 19,
+  StructLiteral = 20,
+  MapLiteral = 21,
+  StringLiteral = 22,
+  BinaryLiteral = 23,
+  FixedSizeBinaryLiteral = 24,
   MIN = NONE,
   MAX = FixedSizeBinaryLiteral
 };
 
-inline const LiteralImpl (&EnumValuesLiteralImpl())[26] {
+inline const LiteralImpl (&EnumValuesLiteralImpl())[25] {
   static const LiteralImpl values[] = {
     LiteralImpl::NONE,
-    LiteralImpl::NullLiteral,
     LiteralImpl::BooleanLiteral,
     LiteralImpl::Int8Literal,
     LiteralImpl::Int16Literal,
@@ -216,9 +211,8 @@ inline const LiteralImpl (&EnumValuesLiteralImpl())[26] {
 }
 
 inline const char * const *EnumNamesLiteralImpl() {
-  static const char * const names[27] = {
+  static const char * const names[26] = {
     "NONE",
-    "NullLiteral",
     "BooleanLiteral",
     "Int8Literal",
     "Int16Literal",
@@ -256,10 +250,6 @@ inline const char *EnumNameLiteralImpl(LiteralImpl e) {
 
 template<typename T> struct LiteralImplTraits {
   static const LiteralImpl enum_value = LiteralImpl::NONE;
-};
-
-template<> struct LiteralImplTraits<org::apache::arrow::computeir::flatbuf::NullLiteral> {
-  static const LiteralImpl enum_value = LiteralImpl::NullLiteral;
 };
 
 template<> struct LiteralImplTraits<org::apache::arrow::computeir::flatbuf::BooleanLiteral> {
@@ -1228,36 +1218,6 @@ inline flatbuffers::Offset<BooleanLiteral> CreateBooleanLiteral(
   return builder_.Finish();
 }
 
-struct NullLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef NullLiteralBuilder Builder;
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           verifier.EndTable();
-  }
-};
-
-struct NullLiteralBuilder {
-  typedef NullLiteral Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  explicit NullLiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  NullLiteralBuilder &operator=(const NullLiteralBuilder &);
-  flatbuffers::Offset<NullLiteral> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<NullLiteral>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<NullLiteral> CreateNullLiteral(
-    flatbuffers::FlatBufferBuilder &_fbb) {
-  NullLiteralBuilder builder_(_fbb);
-  return builder_.Finish();
-}
-
 struct DateLiteral FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef DateLiteralBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1828,18 +1788,17 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LiteralBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_IMPL_TYPE = 4,
-    VT_IMPL = 6
+    VT_IMPL = 6,
+    VT_TYPE = 8
   };
   org::apache::arrow::computeir::flatbuf::LiteralImpl impl_type() const {
     return static_cast<org::apache::arrow::computeir::flatbuf::LiteralImpl>(GetField<uint8_t>(VT_IMPL_TYPE, 0));
   }
+  /// Literal value data; for null literals do not include this field.
   const void *impl() const {
     return GetPointer<const void *>(VT_IMPL);
   }
   template<typename T> const T *impl_as() const;
-  const org::apache::arrow::computeir::flatbuf::NullLiteral *impl_as_NullLiteral() const {
-    return impl_type() == org::apache::arrow::computeir::flatbuf::LiteralImpl::NullLiteral ? static_cast<const org::apache::arrow::computeir::flatbuf::NullLiteral *>(impl()) : nullptr;
-  }
   const org::apache::arrow::computeir::flatbuf::BooleanLiteral *impl_as_BooleanLiteral() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::LiteralImpl::BooleanLiteral ? static_cast<const org::apache::arrow::computeir::flatbuf::BooleanLiteral *>(impl()) : nullptr;
   }
@@ -1912,18 +1871,20 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral *impl_as_FixedSizeBinaryLiteral() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::LiteralImpl::FixedSizeBinaryLiteral ? static_cast<const org::apache::arrow::computeir::flatbuf::FixedSizeBinaryLiteral *>(impl()) : nullptr;
   }
+  /// Type of the literal value. This must match `impl`.
+  const org::apache::arrow::flatbuf::Field *type() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Field *>(VT_TYPE);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_IMPL_TYPE) &&
-           VerifyOffsetRequired(verifier, VT_IMPL) &&
+           VerifyOffset(verifier, VT_IMPL) &&
            VerifyLiteralImpl(verifier, impl(), impl_type()) &&
+           VerifyOffsetRequired(verifier, VT_TYPE) &&
+           verifier.VerifyTable(type()) &&
            verifier.EndTable();
   }
 };
-
-template<> inline const org::apache::arrow::computeir::flatbuf::NullLiteral *Literal::impl_as<org::apache::arrow::computeir::flatbuf::NullLiteral>() const {
-  return impl_as_NullLiteral();
-}
 
 template<> inline const org::apache::arrow::computeir::flatbuf::BooleanLiteral *Literal::impl_as<org::apache::arrow::computeir::flatbuf::BooleanLiteral>() const {
   return impl_as_BooleanLiteral();
@@ -2031,6 +1992,9 @@ struct LiteralBuilder {
   void add_impl(flatbuffers::Offset<void> impl) {
     fbb_.AddOffset(Literal::VT_IMPL, impl);
   }
+  void add_type(flatbuffers::Offset<org::apache::arrow::flatbuf::Field> type) {
+    fbb_.AddOffset(Literal::VT_TYPE, type);
+  }
   explicit LiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2039,7 +2003,7 @@ struct LiteralBuilder {
   flatbuffers::Offset<Literal> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Literal>(end);
-    fbb_.Required(o, Literal::VT_IMPL);
+    fbb_.Required(o, Literal::VT_TYPE);
     return o;
   }
 };
@@ -2047,8 +2011,10 @@ struct LiteralBuilder {
 inline flatbuffers::Offset<Literal> CreateLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::computeir::flatbuf::LiteralImpl impl_type = org::apache::arrow::computeir::flatbuf::LiteralImpl::NONE,
-    flatbuffers::Offset<void> impl = 0) {
+    flatbuffers::Offset<void> impl = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Field> type = 0) {
   LiteralBuilder builder_(_fbb);
+  builder_.add_type(type);
   builder_.add_impl(impl);
   builder_.add_impl_type(impl_type);
   return builder_.Finish();
@@ -2087,10 +2053,6 @@ inline bool VerifyLiteralImpl(flatbuffers::Verifier &verifier, const void *obj, 
   switch (type) {
     case LiteralImpl::NONE: {
       return true;
-    }
-    case LiteralImpl::NullLiteral: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::NullLiteral *>(obj);
-      return verifier.VerifyTable(ptr);
     }
     case LiteralImpl::BooleanLiteral: {
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::BooleanLiteral *>(obj);

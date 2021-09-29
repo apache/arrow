@@ -96,8 +96,6 @@ table BooleanLiteral {
   value: bool;
 }
 
-table NullLiteral {}
-
 table DateLiteral {
   value: int64;
 
@@ -164,7 +162,6 @@ table StringLiteral {
 // no literals for large string/binary types as flatbuffer is limited to 2gb.
 
 union LiteralImpl {
-  NullLiteral,
   BooleanLiteral,
 
   Int8Literal,
@@ -199,7 +196,10 @@ union LiteralImpl {
 }
 
 table Literal {
-  impl: LiteralImpl (required);
+  /// Literal value data; for null literals do not include this field.
+  impl: LiteralImpl;
+  /// Type of the literal value. This must match `impl`.
+  type: org.apache.arrow.flatbuf.Field (required);
 }
 
 root_type Literal;
