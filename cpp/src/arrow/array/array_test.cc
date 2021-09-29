@@ -2149,12 +2149,12 @@ TEST_F(TestFWBinaryArray, ReserveThenAdvance) {
   ASSERT_EQ(builder.length(), 100);
   ASSERT_GE(builder.capacity(), 100 * 7);
 
-  std::shared_ptr<Array> array;
+  std::shared_ptr<FixedSizeBinaryArray> array;
   ASSERT_OK(builder.Finish(&array));
 
   ASSERT_EQ(array->length(), 100);
   // check the size of underlying buffer
-  ASSERT_EQ(array->values()->size, 7 * 100);
+  ASSERT_EQ(array->values()->size(), 7 * 100);
 }
 
 // ----------------------------------------------------------------------

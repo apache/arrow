@@ -109,7 +109,7 @@ Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
 Status FixedSizeBinaryBuilder::Advance(int64_t elements) {
   Status status = ArrayBuilder::Advance(elements);
   // Use UnsafeAdvance: don't zero-out the existing data.
-  byte_builder_.UnsafeAdvance(elements);
+  byte_builder_.UnsafeAdvance(elements * byte_width_);
   return status;
 }
 
