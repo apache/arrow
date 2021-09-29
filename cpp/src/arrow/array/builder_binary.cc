@@ -107,9 +107,10 @@ Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
 }
 
 Status FixedSizeBinaryBuilder::Advance(int64_t elements) {
-  RETURN_NOT_OK(ArrayBuilder::Advance(elements));
+  Status status = ArrayBuilder::Advance(elements);
   // Use UnsafeAdvance: don't zero-out the existing data.
-  return byte_builder_.UnsafeAdvance(elements);
+  byte_builder_.UnsafeAdvance(elements);
+  return status;
 }
 
 Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
