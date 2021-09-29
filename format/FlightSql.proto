@@ -34,7 +34,6 @@ package arrow.flight.protocol.sql;
  *  value: dense_union<
  *              string_value: utf8,
  *              bool_value: bool,
- *              uint32_value: uint32
  *              bigint_value: int64,
  *              int32_bitmask: int32,
  *              string_list: list<string_data: utf8>

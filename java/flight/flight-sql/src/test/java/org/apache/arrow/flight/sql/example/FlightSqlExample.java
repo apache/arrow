@@ -133,6 +133,7 @@ import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
@@ -324,7 +325,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         });
   }
 
-  private static void saveToVector(final byte typeRegisteredId, final Integer data,
+  private static void saveToVector(final byte typeRegisteredId, final Long data,
                                    final DenseUnionVector vector, final int index) {
     vectorConsumer(
         data,
@@ -333,7 +334,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           // Nothing.
         },
         (theData, fieldVector) -> {
-          final NullableUInt4Holder holder = new NullableUInt4Holder();
+          final NullableBigIntHolder holder = new NullableBigIntHolder();
           holder.value = isNull(data) ? 0 : data;
           holder.isSet = 1;
           fieldVector.setTypeId(index, typeRegisteredId);
@@ -570,7 +571,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         ImmutableList.of(
             new Field("string_value", FieldType.nullable(MinorType.VARCHAR.getType()), null),
             new Field("bool_value", FieldType.nullable(MinorType.BIT.getType()), null),
-            new Field("uint32_value", FieldType.nullable(MinorType.UINT4.getType()), null),
             new Field("bigint_value", FieldType.nullable(MinorType.BIGINT.getType()), null),
             new Field("int32_bitmask", FieldType.nullable(MinorType.INT.getType()), null),
             new Field(
@@ -580,7 +580,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
     final byte stringValueId = 0;
     final byte boolValueId = 1;
-    final byte uint32ValueId = 2;
+    final byte bigIntId = 2;
     vectors.forEach(FieldVector::allocateNew);
     final int rows = requestedInfo.length;
     for (int index = 0; index < rows; index++) {
@@ -611,27 +611,27 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           break;
         case FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE:
           saveToVector(
-              uint32ValueId,
-              metaData.storesMixedCaseIdentifiers() ?
+              bigIntId,
+              (long) (metaData.storesMixedCaseIdentifiers() ?
                   SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE :
                   metaData.storesUpperCaseIdentifiers() ?
                       SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE_VALUE :
                       metaData.storesLowerCaseIdentifiers() ?
                           SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_LOWERCASE_VALUE :
-                          SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN_VALUE, valueVector, index);
+                          SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN_VALUE), valueVector, index);
           break;
         case FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE:
           saveToVector(stringValueId, metaData.getIdentifierQuoteString(), valueVector, index);
           break;
         case FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE:
           saveToVector(
-              uint32ValueId, metaData.storesMixedCaseQuotedIdentifiers() ?
+              bigIntId, (long) (metaData.storesMixedCaseQuotedIdentifiers() ?
                   SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE :
                   metaData.storesUpperCaseQuotedIdentifiers() ?
                       SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE_VALUE :
                       metaData.storesLowerCaseQuotedIdentifiers() ?
                           SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_LOWERCASE_VALUE :
-                          SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN_VALUE, valueVector, index);
+                          SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN_VALUE), valueVector, index);
           break;
         default:
           throw CallStatus.INVALID_ARGUMENT.withDescription("Provided option is unknown.").toRuntimeException();
