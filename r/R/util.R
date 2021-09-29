@@ -22,6 +22,13 @@ if (!exists("deparse1")) {
   }
 }
 
+# for compatibility with R versions earlier than 3.6.0
+if (!exists("str2lang")) {
+  str2lang <- function(s) {
+    parse(text = s, keep.source = FALSE)[[1]]
+  }
+}
+
 oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
   if (quote && is.character(x)) {
     x <- paste0('"', x, '"')
@@ -62,17 +69,24 @@ is_function <- function(expr, name) {
   if (!is.call(expr)) {
     return(FALSE)
   } else {
-    if (deparse1(expr[[1]]) == name) {
+    if (deparse(expr[[1]]) == name) {
       return(TRUE)
     }
     out <- lapply(expr, is_function, name)
   }
-  any(vapply(out, isTRUE, TRUE))
+  any(map_lgl(out, isTRUE))
 }
 
 all_funs <- function(expr) {
-  names <- all_names(expr)
-  names[vapply(names, function(name) is_function(expr, name), TRUE)]
+  # It is not sufficient to simply do: setdiff(all.names, all.vars)
+  # here because that would fail to return the names of functions that
+  # share names with variables.
+  # To preserve duplicates, call `all.names()` not `all_names()` here.
+  if (is_quosure(expr)) {
+    expr <- quo_get_expr(expr)
+  }
+  names <- all.names(expr)
+  names[map_lgl(names, ~ is_function(expr, .))]
 }
 
 all_vars <- function(expr) {

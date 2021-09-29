@@ -78,7 +78,7 @@ nse_funcs$coalesce <- function(...) {
     }
 
     # coalesce doesn't yet support factors/dictionaries
-    # TODO: remove this after ARROW-13390 is merged
+    # TODO: remove this after ARROW-14167 is merged
     if (nse_funcs$is.factor(arg)) {
       warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
     }
@@ -672,6 +672,50 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
+nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+  if (tz == "") {
+    tz <- Sys.timezone()
+  }
+  # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
+  # cast the timestamp to desired timezone. This is a metadata only change.
+  ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
+
+nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+  ISO8601_precision_map <-
+    list(
+      y = "%Y",
+      ym = "%Y-%m",
+      ymd = "%Y-%m-%d",
+      ymdh = "%Y-%m-%dT%H",
+      ymdhm = "%Y-%m-%dT%H:%M",
+      ymdhms = "%Y-%m-%dT%H:%M:%S"
+    )
+
+  if (is.null(precision)) {
+    precision <- "ymdhms"
+  }
+  if (!precision %in% names(ISO8601_precision_map)) {
+    abort(
+      paste(
+        "`precision` must be one of the following values:",
+        paste(names(ISO8601_precision_map), collapse = ", "),
+        "\nValue supplied was: ",
+        precision
+      )
+    )
+  }
+  format <- ISO8601_precision_map[[precision]]
+  if (usetz) {
+    format <- paste0(format, "%z")
+  }
+  Expression$create("strftime", x, options = list(format = format, locale = "C"))
+}
+
 nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
@@ -681,19 +725,49 @@ nse_funcs$trunc <- function(x, ...) {
   build_expr("trunc", x)
 }
 
-nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
+}
 
-  # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
-  # When the ticket below is resolved, we should be able to support the label argument
-  # https://issues.apache.org/jira/browse/ARROW-13133
+nse_funcs$wday <- function(x,
+                           label = FALSE,
+                           abbr = TRUE,
+                           week_start = getOption("lubridate.week.start", 7),
+                           locale = Sys.getlocale("LC_TIME")) {
   if (label) {
-    arrow_not_supported("Label argument")
+    if (abbr) {
+      format <- "%a"
+    } else {
+      format <- "%A"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
   }
 
-  Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
+  Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
+  # like other binary functions, either `x` or `base` can be Expression or double(1)
+  if (is.numeric(x) && length(x) == 1) {
+    x <- Expression$scalar(x)
+  } else if (!inherits(x, "Expression")) {
+    arrow_not_supported("x must be a column or a length-1 numeric; other values")
+  }
+
+  # handle `base` differently because we use the simpler ln, log2, and log10
+  # functions for specific scalar base values
+  if (inherits(base, "Expression")) {
+    return(Expression$create("logb_checked", x, base))
+  }
+
+  if (!is.numeric(base) || length(base) != 1) {
+    arrow_not_supported("base must be a column or a length-1 numeric; other values")
+  }
+
   if (base == exp(1)) {
     return(Expression$create("ln_checked", x))
   }
@@ -705,8 +779,8 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
   if (base == 10) {
     return(Expression$create("log10_checked", x))
   }
-  # ARROW-13345
-  arrow_not_supported("`base` values other than exp(1), 2 and 10")
+
+  Expression$create("logb_checked", x, Expression$scalar(base))
 }
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
@@ -733,7 +807,6 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
 }
 
 # Although base R ifelse allows `yes` and `no` to be different classes
-#
 nse_funcs$ifelse <- function(test, yes, no) {
   nse_funcs$if_else(condition = test, true = yes, false = no)
 }
@@ -784,44 +857,129 @@ agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(
     fun = "sum",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$any <- function(x, na.rm = FALSE) {
   list(
     fun = "any",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$all <- function(x, na.rm = FALSE) {
   list(
     fun = "all",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-
 agg_funcs$mean <- function(x, na.rm = FALSE) {
   list(
     fun = "mean",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-# na.rm not currently passed in due to ARROW-13691
 agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "stddev",
     data = x,
-    options = list(ddof = ddof)
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
-# na.rm not currently passed in due to ARROW-13691
 agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "variance",
     data = x,
-    options = list(ddof = ddof)
+    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
+}
+agg_funcs$quantile <- function(x, probs, na.rm = FALSE) {
+  if (length(probs) != 1) {
+    arrow_not_supported("quantile() with length(probs) != 1")
+  }
+  # TODO: Bind to the Arrow function that returns an exact quantile and remove
+  # this warning (ARROW-14021)
+  warn(
+    "quantile() currently returns an approximate quantile in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.quantile.approximate"
+  )
+  list(
+    fun = "tdigest",
+    data = x,
+    options = list(skip_nulls = na.rm, q = probs)
+  )
+}
+agg_funcs$median <- function(x, na.rm = FALSE) {
+  # TODO: Bind to the Arrow function that returns an exact median and remove
+  # this warning (ARROW-14021)
+  warn(
+    "median() currently returns an approximate median in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.median.approximate"
+  )
+  list(
+    fun = "approximate_median",
+    data = x,
+    options = list(skip_nulls = na.rm)
+  )
+}
+agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+  list(
+    fun = "count_distinct",
+    data = x,
+    options = list(na.rm = na.rm)
+  )
+}
+agg_funcs$n <- function() {
+  list(
+    fun = "sum",
+    data = Expression$scalar(1L),
+    options = list()
+  )
+}
+agg_funcs$min <- function(..., na.rm = FALSE) {
+  args <- list2(...)
+  if (length(args) > 1) {
+    arrow_not_supported("Multiple arguments to min()")
+  }
+  list(
+    fun = "min",
+    data = args[[1]],
+    options = list(skip_nulls = na.rm, min_count = 0L)
+  )
+}
+agg_funcs$max <- function(..., na.rm = FALSE) {
+  args <- list2(...)
+  if (length(args) > 1) {
+    arrow_not_supported("Multiple arguments to max()")
+  }
+  list(
+    fun = "max",
+    data = args[[1]],
+    options = list(skip_nulls = na.rm, min_count = 0L)
+  )
+}
+
+output_type <- function(fun, input_type, hash) {
+  # These are quick and dirty heuristics.
+  if (fun %in% c("any", "all")) {
+    bool()
+  } else if (fun %in% "sum") {
+    # It may upcast to a bigger type but this is close enough
+    input_type
+  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
+    float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
+  } else {
+    # Just so things don't error, assume the resulting type is the same
+    input_type
+  }
 }

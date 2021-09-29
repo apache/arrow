@@ -249,7 +249,7 @@ TEST_P(TestScanner, ToTable) {
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
   ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 TEST_P(TestScanner, ScanWithVisitor) {
@@ -257,7 +257,7 @@ TEST_P(TestScanner, ScanWithVisitor) {
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto scanner = MakeScanner(batch);
   ASSERT_OK(scanner->Scan([batch](TaggedRecordBatch scanned_batch) {
-    AssertBatchesEqual(*batch, *scanned_batch.record_batch);
+    AssertBatchesEqual(*batch, *scanned_batch.record_batch, /*same_chunk_layout=*/false);
     return Status::OK();
   }));
 }
@@ -280,7 +280,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
     ASSERT_EQ(expected->num_rows(), batch_size);
-    AssertTablesEqual(*expected, *taken);
+    AssertTablesEqual(*expected, *taken, /*same_chunk_layout=*/false);
   }
   {
     ArrayFromVector<Int64Type>({7, 5, 3, 1}, &indices);
@@ -288,7 +288,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 4);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   if (num_batches > 1) {
     ArrayFromVector<Int64Type>({batch_size + 2, batch_size + 1}, &indices);
@@ -296,7 +296,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 2);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   if (num_batches > 1) {
     ArrayFromVector<Int64Type>({1, 3, 5, 7, batch_size + 1, 2 * batch_size + 2},
@@ -305,7 +305,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 6);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   {
     auto base = num_datasets * num_batches * batch_size;
@@ -349,6 +349,37 @@ TEST_P(TestScanner, CountRows) {
                        greater_equal(field_ref("i32"), literal(64)).Bind(*schema_));
   ASSERT_OK_AND_ASSIGN(rows, scanner->CountRows());
   ASSERT_EQ(rows, num_datasets * num_batches * (items_per_batch - 64));
+}
+
+TEST_P(TestScanner, EmptyFragment) {
+  // Regression test for ARROW-13982
+  if (!GetParam().use_async) GTEST_SKIP() << "Test only applies to async scanner";
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto empty_batch = ConstantArrayGenerator::Zeroes(0, schema_);
+  std::vector<std::shared_ptr<RecordBatch>> batches{
+      static_cast<std::size_t>(GetParam().num_batches * GetParam().num_child_datasets),
+      batch};
+
+  FragmentVector fragments{
+      std::make_shared<InMemoryFragment>(RecordBatchVector{empty_batch}),
+      std::make_shared<InMemoryFragment>(batches)};
+  auto dataset = std::make_shared<FragmentDataset>(schema_, fragments);
+  auto scanner = MakeScanner(dataset);
+
+  // There is no guarantee on the ordering when using multiple threads, but
+  // since the RecordBatch is always the same (or empty) it will pass.
+  ASSERT_OK_AND_ASSIGN(auto gen, scanner->ScanBatchesAsync());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto tagged, CollectAsyncGenerator(gen));
+  RecordBatchVector actual_batches;
+  for (const auto& batch : tagged) {
+    actual_batches.push_back(batch.record_batch);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
+  ASSERT_OK_AND_ASSIGN(auto actual, Table::FromRecordBatches(std::move(actual_batches)));
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 class CountRowsOnlyFragment : public InMemoryFragment {
@@ -479,7 +510,7 @@ TEST_P(TestScanner, ToRecordBatchReader) {
   ASSERT_OK_AND_ASSIGN(auto reader, scanner->ToRecordBatchReader());
   scanner.reset();
   ASSERT_OK(reader->ReadAll(&actual));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 class FailingFragment : public InMemoryFragment {
@@ -644,31 +675,31 @@ TEST_P(TestScanner, Head) {
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(0));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch->Slice(0, 1)}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(1));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   if (num_batches > 1) {
     ASSERT_OK_AND_ASSIGN(expected,
                          Table::FromRecordBatches(schema_, {batch, batch->Slice(0, 1)}));
     ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size + 1));
-    AssertTablesEqual(*expected, *actual);
+    AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
   }
 
   ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size * num_batches * num_datasets));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
   ASSERT_OK_AND_ASSIGN(actual,
                        scanner->Head(batch_size * num_batches * num_datasets + 100));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 TEST_P(TestScanner, FromReader) {
@@ -1443,6 +1474,13 @@ TEST(ScanNode, MinimalEndToEnd) {
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
 
+  // Sort table
+  ASSERT_OK_AND_ASSIGN(
+      auto indices,
+      compute::SortIndices(collected, compute::SortOptions({compute::SortKey(
+                                          "a * 2", compute::SortOrder::Ascending)})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(collected, indices));
+
   // wait 1s for completion
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
@@ -1452,7 +1490,7 @@ TEST(ScanNode, MinimalEndToEnd) {
                                                {"a * 2": null},
                                                {"a * 2": null}
                                           ])"});
-  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
 TEST(ScanNode, MinimalScalarAggEndToEnd) {
@@ -1632,17 +1670,24 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
 
+  // Sort table
+  ASSERT_OK_AND_ASSIGN(
+      auto indices, compute::SortIndices(
+                        collected, compute::SortOptions({compute::SortKey(
+                                       "sum(a * 2)", compute::SortOrder::Ascending)})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(collected, indices));
+
   // wait 1s for completion
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   auto expected = TableFromJSON(
       schema({field("sum(a * 2)", int64()), field("b", boolean())}), {
                                                                          R"JSON([
-                                               {"sum(a * 2)": 12, "b": null},
                                                {"sum(a * 2)": 4,  "b": true},
+                                               {"sum(a * 2)": 12, "b": null},
                                                {"sum(a * 2)": 40, "b": false}
                                           ])JSON"});
-  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset

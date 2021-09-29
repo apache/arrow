@@ -486,6 +486,9 @@ endif()
 if(PYARROW_BUILD_ORC)
   # ORC
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
+  if(PYARROW_BUILD_DATASET)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_orc)
+  endif()
 endif()
 
 # Flight
@@ -603,6 +606,9 @@ endif()
 
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
+  if(PYARROW_BUILD_ORC)
+    target_link_libraries(_dataset_orc PRIVATE ${DATASET_LINK_LIBS})
+  endif()
 endif()
 
 if(PYARROW_BUILD_GANDIVA)

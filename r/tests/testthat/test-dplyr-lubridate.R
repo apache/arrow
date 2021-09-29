@@ -17,8 +17,8 @@
 
 skip_if_not_available("dataset")
 
-library(lubridate)
-library(dplyr)
+library(lubridate, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
 
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
@@ -32,21 +32,159 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
 } else {
   test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
 }
-test_df <- tibble::tibble(date = test_date)
 
-# We can support this feature when ARROW-13138 is resolved
-test_that("date32 objects are not supported", {
-  date <- ymd("2017-01-01")
-  df <- tibble::tibble(date = date)
+skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13588
 
-  expect_error(
-    Table$create(df) %>%
-      mutate(x = year(date)) %>%
+test_df <- tibble::tibble(
+  datetime = c(test_date, NA),
+  date = c(as.Date("2021-09-09"), NA)
+)
+
+# These tests test component extraction from timestamp objects
+
+test_that("extract year from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = year(datetime)) %>%
       collect(),
-    "Function year has no kernel matching input types"
+    test_df
   )
 })
 
+test_that("extract isoyear from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = isoyear(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract quarter from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = quarter(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract month from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = month(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract isoweek from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = isoweek(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract epiweek from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = epiweek(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract day from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = day(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract wday from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(datetime)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, week_start = 3)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, week_start = 1)) %>%
+      collect(),
+    test_df
+  )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, label = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(datetime, label = TRUE, abbr = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract yday from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = yday(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract hour from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = hour(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract minute from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = minute(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract second from timestamp", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = second(datetime)) %>%
+      collect(),
+    test_df,
+    # arrow supports nanosecond resolution but lubridate does not
+    tolerance = 1e-6
+  )
+})
+
+# These tests test extraction of components from date32 objects
 
 test_that("extract year from date", {
   expect_dplyr_equal(
@@ -93,6 +231,15 @@ test_that("extract isoweek from date", {
   )
 })
 
+test_that("extract epiweek from date", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = epiweek(date)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract day from date", {
   expect_dplyr_equal(
     input %>%
@@ -124,12 +271,22 @@ test_that("extract wday from date", {
     test_df
   )
 
-  # We should be able to support the label argument after this ticket is resolved:
-  # https://issues.apache.org/jira/browse/ARROW-13133
-  x <- Expression$field_ref("x")
-  expect_error(
-    nse_funcs$wday(x, label = TRUE),
-    "Label argument not supported by Arrow"
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, label = TRUE, abbr = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, label = TRUE)) %>%
+      mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
   )
 })
 
@@ -139,34 +296,5 @@ test_that("extract yday from date", {
       mutate(x = yday(date)) %>%
       collect(),
     test_df
-  )
-})
-
-test_that("extract hour from date", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = hour(date)) %>%
-      collect(),
-    test_df
-  )
-})
-
-test_that("extract minute from date", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = minute(date)) %>%
-      collect(),
-    test_df
-  )
-})
-
-test_that("extract second from date", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = second(date)) %>%
-      collect(),
-    test_df,
-    # arrow supports nanosecond resolution but lubridate does not
-    tolerance = 1e-6
   )
 })

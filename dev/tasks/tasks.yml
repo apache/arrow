@@ -92,7 +92,8 @@ groups:
     - test-*kartothek*
     - test-*pandas*
     - test-*spark*
-    - test-*turbodbc*
+    # TEMP disable because those are failing due to needing upstream fix (ARROW-13594)
+    # - test-*turbodbc*
 
   example:
     - example-*
@@ -874,12 +875,12 @@ tasks:
       image: ubuntu-cpp
 {% endfor %}
 
-  test-debian-10-cpp:
+  test-debian-11-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        DEBIAN: 10
+        DEBIAN: 11
       image: debian-cpp
 
   test-fedora-33-cpp:
@@ -953,12 +954,12 @@ tasks:
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
 
-  test-debian-10-python-3:
+  test-debian-11-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        DEBIAN: 10
+        DEBIAN: 11
       run: debian-python
 
   test-ubuntu-18.04-python-3:
@@ -996,9 +997,9 @@ tasks:
     params:
       MATRIX: {{ "${{ matrix.r_image }}" }}
 
-  test-r-version-compatibility:
+  test-r-arrow-backwards-compatibility:
     ci: github
-    template: r/github.linux.version.compatibility.yml
+    template: r/github.linux.arrow.version.back.compat.yml
 
   test-r-versions:
     ci: github
@@ -1032,6 +1033,19 @@ tasks:
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_DEPENDENCY_SOURCE=SYSTEM'
       image: ubuntu-r-only-r
+
+  test-r-offline-minimal:
+      ci: azure
+      template: r/azure.linux.yml
+      params:
+        r_org: rocker
+        r_image: r-base
+        r_tag: latest
+        flags: '-e TEST_OFFLINE_BUILD=true'
+
+  test-r-offline-maximal:
+    ci: github
+    template: r/github.linux.offline.build.yml
 
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
@@ -1101,12 +1115,7 @@ tasks:
       r_org: rocker
       r_image: r-base
       r_tag: latest
-      arrow_dataset: "OFF"
-      arrow_parquet: "OFF"
-      arrow_s3: "OFF"
-      arrow_with_re2: "OFF"
-      arrow_with_utf8proc: "OFF"
-      libarrow_minimal: "TRUE"
+      flags: "-e LIBARROW_MINIMAL=TRUE"
 
   test-ubuntu-18.04-r-sanitizer:
     ci: azure
@@ -1120,11 +1129,12 @@ tasks:
     ci: github
     template: r/github.linux.revdepcheck.yml
 
-  test-debian-10-go-1.15:
+  test-debian-11-go-1.15:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
+        DEBIAN: 11
         GO: 1.15
       run: debian-go
 
@@ -1184,18 +1194,19 @@ tasks:
       image: conda-python-dask
 {% endfor %}
 
-{% for turbodbc_version in ["latest", "master"] %}
-  test-conda-python-3.7-turbodbc-{{ turbodbc_version }}:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.7
-        TURBODBC: {{ turbodbc_version }}
-      # use the latest turbodbc release, so prevent reusing any cached layers
-      flags: --no-leaf-cache
-      image: conda-python-turbodbc
-{% endfor %}
+# TEMP disable because those are failing due to needing upstream fix (ARROW-13594)
+# {% for turbodbc_version in ["latest", "master"] %}
+#   test-conda-python-3.7-turbodbc-{{ turbodbc_version }}:
+#     ci: github
+#     template: docker-tests/github.linux.yml
+#     params:
+#       env:
+#         PYTHON: 3.7
+#         TURBODBC: {{ turbodbc_version }}
+#       # use the latest turbodbc release, so prevent reusing any cached layers
+#       flags: --no-leaf-cache
+#       image: conda-python-turbodbc
+# {% endfor %}
 
 {% for kartothek_version in ["latest", "master"] %}
   test-conda-python-3.7-kartothek-{{ kartothek_version }}:

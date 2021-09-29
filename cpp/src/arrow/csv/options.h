@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/csv/invalid_row.h"
 #include "arrow/csv/type_fwd.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
@@ -58,6 +59,8 @@ struct ARROW_EXPORT ParseOptions {
   /// Whether empty lines are ignored.  If false, an empty line represents
   /// a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
+  /// A handler function for rows which do not have the correct number of columns
+  InvalidRowHandler invalid_row_handler;
 
   /// Create parsing options with default values
   static ParseOptions Defaults();
@@ -85,11 +88,11 @@ struct ARROW_EXPORT ConvertOptions {
   /// If true, then strings in "null_values" are considered null for string columns.
   /// If false, then all strings are valid string values.
   bool strings_can_be_null = false;
-  /// Whether string / binary columns can have quoted null values.
+
+  /// Whether quoted values can be null.
   ///
-  /// If true *and* `strings_can_be_null` is true, then quoted strings in
-  /// "null_values" are also considered null for string columns.  Otherwise,
-  /// quoted strings are never considered null.
+  /// If true, then strings in "null_values" are also considered null when they
+  /// appear quoted in the CSV file. Otherwise, quoted values are never considered null.
   bool quoted_strings_can_be_null = true;
 
   /// Whether to try to automatically dict-encode string / binary data.

@@ -70,7 +70,11 @@ struct ScalarHashImpl {
   }
 
   Status Visit(const DayTimeIntervalScalar& s) {
-    return StdHash(s.value.days) & StdHash(s.value.days);
+    return StdHash(s.value.days) & StdHash(s.value.milliseconds);
+  }
+
+  Status Visit(const MonthDayNanoIntervalScalar& s) {
+    return StdHash(s.value.days) & StdHash(s.value.months) & StdHash(s.value.nanoseconds);
   }
 
   Status Visit(const Decimal128Scalar& s) {
@@ -595,8 +599,9 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
 std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
                                                          std::shared_ptr<Array> dict) {
   auto type = dictionary(index->type, dict->type());
+  auto is_valid = index->is_valid;
   return std::make_shared<DictionaryScalar>(ValueType{std::move(index), std::move(dict)},
-                                            std::move(type));
+                                            std::move(type), is_valid);
 }
 
 namespace {
@@ -781,7 +786,8 @@ Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
 // numeric to temporal
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, To>::value &&
-                            !std::is_same<DayTimeIntervalType, To>::value,
+                            !std::is_same<DayTimeIntervalType, To>::value &&
+                            !std::is_same<MonthDayNanoIntervalType, To>::value,
                         Status>::type
 CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
@@ -791,7 +797,8 @@ CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
 // temporal to numeric
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, From>::value &&
-                            !std::is_same<DayTimeIntervalType, From>::value,
+                            !std::is_same<DayTimeIntervalType, From>::value &&
+                            !std::is_same<MonthDayNanoIntervalType, From>::value,
                         Status>::type
 CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
@@ -913,6 +920,15 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+Status CastImpl(const UnionScalar& from, StringScalar* to) {
+  const auto& union_ty = checked_cast<const UnionType&>(*from.type);
+  std::stringstream ss;
+  ss << "union{" << union_ty.field(union_ty.child_ids()[from.type_code])->ToString()
+     << " = " << from.value->ToString() << '}';
+  to->value = Buffer::FromString(ss.str());
+  return Status::OK();
+}
+
 struct CastImplVisitor {
   Status NotImplemented() {
     return Status::NotImplemented("cast to ", *to_type_, " from ", *from_.type);
@@ -946,8 +962,6 @@ struct FromTypeVisitor : CastImplVisitor {
   }
 
   Status Visit(const NullType&) { return NotImplemented(); }
-  Status Visit(const SparseUnionType&) { return NotImplemented(); }
-  Status Visit(const DenseUnionType&) { return NotImplemented(); }
   Status Visit(const DictionaryType&) { return NotImplemented(); }
   Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
@@ -976,8 +990,6 @@ struct ToTypeVisitor : CastImplVisitor {
     return Int32Scalar(0).CastTo(dict_type.index_type()).Value(&out.index);
   }
 
-  Status Visit(const SparseUnionType&) { return NotImplemented(); }
-  Status Visit(const DenseUnionType&) { return NotImplemented(); }
   Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
 

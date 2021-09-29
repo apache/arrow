@@ -137,7 +137,7 @@ class build_ext(_build_ext):
         _build_ext.initialize_options(self)
         self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
         if not self.cmake_generator and sys.platform == 'win32':
-            self.cmake_generator = 'Visual Studio 14 2015 Win64'
+            self.cmake_generator = 'Visual Studio 15 2017 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
                                          'release').lower()
@@ -198,6 +198,7 @@ class build_ext(_build_ext):
         '_cuda',
         '_flight',
         '_dataset',
+        '_dataset_orc',
         '_feather',
         '_parquet',
         '_orc',
@@ -423,6 +424,10 @@ class build_ext(_build_ext):
         if name == '_hdfs' and not self.with_hdfs:
             return True
         if name == '_dataset' and not self.with_dataset:
+            return True
+        if name == '_dataset_orc' and not (
+                self.with_orc and self.with_dataset
+        ):
             return True
         if name == '_cuda' and not self.with_cuda:
             return True

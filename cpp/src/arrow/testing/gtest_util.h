@@ -32,6 +32,7 @@
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_compat.h"
@@ -159,6 +160,15 @@ using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
 
 using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
                                             Int8Type, Int16Type, Int32Type, Int64Type>;
+
+using PhysicalIntegralArrowTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, Date32Type, Date64Type, Time32Type, Time64Type,
+                     TimestampType, MonthIntervalType>;
+
+using PrimitiveArrowTypes =
+    ::testing::Types<BooleanType, Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
+                     UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
 
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
@@ -327,6 +337,11 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 ARROW_TESTING_EXPORT
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
                                        util::string_view json);
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>&,
+                                           util::string_view index_json,
+                                           util::string_view dictionary_json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,

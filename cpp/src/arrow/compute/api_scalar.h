@@ -29,6 +29,7 @@
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
@@ -49,8 +50,56 @@ class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
   explicit ElementWiseAggregateOptions(bool skip_nulls = true);
   constexpr static char const kTypeName[] = "ElementWiseAggregateOptions";
   static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
-
   bool skip_nulls;
+};
+
+/// Rounding and tie-breaking modes for round compute functions.
+/// Additional details and examples are provided in compute.rst.
+enum class RoundMode : int8_t {
+  /// Round to nearest integer less than or equal in magnitude (aka "floor")
+  DOWN,
+  /// Round to nearest integer greater than or equal in magnitude (aka "ceil")
+  UP,
+  /// Get the integral part without fractional digits (aka "trunc")
+  TOWARDS_ZERO,
+  /// Round negative values with DOWN rule and positive values with UP rule
+  TOWARDS_INFINITY,
+  /// Round ties with DOWN rule
+  HALF_DOWN,
+  /// Round ties with UP rule
+  HALF_UP,
+  /// Round ties with TOWARDS_ZERO rule
+  HALF_TOWARDS_ZERO,
+  /// Round ties with TOWARDS_INFINITY rule
+  HALF_TOWARDS_INFINITY,
+  /// Round ties to nearest even integer
+  HALF_TO_EVEN,
+  /// Round ties to nearest odd integer
+  HALF_TO_ODD,
+};
+
+class ARROW_EXPORT RoundOptions : public FunctionOptions {
+ public:
+  explicit RoundOptions(int64_t ndigits = 0,
+                        RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  constexpr static char const kTypeName[] = "RoundOptions";
+  static RoundOptions Defaults() { return RoundOptions(); }
+  /// Rounding precision (number of digits to round to)
+  int64_t ndigits;
+  /// Rounding and tie-breaking mode
+  RoundMode round_mode;
+};
+
+class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
+ public:
+  explicit RoundToMultipleOptions(double multiple = 1.0,
+                                  RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  constexpr static char const kTypeName[] = "RoundToMultipleOptions";
+  static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
+  /// Rounding scale (multiple to round to)
+  double multiple;
+  /// Rounding and tie-breaking mode
+  RoundMode round_mode;
 };
 
 /// Options for var_args_join.
@@ -82,7 +131,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
   /// Whether to perform a case-insensitive match.
-  bool ignore_case = false;
+  bool ignore_case;
 };
 
 class ARROW_EXPORT SplitOptions : public FunctionOptions {
@@ -185,7 +234,7 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
 
   constexpr static char const kTypeName[] = "StrftimeOptions";
 
-  constexpr static const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%SZ";
+  constexpr static const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%S";
 
   /// The desired format string.
   std::string format;
@@ -230,7 +279,7 @@ class ARROW_EXPORT NullOptions : public FunctionOptions {
   constexpr static char const kTypeName[] = "NullOptions";
   static NullOptions Defaults() { return NullOptions{}; }
 
-  bool nan_is_null = false;
+  bool nan_is_null;
 };
 
 enum CompareOperator : int8_t {
@@ -268,14 +317,75 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
 
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
-  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1);
+  explicit DayOfWeekOptions(bool count_from_zero = true, uint32_t week_start = 1);
   constexpr static char const kTypeName[] = "DayOfWeekOptions";
-  static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
+  static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
-  /// Number days from 1 if true and from 0 if false
-  bool one_based_numbering;
+  /// Number days from 0 if true and from 1 if false
+  bool count_from_zero;
   /// What day does the week start with (Monday=1, Sunday=7)
   uint32_t week_start;
+};
+
+/// Used to control timestamp timezone conversion and handling ambiguous/nonexistent
+/// times.
+struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
+ public:
+  /// \brief How to interpret ambiguous local times that can be interpreted as
+  /// multiple instants (normally two) due to DST shifts.
+  ///
+  /// AMBIGUOUS_EARLIEST emits the earliest instant amongst possible interpretations.
+  /// AMBIGUOUS_LATEST emits the latest instant amongst possible interpretations.
+  enum Ambiguous { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
+
+  /// \brief How to handle local times that do not exist due to DST shifts.
+  ///
+  /// NONEXISTENT_EARLIEST emits the instant "just before" the DST shift instant
+  /// in the given timestamp precision (for example, for a nanoseconds precision
+  /// timestamp, this is one nanosecond before the DST shift instant).
+  /// NONEXISTENT_LATEST emits the DST shift instant.
+  enum Nonexistent { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
+
+  explicit AssumeTimezoneOptions(std::string timezone,
+                                 Ambiguous ambiguous = AMBIGUOUS_RAISE,
+                                 Nonexistent nonexistent = NONEXISTENT_RAISE);
+  AssumeTimezoneOptions();
+  constexpr static char const kTypeName[] = "AssumeTimezoneOptions";
+
+  /// Timezone to convert timestamps from
+  std::string timezone;
+
+  /// How to interpret ambiguous local times (due to DST shifts)
+  Ambiguous ambiguous;
+  /// How to interpret non-existent local times (due to DST shifts)
+  Nonexistent nonexistent;
+};
+
+struct ARROW_EXPORT WeekOptions : public FunctionOptions {
+ public:
+  explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
+                       bool first_week_is_fully_in_year = false);
+  constexpr static char const kTypeName[] = "WeekOptions";
+  static WeekOptions Defaults() { return WeekOptions{}; }
+  static WeekOptions ISODefaults() {
+    return WeekOptions{/*week_starts_monday*/ true,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
+  static WeekOptions USDefaults() {
+    return WeekOptions{/*week_starts_monday*/ false,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
+
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
+  /// Dates from current year that fall into last ISO week of the previous year return
+  /// 0 if true and 52 or 53 if false.
+  bool count_from_zero;
+  /// Must the first week be fully in January (true), or is a week that begins on
+  /// December 29, 30, or 31 considered to be the first week of the new year (false)?
+  bool first_week_is_fully_in_year;
 };
 
 /// @}
@@ -524,8 +634,9 @@ Result<Datum> Logb(const Datum& arg, const Datum& base,
                    ExecContext* ctx = NULLPTR);
 
 /// \brief Round to the nearest integer less than or equal in magnitude to the
-/// argument. Array values can be of arbitrary length. If argument is null the
-/// result will be null.
+/// argument.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value to round
 /// \param[in] ctx the function execution context, optional
@@ -534,8 +645,9 @@ ARROW_EXPORT
 Result<Datum> Floor(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Round to the nearest integer greater than or equal in magnitude to the
-/// argument. Array values can be of arbitrary length. If argument is null the
-/// result will be null.
+/// argument.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value to round
 /// \param[in] ctx the function execution context, optional
@@ -543,8 +655,9 @@ Result<Datum> Floor(const Datum& arg, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Ceil(const Datum& arg, ExecContext* ctx = NULLPTR);
 
-/// \brief Get the integral part without fractional digits. Array values can be
-/// of arbitrary length. If argument is null the result will be null.
+/// \brief Get the integral part without fractional digits.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value to truncate
 /// \param[in] ctx the function execution context, optional
@@ -583,9 +696,34 @@ Result<Datum> MinElementWise(
 ///
 /// \param[in] arg the value to extract sign from
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise sign function
+/// \return the element-wise sign function
 ARROW_EXPORT
 Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Round a value to a given precision.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the value rounded
+/// \param[in] options rounding options (rounding mode and number of digits), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+ARROW_EXPORT
+Result<Datum> Round(const Datum& arg, RoundOptions options = RoundOptions::Defaults(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Round a value to a given multiple.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the value to round
+/// \param[in] options rounding options (rounding mode and multiple), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+ARROW_EXPORT
+Result<Datum> RoundToMultiple(
+    const Datum& arg, RoundToMultipleOptions options = RoundToMultipleOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///
@@ -897,7 +1035,8 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.
-/// Week of the year starts with 1 and can run up to 53.
+/// ISO week starts on Monday. Year can have 52 or 53 weeks.
+/// Week numbering can start with 1.
 ///
 /// \param[in] values input to extract ISO week of year from
 /// \param[in] ctx the function execution context, optional
@@ -906,6 +1045,34 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief USWeek returns US week of year number for each element of `values`.
+/// First US week has the majority (4 or more) of its days in January.
+/// US week starts on Sunday. Year can have 52 or 53 weeks.
+/// Week numbering starts with 1.
+///
+/// \param[in] values input to extract US week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> USWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Week returns week of year number for each element of `values`.
+/// First ISO week has the majority (4 or more) of its days in January.
+/// Year can have 52 or 53 weeks. Week numbering can start with 0 or 1
+/// depending on DayOfWeekOptions.count_from_zero.
+///
+/// \param[in] values input to extract week of year from
+/// \param[in] options for setting numbering start
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Week(const Datum& values, WeekOptions options = WeekOptions(),
+                                ExecContext* ctx = NULLPTR);
 
 /// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for
 /// each element of `values`.
@@ -1024,6 +1191,22 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
                                     ExecContext* ctx = NULLPTR);
+
+/// \brief Converts timestamps from local timestamp without a timezone to a timestamp with
+/// timezone, interpreting the local timestamp as being in the specified timezone for each
+/// element of `values`
+///
+/// \param[in] values input to convert
+/// \param[in] options for setting source timezone, exception and ambiguous timestamp
+/// handling.
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
+                                          AssumeTimezoneOptions options,
+                                          ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

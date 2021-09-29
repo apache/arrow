@@ -120,6 +120,16 @@ TEST(StringConversion, ToInt8) {
   AssertConversionFails<Int8Type>("-");
   AssertConversionFails<Int8Type>("0.0");
   AssertConversionFails<Int8Type>("e");
+
+  // Hex
+  AssertConversion<Int8Type>("0x0", 0);
+  AssertConversion<Int8Type>("0X1A", 26);
+  AssertConversion<Int8Type>("0xb", 11);
+  AssertConversion<Int8Type>("0x7F", 127);
+  AssertConversion<Int8Type>("0xFF", -1);
+  AssertConversionFails<Int8Type>("0x");
+  AssertConversionFails<Int8Type>("0x100");
+  AssertConversionFails<Int8Type>("0x1g");
 }
 
 TEST(StringConversion, ToUInt8) {
@@ -138,6 +148,16 @@ TEST(StringConversion, ToUInt8) {
   AssertConversionFails<UInt8Type>("-");
   AssertConversionFails<UInt8Type>("0.0");
   AssertConversionFails<UInt8Type>("e");
+
+  // Hex
+  AssertConversion<UInt8Type>("0x0", 0);
+  AssertConversion<UInt8Type>("0x1A", 26);
+  AssertConversion<UInt8Type>("0xb", 11);
+  AssertConversion<UInt8Type>("0x7F", 127);
+  AssertConversion<UInt8Type>("0xFF", 255);
+  AssertConversionFails<UInt8Type>("0x");
+  AssertConversionFails<UInt8Type>("0x100");
+  AssertConversionFails<UInt8Type>("0x1g");
 }
 
 TEST(StringConversion, ToInt16) {
@@ -155,6 +175,16 @@ TEST(StringConversion, ToInt16) {
   AssertConversionFails<Int16Type>("-");
   AssertConversionFails<Int16Type>("0.0");
   AssertConversionFails<Int16Type>("e");
+
+  // Hex
+  AssertConversion<Int16Type>("0x0", 0);
+  AssertConversion<Int16Type>("0X1aA", 426);
+  AssertConversion<Int16Type>("0xb", 11);
+  AssertConversion<Int16Type>("0x7ffF", 32767);
+  AssertConversion<Int16Type>("0XfffF", -1);
+  AssertConversionFails<Int16Type>("0x");
+  AssertConversionFails<Int16Type>("0x10000");
+  AssertConversionFails<Int16Type>("0x1g");
 }
 
 TEST(StringConversion, ToUInt16) {
@@ -172,6 +202,16 @@ TEST(StringConversion, ToUInt16) {
   AssertConversionFails<UInt16Type>("-");
   AssertConversionFails<UInt16Type>("0.0");
   AssertConversionFails<UInt16Type>("e");
+
+  // Hex
+  AssertConversion<UInt16Type>("0x0", 0);
+  AssertConversion<UInt16Type>("0x1aA", 426);
+  AssertConversion<UInt16Type>("0xb", 11);
+  AssertConversion<UInt16Type>("0x7ffF", 32767);
+  AssertConversion<UInt16Type>("0xFffF", 65535);
+  AssertConversionFails<UInt16Type>("0x");
+  AssertConversionFails<UInt16Type>("0x10000");
+  AssertConversionFails<UInt16Type>("0x1g");
 }
 
 TEST(StringConversion, ToInt32) {
@@ -189,6 +229,18 @@ TEST(StringConversion, ToInt32) {
   AssertConversionFails<Int32Type>("-");
   AssertConversionFails<Int32Type>("0.0");
   AssertConversionFails<Int32Type>("e");
+
+  // Hex
+  AssertConversion<Int32Type>("0x0", 0);
+  AssertConversion<Int32Type>("0x123ABC", 1194684);
+  AssertConversion<Int32Type>("0xA4B35", 674613);
+  AssertConversion<Int32Type>("0x7FFFFFFF", 2147483647);
+  AssertConversion<Int32Type>("0x123abc", 1194684);
+  AssertConversion<Int32Type>("0xA4b35", 674613);
+  AssertConversion<Int32Type>("0x7FFFfFfF", 2147483647);
+  AssertConversion<Int32Type>("0XFFFFfFfF", -1);
+  AssertConversionFails<Int32Type>("0X");
+  AssertConversionFails<Int32Type>("0x23512ak");
 }
 
 TEST(StringConversion, ToUInt32) {
@@ -206,6 +258,18 @@ TEST(StringConversion, ToUInt32) {
   AssertConversionFails<UInt32Type>("-");
   AssertConversionFails<UInt32Type>("0.0");
   AssertConversionFails<UInt32Type>("e");
+
+  // Hex
+  AssertConversion<UInt32Type>("0x0", 0);
+  AssertConversion<UInt32Type>("0x123ABC", 1194684);
+  AssertConversion<UInt32Type>("0xA4B35", 674613);
+  AssertConversion<UInt32Type>("0x7FFFFFFF", 2147483647);
+  AssertConversion<UInt32Type>("0x123abc", 1194684);
+  AssertConversion<UInt32Type>("0xA4b35", 674613);
+  AssertConversion<UInt32Type>("0x7FFFfFfF", 2147483647);
+  AssertConversion<UInt32Type>("0XFFFFfFfF", 4294967295);
+  AssertConversionFails<UInt32Type>("0X");
+  AssertConversionFails<UInt32Type>("0x23512ak");
 }
 
 TEST(StringConversion, ToInt64) {
@@ -223,6 +287,17 @@ TEST(StringConversion, ToInt64) {
   AssertConversionFails<Int64Type>("-");
   AssertConversionFails<Int64Type>("0.0");
   AssertConversionFails<Int64Type>("e");
+
+  // Hex
+  AssertConversion<Int64Type>("0x0", 0);
+  AssertConversion<Int64Type>("0x5415a123ABC123cb", 6058926048274359243);
+  AssertConversion<Int64Type>("0xA4B35", 674613);
+  AssertConversion<Int64Type>("0x7FFFFFFFFFFFFFFf", 9223372036854775807);
+  AssertConversion<Int64Type>("0XF000000000000001", -1152921504606846975);
+  AssertConversion<Int64Type>("0xfFFFFFFFFFFFFFFf", -1);
+  AssertConversionFails<Int64Type>("0X");
+  AssertConversionFails<Int64Type>("0x12345678901234567");
+  AssertConversionFails<Int64Type>("0x23512ak");
 }
 
 TEST(StringConversion, ToUInt64) {
@@ -237,6 +312,17 @@ TEST(StringConversion, ToUInt64) {
   AssertConversionFails<UInt64Type>("-");
   AssertConversionFails<UInt64Type>("0.0");
   AssertConversionFails<UInt64Type>("e");
+
+  // Hex
+  AssertConversion<UInt64Type>("0x0", 0);
+  AssertConversion<UInt64Type>("0x5415a123ABC123cb", 6058926048274359243);
+  AssertConversion<UInt64Type>("0xA4B35", 674613);
+  AssertConversion<UInt64Type>("0x7FFFFFFFFFFFFFFf", 9223372036854775807);
+  AssertConversion<UInt64Type>("0XF000000000000001", 17293822569102704641ULL);
+  AssertConversion<UInt64Type>("0xfFFFFFFFFFFFFFFf", 18446744073709551615ULL);
+  AssertConversionFails<UInt64Type>("0x");
+  AssertConversionFails<UInt64Type>("0x12345678901234567");
+  AssertConversionFails<UInt64Type>("0x23512ak");
 }
 
 TEST(StringConversion, ToDate32) {

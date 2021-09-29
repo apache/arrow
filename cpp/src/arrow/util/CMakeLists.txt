@@ -42,6 +42,7 @@ add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
                async_generator_test.cc
+               async_util_test.cc
                bit_block_counter_test.cc
                bit_util_test.cc
                cache_test.cc

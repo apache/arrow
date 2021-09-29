@@ -625,6 +625,8 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
       RETURN_NOT_OK(AppendSequence(value));
+    } else if (PySet_Check(value) || (Py_TYPE(value) == &PyDictValues_Type)) {
+      RETURN_NOT_OK(AppendIterable(value));
     } else {
       return internal::InvalidType(
           value, "was not a sequence or recognized null for conversion to list type");
@@ -648,6 +650,17 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
     return this->value_converter_->Extend(value, size);
+  }
+
+  Status AppendIterable(PyObject* value) {
+    PyObject* iterator = PyObject_GetIter(value);
+    OwnedRef iter_ref(iterator);
+    while (PyObject* item = PyIter_Next(iterator)) {
+      OwnedRef item_ref(item);
+      RETURN_NOT_OK(this->value_converter_->Reserve(1));
+      RETURN_NOT_OK(this->value_converter_->Append(item));
+    }
+    return Status::OK();
   }
 
   Status AppendNdarray(PyObject* value) {

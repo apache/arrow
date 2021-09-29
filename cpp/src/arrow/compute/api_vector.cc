@@ -39,8 +39,11 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace internal {
+
 using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
+using compute::NullPlacement;
+
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
     : BasicEnumTraits<FilterOptions::NullSelectionBehavior, FilterOptions::DROP,
@@ -71,6 +74,21 @@ struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
     return "<INVALID>";
   }
 };
+template <>
+struct EnumTraits<NullPlacement>
+    : BasicEnumTraits<NullPlacement, NullPlacement::AtStart, NullPlacement::AtEnd> {
+  static std::string name() { return "NullPlacement"; }
+  static std::string value_name(NullPlacement value) {
+    switch (value) {
+      case NullPlacement::AtStart:
+        return "AtStart";
+      case NullPlacement::AtEnd:
+        return "AtEnd";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -106,11 +124,17 @@ static auto kDictionaryEncodeOptionsType =
     GetFunctionOptionsType<DictionaryEncodeOptions>(DataMember(
         "null_encoding_behavior", &DictionaryEncodeOptions::null_encoding_behavior));
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
-    DataMember("order", &ArraySortOptions::order));
-static auto kSortOptionsType =
-    GetFunctionOptionsType<SortOptions>(DataMember("sort_keys", &SortOptions::sort_keys));
+    DataMember("order", &ArraySortOptions::order),
+    DataMember("null_placement", &ArraySortOptions::null_placement));
+static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
+    DataMember("sort_keys", &SortOptions::sort_keys),
+    DataMember("null_placement", &SortOptions::null_placement));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
-    DataMember("pivot", &PartitionNthOptions::pivot));
+    DataMember("pivot", &PartitionNthOptions::pivot),
+    DataMember("null_placement", &PartitionNthOptions::null_placement));
+static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
+    DataMember("k", &SelectKOptions::k),
+    DataMember("sort_keys", &SelectKOptions::sort_keys));
 }  // namespace
 }  // namespace internal
 
@@ -128,17 +152,29 @@ DictionaryEncodeOptions::DictionaryEncodeOptions(NullEncodingBehavior null_encod
       null_encoding_behavior(null_encoding) {}
 constexpr char DictionaryEncodeOptions::kTypeName[];
 
-ArraySortOptions::ArraySortOptions(SortOrder order)
-    : FunctionOptions(internal::kArraySortOptionsType), order(order) {}
+ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement)
+    : FunctionOptions(internal::kArraySortOptionsType),
+      order(order),
+      null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
 
-SortOptions::SortOptions(std::vector<SortKey> sort_keys)
-    : FunctionOptions(internal::kSortOptionsType), sort_keys(std::move(sort_keys)) {}
+SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(null_placement) {}
 constexpr char SortOptions::kTypeName[];
 
-PartitionNthOptions::PartitionNthOptions(int64_t pivot)
-    : FunctionOptions(internal::kPartitionNthOptionsType), pivot(pivot) {}
+PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
+    : FunctionOptions(internal::kPartitionNthOptionsType),
+      pivot(pivot),
+      null_placement(null_placement) {}
 constexpr char PartitionNthOptions::kTypeName[];
+
+SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
+    : FunctionOptions(internal::kSelectKOptionsType),
+      k(k),
+      sort_keys(std::move(sort_keys)) {}
+constexpr char SelectKOptions::kTypeName[];
 
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
@@ -148,11 +184,20 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
 }
 }  // namespace internal
 
 // ----------------------------------------------------------------------
 // Direct exec interface to kernels
+
+Result<std::shared_ptr<Array>> NthToIndices(const Array& values,
+                                            const PartitionNthOptions& options,
+                                            ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("partition_nth_indices",
+                                                   {Datum(values)}, &options, ctx));
+  return result.make_array();
+}
 
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx) {
@@ -162,9 +207,25 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
+                                               const SelectKOptions& options,
+                                               ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("select_k_unstable", {datum}, &options, ctx));
+  return result.make_array();
+}
+
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
                               const Datum& replacements, ExecContext* ctx) {
   return CallFunction("replace_with_mask", {values, mask, replacements}, ctx);
+}
+
+Result<std::shared_ptr<Array>> SortIndices(const Array& values,
+                                           const ArraySortOptions& options,
+                                           ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result, CallFunction("array_sort_indices", {Datum(values)}, &options, ctx));
+  return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
@@ -172,6 +233,15 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
   ArraySortOptions options(order);
   ARROW_ASSIGN_OR_RAISE(
       Datum result, CallFunction("array_sort_indices", {Datum(values)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
+                                           const ArraySortOptions& array_options,
+                                           ExecContext* ctx) {
+  SortOptions options({SortKey("", array_options.order)}, array_options.null_placement);
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
   return result.make_array();
 }
 

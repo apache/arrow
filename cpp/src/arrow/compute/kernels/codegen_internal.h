@@ -94,8 +94,8 @@ struct OptionsWrapper : public KernelState {
 /// KernelContext and the FunctionOptions as argument
 template <typename StateType, typename OptionsType>
 struct KernelStateFromFunctionOptions : public KernelState {
-  explicit KernelStateFromFunctionOptions(KernelContext* ctx, OptionsType state)
-      : state(StateType(ctx, std::move(state))) {}
+  explicit KernelStateFromFunctionOptions(KernelContext* ctx, OptionsType options)
+      : state(StateType(ctx, std::move(options))) {}
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
@@ -395,6 +395,7 @@ static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& ar
 // Reusable type resolvers
 
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
+Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
 
 // ----------------------------------------------------------------------
 // Generate an array kernel given template classes
@@ -406,17 +407,6 @@ ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
 // functions
-
-const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
-const std::vector<std::shared_ptr<DataType>>& StringTypes();
-const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
-const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
-const std::vector<std::shared_ptr<DataType>>& IntTypes();
-const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
-const std::vector<Type::type>& DecimalTypeIds();
-
-ARROW_EXPORT
-const std::vector<TimeUnit::type>& AllTimeUnits();
 
 // Returns a vector of example instances of parametric types such as
 //
@@ -435,18 +425,6 @@ const std::vector<TimeUnit::type>& AllTimeUnits();
 // the OutputType of the kernel's signature and match::SameTypeId for the
 // corresponding InputType
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes();
-
-// Number types without boolean
-const std::vector<std::shared_ptr<DataType>>& NumericTypes();
-
-// Temporal types including time and timestamps for each unit
-const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
-
-// Interval types
-const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
-
-// Integer, floating point, base binary, and temporal
-const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 // ----------------------------------------------------------------------
 // "Applicators" take an operator definition (which may be scalar-valued or
@@ -945,6 +923,10 @@ using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryNotNullEqualTypes = ScalarBinaryNotNull<OutType, ArgType, ArgType, Op>;
 
+template <typename OutType, typename ArgType, typename Op>
+using ScalarBinaryNotNullStatefulEqualTypes =
+    ScalarBinaryNotNullStateful<OutType, ArgType, ArgType, Op>;
+
 }  // namespace applicator
 
 // ----------------------------------------------------------------------
@@ -1302,16 +1284,40 @@ ARROW_EXPORT
 void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
 
 ARROW_EXPORT
+void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
+
+ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
+
+/// How to promote decimal precision/scale in CastBinaryDecimalArgs.
+enum class DecimalPromotion : uint8_t {
+  kAdd,
+  kMultiply,
+  kDivide,
+};
+
+/// Given two arguments, at least one of which is decimal, promote all
+/// to not necessarily identical types, but types which are compatible
+/// for the given operator (add/multiply/divide).
+ARROW_EXPORT
+Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<ValueDescr>* descrs);
+
+/// Given one or more arguments, at least one of which is decimal,
+/// promote all to an identical type.
+ARROW_EXPORT
+Status CastDecimalArgs(ValueDescr* begin, size_t count);
+
+ARROW_EXPORT
+bool HasDecimal(const std::vector<ValueDescr>& descrs);
 
 }  // namespace internal
 }  // namespace compute

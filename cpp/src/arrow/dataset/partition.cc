@@ -503,7 +503,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
     util::InitializeUTF8();
   }
 
-  std::string type_name() const override { return "schema"; }
+  std::string type_name() const override { return "directory"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {

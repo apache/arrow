@@ -55,23 +55,43 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> ExecPlan_run(
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node) {
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
-  MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
-                     compute::SinkNodeOptions{&sink_gen});
+
+  // Sorting uses a different sink node; there is no general sort yet
+  if (sort_options.size() > 0) {
+    MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                       compute::OrderBySinkNodeOptions{
+                           *std::dynamic_pointer_cast<compute::SortOptions>(
+                               make_compute_options("sort_indices", sort_options)),
+                           &sink_gen});
+  } else {
+    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                       compute::SinkNodeOptions{&sink_gen});
+  }
 
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
 
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      final_node->output_schema(), std::move(sink_gen), gc_memory_pool());
+  // If the generator is destroyed before being completely drained, inform plan
+  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
+                                         bool not_finished_yet =
+                                             plan->finished().TryAddCallback([&plan] {
+                                               return [plan](const arrow::Status&) {};
+                                             });
 
-  plan->finished().Wait();
-  return ValueOrStop(arrow::Table::FromRecordBatchReader(sink_reader.get()));
+                                         if (not_finished_yet) {
+                                           plan->StopProducing();
+                                         }
+                                       }};
+
+  return compute::MakeGeneratorReader(
+      final_node->output_schema(),
+      [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
 }
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -90,6 +110,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
 
   options->use_async = true;
+  options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
 
   options->dataset_schema = dataset->schema();
 

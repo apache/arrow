@@ -38,7 +38,7 @@ out-of-source. If you are not familiar with this terminology:
 Building requires:
 
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
-  sufficient. For Windows, at least Visual Studio 2015 is required.
+  sufficient. For Windows, at least Visual Studio 2017 is required.
 * CMake 3.5 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
 
@@ -60,6 +60,16 @@ On Alpine Linux:
            g++ \
            gcc \
            make
+           
+On Fedora Linux:
+
+.. code-block:: shell
+
+   sudo dnf install \
+        cmake \
+        gcc \
+        gcc-c++ \
+        make
 
 On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
@@ -130,7 +140,10 @@ Minimal debug build with unit tests:
 .. code-block:: shell
 
    git clone https://github.com/apache/arrow.git
-   cd arrow/cpp
+   cd arrow
+   git submodule update --init --recursive
+   export ARROW_TEST_DATA=$PWD/testing/data
+   cd cpp
    mkdir debug
    cd debug
    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..

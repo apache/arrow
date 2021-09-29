@@ -492,16 +492,18 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-_parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
+_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "1.0"
     Determine which Parquet logical types are available for use, whether the
     reduced set from the Parquet 1.x.x format or the expanded logical types
-    added in format version 2.0.0 and after. Note that files written with
-    version='2.0' may not be readable in all Parquet implementations, so
-    version='1.0' is likely the choice that maximizes file compatibility. Some
-    features, such as lossless storage of nanosecond timestamps as INT64
-    physical storage, are only available with version='2.0'. The Parquet 2.0.0
-    format version also introduced a new serialized data page format; this can
-    be enabled separately using the data_page_version option.
+    added in later format versions.
+    Files written with version='2.4' or '2.6' may not be readable in all
+    Parquet implementations, so version='1.0' is likely the choice that
+    maximizes file compatibility.
+    UINT32 and some logical types are only available with version '2.4'.
+    Nanosecond timestamps are only available with version '2.6'.
+    Other features such as compression algorithms or the new serialized
+    data page format must be enabled separately (see 'compression' and
+    'data_page_version').
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
@@ -509,13 +511,14 @@ use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
-    Cast timestamps a particular resolution. The defaults depends on `version`.
-    For ``version='1.0'`` (the default), nanoseconds will be cast to
-    microseconds ('us'), and seconds to milliseconds ('ms') by default. For
-    ``version='2.0'``, the original resolution is preserved and no casting
-    is done by default. The casting might result in loss of data, in which
-    case ``allow_truncated_timestamps=True`` can be used to suppress the
-    raised exception.
+    Cast timestamps to a particular resolution. If omitted, defaults are chosen
+    depending on `version`. By default, for ``version='1.0'`` (the default)
+    and ``version='2.4'``, nanoseconds are cast to microseconds ('us'), while
+    for other `version` values, they are written natively without loss
+    of resolution.  Seconds are always cast to milliseconds ('ms') by default,
+    as Parquet does not have any temporal type with seconds resolution.
+    If the casting results in loss of data, it will raise an exception
+    unless ``allow_truncated_timestamps=True`` is given.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data

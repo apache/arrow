@@ -26,6 +26,7 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.TypeEqualsVisitor;
@@ -528,6 +529,14 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
   public ValueVector visit(NullVector deltaVector, Void value) {
     Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
             "The targetVector to append must have the same type as the targetVector being appended");
+    return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(ExtensionTypeVector<?> deltaVector, Void value) {
+    ValueVector targetUnderlying = ((ExtensionTypeVector<?>) targetVector).getUnderlyingVector();
+    VectorAppender underlyingAppender = new VectorAppender(targetUnderlying);
+    deltaVector.getUnderlyingVector().accept(underlyingAppender, null);
     return targetVector;
   }
 }

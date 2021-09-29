@@ -624,6 +624,187 @@ TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
               ArrayFromJSON(type, R"([null, null, null, [6, null]])"));
 }
 
+template <typename Type>
+class TestCaseWhenDict : public ::testing::Test {};
+
+struct JsonDict {
+  std::shared_ptr<DataType> type;
+  std::string value;
+};
+
+TYPED_TEST_SUITE(TestCaseWhenDict, IntegralArrowTypes);
+
+TYPED_TEST(TestCaseWhenDict, Simple) {
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  for (const auto& dict :
+       {JsonDict{utf8(), R"(["a", null, "bc", "def"])"},
+        JsonDict{int64(), "[1, null, 2, 3]"},
+        JsonDict{decimal256(3, 2), R"(["1.23", null, "3.45", "6.78"])"}}) {
+    auto type = dictionary(default_type_instance<TypeParam>(), dict.type);
+    auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict.value);
+    auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict.value);
+    auto values2 = DictArrayFromJSON(type, "[2, 1, null, 0]", dict.value);
+
+    // Easy case: all arguments have the same dictionary
+    CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
+    CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1});
+    CheckDictionary("case_when",
+                    {MakeStruct({cond1, cond2}), values_null, values2, values1});
+  }
+}
+
+TYPED_TEST(TestCaseWhenDict, Mixed) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
+  auto values1_dict = DictArrayFromJSON(type, "[0, null, 3, 1]", dict);
+  auto values1_decoded = ArrayFromJSON(utf8(), R"(["a", null, "def", null])");
+  auto values2_dict = DictArrayFromJSON(type, "[2, 1, null, 0]", dict);
+  auto values2_decoded = ArrayFromJSON(utf8(), R"(["bc", null, null, "a"])");
+
+  // If we have mixed dictionary/non-dictionary arguments, we decode dictionaries
+  CheckDictionary("case_when",
+                  {MakeStruct({cond1, cond2}), values1_dict, values2_decoded},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when",
+                  {MakeStruct({cond1, cond2}), values1_decoded, values2_dict},
+                  /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1_dict, values2_dict, values1_decoded},
+      /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values_null, values2_dict, values1_decoded},
+      /*result_is_encoded=*/false);
+}
+
+TYPED_TEST(TestCaseWhenDict, NestedSimple) {
+  auto make_list = [](const std::shared_ptr<Array>& indices,
+                      const std::shared_ptr<Array>& backing_array) {
+    EXPECT_OK_AND_ASSIGN(auto result, ListArray::FromArrays(*indices, *backing_array));
+    return result;
+  };
+  auto index_type = default_type_instance<TypeParam>();
+  auto inner_type = dictionary(index_type, utf8());
+  auto type = list(inner_type);
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = make_list(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
+                               DictArrayFromJSON(inner_type, "[]", dict));
+  auto values1_backing = DictArrayFromJSON(inner_type, "[0, null, 3, 1]", dict);
+  auto values2_backing = DictArrayFromJSON(inner_type, "[2, 1, null, 0]", dict);
+  auto values1 = make_list(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
+  auto values2 = make_list(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
+
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing)},
+      /*result_is_encoded=*/false);
+  CheckDictionary(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing), values1},
+      /*result_is_encoded=*/false);
+
+  CheckDictionary("case_when",
+                  {
+                      Datum(MakeStruct({cond1, cond2})),
+                      Datum(std::make_shared<ListScalar>(
+                          DictArrayFromJSON(inner_type, "[0, 1]", dict))),
+                      Datum(std::make_shared<ListScalar>(
+                          DictArrayFromJSON(inner_type, "[2, 3]", dict))),
+                  },
+                  /*result_is_encoded=*/false);
+
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(true), Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(true)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when", {MakeStruct({Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values1, values2},
+                  /*result_is_encoded=*/false);
+}
+
+TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, null, true]");
+  auto dict1 = R"(["a", null, "bc", "def"])";
+  auto dict2 = R"(["bc", "foo", null, "a"])";
+  auto dict3 = R"(["def", null, "a", "bc"])";
+  auto values1_null = DictArrayFromJSON(type, "[null, null, null, null]", dict1);
+  auto values2_null = DictArrayFromJSON(type, "[null, null, null, null]", dict2);
+  auto values1 = DictArrayFromJSON(type, "[null, 0, 3, 1]", dict1);
+  auto values2 = DictArrayFromJSON(type, "[2, 1, 0, null]", dict2);
+  auto values3 = DictArrayFromJSON(type, "[0, 1, 2, 3]", dict3);
+
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(true), Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(true)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({Datum(false), Datum(false)}), values2, values1});
+
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2});
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1});
+
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, false, false, true]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                               ArrayFromJSON(boolean(), "[true, false, true, false]")}),
+                   values1, values2});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[false, false, false, false]"),
+                               ArrayFromJSON(boolean(), "[true, true, true, true]")}),
+                   values1, values3});
+  CheckDictionary("case_when",
+                  {MakeStruct({ArrayFromJSON(boolean(), "[null, null, null, true]"),
+                               ArrayFromJSON(boolean(), "[true, true, true, true]")}),
+                   values1, values3});
+  CheckDictionary(
+      "case_when",
+      {
+          MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]")}),
+          DictScalarFromJSON(type, "0", dict1),
+          DictScalarFromJSON(type, "0", dict2),
+      });
+  CheckDictionary(
+      "case_when",
+      {
+          MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                      ArrayFromJSON(boolean(), "[false, false, true, true]")}),
+          DictScalarFromJSON(type, "0", dict1),
+          DictScalarFromJSON(type, "0", dict2),
+      });
+  CheckDictionary(
+      "case_when",
+      {
+          MakeStruct({ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                      ArrayFromJSON(boolean(), "[false, false, true, true]")}),
+          DictScalarFromJSON(type, "null", dict1),
+          DictScalarFromJSON(type, "0", dict2),
+      });
+}
+
 TEST(TestCaseWhen, Null) {
   auto cond_true = ScalarFromJSON(boolean(), "true");
   auto cond_false = ScalarFromJSON(boolean(), "false");
@@ -1489,17 +1670,32 @@ TEST(TestCaseWhen, DispatchBest) {
                 CallFunction("case_when", {MakeStruct({ArrayFromJSON(boolean(), "[]")}),
                                            ArrayFromJSON(int64(), "[]"),
                                            ArrayFromJSON(utf8(), "[]")}));
+
+  // Do not dictionary-decode when we have only dictionary values
+  CheckDispatchBest("case_when",
+                    {struct_({field("", boolean())}), dictionary(int64(), utf8()),
+                     dictionary(int64(), utf8())},
+                    {struct_({field("", boolean())}), dictionary(int64(), utf8()),
+                     dictionary(int64(), utf8())});
+
+  // Dictionary-decode if we have a mix
+  CheckDispatchBest(
+      "case_when", {struct_({field("", boolean())}), dictionary(int64(), utf8()), utf8()},
+      {struct_({field("", boolean())}), utf8(), utf8()});
 }
 
 template <typename Type>
 class TestCoalesceNumeric : public ::testing::Test {};
 template <typename Type>
 class TestCoalesceBinary : public ::testing::Test {};
+template <typename Type>
+class TestCoalesceList : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCoalesceNumeric, NumericBasedTypes);
 TYPED_TEST_SUITE(TestCoalesceBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
 
-TYPED_TEST(TestCoalesceNumeric, FixedSize) {
+TYPED_TEST(TestCoalesceNumeric, Basics) {
   auto type = default_type_instance<TypeParam>();
   auto scalar_null = ScalarFromJSON(type, "null");
   auto scalar1 = ScalarFromJSON(type, "20");
@@ -1523,6 +1719,34 @@ TYPED_TEST(TestCoalesceNumeric, FixedSize) {
   CheckScalar("coalesce", {values1, values2, values3},
               ArrayFromJSON(type, "[13, 10, 11, 12]"));
   CheckScalar("coalesce", {scalar1, values1}, ArrayFromJSON(type, "[20, 20, 20, 20]"));
+}
+
+TYPED_TEST(TestCoalesceNumeric, ListOfType) {
+  auto type = list(default_type_instance<TypeParam>());
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[20, 24]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, [10, null, 20], [], [null, null]]");
+  auto values2 = ArrayFromJSON(type, "[[23], [14, 24], [null, 15], [16]]");
+  auto values3 = ArrayFromJSON(type, "[[17, 18], [19], [], null]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, "[[20, 24], [20, 24], [20, 24], [20, 24]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, "[[20, 24], [10, null, 20], [], [null, null]]"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, "[[23], [10, null, 20], [], [null, null]]"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, "[[23], [10, null, 20], [], [null, null]]"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, "[[20, 24], [20, 24], [20, 24], [20, 24]]"));
 }
 
 TYPED_TEST(TestCoalesceBinary, Basics) {
@@ -1552,6 +1776,151 @@ TYPED_TEST(TestCoalesceBinary, Basics) {
               ArrayFromJSON(type, R"(["klmno", "bc", "def", "ghij"])"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, R"(["a", "a", "a", "a"])"));
+}
+
+TYPED_TEST(TestCoalesceList, ListOfString) {
+  auto type = std::make_shared<TypeParam>(utf8());
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"([null, "a"])");
+  auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+  auto values1 = ArrayFromJSON(type, R"([null, ["bc", null], ["def"], []])");
+  auto values2 = ArrayFromJSON(type, R"([["klmno"], ["p"], ["qr", null], ["stu"]])");
+  auto values3 = ArrayFromJSON(type, R"([["vwxy"], [], ["d"], null])");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar(
+      "coalesce", {values_null, scalar1},
+      ArrayFromJSON(type, R"([[null, "a"], [null, "a"], [null, "a"], [null, "a"]])"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, R"([[null, "a"], ["bc", null], ["def"], []])"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, R"([["klmno"], ["bc", null], ["def"], []])"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, R"([["klmno"], ["bc", null], ["def"], []])"));
+  CheckScalar(
+      "coalesce", {scalar1, values1},
+      ArrayFromJSON(type, R"([[null, "a"], [null, "a"], [null, "a"], [null, "a"]])"));
+}
+
+// More minimal tests to check type coverage
+TYPED_TEST(TestCoalesceList, ListOfBool) {
+  auto type = std::make_shared<TypeParam>(boolean());
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[true, false, null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, [true, null, true], [], [null, null]]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type,
+                            "[[true, false, null], [true, false, null], [true, false, "
+                            "null], [true, false, null]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+}
+
+TYPED_TEST(TestCoalesceList, ListOfInt) {
+  auto type = std::make_shared<TypeParam>(int64());
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[20, 24]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, [10, null, 20], [], [null, null]]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, "[[20, 24], [20, 24], [20, 24], [20, 24]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+}
+
+TYPED_TEST(TestCoalesceList, ListOfDayTimeInterval) {
+  auto type = std::make_shared<TypeParam>(day_time_interval());
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[[20, 24], null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 =
+      ArrayFromJSON(type, "[null, [[10, 12], null, [20, 22]], [], [null, null]]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar(
+      "coalesce", {values_null, scalar1},
+      ArrayFromJSON(
+          type,
+          "[[[20, 24], null], [[20, 24], null], [[20, 24], null], [[20, 24], null]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+}
+
+TYPED_TEST(TestCoalesceList, ListOfDecimal) {
+  for (auto ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    auto type = std::make_shared<TypeParam>(ty);
+    auto scalar_null = ScalarFromJSON(type, "null");
+    auto scalar1 = ScalarFromJSON(type, R"(["0.42", null])");
+    auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+    auto values1 = ArrayFromJSON(type, R"([null, ["1.23"], [], [null, null]])");
+    CheckScalar("coalesce", {values_null}, values_null);
+    CheckScalar(
+        "coalesce", {values_null, scalar1},
+        ArrayFromJSON(
+            type, R"([["0.42", null], ["0.42", null], ["0.42", null], ["0.42", null]])"));
+    CheckScalar("coalesce", {values_null, values1}, values1);
+    CheckScalar("coalesce", {values1, values_null}, values1);
+    CheckScalar("coalesce", {scalar_null, values1}, values1);
+    CheckScalar("coalesce", {values1, scalar_null}, values1);
+  }
+}
+
+TYPED_TEST(TestCoalesceList, ListOfFixedSizeBinary) {
+  auto type = std::make_shared<TypeParam>(fixed_size_binary(3));
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"(["ab!", null])");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, R"([null, ["def"], [], [null, null]])");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar(
+      "coalesce", {values_null, scalar1},
+      ArrayFromJSON(type,
+                    R"([["ab!", null], ["ab!", null], ["ab!", null], ["ab!", null]])"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+}
+
+TYPED_TEST(TestCoalesceList, ListOfListOfInt) {
+  auto type = std::make_shared<TypeParam>(std::make_shared<TypeParam>(int64()));
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[[20], null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, [[10, 12], null, []], [], [null, null]]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar(
+      "coalesce", {values_null, scalar1},
+      ArrayFromJSON(type, "[[[20], null], [[20], null], [[20], null], [[20], null]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+}
+
+TYPED_TEST(TestCoalesceList, Errors) {
+  auto type1 = std::make_shared<TypeParam>(int64());
+  auto type2 = std::make_shared<TypeParam>(utf8());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, ::testing::HasSubstr("All types must be compatible"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type1, "[null]"),
+                                   ArrayFromJSON(type2, "[null]"),
+                               }));
 }
 
 TEST(TestCoalesce, Null) {
@@ -1647,6 +2016,13 @@ TEST(TestCoalesce, Decimal) {
     CheckScalar("coalesce", {scalar1, values1},
                 ArrayFromJSON(type, R"(["1.23", "1.23", "1.23", "1.23"])"));
   }
+  // Ensure promotion
+  CheckScalar("coalesce",
+              {
+                  ArrayFromJSON(decimal128(3, 2), R"(["1.23", null])"),
+                  ArrayFromJSON(decimal128(4, 1), R"([null, "1.0"])"),
+              },
+              ArrayFromJSON(decimal128(5, 2), R"(["1.23", "1.00"])"));
 }
 
 TEST(TestCoalesce, FixedSizeBinary) {
@@ -1675,6 +2051,234 @@ TEST(TestCoalesce, FixedSizeBinary) {
               ArrayFromJSON(type, R"(["mno", "def", "ghi", "jkl"])"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, R"(["abc", "abc", "abc", "abc"])"));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("All types must be compatible, expected: "
+                           "fixed_size_binary[3], but got: fixed_size_binary[2]"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type, "[null]"),
+                                   ArrayFromJSON(fixed_size_binary(2), "[null]"),
+                               }));
+}
+
+TEST(TestCoalesce, FixedSizeListOfInt) {
+  auto type = fixed_size_list(uint8(), 2);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"([42, null])");
+  auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+  auto values1 = ArrayFromJSON(type, R"([null, [2, null], [4, 8], [null, null]])");
+  auto values2 = ArrayFromJSON(type, R"([[1, 5], [16, 32], [64, null], [null, 128]])");
+  auto values3 = ArrayFromJSON(type, R"([[null, null], [1, 3], [9, 27], null])");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, R"([[42, null], [42, null], [42, null], [42, null]])"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, R"([[42, null], [2, null], [4, 8], [null, null]])"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, R"([[1, 5], [2, null], [4, 8], [null, null]])"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, R"([[1, 5], [2, null], [4, 8], [null, null]])"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, R"([[42, null], [42, null], [42, null], [42, null]])"));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "All types must be compatible, expected: fixed_size_list<item: "
+          "uint8>[2], but got: fixed_size_list<item: uint8>[3]"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type, "[null]"),
+                                   ArrayFromJSON(fixed_size_list(uint8(), 3), "[null]"),
+                               }));
+}
+
+TEST(TestCoalesce, FixedSizeListOfString) {
+  auto type = fixed_size_list(utf8(), 2);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"(["abc", null])");
+  auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+  auto values1 =
+      ArrayFromJSON(type, R"([null, ["d", null], ["ghi", "jkl"], [null, null]])");
+  auto values2 = ArrayFromJSON(
+      type, R"([["mno", "pq"], ["pqr", "ab"], ["stu", null], [null, "vwx"]])");
+  auto values3 =
+      ArrayFromJSON(type, R"([[null, null], ["a", "bcd"], ["d", "efg"], null])");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar(
+      "coalesce", {values_null, scalar1},
+      ArrayFromJSON(type,
+                    R"([["abc", null], ["abc", null], ["abc", null], ["abc", null]])"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(
+                  type, R"([["abc", null], ["d", null], ["ghi", "jkl"], [null, null]])"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(
+                  type, R"([["mno", "pq"], ["d", null], ["ghi", "jkl"], [null, null]])"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(
+                  type, R"([["mno", "pq"], ["d", null], ["ghi", "jkl"], [null, null]])"));
+  CheckScalar(
+      "coalesce", {scalar1, values1},
+      ArrayFromJSON(type,
+                    R"([["abc", null], ["abc", null], ["abc", null], ["abc", null]])"));
+}
+
+TEST(TestCoalesce, Map) {
+  auto type = map(int64(), utf8());
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"([[1, "a"], [5, "bc"]])");
+  auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+  auto values1 =
+      ArrayFromJSON(type, R"([null, [[2, "foo"], [4, null]], [[3, "test"]], []])");
+  auto values2 = ArrayFromJSON(
+      type, R"([[[1, "b"]], [[2, "c"]], [[5, "c"], [6, "d"]], [[7, "abc"]]])");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1}, *MakeArrayFromScalar(*scalar1, 4));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar(
+      "coalesce", {values1, scalar1},
+      ArrayFromJSON(
+          type,
+          R"([[[1, "a"], [5, "bc"]], [[2, "foo"], [4, null]], [[3, "test"]], []])"));
+  CheckScalar(
+      "coalesce", {values1, values2},
+      ArrayFromJSON(type, R"([[[1, "b"]], [[2, "foo"], [4, null]], [[3, "test"]], []])"));
+  CheckScalar("coalesce", {scalar1, values1}, *MakeArrayFromScalar(*scalar1, 4));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("All types must be compatible, expected: map<int64, "
+                           "string>, but got: map<int64, int32>"),
+      CallFunction("coalesce", {
+                                   ArrayFromJSON(type, "[null]"),
+                                   ArrayFromJSON(map(int64(), int32()), "[null]"),
+                               }));
+}
+
+TEST(TestCoalesce, Struct) {
+  auto type = struct_(
+      {field("int", uint32()), field("str", utf8()), field("list", list(int8()))});
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"([42, "spam", [null, -1]])");
+  auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+  auto values1 = ArrayFromJSON(
+      type, R"([null, [null, "eggs", []], [0, "", [null]], [32, "abc", [1, 2, 3]]])");
+  auto values2 = ArrayFromJSON(
+      type,
+      R"([[21, "foobar", [1, null, 2]], [5, "bar", []], [20, null, null], [1, "", [null]]])");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1}, *MakeArrayFromScalar(*scalar1, 4));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar(
+      "coalesce", {values1, scalar1},
+      ArrayFromJSON(
+          type,
+          R"([[42, "spam", [null, -1]], [null, "eggs", []], [0, "", [null]], [32, "abc", [1, 2, 3]]])"));
+  CheckScalar(
+      "coalesce", {values1, values2},
+      ArrayFromJSON(
+          type,
+          R"([[21, "foobar", [1, null, 2]], [null, "eggs", []], [0, "", [null]], [32, "abc", [1, 2, 3]]])"));
+  CheckScalar("coalesce", {scalar1, values1}, *MakeArrayFromScalar(*scalar1, 4));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("All types must be compatible, expected: struct<str: "
+                           "string>, but got: struct<int: uint16>"),
+      CallFunction("coalesce",
+                   {
+                       ArrayFromJSON(struct_({field("str", utf8())}), "[null]"),
+                       ArrayFromJSON(struct_({field("int", uint16())}), "[null]"),
+                   }));
+}
+
+TEST(TestCoalesce, UnionBoolString) {
+  for (const auto& type : {
+           sparse_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
+           dense_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
+       }) {
+    auto scalar_null = ScalarFromJSON(type, "null");
+    auto scalar1 = ScalarFromJSON(type, R"([7, "foo"])");
+    auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+    auto values1 = ArrayFromJSON(type, R"([null, [2, false], [7, "bar"], [7, "baz"]])");
+    auto values2 =
+        ArrayFromJSON(type, R"([[2, true], [2, false], [7, "foo"], [7, "bar"]])");
+    CheckScalar("coalesce", {values_null}, values_null);
+    CheckScalar("coalesce", {values_null, scalar1}, *MakeArrayFromScalar(*scalar1, 4));
+    CheckScalar("coalesce", {values_null, values1}, values1);
+    CheckScalar("coalesce", {values_null, values2}, values2);
+    CheckScalar("coalesce", {values1, values_null}, values1);
+    CheckScalar("coalesce", {values2, values_null}, values2);
+    CheckScalar("coalesce", {scalar_null, values1}, values1);
+    CheckScalar("coalesce", {values1, scalar_null}, values1);
+    CheckScalar("coalesce", {values2, values1, values_null}, values2);
+    CheckScalar(
+        "coalesce", {values1, scalar1},
+        ArrayFromJSON(type, R"([[7, "foo"], [2, false], [7, "bar"], [7, "baz"]])"));
+    CheckScalar(
+        "coalesce", {values1, values2},
+        ArrayFromJSON(type, R"([[2, true], [2, false], [7, "bar"], [7, "baz"]])"));
+    CheckScalar("coalesce", {scalar1, values1}, *MakeArrayFromScalar(*scalar1, 4));
+  }
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("All types must be compatible, expected: "
+                           "sparse_union<a: bool=0>, but got: sparse_union<a: int64=0>"),
+      CallFunction(
+          "coalesce",
+          {
+              ArrayFromJSON(sparse_union({field("a", boolean())}), "[[0, true]]"),
+              ArrayFromJSON(sparse_union({field("a", int64())}), "[[0, 1]]"),
+          }));
+}
+
+TEST(TestCoalesce, DispatchBest) {
+  CheckDispatchBest("coalesce", {int8(), float64()}, {float64(), float64()});
+  CheckDispatchBest("coalesce", {int8(), uint32()}, {int64(), int64()});
+  CheckDispatchBest("coalesce", {binary(), utf8()}, {binary(), binary()});
+  CheckDispatchBest("coalesce", {binary(), large_binary()},
+                    {large_binary(), large_binary()});
+  CheckDispatchBest("coalesce", {int32(), decimal128(3, 2)},
+                    {decimal128(12, 2), decimal128(12, 2)});
+  CheckDispatchBest("coalesce", {float32(), decimal128(3, 2)}, {float64(), float64()});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal256(3, 2)},
+                    {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), date32()},
+                    {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND)});
+  CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MILLI)},
+                    {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MILLI)});
+  CheckDispatchFails("coalesce", {
+                                     sparse_union({field("a", boolean())}),
+                                     dense_union({field("a", boolean())}),
+                                 });
 }
 
 template <typename Type>

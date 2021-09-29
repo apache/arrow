@@ -64,26 +64,11 @@ class SinkNode : public ExecNode {
       AsyncGenerator<util::optional<ExecBatch>>* out_gen) {
     PushGenerator<util::optional<ExecBatch>> push_gen;
     auto out = push_gen.producer();
-    *out_gen = [push_gen] {
-      // Awful workaround for MSVC 19.0 (Visual Studio 2015) bug.
-      // For some types including Future<optional<ExecBatch>>,
-      // std::is_convertible<T, T>::value will be false causing
-      // SFINAE exclusion of the std::function constructor we need.
-      // Definining a convertible (but distinct) type soothes the
-      // faulty trait.
-      struct ConvertibleToFuture {
-        operator Future<util::optional<ExecBatch>>() && {  // NOLINT runtime/explicit
-          return std::move(ret);
-        }
-        Future<util::optional<ExecBatch>> ret;
-      };
-
-      return ConvertibleToFuture{push_gen()};
-    };
+    *out_gen = std::move(push_gen);
     return out;
   }
 
-  const char* kind_name() override { return "SinkNode"; }
+  const char* kind_name() const override { return "SinkNode"; }
 
   Status StartProducing() override {
     finished_ = Future<>::Make();
@@ -153,7 +138,7 @@ struct OrderBySinkNode final : public SinkNode {
       : SinkNode(plan, std::move(inputs), generator),
         sort_options_(std::move(sort_options)) {}
 
-  const char* kind_name() override { return "OrderBySinkNode"; }
+  const char* kind_name() const override { return "OrderBySinkNode"; }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -212,6 +197,9 @@ struct OrderBySinkNode final : public SinkNode {
     }
     SinkNode::Finish();
   }
+
+ protected:
+  std::string ToStringExtra() const override { return "by=" + sort_options_.ToString(); }
 
  private:
   SortOptions sort_options_;

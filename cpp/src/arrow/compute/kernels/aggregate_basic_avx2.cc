@@ -55,30 +55,32 @@ Result<std::unique_ptr<KernelState>> MeanInitAvx2(KernelContext* ctx,
 
 Result<std::unique_ptr<KernelState>> MinMaxInitAvx2(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto out_type,
+                        args.kernel->signature->out_type().Resolve(ctx, args.inputs));
   MinMaxInitState<SimdLevel::AVX2> visitor(
-      ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
+      ctx, *args.inputs[0].type, std::move(out_type.type),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
 void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumInitAvx2, internal::SignedIntTypes(), int64(), func,
-                     SimdLevel::AVX2);
-  AddBasicAggKernels(SumInitAvx2, internal::UnsignedIntTypes(), uint64(), func,
-                     SimdLevel::AVX2);
-  AddBasicAggKernels(SumInitAvx2, internal::FloatingPointTypes(), float64(), func,
-                     SimdLevel::AVX2);
+  AddBasicAggKernels(SumInitAvx2, SignedIntTypes(), int64(), func, SimdLevel::AVX2);
+  AddBasicAggKernels(SumInitAvx2, UnsignedIntTypes(), uint64(), func, SimdLevel::AVX2);
+  AddBasicAggKernels(SumInitAvx2, FloatingPointTypes(), float64(), func, SimdLevel::AVX2);
 }
 
 void AddMeanAvx2AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(MeanInitAvx2, internal::NumericTypes(), float64(), func,
-                     SimdLevel::AVX2);
+  AddBasicAggKernels(MeanInitAvx2, NumericTypes(), float64(), func, SimdLevel::AVX2);
 }
 
 void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func) {
   // Enable int types for AVX2 variants.
   // No auto vectorize for float/double as it use fmin/fmax which has NaN handling.
-  AddMinMaxKernels(MinMaxInitAvx2, internal::IntTypes(), func, SimdLevel::AVX2);
+  AddMinMaxKernels(MinMaxInitAvx2, IntTypes(), func, SimdLevel::AVX2);
+  AddMinMaxKernels(MinMaxInitAvx2, TemporalTypes(), func, SimdLevel::AVX2);
+  AddMinMaxKernels(MinMaxInitAvx2, BaseBinaryTypes(), func, SimdLevel::AVX2);
+  AddMinMaxKernel(MinMaxInitAvx2, Type::FIXED_SIZE_BINARY, func, SimdLevel::AVX2);
+  AddMinMaxKernel(MinMaxInitAvx2, Type::INTERVAL_MONTHS, func, SimdLevel::AVX2);
 }
 
 }  // namespace aggregate

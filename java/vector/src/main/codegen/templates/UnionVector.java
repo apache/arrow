@@ -114,11 +114,6 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     return new UnionVector(name, allocator, fieldType, null);
   }
 
-  @Deprecated
-  public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
-    this(name, allocator, null, callBack);
-  }
-
   public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.fieldType = fieldType;
@@ -522,7 +517,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     private final UnionVector to;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      to = new UnionVector(name, allocator, callBack);
+      to = new UnionVector(name, allocator, /* field type */ null, callBack);
       internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
     }
 
@@ -622,8 +617,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
   @Override
   public Iterator<ValueVector> iterator() {
-    List<ValueVector> vectors = org.apache.arrow.util.Collections2.toList(internalStruct.iterator());
-    return vectors.iterator();
+    return internalStruct.iterator();
   }
 
   public ValueVector getVector(int index) {

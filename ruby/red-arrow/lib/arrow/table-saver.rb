@@ -32,6 +32,29 @@ module Arrow
     end
 
     def save
+      if @output.is_a?(URI)
+        custom_save_method = "save_to_uri"
+      else
+        custom_save_method = "save_to_file"
+      end
+      unless respond_to?(custom_save_method, true)
+        available_schemes = []
+        (methods(true) | private_methods(true)).each do |name|
+          match_data = /\Asave_to_/.match(name.to_s)
+          if match_data
+            available_schemes << match_data.post_match
+          end
+        end
+        message = "Arrow::Table save source must be one of ["
+        message << available_schemes.join(", ")
+        message << "]: #{@output.scheme.inspect}"
+        raise ArgumentError, message
+      end
+      __send__(custom_save_method)
+    end
+
+    private
+    def save_to_file
       format = @options[:format]
       custom_save_method = "save_as_#{format}"
       unless respond_to?(custom_save_method, true)
@@ -57,21 +80,24 @@ module Arrow
       end
     end
 
-    private
     def fill_options
       if @options[:format] and @options.key?(:compression)
         return
       end
 
-      if @output.is_a?(Buffer)
+      case @output
+      when Buffer
         info = {}
+      when URI
+        extension = PathExtension.new(@output.path)
+        info = extension.extract
       else
         extension = PathExtension.new(@output)
         info = extension.extract
       end
       format = info[:format]
       @options = @options.dup
-      if format and respond_to?("save_as_#{format}", true)
+      if format
         @options[:format] ||= format.to_sym
       else
         @options[:format] ||= :arrow
