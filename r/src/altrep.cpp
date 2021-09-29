@@ -83,7 +83,7 @@ struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
   static SEXP Make(const std::shared_ptr<Array>& array) {
     SEXP alt = R_new_altrep(Impl::class_t, Pointer(new std::shared_ptr<Array>(array)),
-                             R_NilValue);
+                            R_NilValue);
     MARK_NOT_MUTABLE(alt);
 
     return alt;
@@ -217,7 +217,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   static c_type Elt(SEXP alt, R_xlen_t i) {
     const auto& array = Base::GetArray(alt);
     return array->IsNull(i) ? cpp11::na<c_type>()
-                             : array->data()->template GetValues<c_type>(1)[i];
+                            : array->data()->template GetValues<c_type>(1)[i];
   }
 
   // R calls this when it wants data from position `i` to `i + n` copied into `buf`
@@ -391,9 +391,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     END_CPP11
   }
 
-  static void* Dataptr(SEXP alt, Rboolean writeable) {
-    return DATAPTR(Materialize(alt));
-  }
+  static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
 
   static SEXP Materialize(SEXP alt) {
     if (Base::IsMaterialized(alt)) {
@@ -482,7 +480,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
         if (nul_count == 1) {
           // first nul spotted: allocate stripped string storage
-          stripped_string = view.to_string();
+          stripped_string.assign(view.begin(), view.end());
           stripped_len = i;
         }
 
@@ -636,20 +634,20 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
     // - the array has at least one element
     if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
       switch (array->type()->id()) {
-      case arrow::Type::DOUBLE:
-        return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
+        case arrow::Type::DOUBLE:
+          return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
 
-      case arrow::Type::INT32:
-        return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
+        case arrow::Type::INT32:
+          return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
 
-      case arrow::Type::STRING:
-        return altrep::AltrepVectorString<StringType>::Make(array);
+        case arrow::Type::STRING:
+          return altrep::AltrepVectorString<StringType>::Make(array);
 
-      case arrow::Type::LARGE_STRING:
-        return altrep::AltrepVectorString<LargeStringType>::Make(array);
+        case arrow::Type::LARGE_STRING:
+          return altrep::AltrepVectorString<LargeStringType>::Make(array);
 
-      default:
-        break;
+        default:
+          break;
       }
     }
   }
@@ -660,7 +658,7 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 }  // namespace r
 }  // namespace arrow
 
-#else // HAS_ALTREP
+#else  // HAS_ALTREP
 
 namespace arrow {
 namespace r {
