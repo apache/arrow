@@ -183,7 +183,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     }
 
     // Otherwise: if the array has nulls and data2 has not been generated: give up
-    return NULL;
+    return nullptr;
   }
 
   // R calls this to get a pointer to the start of the data, R allocations are allowed.
@@ -461,7 +461,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     if (Base::IsMaterialized(alt_)) return DATAPTR(R_altrep_data2(alt_));
 
     // otherwise give up
-    return NULL;
+    return nullptr;
   }
 
   static void Set_elt(SEXP alt_, R_xlen_t i, SEXP v) {
