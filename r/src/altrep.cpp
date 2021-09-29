@@ -82,50 +82,50 @@ template <typename Impl>
 struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    SEXP alt_ = R_new_altrep(Impl::class_t, Pointer(new std::shared_ptr<Array>(array)),
+    SEXP alt = R_new_altrep(Impl::class_t, Pointer(new std::shared_ptr<Array>(array)),
                              R_NilValue);
-    MARK_NOT_MUTABLE(alt_);
+    MARK_NOT_MUTABLE(alt);
 
-    return alt_;
+    return alt;
   }
 
   // the Array that is being wrapped by the altrep object
-  static const std::shared_ptr<Array>& array(SEXP alt_) {
-    return *Pointer(R_altrep_data1(alt_));
+  static const std::shared_ptr<Array>& GetArray(SEXP alt) {
+    return *Pointer(R_altrep_data1(alt));
   }
 
   // Is the vector materialized, i.e. does the data2 slot contain a
   // standard R vector with the same data as the array.
-  static bool IsMaterialized(SEXP alt_) { return !Rf_isNull(R_altrep_data2(alt_)); }
+  static bool IsMaterialized(SEXP alt) { return !Rf_isNull(R_altrep_data2(alt)); }
 
-  static R_xlen_t Length(SEXP alt_) { return array(alt_)->length(); }
+  static R_xlen_t Length(SEXP alt) { return GetArray(alt)->length(); }
 
-  static int No_NA(SEXP alt_) { return array(alt_)->null_count() == 0; }
+  static int No_NA(SEXP alt) { return GetArray(alt)->null_count() == 0; }
 
-  static int Is_sorted(SEXP alt_) { return UNKNOWN_SORTEDNESS; }
+  static int Is_sorted(SEXP alt) { return UNKNOWN_SORTEDNESS; }
 
   // What gets printed on .Internal(inspect(<the altrep object>))
-  static Rboolean Inspect(SEXP alt_, int pre, int deep, int pvec,
+  static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    const auto& array_ = array(alt_);
+    const auto& array = GetArray(alt);
     Rprintf("arrow::Array<%s, %d nulls> len=%d, Array=<%p>\n",
-            array_->type()->ToString().c_str(), array_->null_count(), array_->length(),
-            array_.get());
-    inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
+            array->type()->ToString().c_str(), array->null_count(), array->length(),
+            array.get());
+    inspect_subtree(R_altrep_data1(alt), pre, deep + 1, pvec);
     return TRUE;
   }
 
   // Duplication is done by first materializing the vector and
   // then make a lazy duplicate of data2
-  static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
-    return Rf_lazy_duplicate(Impl::Materialize(alt_));
+  static SEXP Duplicate(SEXP alt, Rboolean /* deep */) {
+    return Rf_lazy_duplicate(Impl::Materialize(alt));
   }
 
-  static SEXP Coerce(SEXP alt_, int type) {
-    return Rf_coerceVector(Impl::Materialize(alt_), type);
+  static SEXP Coerce(SEXP alt, int type) {
+    return Rf_coerceVector(Impl::Materialize(alt), type);
   }
 
-  static SEXP Serialized_state(SEXP alt_) { return Impl::Materialize(alt_); }
+  static SEXP Serialized_state(SEXP alt) { return Impl::Materialize(alt); }
 
   static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 };
@@ -148,38 +148,38 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   // R sentinels where the Array has nulls.
   //
   // The Array remains available so that it can be used by Length(), Min(), etc ...
-  static SEXP Materialize(SEXP alt_) {
-    if (!Base::IsMaterialized(alt_)) {
-      auto size = Base::Length(alt_);
+  static SEXP Materialize(SEXP alt) {
+    if (!Base::IsMaterialized(alt)) {
+      auto size = Base::Length(alt);
 
       // create a standard R vector
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
 
       // copy the data from the array, through Get_region
-      Get_region(alt_, 0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
+      Get_region(alt, 0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
 
       // store as data2, this is now considered materialized
-      R_set_altrep_data2(alt_, copy);
+      R_set_altrep_data2(alt, copy);
       MARK_NOT_MUTABLE(copy);
 
       UNPROTECT(1);
     }
-    return R_altrep_data2(alt_);
+    return R_altrep_data2(alt);
   }
 
   // R calls this to get a pointer to the start of the vector data
   // but only if this is possible without allocating (in the R sense).
-  static const void* Dataptr_or_null(SEXP alt_) {
+  static const void* Dataptr_or_null(SEXP alt) {
     // data2 has been created, and so the R sentinels are in place where the array has
     // nulls
-    if (Base::IsMaterialized(alt_)) {
-      return DATAPTR_RO(R_altrep_data2(alt_));
+    if (Base::IsMaterialized(alt)) {
+      return DATAPTR_RO(R_altrep_data2(alt));
     }
 
     // the Array has no nulls, we can directly return the start of its data
-    const auto& array_ = Base::array(alt_);
-    if (array_->null_count() == 0) {
-      return reinterpret_cast<const void*>(array_->data()->template GetValues<c_type>(1));
+    const auto& array = Base::GetArray(alt);
+    if (array->null_count() == 0) {
+      return reinterpret_cast<const void*>(array->data()->template GetValues<c_type>(1));
     }
 
     // Otherwise: if the array has nulls and data2 has not been generated: give up
@@ -187,15 +187,15 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   }
 
   // R calls this to get a pointer to the start of the data, R allocations are allowed.
-  static void* Dataptr(SEXP alt_, Rboolean writeable) {
+  static void* Dataptr(SEXP alt, Rboolean writeable) {
     // If the object hasn't been materialized, and the array has no
     // nulls we can directly point to the array data.
-    if (!Base::IsMaterialized(alt_)) {
-      const auto& array_ = Base::array(alt_);
+    if (!Base::IsMaterialized(alt)) {
+      const auto& array = Base::GetArray(alt);
 
-      if (array_->null_count() == 0) {
+      if (array->null_count() == 0) {
         return reinterpret_cast<void*>(
-            const_cast<c_type*>(array_->data()->template GetValues<c_type>(1)));
+            const_cast<c_type*>(array->data()->template GetValues<c_type>(1)));
       }
     }
 
@@ -211,24 +211,24 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // Simply stop() when `writeable = TRUE` is too strong, e.g. this fails
     // identical() which calls DATAPTR() even though DATAPTR_RO() would
     // be enough
-    return DATAPTR(Materialize(alt_));
+    return DATAPTR(Materialize(alt));
   }
 
   // The value at position i
-  static c_type Elt(SEXP alt_, R_xlen_t i) {
-    const auto& array_ = Base::array(alt_);
-    return array_->IsNull(i) ? cpp11::na<c_type>()
-                             : array_->data()->template GetValues<c_type>(1)[i];
+  static c_type Elt(SEXP alt, R_xlen_t i) {
+    const auto& array = Base::GetArray(alt);
+    return array->IsNull(i) ? cpp11::na<c_type>()
+                             : array->data()->template GetValues<c_type>(1)[i];
   }
 
   // R calls this when it wants data from position `i` to `i + n` copied into `buf`
   // The returned value is the number of values that were really copied
   // (this can be lower than n)
-  static R_xlen_t Get_region(SEXP alt_, R_xlen_t i, R_xlen_t n, c_type* buf) {
+  static R_xlen_t Get_region(SEXP alt, R_xlen_t i, R_xlen_t n, c_type* buf) {
     // If we have data2, we can just copy the region into buf
     // using the standard Get_region for this R type
-    if (Base::IsMaterialized(alt_)) {
-      return Standard_Get_region<c_type>(R_altrep_data2(alt_), i, n, buf);
+    if (Base::IsMaterialized(alt)) {
+      return Standard_Get_region<c_type>(R_altrep_data2(alt), i, n, buf);
     }
 
     // The vector was not materialized, aka we don't have data2
@@ -238,7 +238,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // array has nulls
     //
     // This only materialize the region, into buf. Not the entire vector.
-    auto slice = Base::array(alt_)->Slice(i, n);
+    auto slice = Base::GetArray(alt)->Slice(i, n);
     R_xlen_t ncopy = slice->length();
 
     // first copy the data buffer
@@ -269,15 +269,15 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   }
 
   template <bool Min>
-  static SEXP MinMax(SEXP alt_, Rboolean narm) {
+  static SEXP MinMax(SEXP alt, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
     using scalar_type =
         typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
-    const auto& array_ = Base::array(alt_);
+    const auto& array = Base::GetArray(alt);
     bool na_rm = narm == TRUE;
-    auto n = array_->length();
-    auto null_count = array_->null_count();
+    auto n = array->length();
+    auto null_count = array->null_count();
     if ((na_rm || n == 0) && null_count == n) {
       return Rf_ScalarReal(Min ? R_PosInf : R_NegInf);
     }
@@ -285,10 +285,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       return cpp11::as_sexp(cpp11::na<data_type>());
     }
 
-    auto options = NaRmOptions(array_, na_rm);
+    auto options = NaRmOptions(array, na_rm);
 
     const auto& minmax =
-        ValueOrStop(arrow::compute::CallFunction("min_max", {array_}, options.get()));
+        ValueOrStop(arrow::compute::CallFunction("min_max", {array}, options.get()));
     const auto& minmax_scalar =
         internal::checked_cast<const StructScalar&>(*minmax.scalar());
 
@@ -297,24 +297,24 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     return cpp11::as_sexp(result_scalar.value);
   }
 
-  static SEXP Min(SEXP alt_, Rboolean narm) { return MinMax<true>(alt_, narm); }
+  static SEXP Min(SEXP alt, Rboolean narm) { return MinMax<true>(alt, narm); }
 
-  static SEXP Max(SEXP alt_, Rboolean narm) { return MinMax<false>(alt_, narm); }
+  static SEXP Max(SEXP alt, Rboolean narm) { return MinMax<false>(alt, narm); }
 
-  static SEXP Sum(SEXP alt_, Rboolean narm) {
+  static SEXP Sum(SEXP alt, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
-    const auto& array_ = Base::array(alt_);
+    const auto& array = Base::GetArray(alt);
     bool na_rm = narm == TRUE;
-    auto null_count = array_->null_count();
+    auto null_count = array->null_count();
 
     if (!na_rm && null_count > 0) {
       return cpp11::as_sexp(cpp11::na<data_type>());
     }
-    auto options = NaRmOptions(array_, na_rm);
+    auto options = NaRmOptions(array, na_rm);
 
     const auto& sum =
-        ValueOrStop(arrow::compute::CallFunction("sum", {array_}, options.get()));
+        ValueOrStop(arrow::compute::CallFunction("sum", {array}, options.get()));
 
     if (sexp_type == INTSXP) {
       // When calling the "sum" function on an int32 array, we get an Int64 scalar
@@ -345,13 +345,13 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   // Get a single string, as a CHARSXP SEXP
   // data2 is initialized, the CHARSXP is generated from the Array data
   // and stored in data2, so that this only needs to expand a given string once
-  static SEXP Elt(SEXP alt_, R_xlen_t i) {
-    if (Base::IsMaterialized(alt_)) {
-      return STRING_ELT(R_altrep_data2(alt_), i);
+  static SEXP Elt(SEXP alt, R_xlen_t i) {
+    if (Base::IsMaterialized(alt)) {
+      return STRING_ELT(R_altrep_data2(alt), i);
     }
 
     // nul -> to NA_STRING
-    if (Base::array(alt_)->IsNull(i)) {
+    if (Base::GetArray(alt)->IsNull(i)) {
       return NA_STRING;
     }
 
@@ -365,8 +365,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     // C++ objects that will properly be destroyed by END_CPP11
     // before it resumes the unwinding - and perhaps let
     // the R error pass through
-    const auto& array_ = Base::array(alt_);
-    auto view = internal::checked_cast<StringArrayType*>(array_.get())->GetView(i);
+    const auto& array = Base::GetArray(alt);
+    auto view = internal::checked_cast<StringArrayType*>(array.get())->GetView(i);
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
     bool nul_was_stripped = false;
     std::string stripped_string;
@@ -392,25 +392,25 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     END_CPP11
   }
 
-  static void* Dataptr(SEXP alt_, Rboolean writeable) {
-    return DATAPTR(Materialize(alt_));
+  static void* Dataptr(SEXP alt, Rboolean writeable) {
+    return DATAPTR(Materialize(alt));
   }
 
-  static SEXP Materialize(SEXP alt_) {
-    if (Base::IsMaterialized(alt_)) {
-      return R_altrep_data2(alt_);
+  static SEXP Materialize(SEXP alt) {
+    if (Base::IsMaterialized(alt)) {
+      return R_altrep_data2(alt);
     }
 
     BEGIN_CPP11
 
-    auto array_ = Base::array(alt_);
-    R_xlen_t n = array_->length();
-    SEXP data2_ = PROTECT(Rf_allocVector(STRSXP, n));
-    MARK_NOT_MUTABLE(data2_);
+    auto array = Base::GetArray(alt);
+    R_xlen_t n = array->length();
+    SEXP data2 = PROTECT(Rf_allocVector(STRSXP, n));
+    MARK_NOT_MUTABLE(data2);
 
     std::string stripped_string;
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
-    auto* string_array = internal::checked_cast<StringArrayType*>(array_.get());
+    auto* string_array = internal::checked_cast<StringArrayType*>(array.get());
     util::string_view view;
 
     cpp11::unwind_protect([&]() {
@@ -419,15 +419,15 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
         for (R_xlen_t i = 0; i < n; i++) {
           // nul, so materialize to NA_STRING
-          if (array_->IsNull(i)) {
-            SET_STRING_ELT(data2_, i, NA_STRING);
+          if (array->IsNull(i)) {
+            SET_STRING_ELT(data2, i, NA_STRING);
             continue;
           }
 
           // strip nul and materialize
           view = string_array->GetView(i);
           SET_STRING_ELT(
-              data2_, i,
+              data2, i,
               r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped));
           if (nul_was_stripped) {
             cpp11::warning("Stripping '\\0' (nul) from character vector");
@@ -436,35 +436,35 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       } else {
         for (R_xlen_t i = 0; i < n; i++) {
           // nul, so materialize to NA_STRING
-          if (array_->IsNull(i)) {
-            SET_STRING_ELT(data2_, i, NA_STRING);
+          if (array->IsNull(i)) {
+            SET_STRING_ELT(data2, i, NA_STRING);
             continue;
           }
 
           // try to materialize, this will error if the string has a nul
           view = string_array->GetView(i);
-          SET_STRING_ELT(data2_, i, r_string_from_view_keep_nul(view, stripped_string));
+          SET_STRING_ELT(data2, i, r_string_from_view_keep_nul(view, stripped_string));
         }
       }
     });
 
     // only set to data2 if all the values have been converted
-    R_set_altrep_data2(alt_, data2_);
-    UNPROTECT(1);  // data2_
+    R_set_altrep_data2(alt, data2);
+    UNPROTECT(1);  // data2
 
-    return data2_;
+    return data2;
 
     END_CPP11
   }
 
-  static const void* Dataptr_or_null(SEXP alt_) {
-    if (Base::IsMaterialized(alt_)) return DATAPTR(R_altrep_data2(alt_));
+  static const void* Dataptr_or_null(SEXP alt) {
+    if (Base::IsMaterialized(alt)) return DATAPTR(R_altrep_data2(alt));
 
     // otherwise give up
     return nullptr;
   }
 
-  static void Set_elt(SEXP alt_, R_xlen_t i, SEXP v) {
+  static void Set_elt(SEXP alt, R_xlen_t i, SEXP v) {
     Rf_error("ALTSTRING objects of type <arrow::array_string_vector> are immutable");
   }
 
