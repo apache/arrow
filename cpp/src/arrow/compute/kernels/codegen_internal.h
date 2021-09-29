@@ -279,8 +279,10 @@ template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
   static T Unbox(const Scalar& val) {
-    return *reinterpret_cast<const T*>(
-        checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).data());
+    util::string_view view =
+        checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
+    DCHECK_EQ(view.size(), sizeof(T));
+    return *reinterpret_cast<const T*>(view.data());
   }
 };
 
