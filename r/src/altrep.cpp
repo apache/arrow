@@ -111,7 +111,6 @@ struct AltrepVectorBase {
     Rprintf("arrow::Array<%s, %d nulls> len=%d, Array=<%p>\n",
             array->type()->ToString().c_str(), array->null_count(), array->length(),
             array.get());
-    inspect_subtree(R_altrep_data1(alt), pre, deep + 1, pvec);
     return TRUE;
   }
 
