@@ -415,39 +415,47 @@ struct AltrepVectorString : public AltrepVectorBase {
 
     std::string stripped_string;
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
-    bool nul_was_stripped = false;
     auto* string_array = internal::checked_cast<StringArrayType*>(array_.get());
     util::string_view view;
 
     cpp11::unwind_protect([&]() {
-      for (R_xlen_t i = 0; i < n; i++) {
-        SEXP s = STRING_ELT(data2_, i);
+      if (strip_out_nuls) {
+        bool nul_was_stripped = false;
 
-        // nul, so materialize to NA_STRING
-        if (array_->IsNull(i)) {
-          SET_STRING_ELT(data2_, i, NA_STRING);
-          continue;
+        for (R_xlen_t i = 0; i < n; i++) {
+          // nul, so materialize to NA_STRING
+          if (array_->IsNull(i)) {
+            SET_STRING_ELT(data2_, i, NA_STRING);
+            continue;
+          }
+
+          // strip nul and materialize
+          view = string_array->GetView(i);
+          SET_STRING_ELT(
+              data2_, i,
+              r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped));
+          if (nul_was_stripped) {
+            cpp11::warning("Stripping '\\0' (nul) from character vector");
+          }
         }
+      } else {
+        for (R_xlen_t i = 0; i < n; i++) {
+          // nul, so materialize to NA_STRING
+          if (array_->IsNull(i)) {
+            SET_STRING_ELT(data2_, i, NA_STRING);
+            continue;
+          }
 
-        // materialize a real string, with care about potential jump
-        // from Rf_mkCharLenCE()
-        view = string_array->GetView(i);
-        if (strip_out_nuls) {
-          s = r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped);
-        } else {
-          s = r_string_from_view_keep_nul(view, stripped_string);
+          // try to materialize, this will error if the string has a nul
+          view = string_array->GetView(i);
+          SET_STRING_ELT(data2_, i, r_string_from_view_keep_nul(view, stripped_string));
         }
-        SET_STRING_ELT(data2_, i, s);
-      }
-
-      if (nul_was_stripped) {
-        cpp11::warning("Stripping '\\0' (nul) from character vector");
       }
     });
 
     // only set to data2 if all the values have been converted
     R_set_altrep_data2(alt_, data2_);
-    UNPROTECT(1);
+    UNPROTECT(1);  // data2_
 
     return data2_;
 
