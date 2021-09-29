@@ -173,7 +173,7 @@ struct CompareFunction : ScalarFunction {
       ReplaceTypes(type, values);
     } else if (auto type = CommonTemporal(values->data(), values->size())) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonBinary(*values)) {
+    } else if (auto type = CommonBinary(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
 

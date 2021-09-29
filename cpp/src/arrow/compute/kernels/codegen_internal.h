@@ -1305,7 +1305,7 @@ ARROW_EXPORT
 std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);
 
 /// How to promote decimal precision/scale in CastBinaryDecimalArgs.
 enum class DecimalPromotion : uint8_t {

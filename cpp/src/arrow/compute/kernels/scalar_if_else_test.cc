@@ -705,23 +705,6 @@ TEST_F(TestIfElseKernel, ParameterizedTypes) {
       CallFunction("if_else", {cond, ArrayFromJSON(type0, R"(["aaaa"])"),
                                ArrayFromJSON(type1, R"(["aaaaa"])")}));
 
-  type0 = decimal128(3, 2);
-  type1 = decimal128(4, 2);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("All types must be compatible, expected: decimal128(3, 2), "
-                           "but got: decimal128(4, 2)"),
-      CallFunction("if_else", {cond, ArrayFromJSON(type0, R"(["1.23"])"),
-                               ArrayFromJSON(type1, R"(["1.23"])")}));
-
-  type1 = decimal128(3, 4);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("All types must be compatible, expected: decimal128(3, 2), "
-                           "but got: decimal128(3, 4)"),
-      CallFunction("if_else", {cond, ArrayFromJSON(type0, R"(["1.23"])"),
-                               ArrayFromJSON(type1, R"(["1.2345"])")}));
-
   // TODO(ARROW-14105): in principle many of these could be implicitly castable too
 
   type0 = struct_({field("a", int32())});
@@ -750,16 +733,6 @@ TEST_F(TestIfElseKernel, ParameterizedTypes) {
                            "but got: list<item: int32>"),
       CallFunction("if_else",
                    {cond, ArrayFromJSON(type0, "[[0]]"), ArrayFromJSON(type1, "[[0]]")}));
-
-  type0 = dictionary(int16(), utf8());
-  type1 = dictionary(int32(), utf8());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("All types must be compatible, expected: "
-                           "dictionary<values=string, indices=int16, ordered=0>, but "
-                           "got: dictionary<values=string, indices=int32, ordered=0>"),
-      CallFunction("if_else", {cond, DictArrayFromJSON(type0, "[0]", R"(["a"])"),
-                               DictArrayFromJSON(type1, "[0]", R"(["a"])")}));
 
   type0 = timestamp(TimeUnit::SECOND);
   type1 = timestamp(TimeUnit::SECOND, "America/Phoenix");
@@ -868,7 +841,8 @@ TYPED_TEST(TestIfElseDict, Simple) {
 }
 
 TYPED_TEST(TestIfElseDict, Mixed) {
-  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto index_type = default_type_instance<TypeParam>();
+  auto type = dictionary(index_type, utf8());
   auto cond = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto dict = R"(["a", null, "bc", "def"])";
   auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
@@ -900,6 +874,17 @@ TYPED_TEST(TestIfElseDict, Mixed) {
   CheckDictionary("if_else", {Datum(false), scalar, values2_dict},
                   /*result_is_encoded=*/false);
   CheckDictionary("if_else", {MakeNullScalar(boolean()), values1_decoded, values2_dict},
+                  /*result_is_encoded=*/false);
+
+  // If we have mismatched dictionary types, we decode (for now)
+  auto values3_dict =
+      DictArrayFromJSON(dictionary(index_type, binary()), "[2, 1, null, 0]", dict);
+  auto values4_dict = DictArrayFromJSON(
+      dictionary(index_type->id() == Type::UINT8 ? int8() : uint8(), utf8()),
+      "[2, 1, null, 0]", dict);
+  CheckDictionary("if_else", {cond, values1_dict, values3_dict},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("if_else", {cond, values1_dict, values4_dict},
                   /*result_is_encoded=*/false);
 }
 

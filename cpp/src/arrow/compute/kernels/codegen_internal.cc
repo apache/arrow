@@ -222,11 +222,12 @@ std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) 
   return nullptr;
 }
 
-std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
+std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
   bool all_utf8 = true, all_offset32 = true;
 
-  for (const auto& descr : descrs) {
-    auto id = descr.type->id();
+  const ValueDescr* end = begin + count;
+  for (auto it = begin; it != end; ++it) {
+    auto id = it->type->id();
     // a common varbinary type is only possible if all types are binary like
     switch (id) {
       case Type::STRING:

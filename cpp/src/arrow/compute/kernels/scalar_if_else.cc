@@ -1137,7 +1137,7 @@ struct IfElseFunction : ScalarFunction {
     internal::ReplaceNullWithOtherType(left_arg, num_args);
 
     if (is_dictionary((*values)[1].type->id()) &&
-        is_dictionary((*values)[2].type->id())) {
+        (*values)[1].type->Equals(*(*values)[2].type)) {
       auto kernel = DispatchExactImpl(this, *values);
       DCHECK(kernel);
       return kernel;
@@ -1150,6 +1150,12 @@ struct IfElseFunction : ScalarFunction {
     }
     if (auto type = internal::CommonTemporal(left_arg, num_args)) {
       internal::ReplaceTypes(type, left_arg, num_args);
+    }
+    if (auto type = internal::CommonBinary(left_arg, num_args)) {
+      internal::ReplaceTypes(type, left_arg, num_args);
+    }
+    if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastDecimalArgs(left_arg, num_args));
     }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -1918,7 +1924,7 @@ struct CoalesceFunction : ScalarFunction {
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
     }
-    if (auto type = CommonBinary(*values)) {
+    if (auto type = CommonBinary(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
     if (auto type = CommonTemporal(values->data(), values->size())) {
