@@ -592,7 +592,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     private static final List<Field> GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS = asList(
         Field.nullable("string_value", VARCHAR.getType()),
         Field.nullable("bool_value", BIT.getType()),
-        Field.nullable("int_value", INT.getType()),
         Field.nullable("uint32_value", UINT4.getType()),
         Field.nullable("bigint_value", BIGINT.getType()),
         Field.nullable("int32_bitmask", INT.getType()),

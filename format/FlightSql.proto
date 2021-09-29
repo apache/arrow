@@ -34,7 +34,6 @@ package arrow.flight.protocol.sql;
  *  value: dense_union<
  *              string_value: utf8,
  *              bool_value: bool,
- *              int_value: int32,
  *              uint32_value: uint32
  *              bigint_value: int64,
  *              int32_bitmask: int32,
@@ -121,7 +120,7 @@ enum SqlInfo {
   SQL_DDL_TABLE = 502;
 
   /*
-   * Retrieves a uint32 value representing the enum ordinal for the case sensitivity of catalog, table and schema names.
+   * Retrieves a uint32 value representing the enu uint32 ordinal for the case sensitivity of catalog, table and schema names.
    *
    * The possible values are listed in `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
    */
@@ -131,7 +130,7 @@ enum SqlInfo {
   SQL_IDENTIFIER_QUOTE_CHAR = 504;
 
   /*
-   * Retrieves a uint32 value representing the enum ordinal for the case sensitivity of quoted identifiers.
+   * Retrieves a uint32 value representing the enu uint32 ordinal for the case sensitivity of quoted identifiers.
    *
    * The possible values are listed in `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
    */
@@ -195,7 +194,14 @@ enum SqlInfo {
    */
   SQL_SUPPORTS_COLUMN_ALIASING = 515;
 
-  // Retrieves whether concatenations between null and non-null values being null are supported.
+  /*
+   * Retrieves a boolean value indicating whether concatenations between null and non-null values being
+   * null are supported.
+   *
+   * - Returns:
+   * - false: if concatenations between null and non-null values being null are unsupported;
+   * - true: if concatenations between null and non-null values being null are supported.
+   */
   SQL_NULL_PLUS_NULL_IS_NULL = 516;
 
   // Retrieves a UTF-8 string list with values of the supported conversion functions.
@@ -323,7 +329,7 @@ enum SqlInfo {
   /*
    * Retrieves the support level for SQL JOINs.
    *
-   * Returns a uint32 ordinal for the SQL ordering being used, as described in
+   * Returns a uint3 uint32 ordinal for the SQL ordering being used, as described in
    * `arrow.flight.protocol.sql.SqlJoinsSupportLevel`.
    */
   SQL_JOINS_SUPPORT_LEVEL = 528;
@@ -446,7 +452,7 @@ enum SqlInfo {
   SQL_SUPPORTED_SUBQUERIES = 538;
 
   /*
-   * Retrieves whether correlated subqueries are supported.
+   * Retrieves a boolean value indicating whether correlated subqueries are supported.
    *
    * Returns:
    * - false: if correlated subqueries are unsupported;
@@ -551,17 +557,17 @@ enum SqlInfo {
    * Retrieves this database's default transaction isolation level as described in
    * `arrow.flight.protocol.sql.SqlTransactionIsolationLevel`.
    *
-   * Returns an ordinal for the SQL transaction isolation level.
+   * Returns a uint32 ordinal for the SQL transaction isolation level.
    */
   SQL_DEFAULT_TRANSACTION_ISOLATION = 562;
 
   /*
-   * Retrieves whether transactions are supported. If not, invoking the method commit is a noop,
-   * and the isolation level is `arrow.flight.protocol.sql.SqlTransactionIsolationLevel.TRANSACTION_NONE`.
+   * Retrieves a boolean value indicating whether transactions are supported. If not, invoking the method commit is a
+   * noop, and the isolation level is `arrow.flight.protocol.sql.SqlTransactionIsolationLevel.TRANSACTION_NONE`.
    *
    * Returns:
-   * - 0: if transactions are unsupported;
-   * - 1: if transactions are supported.
+   * - false: if transactions are unsupported;
+   * - true: if transactions are supported.
    */
   SQL_TRANSACTIONS_SUPPORTED = 563;
 
@@ -595,20 +601,21 @@ enum SqlInfo {
   SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS = 564;
 
   /*
-   * Retrieves whether a data definition statement within a transaction forces the transaction to commit.
+   * Retrieves a boolean value indicating whether a data definition statement within a transaction forces
+   * the transaction to commit.
    *
    * Returns:
-   * - 0: if a data definition statement within a transaction does not force the transaction to commit;
-   * - 1: if a data definition statement within a transaction forces the transaction to commit.
+   * - false: if a data definition statement within a transaction does not force the transaction to commit;
+   * - true: if a data definition statement within a transaction forces the transaction to commit.
    */
   SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT = 565;
 
   /*
-   * Retrieves whether a data definition statement within a transaction is ignored.
+   * Retrieves a boolean value indicating whether a data definition statement within a transaction is ignored.
    *
    * Returns:
-   * - 0: if a data definition statement within a transaction is taken into account;
-   * - 1: a data definition statement within a transaction is ignored.
+   * - false: if a data definition statement within a transaction is taken into account;
+   * - true: a data definition statement within a transaction is ignored.
    */
   SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED = 566;
 

@@ -570,7 +570,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         ImmutableList.of(
             new Field("string_value", FieldType.nullable(MinorType.VARCHAR.getType()), null),
             new Field("bool_value", FieldType.nullable(MinorType.BIT.getType()), null),
-            new Field("int_value", FieldType.nullable(MinorType.INT.getType()), null),
             new Field("uint32_value", FieldType.nullable(MinorType.UINT4.getType()), null),
             new Field("bigint_value", FieldType.nullable(MinorType.BIGINT.getType()), null),
             new Field("int32_bitmask", FieldType.nullable(MinorType.INT.getType()), null),
@@ -581,7 +580,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
     final byte stringValueId = 0;
     final byte boolValueId = 1;
-    final byte uint32ValueId = 3;
+    final byte uint32ValueId = 2;
     vectors.forEach(FieldVector::allocateNew);
     final int rows = requestedInfo.length;
     for (int index = 0; index < rows; index++) {
