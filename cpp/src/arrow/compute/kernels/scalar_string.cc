@@ -1743,7 +1743,7 @@ void AddSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
                                                &utf8_slice_codeunits_doc);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<SliceCodeunits>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<SliceCodeunits>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec, SliceCodeunitsTransform::State::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2260,7 +2260,7 @@ void AddSplitPattern(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
                                                &split_pattern_doc);
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<SplitPatternExec, ListType>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<SplitPatternExec, ListType>(ty);
     DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitPatternState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2318,7 +2318,7 @@ void AddSplitWhitespaceAscii(FunctionRegistry* registry) {
                                        &ascii_split_whitespace_doc, &default_options);
 
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
     DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2388,7 +2388,7 @@ void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
                                        &utf8_split_whitespace_doc, &default_options);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
     DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2454,7 +2454,7 @@ void AddSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
                                                &split_pattern_regex_doc);
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<SplitRegexExec, ListType>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<SplitRegexExec, ListType>(ty);
     DCHECK_OK(func->AddKernel({ty}, {list(ty)}, exec, SplitPatternState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2857,7 +2857,7 @@ void AddReplaceSlice(FunctionRegistry* registry) {
                                                  &utf8_replace_slice_doc);
 
     for (const auto& ty : StringTypes()) {
-      auto exec = GenerateIsomorphicVarBinary<Utf8ReplaceSlice>(ty);
+      auto exec = GenerateVarBinaryToVarBinary<Utf8ReplaceSlice>(ty);
       DCHECK_OK(func->AddKernel({ty}, ty, exec, ReplaceSliceTransformBase::State::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3039,7 +3039,7 @@ void AddExtractRegex(FunctionRegistry* registry) {
   for (const auto& ty : BaseBinaryTypes()) {
     ScalarKernel kernel{{ty},
                         out_ty,
-                        GenerateIsomorphicVarBinary<ExtractRegex>(ty),
+                        GenerateVarBinaryToVarBinary<ExtractRegex>(ty),
                         ExtractRegexState::Init};
     // Null values will be computed based on regex match or not
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
@@ -3561,7 +3561,7 @@ void AddStrptime(FunctionRegistry* registry) {
 
   OutputType out_ty(ResolveStrptimeOutput);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<StrptimeExec>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<StrptimeExec>(ty);
     DCHECK_OK(func->AddKernel({ty}, out_ty, exec, StrptimeState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -4117,7 +4117,7 @@ void MakeUnaryStringBatchKernel(
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<ExecFunctor>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<ExecFunctor>(ty);
     ScalarKernel kernel{{ty}, ty, exec};
     kernel.mem_allocation = mem_allocation;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
@@ -4152,7 +4152,7 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
                                         const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<Transformer>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<Transformer>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -4206,7 +4206,7 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
                              const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateIsomorphicVarBinary<StringPredicateFunctor, Predicate>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);
     DCHECK_OK(func->AddKernel({ty}, boolean(), exec));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
