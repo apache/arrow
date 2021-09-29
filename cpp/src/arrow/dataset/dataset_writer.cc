@@ -373,7 +373,7 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
     if (maybe_files->size() > 1) {
       return Status::Invalid(
           "Could not write to ", options.base_dir,
-          " as the directory is not empty and existing_data_behavior is kError");
+          " as the directory is not empty and existing_data_behavior is to error");
     }
   }
   return Status::OK();
