@@ -53,9 +53,9 @@ extern "C" {
 
 namespace arrow {
 namespace r {
-
 namespace altrep {
 
+namespace {
 template <typename c_type>
 R_xlen_t Standard_Get_region(SEXP data2, R_xlen_t i, R_xlen_t n, c_type* buf);
 
@@ -615,6 +615,8 @@ void InitAltStringClass(DllInfo* dll, const char* name) {
   R_set_altstring_Is_sorted_method(AltrepClass::class_t, AltrepClass::Is_sorted);
 }
 
+}  // namespace
+
 // initialize the altrep classes
 void Init_Altrep_classes(DllInfo* dll) {
   InitAltRealClass<AltrepVectorPrimitive<REALSXP>>(dll, "arrow::array_dbl_vector");
@@ -625,21 +627,9 @@ void Init_Altrep_classes(DllInfo* dll) {
       dll, "arrow::array_large_string_vector");
 }
 
-}  // namespace altrep
-}  // namespace r
-}  // namespace arrow
-
-#endif  // HAS_ALTREP
-
-namespace arrow {
-namespace r {
-namespace altrep {
-
 // return an altrep R vector that shadows the array if possible
 SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
-#if defined(HAS_ALTREP)
   // special case when there is only one array
-
   if (chunked_array->num_chunks() == 1) {
     const auto& array = chunked_array->chunk(0);
     // using altrep if
@@ -647,31 +637,46 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
     // - the array has at least one element
     if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
       switch (array->type()->id()) {
-        case arrow::Type::DOUBLE:
-          return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
+      case arrow::Type::DOUBLE:
+        return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
 
-        case arrow::Type::INT32:
-          return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
+      case arrow::Type::INT32:
+        return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
 
-        case arrow::Type::STRING:
-          return altrep::AltrepVectorString<StringType>::Make(array);
+      case arrow::Type::STRING:
+        return altrep::AltrepVectorString<StringType>::Make(array);
 
-        case arrow::Type::LARGE_STRING:
-          return altrep::AltrepVectorString<LargeStringType>::Make(array);
+      case arrow::Type::LARGE_STRING:
+        return altrep::AltrepVectorString<LargeStringType>::Make(array);
 
-        default:
-          break;
+      default:
+        break;
       }
     }
   }
-#endif
-
   return R_NilValue;
 }
 
 }  // namespace altrep
 }  // namespace r
 }  // namespace arrow
+
+#else // HAS_ALTREP
+
+namespace arrow {
+namespace r {
+namespace altrep {
+
+// return an altrep R vector that shadows the array if possible
+SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
+  return R_NilValue;
+}
+
+}  // namespace altrep
+}  // namespace r
+}  // namespace arrow
+
+#endif
 
 // [[arrow::export]]
 void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden")); }

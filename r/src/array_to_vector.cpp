@@ -788,12 +788,11 @@ class Converter_Struct : public Converter {
 
   bool is_altrep(SEXP x) const {
 #if defined(HAS_ALTREP)
-     return ALTREP(x);
+    return ALTREP(x);
 #else
-     return false;
+    return false;
 #endif
-   }
-
+  }
 };
 
 double ms_to_seconds(int64_t ms) { return static_cast<double>(ms) / 1000; }
