@@ -17,20 +17,25 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
-public class ArrowFlightJdbcNullVectorAccessorTest {
+import org.apache.calcite.avatica.util.Cursor.Accessor;
+import org.junit.Test;
 
-  ArrowFlightJdbcNullVectorAccessor accessor = new ArrowFlightJdbcNullVectorAccessor();
+import java.sql.SQLException;
+
+public final class ArrowFlightJdbcNullVectorAccessorTest {
+
+  private final Accessor accessor = new ArrowFlightJdbcNullVectorAccessor();
 
   @Test
-  void testShouldWasNullReturnTrue() {
-    Assertions.assertTrue(accessor.wasNull());
+  public void testShouldWasNullReturnTrue() throws SQLException {
+    assertTrue(accessor.wasNull());
   }
 
   @Test
-  void testShouldGetObjectReturnNull() {
-    Assertions.assertNull(accessor.getObject());
+  public void testShouldGetObjectReturnNull() throws SQLException {
+    assertNull(accessor.getObject());
   }
 }
