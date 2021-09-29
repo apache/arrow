@@ -74,9 +74,10 @@ using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
 // base class for all altrep vectors
 //
-// The altrep vector stores the Array as an external pointer in data1
-// Implementation classes AltrepVectorPrimitive<> and AltrepVectorString
-// also use data2
+// data1: the Array as an external pointer.
+// data2: starts as NULL, and becomes a standard R vector with the same
+//        data if necessary: if materialization is needed, e.g. if we need
+//        to access its data pointer, with DATAPTR().
 struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
   static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array) {
@@ -118,10 +119,6 @@ struct AltrepVectorBase {
 //
 // This tries as much as possible to directly use the data
 // from the Array and minimize data copies.
-//
-// data2 starts as NULL, and becomes a standard R vector with the same
-// data if necessary: if materialization is needed, e.g. if we need
-// to access its data pointer
 template <int sexp_type>
 struct AltrepVectorPrimitive : public AltrepVectorBase {
   // singleton altrep class description
