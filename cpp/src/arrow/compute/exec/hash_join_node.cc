@@ -105,7 +105,7 @@ class HashSemiJoinNode : public ExecNode {
         hash_table_built_(false),
         cached_probe_batches_consumed(false) {}
 
-  const char* kind_name() override { return "HashSemiJoinNode"; }
+  const char* kind_name() const override { return "HashSemiJoinNode"; }
 
   // If all build side batches received, continue streaming using probing
   // else cache the batches in thread-local state
