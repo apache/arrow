@@ -1029,9 +1029,6 @@ test_that("Scanner$ScanBatches", {
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
 
-  # use_async will always use the thread pool (even if it only uses
-  # one thread) and RTools 3.5 on Windows doesn't support this
-  skip_on_os("windows")
   batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
@@ -1301,7 +1298,6 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
 })
 
 test_that("Writing a dataset: CSV->IPC", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
@@ -1333,7 +1329,6 @@ test_that("Writing a dataset: CSV->IPC", {
 
 test_that("Writing a dataset: Parquet->IPC", {
   skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
@@ -1357,7 +1352,6 @@ test_that("Writing a dataset: Parquet->IPC", {
 
 test_that("Writing a dataset: CSV->Parquet", {
   skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "parquet", partitioning = "int")
@@ -1381,7 +1375,6 @@ test_that("Writing a dataset: CSV->Parquet", {
 
 test_that("Writing a dataset: Parquet->Parquet (default)", {
   skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, partitioning = "int")
@@ -1404,7 +1397,6 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
 })
 
 test_that("Writing a dataset: no format specified", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   dst_dir <- make_temp_dir()
   write_dataset(example_data, dst_dir)
   new_ds <- open_dataset(dst_dir)
@@ -1423,7 +1415,6 @@ test_that("Writing a dataset: no format specified", {
 
 test_that("Dataset writing: dplyr methods", {
   skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   # Specify partition vars by group_by
@@ -1473,7 +1464,6 @@ test_that("Dataset writing: dplyr methods", {
 })
 
 test_that("Dataset writing: non-hive", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
@@ -1483,7 +1473,6 @@ test_that("Dataset writing: non-hive", {
 })
 
 test_that("Dataset writing: no partitioning", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
@@ -1493,7 +1482,6 @@ test_that("Dataset writing: no partitioning", {
 })
 
 test_that("Dataset writing: partition on null", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
 
   dst_dir <- tempfile()
@@ -1523,7 +1511,6 @@ test_that("Dataset writing: partition on null", {
 })
 
 test_that("Dataset writing: from data.frame", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   dst_dir <- tempfile()
   stacked <- rbind(df1, df2)
   stacked %>%
@@ -1548,7 +1535,6 @@ test_that("Dataset writing: from data.frame", {
 })
 
 test_that("Dataset writing: from RecordBatch", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   dst_dir <- tempfile()
   stacked <- record_batch(rbind(df1, df2))
   stacked %>%
@@ -1573,7 +1559,6 @@ test_that("Dataset writing: from RecordBatch", {
 })
 
 test_that("Writing a dataset: Ipc format options & compression", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
 
@@ -1600,7 +1585,6 @@ test_that("Writing a dataset: Ipc format options & compression", {
 })
 
 test_that("Writing a dataset: Parquet format options", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   skip_if_not_available("parquet")
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
