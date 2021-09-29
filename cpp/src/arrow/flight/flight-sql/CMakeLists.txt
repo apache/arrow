@@ -105,7 +105,7 @@ add_executable(flight_sql_test_server
                example/sqlite_statement.cc
                example/sqlite_statement_batch_reader.cc
                example/sqlite_server.cc
-               example/SqliteTablesWithSchemaBatchreader.cpp
+               example/sqlite_tables_schema_batch_reader.cpp
                "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
 target_link_libraries(flight_sql_test_server
                       PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}

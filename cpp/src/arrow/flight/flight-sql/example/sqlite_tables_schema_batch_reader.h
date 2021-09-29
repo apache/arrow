@@ -2,8 +2,8 @@
 // Created by jose on 9/24/21.
 //
 
-#ifndef ARROW_SQLITETABLESWITHSCHEMABATCHREADER_H
-#define ARROW_SQLITETABLESWITHSCHEMABATCHREADER_H
+#ifndef ARROW_SQLITE_TABLES_SCHEMA_BATCH_READER_H
+#define ARROW_SQLITE_TABLES_SCHEMA_BATCH_READER_H
 
 #include <arrow/record_batch.h>
 #include <sqlite3.h>
@@ -33,4 +33,4 @@ class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
 }  // namespace flight
 }  // namespace arrow
 
-#endif  // ARROW_SQLITETABLESWITHSCHEMABATCHREADER_H
+#endif  // ARROW_SQLITE_TABLES_SCHEMA_BATCH_READER_H

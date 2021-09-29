@@ -2,7 +2,7 @@
 // Created by jose on 9/24/21.
 //
 
-#include "SqliteTablesWithSchemaBatchreader.h"
+#include "sqlite_tables_schema_batch_reader.h"
 
 #include <arrow/flight/flight-sql/sql_server.h>
 #include <arrow/ipc/writer.h>
