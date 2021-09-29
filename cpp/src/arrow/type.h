@@ -1361,6 +1361,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   std::string name() const override { return "day_time_interval"; }
 };
 
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, DayTimeIntervalType::DayMilliseconds interval);
+
 /// \brief Represents a number of months, days and nanoseconds between
 /// two dates.
 ///
@@ -1397,6 +1400,10 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
   std::string ToString() const override { return name(); }
   std::string name() const override { return "month_day_nano_interval"; }
 };
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os,
+                         MonthDayNanoIntervalType::MonthDayNanos interval);
 
 /// \brief Represents an elapsed time without any relation to a calendar artifact.
 class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
