@@ -131,7 +131,6 @@ table BinaryLiteral {
 
 table FixedSizeBinaryLiteral {
   value: [byte] (required);
-  size: int32;
 }
 
 table StringLiteral {
