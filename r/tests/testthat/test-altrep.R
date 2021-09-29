@@ -19,6 +19,10 @@ context("altrep")
 
 skip_if(getRversion() <= "3.5.0")
 
+is_altrep <- function(x) {
+  !is.null(.Internal(altrep_class(x)))
+}
+
 test_that("altrep vectors from int32 and dbl arrays with no nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   v_int <- Array$create(1:1000)

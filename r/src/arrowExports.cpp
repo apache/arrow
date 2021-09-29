@@ -6,21 +6,6 @@
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool is_altrep(SEXP x);
-extern "C" SEXP _arrow_is_altrep(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(is_altrep(x));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_is_altrep(SEXP x_sexp){
-	Rf_error("Cannot call is_altrep(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// altrep.cpp
-#if defined(ARROW_R_WITH_ARROW)
 void test_SET_STRING_ELT(SEXP s);
 extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
 BEGIN_CPP11
@@ -7068,7 +7053,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
-		{ "_arrow_is_altrep", (DL_FUNC) &_arrow_is_altrep, 1}, 
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 

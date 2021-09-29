@@ -674,15 +674,6 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 }  // namespace arrow
 
 // [[arrow::export]]
-bool is_altrep(SEXP x) {
-#if defined(HAS_ALTREP)
-  return ALTREP(x);
-#else
-  return false;
-#endif
-}
-
-// [[arrow::export]]
 void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden")); }
 
 #endif
