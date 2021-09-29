@@ -78,11 +78,12 @@ using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 // data2: starts as NULL, and becomes a standard R vector with the same
 //        data if necessary: if materialization is needed, e.g. if we need
 //        to access its data pointer, with DATAPTR().
+template <typename Impl>
 struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
-  static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array) {
-    SEXP alt_ =
-        R_new_altrep(class_t, Pointer(new std::shared_ptr<Array>(array)), R_NilValue);
+  static SEXP Make(const std::shared_ptr<Array>& array) {
+    SEXP alt_ = R_new_altrep(Impl::class_t, Pointer(new std::shared_ptr<Array>(array)),
+                             R_NilValue);
     MARK_NOT_MUTABLE(alt_);
 
     return alt_;
@@ -113,6 +114,20 @@ struct AltrepVectorBase {
     inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
     return TRUE;
   }
+
+  // Duplication is done by first materializing the vector and
+  // then make a lazy duplicate of data2
+  static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
+    return Rf_lazy_duplicate(Impl::Materialize(alt_));
+  }
+
+  static SEXP Coerce(SEXP alt_, int type) {
+    return Rf_coerceVector(Impl::Materialize(alt_), type);
+  }
+
+  static SEXP Serialized_state(SEXP alt_) { return Impl::Materialize(alt_); }
+
+  static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 };
 
 // altrep R vector shadowing an primitive (int or double) Array.
@@ -120,15 +135,13 @@ struct AltrepVectorBase {
 // This tries as much as possible to directly use the data
 // from the Array and minimize data copies.
 template <int sexp_type>
-struct AltrepVectorPrimitive : public AltrepVectorBase {
+struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sexp_type>> {
+  using Base = AltrepVectorBase<AltrepVectorPrimitive<sexp_type>>;
+
   // singleton altrep class description
   static R_altrep_class_t class_t;
 
   using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
-
-  static SEXP Make(const std::shared_ptr<Array>& array) {
-    return AltrepVectorBase::Make(class_t, array);
-  }
 
   // Force materialization. After calling this, the data2 slot of the altrep
   // object contains a standard R vector with the same data, with
@@ -136,8 +149,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
   //
   // The Array remains available so that it can be used by Length(), Min(), etc ...
   static SEXP Materialize(SEXP alt_) {
-    if (!IsMaterialized(alt_)) {
-      auto size = Length(alt_);
+    if (!Base::IsMaterialized(alt_)) {
+      auto size = Base::Length(alt_);
 
       // create a standard R vector
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
@@ -154,23 +167,17 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
     return R_altrep_data2(alt_);
   }
 
-  // Duplication is done by first materializing the vector and
-  // then make a lazy duplicate of data2
-  static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
-    return Rf_lazy_duplicate(Materialize(alt_));
-  }
-
   // R calls this to get a pointer to the start of the vector data
   // but only if this is possible without allocating (in the R sense).
   static const void* Dataptr_or_null(SEXP alt_) {
     // data2 has been created, and so the R sentinels are in place where the array has
     // nulls
-    if (IsMaterialized(alt_)) {
+    if (Base::IsMaterialized(alt_)) {
       return DATAPTR_RO(R_altrep_data2(alt_));
     }
 
     // the Array has no nulls, we can directly return the start of its data
-    const auto& array_ = array(alt_);
+    const auto& array_ = Base::array(alt_);
     if (array_->null_count() == 0) {
       return reinterpret_cast<const void*>(array_->data()->template GetValues<c_type>(1));
     }
@@ -183,8 +190,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
   static void* Dataptr(SEXP alt_, Rboolean writeable) {
     // If the object hasn't been materialized, and the array has no
     // nulls we can directly point to the array data.
-    if (!IsMaterialized(alt_)) {
-      const auto& array_ = array(alt_);
+    if (!Base::IsMaterialized(alt_)) {
+      const auto& array_ = Base::array(alt_);
 
       if (array_->null_count() == 0) {
         return reinterpret_cast<void*>(
@@ -209,7 +216,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
 
   // The value at position i
   static c_type Elt(SEXP alt_, R_xlen_t i) {
-    const auto& array_ = array(alt_);
+    const auto& array_ = Base::array(alt_);
     return array_->IsNull(i) ? cpp11::na<c_type>()
                              : array_->data()->template GetValues<c_type>(1)[i];
   }
@@ -220,7 +227,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
   static R_xlen_t Get_region(SEXP alt_, R_xlen_t i, R_xlen_t n, c_type* buf) {
     // If we have data2, we can just copy the region into buf
     // using the standard Get_region for this R type
-    if (IsMaterialized(alt_)) {
+    if (Base::IsMaterialized(alt_)) {
       return Standard_Get_region<c_type>(R_altrep_data2(alt_), i, n, buf);
     }
 
@@ -231,7 +238,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
     // array has nulls
     //
     // This only materialize the region, into buf. Not the entire vector.
-    auto slice = array(alt_)->Slice(i, n);
+    auto slice = Base::array(alt_)->Slice(i, n);
     R_xlen_t ncopy = slice->length();
 
     // first copy the data buffer
@@ -252,16 +259,6 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
     return ncopy;
   }
 
-  // This cannot keep the external pointer to an Arrow object through
-  // R serialization, so return the materialized
-  static SEXP Serialized_state(SEXP alt_) { return R_altrep_data2(Materialize(alt_)); }
-
-  static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
-
-  static SEXP Coerce(SEXP alt_, int type) {
-    return Rf_coerceVector(Materialize(alt_), type);
-  }
-
   static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
       const std::shared_ptr<Array>& array, bool na_rm) {
     auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
@@ -277,7 +274,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
     using scalar_type =
         typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
-    const auto& array_ = array(alt_);
+    const auto& array_ = Base::array(alt_);
     bool na_rm = narm == TRUE;
     auto n = array_->length();
     auto null_count = array_->null_count();
@@ -307,7 +304,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase {
   static SEXP Sum(SEXP alt_, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
-    const auto& array_ = array(alt_);
+    const auto& array_ = Base::array(alt_);
     bool na_rm = narm == TRUE;
     auto null_count = array_->null_count();
 
@@ -339,24 +336,22 @@ R_altrep_class_t AltrepVectorPrimitive<sexp_type>::class_t;
 
 // Implementation for string arrays
 template <typename Type>
-struct AltrepVectorString : public AltrepVectorBase {
+struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
+  using Base = AltrepVectorBase<AltrepVectorString<Type>>;
+
   static R_altrep_class_t class_t;
   using StringArrayType = typename TypeTraits<Type>::ArrayType;
-
-  static SEXP Make(const std::shared_ptr<Array>& array) {
-    return AltrepVectorBase::Make(class_t, array);
-  }
 
   // Get a single string, as a CHARSXP SEXP
   // data2 is initialized, the CHARSXP is generated from the Array data
   // and stored in data2, so that this only needs to expand a given string once
   static SEXP Elt(SEXP alt_, R_xlen_t i) {
-    if (IsMaterialized(alt_)) {
+    if (Base::IsMaterialized(alt_)) {
       return STRING_ELT(R_altrep_data2(alt_), i);
     }
 
     // nul -> to NA_STRING
-    if (array(alt_)->IsNull(i)) {
+    if (Base::array(alt_)->IsNull(i)) {
       return NA_STRING;
     }
 
@@ -370,7 +365,7 @@ struct AltrepVectorString : public AltrepVectorBase {
     // C++ objects that will properly be destroyed by END_CPP11
     // before it resumes the unwinding - and perhaps let
     // the R error pass through
-    const auto& array_ = array(alt_);
+    const auto& array_ = Base::array(alt_);
     auto view = internal::checked_cast<StringArrayType*>(array_.get())->GetView(i);
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
     bool nul_was_stripped = false;
@@ -402,13 +397,13 @@ struct AltrepVectorString : public AltrepVectorBase {
   }
 
   static SEXP Materialize(SEXP alt_) {
-    if (IsMaterialized(alt_)) {
+    if (Base::IsMaterialized(alt_)) {
       return R_altrep_data2(alt_);
     }
 
     BEGIN_CPP11
 
-    auto array_ = array(alt_);
+    auto array_ = Base::array(alt_);
     R_xlen_t n = array_->length();
     SEXP data2_ = PROTECT(Rf_allocVector(STRSXP, n));
     MARK_NOT_MUTABLE(data2_);
@@ -465,22 +460,10 @@ struct AltrepVectorString : public AltrepVectorBase {
   static const void* Dataptr_or_null(SEXP alt_) {
     // only valid if all strings have been materialized
     // i.e. it is not enough for data2 to be not NULL
-    if (IsMaterialized(alt_)) return DATAPTR(R_altrep_data2(alt_));
+    if (Base::IsMaterialized(alt_)) return DATAPTR(R_altrep_data2(alt_));
 
     // otherwise give up
     return NULL;
-  }
-
-  static SEXP Coerce(SEXP alt_, int type) {
-    return Rf_coerceVector(Materialize(alt_), type);
-  }
-
-  static SEXP Serialized_state(SEXP alt_) { return Materialize(alt_); }
-
-  static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
-
-  static SEXP Duplicate(SEXP alt_, Rboolean /* deep */) {
-    return Rf_lazy_duplicate(Materialize(alt_));
   }
 
   // static method so that this can error without concerns of
