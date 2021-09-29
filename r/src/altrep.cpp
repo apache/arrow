@@ -458,16 +458,12 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   }
 
   static const void* Dataptr_or_null(SEXP alt_) {
-    // only valid if all strings have been materialized
-    // i.e. it is not enough for data2 to be not NULL
     if (Base::IsMaterialized(alt_)) return DATAPTR(R_altrep_data2(alt_));
 
     // otherwise give up
     return NULL;
   }
 
-  // static method so that this can error without concerns of
-  // destruction for the
   static void Set_elt(SEXP alt_, R_xlen_t i, SEXP v) {
     Rf_error("ALTSTRING objects of type <arrow::array_string_vector> are immutable");
   }
