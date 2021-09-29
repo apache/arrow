@@ -47,7 +47,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   // All the derived accessor classes should alter this as they encounter null Values
   protected boolean wasNull;
 
-  protected ArrowFlightJdbcAccessor(IntSupplier currentRowSupplier) {
+  protected ArrowFlightJdbcAccessor(final IntSupplier currentRowSupplier) {
     this.currentRowSupplier = currentRowSupplier;
   }
 
@@ -114,7 +114,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public BigDecimal getBigDecimal(int i) {
+  public BigDecimal getBigDecimal(final int i) {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -149,7 +149,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public Object getObject(Map<String, Class<?>> map) {
+  public Object getObject(final Map<String, Class<?>> map) {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -179,17 +179,17 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public Date getDate(Calendar calendar) {
+  public Date getDate(final Calendar calendar) {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Time getTime(Calendar calendar) {
+  public Time getTime(final Calendar calendar) {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Timestamp getTimestamp(Calendar calendar) {
+  public Timestamp getTimestamp(final Calendar calendar) {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -219,41 +219,33 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public <T> T getObject(Class<T> type) {
+  public <T> T getObject(final Class<T> type) {
+    final Object value;
 
     if (type == Byte.class) {
-      final byte value = getByte();
-      return this.wasNull ? null : type.cast(value);
+      value = getByte();
     } else if (type == Short.class) {
-      final short value = getShort();
-      return this.wasNull ? null : type.cast(value);
+      value = getShort();
     } else if (type == Integer.class) {
-      final int value = getInt();
-      return this.wasNull ? null : type.cast(value);
+      value = getInt();
     } else if (type == Long.class) {
-      final long value = getLong();
-      return this.wasNull ? null : type.cast(value);
+      value = getLong();
     } else if (type == Float.class) {
-      final float value = getFloat();
-      return this.wasNull ? null : type.cast(value);
+      value = getFloat();
     } else if (type == Double.class) {
-      final double value = getDouble();
-      return this.wasNull ? null : type.cast(value);
+      value = getDouble();
     } else if (type == Boolean.class) {
-      final boolean value = getBoolean();
-      return this.wasNull ? null : type.cast(value);
+      value = getBoolean();
     } else if (type == BigDecimal.class) {
-      return type.cast(getBigDecimal());
+      value = getBigDecimal();
     } else if (type == String.class) {
-      return type.cast(getString());
+      value = getString();
     } else if (type == byte[].class) {
-      return type.cast(getBytes());
-    } else if (type == Object.class) {
-      return type.cast(getObject());
-    } else if (type == getObjectClass()) {
-      return type.cast(getObject());
+      value = getBytes();
+    } else {
+      value = getObject();
     }
 
-    throw new UnsupportedOperationException();
+    return !type.isPrimitive() && wasNull ? null : type.cast(value);
   }
 }

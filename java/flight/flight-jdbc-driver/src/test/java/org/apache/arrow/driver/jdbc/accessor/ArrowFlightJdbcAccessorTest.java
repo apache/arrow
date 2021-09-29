@@ -22,6 +22,8 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -253,6 +255,13 @@ public class ArrowFlightJdbcAccessorTest {
   public void testShouldFailToGetObject() {
     when(accessor.getObject()).thenCallRealMethod();
     accessor.getObject();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testShouldFailToGetObjectMap() {
+    Map<String, Class<?>> map = new HashMap<>();
+    when(accessor.getObject(map)).thenCallRealMethod();
+    accessor.getObject(map);
   }
 
   @Test(expected = UnsupportedOperationException.class)
