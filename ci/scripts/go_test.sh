@@ -36,7 +36,7 @@ pushd ${source_dir}/arrow
 # in .c files don't get included in non-test builds.
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags "test" $d
+    go test $testargs -tags "test,assert" $d
 done
 
 popd
@@ -44,7 +44,7 @@ popd
 pushd ${source_dir}/parquet
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $testargs  $d
+    go test $testargs -tags assert $d
 done
 
 popd

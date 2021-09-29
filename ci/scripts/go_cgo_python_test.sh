@@ -35,7 +35,7 @@ case "$(uname)" in
         ;;
 esac
 
-go build -tags cdata_test -buildmode=c-shared -o $testlib .
+go build -tags cdata_test,assert -buildmode=c-shared -o $testlib .
 
 python test_export_to_cgo.py
 
