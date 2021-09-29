@@ -24,7 +24,11 @@ require "tempfile"
 require "thread"
 require "time"
 
-require "apt-dists-merge"
+begin
+  require "apt-dists-merge"
+rescue LoadError
+  warn("apt-dists-merge is needed for apt:* tasks")
+end
 
 class BinaryTask
   include Rake::DSL
