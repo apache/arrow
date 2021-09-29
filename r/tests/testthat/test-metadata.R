@@ -246,7 +246,7 @@ test_that("metadata of list elements (ARROW-10386)", {
     "Row-level metadata is not compatible with datasets and will be discarded"
   )
 
-  # Reset directory as previous write will have created some files and the defualt
+  # Reset directory as previous write will have created some files and the default
   # behavior is to error on existing
   dst_dir <- make_temp_dir()
   # but we need to write a dataset with row-level metadata to make sure when

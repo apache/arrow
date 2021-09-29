@@ -33,7 +33,7 @@ constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 64 * 1024 * 1024;
 /// \brief Utility class that manages a set of writers to different paths
 ///
 /// Writers may be closed and reopened (and a new file created) based on the dataset
-/// write options (for example, min_rows_per_file or max_open_files)
+/// write options (for example, max_rows_per_file or max_open_files)
 ///
 /// The dataset writer enforces its own back pressure based on the # of rows (as opposed
 /// to # of batches which is how it is typically enforced elsewhere) and # of files.
