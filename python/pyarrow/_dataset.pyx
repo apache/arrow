@@ -1819,6 +1819,20 @@ cdef class IpcFileFormat(FileFormat):
 
 
 cdef class CsvFileFormat(FileFormat):
+    """
+    FileFormat for CSV files.
+
+    Parameters
+    ----------
+    parse_options : ParseOptions
+        Options regarding parsing of CSV.
+    convert_options : ConvertOptions
+        Options regarding value conversion.
+    read_options : ReadOptions
+        Options regarding the CSV file read operation.
+    default_fragment_scan_options : CsvFragmentScanOptions
+        Default options for fragments scan.
+    """
     cdef:
         CCsvFileFormat* csv_format
 
@@ -1888,7 +1902,16 @@ cdef class CsvFileFormat(FileFormat):
 
 
 cdef class CsvFragmentScanOptions(FragmentScanOptions):
-    """Scan-specific options for CSV fragments."""
+    """
+    Scan-specific options for CSV fragments.
+    
+    Parameters
+    ----------
+    convert_options : ConvertOptions
+        Options regarding value conversion.
+    read_options : ReadOptions
+        Options regarding the CSV file read operation.
+    """
 
     cdef:
         CCsvFragmentScanOptions* csv_options
