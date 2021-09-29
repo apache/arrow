@@ -80,6 +80,7 @@ public class StructVectorLoader {
    */
   public StructVector load(BufferAllocator allocator, ArrowRecordBatch recordBatch) {
     StructVector result = StructVector.empty("", allocator);
+    result.initializeChildrenFromFields(this.schema.getFields());
 
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
@@ -87,9 +88,8 @@ public class StructVectorLoader {
         .fromCompressionType(recordBatch.getBodyCompression().getCodec());
     decompressionNeeded = codecType != CompressionUtil.CodecType.NO_COMPRESSION;
     CompressionCodec codec = decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
-    for (Field field : this.schema.getFields()) {
-      FieldVector fieldVector = result.addOrGet(field.getName(), field.getFieldType(), FieldVector.class);
-      loadBuffers(fieldVector, field, buffers, nodes, codec);
+    for (FieldVector fieldVector : result.getChildrenFromFields()) {
+      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
     }
     result.loadFieldBuffers(new ArrowFieldNode(recordBatch.getLength(), 0), Collections.singletonList(null));
     if (nodes.hasNext() || buffers.hasNext()) {

@@ -260,9 +260,7 @@ public final class FFI {
   public static void importIntoVectorSchemaRoot(BufferAllocator allocator, ArrowArray array, VectorSchemaRoot root,
       DictionaryProvider provider) {
     try (StructVector structVector = StructVector.empty("", allocator)) {
-      for (Field field : root.getSchema().getFields()) {
-        structVector.addOrGet(field.getName(), field.getFieldType(), FieldVector.class);
-      }
+      structVector.initializeChildrenFromFields(root.getSchema().getFields());
       importIntoVector(allocator, array, structVector, provider);
       StructVectorUnloader unloader = new StructVectorUnloader(structVector);
       VectorLoader loader = new VectorLoader(root);

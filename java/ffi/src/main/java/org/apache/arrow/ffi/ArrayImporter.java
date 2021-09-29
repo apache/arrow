@@ -134,7 +134,7 @@ final class ArrayImporter {
     }
 
     int buffersCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
-    checkState(buffers.length == buffersCount, "Expected %d buffers for imported type %s, ArrowArray struct has %d",
+    checkState(buffers.length == buffersCount, "Expected %s buffers for imported type %s, ArrowArray struct has %s",
         buffersCount, vector.getField().getType().getTypeID(), buffers.length);
 
     List<ArrowBuf> result = new ArrayList<>(buffersCount);
