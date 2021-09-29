@@ -634,10 +634,10 @@ def fill_null(values, fill_value):
 
     Parameters
     ----------
-    data : Array, ChunkedArray, or Scalar-like object
+    values : Array, ChunkedArray, or Scalar-like object
         Each null element is replaced with the corresponding value
         from fill_value.
-    fill_value: Array, ChunkedArray, or Scalar-like object
+    fill_value : Array, ChunkedArray, or Scalar-like object
         If not same type as data will attempt to cast.
 
     Returns

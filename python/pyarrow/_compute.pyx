@@ -463,6 +463,11 @@ cdef class FunctionRegistry(_Weakrefable):
     def get_function(self, name):
         """
         Look up a function by name in the registry.
+
+        Parameters
+        ----------
+        name : str
+            The name of the function to lookup
         """
         cdef:
             c_string c_name = tobytes(name)
@@ -485,6 +490,11 @@ def get_function(name):
 
     The function is looked up in the global registry
     (as returned by `function_registry()`).
+
+    Parameters
+    ----------
+    name : str
+        The name of the function to lookup
     """
     return _global_func_registry.get_function(name)
 
@@ -502,6 +512,17 @@ def call_function(name, args, options=None, memory_pool=None):
 
     The function is looked up in the global registry
     (as returned by `function_registry()`).
+
+    Parameters
+    ----------
+    name : str
+        The name of the function to call.
+    args : list
+        The arguments to the function.
+    options : optional
+        options provided to the function.
+    memory_pool : MemoryPool, optional
+        memory pool to use for allocations during function.
     """
     func = _global_func_registry.get_function(name)
     return func.call(args, options=options, memory_pool=memory_pool)
@@ -524,6 +545,14 @@ cdef class FunctionOptions(_Weakrefable):
 
     @staticmethod
     def deserialize(buf):
+        """
+        Deserialize options for a function.
+
+        Parameters
+        ----------
+        buf : Buffer
+            The buffer containing the data to deserialize.
+        """
         cdef:
             shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
             CResult[unique_ptr[CFunctionOptions]] maybe_options = \
