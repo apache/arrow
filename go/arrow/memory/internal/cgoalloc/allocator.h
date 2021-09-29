@@ -26,8 +26,6 @@ extern "C" {
 
 typedef uintptr_t ArrowMemoryPool;
 
-ArrowMemoryPool arrow_default_memory_pool();
-
 ArrowMemoryPool arrow_create_memory_pool(bool enable_logging);
 int arrow_pool_allocate(ArrowMemoryPool pool, int64_t size, uint8_t** out);
 int arrow_pool_reallocate(ArrowMemoryPool pool, int64_t old_size, int64_t new_size, uint8_t** ptr);

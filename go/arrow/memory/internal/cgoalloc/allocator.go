@@ -31,10 +31,6 @@ import (
 // CGOMemPool is an alias to the typedef'd uintptr from the allocator.h file
 type CGOMemPool = C.ArrowMemoryPool
 
-func DefaultMemoryPool() CGOMemPool {
-	return C.arrow_default_memory_pool()
-}
-
 // CgoPoolAlloc allocates a block of memory of length 'size' using the memory
 // pool that is passed in.
 func CgoPoolAlloc(pool CGOMemPool, size int) []byte {
