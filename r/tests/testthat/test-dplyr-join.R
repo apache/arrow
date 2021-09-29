@@ -20,7 +20,9 @@ skip_if_not_available("dataset")
 library(dplyr)
 
 left <- example_data
-# Error: Invalid: Dictionary type support for join output field is not yet implemented, output field reference: FieldRef.Name(fct) on left side of the join
+# Error: Invalid: Dictionary type support for join output field
+# is not yet implemented, output field reference: FieldRef.Name(fct)
+# on left side of the join
 # (select(-fct) also solves this but remove once)
 left$fct <- NULL
 left$some_grouping <- rep(c(1, 2), 5)
@@ -49,10 +51,10 @@ test_that("left_join `by` args", {
   )
   expect_dplyr_equal(
     input %>%
+      rename(the_grouping = some_grouping) %>%
       left_join(
-        to_join %>%
-          rename(the_grouping = some_grouping),
-        by = c(some_grouping = "the_grouping")
+        to_join
+        by = c(the_grouping = "some_grouping")
       ) %>%
       collect(),
     left
