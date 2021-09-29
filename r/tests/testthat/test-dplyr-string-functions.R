@@ -469,21 +469,22 @@ test_that("strsplit and str_split", {
 
 test_that("str_to_lower, str_to_upper, and str_to_title", {
   df <- tibble(x = c("1Foo1", " \tB a R\n", "!apACHe aRroW!"))
-  funcs <- c(str_to_lower, str_to_upper, str_to_title)
-  for (func in funcs) {
-    expect_dplyr_equal(
-      input %>%
-        transmute(x = func(x)) %>%
-        collect(),
-      df
-    )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        x_lower = str_to_lower(x),
+        x_upper = str_to_upper(x),
+        x_title = str_to_title(x)
+      ) %>%
+      collect(),
+    df
+  )
 
-    funcname = as.character(substitute(func))
-    expect_error(
-      nse_funcs[[funcname]]("Apache Arrow", locale = "sp"),
-      "Providing a value for 'locale' other than the default ('en') is not supported by Arrow"
-    )
-  }
+  # Error checking a single function because they all use the same code path.
+  expect_error(
+    nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
+    "Providing a value for 'locale' other than the default ('en') is not supported by Arrow"
+  )
 })
 
 test_that("arrow_*_split_whitespace functions", {
