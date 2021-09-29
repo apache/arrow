@@ -354,7 +354,7 @@ tail.Dataset <- function(x, n = 6L, ...) {
     return(x[, i])
   }
   if (!missing(j)) {
-    x <- select.Dataset(x, j)
+    x <- select.Dataset(x, all_of(j))
   }
 
   if (!missing(i)) {

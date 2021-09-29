@@ -16,7 +16,7 @@
 # under the License.
 
 expect_parquet_roundtrip <- function(tab, ...) {
-  expect_equivalent(parquet_roundtrip(tab, ...), tab)
+  expect_equal(parquet_roundtrip(tab, ...), tab)
 }
 
 parquet_roundtrip <- function(x, ...) {

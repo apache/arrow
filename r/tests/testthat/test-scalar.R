@@ -15,12 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Scalar")
 
 expect_scalar_roundtrip <- function(x, type) {
   s <- Scalar$create(x)
   expect_r6_class(s, "Scalar")
-  expect_type_equal(s$type, type)
+  expect_equal(s$type, type)
   expect_identical(length(s), 1L)
   if (inherits(type, "NestedType")) {
     # Should this be? Missing if all elements are missing?
@@ -28,7 +27,7 @@ expect_scalar_roundtrip <- function(x, type) {
   } else {
     expect_identical(as.vector(is.na(s)), is.na(x))
     # MakeArrayFromScalar not implemented for list types
-    expect_equal(as.vector(s), x)
+    expect_as_vector(s, x)
   }
 }
 
@@ -45,8 +44,8 @@ test_that("Scalar print", {
 })
 
 test_that("Creating Scalars of a different type and casting them", {
-  expect_type_equal(Scalar$create(4L, int8())$type, int8())
-  expect_type_equal(Scalar$create(4L)$cast(float32())$type, float32())
+  expect_equal(Scalar$create(4L, int8())$type, int8())
+  expect_equal(Scalar$create(4L)$cast(float32())$type, float32())
 })
 
 test_that("Scalar to Array", {

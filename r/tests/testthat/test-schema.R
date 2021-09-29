@@ -160,7 +160,7 @@ test_that("Schema$Equals", {
   expect_false(a$Equals(b, check_metadata = TRUE))
 
   # Metadata not checked
-  expect_equivalent(a, b)
+  expect_equal(a, b, ignore_attr = TRUE)
 
   # Non-schema object
   expect_false(a$Equals(42))

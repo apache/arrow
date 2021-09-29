@@ -344,6 +344,12 @@ void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_v
       << actual_kernel->signature->ToString() << "\n"
       << "  DispatchExact" << ValueDescr::ToString(expected_equivalent_values) << " => "
       << expected_kernel->signature->ToString();
+  EXPECT_EQ(values.size(), expected_equivalent_values.size());
+  for (size_t i = 0; i < values.size(); i++) {
+    EXPECT_EQ(values[i].shape, expected_equivalent_values[i].shape)
+        << "Argument " << i << " should have the same shape";
+    AssertTypeEqual(values[i].type, expected_equivalent_values[i].type);
+  }
 }
 
 void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> values) {
