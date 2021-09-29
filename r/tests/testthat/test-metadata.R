@@ -214,15 +214,30 @@ test_that("metadata drops readr's problems attribute", {
   expect_null(attr(as.data.frame(tab), "problems"))
 })
 
-test_that("metadata of list elements (ARROW-10386)", {
+test_that("Row-level metadata (does not by default) roundtrip", {
+  # First tracked at ARROW-10386, though it was later determined that row-level
+  # metadata should be handled separately ARROW-14020, ARROW-XXX
   df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
   tab <- Table$create(df)
-  expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
-  expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
+  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
+  expect_null(r_metadata$columns$x$columns)
+
+  # But we can re-enable this / read data that has already been written with
+  # row-level metadata
+  withr::with_options(
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    {
+      tab <- Table$create(df)
+      expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
+      expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
+    }
+  )
 })
 
 
-test_that("metadata of list elements (ARROW-10386)", {
+test_that("Row-level metadata (does not) roundtrip in datasets", {
+  # First tracked at ARROW-10386, though it was later determined that row-level
+  # metadata should be handled separately ARROW-14020, ARROW-XXX
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
@@ -241,15 +256,23 @@ test_that("metadata of list elements (ARROW-10386)", {
   )
 
   dst_dir <- make_temp_dir()
-  expect_warning(
-    write_dataset(df, dst_dir, partitioning = "part"),
-    "Row-level metadata is not compatible with datasets and will be discarded"
-  )
+
+  withr::with_options(
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    {
+      expect_warning(
+        write_dataset(df, dst_dir, partitioning = "part"),
+        "Row-level metadata is not compatible with datasets and will be discarded"
+      )
+    })
 
   # but we need to write a dataset with row-level metadata to make sure when
   # reading ones that have been written with them we warn appropriately
   fake_func_name <- write_dataset
-  fake_func_name(df, dst_dir, partitioning = "part")
+  withr::with_options(
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    fake_func_name(df, dst_dir, partitioning = "part")
+  )
 
   ds <- open_dataset(dst_dir)
   expect_warning(
