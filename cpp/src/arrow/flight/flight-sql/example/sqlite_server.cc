@@ -25,7 +25,7 @@
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/flight-sql/sql_server.h"
-#include "SqliteTablesWithSchemaBatchreader.h"
+#include "sqlite_tables_schema_batch_reader.h"
 
 namespace arrow {
 namespace flight {
@@ -222,6 +222,10 @@ Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& com
   if (command.has_schema_filter_pattern()) {
     table_query =
         table_query + " and schema_name LIKE '" + command.schema_filter_pattern() + "'";
+  }
+
+  if (command.has_table_name_filter_pattern()) {
+    table_query = table_query + " and table_name LIKE '" + command.table_name_filter_pattern() + "'";
   }
 
   std::shared_ptr<SqliteStatement> statement;
