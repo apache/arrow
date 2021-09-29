@@ -82,6 +82,16 @@ Status SqliteStatementBatchReader::Create(
   return Status::OK();
 }
 
+Status SqliteStatementBatchReader::Create(
+    const std::shared_ptr<SqliteStatement> &statement_,
+    const std::shared_ptr<Schema> &schema,
+    std::shared_ptr<SqliteStatementBatchReader> *result) {
+  int rc = SQLITE_OK;
+  result->reset(new SqliteStatementBatchReader(statement_, schema, rc));
+
+  return Status::OK();
+}
+
 Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch> *out) {
   sqlite3_stmt *stmt_ = statement_->GetSqlite3Stmt();
 
@@ -93,6 +103,10 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch> *out) {
     const std::shared_ptr<DataType> &field_type = field->type();
 
     ARROW_RETURN_NOT_OK(MakeBuilder(default_memory_pool(), field_type, &builders[i]));
+  }
+
+  if (rc_ == SQLITE_OK) {
+    ARROW_RETURN_NOT_OK(statement_->Step(&rc_));
   }
 
   int rows = 0;

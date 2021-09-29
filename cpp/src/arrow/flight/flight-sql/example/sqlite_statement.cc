@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sqlite3.h>
+#include <iostream>
 
 #include "arrow/api.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
@@ -39,8 +40,9 @@ std::shared_ptr<DataType> GetDataTypeFromSqliteType(const int column_type) {
 Status SqliteStatement::Create(sqlite3 *db, const std::string &sql,
                                std::shared_ptr<SqliteStatement> *result) {
   sqlite3_stmt *stmt;
+  const char *z_sql = sql.c_str();
   int rc =
-      sqlite3_prepare_v2(db, sql.c_str(), static_cast<int>(sql.length()), &stmt, NULLPTR);
+      sqlite3_prepare_v2(db, z_sql, static_cast<int>(strlen(z_sql)), &stmt, NULLPTR);
 
   if (rc != SQLITE_OK) {
     sqlite3_finalize(stmt);
