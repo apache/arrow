@@ -44,8 +44,10 @@ public final class ResultSetTestUtils {
    * Checks that the values (rows and columns) in the provided {@link ResultSet} are expected.
    *
    * @param resultSet       the {@code ResultSet} to assert.
-   * @param expectedResults the rows and columns representing the only values the {@code resultSet} is expected to have.
-   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet} has the expected values.
+   * @param expectedResults the rows and columns representing the only values the {@code resultSet}
+   *                        is expected to have.
+   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet}
+   *                        has the expected values.
    * @param <T>             the type to be found in the expected results for the {@code resultSet}.
    * @throws SQLException if querying the {@code ResultSet} fails at some point unexpectedly.
    */
@@ -64,8 +66,10 @@ public final class ResultSetTestUtils {
    *
    * @param resultSet       the {@code ResultSet} to assert.
    * @param columnNames     the column names to fetch in the {@code ResultSet} for comparison.
-   * @param expectedResults the rows and columns representing the only values the {@code resultSet} is expected to have.
-   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet} has the expected values.
+   * @param expectedResults the rows and columns representing the only values the {@code resultSet}
+   *                        is expected to have.
+   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet}
+   *                        has the expected values.
    * @param <T>             the type to be found in the expected results for the {@code resultSet}.
    * @throws SQLException if querying the {@code ResultSet} fails at some point unexpectedly.
    */
@@ -95,8 +99,10 @@ public final class ResultSetTestUtils {
    *
    * @param resultSet       the {@code ResultSet} to assert.
    * @param columnIndices   the column indices to fetch in the {@code ResultSet} for comparison.
-   * @param expectedResults the rows and columns representing the only values the {@code resultSet} is expected to have.
-   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet} has the expected values.
+   * @param expectedResults the rows and columns representing the only values the {@code resultSet}
+   *                        is expected to have.
+   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet}
+   *                        has the expected values.
    * @param <T>             the type to be found in the expected results for the {@code resultSet}.
    * @throws SQLException if querying the {@code ResultSet} fails at some point unexpectedly.
    */
@@ -126,8 +132,10 @@ public final class ResultSetTestUtils {
    *
    * @param resultSet       the {@code ResultSet} to assert.
    * @param dataConsumer    the column indices to fetch in the {@code ResultSet} for comparison.
-   * @param expectedResults the rows and columns representing the only values the {@code resultSet} is expected to have.
-   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet} has the expected values.
+   * @param expectedResults the rows and columns representing the only values the {@code resultSet}
+   *                        is expected to have.
+   * @param collector       the {@link ErrorCollector} to use for asserting that the {@code resultSet}
+   *                        has the expected values.
    * @param <T>             the type to be found in the expected results for the {@code resultSet}.
    * @throws SQLException if querying the {@code ResultSet} fails at some point unexpectedly.
    */
