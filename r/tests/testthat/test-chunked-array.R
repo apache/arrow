@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("ChunkedArray")
 
 expect_chunked_roundtrip <- function(x, type) {
   a <- ChunkedArray$create(!!!x)
@@ -30,8 +29,8 @@ expect_chunked_roundtrip <- function(x, type) {
     # Is there some vctrs thing we should do on the roundtrip back to R?
     expect_identical(as.vector(is.na(a)), is.na(flat_x))
   }
-  expect_equal(as.vector(a), flat_x)
-  expect_equal(as.vector(a$chunk(0)), x[[1]])
+  expect_as_vector(a, flat_x)
+  expect_as_vector(a$chunk(0), x[[1]])
 
   if (length(flat_x)) {
     a_sliced <- a$Slice(1)
@@ -41,7 +40,7 @@ expect_chunked_roundtrip <- function(x, type) {
     if (!inherits(type, "ListType")) {
       expect_identical(as.vector(is.na(a_sliced)), is.na(x_sliced))
     }
-    expect_equal(as.vector(a_sliced), x_sliced)
+    expect_as_vector(a_sliced, x_sliced)
   }
   invisible(a)
 }
@@ -53,7 +52,7 @@ test_that("ChunkedArray", {
   expect_equal(y$type, int32())
   expect_equal(y$num_chunks, 3L)
   expect_equal(length(y), 17L)
-  expect_equal(as.vector(y), c(9:10, 1:10, 1:5))
+  expect_as_vector(y, c(9:10, 1:10, 1:5))
 
   z <- x$Slice(8, 5)
   expect_equal(z$type, int32())
@@ -114,10 +113,10 @@ test_that("ChunkedArray handles Inf", {
   expect_equal(x$type, float64())
   expect_equal(x$num_chunks, 3L)
   expect_equal(length(x), 25L)
-  expect_equal(as.vector(x), c(c(Inf, 2:10), c(1:3, Inf, 5), 1:10))
+  expect_as_vector(x, c(c(Inf, 2:10), c(1:3, Inf, 5), 1:10))
 
   chunks <- x$chunks
-  expect_equal(as.vector(is.infinite(chunks[[2]])), is.infinite(data[[2]]))
+  expect_as_vector(is.infinite(chunks[[2]]), is.infinite(data[[2]]))
   expect_equal(
     as.vector(is.infinite(x)),
     c(is.infinite(data[[1]]), is.infinite(data[[2]]), is.infinite(data[[3]]))
@@ -130,11 +129,11 @@ test_that("ChunkedArray handles NA", {
   expect_equal(x$type, int32())
   expect_equal(x$num_chunks, 3L)
   expect_equal(length(x), 25L)
-  expect_equal(as.vector(x), c(1:10, c(NA, 2:10), c(1:3, NA, 5)))
+  expect_as_vector(x, c(1:10, c(NA, 2:10), c(1:3, NA, 5)))
 
   chunks <- x$chunks
-  expect_equal(as.vector(is.na(chunks[[2]])), is.na(data[[2]]))
-  expect_equal(as.vector(is.na(x)), c(is.na(data[[1]]), is.na(data[[2]]), is.na(data[[3]])))
+  expect_as_vector(is.na(chunks[[2]]), is.na(data[[2]]))
+  expect_as_vector(is.na(x), c(is.na(data[[1]]), is.na(data[[2]]), is.na(data[[3]])))
 })
 
 test_that("ChunkedArray handles NaN", {
@@ -144,11 +143,11 @@ test_that("ChunkedArray handles NaN", {
   expect_equal(x$type, float64())
   expect_equal(x$num_chunks, 3L)
   expect_equal(length(x), 25L)
-  expect_equal(as.vector(x), c(1:10, c(NaN, 2:10), c(1:3, NaN, 5)))
+  expect_as_vector(x, c(1:10, c(NaN, 2:10), c(1:3, NaN, 5)))
 
   chunks <- x$chunks
-  expect_equal(as.vector(is.nan(chunks[[2]])), is.nan(data[[2]]))
-  expect_equal(as.vector(is.nan(x)), c(is.nan(data[[1]]), is.nan(data[[2]]), is.nan(data[[3]])))
+  expect_as_vector(is.nan(chunks[[2]]), is.nan(data[[2]]))
+  expect_as_vector(is.nan(x), c(is.nan(data[[1]]), is.nan(data[[2]]), is.nan(data[[3]])))
 })
 
 test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
@@ -295,7 +294,7 @@ test_that("chunked_array() uses the first ... to infer type", {
 test_that("chunked_array() handles downcasting", {
   a <- chunked_array(10L, 10)
   expect_type_equal(a$type, int32())
-  expect_equal(as.vector(a), c(10L, 10L))
+  expect_as_vector(a, c(10L, 10L))
 })
 
 test_that("chunked_array() makes chunks of the same type", {
@@ -324,7 +323,7 @@ test_that("chunked_array() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- chunked_array(df, df)
   expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(a$as_vector(), rbind(df, df))
+  expect_equal(a$as_vector(), rbind(df, df), ignore_attr = TRUE)
 })
 
 test_that("ChunkedArray$View() (ARROW-6542)", {

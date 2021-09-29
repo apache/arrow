@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("reading RecordBatches")
 
 test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   tab <- Table$create(

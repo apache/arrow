@@ -18,7 +18,7 @@
 skip_if_not_available("dataset")
 skip_if_not_available("utf8proc")
 
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(lubridate)
 library(stringr)
 library(stringi)
@@ -412,67 +412,62 @@ test_that("strsplit and str_split", {
       mutate(x = strsplit(x, "and")) %>%
       collect(),
     df,
-    # Pass check.attributes = FALSE through to expect_equal
-    # (which gives you expect_equivalent() behavior).
-    # This is because the vctr that comes back from arrow (ListArray)
+    # `ignore_attr = TRUE` because the vctr coming back from arrow (ListArray)
     # has type information in it, but it's just a bare list from R/dplyr.
-    # Note also that whenever we bump up to testthat 3rd edition (ARROW-12871),
-    # the parameter is called `ignore_attr = TRUE`
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
       collect(),
     df,
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, " +and +")) %>%
       collect(),
     df,
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and")) %>%
       collect(),
     df,
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and", n = 2)) %>%
       collect(),
     df,
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, fixed("and"), n = 2)) %>%
       collect(),
     df,
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, regex("and"), n = 2)) %>%
       collect(),
     df,
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "Foo|bar", n = 2)) %>%
       collect(),
     df,
-    check.attributes = FALSE
+    ignore_attr = TRUE
   )
 })
 
 test_that("arrow_*_split_whitespace functions", {
-
   # use only ASCII whitespace characters
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
 
@@ -482,39 +477,43 @@ test_that("arrow_*_split_whitespace functions", {
   df_split <- tibble(x = list(c("Foo", "and", "bar"), c("baz", "and", "qux", "and", "quux")))
 
   # use default option values
-  expect_equivalent(
+  expect_equal(
     df_ascii %>%
       Table$create() %>%
       mutate(x = arrow_ascii_split_whitespace(x)) %>%
       collect(),
-    df_split
+    df_split,
+    ignore_attr = TRUE
   )
-  expect_equivalent(
+  expect_equal(
     df_utf8 %>%
       Table$create() %>%
       mutate(x = arrow_utf8_split_whitespace(x)) %>%
       collect(),
-    df_split
+    df_split,
+    ignore_attr = TRUE
   )
 
   # specify non-default option values
-  expect_equivalent(
+  expect_equal(
     df_ascii %>%
       Table$create() %>%
       mutate(
         x = arrow_ascii_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
       ) %>%
       collect(),
-    tibble(x = list(c("Foo\nand", "bar"), c("baz\tand qux and", "quux")))
+    tibble(x = list(c("Foo\nand", "bar"), c("baz\tand qux and", "quux"))),
+    ignore_attr = TRUE
   )
-  expect_equivalent(
+  expect_equal(
     df_utf8 %>%
       Table$create() %>%
       mutate(
         x = arrow_utf8_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
       ) %>%
       collect(),
-    tibble(x = list(c("Foo\u00A0and", "bar"), c("baz\u2006and\u1680qux\u3000and", "quux")))
+    tibble(x = list(c("Foo\u00A0and", "bar"), c("baz\u2006and\u1680qux\u3000and", "quux"))),
+    ignore_attr = TRUE
   )
 })
 
@@ -618,7 +617,6 @@ test_that("backreferences (substitutions) in string replacement", {
 })
 
 test_that("edge cases in string detection and replacement", {
-
   # in case-insensitive fixed match/replace, test that "\\E" in the search
   # string and backslashes in the replacement string are interpreted literally.
   # this test does not use expect_dplyr_equal() because base::sub() and
@@ -655,7 +653,6 @@ test_that("edge cases in string detection and replacement", {
 })
 
 test_that("strptime", {
-
   # base::strptime() defaults to local timezone
   # but arrow's strptime defaults to UTC.
   # So that tests are consistent, set the local timezone to UTC
@@ -673,7 +670,7 @@ test_that("strptime", {
       ) %>%
       collect(),
     t_stamp,
-    check.tzone = FALSE
+    ignore_attr = "tzone"
   )
 
   expect_equal(
@@ -684,7 +681,7 @@ test_that("strptime", {
       ) %>%
       collect(),
     t_stamp,
-    check.tzone = FALSE
+    ignore_attr = "tzone"
   )
 
   expect_equal(
@@ -695,7 +692,7 @@ test_that("strptime", {
       ) %>%
       collect(),
     t_stamp,
-    check.tzone = FALSE
+    ignore_attr = "tzone"
   )
 
   expect_equal(
@@ -706,11 +703,11 @@ test_that("strptime", {
       ) %>%
       collect(),
     t_stamp,
-    check.tzone = FALSE
+    ignore_attr = "tzone"
   )
 
   tstring <- tibble(x = c("08-05-2008", NA))
-  tstamp <- tibble(x = c(strptime("08-05-2008", format = "%m-%d-%Y"), NA))
+  tstamp <- strptime(c("08-05-2008", NA), format = "%m-%d-%Y")
 
   expect_equal(
     tstring %>%
@@ -718,15 +715,15 @@ test_that("strptime", {
       mutate(
         x = strptime(x, format = "%m-%d-%Y")
       ) %>%
-      collect(),
-    tstamp,
-    check.tzone = FALSE
+      pull(),
+    # R's strptime returns POSIXlt (list type)
+    as.POSIXct(tstamp),
+    ignore_attr = "tzone"
   )
 })
 
 test_that("errors in strptime", {
   # Error when tz is passed
-
   x <- Expression$field_ref("x")
   expect_error(
     nse_funcs$strptime(x, tz = "PDT"),
@@ -771,7 +768,8 @@ test_that("strftime", {
     times
   )
 
-  withr::with_timezone("Pacific/Marquesas",
+  withr::with_timezone(
+    "Pacific/Marquesas",
     expect_dplyr_equal(
       input %>%
         mutate(x = strftime(datetime, format = formats, tz = "EST")) %>%
@@ -867,14 +865,14 @@ test_that("format_ISO8601", {
 test_that("arrow_find_substring and arrow_find_substring_regex", {
   df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
 
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = arrow_find_substring(x, options = list(pattern = "b"))) %>%
       collect(),
     tibble(x = c(-1, 0))
   )
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = arrow_find_substring(
@@ -884,7 +882,7 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
       collect(),
     tibble(x = c(8, 0))
   )
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = arrow_find_substring_regex(
@@ -894,7 +892,7 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
       collect(),
     tibble(x = c(-1, 0))
   )
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = arrow_find_substring_regex(
@@ -925,7 +923,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
     df_ascii
   )
 
-  expect_equivalent(
+  expect_equal(
     df_ascii %>%
       Table$create() %>%
       mutate(x = arrow_ascii_reverse(x)) %>%
@@ -949,7 +947,7 @@ test_that("str_like", {
   # these tests to use expect_dplyr_equal
 
   # No match - entire string
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = str_like(x, "baz")) %>%
@@ -958,7 +956,7 @@ test_that("str_like", {
   )
 
   # Match - entire string
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = str_like(x, "Foo and bar")) %>%
@@ -967,7 +965,7 @@ test_that("str_like", {
   )
 
   # Wildcard
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = str_like(x, "f%", ignore_case = TRUE)) %>%
@@ -976,7 +974,7 @@ test_that("str_like", {
   )
 
   # Ignore case
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = str_like(x, "f%", ignore_case = FALSE)) %>%
@@ -985,7 +983,7 @@ test_that("str_like", {
   )
 
   # Single character
-  expect_equivalent(
+  expect_equal(
     df %>%
       Table$create() %>%
       mutate(x = str_like(x, "_a%")) %>%

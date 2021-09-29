@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
@@ -78,9 +78,12 @@ test_that("Empty select returns no columns", {
   )
 })
 test_that("Empty select still includes the group_by columns", {
-  expect_dplyr_equal(
-    input %>% group_by(chr) %>% select() %>% collect(),
-    tbl
+  expect_message(
+    expect_dplyr_equal(
+      input %>% group_by(chr) %>% select() %>% collect(),
+      tbl
+    ),
+    "Adding missing grouping variables"
   )
 })
 
@@ -165,7 +168,7 @@ test_that("collect(as_data_frame=FALSE)", {
 
   b1 <- batch %>% collect(as_data_frame = FALSE)
 
-  expect_is(b1, "RecordBatch")
+  expect_r6_class(b1, "RecordBatch")
 
   b2 <- batch %>%
     select(int, chr) %>%
@@ -354,6 +357,7 @@ test_that("relocate with selection helpers", {
 })
 
 test_that("explicit type conversions with cast()", {
+  suppressPackageStartupMessages(library(bit64))
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)
 
@@ -786,7 +790,7 @@ test_that("type checks with is.*()", {
 })
 
 test_that("type checks with is_*()", {
-  library(rlang)
+  library(rlang, warn.conflicts = FALSE)
   expect_dplyr_equal(
     input %>%
       transmute(
