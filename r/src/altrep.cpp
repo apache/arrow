@@ -370,7 +370,7 @@ struct AltrepVectorString : public AltrepVectorBase {
     // C++ objects that will properly be destroyed by END_CPP11
     // before it resumes the unwinding - and perhaps let
     // the R error pass through
-    auto array_ = array(alt_);
+    const auto& array_ = array(alt_);
     auto view = internal::checked_cast<StringArrayType*>(array_.get())->GetView(i);
     const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
     bool nul_was_stripped = false;
