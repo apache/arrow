@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("S3 tests using local minio")
 
 if (arrow_with_s3() && process_is_running("minio server")) {
   # Get minio config, with expected defaults

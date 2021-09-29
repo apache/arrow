@@ -1109,39 +1109,30 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.array([True, False, False]),
+        np.array([True, False, False, True, False, False]),
     ])
     def test_pandas_datetime_to_date64(self, mask):
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',
             '2018-05-12T00:00:00',
+            '2018-05-10T10:24:01',
+            '2018-05-11T10:24:01',
+            '2018-05-12T10:24:01',
         ])
         arr = pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
         data = np.array([
             date(2018, 5, 10),
             date(2018, 5, 11),
-            date(2018, 5, 12)
+            date(2018, 5, 12),
+            date(2018, 5, 10),
+            date(2018, 5, 11),
+            date(2018, 5, 12),
         ])
         expected = pa.array(data, mask=mask, type=pa.date64())
 
         assert arr.equals(expected)
-
-    @pytest.mark.parametrize('mask', [
-        None,
-        np.array([True, False, False])
-    ])
-    def test_pandas_datetime_to_date64_failures(self, mask):
-        s = pd.to_datetime([
-            '2018-05-10T10:24:01',
-            '2018-05-11T10:24:01',
-            '2018-05-12T10:24:01',
-        ])
-
-        expected_msg = 'Timestamp value had non-zero intraday milliseconds'
-        with pytest.raises(pa.ArrowInvalid, match=expected_msg):
-            pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
     def test_array_types_date_as_object(self):
         data = [date(2000, 1, 1),

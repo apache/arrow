@@ -226,6 +226,7 @@ services:
     environment:
       <<: *ccache
       ARROW_BUILD_BENCHMARKS: "ON"
+      ARROW_BUILD_EXAMPLES: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
       ARROW_USE_LD_GOLD: "ON"

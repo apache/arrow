@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Array")
-
 test_that("Integer Array", {
   ints <- c(1:10, 1:10, 1:5)
   x <- expect_array_roundtrip(ints, int32())
@@ -157,8 +155,8 @@ test_that("Array supports NA", {
   expect_true(x_int$IsNull(10L))
   expect_true(x_dbl$IsNull(10))
 
-  expect_equal(as.vector(is.na(x_int)), c(rep(FALSE, 10), TRUE))
-  expect_equal(as.vector(is.na(x_dbl)), c(rep(FALSE, 10), TRUE))
+  expect_as_vector(is.na(x_int), c(rep(FALSE, 10), TRUE))
+  expect_as_vector(is.na(x_dbl), c(rep(FALSE, 10), TRUE))
 
   # Input validation
   expect_error(x_int$IsValid("ten"))
@@ -438,12 +436,12 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   i8 <- (-128):127
   a <- Array$create(i8)$cast(int8())
   expect_type_equal(a, int8())
-  expect_equal(as.vector(a), i8)
+  expect_as_vector(a, i8)
 
   u8 <- 0:255
   a <- Array$create(u8)$cast(uint8())
   expect_type_equal(a, uint8())
-  expect_equal(as.vector(a), u8)
+  expect_as_vector(a, u8)
 })
 
 test_that("Arrays of {,u}int{32,64} convert to integer if they can fit", {
@@ -474,7 +472,7 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- Array$create(df)
   expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(as.vector(a), df)
+  expect_as_vector(a, df)
 
   df <- structure(
     list(col = structure(list(structure(list(list(structure(1))), class = "inner")), class = "outer")),
@@ -482,7 +480,7 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   )
   a <- Array$create(df)
   expect_type_equal(a$type, struct(col = list_of(list_of(list_of(float64())))))
-  expect_equivalent(as.vector(a), df)
+  expect_as_vector(a, df, ignore_attr = TRUE)
 })
 
 test_that("StructArray methods", {
@@ -791,7 +789,7 @@ test_that("is.Array", {
 
 test_that("Array$Take()", {
   a <- Array$create(10:20)
-  expect_equal(as.vector(a$Take(c(4, 2))), c(14, 12))
+  expect_as_vector(a$Take(c(4, 2)), c(14, 12))
 })
 
 test_that("[ method on Array", {

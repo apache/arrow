@@ -78,7 +78,7 @@ nse_funcs$coalesce <- function(...) {
     }
 
     # coalesce doesn't yet support factors/dictionaries
-    # TODO: remove this after ARROW-13390 is merged
+    # TODO: remove this after ARROW-14167 is merged
     if (nse_funcs$is.factor(arg)) {
       warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
     }
@@ -687,12 +687,14 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
 
 nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
   ISO8601_precision_map <-
-    list(y = "%Y",
-         ym = "%Y-%m",
-         ymd = "%Y-%m-%d",
-         ymdh = "%Y-%m-%dT%H",
-         ymdhm = "%Y-%m-%dT%H:%M",
-         ymdhms = "%Y-%m-%dT%H:%M:%S")
+    list(
+      y = "%Y",
+      ym = "%Y-%m",
+      ymd = "%Y-%m-%d",
+      ymdh = "%Y-%m-%dT%H",
+      ymdhm = "%Y-%m-%dT%H:%M",
+      ymdhms = "%Y-%m-%dT%H:%M:%S"
+    )
 
   if (is.null(precision)) {
     precision <- "ymdhms"
@@ -731,16 +733,21 @@ nse_funcs$round <- function(x, digits = 0) {
   )
 }
 
-nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
-
-  # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
-  # When the ticket below is resolved, we should be able to support the label argument
-  # https://issues.apache.org/jira/browse/ARROW-13133
+nse_funcs$wday <- function(x,
+                           label = FALSE,
+                           abbr = TRUE,
+                           week_start = getOption("lubridate.week.start", 7),
+                           locale = Sys.getlocale("LC_TIME")) {
   if (label) {
-    arrow_not_supported("Label argument")
+    if (abbr) {
+      format <- "%a"
+    } else {
+      format <- "%A"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
   }
 
-  Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
+  Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
@@ -800,7 +807,6 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
 }
 
 # Although base R ifelse allows `yes` and `no` to be different classes
-#
 nse_funcs$ifelse <- function(test, yes, no) {
   nse_funcs$if_else(condition = test, true = yes, false = no)
 }

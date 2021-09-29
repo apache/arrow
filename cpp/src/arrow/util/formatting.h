@@ -422,5 +422,89 @@ class StringFormatter<TimestampType> {
   TimeUnit::type unit_;
 };
 
+template <>
+class StringFormatter<MonthIntervalType> {
+ public:
+  using value_type = MonthIntervalType::c_type;
+
+  explicit StringFormatter(const std::shared_ptr<DataType>&) {}
+
+  template <typename Appender>
+  Return<Appender> operator()(value_type interval, Appender&& append) {
+    constexpr size_t buffer_size =
+        /*'m'*/ 3 + /*negative signs*/ 1 +
+        /*months*/ detail::Digits10(std::numeric_limits<value_type>::max());
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
+
+    detail::FormatOneChar('M', &cursor);
+    detail::FormatAllDigits(detail::Abs(interval), &cursor);
+    if (interval < 0) detail::FormatOneChar('-', &cursor);
+
+    return append(detail::ViewDigitBuffer(buffer, cursor));
+  }
+};
+
+template <>
+class StringFormatter<DayTimeIntervalType> {
+ public:
+  using value_type = DayTimeIntervalType::DayMilliseconds;
+
+  explicit StringFormatter(const std::shared_ptr<DataType>&) {}
+
+  template <typename Appender>
+  Return<Appender> operator()(value_type interval, Appender&& append) {
+    constexpr size_t buffer_size =
+        /*d, ms*/ 3 + /*negative signs*/ 2 +
+        /*days/milliseconds*/ 2 * detail::Digits10(std::numeric_limits<int32_t>::max());
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
+
+    detail::FormatOneChar('s', &cursor);
+    detail::FormatOneChar('m', &cursor);
+    detail::FormatAllDigits(detail::Abs(interval.milliseconds), &cursor);
+    if (interval.milliseconds < 0) detail::FormatOneChar('-', &cursor);
+
+    detail::FormatOneChar('d', &cursor);
+    detail::FormatAllDigits(detail::Abs(interval.days), &cursor);
+    if (interval.days < 0) detail::FormatOneChar('-', &cursor);
+
+    return append(detail::ViewDigitBuffer(buffer, cursor));
+  }
+};
+
+template <>
+class StringFormatter<MonthDayNanoIntervalType> {
+ public:
+  using value_type = MonthDayNanoIntervalType::MonthDayNanos;
+
+  explicit StringFormatter(const std::shared_ptr<DataType>&) {}
+
+  template <typename Appender>
+  Return<Appender> operator()(value_type interval, Appender&& append) {
+    constexpr size_t buffer_size =
+        /*m, d, ns*/ 4 + /*negative signs*/ 3 +
+        /*months/days*/ 2 * detail::Digits10(std::numeric_limits<int32_t>::max()) +
+        /*nanoseconds*/ detail::Digits10(std::numeric_limits<int64_t>::max());
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
+
+    detail::FormatOneChar('s', &cursor);
+    detail::FormatOneChar('n', &cursor);
+    detail::FormatAllDigits(detail::Abs(interval.nanoseconds), &cursor);
+    if (interval.nanoseconds < 0) detail::FormatOneChar('-', &cursor);
+
+    detail::FormatOneChar('d', &cursor);
+    detail::FormatAllDigits(detail::Abs(interval.days), &cursor);
+    if (interval.days < 0) detail::FormatOneChar('-', &cursor);
+
+    detail::FormatOneChar('M', &cursor);
+    detail::FormatAllDigits(detail::Abs(interval.months), &cursor);
+    if (interval.months < 0) detail::FormatOneChar('-', &cursor);
+
+    return append(detail::ViewDigitBuffer(buffer, cursor));
+  }
+};
+
 }  // namespace internal
 }  // namespace arrow
