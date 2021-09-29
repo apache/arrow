@@ -341,48 +341,110 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   static R_altrep_class_t class_t;
   using StringArrayType = typename TypeTraits<Type>::ArrayType;
 
-  // Get a single string, as a CHARSXP SEXP
-  // data2 is initialized, the CHARSXP is generated from the Array data
-  // and stored in data2, so that this only needs to expand a given string once
+  // Helper class to convert to R strings
+  struct RStringViewer {
+    explicit RStringViewer(const std::shared_ptr<Array>& array)
+        : array_(array),
+          string_array_(internal::checked_cast<const StringArrayType*>(array.get())),
+          strip_out_nuls_(GetBoolOption("arrow.skip_nul", false)),
+          nul_was_stripped_(false) {}
+
+    // convert the i'th string of the Array to an R string (CHARSXP)
+    SEXP Convert(size_t i) {
+      if (array_->IsNull(i)) {
+        return NA_STRING;
+      }
+
+      view_ = string_array_->GetView(i);
+      bool no_nul = std::find(view_.begin(), view_.end(), '\0') == view_.end();
+
+      if (no_nul) {
+        return Rf_mkCharLenCE(view_.data(), view_.size(), CE_UTF8);
+      } else if (strip_out_nuls_) {
+        return ConvertStripNul();
+      } else {
+        Error();
+
+        // not reached
+        return R_NilValue;
+      }
+    }
+
+    // strip the nuls and then convert to R string
+    SEXP ConvertStripNul() {
+      const char* old_string = view_.data();
+
+      size_t stripped_len = 0, nul_count = 0;
+
+      for (size_t i = 0; i < view_.size(); i++) {
+        if (old_string[i] == '\0') {
+          ++nul_count;
+
+          if (nul_count == 1) {
+            // first nul spotted: allocate stripped string storage
+            stripped_string_.assign(view_.begin(), view_.end());
+            stripped_len = i;
+          }
+
+          // don't copy old_string[i] (which is \0) into stripped_string
+          continue;
+        }
+
+        if (nul_count > 0) {
+          stripped_string_[stripped_len++] = old_string[i];
+        }
+      }
+
+      return Rf_mkCharLenCE(stripped_string_.data(), stripped_len, CE_UTF8);
+    }
+
+    bool nul_was_stripped() const { return nul_was_stripped_; }
+
+    // throw R error about embedded nul
+    void Error() {
+      stripped_string_ = "embedded nul in string: '";
+      for (char c : view_) {
+        if (c) {
+          stripped_string_ += c;
+        } else {
+          stripped_string_ += "\\0";
+        }
+      }
+
+      stripped_string_ +=
+          "'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul "
+          "= TRUE)";
+
+      Rf_error(stripped_string_.c_str());
+    }
+
+    const std::shared_ptr<Array>& array_;
+    const StringArrayType* string_array_;
+    std::string stripped_string_;
+    const bool strip_out_nuls_;
+    bool nul_was_stripped_;
+    util::string_view view_;
+  };
+
+  // Get a single string, as a CHARSXP SEXP,
+  // either from data2 or directly from the Array
   static SEXP Elt(SEXP alt, R_xlen_t i) {
     if (Base::IsMaterialized(alt)) {
       return STRING_ELT(R_altrep_data2(alt), i);
     }
 
-    // nul -> to NA_STRING
-    if (Base::GetArray(alt)->IsNull(i)) {
-      return NA_STRING;
-    }
-
-    // not nul, but we need care about embedded nuls
-    // this needs to call an R api function: Rf_mkCharLenCE() that
-    // might jump, i.e. throw an R error, which is dealt with using
-    // BEGIN_CPP11/END_CPP11/cpp11::unwind_protect()
-
     BEGIN_CPP11
 
-    // C++ objects that will properly be destroyed by END_CPP11
-    // before it resumes the unwinding - and perhaps let
-    // the R error pass through
     const auto& array = Base::GetArray(alt);
-    auto view = internal::checked_cast<StringArrayType*>(array.get())->GetView(i);
-    const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
-    bool nul_was_stripped = false;
-    std::string stripped_string;
+    RStringViewer r_string_viewer(array);
 
-    // both cases might jump, although it's less likely when
-    // nuls are stripped, but still we need the unwind protection
-    // so that C++ objects here are correctly destructed, whilst errors
-    // properly pass through to the R side
-    SEXP s;
+    // r_string_viewer.Convert(i) might jump so it's wrapped
+    // in cpp11::unwind_protect() so that string_viewer
+    // can be properly destructed before the unwinding continues
+    SEXP s = NA_STRING;
     cpp11::unwind_protect([&]() {
-      if (strip_out_nuls) {
-        s = r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped);
-      } else {
-        s = r_string_from_view_keep_nul(view, stripped_string);
-      }
-
-      if (nul_was_stripped) {
+      s = r_string_viewer.Convert(i);
+      if (r_string_viewer.nul_was_stripped()) {
         cpp11::warning("Stripping '\\0' (nul) from character vector");
       }
     });
@@ -400,48 +462,24 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    auto array = Base::GetArray(alt);
+    const auto& array = Base::GetArray(alt);
     R_xlen_t n = array->length();
     SEXP data2 = PROTECT(Rf_allocVector(STRSXP, n));
     MARK_NOT_MUTABLE(data2);
 
-    std::string stripped_string;
-    const bool strip_out_nuls = GetBoolOption("arrow.skip_nul", false);
-    auto* string_array = internal::checked_cast<StringArrayType*>(array.get());
-    util::string_view view;
+    RStringViewer r_string_viewer(array);
 
+    // r_string_viewer.Convert(i) might jump so we have to
+    // wrap it in unwind_protect() to:
+    // - correctly destruct the C++ objects
+    // - resume the unwinding
     cpp11::unwind_protect([&]() {
-      if (strip_out_nuls) {
-        bool nul_was_stripped = false;
+      for (R_xlen_t i = 0; i < n; i++) {
+        SET_STRING_ELT(data2, i, r_string_viewer.Convert(i));
+      }
 
-        for (R_xlen_t i = 0; i < n; i++) {
-          // nul, so materialize to NA_STRING
-          if (array->IsNull(i)) {
-            SET_STRING_ELT(data2, i, NA_STRING);
-            continue;
-          }
-
-          // strip nul and materialize
-          view = string_array->GetView(i);
-          SET_STRING_ELT(
-              data2, i,
-              r_string_from_view_strip_nul(view, stripped_string, &nul_was_stripped));
-          if (nul_was_stripped) {
-            cpp11::warning("Stripping '\\0' (nul) from character vector");
-          }
-        }
-      } else {
-        for (R_xlen_t i = 0; i < n; i++) {
-          // nul, so materialize to NA_STRING
-          if (array->IsNull(i)) {
-            SET_STRING_ELT(data2, i, NA_STRING);
-            continue;
-          }
-
-          // try to materialize, this will error if the string has a nul
-          view = string_array->GetView(i);
-          SET_STRING_ELT(data2, i, r_string_from_view_keep_nul(view, stripped_string));
-        }
+      if (r_string_viewer.nul_was_stripped()) {
+        cpp11::warning("Stripping '\\0' (nul) from character vector");
       }
     });
 
@@ -463,70 +501,6 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
   static void Set_elt(SEXP alt, R_xlen_t i, SEXP v) {
     Rf_error("ALTSTRING objects of type <arrow::array_string_vector> are immutable");
-  }
-
-  // this is called from an unwind_protect() block because
-  // r_string_from_view might jump
-  static SEXP r_string_from_view_strip_nul(arrow::util::string_view view,
-                                           std::string& stripped_string,
-                                           bool* nul_was_stripped) {
-    const char* old_string = view.data();
-
-    size_t stripped_len = 0, nul_count = 0;
-
-    for (size_t i = 0; i < view.size(); i++) {
-      if (old_string[i] == '\0') {
-        ++nul_count;
-
-        if (nul_count == 1) {
-          // first nul spotted: allocate stripped string storage
-          stripped_string.assign(view.begin(), view.end());
-          stripped_len = i;
-        }
-
-        // don't copy old_string[i] (which is \0) into stripped_string
-        continue;
-      }
-
-      if (nul_count > 0) {
-        stripped_string[stripped_len++] = old_string[i];
-      }
-    }
-
-    if (nul_count > 0) {
-      *nul_was_stripped = true;
-      stripped_string.resize(stripped_len);
-      return r_string_from_view(stripped_string);
-    }
-
-    return r_string_from_view(view);
-  }
-
-  static SEXP r_string_from_view_keep_nul(arrow::util::string_view view,
-                                          std::string& buffer) {
-    bool has_nul = std::find(view.begin(), view.end(), '\0') != view.end();
-    if (has_nul) {
-      buffer = "embedded nul in string: '";
-      for (char c : view) {
-        if (c) {
-          buffer += c;
-        } else {
-          buffer += "\\0";
-        }
-      }
-
-      buffer +=
-          "'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul "
-          "= TRUE)";
-
-      Rf_error(buffer.c_str());
-    }
-
-    return r_string_from_view(view);
-  }
-
-  static SEXP r_string_from_view(arrow::util::string_view view) {
-    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
   }
 };
 
