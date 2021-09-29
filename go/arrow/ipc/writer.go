@@ -374,12 +374,11 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			offset := int64(data.Offset()) * typeWidth
 			// send padding if available
 			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(data.Len())-offset)
-			data = array.NewSliceData(data, offset, offset+len)
-			defer data.Release()
-			values = data.Buffers()[1]
-		}
-		if values != nil {
-			values.Retain()
+			values = memory.NewBufferBytes(values.Bytes()[offset : offset+len])
+		default:
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, values)
 
@@ -402,11 +401,9 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			// slice data buffer to include the range we need now.
 			var (
 				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(data.Len())-beg)
+				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
 			)
-			data = array.NewSliceData(data, beg, beg+len)
-			defer data.Release()
-			values = data.Buffers()[2]
+			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
 		default:
 			if values != nil {
 				values.Retain()
@@ -426,7 +423,7 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 
 		var totalDataBytes int64
 		if voffsets != nil {
-			totalDataBytes = int64(arr.ValueOffset(arr.Len()) - arr.ValueOffset(0))
+			totalDataBytes = int64(len(arr.ValueBytes()))
 		}
 
 		switch {
@@ -434,11 +431,9 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			// slice data buffer to include the range we need now.
 			var (
 				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(data.Len())-beg)
+				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
 			)
-			data = array.NewSliceData(data, beg, beg+len)
-			defer data.Release()
-			values = data.Buffers()[2]
+			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
 		default:
 			if values != nil {
 				values.Retain()
@@ -563,14 +558,27 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.B
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
 	if data.Offset() != 0 {
-		// FIXME(sbinet): writer.cc:231
-		panic(xerrors.Errorf("not implemented offset=%d", data.Offset()))
+		// if we have a non-zero offset, then the value offsets do not start at
+		// zero. we must a) create a new offsets array with shifted offsets and
+		// b) slice the values array accordingly
+		shiftedOffsets := memory.NewResizableBuffer(w.mem)
+		shiftedOffsets.Resize(arrow.Int32Traits.BytesRequired(data.Len() + 1))
+
+		dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
+		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Len()+2]
+
+		startOffset := offsets[0]
+		for i, o := range offsets {
+			dest[i] = o - startOffset
+		}
+		voffsets = shiftedOffsets
+	} else {
+		voffsets.Retain()
 	}
 	if voffsets == nil || voffsets.Len() == 0 {
 		return nil, nil
 	}
 
-	voffsets.Retain()
 	return voffsets, nil
 }
 
