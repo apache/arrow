@@ -83,10 +83,8 @@ table Float64Literal {
 }
 
 table DecimalLiteral {
-  /// These bytes must be in little-endian order.
+  /// Bytes of a Decimal value; bytes must be in little-endian order.
   value: [byte] (required);
-  scale: int32;
-  precision: int32;
 }
 
 table BooleanLiteral {
