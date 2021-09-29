@@ -19,6 +19,7 @@ package arrow
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type BooleanType struct{}
@@ -58,6 +59,10 @@ const (
 	Millisecond
 	Second
 )
+
+func (u TimeUnit) Multiplier() time.Duration {
+	return [...]time.Duration{time.Nanosecond, time.Microsecond, time.Millisecond, time.Second}[uint(u)&3]
+}
 
 func (u TimeUnit) String() string { return [...]string{"ns", "us", "ms", "s"}[uint(u)&3] }
 
@@ -132,7 +137,7 @@ type Decimal128Type struct {
 
 func (*Decimal128Type) ID() Type      { return DECIMAL }
 func (*Decimal128Type) Name() string  { return "decimal" }
-func (*Decimal128Type) BitWidth() int { return 16 }
+func (*Decimal128Type) BitWidth() int { return 128 }
 func (t *Decimal128Type) String() string {
 	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
 }

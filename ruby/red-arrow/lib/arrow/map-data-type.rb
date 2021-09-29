@@ -40,7 +40,7 @@ module Arrow
     #     See {Arrow::DataType.resolve} how to specify data type
     #     description.
     #
-    #   @example Create a map data type for {0: "Hello", 1: "World"}
+    #   @example Create a map data type for `{0: "Hello", 1: "World"}`
     #     key = :int8
     #     item = :string
     #     Arrow::MapDataType.new(key, item)
@@ -66,7 +66,7 @@ module Arrow
     #     See {Arrow::DataType.resolve} how to specify data type
     #     description.
     #
-    #   @example Create a maap data type for {0: "Hello", 1: "World"}
+    #   @example Create a map data type for `{0: "Hello", 1: "World"}`
     #     Arrow::MapDataType.new(key: :int8, item: :string)
     def initialize(*args)
       n_args = args.size

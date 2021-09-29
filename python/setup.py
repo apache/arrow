@@ -198,6 +198,7 @@ class build_ext(_build_ext):
         '_cuda',
         '_flight',
         '_dataset',
+        '_dataset_orc',
         '_feather',
         '_parquet',
         '_orc',
@@ -423,6 +424,10 @@ class build_ext(_build_ext):
         if name == '_hdfs' and not self.with_hdfs:
             return True
         if name == '_dataset' and not self.with_dataset:
+            return True
+        if name == '_dataset_orc' and not (
+                self.with_orc and self.with_dataset
+        ):
             return True
         if name == '_cuda' and not self.with_cuda:
             return True

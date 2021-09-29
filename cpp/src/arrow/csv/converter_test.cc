@@ -296,6 +296,13 @@ TEST(FixedSizeBinaryConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
 
+  AssertConversion<FixedSizeBinaryType, std::string>(fixed_size_binary(2),
+                                                     {"\"ab\",\"xxx\"\n"}, {{"ab"}, {""}},
+                                                     {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(fixed_size_binary(2), {"\"ab\",\"xxx\"\n"}, {1}, options);
+
   AssertConversion<FixedSizeBinaryType, std::string>(
       fixed_size_binary(2), {"ab,xxx\n", "zzz,ij\n"}, {{"ab", "\0\0"}, {"\0\0", "ij"}},
       {{true, false}, {false, true}}, options);
@@ -351,6 +358,12 @@ TEST(IntegerConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
 
+  AssertConversion<Int8Type, int8_t>(int8(), {"\"12\",\"xxx\"\n"}, {{12}, {0}},
+                                     {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(int8(), {"\"12\",\"xxx\"\n"}, {1}, options);
+
   AssertConversion<Int8Type, int8_t>(int8(), {"12,xxx\n", "zzz,-128\n"},
                                      {{12, 0}, {0, -128}}, {{true, false}, {false, true}},
                                      options);
@@ -387,6 +400,12 @@ TEST(FloatingPointConversion, Nulls) {
 TEST(FloatingPointConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<FloatType, float>(float32(), {"\"1.5\",\"xxx\"\n"}, {{1.5}, {0}},
+                                     {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(float32(), {"\"1.5\",\"xxx\"\n"}, {1}, options);
 
   AssertConversion<FloatType, float>(float32(), {"1.5,xxx\n", "zzz,-1e10\n"},
                                      {{1.5, 0.}, {0., -1e10f}},
@@ -425,6 +444,12 @@ TEST(BooleanConversion, Nulls) {
 TEST(BooleanConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<BooleanType, bool>(boolean(), {"\"true\",\"xxx\"\n"}, {{1}, {0}},
+                                      {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(boolean(), {"\"true\",\"xxx\"\n"}, {1}, options);
 
   AssertConversion<BooleanType, bool>(boolean(), {"true,xxx\n", "zzz,0\n"},
                                       {{true, false}, {false, false}},
@@ -539,8 +564,14 @@ TEST(TimestampConversion, Nulls) {
 TEST(TimestampConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
-
   auto type = timestamp(TimeUnit::MILLI);
+
+  AssertConversion<TimestampType, int64_t>(type, {"\"1970-01-01 00:01:00\",\"xxx\"\n"},
+                                           {{60000}, {0}}, {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(type, {"\"1970-01-01 00:01:00\",\"xxx\"\n"}, {1}, options);
+
   AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,xxx,zzz\n"},
                                            {{60000}, {0}, {0}},
                                            {{true}, {false}, {false}}, options);
@@ -587,6 +618,13 @@ TEST(DecimalConversion, Nulls) {
 TEST(DecimalConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<Decimal128Type, Decimal128>(decimal(14, 3), {"\"1.5\",\"xxx\"\n"},
+                                               {{Dec128("1.500")}, {0}},
+                                               {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(decimal(14, 3), {"\"1.5\",\"xxx\"\n"}, {1}, options);
 
   AssertConversion<Decimal128Type, Decimal128>(
       decimal(14, 3), {"1.5,xxx\n", "zzz,-1e3\n"},
@@ -645,11 +683,17 @@ TYPED_TEST(TestNumericDictConverter, Nulls) {
   auto expected_indices = ArrayFromJSON(int32(), "[0, 1, null, 0]");
 
   AssertDictConversion("4\n5\nN/A\n4\n", expected_indices, expected_dict);
+  AssertDictConversion("\"4\"\n\"5\"\n\"N/A\"\n\"4\"\n", expected_indices, expected_dict);
 }
 
 TYPED_TEST(TestNumericDictConverter, Errors) {
   auto value_type = this->type();
   ASSERT_RAISES(Invalid, DictConversion(value_type, "xxx\n"));
+
+  ConvertOptions options = ConvertOptions::Defaults();
+
+  options.quoted_strings_can_be_null = false;
+  ASSERT_RAISES(Invalid, DictConversion(value_type, "\"N/A\"\n", -1, options));
 
   // Overflow
   if (is_integer(value_type->id())) {

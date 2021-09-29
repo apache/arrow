@@ -37,6 +37,7 @@ Authors:
 Other contributors:
 \itemize{
   \item Javier Luraschi \email{javier@rstudio.com} [contributor]
+  \item Karl Dunkle Werner \email{karldw@users.noreply.github.com} (\href{https://orcid.org/0000-0003-0523-7309}{ORCID}) [contributor]
   \item Jeffrey Wong \email{jeffreyw@netflix.com} [contributor]
 }
 

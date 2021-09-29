@@ -221,6 +221,9 @@ class MappingGenerator {
       bool should_trigger;
       {
         auto guard = state->mutex.Lock();
+        // A MappedCallback may have purged or be purging the queue;
+        // we shouldn't do anything here.
+        if (state->finished) return;
         if (end) {
           should_purge = !state->finished;
           state->finished = true;
@@ -272,6 +275,24 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn 
   };
 
   return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
+}
+
+/// \brief Creates a generator that will apply the map function to
+/// each element of source.  The map function is not called on the end
+/// token.  The result of the map function should be another
+/// generator; all these generators will then be flattened to produce
+/// a single stream of items.
+///
+/// Note: This function makes a copy of `map` for each item
+/// Note: Errors returned from the `map` function will be propagated
+///
+/// If the source generator is async-reentrant then this generator will be also
+template <typename T, typename MapFn,
+          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename V = typename EnsureFuture<Mapped>::type::ValueType>
+AsyncGenerator<T> MakeFlatMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
+  return MakeConcatenatedGenerator(
+      MakeMappedGenerator(std::move(source_generator), std::move(map)));
 }
 
 /// \see MakeSequencingGenerator
@@ -1001,32 +1022,45 @@ class MergedGenerator {
   };
 
   struct InnerCallback {
-    void operator()(const Result<T>& maybe_next) {
-      Future<T> sink;
-      bool sub_finished = maybe_next.ok() && IsIterationEnd(*maybe_next);
-      {
-        auto guard = state->mutex.Lock();
-        if (state->finished) {
-          // We've errored out so just ignore this result and don't keep pumping
-          return;
-        }
-        if (!sub_finished) {
-          if (state->waiting_jobs.empty()) {
-            state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
-                state->active_subscriptions[index], maybe_next, index));
-          } else {
-            sink = std::move(*state->waiting_jobs.front());
-            state->waiting_jobs.pop_front();
+    void operator()(const Result<T>& maybe_next_ref) {
+      Future<T> next_fut;
+      const Result<T>* maybe_next = &maybe_next_ref;
+
+      while (true) {
+        Future<T> sink;
+        bool sub_finished = maybe_next->ok() && IsIterationEnd(**maybe_next);
+        {
+          auto guard = state->mutex.Lock();
+          if (state->finished) {
+            // We've errored out so just ignore this result and don't keep pumping
+            return;
+          }
+          if (!sub_finished) {
+            if (state->waiting_jobs.empty()) {
+              state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
+                  state->active_subscriptions[index], *maybe_next, index));
+            } else {
+              sink = std::move(*state->waiting_jobs.front());
+              state->waiting_jobs.pop_front();
+            }
           }
         }
-      }
-      if (sub_finished) {
-        state->PullSource().AddCallback(OuterCallback{state, index});
-      } else if (sink.is_valid()) {
-        sink.MarkFinished(maybe_next);
-        if (maybe_next.ok()) {
-          state->active_subscriptions[index]().AddCallback(*this);
+        if (sub_finished) {
+          state->PullSource().AddCallback(OuterCallback{state, index});
+        } else if (sink.is_valid()) {
+          sink.MarkFinished(*maybe_next);
+          if (!maybe_next->ok()) return;
+
+          next_fut = state->active_subscriptions[index]();
+          if (next_fut.TryAddCallback([this]() { return *this; })) {
+            return;
+          }
+          // Already completed. Avoid very deep recursion by looping
+          // here instead of relying on the callback.
+          maybe_next = &next_fut.result();
+          continue;
         }
+        return;
       }
     }
     std::shared_ptr<State> state;
@@ -1611,4 +1645,48 @@ AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token
   return CancellableGenerator<T>{std::move(source), std::move(stop_token)};
 }
 
+template <typename T>
+class DefaultIfEmptyGenerator {
+ public:
+  DefaultIfEmptyGenerator(AsyncGenerator<T> source, T or_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(or_value))) {}
+
+  Future<T> operator()() {
+    if (state_->first) {
+      state_->first = false;
+      struct {
+        T or_value;
+
+        Result<T> operator()(const T& value) {
+          if (IterationTraits<T>::IsEnd(value)) {
+            return std::move(or_value);
+          }
+          return value;
+        }
+      } Continuation;
+      Continuation.or_value = std::move(state_->or_value);
+      return state_->source().Then(std::move(Continuation));
+    }
+    return state_->source();
+  }
+
+ private:
+  struct State {
+    AsyncGenerator<T> source;
+    T or_value;
+    bool first;
+    State(AsyncGenerator<T> source_, T or_value_)
+        : source(std::move(source_)), or_value(std::move(or_value_)), first(true) {}
+  };
+  std::shared_ptr<State> state_;
+};
+
+/// \brief If the generator is empty, return the given value, else
+/// forward the values from the generator.
+///
+/// This generator is async-reentrant.
+template <typename T>
+AsyncGenerator<T> MakeDefaultIfEmptyGenerator(AsyncGenerator<T> source, T or_value) {
+  return DefaultIfEmptyGenerator<T>(std::move(source), std::move(or_value));
+}
 }  // namespace arrow

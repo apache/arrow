@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/codegen_internal.h"
 
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -40,137 +41,6 @@ ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec) {
   };
 }
 
-std::vector<std::shared_ptr<DataType>> g_signed_int_types;
-std::vector<std::shared_ptr<DataType>> g_unsigned_int_types;
-std::vector<std::shared_ptr<DataType>> g_int_types;
-std::vector<std::shared_ptr<DataType>> g_floating_types;
-std::vector<std::shared_ptr<DataType>> g_numeric_types;
-std::vector<std::shared_ptr<DataType>> g_base_binary_types;
-std::vector<std::shared_ptr<DataType>> g_temporal_types;
-std::vector<std::shared_ptr<DataType>> g_interval_types;
-std::vector<std::shared_ptr<DataType>> g_primitive_types;
-std::vector<Type::type> g_decimal_type_ids;
-static std::once_flag codegen_static_initialized;
-
-template <typename T>
-void Extend(const std::vector<T>& values, std::vector<T>* out) {
-  for (const auto& t : values) {
-    out->push_back(t);
-  }
-}
-
-static void InitStaticData() {
-  // Signed int types
-  g_signed_int_types = {int8(), int16(), int32(), int64()};
-
-  // Unsigned int types
-  g_unsigned_int_types = {uint8(), uint16(), uint32(), uint64()};
-
-  // All int types
-  Extend(g_unsigned_int_types, &g_int_types);
-  Extend(g_signed_int_types, &g_int_types);
-
-  // Floating point types
-  g_floating_types = {float32(), float64()};
-
-  // Decimal types
-  g_decimal_type_ids = {Type::DECIMAL128, Type::DECIMAL256};
-
-  // Numeric types
-  Extend(g_int_types, &g_numeric_types);
-  Extend(g_floating_types, &g_numeric_types);
-
-  // Temporal types
-  g_temporal_types = {date32(),
-                      date64(),
-                      time32(TimeUnit::SECOND),
-                      time32(TimeUnit::MILLI),
-                      time64(TimeUnit::MICRO),
-                      time64(TimeUnit::NANO),
-                      timestamp(TimeUnit::SECOND),
-                      timestamp(TimeUnit::MILLI),
-                      timestamp(TimeUnit::MICRO),
-                      timestamp(TimeUnit::NANO)};
-
-  // Interval types
-  g_interval_types = {day_time_interval(), month_interval()};
-
-  // Base binary types (without FixedSizeBinary)
-  g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
-
-  // Non-parametric, non-nested types. This also DOES NOT include
-  //
-  // * Decimal
-  // * Fixed Size Binary
-  // * Time32
-  // * Time64
-  // * Timestamp
-  g_primitive_types = {null(), boolean(), date32(), date64()};
-  Extend(g_numeric_types, &g_primitive_types);
-  Extend(g_base_binary_types, &g_primitive_types);
-}
-
-const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_base_binary_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& StringTypes() {
-  static DataTypeVector types = {utf8(), large_utf8()};
-  return types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_signed_int_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_unsigned_int_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& IntTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_int_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_floating_types;
-}
-
-const std::vector<Type::type>& DecimalTypeIds() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_decimal_type_ids;
-}
-
-const std::vector<TimeUnit::type>& AllTimeUnits() {
-  static std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI,
-                                              TimeUnit::MICRO, TimeUnit::NANO};
-  return units;
-}
-
-const std::vector<std::shared_ptr<DataType>>& NumericTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_numeric_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_temporal_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_interval_types;
-}
-
-const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
-  std::call_once(codegen_static_initialized, InitStaticData);
-  return g_primitive_types;
-}
-
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
   static DataTypeVector example_parametric_types = {
       decimal128(12, 2),
@@ -190,13 +60,15 @@ const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
   return example_parametric_types;
 }
 
-// Construct dummy parametric types so that we can get VisitTypeInline to
-// work above
-
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs) {
   ValueDescr result = descrs.front();
   result.shape = GetBroadcastShape(descrs);
   return result;
+}
+
+Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
+  const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
+  return ValueDescr(list_type.value_type(), GetBroadcastShape(args));
 }
 
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
@@ -339,6 +211,92 @@ std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
 
   if (all_offset32) return binary();
   return large_binary();
+}
+
+Status CastBinaryDecimalArgs(DecimalPromotion promotion,
+                             std::vector<ValueDescr>* descrs) {
+  auto& left_type = (*descrs)[0].type;
+  auto& right_type = (*descrs)[1].type;
+  DCHECK(is_decimal(left_type->id()) || is_decimal(right_type->id()));
+
+  // decimal + float = float
+  if (is_floating(left_type->id())) {
+    right_type = left_type;
+    return Status::OK();
+  } else if (is_floating(right_type->id())) {
+    left_type = right_type;
+    return Status::OK();
+  }
+
+  // precision, scale of left and right args
+  int32_t p1, s1, p2, s2;
+
+  // decimal + integer = decimal
+  if (is_decimal(left_type->id())) {
+    auto decimal = checked_cast<const DecimalType*>(left_type.get());
+    p1 = decimal->precision();
+    s1 = decimal->scale();
+  } else {
+    DCHECK(is_integer(left_type->id()));
+    ARROW_ASSIGN_OR_RAISE(p1, MaxDecimalDigitsForInteger(left_type->id()));
+    s1 = 0;
+  }
+  if (is_decimal(right_type->id())) {
+    auto decimal = checked_cast<const DecimalType*>(right_type.get());
+    p2 = decimal->precision();
+    s2 = decimal->scale();
+  } else {
+    DCHECK(is_integer(right_type->id()));
+    ARROW_ASSIGN_OR_RAISE(p2, MaxDecimalDigitsForInteger(right_type->id()));
+    s2 = 0;
+  }
+  if (s1 < 0 || s2 < 0) {
+    return Status::NotImplemented("Decimals with negative scales not supported");
+  }
+
+  // decimal128 + decimal256 = decimal256
+  Type::type casted_type_id = Type::DECIMAL128;
+  if (left_type->id() == Type::DECIMAL256 || right_type->id() == Type::DECIMAL256) {
+    casted_type_id = Type::DECIMAL256;
+  }
+
+  // decimal promotion rules compatible with amazon redshift
+  // https://docs.aws.amazon.com/redshift/latest/dg/r_numeric_computations201.html
+  int32_t left_scaleup = 0;
+  int32_t right_scaleup = 0;
+
+  switch (promotion) {
+    case DecimalPromotion::kAdd: {
+      left_scaleup = std::max(s1, s2) - s1;
+      right_scaleup = std::max(s1, s2) - s2;
+      break;
+    }
+    case DecimalPromotion::kMultiply: {
+      left_scaleup = right_scaleup = 0;
+      break;
+    }
+    case DecimalPromotion::kDivide: {
+      left_scaleup = std::max(4, s1 + p2 - s2 + 1) + s2 - s1;
+      right_scaleup = 0;
+      break;
+    }
+    default:
+      DCHECK(false) << "Invalid DecimalPromotion value " << static_cast<int>(promotion);
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      left_type, DecimalType::Make(casted_type_id, p1 + left_scaleup, s1 + left_scaleup));
+  ARROW_ASSIGN_OR_RAISE(right_type, DecimalType::Make(casted_type_id, p2 + right_scaleup,
+                                                      s2 + right_scaleup));
+  return Status::OK();
+}
+
+bool HasDecimal(const std::vector<ValueDescr>& descrs) {
+  for (const auto& descr : descrs) {
+    if (is_decimal(descr.type->id())) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace internal

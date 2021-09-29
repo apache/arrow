@@ -17,6 +17,8 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <sstream>
+
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
@@ -73,7 +75,7 @@ class ProjectNode : public ExecNode {
                                           schema(std::move(fields)), std::move(exprs));
   }
 
-  const char* kind_name() override { return "ProjectNode"; }
+  const char* kind_name() const override { return "ProjectNode"; }
 
   Result<ExecBatch> DoProject(const ExecBatch& target) {
     std::vector<Datum> values{exprs_.size()};
@@ -121,6 +123,22 @@ class ProjectNode : public ExecNode {
   void StopProducing() override { inputs_[0]->StopProducing(this); }
 
   Future<> finished() override { return inputs_[0]->finished(); }
+
+ protected:
+  std::string ToStringExtra() const override {
+    std::stringstream ss;
+    ss << "projection=[";
+    for (int i = 0; static_cast<size_t>(i) < exprs_.size(); i++) {
+      if (i > 0) ss << ", ";
+      auto repr = exprs_[i].ToString();
+      if (repr != output_schema_->field(i)->name()) {
+        ss << '"' << output_schema_->field(i)->name() << "\": ";
+      }
+      ss << repr;
+    }
+    ss << ']';
+    return ss.str();
+  }
 
  private:
   std::vector<Expression> exprs_;

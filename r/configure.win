@@ -49,7 +49,7 @@ AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-man
 
 # NOTE: If you make changes to the libraries below, you should also change
 # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
-PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET"
+PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
 PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
 # S3 and re2 support only for Rtools40 (i.e. R >= 4.0)

@@ -2105,22 +2105,33 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
  private:
+  static constexpr int kMaxDeltaBitWidth = static_cast<int>(sizeof(T) * 8);
+
   void InitHeader() {
-    if (!decoder_.GetVlqInt(&values_per_block_)) ParquetException::EofException();
-    if (!decoder_.GetVlqInt(&mini_blocks_per_block_)) ParquetException::EofException();
-    if (!decoder_.GetVlqInt(&total_value_count_)) {
+    if (!decoder_.GetVlqInt(&values_per_block_) ||
+        !decoder_.GetVlqInt(&mini_blocks_per_block_) ||
+        !decoder_.GetVlqInt(&total_value_count_) ||
+        !decoder_.GetZigZagVlqInt(&last_value_)) {
       ParquetException::EofException();
     }
-    if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
 
-    delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
+    if (values_per_block_ == 0) {
+      throw ParquetException("cannot have zero value per block");
+    }
+    if (mini_blocks_per_block_ == 0) {
+      throw ParquetException("cannot have zero miniblock per block");
+    }
     values_per_mini_block_ = values_per_block_ / mini_blocks_per_block_;
+    if (values_per_mini_block_ == 0) {
+      throw ParquetException("cannot have zero value per miniblock");
+    }
     if (values_per_mini_block_ % 32 != 0) {
       throw ParquetException(
           "the number of values in a miniblock must be multiple of 32, but it's " +
           std::to_string(values_per_mini_block_));
     }
 
+    delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
     block_initialized_ = false;
     values_current_mini_block_ = 0;
   }
@@ -2133,6 +2144,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     for (uint32_t i = 0; i < mini_blocks_per_block_; ++i) {
       if (!decoder_.GetAligned<uint8_t>(1, bit_width_data + i)) {
         ParquetException::EofException();
+      }
+      if (bit_width_data[i] > kMaxDeltaBitWidth) {
+        throw ParquetException("delta bit width larger than integer bit width");
       }
     }
     mini_block_idx_ = 0;

@@ -124,18 +124,34 @@ class IpcScanTask : public ScanTask {
         ARROW_ASSIGN_OR_RAISE(auto options,
                               GetReadOptions(*reader->schema(), format, scan_options));
         ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
-        return RecordBatchIterator(Impl{std::move(reader), 0});
+        return RecordBatchIterator(
+            Impl{std::move(reader), scan_options.batch_size, nullptr, 0});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
+        if (leftover_) {
+          if (leftover_->num_rows() > batch_size) {
+            auto chunk = leftover_->Slice(0, batch_size);
+            leftover_ = leftover_->Slice(batch_size);
+            return chunk;
+          }
+          return std::move(leftover_);
+        }
         if (i_ == reader_->num_record_batches()) {
           return nullptr;
         }
 
-        return reader_->ReadRecordBatch(i_++);
+        ARROW_ASSIGN_OR_RAISE(auto batch, reader_->ReadRecordBatch(i_++));
+        if (batch->num_rows() > batch_size) {
+          leftover_ = batch->Slice(batch_size);
+          return batch->Slice(0, batch_size);
+        }
+        return batch;
       }
 
       std::shared_ptr<ipc::RecordBatchFileReader> reader_;
+      const int64_t batch_size;
+      std::shared_ptr<RecordBatch> leftover_;
       int i_;
     };
 
@@ -223,7 +239,8 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
-    return MakeReadaheadGenerator(std::move(generator), readahead_level);
+    auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
+    return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };
   return MakeFromFuture(open_reader.Then(reopen_reader).Then(open_generator));
 }

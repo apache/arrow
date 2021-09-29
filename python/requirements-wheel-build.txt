@@ -1,4 +1,5 @@
 cython>=0.29.11
+setuptools>=58
 setuptools_scm
 wheel
 numpy==1.19.4; platform_system == "Linux"   and platform_machine == "aarch64"

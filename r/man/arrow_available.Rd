@@ -5,6 +5,7 @@
 \alias{arrow_with_dataset}
 \alias{arrow_with_parquet}
 \alias{arrow_with_s3}
+\alias{arrow_with_json}
 \title{Is the C++ Arrow library available?}
 \usage{
 arrow_available()
@@ -14,6 +15,8 @@ arrow_with_dataset()
 arrow_with_parquet()
 
 arrow_with_s3()
+
+arrow_with_json()
 }
 \value{
 \code{TRUE} or \code{FALSE} depending on whether the package was installed
@@ -22,6 +25,7 @@ with:
 \item The Arrow C++ library (check with \code{arrow_available()})
 \item Arrow Dataset support enabled (check with \code{arrow_with_dataset()})
 \item Parquet support enabled (check with \code{arrow_with_parquet()})
+\item JSON support enabled (check with \code{arrow_with_json()})
 \item Amazon S3 support enabled (check with \code{arrow_with_s3()})
 }
 }
@@ -33,6 +37,7 @@ for diagnostic purposes.
 arrow_available()
 arrow_with_dataset()
 arrow_with_parquet()
+arrow_with_json()
 arrow_with_s3()
 }
 \seealso{

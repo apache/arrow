@@ -22,13 +22,13 @@ tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
-  column_select(arrow_dplyr_query(.data), !!!enquos(...))
+  column_select(as_adq(.data), !!!enquos(...))
 }
 select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
 
 rename.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
-  column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
+  column_select(as_adq(.data), !!!enquos(...), .FUN = vars_rename)
 }
 rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
 
@@ -60,7 +60,7 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
   # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
 
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
 
   # Assign the schema to the expressions
   map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))

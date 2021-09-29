@@ -35,7 +35,7 @@
 #' @examplesIf arrow_available()
 #' a <- Array$create(c(1L, 2L, 3L, NA, 5L))
 #' s <- Scalar$create(4L)
-#' call_function("fill_null", a, s)
+#' call_function("coalesce", a, s)
 #'
 #' a <- Array$create(rnorm(10000))
 #' call_function("quantile", a, options = list(q = seq(0, 1, 0.25)))
@@ -120,7 +120,7 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
-scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
+scalar_aggregate <- function(FUN, ..., na.rm = FALSE, min_count = 0L) {
   a <- collect_arrays_from_dots(list(...))
   if (FUN == "min_max" && na.rm && a$null_count == length(a)) {
     Array$create(data.frame(min = Inf, max = -Inf))
@@ -128,7 +128,7 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
     # Inf/-Inf, which are type double. Since Arrow is type-stable
     # and does not do that, we handle this special case here.
   } else {
-    call_function(FUN, a, options = list(na.rm = na.rm, na.min_count = na.min_count))
+    call_function(FUN, a, options = list(skip_nulls = na.rm, min_count = min_count))
   }
 }
 

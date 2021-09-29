@@ -105,7 +105,7 @@ expect_dplyr_equal <- function(expr,
       ),
       warning
     )
-    expect_equivalent(via_batch, expected, ...)
+    expect_equal(via_batch, expected, ...)
   } else {
     skip_msg <- c(skip_msg, skip_record_batch)
   }
@@ -118,7 +118,7 @@ expect_dplyr_equal <- function(expr,
       ),
       warning
     )
-    expect_equivalent(via_table, expected, ...)
+    expect_equal(via_table, expected, ...)
   } else {
     skip_msg <- c(skip_msg, skip_table)
   }

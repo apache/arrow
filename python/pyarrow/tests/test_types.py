@@ -634,11 +634,15 @@ def test_dictionary_type():
     assert ty2.value_type == pa.string()
     assert ty2.ordered is False
 
+    # allow unsigned integers for index type
+    ty3 = pa.dictionary(pa.uint32(), pa.string())
+    assert ty3.index_type == pa.uint32()
+    assert ty3.value_type == pa.string()
+    assert ty3.ordered is False
+
     # invalid index type raises
     with pytest.raises(TypeError):
         pa.dictionary(pa.string(), pa.int64())
-    with pytest.raises(TypeError):
-        pa.dictionary(pa.uint32(), pa.string())
 
 
 def test_dictionary_ordered_equals():

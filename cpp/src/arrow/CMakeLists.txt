@@ -190,6 +190,7 @@ set(ARROW_SRCS
     io/slow.cc
     io/stdio.cc
     io/transform.cc
+    util/async_util.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc
@@ -403,7 +404,6 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_string.cc
        compute/kernels/scalar_temporal.cc
        compute/kernels/scalar_validity.cc
-       compute/kernels/scalar_fill_null.cc
        compute/kernels/scalar_if_else.cc
        compute/kernels/util_internal.cc
        compute/kernels/vector_hash.cc

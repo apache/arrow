@@ -39,13 +39,16 @@ struct VarStdState {
   using CType = typename ArrowType::c_type;
   using ThisType = VarStdState<ArrowType>;
 
+  explicit VarStdState(VarianceOptions options) : options(options) {}
+
   // float/double/int64: calculate `m2` (sum((X-mean)^2)) with `two pass algorithm`
   // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Two-pass_algorithm
   template <typename T = ArrowType>
   enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4)> Consume(
       const ArrayType& array) {
+    this->all_valid = array.null_count() == 0;
     int64_t count = array.length() - array.null_count();
-    if (count == 0) {
+    if (count == 0 || (!this->all_valid && !options.skip_nulls)) {
       return;
     }
 
@@ -75,6 +78,8 @@ struct VarStdState {
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
+    this->all_valid = array.null_count() == 0;
+    if (!this->all_valid && !options.skip_nulls) return;
     int64_t start_index = 0;
     int64_t valid_count = array.length() - array.null_count();
 
@@ -98,7 +103,7 @@ struct VarStdState {
                             });
 
         // merge variance
-        ThisType state;
+        ThisType state(options);
         state.count = var_std.count;
         state.mean = var_std.mean();
         state.m2 = var_std.m2();
@@ -116,12 +121,14 @@ struct VarStdState {
     } else {
       this->count = 0;
       this->mean = 0;
+      this->all_valid = false;
     }
   }
 
   // Combine `m2` from two chunks (m2 = n*s2)
   // https://www.emathzone.com/tutorials/basic-statistics/combined-variance.html
   void MergeFrom(const ThisType& state) {
+    this->all_valid = this->all_valid && state.all_valid;
     if (state.count == 0) {
       return;
     }
@@ -135,9 +142,11 @@ struct VarStdState {
                 &this->mean, &this->m2);
   }
 
+  const VarianceOptions options;
   int64_t count = 0;
   double mean = 0;
   double m2 = 0;  // m2 = count*s2 = sum((X-mean)^2)
+  bool all_valid = true;
 };
 
 template <typename ArrowType>
@@ -147,7 +156,7 @@ struct VarStdImpl : public ScalarAggregator {
 
   explicit VarStdImpl(const std::shared_ptr<DataType>& out_type,
                       const VarianceOptions& options, VarOrStd return_type)
-      : out_type(out_type), options(options), return_type(return_type) {}
+      : out_type(out_type), state(options), return_type(return_type) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
@@ -166,10 +175,11 @@ struct VarStdImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->state.count <= options.ddof) {
+    if (state.count <= state.options.ddof || state.count < state.options.min_count ||
+        (!state.all_valid && !state.options.skip_nulls)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
-      double var = this->state.m2 / (this->state.count - options.ddof);
+      double var = state.m2 / (state.count - state.options.ddof);
       out->value =
           std::make_shared<DoubleScalar>(return_type == VarOrStd::Var ? var : sqrt(var));
     }
@@ -178,7 +188,6 @@ struct VarStdImpl : public ScalarAggregator {
 
   std::shared_ptr<DataType> out_type;
   VarStdState<ArrowType> state;
-  VarianceOptions options;
   VarOrStd return_type;
 };
 

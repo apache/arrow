@@ -153,7 +153,7 @@ public class DenseUnionReader extends AbstractFieldReader {
 
   <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
           "LocalDateTime", "Duration", "Period", "Double", "Float",
-          "Character", "Text", "Byte", "byte[]"] as friendlyType>
+          "Character", "Text", "Byte", "byte[]", "PeriodDuration"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
 

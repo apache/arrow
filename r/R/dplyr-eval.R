@@ -28,6 +28,7 @@ arrow_eval <- function(expr, mask) {
     # else, for things not supported by Arrow return a "try-error",
     # which we'll handle differently
     msg <- conditionMessage(e)
+    if (getOption("arrow.debug", FALSE)) print(msg)
     patterns <- .cache$i18ized_error_pattern
     if (is.null(patterns)) {
       patterns <- i18ize_error_messages()

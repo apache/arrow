@@ -541,7 +541,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector("$data$", allocator, callBack);
+    UnionVector vector = new UnionVector("$data$", allocator, /* field type */ null, callBack);
     replaceDataVector(vector);
     invalidateReader();
     if (callBack != null) {

@@ -30,23 +30,4 @@
     </dependency>
   </dependencies>
 
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0-M3</version>
-        <configuration>
-          <enableAssertions>true</enableAssertions>
-          <childDelegation>true</childDelegation>
-          <forkCount>${forkCount}</forkCount>
-          <reuseForks>true</reuseForks>
-          <systemPropertyVariables>
-            <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-            <user.timezone>UTC</user.timezone>
-          </systemPropertyVariables>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
-
 </project>

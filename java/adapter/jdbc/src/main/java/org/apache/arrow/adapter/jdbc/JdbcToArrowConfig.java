@@ -58,6 +58,7 @@ public final class JdbcToArrowConfig {
   private final Calendar calendar;
   private final BufferAllocator allocator;
   private final boolean includeMetadata;
+  private final boolean reuseVectorSchemaRoot;
   private final Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private final Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
@@ -87,7 +88,12 @@ public final class JdbcToArrowConfig {
    * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
    */
   JdbcToArrowConfig(BufferAllocator allocator, Calendar calendar) {
-    this(allocator, calendar, false, null, null, DEFAULT_TARGET_BATCH_SIZE, null);
+    this(allocator, calendar,
+        /* include metadata */ false,
+        /* reuse vector schema root */ false,
+        /* array sub-types by column index */ null,
+        /* array sub-types by column name */ null,
+        DEFAULT_TARGET_BATCH_SIZE, null);
   }
 
   /**
@@ -98,6 +104,7 @@ public final class JdbcToArrowConfig {
    * @param allocator       The memory allocator to construct the Arrow vectors with.
    * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
    * @param includeMetadata Whether to include JDBC field metadata in the Arrow Schema Field metadata.
+   * @param reuseVectorSchemaRoot Whether to reuse the vector schema root for each data load.
    * @param arraySubTypesByColumnIndex The type of the JDBC array at the column index (1-based).
    * @param arraySubTypesByColumnName  The type of the JDBC array at the column name.
    * @param jdbcToArrowTypeConverter The function that maps JDBC field type information to arrow type. If set to null,
@@ -134,6 +141,7 @@ public final class JdbcToArrowConfig {
       BufferAllocator allocator,
       Calendar calendar,
       boolean includeMetadata,
+      boolean reuseVectorSchemaRoot,
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
@@ -142,6 +150,7 @@ public final class JdbcToArrowConfig {
     this.allocator = allocator;
     this.calendar = calendar;
     this.includeMetadata = includeMetadata;
+    this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
     this.arraySubTypesByColumnIndex = arraySubTypesByColumnIndex;
     this.arraySubTypesByColumnName = arraySubTypesByColumnName;
     this.targetBatchSize = targetBatchSize;
@@ -241,6 +250,13 @@ public final class JdbcToArrowConfig {
    */
   public int getTargetBatchSize() {
     return targetBatchSize;
+  }
+
+  /**
+   * Get whether it is allowed to reuse the vector schema root.
+   */
+  public boolean isReuseVectorSchemaRoot() {
+    return reuseVectorSchemaRoot;
   }
 
   /**

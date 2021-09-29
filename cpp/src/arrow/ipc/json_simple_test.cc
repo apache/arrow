@@ -475,6 +475,12 @@ TEST(TestDayTimeInterval, Basics) {
                                        {{1, -600}, {}});
 }
 
+TEST(MonthDayNanoInterval, Basics) {
+  auto type = month_day_nano_interval();
+  AssertJSONArray<MonthDayNanoIntervalType>(type, R"([[1, -600, 5000], null])",
+                                            {true, false}, {{1, -600, 5000}, {}});
+}
+
 TEST(TestFixedSizeBinary, Basics) {
   std::shared_ptr<DataType> type = fixed_size_binary(3);
   std::shared_ptr<Array> expected, actual;
@@ -1377,6 +1383,30 @@ TEST(TestScalarFromJSON, Errors) {
   ASSERT_RAISES(Invalid, ScalarFromJSON(binary(), "[]", &scalar));
   ASSERT_RAISES(Invalid, ScalarFromJSON(boolean(), "0.0", &scalar));
   ASSERT_RAISES(Invalid, ScalarFromJSON(boolean(), "\"true\"", &scalar));
+}
+
+TEST(TestDictScalarFromJSON, Basics) {
+  auto type = dictionary(int32(), utf8());
+  auto dict = R"(["whiskey", "tango", "foxtrot"])";
+  auto expected_dictionary = ArrayFromJSON(utf8(), dict);
+
+  for (auto index : {"null", "2", "1", "0"}) {
+    auto scalar = DictScalarFromJSON(type, index, dict);
+    auto expected_index = ScalarFromJSON(int32(), index);
+    AssertScalarsEqual(*DictionaryScalar::Make(expected_index, expected_dictionary),
+                       *scalar, /*verbose=*/true);
+    ASSERT_OK(scalar->ValidateFull());
+  }
+}
+
+TEST(TestDictScalarFromJSON, Errors) {
+  auto type = dictionary(int32(), utf8());
+  std::shared_ptr<Scalar> scalar;
+
+  ASSERT_RAISES(Invalid,
+                DictScalarFromJSON(type, "\"not a valid index\"", "[\"\"]", &scalar));
+  ASSERT_RAISES(Invalid, DictScalarFromJSON(type, "0", "[1]",
+                                            &scalar));  // dict value isn't string
 }
 
 }  // namespace json
