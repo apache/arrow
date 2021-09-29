@@ -934,42 +934,57 @@ class FileSystemHandler(ABC):
         """
         Implement PyFileSystem.type_name.
         """
-    get_type_name.__doc__ = FileSystem.get_type_name.__doc__
 
     @abstractmethod
     def get_file_info(self, paths):
         """
         Implement PyFileSystem.get_file_info(paths).
+
+        Parameters
+        ----------
+        paths : paths for which we want to retrieve the info.
         """
-    get_file_info.__doc__ = FileSystem.get_file_info.__doc__
 
     @abstractmethod
     def get_file_info_selector(self, selector):
         """
         Implement PyFileSystem.get_file_info(selector).
+
+        Parameters
+        ----------
+        selector : selector for which we want to retrieve the info.
         """
-    get_file_info_selector.__doc__ = FileSystem.get_file_info_selector.__doc__
 
     @abstractmethod
     def create_dir(self, path, recursive):
         """
         Implement PyFileSystem.create_dir(...).
+
+        Parameters
+        ----------
+        path : path of the directory.
+        recursive : if the parent directories should be created too.
         """
-    create_dir.__doc__ = FileSystem.create_dir.__doc__
 
     @abstractmethod
     def delete_dir(self, path):
         """
         Implement PyFileSystem.delete_dir(...).
+
+        Parameters
+        ----------
+        path : path of the directory.
         """
-    delete_dir.__doc__ = FileSystem.delete_dir.__doc__
 
     @abstractmethod
     def delete_dir_contents(self, path):
         """
         Implement PyFileSystem.delete_dir_contents(...).
+
+        Parameters
+        ----------
+        path : path of the directory.
         """
-    delete_dir_contents.__doc__ = FileSystem.delete_dir_contents.__doc__
 
     @abstractmethod
     def delete_root_dir_contents(self):
@@ -981,58 +996,89 @@ class FileSystemHandler(ABC):
     def delete_file(self, path):
         """
         Implement PyFileSystem.delete_file(...).
+
+        Parameters
+        ----------
+        path : path of the file.
         """
-    delete_file.__doc__ = FileSystem.delete_file.__doc__
 
     @abstractmethod
     def move(self, src, dest):
         """
         Implement PyFileSystem.move(...).
+
+        Parameters
+        ----------
+        src : path of what should be moved.
+        dest : path of where it should be moved to.
         """
-    move.__doc__ = FileSystem.move.__doc__
 
     @abstractmethod
     def copy_file(self, src, dest):
         """
         Implement PyFileSystem.copy_file(...).
+
+        Parameters
+        ----------
+        src : path of what should be copied.
+        dest : path of where it should be copied to.
         """
-    copy_file.__doc__ = FileSystem.copy_file.__doc__
 
     @abstractmethod
     def open_input_stream(self, path):
         """
         Implement PyFileSystem.open_input_stream(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
         """
-    open_input_stream.__doc__ = FileSystem.open_input_stream.__doc__
 
     @abstractmethod
     def open_input_file(self, path):
         """
         Implement PyFileSystem.open_input_file(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
         """
-    open_input_file.__doc__ = FileSystem.open_input_file.__doc__
 
     @abstractmethod
     def open_output_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_output_stream(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
+        metadata :  mapping of string keys to string values.
+            Some filesystems support storing metadata along the file
+            (such as "Content-Type").
         """
-    open_output_stream.__doc__ = FileSystem.open_output_stream.__doc__
 
     @abstractmethod
     def open_append_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_append_stream(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
+        metadata :  mapping of string keys to string values.
+            Some filesystems support storing metadata along the file
+            (such as "Content-Type").
         """
-    open_append_stream.__doc__ = FileSystem.open_append_stream.__doc__
 
     @abstractmethod
     def normalize_path(self, path):
         """
         Implement PyFileSystem.normalize_path(...).
-        """
-    normalize_path.__doc__ = FileSystem.normalize_path.__doc__
 
+        Parameters
+        ----------
+        path : path of what should be normalized.
+        """
 
 # Callback definitions for CPyFileSystemVtable
 

@@ -569,7 +569,8 @@ cdef class InMemoryDataset(Dataset):
 
 
 cdef class UnionDataset(Dataset):
-    """A Dataset wrapping child datasets.
+    """
+    A Dataset wrapping child datasets.
 
     Children's schemas must agree with the provided schema.
 
@@ -2791,7 +2792,14 @@ cdef class RecordBatchIterator(_Weakrefable):
 
 class TaggedRecordBatch(collections.namedtuple(
         "TaggedRecordBatch", ["record_batch", "fragment"])):
-    """A combination of a record batch and the fragment it came from."""
+    """
+    A combination of a record batch and the fragment it came from.
+    
+    Parameters
+    ----------
+    record_batch : The record batch.
+    fragment : fragment of the record batch.
+    """
 
 
 cdef class TaggedRecordBatchIterator(_Weakrefable):
@@ -2945,6 +2953,32 @@ cdef class Scanner(_Weakrefable):
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
+        """
+        Create Scanner from Dataset
+
+        Parameters
+        ----------
+        dataset : Dataset
+            Dataset to scan.
+        columns : list of str or dict, default None
+                The columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+        batch_size : int, default 1M
+            The maximum row count for scanned record batches. 
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default False
+            If enabled, an async scanner will be used that should offer
+            better performance with high-latency/highly-parallel filesystems
+            (e.g. S3)
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+        fragment_scan_options : FragmentScanOptions
+            The fragment scan options.
+        """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -2966,6 +3000,34 @@ cdef class Scanner(_Weakrefable):
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       FragmentScanOptions fragment_scan_options=None):
+        """
+        Create Scanner from Fragment
+
+        Parameters
+        ----------
+        fragment : Fragment
+            fragment to scan.
+        schema : Schema
+            The schema of the fragment.
+        columns : list of str or dict, default None
+                The columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+        batch_size : int, default 1M
+            The maximum row count for scanned record batches. 
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default False
+            If enabled, an async scanner will be used that should offer
+            better performance with high-latency/highly-parallel filesystems
+            (e.g. S3)
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+        fragment_scan_options : FragmentScanOptions
+            The fragment scan options.
+        """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -2990,12 +3052,38 @@ cdef class Scanner(_Weakrefable):
                      Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
-        """Create a Scanner from an iterator of batches.
+        """
+        Create a Scanner from an iterator of batches.
 
         This creates a scanner which can be used only once. It is
         intended to support writing a dataset (which takes a scanner)
         from a source which can be read only once (e.g. a
         RecordBatchReader or generator).
+
+        Parameters
+        ----------
+        source : Iterator
+            The iterator of Batches.
+        schema : Schema
+            The schema of the batches.
+        columns : list of str or dict, default None
+                The columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+        batch_size : int, default 1M
+            The maximum row count for scanned record batches. 
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default False
+            If enabled, an async scanner will be used that should offer
+            better performance with high-latency/highly-parallel filesystems
+            (e.g. S3)
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+        fragment_scan_options : FragmentScanOptions
+            The fragment scan options.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
