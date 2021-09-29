@@ -3714,8 +3714,6 @@ def test_partition_dataset_parquet_file_visitor(tempdir):
         use_threads=True, file_visitor=file_visitor
     )
 
-    # Since it is a multi-threaded write there is no way to know which
-    # directory gets part-0 and which gets part-1
     expected_paths = {
         root_path / 'part=a' / 'part-0.parquet',
         root_path / 'part=b' / 'part-0.parquet'

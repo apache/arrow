@@ -300,10 +300,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
         DeferNotOk(write_options_.filesystem->io_context().executor()->Submit([this] {
           RETURN_NOT_OK(write_options_.filesystem->CreateDir(directory_));
           if (write_options_.existing_data_behavior == kDeleteMatchingPartitions) {
-            fs::FileSelector selector;
-            selector.base_dir = directory_;
-            selector.recursive = true;
-            return write_options_.filesystem->DeleteFiles(selector);
+            return write_options_.filesystem->DeleteDirContents(directory_);
           }
           return Status::OK();
         }));

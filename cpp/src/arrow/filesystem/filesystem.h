@@ -202,7 +202,7 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// the returned future to complete before calling the generator again.
   virtual FileInfoGenerator GetFileInfoGenerator(const FileSelector& select);
 
-  /// Create a directory and parent directories.
+  /// Create a directory and subdirectories.
   ///
   /// This function succeeds if the directory already exists.
   virtual Status CreateDir(const std::string& path, bool recursive = true) = 0;
@@ -229,9 +229,6 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   ///
   /// The default implementation issues individual delete operations in sequence.
   virtual Status DeleteFiles(const std::vector<std::string>& paths);
-
-  /// Selector based override of DeleteFiles
-  virtual Status DeleteFiles(const FileSelector& selector);
 
   /// Move / rename a file or directory.
   ///

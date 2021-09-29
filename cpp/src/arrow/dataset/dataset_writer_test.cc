@@ -126,25 +126,34 @@ class DatasetWriterTestFixture : public testing::Test {
     return batch;
   }
 
-  void AssertFiles(const std::vector<ExpectedFile>& expected_files,
-                   bool verify_content = true) {
+  void AssertFileCreated(const util::optional<MockFileInfo>& maybe_file,
+                         const std::string& expected_filename) {
+    ASSERT_TRUE(maybe_file.has_value())
+        << "The file " << expected_filename << " was not created";
+    {
+      SCOPED_TRACE("pre_finish");
+      AssertVisited(pre_finish_visited_, expected_filename);
+    }
+    {
+      SCOPED_TRACE("post_finish");
+      AssertVisited(post_finish_visited_, expected_filename);
+    }
+  }
+
+  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files) {
     counter_ = 0;
     for (const auto& expected_file : expected_files) {
       util::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
-      ASSERT_TRUE(written_file.has_value())
-          << "The file " << expected_file.filename << " was not created";
-      {
-        SCOPED_TRACE("pre_finish");
-        AssertVisited(pre_finish_visited_, expected_file.filename);
-      }
-      {
-        SCOPED_TRACE("post_finish");
-        AssertVisited(post_finish_visited_, expected_file.filename);
-      }
-      if (verify_content) {
-        AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
-                           *ReadAsBatch(written_file->data));
-      }
+      AssertFileCreated(written_file, expected_file.filename);
+      AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
+                         *ReadAsBatch(written_file->data));
+    }
+  }
+
+  void AssertFilesCreated(const std::vector<std::string>& expected_files) {
+    for (const std::string& expected_file : expected_files) {
+      util::optional<MockFileInfo> written_file = FindFile(expected_file);
+      AssertFileCreated(written_file, expected_file);
     }
   }
 
@@ -176,7 +185,7 @@ TEST_F(DatasetWriterTestFixture, Basic) {
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
   AssertFinished(queue_fut);
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part-0.arrow", 0, 100}});
+  AssertCreatedData({{"testdir/part-0.arrow", 0, 100}});
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
@@ -185,10 +194,10 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(35), "");
   AssertFinished(queue_fut);
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part-0.arrow", 0, 10},
-               {"testdir/part-1.arrow", 10, 10},
-               {"testdir/part-2.arrow", 20, 10},
-               {"testdir/part-3.arrow", 30, 5}});
+  AssertCreatedData({{"testdir/part-0.arrow", 0, 10},
+                     {"testdir/part-1.arrow", 10, 10},
+                     {"testdir/part-2.arrow", 20, 10},
+                     {"testdir/part-3.arrow", 30, 5}});
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
@@ -201,7 +210,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part-0.arrow", 0, 10}, {"testdir/part-1.arrow", 10, 8}});
+  AssertCreatedData({{"testdir/part-0.arrow", 0, 10}, {"testdir/part-1.arrow", 10, 8}});
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
@@ -215,7 +224,7 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
   ASSERT_OK(gated_fs->WaitForOpenOutputStream(1));
   ASSERT_OK(gated_fs->UnlockOpenOutputStream(1));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part-0.arrow", 0, 100}});
+  AssertCreatedData({{"testdir/part-0.arrow", 0, 100}});
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
@@ -235,7 +244,7 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
   ASSERT_OK(gated_fs->WaitForOpenOutputStream(NBATCHES));
   ASSERT_OK(gated_fs->UnlockOpenOutputStream(NBATCHES));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles(expected_files);
+  AssertCreatedData(expected_files);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
@@ -260,13 +269,8 @@ TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
   // write may have already been finished
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), "part1"));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part0/part-0.arrow", 0, 10},
-               {"testdir/part0/part-0.arrow", 20, 10},
-               {"testdir/part0/part-1.arrow", 40, 10},
-               {"testdir/part1/part-0.arrow", 10, 10},
-               {"testdir/part1/part-0.arrow", 50, 10},
-               {"testdir/part2/part-0.arrow", 30, 10}},
-              /*verify_content=*/false);
+  AssertFilesCreated({"testdir/part0/part-0.arrow", "testdir/part0/part-1.arrow",
+                      "testdir/part1/part-0.arrow", "testdir/part2/part-0.arrow"});
 }
 
 TEST_F(DatasetWriterTestFixture, DeleteExistingData) {
@@ -282,7 +286,7 @@ TEST_F(DatasetWriterTestFixture, DeleteExistingData) {
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
   AssertFinished(queue_fut);
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part-0.arrow", 0, 100}});
+  AssertCreatedData({{"testdir/part-0.arrow", 0, 100}});
   AssertNotFiles({"testdir/part-5.arrow", "testdir/blah.txt"});
 }
 
@@ -300,7 +304,7 @@ TEST_F(DatasetWriterTestFixture, PartitionedDeleteExistingData) {
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "part0");
   AssertFinished(queue_fut);
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part0/part-0.arrow", 0, 100}});
+  AssertCreatedData({{"testdir/part0/part-0.arrow", 0, 100}});
   AssertNotFiles({"testdir/part0/foo.arrow"});
   AssertEmptyFiles({"testdir/part1/bar.arrow"});
 }
@@ -319,7 +323,7 @@ TEST_F(DatasetWriterTestFixture, LeaveExistingData) {
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
   AssertFinished(queue_fut);
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFiles({{"testdir/part-0.arrow", 0, 100}});
+  AssertCreatedData({{"testdir/part-0.arrow", 0, 100}});
   AssertEmptyFiles({"testdir/part-5.arrow", "testdir/blah.txt"});
 }
 

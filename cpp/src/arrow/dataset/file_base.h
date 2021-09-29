@@ -383,6 +383,8 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   uint32_t max_open_files = 1024;
 
   /// If greater than 0 then this will limit how many rows are placed in any single file.
+  /// Otherwise there will be no limit and one file will be created in each output
+  /// directory unless files need to be closed to respect max_open_files
   uint64_t max_rows_per_file = 0;
 
   /// Controls what happens if an output directory already exists.
