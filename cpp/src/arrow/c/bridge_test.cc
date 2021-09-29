@@ -351,7 +351,7 @@ TEST_F(TestSchemaExport, Temporal) {
   TestPrimitive(duration(TimeUnit::MICRO), "tDu");
   TestPrimitive(duration(TimeUnit::NANO), "tDn");
   TestPrimitive(month_interval(), "tiM");
-
+  TestPrimitive(month_day_nano_interval(), "tin");
   TestPrimitive(day_time_interval(), "tiD");
 
   TestPrimitive(timestamp(TimeUnit::SECOND), "tss:");
@@ -805,6 +805,8 @@ TEST_F(TestArrayExport, Primitive) {
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
+
+  TestPrimitive(month_day_nano_interval(), R"([[-1, 5, 20], null])");
 }
 
 TEST_F(TestArrayExport, PrimitiveSliced) {
@@ -1303,6 +1305,8 @@ TEST_F(TestSchemaImport, Temporal) {
   CheckImport(month_interval());
   FillPrimitive("tiD");
   CheckImport(day_time_interval());
+  FillPrimitive("tin");
+  CheckImport(month_day_nano_interval());
 
   FillPrimitive("tss:");
   CheckImport(timestamp(TimeUnit::SECOND));
@@ -2547,6 +2551,7 @@ TEST_F(TestSchemaRoundtrip, Temporal) {
   TestWithTypeFactory(date32);
   TestWithTypeFactory(day_time_interval);
   TestWithTypeFactory(month_interval);
+  TestWithTypeFactory(month_day_nano_interval);
   TestWithTypeFactory(std::bind(time64, TimeUnit::NANO));
   TestWithTypeFactory(std::bind(duration, TimeUnit::MICRO));
   TestWithTypeFactory([]() { return arrow::timestamp(TimeUnit::MICRO, "Europe/Paris"); });
@@ -2765,10 +2770,14 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSON(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
 
+  TestWithJSON(month_day_nano_interval(), R"([[1, -600, 5000], null])");
+
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
   TestWithJSONSliced(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSONSliced(month_day_nano_interval(),
+                     R"([[4, 5, 6], [1, -600, 5000], null, null])");
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {

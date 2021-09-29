@@ -222,7 +222,7 @@ test_that("FeatherReader methods", {
   # print method
   expect_identical(
     capture.output(print(reader)),
-    # TODO: can we get  rows/columns?
+    # TODO: can we get rows/columns?
     c("FeatherReader:", "Schema", "x: int32", "y: double", "z: string")
   )
 })
@@ -242,7 +242,7 @@ test_that("Error messages are shown when the compression algorithm lz4 is not fo
 
   if (codec_is_available("lz4")) {
     d <- read_feather(ft_file)
-    expect_is(d, "data.frame")
+    expect_s3_class(d, "data.frame")
   } else {
     expect_error(read_feather(ft_file), msg, fixed = TRUE)
   }

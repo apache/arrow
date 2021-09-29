@@ -1604,8 +1604,19 @@ def test_unique_value_counts_dictionary_type():
     assert unique_result.equals(expected)
 
     result = arr.value_counts()
-    result.field('values').equals(unique_result)
-    result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
+    assert result.field('values').equals(unique_result)
+    assert result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
+
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([], type='int64'), dictionary)
+    unique_result = arr.unique()
+    expected = pa.DictionaryArray.from_arrays(pa.array([], type='int64'),
+                                              pa.array([], type='utf8'))
+    assert unique_result.equals(expected)
+
+    result = arr.value_counts()
+    assert result.field('values').equals(unique_result)
+    assert result.field('counts').equals(pa.array([], type='int64'))
 
 
 def test_dictionary_encode_simple():

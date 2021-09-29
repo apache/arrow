@@ -95,8 +95,14 @@ void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs) {
 
 void ReplaceTypes(const std::shared_ptr<DataType>& type,
                   std::vector<ValueDescr>* descrs) {
-  for (auto& descr : *descrs) {
-    descr.type = type;
+  ReplaceTypes(type, descrs->data(), descrs->size());
+}
+
+void ReplaceTypes(const std::shared_ptr<DataType>& type, ValueDescr* begin,
+                  size_t count) {
+  auto* end = begin + count;
+  for (auto* it = begin; it != end; it++) {
+    it->type = type;
   }
 }
 
@@ -158,26 +164,47 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   return int8();
 }
 
-std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs) {
+std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs) {
   TimeUnit::type finest_unit = TimeUnit::SECOND;
+  const std::string* timezone = nullptr;
+  bool saw_date32 = false;
+  bool saw_date64 = false;
 
   for (const auto& descr : descrs) {
     auto id = descr.type->id();
     // a common timestamp is only possible if all types are timestamp like
     switch (id) {
       case Type::DATE32:
+        // Date32's unit is days, but the coarsest we have is seconds
+        saw_date32 = true;
+        continue;
       case Type::DATE64:
+        finest_unit = std::max(finest_unit, TimeUnit::MILLI);
+        saw_date64 = true;
         continue;
-      case Type::TIMESTAMP:
-        finest_unit =
-            std::max(finest_unit, checked_cast<const TimestampType&>(*descr.type).unit());
+      case Type::TIMESTAMP: {
+        const auto& ty = checked_cast<const TimestampType&>(*descr.type);
+        // Don't cast to common timezone by default (may not make
+        // sense for all kernels)
+        if (timezone && *timezone != ty.timezone()) return nullptr;
+        timezone = &ty.timezone();
+        finest_unit = std::max(finest_unit, ty.unit());
         continue;
+      }
       default:
         return nullptr;
     }
   }
 
-  return timestamp(finest_unit);
+  if (timezone) {
+    // At least one timestamp seen
+    return timestamp(finest_unit, *timezone);
+  } else if (saw_date64) {
+    return date64();
+  } else if (saw_date32) {
+    return date32();
+  }
+  return nullptr;
 }
 
 std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
@@ -287,6 +314,67 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
       left_type, DecimalType::Make(casted_type_id, p1 + left_scaleup, s1 + left_scaleup));
   ARROW_ASSIGN_OR_RAISE(right_type, DecimalType::Make(casted_type_id, p2 + right_scaleup,
                                                       s2 + right_scaleup));
+  return Status::OK();
+}
+
+Status CastDecimalArgs(ValueDescr* begin, size_t count) {
+  Type::type casted_type_id = Type::DECIMAL128;
+  auto* end = begin + count;
+
+  int32_t max_scale = 0;
+  bool any_floating = false;
+  for (auto* it = begin; it != end; ++it) {
+    const auto& ty = *it->type;
+    if (is_floating(ty.id())) {
+      // Decimal + float = float
+      any_floating = true;
+    } else if (is_integer(ty.id())) {
+      // Nothing to do here
+    } else if (is_decimal(ty.id())) {
+      max_scale = std::max(max_scale, checked_cast<const DecimalType&>(ty).scale());
+      if (ty.id() == Type::DECIMAL256) {
+        casted_type_id = Type::DECIMAL256;
+      }
+    } else {
+      // Non-numeric, can't cast
+      return Status::OK();
+    }
+  }
+  if (any_floating) {
+    ReplaceTypes(float64(), begin, count);
+    return Status::OK();
+  }
+
+  // All integer and decimal, rescale
+  int32_t common_precision = 0;
+  for (auto* it = begin; it != end; ++it) {
+    const auto& ty = *it->type;
+    if (is_integer(ty.id())) {
+      ARROW_ASSIGN_OR_RAISE(auto precision, MaxDecimalDigitsForInteger(ty.id()));
+      precision += max_scale;
+      common_precision = std::max(common_precision, precision);
+    } else if (is_decimal(ty.id())) {
+      const auto& decimal_ty = checked_cast<const DecimalType&>(ty);
+      auto precision = decimal_ty.precision();
+      const auto scale = decimal_ty.scale();
+      precision += max_scale - scale;
+      common_precision = std::max(common_precision, precision);
+    }
+  }
+
+  if (common_precision > BasicDecimal256::kMaxPrecision) {
+    return Status::Invalid("Result precision (", common_precision,
+                           ") exceeds max precision of Decimal256 (",
+                           BasicDecimal256::kMaxPrecision, ")");
+  } else if (common_precision > BasicDecimal128::kMaxPrecision) {
+    casted_type_id = Type::DECIMAL256;
+  }
+
+  for (auto* it = begin; it != end; ++it) {
+    ARROW_ASSIGN_OR_RAISE(it->type,
+                          DecimalType::Make(casted_type_id, common_precision, max_scale));
+  }
+
   return Status::OK();
 }
 

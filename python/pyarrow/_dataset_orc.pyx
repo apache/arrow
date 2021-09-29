@@ -15,19 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that("string vectors with only empty strings and nulls don't allocate a data buffer (ARROW-3693)", {
-  a <- Array$create("")
-  expect_equal(a$length(), 1L)
+# cython: language_level = 3
 
-  buffers <- a$data()$buffers
+"""Dataset support for ORC file format."""
 
-  # No nulls
-  expect_equal(buffers[[1]], NULL)
+from pyarrow.lib cimport *
+from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_dataset cimport *
 
-  # Offsets has 2 elements
-  expect_equal(buffers[[2]]$size, 8L)
+from pyarrow._dataset cimport FileFormat
 
-  # As per ARROW-2744, values buffer should preferably be non-null.
-  expect_equal(buffers[[3]]$size, 0L)
-  expect_equal(buffers[[3]]$capacity, 0L)
-})
+
+cdef class OrcFileFormat(FileFormat):
+
+    def __init__(self):
+        self.init(shared_ptr[CFileFormat](new COrcFileFormat()))
+
+    def equals(self, OrcFileFormat other):
+        return True
+
+    @property
+    def default_extname(self):
+        return "orc"
+
+    def __reduce__(self):
+        return OrcFileFormat, tuple()

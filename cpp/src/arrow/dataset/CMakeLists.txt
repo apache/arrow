@@ -35,6 +35,10 @@ if(ARROW_CSV)
   set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_csv.cc)
 endif()
 
+if(ARROW_ORC)
+  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_orc.cc)
+endif()
+
 if(ARROW_PARQUET)
   set(ARROW_DATASET_LINK_STATIC ${ARROW_DATASET_LINK_STATIC} parquet_static)
   set(ARROW_DATASET_LINK_SHARED ${ARROW_DATASET_LINK_SHARED} parquet_shared)
@@ -114,6 +118,10 @@ add_arrow_dataset_test(scanner_test)
 
 if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)
+endif()
+
+if(ARROW_ORC)
+  add_arrow_dataset_test(file_orc_test)
 endif()
 
 if(ARROW_PARQUET)

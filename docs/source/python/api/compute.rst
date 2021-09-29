@@ -420,6 +420,26 @@ Temporal Component Extraction
    week
    year
 
+Temporal Difference
+-------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   day_time_interval_between
+   days_between
+   hours_between
+   microseconds_between
+   milliseconds_between
+   minutes_between
+   month_day_nano_interval_between
+   month_interval_between
+   nanoseconds_between
+   quarters_between
+   seconds_between
+   weeks_between
+   years_between
+
 Timezone Handling
 -----------------
 
