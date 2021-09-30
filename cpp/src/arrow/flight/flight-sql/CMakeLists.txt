@@ -20,7 +20,7 @@ add_custom_target(arrow_flight_sql)
 arrow_install_all_headers("arrow/flight/flight-sql")
 
 set(FLIGHT_SQL_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
-set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
+set(FLIGHT_SQL_PROTO  ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
 
 set(FLIGHT_SQL_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
                                      "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.h")
