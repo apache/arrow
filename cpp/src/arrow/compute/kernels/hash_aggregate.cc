@@ -42,6 +42,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
@@ -510,7 +511,7 @@ struct GrouperImpl : Grouper {
     return Datum(UInt32Array(batch.length, std::move(group_ids)));
   }
 
-  Result<Datum> Find(const ExecBatch& batch) const override {
+  Result<Datum> Find(const ExecBatch& batch) override {
     std::vector<int32_t> offsets_batch;
     std::vector<uint8_t> key_bytes_batch;
     std::vector<uint8_t*> key_buf_ptrs;
@@ -677,6 +678,7 @@ struct GrouperFastImpl : Grouper {
     return ConsumeImpl(batch);
   }
 
+  template <bool Find = false>
   Result<Datum> ConsumeImpl(const ExecBatch& batch) {
     int64_t num_rows = batch.length;
     int num_columns = batch.num_values();
@@ -700,6 +702,15 @@ struct GrouperFastImpl : Grouper {
     std::shared_ptr<arrow::Buffer> group_ids;
     ARROW_ASSIGN_OR_RAISE(
         group_ids, AllocateBuffer(sizeof(uint32_t) * num_rows, ctx_->memory_pool()));
+
+    std::shared_ptr<arrow::Buffer> group_ids_validity;
+    if (Find) {
+      ARROW_ASSIGN_OR_RAISE(
+          group_ids_validity,
+          AllocateBitmap(sizeof(uint32_t) * num_rows, ctx_->memory_pool()));
+    } else {
+      group_ids_validity = nullptr;
+    }
 
     for (int icol = 0; icol < num_columns; ++icol) {
       const uint8_t* non_nulls = nullptr;
@@ -746,16 +757,23 @@ struct GrouperFastImpl : Grouper {
                   match_bitvector.mutable_data(), local_slots.mutable_data(),
                   reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row);
       }
-      auto ids = util::TempVectorHolder<uint16_t>(&temp_stack_, batch_size_next);
-      int num_ids;
-      util::BitUtil::bits_to_indexes(0, encode_ctx_.hardware_flags, batch_size_next,
-                                     match_bitvector.mutable_data(), &num_ids,
-                                     ids.mutable_data());
 
-      RETURN_NOT_OK(map_.map_new_keys(
-          num_ids, ids.mutable_data(), minibatch_hashes_.data(),
-          reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row));
+      if (Find) {
+        // In find mode, don't insert the new keys. just copy the match bitvector to
+        // the group_ids_validity buffer. Valid group_ids are already populated.
+        arrow::internal::CopyBitmap(match_bitvector.mutable_data(), 0, batch_size_next,
+                                    group_ids_validity->mutable_data(), start_row);
+      } else {
+        auto ids = util::TempVectorHolder<uint16_t>(&temp_stack_, batch_size_next);
+        int num_ids;
+        util::BitUtil::bits_to_indexes(0, encode_ctx_.hardware_flags, batch_size_next,
+                                       match_bitvector.mutable_data(), &num_ids,
+                                       ids.mutable_data());
 
+        RETURN_NOT_OK(map_.map_new_keys(
+            num_ids, ids.mutable_data(), minibatch_hashes_.data(),
+            reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row));
+      }
       start_row += batch_size_next;
 
       if (minibatch_size_ * 2 <= minibatch_size_max_) {
@@ -763,12 +781,27 @@ struct GrouperFastImpl : Grouper {
       }
     }
 
-    return Datum(UInt32Array(batch.length, std::move(group_ids)));
+    return Datum(
+        UInt32Array(batch.length, std::move(group_ids), std::move(group_ids_validity)));
   }
 
-  Result<Datum> Find(const ExecBatch& batch) const override {
-    // todo impl this
-    return Result<Datum>();
+  Result<Datum> Find(const ExecBatch& batch) override {
+    // ARROW-14027: broadcast scalar arguments for now
+    for (int i = 0; i < batch.num_values(); i++) {
+      if (batch.values[i].is_scalar()) {
+        ExecBatch expanded = batch;
+        for (int j = i; j < expanded.num_values(); j++) {
+          if (expanded.values[j].is_scalar()) {
+            ARROW_ASSIGN_OR_RAISE(
+                expanded.values[j],
+                MakeArrayFromScalar(*expanded.values[j].scalar(), expanded.length,
+                                    ctx_->memory_pool()));
+          }
+        }
+        return ConsumeImpl</*Find=*/true>(expanded);
+      }
+    }
+    return ConsumeImpl</*Find=*/true>(batch);
   }
 
   uint32_t num_groups() const override { return static_cast<uint32_t>(rows_.length()); }
@@ -2590,10 +2623,9 @@ Result<FieldVector> ResolveKernels(
 
 Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
                                                ExecContext* ctx) {
-  // TODO(niranda) re-enable this!
-  //  if (GrouperFastImpl::CanUse(descrs)) {
-  //    return GrouperFastImpl::Make(descrs, ctx);
-  //  }
+  if (GrouperFastImpl::CanUse(descrs)) {
+    return GrouperFastImpl::Make(descrs, ctx);
+  }
   return GrouperImpl::Make(descrs, ctx);
 }
 

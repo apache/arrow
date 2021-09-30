@@ -413,7 +413,7 @@ class ARROW_EXPORT Grouper {
   /// Finds/ queries the group IDs for the given ExecBatch for every index. Returns the
   /// group IDs as an integer array. If a group ID not found, a null will be added to that
   /// index. This is a thread-safe lookup.
-  virtual Result<Datum> Find(const ExecBatch& batch) const = 0;
+  virtual Result<Datum> Find(const ExecBatch& batch) = 0;
 
   /// Get current unique keys. May be called multiple times.
   virtual Result<ExecBatch> GetUniques() = 0;
