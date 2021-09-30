@@ -330,6 +330,37 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
   }
 }
 
+# Currently, Arrow does not supports a locale option for string case conversion
+# functions, contrast to stringr's API, so the 'locale' argument is only valid
+# for stringr's default value ("en"). The following are string functions that
+# take a 'locale' option as its second argument:
+#   str_to_lower
+#   str_to_upper
+#   str_to_title
+#
+# Arrow locale will be supported with ARROW-14126
+stop_if_locale_provided <- function(locale) {
+  if (!identical(locale, "en")) {
+    stop("Providing a value for 'locale' other than the default ('en') is not supported by Arrow. ",
+    "To change locale, use 'Sys.setlocale()'", call. = FALSE)
+  }
+}
+
+nse_funcs$str_to_lower <- function(string, locale = "en") {
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_lower", string)
+}
+
+nse_funcs$str_to_upper <- function(string, locale = "en") {
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_upper", string)
+}
+
+nse_funcs$str_to_title <- function(string, locale = "en") {
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_title", string)
+}
+
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
