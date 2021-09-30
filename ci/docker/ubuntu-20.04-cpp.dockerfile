@@ -88,6 +88,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         pkg-config \
         protobuf-compiler \
+        python3-pip \
         rapidjson-dev \
         tzdata \
         wget && \
@@ -95,8 +96,10 @@ RUN apt-get update -y -q && \
     rm -rf /var/lib/apt/lists*
 
 COPY ci/scripts/install_minio.sh \
+     ci/scripts/install_gcs_testbench.sh \
      /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
