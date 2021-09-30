@@ -341,7 +341,7 @@ def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
     while time.time() - start < 10:
         try:
             _run_mc_command(mcdir, 'alias', 'set', 'myminio',
-                             f'http://{address}', access_key, secret_key)
+                            f'http://{address}', access_key, secret_key)
             return
         except ChildProcessError:
             time.sleep(1)
@@ -371,11 +371,11 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key):
         # policy and creates a sample bucket for that user to
         # write to
         _run_mc_command(mcdir, 'admin', 'policy', 'add',
-                         'myminio/', 'no-create-buckets', policy_path)
+                        'myminio/', 'no-create-buckets', policy_path)
         _run_mc_command(mcdir, 'admin', 'user', 'add',
-                         'myminio/', 'limited', 'limited123')
+                        'myminio/', 'limited', 'limited123')
         _run_mc_command(mcdir, 'admin', 'policy', 'set',
-                         'myminio', 'no-create-buckets', 'user=limited')
+                        'myminio', 'no-create-buckets', 'user=limited')
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket')
         return True
     except FileNotFoundError:
