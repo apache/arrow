@@ -468,7 +468,7 @@ test_that("strsplit and str_split", {
 })
 
 test_that("str_to_lower, str_to_upper, and str_to_title", {
-  df <- tibble(x = c("1Foo1", " \tB a R\n", "!apACHe aRroW!"))
+  df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
   expect_dplyr_equal(
     input %>%
       transmute(
