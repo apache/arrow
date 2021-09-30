@@ -30,7 +30,7 @@
 #include <iostream>
 #include <vector>
 
-// Many operations in Apache arrow operate on
+// Many operations in Apache Arrow operate on
 // columns of data, and the columns of data are
 // assembled into a table. In this example, we
 // examine how to compare two arrays which are
@@ -38,9 +38,9 @@
 // out to a CSV file.
 //
 // To run this example you can use
-// ./comparison_example uri
+// ./comparison_example URI
 //
-// where uri is the universal resource identifier
+// where URI is the universal resource identifier
 // to the directory you want created on your
 // filesystem that output will be put into, for
 // example on a local linux system
