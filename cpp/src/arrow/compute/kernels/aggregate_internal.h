@@ -21,6 +21,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -110,6 +111,26 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE);
+
+using arrow::internal::VisitSetBitRunsVoid;
+
+template <typename T, typename Enable = void>
+struct GetSumType;
+
+template <typename T>
+struct GetSumType<T, enable_if_floating_point<T>> {
+  using SumType = double;
+};
+
+template <typename T>
+struct GetSumType<T, enable_if_integer<T>> {
+  using SumType = arrow::internal::int128_t;
+};
+
+template <typename T>
+struct GetSumType<T, enable_if_decimal<T>> {
+  using SumType = typename TypeTraits<T>::CType;
+};
 
 // SumArray must be parameterized with the SIMD level since it's called both from
 // translation units with and without vectorization. Normally it gets inlined but

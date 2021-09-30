@@ -227,6 +227,9 @@ class ARROW_EXPORT BasicDecimal128 {
   /// \brief Get the maximum valid unscaled decimal value.
   static const BasicDecimal128& GetMaxValue();
 
+  /// \brief Get the maximum valid unscaled decimal value for the given precision.
+  static BasicDecimal128 GetMaxValue(int32_t precision);
+
   /// \brief Get the maximum decimal value (is not a valid value).
   static inline constexpr BasicDecimal128 GetMaxSentinel() {
     return BasicDecimal128(/*high=*/std::numeric_limits<int64_t>::max(),
@@ -426,6 +429,9 @@ class ARROW_EXPORT BasicDecimal256 {
 
   /// \brief In-place division.
   BasicDecimal256& operator/=(const BasicDecimal256& right);
+
+  /// \brief Get the maximum valid unscaled decimal value for the given precision.
+  static BasicDecimal256 GetMaxValue(int32_t precision);
 
   /// \brief Get the maximum decimal value (is not a valid value).
   static inline constexpr BasicDecimal256 GetMaxSentinel() {

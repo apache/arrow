@@ -36,12 +36,21 @@ using arrow::internal::VisitSetBitRunsVoid;
 template <typename ArrowType>
 struct VarStdState {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using CType = typename ArrowType::c_type;
+  using CType = typename TypeTraits<ArrowType>::CType;
   using ThisType = VarStdState<ArrowType>;
 
-  explicit VarStdState(VarianceOptions options) : options(options) {}
+  explicit VarStdState(int32_t decimal_scale, VarianceOptions options)
+      : decimal_scale(decimal_scale), options(options) {}
 
-  // float/double/int64: calculate `m2` (sum((X-mean)^2)) with `two pass algorithm`
+  template <typename T>
+  double ToDouble(T value) const {
+    return static_cast<double>(value);
+  }
+  double ToDouble(const Decimal128& value) const { return value.ToDouble(decimal_scale); }
+  double ToDouble(const Decimal256& value) const { return value.ToDouble(decimal_scale); }
+
+  // float/double/int64/decimal: calculate `m2` (sum((X-mean)^2)) with `two pass
+  // algorithm`
   // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Two-pass_algorithm
   template <typename T = ArrowType>
   enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4)> Consume(
@@ -52,14 +61,13 @@ struct VarStdState {
       return;
     }
 
-    using SumType =
-        typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
-    SumType sum = SumArray<CType, SumType, SimdLevel::NONE>(*array.data());
+    using SumType = typename internal::GetSumType<T>::SumType;
+    SumType sum = internal::SumArray<CType, SumType, SimdLevel::NONE>(*array.data());
 
-    const double mean = static_cast<double>(sum) / count;
-    const double m2 =
-        SumArray<CType, double, SimdLevel::NONE>(*array.data(), [mean](CType value) {
-          const double v = static_cast<double>(value);
+    const double mean = ToDouble(sum) / count;
+    const double m2 = internal::SumArray<CType, double, SimdLevel::NONE>(
+        *array.data(), [this, mean](CType value) {
+          const double v = ToDouble(value);
           return (v - mean) * (v - mean);
         });
 
@@ -102,7 +110,7 @@ struct VarStdState {
                             });
 
         // merge variance
-        ThisType state(options);
+        ThisType state(decimal_scale, options);
         state.count = var_std.count;
         state.mean = var_std.mean();
         state.m2 = var_std.m2();
@@ -116,7 +124,7 @@ struct VarStdState {
     this->m2 = 0;
     if (scalar.is_valid) {
       this->count = count;
-      this->mean = static_cast<double>(UnboxScalar<ArrowType>::Unbox(scalar));
+      this->mean = ToDouble(UnboxScalar<ArrowType>::Unbox(scalar));
     } else {
       this->count = 0;
       this->mean = 0;
@@ -141,6 +149,7 @@ struct VarStdState {
                 &this->mean, &this->m2);
   }
 
+  const int32_t decimal_scale;
   const VarianceOptions options;
   int64_t count = 0;
   double mean = 0;
@@ -153,9 +162,9 @@ struct VarStdImpl : public ScalarAggregator {
   using ThisType = VarStdImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  explicit VarStdImpl(const std::shared_ptr<DataType>& out_type,
+  explicit VarStdImpl(int32_t decimal_scale, const std::shared_ptr<DataType>& out_type,
                       const VarianceOptions& options, VarOrStd return_type)
-      : out_type(out_type), state(options), return_type(return_type) {}
+      : out_type(out_type), state(decimal_scale, options), return_type(return_type) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
@@ -216,8 +225,16 @@ struct VarStdInitState {
   }
 
   template <typename Type>
-  enable_if_t<is_number_type<Type>::value, Status> Visit(const Type&) {
-    state.reset(new VarStdImpl<Type>(out_type, options, return_type));
+  enable_if_number<Type, Status> Visit(const Type&) {
+    state.reset(
+        new VarStdImpl<Type>(/*decimal_scale=*/0, out_type, options, return_type));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
+    state.reset(new VarStdImpl<Type>(checked_cast<const DecimalType&>(in_type).scale(),
+                                     out_type, options, return_type));
     return Status::OK();
   }
 
@@ -247,7 +264,7 @@ void AddVarStdKernels(KernelInit init,
                       const std::vector<std::shared_ptr<DataType>>& types,
                       ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
-    auto sig = KernelSignature::Make({InputType(ty)}, float64());
+    auto sig = KernelSignature::Make({InputType(ty->id())}, float64());
     AddAggKernel(std::move(sig), init, func);
   }
 }
@@ -275,6 +292,7 @@ std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   auto func = std::make_shared<ScalarAggregateFunction>(
       "stddev", Arity::Unary(), &stddev_doc, &default_std_options);
   AddVarStdKernels(StddevInit, NumericTypes(), func.get());
+  AddVarStdKernels(StddevInit, {decimal128(1, 1), decimal256(1, 1)}, func.get());
   return func;
 }
 
@@ -283,6 +301,7 @@ std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
   auto func = std::make_shared<ScalarAggregateFunction>(
       "variance", Arity::Unary(), &variance_doc, &default_var_options);
   AddVarStdKernels(VarianceInit, NumericTypes(), func.get());
+  AddVarStdKernels(VarianceInit, {decimal128(1, 1), decimal256(1, 1)}, func.get());
   return func;
 }
 
