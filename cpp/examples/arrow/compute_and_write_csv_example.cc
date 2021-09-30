@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
   // Cast the arrays to their actual types
   auto int64_array_a = std::static_pointer_cast<arrow::Int64Array>(array_a);
   auto int64_array_b = std::static_pointer_cast<arrow::Int64Array>(array_b);
-  // Explicit comparison using a loop
+  // Explicit comparison of values using a loop
   for (int64_t i = 0; i < 8; i++) {
     if ((!int64_array_a->IsNull(i)) & (!int64_array_b->IsNull(i))) {
       bool comparison_result = int64_array_a->Value(i) > int64_array_b->Value(i);
@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
   ABORT_ON_FAILURE(boolean_builder.Finish(&array_c));
   std::cout << "Array explicitly compared" << std::endl;
 
-  // Try a compute function for comparison
+  // Explicit comparison of values using a compute function
   arrow::Datum compared_datum;
   std::shared_ptr<arrow::Array> array_d;
   arrow::Result<arrow::Datum> st_compared_datum =
@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
     std::cerr << st_compared_datum.status() << std::endl;
   }
   std::cout << "Arrays compared using a compute function" << std::endl;
-  // Create a table
+  // Create a table for the output
   auto schema =
       arrow::schema({arrow::field("a", arrow::int64()), 
                      arrow::field("b", arrow::int64()),
