@@ -522,7 +522,7 @@ def call_function(name, args, options=None, memory_pool=None):
     options : optional
         options provided to the function.
     memory_pool : MemoryPool, optional
-        memory pool to use for allocations during function.
+        memory pool to use for allocations during function execution.
     """
     func = _global_func_registry.get_function(name)
     return func.call(args, options=options, memory_pool=memory_pool)
@@ -700,12 +700,12 @@ class CastOptions(_CastOptions):
     @staticmethod
     def safe(target_type=None):
         """"
-        Cast operation options.
+        Create a CastOptions for a safe cast.
 
         Parameters
         ----------
         target_type : optional
-            Target type for the safe cast.
+            Target cast type for the safe cast.
         """
         self = CastOptions()
         self._set_safe()
@@ -715,12 +715,12 @@ class CastOptions(_CastOptions):
     @staticmethod
     def unsafe(target_type=None):
         """"
-        Cast operation options.
+        Create a CastOptions for an unsafe cast.
 
         Parameters
         ----------
         target_type : optional
-            Target type for the unsafe cast.
+            Target cast type for the unsafe cast.
         """
         self = CastOptions()
         self._set_unsafe()
