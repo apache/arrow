@@ -162,22 +162,33 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO (ARROW-13893): refactor
-  out <- head.Dataset(x, n, ...)
+  out <- head.Dataset(ensure_group_vars(x), n, ...)
   restore_dplyr_features(out, x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO (ARROW-13893): refactor
-  out <- tail.Dataset(x, n, ...)
+  out <- tail.Dataset(ensure_group_vars(x), n, ...)
   restore_dplyr_features(out, x)
 }
 
 #' @export
-`[.arrow_dplyr_query` <- `[.Dataset`
-# TODO: ^ should also probably restore_dplyr_features, and/or that should be moved down
-# TODO (ARROW-13893): refactor
+`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
+  x <- ensure_group_vars(x)
+  if (nargs() == 2L) {
+    # List-like column extraction (x[i])
+    return(x[, i])
+  }
+  if (!missing(j)) {
+    x <- select.Dataset(x, all_of(j))
+  }
+
+  if (!missing(i)) {
+    out <- take_dataset_rows(x, i)
+    x <- restore_dplyr_features(out, x)
+  }
+  x
+}
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
