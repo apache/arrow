@@ -22,6 +22,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
 #include "arrow/vendored/datetime.h"
@@ -49,17 +50,21 @@ using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
 using arrow_vendored::date::year_month_day;
+using arrow_vendored::date::year_month_weekday;
 using arrow_vendored::date::years;
 using arrow_vendored::date::zoned_time;
 using arrow_vendored::date::literals::dec;
 using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
 using arrow_vendored::date::literals::mon;
+using arrow_vendored::date::literals::sun;
 using arrow_vendored::date::literals::thu;
-using internal::applicator::ScalarUnaryNotNull;
+using arrow_vendored::date::literals::wed;
+using internal::applicator::ScalarBinaryNotNullStatefulEqualTypes;
 using internal::applicator::SimpleUnary;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
+using WeekState = OptionsWrapper<WeekOptions>;
 using StrftimeState = OptionsWrapper<StrftimeOptions>;
 using AssumeTimezoneState = OptionsWrapper<AssumeTimezoneOptions>;
 
@@ -67,30 +72,6 @@ const std::shared_ptr<DataType>& IsoCalendarType() {
   static auto type = struct_({field("iso_year", int64()), field("iso_week", int64()),
                               field("iso_day_of_week", int64())});
   return type;
-}
-
-const std::string& GetInputTimezone(const DataType& type) {
-  return checked_cast<const TimestampType&>(type).timezone();
-}
-
-const std::string& GetInputTimezone(const Datum& datum) {
-  return checked_cast<const TimestampType&>(*datum.type()).timezone();
-}
-
-const std::string& GetInputTimezone(const Scalar& scalar) {
-  return checked_cast<const TimestampType&>(*scalar.type).timezone();
-}
-
-const std::string& GetInputTimezone(const ArrayData& array) {
-  return checked_cast<const TimestampType&>(*array.type).timezone();
-}
-
-Result<const time_zone*> LocateZone(const std::string& timezone) {
-  try {
-    return locate_zone(timezone);
-  } catch (const std::runtime_error& ex) {
-    return Status::Invalid("Cannot locate timezone '", timezone, "': ", ex.what());
-  }
 }
 
 Result<std::locale> GetLocale(const std::string& locale) {
@@ -101,93 +82,72 @@ Result<std::locale> GetLocale(const std::string& locale) {
   }
 }
 
-struct NonZonedLocalizer {
-  // No-op conversions: UTC -> UTC
-  template <typename Duration>
-  sys_time<Duration> ConvertTimePoint(int64_t t) const {
-    return sys_time<Duration>(Duration{t});
+Status CheckTimezones(const ExecBatch& batch) {
+  const auto& timezone = GetInputTimezone(batch.values[0]);
+  for (int i = 1; i < batch.num_values(); i++) {
+    const auto& other_timezone = GetInputTimezone(batch.values[i]);
+    if (other_timezone != timezone) {
+      return Status::TypeError("Got differing time zone '", other_timezone,
+                               "' for argument ", i + 1, "; expected '", timezone, "'");
+    }
   }
+  return Status::OK();
+}
 
-  sys_days ConvertDays(sys_days d) const { return d; }
-};
-
-struct ZonedLocalizer {
-  // Timezone-localizing conversions: UTC -> local time
-  const time_zone* tz;
-
-  template <typename Duration>
-  local_time<Duration> ConvertTimePoint(int64_t t) const {
-    return tz->to_local(sys_time<Duration>(Duration{t}));
+Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
+  if (options.week_start < 1 || 7 < options.week_start) {
+    return Status::Invalid(
+        "week_start must follow ISO convention (Monday=1, Sunday=7). Got week_start=",
+        options.week_start);
   }
+  return Status::OK();
+}
 
-  local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }
-};
+int64_t GetQuarter(const year_month_day& ymd) {
+  return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
+}
 
-//
-// Executor class for temporal component extractors, i.e. scalar kernels
-// with the signature temporal type -> <non-temporal scalar type `OutType`>
-//
-// The `Op` parameter is templated on the Duration (which depends on the timestamp
-// unit) and a Localizer class (depending on whether the timestamp has a
-// timezone defined).
-//
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
-struct TemporalComponentExtractBase {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
+struct TemporalBinary {
+  template <typename OptionsType, typename T = InType>
+  static enable_if_timestamp<T, Status> ExecWithOptions(KernelContext* ctx,
+                                                        const OptionsType* options,
+                                                        const ExecBatch& batch,
+                                                        Datum* out) {
+    RETURN_NOT_OK(CheckTimezones(batch));
+
     const auto& timezone = GetInputTimezone(batch.values[0]);
     if (timezone.empty()) {
       using ExecTemplate = Op<Duration, NonZonedLocalizer>;
       auto op = ExecTemplate(options, NonZonedLocalizer());
-      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
+      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
           op};
       return kernel.Exec(ctx, batch, out);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
       using ExecTemplate = Op<Duration, ZonedLocalizer>;
       auto op = ExecTemplate(options, ZonedLocalizer{tz});
-      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
+      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
           op};
       return kernel.Exec(ctx, batch, out);
     }
   }
-};
 
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, days, Date32Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<days, NonZonedLocalizer>;
+  template <typename OptionsType, typename T = InType>
+  static enable_if_t<!is_timestamp_type<T>::value, Status> ExecWithOptions(
+      KernelContext* ctx, const OptionsType* options, const ExecBatch& batch,
+      Datum* out) {
+    using ExecTemplate = Op<Duration, NonZonedLocalizer>;
     auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Date32Type, ExecTemplate> kernel{op};
+    applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
+        op};
     return kernel.Exec(ctx, batch, out);
   }
-};
-
-template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Date64Type, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecBatch& batch, Datum* out) {
-    using ExecTemplate = Op<std::chrono::milliseconds, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, Date64Type, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename Duration, typename InType,
-          typename OutType>
-struct TemporalComponentExtract
-    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
-  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const FunctionOptions* options = nullptr;
-    return Base::ExecWithOptions(ctx, options, batch, out);
+    return ExecWithOptions(ctx, options, batch, out);
   }
 };
 
@@ -199,11 +159,19 @@ struct TemporalComponentExtractDayOfWeek
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
-    if (options.week_start < 1 || 7 < options.week_start) {
-      return Status::Invalid(
-          "week_start must follow ISO convention (Monday=1, Sunday=7). Got week_start=",
-          options.week_start);
-    }
+    RETURN_NOT_OK(ValidateDayOfWeekOptions(options));
+    return Base::ExecWithOptions(ctx, &options, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename Duration, typename InType,
+          typename OutType>
+struct TemporalDayOfWeekBinary : public TemporalBinary<Op, Duration, InType, OutType> {
+  using Base = TemporalBinary<Op, Duration, InType, OutType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
+    RETURN_NOT_OK(ValidateDayOfWeekOptions(options));
     return Base::ExecWithOptions(ctx, &options, batch, out);
   }
 };
@@ -227,6 +195,18 @@ struct AssumeTimezoneExtractor
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename Duration, typename InType,
+          typename OutType>
+struct TemporalComponentExtractWeek
+    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const WeekOptions& options = WeekState::Get(ctx);
+    return Base::ExecWithOptions(ctx, &options, batch, out);
   }
 };
 
@@ -301,13 +281,13 @@ struct DayOfWeek {
     for (int i = 0; i < 7; i++) {
       lookup_table[i] = i + 8 - options->week_start;
       lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
-      lookup_table[i] += options->one_based_numbering;
+      lookup_table[i] += !options->count_from_zero;
     }
   }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto wd = arrow_vendored::date::year_month_weekday(
+    const auto wd = year_month_weekday(
                         floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
                         .weekday()
                         .iso_encoding();
@@ -362,31 +342,70 @@ struct ISOYear {
 };
 
 // ----------------------------------------------------------------------
-// Extract ISO week from temporal types
+// Extract week from temporal types
 //
-// First week of an ISO year has the majority (4 or more) of it's days in January.
+// First week of an ISO year has the majority (4 or more) of its days in January.
 // Last week of an ISO year has the year's last Thursday in it.
 // Based on
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 
 template <typename Duration, typename Localizer>
-struct ISOWeek {
-  explicit ISOWeek(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
+struct Week {
+  explicit Week(const WeekOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)),
+        count_from_zero_(options->count_from_zero),
+        first_week_is_fully_in_year_(options->first_week_is_fully_in_year) {
+    if (options->week_starts_monday) {
+      if (first_week_is_fully_in_year_) {
+        wd_ = mon;
+      } else {
+        wd_ = thu;
+      }
+    } else {
+      if (first_week_is_fully_in_year_) {
+        wd_ = sun;
+      } else {
+        wd_ = wed;
+      }
+    }
+    if (count_from_zero_) {
+      days_offset_ = days{0};
+    } else {
+      days_offset_ = days{3};
+    }
+  }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
-    auto y = year_month_day{t + days{3}}.year();
-    auto start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
-    if (t < start) {
-      --y;
-      start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
+    auto y = year_month_day{t + days_offset_}.year();
+
+    if (first_week_is_fully_in_year_) {
+      auto start = localizer_.ConvertDays(y / jan / wd_[1]);
+      if (!count_from_zero_) {
+        if (t < start) {
+          --y;
+          start = localizer_.ConvertDays(y / jan / wd_[1]);
+        }
+      }
+      return static_cast<T>(floor<weeks>(t - start).count() + 1);
     }
-    return static_cast<T>(trunc<weeks>(t - start).count() + 1);
+
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
+    if (!count_from_zero_) {
+      if (t < start) {
+        --y;
+        start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
+      }
+    }
+    return static_cast<T>(floor<weeks>(t - start).count() + 1);
   }
 
   Localizer localizer_;
+  arrow_vendored::date::weekday wd_;
+  arrow_vendored::date::days days_offset_;
+  const bool count_from_zero_;
+  const bool first_week_is_fully_in_year_;
 };
 
 // ----------------------------------------------------------------------
@@ -401,7 +420,7 @@ struct Quarter {
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto ymd =
         year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)));
-    return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
+    return static_cast<T>(GetQuarter(ymd) + 1);
   }
 
   Localizer localizer_;
@@ -528,7 +547,13 @@ struct Strftime {
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
     const StrftimeOptions& options = StrftimeState::Get(ctx);
 
+    // This check is due to surprising %c behavior.
+    // See https://github.com/HowardHinnant/date/issues/704
+    if ((options.format.find("%c") != std::string::npos) && (options.locale != "C")) {
+      return Status::Invalid("%c flag is not supported in non-C locales.");
+    }
     auto timezone = GetInputTimezone(type);
+
     if (timezone.empty()) {
       if ((options.format.find("%z") != std::string::npos) ||
           (options.format.find("%Z") != std::string::npos)) {
@@ -551,7 +576,7 @@ struct Strftime {
     TimestampFormatter formatter{self.options.format, self.tz, self.locale};
 
     if (in.is_valid) {
-      const int64_t in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
+      const int64_t in_val = internal::UnboxScalar<const InType>::Unbox(in);
       ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(in_val));
       checked_cast<StringScalar*>(out)->value = Buffer::FromString(std::move(formatted));
     } else {
@@ -579,7 +604,7 @@ struct Strftime {
       ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(arg));
       return string_builder.Append(std::move(formatted));
     };
-    RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
+    RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
 
     std::shared_ptr<Array> out_array;
     RETURN_NOT_OK(string_builder.Finish(&out_array));
@@ -829,12 +854,193 @@ struct ISOCalendar {
   }
 };
 
+// ----------------------------------------------------------------------
+// Compute boundary crossings between two timestamps
+
+template <typename Duration, typename Localizer>
+struct YearsBetween {
+  YearsBetween(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
+    year_month_day from(
+        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
+    year_month_day to(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
+    return static_cast<T>((to.year() - from.year()).count());
+  }
+
+  Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+struct QuartersBetween {
+  QuartersBetween(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  static int64_t GetQuarters(const year_month_day& ymd) {
+    return static_cast<int64_t>(static_cast<int32_t>(ymd.year())) * 4 + GetQuarter(ymd);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
+    year_month_day from_ymd(
+        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
+    year_month_day to_ymd(
+        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
+    int64_t from_quarters = GetQuarters(from_ymd);
+    int64_t to_quarters = GetQuarters(to_ymd);
+    return static_cast<T>(to_quarters - from_quarters);
+  }
+
+  Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+struct MonthsBetween {
+  MonthsBetween(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
+    year_month_day from(
+        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
+    year_month_day to(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
+    return static_cast<T>((to.year() / to.month() - from.year() / from.month()).count());
+  }
+
+  Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+struct WeeksBetween {
+  using days_t = typename Localizer::days_t;
+
+  WeeksBetween(const DayOfWeekOptions* options, Localizer&& localizer)
+      : week_start_(options->week_start), localizer_(std::move(localizer)) {}
+
+  /// Adjust the day backwards to land on the start of the week.
+  days_t ToWeekStart(days_t point) const {
+    const weekday dow(point);
+    const weekday start_of_week(week_start_);
+    if (dow == start_of_week) return point;
+    const days delta = start_of_week - dow;
+    // delta is always positive and in [0, 6]
+    return point - days(7 - delta.count());
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
+    auto from =
+        ToWeekStart(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
+    auto to =
+        ToWeekStart(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
+    return (to - from).count() / 7;
+  }
+
+  uint32_t week_start_;
+  Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+struct MonthDayNanoBetween {
+  MonthDayNanoBetween(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
+    static_assert(std::is_same<T, MonthDayNanoIntervalType::MonthDayNanos>::value, "");
+    auto from = localizer_.template ConvertTimePoint<Duration>(arg0);
+    auto to = localizer_.template ConvertTimePoint<Duration>(arg1);
+    year_month_day from_ymd(floor<days>(from));
+    year_month_day to_ymd(floor<days>(to));
+    const int32_t num_months = static_cast<int32_t>(
+        (to_ymd.year() / to_ymd.month() - from_ymd.year() / from_ymd.month()).count());
+    const int32_t num_days = static_cast<int32_t>(static_cast<uint32_t>(to_ymd.day())) -
+                             static_cast<int32_t>(static_cast<uint32_t>(from_ymd.day()));
+    auto from_time = static_cast<int64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(from - floor<days>(from))
+            .count());
+    auto to_time = static_cast<int64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(to - floor<days>(to))
+            .count());
+    const int64_t num_nanos = to_time - from_time;
+    return T{num_months, num_days, num_nanos};
+  }
+
+  Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+struct DayTimeBetween {
+  DayTimeBetween(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
+    static_assert(std::is_same<T, DayTimeIntervalType::DayMilliseconds>::value, "");
+    auto from = localizer_.template ConvertTimePoint<Duration>(arg0);
+    auto to = localizer_.template ConvertTimePoint<Duration>(arg1);
+    const int32_t num_days =
+        static_cast<int32_t>((floor<days>(to) - floor<days>(from)).count());
+    auto from_time = static_cast<int32_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(from - floor<days>(from))
+            .count());
+    auto to_time = static_cast<int32_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(to - floor<days>(to))
+            .count());
+    const int32_t num_millis = to_time - from_time;
+    return DayTimeIntervalType::DayMilliseconds{num_days, num_millis};
+  }
+
+  Localizer localizer_;
+};
+
+template <typename Unit, typename Duration, typename Localizer>
+struct UnitsBetween {
+  UnitsBetween(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
+    auto from = floor<Unit>(localizer_.template ConvertTimePoint<Duration>(arg0));
+    auto to = floor<Unit>(localizer_.template ConvertTimePoint<Duration>(arg1));
+    return static_cast<T>((to - from).count());
+  }
+
+  Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+using DaysBetween = UnitsBetween<days, Duration, Localizer>;
+
+template <typename Duration, typename Localizer>
+using HoursBetween = UnitsBetween<std::chrono::hours, Duration, Localizer>;
+
+template <typename Duration, typename Localizer>
+using MinutesBetween = UnitsBetween<std::chrono::minutes, Duration, Localizer>;
+
+template <typename Duration, typename Localizer>
+using SecondsBetween = UnitsBetween<std::chrono::seconds, Duration, Localizer>;
+
+template <typename Duration, typename Localizer>
+using MillisecondsBetween = UnitsBetween<std::chrono::milliseconds, Duration, Localizer>;
+
+template <typename Duration, typename Localizer>
+using MicrosecondsBetween = UnitsBetween<std::chrono::microseconds, Duration, Localizer>;
+
+template <typename Duration, typename Localizer>
+using NanosecondsBetween = UnitsBetween<std::chrono::nanoseconds, Duration, Localizer>;
+
+// ----------------------------------------------------------------------
+// Registration helpers
+
 // Which types to generate a kernel for
-enum EnabledTypes : uint8_t { WithDates, WithTimestamps };
+enum EnabledTypes : uint8_t { WithDates, WithTimes, WithTimestamps };
 
 template <template <typename...> class Op,
           template <template <typename...> class OpExec, typename Duration,
-                    typename InType, typename OutType>
+                    typename InType, typename OutType, typename... Args>
           class ExecTemplate,
           typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporal(
@@ -853,6 +1059,25 @@ std::shared_ptr<ScalarFunction> MakeTemporal(
         auto exec64 =
             ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
         DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
+        break;
+      }
+
+      case WithTimes: {
+        auto exec32s = ExecTemplate<Op, std::chrono::seconds, Time32Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::SECOND)}, out_type,
+                                  std::move(exec32s), init));
+        auto exec32ms =
+            ExecTemplate<Op, std::chrono::milliseconds, Time32Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::MILLI)}, out_type,
+                                  std::move(exec32ms), init));
+        auto exec64us =
+            ExecTemplate<Op, std::chrono::microseconds, Time64Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::MICRO)}, out_type,
+                                  std::move(exec64us), init));
+        auto exec64ns =
+            ExecTemplate<Op, std::chrono::nanoseconds, Time64Type, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::NANO)}, out_type, std::move(exec64ns),
+                                  init));
         break;
       }
 
@@ -912,6 +1137,23 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporal(
         DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
         break;
       }
+
+      case WithTimes: {
+        auto exec32s = SimpleUnary<Op<std::chrono::seconds, Time32Type>>;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::SECOND)}, out_type,
+                                  std::move(exec32s), init));
+        auto exec32ms = SimpleUnary<Op<std::chrono::milliseconds, Time32Type>>;
+        DCHECK_OK(func->AddKernel({time32(TimeUnit::MILLI)}, out_type,
+                                  std::move(exec32ms), init));
+        auto exec64us = SimpleUnary<Op<std::chrono::microseconds, Time64Type>>;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::MICRO)}, out_type,
+                                  std::move(exec64us), init));
+        auto exec64ns = SimpleUnary<Op<std::chrono::nanoseconds, Time64Type>>;
+        DCHECK_OK(func->AddKernel({time64(TimeUnit::NANO)}, out_type, std::move(exec64ns),
+                                  init));
+        break;
+      }
+
       case WithTimestamps: {
         for (auto unit : TimeUnit::values()) {
           InputType in_type{match::TimestampTypeUnit(unit)};
@@ -946,10 +1188,94 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporal(
   return func;
 }
 
+template <template <typename...> class Op,
+          template <template <typename...> class OpExec, typename Duration,
+                    typename InType, typename OutType>
+          class ExecTemplate,
+          typename OutType>
+std::shared_ptr<ScalarFunction> MakeTemporalBinary(
+    std::string name, std::initializer_list<EnabledTypes> in_types,
+    const std::shared_ptr<arrow::DataType> out_type, const FunctionDoc* doc,
+    const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
+  DCHECK_GT(in_types.size(), 0);
+  auto func =
+      std::make_shared<ScalarFunction>(name, Arity::Binary(), doc, default_options);
+
+  for (const auto in_type : in_types) {
+    switch (in_type) {
+      case WithDates: {
+        auto exec32 = ExecTemplate<Op, days, Date32Type, OutType>::Exec;
+        DCHECK_OK(
+            func->AddKernel({date32(), date32()}, out_type, std::move(exec32), init));
+        auto exec64 =
+            ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
+        DCHECK_OK(
+            func->AddKernel({date64(), date64()}, out_type, std::move(exec64), init));
+        break;
+      }
+      case WithTimes: {
+        auto exec32s = ExecTemplate<Op, std::chrono::seconds, Time32Type, OutType>::Exec;
+        auto ty = time32(TimeUnit::SECOND);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec32s), init));
+        auto exec32ms =
+            ExecTemplate<Op, std::chrono::milliseconds, Time32Type, OutType>::Exec;
+        ty = time32(TimeUnit::MILLI);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec32ms), init));
+        auto exec64us =
+            ExecTemplate<Op, std::chrono::microseconds, Time64Type, OutType>::Exec;
+        ty = time64(TimeUnit::MICRO);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec64us), init));
+        auto exec64ns =
+            ExecTemplate<Op, std::chrono::nanoseconds, Time64Type, OutType>::Exec;
+        ty = time64(TimeUnit::NANO);
+        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec64ns), init));
+        break;
+      }
+      case WithTimestamps: {
+        for (auto unit : TimeUnit::values()) {
+          InputType in_type{match::TimestampTypeUnit(unit)};
+          switch (unit) {
+            case TimeUnit::SECOND: {
+              auto exec =
+                  ExecTemplate<Op, std::chrono::seconds, TimestampType, OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MILLI: {
+              auto exec = ExecTemplate<Op, std::chrono::milliseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::MICRO: {
+              auto exec = ExecTemplate<Op, std::chrono::microseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+            case TimeUnit::NANO: {
+              auto exec = ExecTemplate<Op, std::chrono::nanoseconds, TimestampType,
+                                       OutType>::Exec;
+              DCHECK_OK(
+                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+              break;
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+  return func;
+}
+
 const FunctionDoc year_doc{
-    "Extract year from temporal types",
+    "Extract year number",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -957,14 +1283,14 @@ const FunctionDoc month_doc{
     "Extract month number",
     ("Month is encoded as January=1, December=12.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc day_doc{
     "Extract day number",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -974,18 +1300,18 @@ const FunctionDoc day_of_week_doc{
      "represented by 6.\n"
      "`DayOfWeekOptions.week_start` can be used to set another starting day using\n"
      "the ISO numbering convention (1=start week on Monday, 7=start week on Sunday).\n"
-     "Day numbers can start at 0 or 1 based on `DayOfWeekOptions.one_based_numbering`.\n"
+     "Day numbers can start at 0 or 1 based on `DayOfWeekOptions.count_from_zero`.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"},
     "DayOfWeekOptions"};
 
 const FunctionDoc day_of_year_doc{
-    "Extract number of day of year",
+    "Extract day of year number",
     ("January 1st maps to day number 1, February 1st to 32, etc.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -993,24 +1319,45 @@ const FunctionDoc iso_year_doc{
     "Extract ISO year number",
     ("First week of an ISO year has the majority (4 or more) of its days in January."
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
-    ("First ISO week has the majority (4 or more) of its days in January.\n"
+    ("First ISO week has the majority (4 or more) of its days in January."
+     "ISO week starts on Monday.\n"
+     "Week of the year starts with 1 and can run up to 53.\n"
+     "Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
+const FunctionDoc us_week_doc{
+    "Extract US week of year number",
+    ("First US week has the majority (4 or more) of its days in January."
+     "US week starts on Sunday.\n"
      "Week of the year starts with 1 and can run up to 53.\n"
      "Null values emit null.\n"
      "An error is returned if the timestamps have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc week_doc{
+    "Extract week of year number",
+    ("First week has the majority (4 or more) of its days in January.\n"
+     "Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using "
+     "DayOfWeekOptions.count_from_zero.\n"
+     "An error is returned if the timestamps have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"},
+    "WeekOptions"};
+
 const FunctionDoc iso_calendar_doc{
     "Extract (ISO year, ISO week, ISO day of week) struct",
     ("ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1018,28 +1365,28 @@ const FunctionDoc quarter_doc{
     "Extract quarter of year number",
     ("First quarter maps to 1 and forth quarter maps to 4.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc hour_doc{
     "Extract hour value",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc minute_doc{
     "Extract minute values",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc second_doc{
     "Extract second values",
     ("Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1047,7 +1394,7 @@ const FunctionDoc millisecond_doc{
     "Extract millisecond values",
     ("Millisecond returns number of milliseconds since the last full second.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1055,7 +1402,7 @@ const FunctionDoc microsecond_doc{
     "Extract microsecond values",
     ("Millisecond returns number of microseconds since the last full millisecond.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1063,7 +1410,7 @@ const FunctionDoc nanosecond_doc{
     "Extract nanosecond values",
     ("Nanosecond returns number of nanoseconds since the last full microsecond.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
@@ -1071,20 +1418,20 @@ const FunctionDoc subsecond_doc{
     "Extract subsecond values",
     ("Subsecond returns the fraction of a second since the last full second.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc strftime_doc{
-    "Format timestamps according to a format string",
-    ("For each input timestamp, emit a formatted string.\n"
+    "Format temporal values according to a format string",
+    ("For each input value, emit a formatted string.\n"
      "The time format string and locale can be set using StrftimeOptions.\n"
      "The output precision of the \"%S\" (seconds) format code depends on\n"
-     "the input timestamp precision: it is an integer for timestamps with\n"
+     "the input time precision: it is an integer for timestamps with\n"
      "second precision, a real number with the required number of fractional\n"
      "digits for higher precisions.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database, or if the specified locale\n"
      "does not exist on this system."),
     {"timestamps"},
@@ -1103,6 +1450,114 @@ const FunctionDoc assume_timezone_doc{
     {"timestamps"},
     "AssumeTimezoneOptions"};
 
+const FunctionDoc years_between_doc{
+    "Compute the number of years between two timestamps",
+    ("Returns the number of year boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the year.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc quarters_between_doc{
+    "Compute the number of quarters between two timestamps",
+    ("Returns the number of quarter start boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the quarter.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc months_between_doc{
+    "Compute the number of months between two timestamps",
+    ("Returns the number of month boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the month.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc month_day_nano_interval_between_doc{
+    "Compute the number of months, days and nanoseconds between two timestamps",
+    ("Returns the number of months, days, and nanoseconds from `start` to `end`.\n"
+     "That is, first the difference in months is computed as if both timestamps\n"
+     "were truncated to the months, then the difference between the days\n"
+     "is computed, and finally the difference between the times of the two\n"
+     "timestamps is computed as if both times were truncated to the nanosecond.\n"
+     "Null values return null."),
+    {"start", "end"}};
+
+const FunctionDoc weeks_between_doc{
+    "Compute the number of weeks between two timestamps",
+    ("Returns the number of week boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the week.\n"
+     "Null values emit null."),
+    {"start", "end"},
+    "DayOfWeekOptions"};
+
+const FunctionDoc day_time_interval_between_doc{
+    "Compute the number of days and milliseconds between two timestamps",
+    ("Returns the number of days and milliseconds from `start` to `end`.\n"
+     "That is, first the difference in days is computed as if both\n"
+     "timestamps were truncated to the day, then the difference between time times\n"
+     "of the two timestamps is computed as if both times were truncated to the\n"
+     "millisecond.\n"
+     "Null values return null."),
+    {"start", "end"}};
+
+const FunctionDoc days_between_doc{
+    "Compute the number of days between two timestamps",
+    ("Returns the number of day boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the day.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc hours_between_doc{
+    "Compute the number of hours between two timestamps",
+    ("Returns the number of hour boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the hour.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc minutes_between_doc{
+    "Compute the number of minute boundaries between two timestamps",
+    ("Returns the number of minute boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the minute.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc seconds_between_doc{
+    "Compute the number of seconds between two timestamps",
+    ("Returns the number of second boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the second.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc milliseconds_between_doc{
+    "Compute the number of millisecond boundaries between two timestamps",
+    ("Returns the number of millisecond boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the millisecond.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc microseconds_between_doc{
+    "Compute the number of microseconds between two timestamps",
+    ("Returns the number of microsecond boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the microsecond.\n"
+     "Null values emit null."),
+    {"start", "end"}};
+
+const FunctionDoc nanoseconds_between_doc{
+    "Compute the number of nanoseconds between two timestamps",
+    ("Returns the number of nanosecond boundaries crossed from `start` to `end`.\n"
+     "That is, the difference is calculated as if the timestamps were\n"
+     "truncated to the nanosecond.\n"
+     "Null values emit null."),
+    {"start", "end"}};
 }  // namespace
 
 void RegisterScalarTemporal(FunctionRegistry* registry) {
@@ -1135,9 +1590,23 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "iso_year", {WithDates, WithTimestamps}, int64(), &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
-  auto iso_week = MakeTemporal<ISOWeek, TemporalComponentExtract, Int64Type>(
-      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc);
+  static const auto default_iso_week_options = WeekOptions::ISODefaults();
+  auto iso_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc,
+      &default_iso_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
+
+  static const auto default_us_week_options = WeekOptions::USDefaults();
+  auto us_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "us_week", {WithDates, WithTimestamps}, int64(), &us_week_doc,
+      &default_us_week_options, WeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(us_week)));
+
+  static const auto default_week_options = WeekOptions();
+  auto week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
+      "week", {WithDates, WithTimestamps}, int64(), &week_doc, &default_week_options,
+      WeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(week)));
 
   auto iso_calendar = MakeSimpleUnaryTemporal<ISOCalendar>(
       "iso_calendar", {WithDates, WithTimestamps}, IsoCalendarType(), &iso_calendar_doc);
@@ -1150,39 +1619,39 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   // Date / time extractors
 
   auto hour = MakeTemporal<Hour, TemporalComponentExtract, Int64Type>(
-      "hour", {WithTimestamps}, int64(), &hour_doc);
+      "hour", {WithTimes, WithTimestamps}, int64(), &hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
   auto minute = MakeTemporal<Minute, TemporalComponentExtract, Int64Type>(
-      "minute", {WithTimestamps}, int64(), &minute_doc);
+      "minute", {WithTimes, WithTimestamps}, int64(), &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
   auto second = MakeTemporal<Second, TemporalComponentExtract, Int64Type>(
-      "second", {WithTimestamps}, int64(), &second_doc);
+      "second", {WithTimes, WithTimestamps}, int64(), &second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond = MakeTemporal<Millisecond, TemporalComponentExtract, Int64Type>(
-      "millisecond", {WithTimestamps}, int64(), &millisecond_doc);
+      "millisecond", {WithTimes, WithTimestamps}, int64(), &millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
   auto microsecond = MakeTemporal<Microsecond, TemporalComponentExtract, Int64Type>(
-      "microsecond", {WithTimestamps}, int64(), &microsecond_doc);
+      "microsecond", {WithTimes, WithTimestamps}, int64(), &microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
   auto nanosecond = MakeTemporal<Nanosecond, TemporalComponentExtract, Int64Type>(
-      "nanosecond", {WithTimestamps}, int64(), &nanosecond_doc);
+      "nanosecond", {WithTimes, WithTimestamps}, int64(), &nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond = MakeTemporal<Subsecond, TemporalComponentExtract, DoubleType>(
-      "subsecond", {WithTimestamps}, float64(), &subsecond_doc);
+      "subsecond", {WithTimes, WithTimestamps}, float64(), &subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
   // Timezone-related functions
 
   static const auto default_strftime_options = StrftimeOptions();
   auto strftime = MakeSimpleUnaryTemporal<Strftime>(
-      "strftime", {WithTimestamps}, utf8(), &strftime_doc, &default_strftime_options,
-      StrftimeState::Init);
+      "strftime", {WithTimes, WithDates, WithTimestamps}, utf8(), &strftime_doc,
+      &default_strftime_options, StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
 
   auto assume_timezone =
@@ -1191,6 +1660,75 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
           OutputType::Resolver(ResolveAssumeTimezoneOutput), &assume_timezone_doc,
           nullptr, AssumeTimezoneState::Init);
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
+
+  auto years_between = MakeTemporalBinary<YearsBetween, TemporalBinary, Int64Type>(
+      "years_between", {WithDates, WithTimestamps}, int64(), &years_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(years_between)));
+
+  auto quarters_between = MakeTemporalBinary<QuartersBetween, TemporalBinary, Int64Type>(
+      "quarters_between", {WithDates, WithTimestamps}, int64(), &quarters_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(quarters_between)));
+
+  auto month_interval_between =
+      MakeTemporalBinary<MonthsBetween, TemporalBinary, MonthIntervalType>(
+          "month_interval_between", {WithDates, WithTimestamps}, month_interval(),
+          &months_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(month_interval_between)));
+
+  auto month_day_nano_interval_between =
+      MakeTemporalBinary<MonthDayNanoBetween, TemporalBinary, MonthDayNanoIntervalType>(
+          "month_day_nano_interval_between", {WithDates, WithTimes, WithTimestamps},
+          month_day_nano_interval(), &month_day_nano_interval_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(month_day_nano_interval_between)));
+
+  auto weeks_between =
+      MakeTemporalBinary<WeeksBetween, TemporalDayOfWeekBinary, Int64Type>(
+          "weeks_between", {WithDates, WithTimestamps}, int64(), &weeks_between_doc,
+          &default_day_of_week_options, DayOfWeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(weeks_between)));
+
+  auto day_time_interval_between =
+      MakeTemporalBinary<DayTimeBetween, TemporalBinary, DayTimeIntervalType>(
+          "day_time_interval_between", {WithDates, WithTimes, WithTimestamps},
+          day_time_interval(), &day_time_interval_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(day_time_interval_between)));
+
+  auto days_between = MakeTemporalBinary<DaysBetween, TemporalBinary, Int64Type>(
+      "days_between", {WithDates, WithTimestamps}, int64(), &days_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(days_between)));
+
+  auto hours_between = MakeTemporalBinary<HoursBetween, TemporalBinary, Int64Type>(
+      "hours_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+      &hours_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(hours_between)));
+
+  auto minutes_between = MakeTemporalBinary<MinutesBetween, TemporalBinary, Int64Type>(
+      "minutes_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+      &minutes_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(minutes_between)));
+
+  auto seconds_between = MakeTemporalBinary<SecondsBetween, TemporalBinary, Int64Type>(
+      "seconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+      &seconds_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(seconds_between)));
+
+  auto milliseconds_between =
+      MakeTemporalBinary<MillisecondsBetween, TemporalBinary, Int64Type>(
+          "milliseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+          &milliseconds_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(milliseconds_between)));
+
+  auto microseconds_between =
+      MakeTemporalBinary<MicrosecondsBetween, TemporalBinary, Int64Type>(
+          "microseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+          &microseconds_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(microseconds_between)));
+
+  auto nanoseconds_between =
+      MakeTemporalBinary<NanosecondsBetween, TemporalBinary, Int64Type>(
+          "nanoseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
+          &nanoseconds_between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(nanoseconds_between)));
 }
 
 }  // namespace internal

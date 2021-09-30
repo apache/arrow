@@ -502,6 +502,11 @@ class NullArrayFactory {
     return Status::OK();
   }
 
+  Status Visit(const ExtensionType& type) {
+    RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::NotImplemented("construction of all-null ", type);
   }

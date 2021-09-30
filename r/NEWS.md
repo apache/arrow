@@ -23,7 +23,7 @@ There are now two ways to query Arrow data:
 
 ## 1. Grouped aggregation in Arrow
 
-`dplyr::summarize()`, both grouped and ungrouped, is now implemented for Arrow Datasets, Tables, and RecordBatches. Because data is scanned in chunks, you can aggregate over larger-than-memory datasets backed by many files. Supported aggregation functions include `n()`, `n_distinct()`, `sum()`, `mean()`, `var()`, `sd()`, `any()`, and `all()`.
+`dplyr::summarize()`, both grouped and ungrouped, is now implemented for Arrow Datasets, Tables, and RecordBatches. Because data is scanned in chunks, you can aggregate over larger-than-memory datasets backed by many files. Supported aggregation functions include `n()`, `n_distinct()`, `min(),` `max()`, `sum()`, `mean()`, `var()`, `sd()`, `any()`, and `all()`. `median()` and `quantile()` with one probability are also supported and currently return approximate results using the t-digest algorithm.
 
 This enhancement does change the behavior of `summarize()` and `collect()` in some cases: see "Breaking changes" below for details.
 
@@ -36,6 +36,7 @@ If you have the [duckdb](https://duckdb.org/) package installed, you can hand of
 
 * `dplyr::summarize()` on an in-memory Arrow Table or RecordBatch no longer eagerly evaluates. Call `compute()` or `collect()` to evaluate the query.
 * Row order of data from a Dataset query is no longer deterministic. If you need a stable sort order, you should explicitly `arrange()` the query result. For calls to `summarize()`, you can set `options(arrow.summarise.sort = TRUE)` to match the current `dplyr` behavior of sorting on the grouping columns.
+* Datasets are officially no longer supported on 32-bit Windows on R < 4.0 (Rtools 3.5). 32-bit Windows users should upgrade to a newer version of R in order to use datasets.
 
 ## Installation on Linux
 

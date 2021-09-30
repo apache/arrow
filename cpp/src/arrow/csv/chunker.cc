@@ -79,17 +79,21 @@ class Lexer {
     }
 
   FieldStart:
-    // At the start of a field
-    if (ARROW_PREDICT_FALSE(data == data_end)) {
-      state_ = FIELD_START;
-      goto AbortLine;
-    }
-    // Quoting is only recognized at start of field
-    if (quoting && *data == options_.quote_char) {
-      data++;
-      goto InQuotedField;
-    } else {
+    if (!quoting) {
       goto InField;
+    } else {
+      // At the start of a field
+      if (ARROW_PREDICT_FALSE(data == data_end)) {
+        state_ = FIELD_START;
+        goto AbortLine;
+      }
+      // Quoting is only recognized at start of field
+      if (*data == options_.quote_char) {
+        data++;
+        goto InQuotedField;
+      } else {
+        goto InField;
+      }
     }
 
   InField:
@@ -116,7 +120,8 @@ class Lexer {
     if (ARROW_PREDICT_FALSE(c == '\n')) {
       goto LineEnd;
     }
-    if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
+    // treat delimiter as a normal token if quoting is disabled
+    if (ARROW_PREDICT_FALSE(quoting && c == options_.delimiter)) {
       goto FieldEnd;
     }
     goto InField;

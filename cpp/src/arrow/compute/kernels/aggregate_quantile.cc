@@ -104,14 +104,14 @@ struct SortQuantiler {
     }
 
     // prepare out array
-    int64_t out_length = options.q.size();
-    if (in_buffer.empty()) {
-      out_length = 0;  // input is empty or only contains null and nan, return empty array
-    }
     // out type depends on options
     const bool is_datapoint = IsDataPoint(options);
     const std::shared_ptr<DataType> out_type =
         is_datapoint ? TypeTraits<InType>::type_singleton() : float64();
+    int64_t out_length = options.q.size();
+    if (in_buffer.empty()) {
+      return MakeArrayOfNull(out_type, out_length, ctx->memory_pool()).Value(out);
+    }
     auto out_data = ArrayData::Make(out_type, out_length, 0);
     out_data->buffers.resize(2, nullptr);
 
@@ -245,14 +245,14 @@ struct CountQuantiler {
     }
 
     // prepare out array
-    int64_t out_length = options.q.size();
-    if (in_length == 0) {
-      out_length = 0;  // input is empty or only contains null, return empty array
-    }
     // out type depends on options
     const bool is_datapoint = IsDataPoint(options);
     const std::shared_ptr<DataType> out_type =
         is_datapoint ? TypeTraits<InType>::type_singleton() : float64();
+    int64_t out_length = options.q.size();
+    if (in_length == 0) {
+      return MakeArrayOfNull(out_type, out_length, ctx->memory_pool()).Value(out);
+    }
     auto out_data = ArrayData::Make(out_type, out_length, 0);
     out_data->buffers.resize(2, nullptr);
 
@@ -404,17 +404,27 @@ Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
                       const Scalar& scalar, Datum* out) {
   using CType = typename T::c_type;
   ArrayData* output = out->mutable_array();
-  if (!scalar.is_valid || options.min_count > 1) {
-    output->length = 0;
-    output->null_count = 0;
-    return Status::OK();
-  }
-  auto out_type = IsDataPoint(options) ? scalar.type : float64();
   output->length = options.q.size();
-  output->null_count = 0;
+  auto out_type = IsDataPoint(options) ? scalar.type : float64();
   ARROW_ASSIGN_OR_RAISE(
       output->buffers[1],
       ctx->Allocate(output->length * BitUtil::BytesForBits(GetBitWidth(*out_type))));
+
+  if (!scalar.is_valid || options.min_count > 1) {
+    output->null_count = output->length;
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(output->length));
+    BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), /*offset=*/0, output->length,
+                       false);
+    if (IsDataPoint(options)) {
+      CType* out_buffer = output->template GetMutableValues<CType>(1);
+      std::fill(out_buffer, out_buffer + output->length, CType(0));
+    } else {
+      double* out_buffer = output->template GetMutableValues<double>(1);
+      std::fill(out_buffer, out_buffer + output->length, 0.0);
+    }
+    return Status::OK();
+  }
+  output->null_count = 0;
   if (IsDataPoint(options)) {
     CType* out_buffer = output->template GetMutableValues<CType>(1);
     for (int64_t i = 0; i < output->length; i++) {
@@ -484,7 +494,7 @@ const FunctionDoc quantile_doc{
      "If quantile lies between two data points, an interpolated value is\n"
      "returned based on selected interpolation method.\n"
      "Nulls and NaNs are ignored.\n"
-     "An empty array is returned if there is no valid data point."),
+     "An array of nulls is returned if there is no valid data point."),
     {"array"},
     "QuantileOptions"};
 

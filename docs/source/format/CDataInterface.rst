@@ -187,6 +187,9 @@ Temporal types have multi-character format strings starting with ``t``:
 +-----------------+---------------------------------------------------+------------+
 | ``tiD``         | interval [days, time]                             |            |
 +-----------------+---------------------------------------------------+------------+
+| ``tin``         | interval [month, day, nanoseconds]                |            |
++-----------------+---------------------------------------------------+------------+
+
 
 Dictionary-encoded types do not have a specific format string.  Instead, the
 format string of the base array represents the dictionary index type, and the

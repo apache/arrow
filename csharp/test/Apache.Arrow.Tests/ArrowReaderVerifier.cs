@@ -56,8 +56,13 @@ namespace Apache.Arrow.Tests
                 IArrowArray expectedArray = expectedBatch.Arrays.ElementAt(i);
                 IArrowArray actualArray = actualBatch.Arrays.ElementAt(i);
 
-                actualArray.Accept(new ArrayComparer(expectedArray));
+                CompareArrays(expectedArray, actualArray);
             }
+        }
+
+        public static void CompareArrays(IArrowArray expectedArray, IArrowArray actualArray)
+        {
+            actualArray.Accept(new ArrayComparer(expectedArray));
         }
 
         private class ArrayComparer :
@@ -110,7 +115,6 @@ namespace Apache.Arrow.Tests
             public void Visit(Decimal128Array array) => CompareArrays(array);
             public void Visit(Decimal256Array array) => CompareArrays(array);
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
-
             public void Visit(BinaryArray array) => CompareBinaryArrays<BinaryArray>(array);
 
             public void Visit(StructArray array)

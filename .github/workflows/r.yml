@@ -170,8 +170,78 @@ jobs:
         continue-on-error: true
         run: archery docker push r
 
-  windows:
-    name: AMD64 Windows RTools ${{ matrix.rtools }}
+  windows-cpp:
+    name: AMD64 Windows C++ RTools ${{ matrix.config.rtools }} ${{ matrix.config.arch }}
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - { rtools: 35, arch: 'mingw32' }
+        - { rtools: 35, arch: 'mingw64' }
+        - { rtools: 40, arch: 'mingw32' }
+        - { rtools: 40, arch: 'mingw64' }
+        - { rtools: 40, arch: 'ucrt64' }
+    steps:
+      - run: git config --global core.autocrlf false
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+      # We must enable actions/cache before r-lib/actions/setup-r to ensure
+      # using system tar instead of tar provided by Rtools.
+      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
+      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
+      # when tar is GNU tar.
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ccache
+          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
+      # We use the makepkg-mingw setup that is included in rtools40 even when
+      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
+      - uses: r-lib/actions/setup-r@master
+        with:
+          r-version: "4.1"
+          rtools-version: 40
+          Ncpus: 2
+      - uses: r-lib/actions/setup-r@master
+        if: ${{ matrix.config.rtools == 35 }}
+        with:
+          rtools-version: 35
+          r-version: "3.6"
+          Ncpus: 2
+      - name: Build Arrow C++
+        shell: bash
+        env:
+          RTOOLS_VERSION: ${{ matrix.config.rtools }}
+          MINGW_ARCH: ${{ matrix.config.arch }}
+        run: ci/scripts/r_windows_build.sh
+      - name: Rename libarrow.zip
+        # So that they're unique when multiple are downloaded in the next step
+        shell: bash
+        run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+      - uses: actions/upload-artifact@v1
+        with:
+          name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+          path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+      # We can remove this when we drop support for Rtools 3.5.
+      - name: Ensure using system tar in actions/cache
+        run: |
+          Write-Output "${Env:windir}\System32" | `
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+  windows-r:
+    needs: [windows-cpp]
+    name: AMD64 Windows R RTools ${{ matrix.rtools }}
     runs-on: windows-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -188,15 +258,43 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Make R tests verbose
-        # If you get a segfault/mysterious test Execution halted,
-        # make this `true` to see where it dies.
-        if: false
-        shell: cmd
+      - run: mkdir r/windows
+      - name: Download artifacts
+        if: ${{ matrix.rtools == 35 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools35-mingw32.zip
+          path: r/windows
+      - name: Download artifacts
+        if: ${{ matrix.rtools == 35 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools35-mingw64.zip
+          path: r/windows
+      - name: Download artifacts
+        if: ${{ matrix.rtools == 40 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools40-mingw32.zip
+          path: r/windows
+      - name: Download artifacts
+        if: ${{ matrix.rtools == 40 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools40-mingw64.zip
+          path: r/windows
+      - name: Download artifacts
+        if: ${{ matrix.rtools == 40 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools40-ucrt64.zip
+          path: r/windows
+      - name: Unzip and rezip libarrows
+        shell: bash
         run: |
-          cd r/tests
-          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
-          rm -f testthat.R.bak
+          cd r/windows
+          ls *.zip | xargs -n 1 unzip -uo
+          rm -rf *.zip
       - name: Setup ccache
         shell: bash
         run: |
@@ -213,12 +311,11 @@ jobs:
           path: ccache
           key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
-      # We use the makepkg-mingw setup that is included in rtools40 even when
-      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
+        if: ${{ matrix.rtools == 40 }}
         with:
-          rtools-version: 40
           r-version: "4.1"
+          rtools-version: 40
           Ncpus: 2
       - uses: r-lib/actions/setup-r@master
         if: ${{ matrix.rtools == 35 }}
@@ -226,15 +323,15 @@ jobs:
           rtools-version: 35
           r-version: "3.6"
           Ncpus: 2
-      - name: Build Arrow C++
-        shell: bash
-        env:
-          RTOOLS_VERSION: ${{ matrix.rtools }}
-        run: ci/scripts/r_windows_build.sh
-      - uses: actions/upload-artifact@v1
-        with:
-          name: Rtools ${{ matrix.rtools }} Arrow C++
-          path: libarrow.zip
+      - name: Make R tests verbose
+        # If you get a segfault/mysterious test Execution halted,
+        # make this `true` to see where it dies.
+        if: false
+        shell: cmd
+        run: |
+          cd r/tests
+          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
+          rm -f testthat.R.bak
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
@@ -244,13 +341,19 @@ jobs:
       - name: Check
         shell: Rscript {0}
         run: |
+          # Because we do R CMD build and r/windows is in .Rbuildignore,
+          # assemble the libarrow.zip file and pass it as an env var
+          setwd("r/windows")
+          zip("libarrow.zip", ".")
+          setwd("..")
+
           Sys.setenv(
-            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
             ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE
           )
-          rcmdcheck::rcmdcheck("r",
+          rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
             args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
             error_on = 'warning',
@@ -259,7 +362,7 @@ jobs:
           )
       - name: Dump install logs
         shell: cmd
-        run: cat check/arrow.Rcheck/00install.out
+        run: cat r/check/arrow.Rcheck/00install.out
         if: always()
       # We can remove this when we drop support for Rtools 3.5.
       - name: Ensure using system tar in actions/cache
