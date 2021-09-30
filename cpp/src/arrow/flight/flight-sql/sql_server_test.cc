@@ -116,36 +116,20 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTables) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
-  ASSERT_OK(sql_client.GetTables({}, nullptr, nullptr, nullptr, false, table_types, &flight_info));
+  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main", "main", "main" }));
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable", "COMPANY", "sqlite_autoindex_COMPANY_1"}));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table", "table", "index"}));
+  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master"}));
+  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
+  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
+  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -154,37 +138,22 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
 
-  std::string table_filter_pattern = "COMPA%";
-  ASSERT_OK(sql_client.GetTables({}, nullptr, nullptr, &table_filter_pattern, false, table_types, &flight_info));
+  std::string table_filter_pattern = "int%";
+  std::string schema_filter_pattern = "main";
+  ASSERT_OK(sql_client->GetTables({}, nullptr, &schema_filter_pattern, &table_filter_pattern, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
   DECLARE_ARRAY(catalog_name, String, ({"sqlite_master"}));
   DECLARE_ARRAY(schema_name, String, ({"main" }));
-  DECLARE_ARRAY(table_name, String, ({"COMPANY"}));
+  DECLARE_ARRAY(table_name, String, ({"intTable"}));
   DECLARE_ARRAY(table_type, String, ({"table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
@@ -194,38 +163,22 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithSchemaFilter) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
 
   std::string schema_filter_pattern = "main";
-  ASSERT_OK(sql_client.GetTables({}, nullptr, &schema_filter_pattern, nullptr, false, table_types, &flight_info));
+  ASSERT_OK(sql_client->GetTables({}, nullptr, &schema_filter_pattern, nullptr, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main", "main", "main" }));
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable", "COMPANY", "sqlite_autoindex_COMPANY_1"}));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table", "table", "index"}));
+  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master"}));
+  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
+  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
+  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -234,38 +187,23 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithSchemaFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithCatalogFilter) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
 
   std::string catalog_filter_pattern = "sqlite_master";
-  ASSERT_OK(sql_client.GetTables({}, &catalog_filter_pattern, nullptr, nullptr, false, table_types, &flight_info));
+  std::string table_filter_pattern = "int%";
+  ASSERT_OK(sql_client->GetTables({}, &catalog_filter_pattern, nullptr, &table_filter_pattern, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main", "main", "main" }));
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable", "COMPANY", "sqlite_autoindex_COMPANY_1"}));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table", "table", "index"}));
+  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master"}));
+  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
+  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
+  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -275,70 +213,32 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithCatalogFilter) {
 
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceSchemaFilter) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
 
   std::string schema_filter_pattern = "unknown";
-  ASSERT_OK(sql_client.GetTables({}, nullptr, &schema_filter_pattern, nullptr, false, table_types, &flight_info));
+  ASSERT_OK(sql_client->GetTables({}, nullptr, &schema_filter_pattern, nullptr, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main", "main", "main" }));
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable", "COMPANY", "sqlite_autoindex_COMPANY_1"}));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table", "table", "index"}));
+  ASSERT_TRUE(table->schema()->Equals(SqlSchema::GetTablesSchema()));
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
-
-  ASSERT_TRUE(expected_table->Equals(*table));
+  ASSERT_EQ(table->num_rows(), 0);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceCatalogFilter) {
-  TestServer server("flight_sql_test_server");
-  server.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  ASSERT_TRUE(server.IsRunning());
-
-  std::stringstream ss;
-  ss << "grpc://localhost:" << server.port();
-  std::string uri = ss.str();
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::Parse(uri, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
-
-  FlightSqlClient sql_client(client);
-
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
 
   std::string catalog_filter_pattern = "unknown";
-  ASSERT_OK(sql_client.GetTables({}, &catalog_filter_pattern, nullptr, nullptr, false, table_types, &flight_info));
+  ASSERT_OK(sql_client->GetTables({}, &catalog_filter_pattern, nullptr, nullptr, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client.DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
