@@ -155,9 +155,9 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         output_all(true),
         output_prefix_for_left(std::move(output_prefix_for_left)),
         output_prefix_for_right(std::move(output_prefix_for_right)) {
-    key_cmp.resize(left_keys.size());
-    for (size_t i = 0; i < left_keys.size(); ++i) {
-      key_cmp[i] = JoinKeyCmp::EQ;
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
     }
   }
   HashJoinNodeOptions(
@@ -174,9 +174,9 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         right_output(std::move(right_output)),
         output_prefix_for_left(std::move(output_prefix_for_left)),
         output_prefix_for_right(std::move(output_prefix_for_right)) {
-    key_cmp.resize(left_keys.size());
-    for (size_t i = 0; i < left_keys.size(); ++i) {
-      key_cmp[i] = JoinKeyCmp::EQ;
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
     }
   }
   HashJoinNodeOptions(
