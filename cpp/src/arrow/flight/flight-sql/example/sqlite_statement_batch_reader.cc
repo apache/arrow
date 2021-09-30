@@ -22,22 +22,30 @@
 #include "arrow/api.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
-#define STRING_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                         \
-  case TYPE_CLASS##Type::type_id: {                                           \
-    int bytes = sqlite3_column_bytes(STMT, COLUMN);                           \
-    const unsigned char* string = sqlite3_column_text(STMT, COLUMN);          \
-    ARROW_RETURN_NOT_OK(                                                      \
-        (dynamic_cast<TYPE_CLASS##Builder&>(builder)).Append(string, bytes)); \
-    break;                                                                    \
+#define STRING_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                                  \
+  case TYPE_CLASS##Type::type_id: {                                                    \
+    int bytes = sqlite3_column_bytes(STMT, COLUMN);                                    \
+    const unsigned char* string = sqlite3_column_text(STMT, COLUMN);                   \
+    if (string == nullptr) {                                                           \
+      ARROW_RETURN_NOT_OK((dynamic_cast<TYPE_CLASS##Builder&>(builder)).AppendNull()); \
+      break;                                                                           \
+    }                                                                                  \
+    ARROW_RETURN_NOT_OK(                                                               \
+        (dynamic_cast<TYPE_CLASS##Builder&>(builder)).Append(string, bytes));          \
+    break;                                                                             \
   }
 
-#define BINARY_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                              \
-  case TYPE_CLASS##Type::type_id: {                                                \
-    int bytes = sqlite3_column_bytes(STMT, COLUMN);                                \
-    const void* blob = sqlite3_column_blob(STMT, COLUMN);                          \
-    ARROW_RETURN_NOT_OK(                                                           \
-        (dynamic_cast<TYPE_CLASS##Builder&>(builder)).Append((char*)blob, bytes)); \
-    break;                                                                         \
+#define BINARY_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                                  \
+  case TYPE_CLASS##Type::type_id: {                                                    \
+    int bytes = sqlite3_column_bytes(STMT, COLUMN);                                    \
+    const void* blob = sqlite3_column_blob(STMT, COLUMN);                              \
+    if (blob == nullptr) {                                                             \
+      ARROW_RETURN_NOT_OK((dynamic_cast<TYPE_CLASS##Builder&>(builder)).AppendNull()); \
+      break;                                                                           \
+    }                                                                                  \
+    ARROW_RETURN_NOT_OK(                                                               \
+        (dynamic_cast<TYPE_CLASS##Builder&>(builder)).Append((char*)blob, bytes));     \
+    break;                                                                             \
   }
 
 #define INT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                                    \
