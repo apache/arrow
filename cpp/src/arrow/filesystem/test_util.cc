@@ -24,8 +24,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/mockfs.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
