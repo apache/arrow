@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,24 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+ARG base
+FROM ${base}
 
-source_dir=${1}/go
+ENV DEBIAN_FRONTEND noninteractive
 
-pushd ${source_dir}/arrow
-
-if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
-    TAGS="-tags ccalloc"
-fi
-
-go get -d -t -v ./...
-go install $TAGS -v ./...
-
-popd
-
-pushd ${source_dir}/parquet
-
-go get -d -t -v ./...
-go install -v ./...
-
-popd
+# install libarrow-dev to link against with CGO
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends ca-certificates lsb-release wget && \
+    wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
+    apt-get install -y -q --no-install-recommends ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb && \
+    apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        cmake \
+        libarrow-dev && \
+    apt-get clean
