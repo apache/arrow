@@ -67,6 +67,9 @@ case "${target}" in
 
     echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
     echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
+    # turns out that even though we do `shell: bash` context, it doesn't add the bin dir of the ming
+    # prefix to the PATH, so we need to do so
+    echo "$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_PATH
     ;;
 esac
 
