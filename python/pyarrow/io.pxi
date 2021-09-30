@@ -1442,7 +1442,7 @@ cdef void _cb_transform(transform_func, const shared_ptr[CBuffer]& src,
 
 cdef class TransformInputStream(NativeFile):
     """
-    Transform and input stream.
+    Transform an input stream.
 
     Parameters
     ----------

@@ -260,8 +260,8 @@ class FSSpecHandler(FileSystemHandler):
     ----------
     fs : The file system implementation according to FSSpec.
 
-    Example
-    -------
+    Examples
+    --------
     >>> PyFileSystem(FSSpecHandler(fsspec_fs))
     """
 

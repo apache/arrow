@@ -513,8 +513,8 @@ cdef class InMemoryDataset(Dataset):
 
     Parameters
     ----------
-    source : The data for this dataset.
-        Can be a RecordBatch, Table, list of
+    source : 
+        The data for this dataset. Can be a RecordBatch, Table, list of
         RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader.
         If an iterable is provided, the schema must also be provided.
     schema : Schema, optional
@@ -3007,7 +3007,7 @@ cdef class Scanner(_Weakrefable):
         dataset : Dataset
             Dataset to scan.
         columns : list of str or dict, default None
-                The columns to project.
+            The columns to project.
         filter : Expression, default None
             Scan will return only the rows matching the filter.
         batch_size : int, default 1M
