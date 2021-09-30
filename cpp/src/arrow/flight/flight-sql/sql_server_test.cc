@@ -78,29 +78,6 @@ class TestFlightSqlServer : public ::testing::Environment {
   }
 };
 
-/*
- * FIXME
- * For some reason when the first protobuf message used on "any.PackFrom()" has a
- * string field (like CommandStatementQuery), libprotobuf throws:
- *
- * [libprotobuf ERROR .../src/google/protobuf/descriptor.cc:3624] Invalid proto descriptor for file "google/protobuf/descriptor.proto":
- * [libprotobuf ERROR .../src/google/protobuf/descriptor.cc:3627]   google/protobuf/descriptor.proto: Unrecognized syntax: SELECT * XXXXXX
- * [libprotobuf ERROR .../src/google/protobuf/descriptor.cc:3624] Invalid proto descriptor for file "FlightSql.proto":
- * [libprotobuf ERROR .../src/google/protobuf/descriptor.cc:3627]   arrow.flight.protocol.sql.experimental: ".google.protobuf.MessageOptions" is not defined.
- * [libprotobuf FATAL .../src/google/protobuf/generated_message_reflection.cc:2457] CHECK failed: file != nullptr:
- *
- * If the first protobuf message used on "any.PackFrom()" has no fields, all the
- * subsequent calls misteriously work.
- *
- * Still don't know how to fix this, so we are keeping this dummy tests at the beginning
- * of the test suite to move forward.
- */
-TEST(TestFlightSqlServer, FIX_PROTOBUF_BUG) {
-  pb::sql::CommandGetCatalogs command;
-  google::protobuf::Any any;
-  any.PackFrom(command);
-}
-
 TEST(TestFlightSqlServer, TestCommandStatementQuery) {
   std::unique_ptr<FlightInfo> flight_info;
   ASSERT_OK(sql_client->Execute({}, "SELECT * FROM intTable", &flight_info));
