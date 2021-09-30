@@ -338,5 +338,5 @@ export function makeVector(init: any) {
             throw new Error('Unrecognized input');
         }
     }
-    throw new Error('Unrecognized input');;
+    throw new Error('Unrecognized input');
 }
