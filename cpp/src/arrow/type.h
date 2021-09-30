@@ -188,6 +188,9 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
 
+inline bool operator==(const DataType& l, const DataType& r) { return l.Equals(r); }
+inline bool operator!=(const DataType& l, const DataType& r) { return !l.Equals(r); }
+
 /// \brief Return the compatible physical data type
 ///
 /// Some types may have distinct logical meanings but the exact same physical

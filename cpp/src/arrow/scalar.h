@@ -304,6 +304,9 @@ struct TemporalScalar : internal::PrimitiveScalar<T> {
 
   explicit TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalar<T>(std::move(value), type) {}
+
+  explicit TemporalScalar(ValueType value, TimeUnit::type unit)
+      : TemporalScalar(std::move(value), std::make_shared<T>(unit)) {}
 };
 
 template <typename T>

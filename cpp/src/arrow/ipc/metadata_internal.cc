@@ -203,7 +203,9 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
 
-static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
+}  // namespace
+
+flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
       return flatbuf::TimeUnit::SECOND;
@@ -214,12 +216,11 @@ static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
     case TimeUnit::NANO:
       return flatbuf::TimeUnit::NANOSECOND;
     default:
-      break;
+      Unreachable();
   }
-  return flatbuf::TimeUnit::MIN;
 }
 
-static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
+TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   switch (unit) {
     case flatbuf::TimeUnit::SECOND:
       return TimeUnit::SECOND;
@@ -230,15 +231,12 @@ static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
     case flatbuf::TimeUnit::NANOSECOND:
       return TimeUnit::NANO;
     default:
-      break;
+      Unreachable();
   }
-  // cannot reach
-  return TimeUnit::SECOND;
 }
 
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
-                                  const std::vector<std::shared_ptr<Field>>& children,
-                                  std::shared_ptr<DataType>* out) {
+                                  FieldVector children, std::shared_ptr<DataType>* out) {
   switch (type) {
     case flatbuf::Type::NONE:
       return Status::Invalid("Type metadata cannot be none");
@@ -389,6 +387,8 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
                              std::to_string(static_cast<int>(type)));
   }
 }
+
+namespace {
 
 Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out_type,
                               Offset* offset) {
@@ -778,8 +778,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
   // 2. Top-level concrete data type
   auto type_data = field->type();
   CHECK_FLATBUFFERS_NOT_NULL(type_data, "Field.type");
-  RETURN_NOT_OK(
-      ConcreteTypeFromFlatbuffer(field->type_type(), type_data, child_fields, &type));
+  RETURN_NOT_OK(ConcreteTypeFromFlatbuffer(field->type_type(), type_data,
+                                           std::move(child_fields), &type));
 
   // 3. Is it a dictionary type?
   int64_t dictionary_id = -1;
