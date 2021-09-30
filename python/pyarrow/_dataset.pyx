@@ -513,8 +513,8 @@ cdef class InMemoryDataset(Dataset):
 
     Parameters
     ----------
-    source : 
-        The data for this dataset. Can be a RecordBatch, Table, list of
+    source : The data for this dataset.
+        Can be a RecordBatch, Table, list of
         RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader.
         If an iterable is provided, the schema must also be provided.
     schema : Schema, optional
@@ -1825,11 +1825,11 @@ cdef class CsvFileFormat(FileFormat):
     Parameters
     ----------
     parse_options : ParseOptions
-        Options regarding parsing of CSV.
+        Options regarding CSV parsing.
     convert_options : ConvertOptions
         Options regarding value conversion.
     read_options : ReadOptions
-        Options regarding the CSV file read operation.
+        General read options.
     default_fragment_scan_options : CsvFragmentScanOptions
         Default options for fragments scan.
     """
@@ -1910,7 +1910,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     convert_options : ConvertOptions
         Options regarding value conversion.
     read_options : ReadOptions
-        Options regarding the CSV file read operation.
+        General read options.
     """
 
     cdef:
@@ -3000,7 +3000,8 @@ cdef class Scanner(_Weakrefable):
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
         """
-        Create Scanner from Dataset
+        Create Scanner from Dataset,
+        refer to Scanner class doc for additional details on Scanner.
 
         Parameters
         ----------
@@ -3047,7 +3048,8 @@ cdef class Scanner(_Weakrefable):
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       FragmentScanOptions fragment_scan_options=None):
         """
-        Create Scanner from Fragment
+        Create Scanner from Fragment,
+        refer to Scanner class doc for additional details on Scanner.
 
         Parameters
         ----------

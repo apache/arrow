@@ -1318,13 +1318,13 @@ ctypedef CRandomAccessFile* _RandomAccessFilePtr
 
 cdef class BufferedInputStream(NativeFile):
     """
-    An InputStream that performs buffered reads from an unbuffered InputStream,
+    An input stream that performs buffered reads from an unbuffered input stream,
     which can mitigate the overhead of many small reads in some cases
 
     Parameters
     ----------
     stream : NativeFile
-        The stream to wrap with the buffer
+        The input stream to wrap with the buffer
     buffer_size : int
         Size of the temporary read buffer.
     memory_pool : MemoryPool
@@ -1381,12 +1381,13 @@ cdef class BufferedInputStream(NativeFile):
 
 cdef class BufferedOutputStream(NativeFile):
     """
-    Wraps an output stream making it buffered.
+    An output stream that performs buffered writes from an unbuffered output stream,
+    which can mitigate the overhead of many small writes in some cases
 
     Parameters
     ----------
     stream : NativeFile
-        The stream to wrap with the buffer
+        The writable output stream to wrap with the buffer
     buffer_size : int
         Size of the buffer that should be added.
     memory_pool : MemoryPool
