@@ -20,7 +20,6 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
