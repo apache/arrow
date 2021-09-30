@@ -71,7 +71,7 @@ function* fromIterable<T extends ArrayBufferViewInput>(source: Iterable<T> | T):
     }
 
     // Yield so the caller can inject the read command before creating the source Iterator
-    ({ cmd, size } = yield <any> null);
+    ({ cmd, size } = yield <any>null);
 
     // initialize the iterator
     const it = toUint8ArrayIterator(source)[Symbol.iterator]();
@@ -117,7 +117,7 @@ async function* fromAsyncIterable<T extends ArrayBufferViewInput>(source: AsyncI
     }
 
     // Yield so the caller can inject the read command before creating the source AsyncIterator
-    ({ cmd, size } = (yield <any> null)!);
+    ({ cmd, size } = (yield <any>null)!);
 
     // initialize the iterator
     const it = toUint8ArrayAsyncIterator(source)[Symbol.asyncIterator]();
@@ -167,7 +167,7 @@ async function* fromDOMStream<T extends ArrayBufferViewInput>(source: ReadableSt
     }
 
     // Yield so the caller can inject the read command before we establish the ReadableStream lock
-    ({ cmd, size } = yield <any> null);
+    ({ cmd, size } = yield <any>null);
 
     // initialize the reader and lock the stream
     const it = new AdaptiveByteReader(source);
@@ -211,11 +211,11 @@ class AdaptiveByteReader<T extends ArrayBufferViewInput> {
         // about why these errors are raised, but I'm sure there's some important spec reason that
         // I haven't considered. I hate to employ such an anti-pattern here, but it seems like the
         // only solution in this case :/
-        this.reader['closed'].catch(() => {});
+        this.reader['closed'].catch(() => { });
     }
 
     get closed(): Promise<void> {
-        return this.reader ? this.reader['closed'].catch(() => {}) : Promise.resolve();
+        return this.reader ? this.reader['closed'].catch(() => { }) : Promise.resolve();
     }
 
     releaseLock(): void {
@@ -227,7 +227,7 @@ class AdaptiveByteReader<T extends ArrayBufferViewInput> {
 
     async cancel(reason?: any): Promise<void> {
         const { reader, source } = this;
-        reader && (await reader['cancel'](reason).catch(() => {}));
+        reader && (await reader['cancel'](reason).catch(() => { }));
         source && (source['locked'] && this.releaseLock());
     }
 
@@ -273,7 +273,7 @@ async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGe
 
     // Yield so the caller can inject the read command before we
     // add the listener for the source stream's 'readable' event.
-    ({ cmd, size } = yield <any> null);
+    ({ cmd, size } = yield <any>null);
 
     // ignore stdin if it's a TTY
     if ((stream as any)['isTTY']) {
@@ -328,7 +328,7 @@ async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGe
     return null;
 
     function cleanup<T extends Error | null | void>(events: Event[], err?: T) {
-        buffer = buffers = <any> null;
+        buffer = buffers = <any>null;
         return new Promise<void>((resolve, reject) => {
             for (const [evt, fn] of events) {
                 stream['off'](evt, fn);
@@ -340,7 +340,7 @@ async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGe
                 const destroy = (stream as any)['destroy'];
                 destroy && destroy.call(stream, err);
                 err = undefined;
-            } catch (e) { err = e || err; } finally {
+            } catch (e) { err = e as T || err; } finally {
                 err != null ? reject(err) : resolve();
             }
         });

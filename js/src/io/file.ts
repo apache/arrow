@@ -42,7 +42,7 @@ export class RandomAccessFile extends ByteStream {
         if (buffer && position < size) {
             if (typeof nBytes !== 'number') { nBytes = Infinity; }
             this.position = Math.min(size,
-                 position + Math.min(size - position, nBytes));
+                position + Math.min(size - position, nBytes));
             return buffer.subarray(position, this.position);
         }
         return null;
@@ -59,7 +59,7 @@ export class RandomAccessFile extends ByteStream {
 
 /** @ignore */
 export class AsyncRandomAccessFile extends AsyncByteStream {
-    public size!: number;
+    declare public size: number;
     public position = 0;
     public _pending?: Promise<void>;
     protected _handle: FileHandle | null;

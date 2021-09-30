@@ -93,7 +93,7 @@ export class VectorLoader extends Visitor {
     public visitStruct<T extends type.Struct>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), children: this.visitMany(type.children) });
     }
-    public visitUnion<T extends type.Union>(type: T                                              ) {
+    public visitUnion<T extends type.Union>(type: T) {
         return type.mode === UnionMode.Sparse ? this.visitSparseUnion(type as type.SparseUnion) : this.visitDenseUnion(type as type.DenseUnion);
     }
     public visitDenseUnion<T extends type.DenseUnion>(type: T, { length, nullCount } = this.nextFieldNode()) {

@@ -104,7 +104,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         } else if (isAsyncIterable<RecordBatch<T>>(input)) {
             return writeAllAsync(this, input);
         }
-        return writeAll(this, <any> input);
+        return writeAll(this, <any>input);
     }
 
     public get closed() { return this._sink.closed; }
@@ -380,9 +380,7 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
     // @ts-ignore
     protected _writeFooter(schema: Schema<T>) { return this; }
     protected _writeSchema(schema: Schema<T>) {
-        return this._write(`{\n  "schema": ${
-            JSON.stringify({ fields: schema.fields.map(fieldToJSON) }, null, 2)
-        }`);
+        return this._write(`{\n  "schema": ${JSON.stringify({ fields: schema.fields.map(fieldToJSON) }, null, 2)}`);
     }
     protected _writeDictionaries(batch: RecordBatch<T>) {
         if (batch.dictionaries.size > 0) {
@@ -436,7 +434,7 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
 function writeAll<T extends { [key: string]: DataType } = any>(writer: RecordBatchWriter<T>, input: Table<T> | Iterable<RecordBatch<T>>) {
     let chunks = input as Iterable<RecordBatch<T>>;
     if (input instanceof Table) {
-        chunks = input.data.map((x) => new RecordBatch(input.schema, x));
+        chunks = input.data;
         writer.reset(undefined, input.schema);
     }
     for (const batch of chunks) {

@@ -62,7 +62,7 @@ export class AsyncByteQueue<T extends ArrayBufferViewInput = Uint8Array> extends
 
 /** @ignore */
 export class ByteStream implements IterableIterator<Uint8Array> {
-    private source!: ByteStreamSource<Uint8Array>;
+    declare private source: ByteStreamSource<Uint8Array>;
     constructor(source?: Iterable<ArrayBufferViewInput> | ArrayBufferViewInput) {
         if (source) {
             this.source = new ByteStreamSource(streamAdapters.fromIterable(source));
@@ -78,7 +78,7 @@ export class ByteStream implements IterableIterator<Uint8Array> {
 
 /** @ignore */
 export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableIterator<Uint8Array> {
-    private source!: AsyncByteStreamSource<Uint8Array>;
+    declare private source: AsyncByteStreamSource<Uint8Array>;
     constructor(source?: PromiseLike<ArrayBufferViewInput> | Response | ReadableStream<ArrayBufferViewInput> | NodeJS.ReadableStream | AsyncIterable<ArrayBufferViewInput> | Iterable<ArrayBufferViewInput>) {
         if (source instanceof AsyncByteStream) {
             this.source = (source as AsyncByteStream).source;
@@ -115,7 +115,7 @@ type AsyncByteStreamSourceIterator<T> = AsyncGenerator<T, null, { cmd: 'peek' | 
 
 /** @ignore */
 class ByteStreamSource<T> {
-    constructor(protected source: ByteStreamSourceIterator<T>) {}
+    constructor(protected source: ByteStreamSourceIterator<T>) { }
     public cancel(reason?: any) { this.return(reason); }
     public peek(size?: number | null): T | null { return this.next(size, 'peek').value; }
     public read(size?: number | null): T | null { return this.next(size, 'read').value; }
@@ -129,7 +129,7 @@ class AsyncByteStreamSource<T> implements Readable<T> {
 
     private _closedPromise: Promise<void>;
     private _closedPromiseResolve?: (value?: any) => void;
-    constructor (protected source: ByteStreamSourceIterator<T> | AsyncByteStreamSourceIterator<T>) {
+    constructor(protected source: ByteStreamSourceIterator<T> | AsyncByteStreamSourceIterator<T>) {
         this._closedPromise = new Promise((r) => this._closedPromiseResolve = r);
     }
     public async cancel(reason?: any) { await this.return(reason); }

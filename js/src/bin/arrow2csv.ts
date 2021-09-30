@@ -65,12 +65,12 @@ type ToStringState = {
 
     return hasReaders ? 0 : print_usage();
 })()
-.then((x) => +x || 0, (err) => {
-    if (err) {
-        console.error(`${err?.stack || err}`);
-    }
-    return process.exitCode || 1;
-}).then((code) => process.exit(code));
+    .then((x) => +x || 0, (err) => {
+        if (err) {
+            console.error(`${err?.stack || err}`);
+        }
+        return process.exitCode || 1;
+    }).then((code) => process.exit(code));
 
 function pipeTo(source: NodeJS.ReadableStream, sink: NodeJS.WritableStream, opts?: { end: boolean }) {
     return new Promise((resolve, reject) => {
@@ -87,7 +87,7 @@ function pipeTo(source: NodeJS.ReadableStream, sink: NodeJS.WritableStream, opts
     });
 }
 
-async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream): AsyncGenerator<RecordBatchReader, void, void> {
+async function* recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream): AsyncGenerator<RecordBatchReader, void, void> {
 
     const json = new AsyncByteQueue();
     const stream = new AsyncByteQueue();
@@ -97,7 +97,7 @@ async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStre
     // tee the input source, just in case it's JSON
     source.on('end', () => [stream, json].forEach((y) => y.close()))
         .on('data', (x) => [stream, json].forEach((y) => y.write(x)))
-       .on('error', (e) => [stream, json].forEach((y) => y.abort(e)));
+        .on('error', (e) => [stream, json].forEach((y) => y.abort(e)));
 
     try {
         for await (reader of RecordBatchReader.readAll(stream)) {
@@ -147,7 +147,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
         },
         transform(batch: RecordBatch, _enc: string, cb: (error?: Error, data?: any) => void) {
 
-            batch = !state.schema?.length ? batch : batch.select(...state.schema);
+            batch = !state.schema?.length ? batch : batch.select(state.schema);
 
             if (state.closed) { return cb(undefined, null); }
 

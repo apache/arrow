@@ -132,7 +132,7 @@ export class Message<T extends MessageHeader = any> {
     public get version() { return this._version; }
     public get headerType() { return this._headerType; }
     public get bodyLength() { return this._bodyLength; }
-    protected _createHeader!: MessageHeaderDecoder;
+    declare protected _createHeader: MessageHeaderDecoder;
     public header() { return this._createHeader<T>(); }
     public isSchema(): this is Message<MessageHeader.Schema> { return this.headerType === MessageHeader.Schema; }
     public isRecordBatch(): this is Message<MessageHeader.RecordBatch> { return this.headerType === MessageHeader.RecordBatch; }
@@ -336,10 +336,10 @@ function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
     const bufferRegions = [] as BufferRegion[];
     for (let b, i = -1, j = -1, n = batch.buffersLength(); ++i < n;) {
         if (b = batch.buffers(i)) {
-        // If this Arrow buffer was written before version 4,
-        // advance the buffer's bb_pos 8 bytes to skip past
-        // the now-removed page_id field
-        if (version < MetadataVersion.V4) {
+            // If this Arrow buffer was written before version 4,
+            // advance the buffer's bb_pos 8 bytes to skip past
+            // the now-removed page_id field
+            if (version < MetadataVersion.V4) {
                 b.bb_pos += (8 * (i + 1));
             }
             bufferRegions[++j] = BufferRegion.decode(b);
@@ -430,12 +430,12 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     const typeId = f.typeType();
 
     switch (typeId) {
-        case Type['NONE']:     return new Null();
-        case Type['Null']:     return new Null();
-        case Type['Binary']:   return new Binary();
-        case Type['Utf8']:     return new Utf8();
-        case Type['Bool']:     return new Bool();
-        case Type['List']:    return new List((children || [])[0]);
+        case Type['NONE']: return new Null();
+        case Type['Null']: return new Null();
+        case Type['Binary']: return new Binary();
+        case Type['Utf8']: return new Utf8();
+        case Type['Bool']: return new Bool();
+        case Type['List']: return new List((children || [])[0]);
         case Type['Struct_']: return new Struct(children || []);
     }
 
@@ -524,7 +524,7 @@ function encodeField(b: Builder, field: Field) {
     let dictionaryOffset = -1;
 
     const type = field.type;
-    let typeId: Type = <any> field.typeId;
+    let typeId: Type = <any>field.typeId;
 
     if (!DataType.isDictionary(type)) {
         typeOffset = typeAssembler.visit(type, b)!;
@@ -608,7 +608,7 @@ function encodeBufferRegion(b: Builder, node: BufferRegion) {
 }
 
 /** @ignore */
-const platformIsLittleEndian = (function() {
+const platformIsLittleEndian = (function () {
     const buffer = new ArrayBuffer(2);
     new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
     // Int16Array uses the platform's endianness.
@@ -617,5 +617,5 @@ const platformIsLittleEndian = (function() {
 
 /** @ignore */
 type MessageHeaderDecoder = <T extends MessageHeader>() => T extends MessageHeader.Schema ? Schema
-                                                         : T extends MessageHeader.RecordBatch ? RecordBatch
-                                                         : T extends MessageHeader.DictionaryBatch ? DictionaryBatch : never;
+    : T extends MessageHeader.RecordBatch ? RecordBatch
+    : T extends MessageHeader.DictionaryBatch ? DictionaryBatch : never;

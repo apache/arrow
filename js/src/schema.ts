@@ -24,8 +24,8 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public readonly dictionaries: Map<number, DataType>;
 
     constructor(fields: Field<T[keyof T]>[] = [],
-                metadata?: Map<string, string> | null,
-                dictionaries?: Map<number, DataType> | null) {
+        metadata?: Map<string, string> | null,
+        dictionaries?: Map<number, DataType> | null) {
         this.fields = (fields || []) as Field<T[keyof T]>[];
         this.metadata = metadata || new Map();
         if (!dictionaries) {
@@ -34,18 +34,34 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         this.dictionaries = dictionaries;
     }
     public get [Symbol.toStringTag]() { return 'Schema'; }
+
+    public get names(): (keyof T)[] { return this.fields.map((f) => f.name); }
+
     public toString() {
         return `Schema<{ ${this.fields.map((f, i) => `${i}: ${f}`).join(', ')} }>`;
     }
 
-    public select<K extends keyof T = any>(...columnNames: K[]) {
-        const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
+    /**
+     * @summary Construct a new Schema containing only specified fields.
+     *
+     * @param fieldNames Names of fields to keep.
+     * @returns A new Schema of fields matching the specified names.
+     */
+    public select<K extends keyof T = any>(fieldNames: K[]) {
+        const names = fieldNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         const fields = this.fields.filter((f) => names[f.name]) as Field<T[K]>[];
         return new Schema<{ [P in K]: T[P] }>(fields, this.metadata);
     }
-    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
-        const fields = columnIndices.map((i) => this.fields[i]).filter(Boolean) as Field<K>[];
-        return new Schema<{ [key: string]: K }>(fields, this.metadata);
+
+    /**
+     * @summary Construct a new Schema containing only fields at the specified indices.
+     *
+     * @param fieldIndices Indices of fields to keep.
+     * @returns A new Schema of fields at the specified indices.
+     */
+    public selectAt<K extends T = any>(fieldIndices: number[]) {
+        const fields = fieldIndices.map((i) => this.fields[i]).filter(Boolean) as Field<K[keyof K]>[];
+        return new Schema<K>(fields, this.metadata);
     }
 
     public assign<R extends { [key: string]: DataType } = any>(schema: Schema<R>): Schema<T & R>;
@@ -55,8 +71,8 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         const other = (args[0] instanceof Schema
             ? args[0] as Schema<R>
             : Array.isArray(args[0])
-                ? new Schema<R>(<Field<R[keyof R]>[]> args[0])
-                : new Schema<R>(<Field<R[keyof R]>[]> args));
+                ? new Schema<R>(<Field<R[keyof R]>[]>args[0])
+                : new Schema<R>(<Field<R[keyof R]>[]>args));
 
         const curFields = [...this.fields] as Field[];
         const metadata = mergeMaps(mergeMaps(new Map(), this.metadata), other.metadata);
@@ -124,7 +140,7 @@ export class Field<T extends DataType = any> {
         let [name, type, nullable, metadata] = args;
         (!args[0] || typeof args[0] !== 'object')
             ? ([name = this.name, type = this.type, nullable = this.nullable, metadata = this.metadata] = args)
-            : ({name = this.name, type = this.type, nullable = this.nullable, metadata = this.metadata} = args[0]);
+            : ({ name = this.name, type = this.type, nullable = this.nullable, metadata = this.metadata } = args[0]);
         return Field.new<R>(name, type, nullable, metadata);
     }
 

@@ -69,14 +69,14 @@ class Footer_ {
         return b.asUint8Array();
     }
 
-    protected _recordBatches!: FileBlock[];
-    protected _dictionaryBatches!: FileBlock[];
+    declare protected _recordBatches: FileBlock[];
+    declare protected _dictionaryBatches: FileBlock[];
     public get numRecordBatches() { return this._recordBatches.length; }
     public get numDictionaries() { return this._dictionaryBatches.length; }
 
     constructor(public schema: Schema,
-                public version: MetadataVersion = MetadataVersion.V4,
-                recordBatches?: FileBlock[], dictionaryBatches?: FileBlock[]) {
+        public version: MetadataVersion = MetadataVersion.V4,
+        recordBatches?: FileBlock[], dictionaryBatches?: FileBlock[]) {
         recordBatches && (this._recordBatches = recordBatches);
         dictionaryBatches && (this._dictionaryBatches = dictionaryBatches);
     }

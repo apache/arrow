@@ -65,7 +65,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         const { ['highWaterMark']: writableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...writableStrategy };
 
         this['readable'] = new ReadableStream<Vector<T>>({
-            ['cancel']: ()  => { this._builder.clear(); },
+            ['cancel']: () => { this._builder.clear(); },
             ['pull']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
             ['start']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
         }, {
@@ -111,5 +111,5 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
     }
 }
 
-/** @ignore */ const chunkLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.length;
-/** @ignore */ const chunkByteLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.byteLength;
+/** @ignore */ const chunkLength = <T extends DataType = any>(chunk?: Vector<T> | Builder<T>) => chunk?.length ?? 0;
+/** @ignore */ const chunkByteLength = <T extends DataType = any>(chunk?: Vector<T> | Builder<T>) => chunk?.byteLength ?? 0;

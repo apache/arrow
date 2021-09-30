@@ -16,9 +16,9 @@
 // under the License.
 
 import { Type } from './enum';
-import { Data, makeData } from './data';
 import { clampRange } from './util/vector';
 import { DataType, strideForType } from './type';
+import { Data, makeData, DataProps } from './data';
 
 import {
     ChunkedIterator,
@@ -31,7 +31,7 @@ import {
     wrapChunkedIndexOf,
 } from './util/chunk';
 
-import { IndexingProxyHandlerMixin } from './util/proxy';
+import { NumericIndexingProxyHandlerMixin } from './util/proxy';
 
 import { instance as getVisitor } from './visitor/get';
 import { instance as setVisitor } from './visitor/set';
@@ -58,11 +58,19 @@ const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
 
 export class Vector<T extends DataType = any> {
 
-    constructor(data: readonly Data<T>[]) {
-        this.data = data = Array.isArray(data) ? data : [];
+    constructor(...args: Data<T>[]);
+    constructor(...args: Vector<T>[]);
+    constructor(...args: (readonly (Data<T> | Vector<T>)[])[]);
+    constructor(...args: any[]) {
+        const data = args.flat().flatMap((x) => {
+            return x instanceof Data ? [x]
+                : x instanceof Vector ? x.data
+                    : makeVector(x as Vector<T>).data;
+        });
         if (data.some((x) => !(x instanceof Data))) {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
+        this.data = data;
         this.type = data[0].type;
         switch (data.length) {
             case 0: this._offsets = new Uint32Array([0]); break;
@@ -112,7 +120,7 @@ export class Vector<T extends DataType = any> {
     /**
      * @summary The aggregate size (in bytes) of this Vector's buffers and/or child Vectors.
      */
-     public get byteLength() {
+    public get byteLength() {
         if (this._byteLength === -1) {
             this._byteLength = this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
         }
@@ -265,7 +273,10 @@ export class Vector<T extends DataType = any> {
         (proto as any)._nullCount = -1;
         (proto as any)._byteLength = -1;
         (proto as any)[Symbol.isConcatSpreadable] = true;
-        Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin()));
+        Object.setPrototypeOf(proto, new Proxy({}, new NumericIndexingProxyHandlerMixin(
+            (inst, key) => inst.get(key),
+            (inst, key, val) => inst.set(key, val)
+        )));
 
         Object.assign(vectorPrototypesByTypeId, Object
             .keys(Type).map((T: any) => Type[T] as any)
@@ -287,31 +298,45 @@ export class Vector<T extends DataType = any> {
 
 import * as dtypes from './type';
 
-export function makeVector(data: Int8Array): Vector<dtypes.Int8>;
-export function makeVector(data: Int16Array): Vector<dtypes.Int16>;
-export function makeVector(data: Int32Array): Vector<dtypes.Int32>;
-export function makeVector(data: BigInt64Array): Vector<dtypes.Int64>;
-export function makeVector(data: Uint8Array): Vector<dtypes.Uint8>;
-export function makeVector(data: Uint16Array): Vector<dtypes.Uint16>;
-export function makeVector(data: Uint32Array): Vector<dtypes.Uint32>;
-export function makeVector(data: BigUint64Array): Vector<dtypes.Uint64>;
-export function makeVector(data: Float32Array): Vector<dtypes.Float32>;
-export function makeVector(data: Float64Array): Vector<dtypes.Float64>;
-export function makeVector(data: any) {
-    const type = (() => {
-        switch(data.constructor) {
-            case Int8Array: return new dtypes.Int8;
-            case Int16Array: return new dtypes.Int16;
-            case Int32Array: return new dtypes.Int32;
-            case BigInt64Array: return new dtypes.Int64;
-            case Uint8Array: return new dtypes.Uint8;
-            case Uint16Array: return new dtypes.Uint16;
-            case Uint32Array: return new dtypes.Uint32;
-            case BigUint64Array: return new dtypes.Uint64;
-            case Float32Array: return new dtypes.Float32;
-            case Float64Array: return new dtypes.Float64;
-            default: throw new Error('Unrecognized input');
+export function makeVector(data: Int8Array | readonly Int8Array[]):/*      */Vector<dtypes.Int8>;
+export function makeVector(data: Int16Array | readonly Int16Array[]):/*     */Vector<dtypes.Int16>;
+export function makeVector(data: Int32Array | readonly Int32Array[]):/*     */Vector<dtypes.Int32>;
+export function makeVector(data: BigInt64Array | readonly BigInt64Array[]):/*  */Vector<dtypes.Int64>;
+export function makeVector(data: Uint8Array | readonly Uint8Array[]):/*     */Vector<dtypes.Uint8>;
+export function makeVector(data: Uint16Array | readonly Uint16Array[]):/*    */Vector<dtypes.Uint16>;
+export function makeVector(data: Uint32Array | readonly Uint32Array[]):/*    */Vector<dtypes.Uint32>;
+export function makeVector(data: BigUint64Array | readonly BigUint64Array[]):/* */Vector<dtypes.Uint64>;
+export function makeVector(data: Float32Array | readonly Float32Array[]):/*   */Vector<dtypes.Float32>;
+export function makeVector(data: Float64Array | readonly Float64Array[]):/*   */Vector<dtypes.Float64>;
+export function makeVector<T extends DataType>(data: Data<T> | readonly Data<T>[]): Vector<T>;
+export function makeVector<T extends DataType>(data: Vector<T> | readonly Vector<T>[]): Vector<T>;
+export function makeVector<T extends DataType>(data: DataProps<T> | readonly DataProps<T>[]): Vector<T>;
+
+export function makeVector(init: any) {
+    if (init) {
+        if (init instanceof Data) { return new Vector(init); }
+        if (init instanceof Vector) { return new Vector(init.data); }
+        if (init.type instanceof DataType) { return new Vector([makeData(init)]); }
+        if (Array.isArray(init)) {
+            return new Vector(init.flat().flatMap((x) => x instanceof Vector ? x.data : makeVector(x).data));
         }
-    })();
-    return new Vector([makeData({ type, length: data.length, nullCount: 0, data })]);
+        if (ArrayBuffer.isView(init)) {
+            if (init instanceof DataView) {
+                init = new Uint8Array(init.buffer);
+            }
+            const props = { offset: 0, length: init.length, nullCount: 0, data: init };
+            if (init instanceof Int8Array) { return new Vector([makeData({ ...props, type: new dtypes.Int8 })]); }
+            if (init instanceof Int16Array) { return new Vector([makeData({ ...props, type: new dtypes.Int16 })]); }
+            if (init instanceof Int32Array) { return new Vector([makeData({ ...props, type: new dtypes.Int32 })]); }
+            if (init instanceof BigInt64Array) { return new Vector([makeData({ ...props, type: new dtypes.Int64 })]); }
+            if (init instanceof Uint8Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint8 })]); }
+            if (init instanceof Uint16Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint16 })]); }
+            if (init instanceof Uint32Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint32 })]); }
+            if (init instanceof BigUint64Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint64 })]); }
+            if (init instanceof Float32Array) { return new Vector([makeData({ ...props, type: new dtypes.Float32 })]); }
+            if (init instanceof Float64Array) { return new Vector([makeData({ ...props, type: new dtypes.Float64 })]); }
+            throw new Error('Unrecognized input');
+        }
+    }
+    throw new Error('Unrecognized input');;
 }

@@ -31,6 +31,14 @@ const parseXML = promisify(require('xml2js').parseString);
 const { targetAndModuleCombinations, npmPkgName } = require('./util');
 
 const jestArgv = [`--reporters=jest-silent-reporter`];
+const testFiles = [
+    // `test/unit/`,
+    `test/unit/bit-tests.ts`,
+    `test/unit/math-tests.ts`,
+    `test/unit/table-tests.ts`,
+    // `test/unit/utils-tests.ts`,
+    `test/unit/generated-data-tests.ts`,
+];
 
 if (argv.verbose) {
     jestArgv.push(`--verbose`);
@@ -60,7 +68,7 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
         args.push(`-c`, `jestconfigs/jest.coverage.config.js`);
     } else {
         const cfgname = [target, format].filter(Boolean).join('.');
-        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, `test/unit/`);
+        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, ...testFiles);
     }
     opts.env = {
         ...opts.env,

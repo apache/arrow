@@ -20,8 +20,8 @@ import { Table } from './table';
 import { Vector } from './vector';
 import { Visitor } from './visitor';
 import { Schema, Field } from './schema';
-import { DataType, Struct, Dictionary } from './type';
-import { IndexingProxyHandlerMixin } from './util/proxy';
+import { DataType, Struct, Dictionary, Null } from './type';
+import { NumericIndexingProxyHandlerMixin } from './util/proxy';
 
 import { instance as getVisitor } from './visitor/get';
 import { instance as setVisitor } from './visitor/set';
@@ -76,7 +76,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
                 const { fields, children, length } = Object.keys(obj).reduce((memo, name, i) => {
                     memo.children[i] = obj[name];
                     memo.length = Math.max(memo.length, obj[name].length);
-                    memo.fields[i] = Field.new({ name, type: obj[name].type });
+                    memo.fields[i] = Field.new({ name, type: obj[name].type, nullable: true });
                     return memo;
                 }, {
                     length: 0,
@@ -105,7 +105,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
 
     public get dictionaries() {
         return this._dictionaries || (
-               this._dictionaries = new DictionaryCollector().visit(this.data).dictionaries);
+            this._dictionaries = new DictionaryCollector().visit(this.data).dictionaries);
     }
 
     /**
@@ -191,11 +191,21 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
     }
 
     /**
+     * Return a zero-copy sub-section of this RecordBatch.
+     * @param start The beginning of the specified portion of the RecordBatch.
+     * @param end The end of the specified portion of the RecordBatch. This is exclusive of the element at the index 'end'.
+     */
+    public slice(begin?: number, end?: number): RecordBatch<T> {
+        const [slice] = new Vector([this.data]).slice(begin, end).data;
+        return new RecordBatch(this.schema, slice);
+    }
+
+    /**
      * @summary Returns a child Vector by name, or null if this Vector has no child with the given name.
      * @param name The name of the child to retrieve.
      */
-    public getChild<R extends keyof T['TChildren']>(name: R) {
-        return this.getChildAt(this.schema.fields?.findIndex((f) => f.name === name));
+    public getChild<P extends keyof T>(name: P) {
+        return this.getChildAt<T[P]>(this.schema.fields?.findIndex((f) => f.name === name));
     }
 
     /**
@@ -209,16 +219,69 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
         return null;
     }
 
-    public select<K extends keyof T = any>(...columnNames: K[]) {
-        const nameToIndex = this.schema.fields.reduce((m, f, i) => m.set(f.name as K, i), new Map<K, number>());
-        return this.selectAt(...columnNames.map((columnName) => nameToIndex.get(columnName)!).filter((x) => x > -1));
+    /**
+     * @summary Sets a child Vector by name.
+     * @param name The name of the child to overwrite.
+     * @returns A new RecordBatch with the new child for the specified name.
+     */
+    public setChild<P extends keyof T, R extends DataType>(name: P, child: Vector<R>) {
+        return this.setChildAt(this.schema.fields?.findIndex((f) => f.name === name), child) as RecordBatch<T & { [K in P]: R }>;
     }
 
-    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
-        const schema = this.schema.selectAt(...columnIndices);
+    /**
+     * @summary Sets a child Vector by index.
+     * @param index The index of the child to overwrite.
+     * @returns A new RecordBatch with the new child at the specified index.
+     */
+    public setChildAt(index: number, child?: null): RecordBatch;
+    public setChildAt<R extends DataType = any>(index: number, child: Vector<R>): RecordBatch;
+    public setChildAt(index: number, child: any) {
+        let schema: Schema = this.schema;
+        let data: Data<Struct> = this.data;
+        if (index > -1 && index < this.numCols) {
+            if (!child) {
+                child = new Vector([makeData({ type: new Null, length: this.numRows })]);
+            }
+            const fields = schema.fields.slice() as Field<any>[];
+            const children = data.children.slice() as Data<any>[];
+            const field = fields[index].clone({ type: child.type });
+            [fields[index], children[index]] = [field, child.data[0]];
+            schema = new Schema(fields, new Map(this.schema.metadata));
+            data = makeData({ type: new Struct<T>(fields), children });
+        }
+        return new RecordBatch(schema, data);
+    }
+
+    /**
+     * @summary Construct a new RecordBatch containing only specified columns.
+     *
+     * @param columnNames Names of columns to keep.
+     * @returns A new RecordBatch of columns matching the specified names.
+     */
+    public select<K extends keyof T = any>(columnNames: K[]) {
+        const schema = this.schema.select(columnNames);
+        const type = new Struct(schema.fields);
+        const children = [] as Data<T[K]>[];
+        for (const name of columnNames) {
+            const index = this.schema.fields.findIndex((f) => f.name === name);
+            if (~index) {
+                children[index] = this.data.children[index] as Data<T[K]>;
+            }
+        }
+        return new RecordBatch(schema, makeData({ type, length: this.numRows, children }));
+    }
+
+    /**
+     * @summary Construct a new RecordBatch containing only columns at the specified indices.
+     *
+     * @param columnIndices Indices of columns to keep.
+     * @returns A new RecordBatch of columns matching at the specified indices.
+     */
+    public selectAt<K extends T = any>(columnIndices: number[]) {
+        const schema = this.schema.selectAt<K>(columnIndices);
         const children = columnIndices.map((i) => this.data.children[i]).filter(Boolean);
         const subset = makeData({ type: new Struct(schema.fields), length: this.numRows, children });
-        return new RecordBatch<{ [key: string]: K }>(schema, subset);
+        return new RecordBatch<{ [P in keyof K]: K[P] }>(schema, subset);
     }
 
     // Initialize this static property via an IIFE so bundlers don't tree-shake
@@ -228,7 +291,16 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
         (proto as any)._nullCount = -1;
         (proto as any)[Symbol.isConcatSpreadable] = true;
 
-        Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin()));
+        Object.setPrototypeOf(proto, new Proxy({}, new NumericIndexingProxyHandlerMixin<RecordBatch>(
+            (inst, key) => inst.get(key),
+            (inst, key, val) => inst.set(key, val)
+        )));
+        // Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin<RecordBatch>(
+        //     (inst, key) => inst.get(key),
+        //     (inst, key, val) => inst.set(key, val),
+        //     (inst, key) => inst.getChild(key),
+        //     (inst, key, val) => inst.setChild(key, val),
+        // )));
 
         return 'RecordBatch';
     })(RecordBatch.prototype);
@@ -236,43 +308,35 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
 
 
 /** @ignore */
-const ensureSameLengthData = (() => {
+function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
+    schema: Schema<T>,
+    columns: Data<T[keyof T]>[],
+    maxLength = columns.reduce((max, col) => Math.max(max, col.length), 0)
+) {
+    const fields = [...schema.fields];
+    const children = [...columns] as Data<T[keyof T]>[];
+    const nullBitmapSize = ((maxLength + 63) & ~63) >> 3;
 
-    return function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
-        schema: Schema<T>,
-        columns: Data<T[keyof T]>[],
-        length = columns.reduce((l, c) => Math.max(l, c.length), 0)
-    ) {
-        let child: Data<T[keyof T]>;
-        let field: Field<T[keyof T]>;
-        let columnIndex = -1;
-        const numColumns = columns.length;
-        const fields = [...schema.fields];
-        const children = [] as Data<T[keyof T]>[];
-        const nullCount = ((length + 63) & ~63) >> 3;
-        while (++columnIndex < numColumns) {
-            field = fields[columnIndex];
-            child = columns[columnIndex];
-            if (!child || child.length !== length) {
-                field = field.clone({ nullable: true });
-                child = child
-                    ? child._changeLengthAndBackfillNullBitmap(length)
-                    : makeData({
-                        type: field.type,
-                        length,
-                        nullCount: length,
-                        nullBitmap: new Uint8Array(nullCount)
-                    });
-            }
-            fields[columnIndex] = field;
-            children[columnIndex] = child;
+    schema.fields.forEach((field, idx) => {
+        const column = columns[idx];
+        if (!column || column.length !== maxLength) {
+            fields[idx] = field.clone({ nullable: true });
+            children[idx] = column
+                ? column._changeLengthAndBackfillNullBitmap(maxLength)
+                : makeData({
+                    type: field.type,
+                    length: maxLength,
+                    nullCount: maxLength,
+                    nullBitmap: new Uint8Array(nullBitmapSize)
+                });
         }
-        return [
-            new Schema<T>(fields),
-            makeData({ type: new Struct<T>(fields), length, children, nullCount: 0 })
-        ] as [Schema<T>, Data<Struct<T>>];
-    };
-})();
+    });
+
+    return [
+        new Schema<T>(fields),
+        makeData({ type: new Struct<T>(fields), length: maxLength, children, nullCount: 0 })
+    ] as [Schema<T>, Data<Struct<T>>];
+};
 
 
 /** @ignore */

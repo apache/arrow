@@ -24,6 +24,10 @@ import { valueToString } from '../util/pretty';
 /** @ignore */ const kParent = Symbol.for('parent');
 /** @ignore */ const kRowIndex = Symbol.for('rowIndex');
 
+export type StructRowProxy<T extends { [key: string]: DataType } = any> = StructRow<T> & {
+    [P in keyof T]: T[P]['TValue'];
+};
+
 export class StructRow<T extends { [key: string]: DataType } = any> {
 
     declare private [kRowIndex]: number;
@@ -49,11 +53,10 @@ export class StructRow<T extends { [key: string]: DataType } = any> {
     }
 
     public [Symbol.for('nodejs.util.inspect.custom')]() {
-        return `{${
-            [...this].map(([key, val]) =>
-                `${valueToString(key)}: ${valueToString(val)}`
-            ).join(', ')
-        }}`;
+        return `{${[...this].map(([key, val]) =>
+            `${valueToString(key)}: ${valueToString(val)}`
+        ).join(', ')
+            }}`;
     }
 
     [Symbol.iterator](): IterableIterator<[

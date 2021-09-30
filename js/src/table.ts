@@ -15,12 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from './data';
+import { Data, makeData } from './data';
 import { Type } from './enum';
 import { Vector } from './vector';
-import { Schema } from './schema';
-import { DataType, Struct } from './type';
+import { Field, Schema } from './schema';
+import { DataType, Null, Struct } from './type';
 import { compareSchemas } from './visitor/typecomparator';
+import { distributeVectorsIntoRecordBatches } from './util/recordbatch';
 
 import {
     ChunkedIterator,
@@ -33,7 +34,7 @@ import {
     sliceChunks,
 } from './util/chunk';
 
-import { IndexingProxyHandlerMixin } from './util/proxy';
+import { NumericIndexingProxyHandlerMixin } from './util/proxy';
 
 import { instance as getVisitor } from './visitor/get';
 import { instance as setVisitor } from './visitor/set';
@@ -41,8 +42,10 @@ import { instance as indexOfVisitor } from './visitor/indexof';
 import { instance as toArrayVisitor } from './visitor/toarray';
 import { instance as byteLengthVisitor } from './visitor/bytelength';
 
-import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
+import { DataProps } from './data';
 import { clampRange } from './util/vector';
+import { BigIntArray, TypedArray } from './interfaces';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
 
 /** @ignore */
 export interface Table<T extends { [key: string]: DataType } = any> {
@@ -62,89 +65,150 @@ export interface Table<T extends { [key: string]: DataType } = any> {
 
 export class Table<T extends { [key: string]: DataType } = any> {
 
-    constructor(columns: { [P in keyof T]: Vector<T[P]> });
+    constructor();
+    constructor(batches: readonly RecordBatch<T>[]);
+    constructor(...columns: { [P in keyof T]: Vector<T[P]> }[]);
+    constructor(...columns: { [P in keyof T]: TypedArray | BigIntArray }[]);
+    constructor(...columns: { [P in keyof T]: Data<T[P]> | DataProps<T[P]> }[]);
     constructor(schema: Schema<T>, data?: RecordBatch<T> | RecordBatch<T>[]);
     constructor(schema: Schema<T>, data?: RecordBatch<T> | RecordBatch<T>[], offsets?: Uint32Array);
     constructor(...args: any[]) {
 
         if (args.length === 0) {
-            args = [new Schema([])];
+            this.data = []
+            this.schema = new Schema([]);
+            this._offsets = new Uint32Array([0]);
+            return this;
         }
 
-        if (args.length === 1 && !(args[0] instanceof Schema)) {
-            const [obj] = args as [{ [P in keyof T]: Vector<T[P]> }];
-            const batches = Object.keys(obj).reduce((batches, name: keyof T) => {
-                obj[name].data.forEach((data, batchIndex) => {
-                    if (!batches[batchIndex]) {
-                        batches[batchIndex] = {} as { [P in keyof T]: Data<T[P]> };
-                    }
-                    batches[batchIndex][name] = data;
-                });
-                return batches;
-            }, new Array<{ [P in keyof T]: Data<T[P]> }>())
-            .map((data) => new RecordBatch<T>(data));
+        let data: RecordBatch<T>[] = [];
+        let schema: Schema<T> | undefined = undefined;
+        let offsets: Uint32Array | undefined = undefined;
 
-            args = [batches[0].schema, batches];
+        if (args[0] instanceof Schema) {
+            schema = args.shift() as Schema<T>;
+        }
+        if (args[args.length - 1] instanceof Uint32Array) {
+            offsets = args.pop() as Uint32Array;
         }
 
-        let [schema, data, offsets] = args;
+        args.flatMap((x) => Array.isArray(x) ? x : [x]).forEach((x) => {
+            if (x instanceof RecordBatch) {
+                data.push(x);
+            } else if (x instanceof Data) {
+                if (x.type instanceof Struct) {
+                    data.push(new RecordBatch(new Schema(x.type.children), x));
+                }
+            } else if (x && typeof x === 'object') {
+                const keys = Object.keys(x) as (keyof T)[];
+                const vecs = keys.map((k) => new Vector(x[k]));
+                const empty = keys.reduce((empty, key, i) => {
+                    empty[key] = vecs[i].data[0].slice(0, 0);
+                    return empty;
+                }, Object.create(null) as { [P in keyof T]: Data<T[P]> });
+                data.push(...keys
+                    .reduce((batches, name, i) => {
+                        vecs[i].data.forEach((data, j) => {
+                            (batches[j] || (batches[j] = { ...empty }))[name] = data;
+                        });
+                        return batches;
+                    }, new Array<{ [P in keyof T]: Data<T[P]> }>())
+                    .map((batch) => new RecordBatch<T>(batch)));
+            }
+        });
+
+        schema ??= data[0]?.schema ?? new Schema([]);
 
         if (!(schema instanceof Schema)) {
             throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
         }
 
-        this.schema = schema;
-
-        [, data = [new _InternalEmptyPlaceholderRecordBatch(schema)]] = args;
-
-        const batches: RecordBatch<T>[] = Array.isArray(data) ? data : [data];
-
-        batches.forEach((batch: RecordBatch<T>) => {
+        for (const batch of data) {
             if (!(batch instanceof RecordBatch)) {
                 throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
             }
-            if (!compareSchemas(this.schema, batch.schema)) {
-                throw new TypeError('Table and all RecordBatch schemas must be equivalent.');
+            if (!compareSchemas(schema, batch.schema)) {
+                throw new TypeError('Table and inner RecordBatch schemas must be equivalent.');
             }
-        }, new Struct(schema.fields));
+        }
 
-        this.data = batches.map(({ data }) => data);
-        this._offsets = offsets ?? computeChunkOffsets(this.data);
+        this.data = data;
+        this.schema = schema;
+        this._offsets = offsets ?? computeChunkOffsets(this.data.map((b) => b.data));
+
+        // if (args.length === 1 && !(args[0] instanceof Schema)) {
+        //     const [obj] = args as [{ [P in keyof T]: Vector<T[P]> }];
+        //     const batches = Object.keys(obj).reduce((batches, name: keyof T) => {
+        //         obj[name].data.forEach((data, batchIndex) => {
+        //             if (!batches[batchIndex]) {
+        //                 batches[batchIndex] = {} as { [P in keyof T]: Data<T[P]> };
+        //             }
+        //             batches[batchIndex][name] = new Vector(data).data[0];
+        //         });
+        //         return batches;
+        //     }, new Array<{ [P in keyof T]: Data<T[P]> }>());
+
+        //     args = [batches[0].schema, batches.map((data) => new RecordBatch<T>(data))];
+        // }
+
+        // let [schema, data, offsets] = args;
+
+        // if (!(schema instanceof Schema)) {
+        //     throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
+        // }
+
+        // this.schema = schema;
+
+        // [, data = [new _InternalEmptyPlaceholderRecordBatch(schema)]] = args;
+
+        // const batches: RecordBatch<T>[] = Array.isArray(data) ? data : [data];
+
+        // batches.forEach((batch: RecordBatch<T>) => {
+        //     if (!(batch instanceof RecordBatch)) {
+        //         throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
+        //     }
+        //     if (!compareSchemas(this.schema, batch.schema)) {
+        //         throw new TypeError('Table and all RecordBatch schemas must be equivalent.');
+        //     }
+        // });
+
+        // this.data = batches;
+        // this._offsets = offsets ?? computeChunkOffsets(this.data.map((b) => b.data));
     }
 
-    protected _offsets!: Uint32Array;
-    protected _nullCount!: number;
+    declare protected _offsets: Uint32Array;
+    declare protected _nullCount: number;
 
     /**
      * @summary Get and set elements by index.
      */
     [index: number]: Struct<T>['TValue'] | null;
 
-    public readonly schema!: Schema<T>;
+    public readonly schema: Schema<T>;
 
     /**
      * @summary The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
      */
-    public readonly data!: ReadonlyArray<Data<Struct<T>>>;
+    public readonly data: ReadonlyArray<RecordBatch<T>>;
 
     /**
      * @summary The number of columns in this Table.
      */
     public get numCols() { return this.schema.fields.length; }
 
-     /**
-      * @summary The number of rows in this Table.
-      */
+    /**
+     * @summary The number of rows in this Table.
+     */
     public get numRows() {
-        return this.data.reduce((numRows, data) => numRows + data.length, 0);
+        return this.data.reduce((numRows, data) => numRows + data.numRows, 0);
     }
 
     /**
      * @summary The number of null rows in this Table.
      */
-     public get nullCount() {
+    public get nullCount() {
         if (this._nullCount === -1) {
-            this._nullCount = computeChunkNullCounts(this.data);
+            this._nullCount = computeChunkNullCounts(this.data.map((b) => b.data));
         }
         return this._nullCount;
     }
@@ -161,7 +225,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @param index The index of the element to read.
      */
     // @ts-ignore
-    public get(index: number): T['TValue'] | null { return null; }
+    public get(index: number): Struct<T>['TValue'] | null { return null; }
 
     /**
      * @summary Set an element value by position.
@@ -169,7 +233,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @param value The value to set.
      */
     // @ts-ignore
-    public set(index: number, value: T['TValue'] | null): void { return; }
+    public set(index: number, value: Struct<T>['TValue'] | null): void { return; }
 
     /**
      * @summary Retrieve the index of the first occurrence of a value in an Vector.
@@ -177,7 +241,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @param offset The index at which to begin the search. If offset is omitted, the search starts at index 0.
      */
     // @ts-ignore
-    public indexOf(element: T['TValue'], offset?: number): number { return -1; }
+    public indexOf(element: Struct<T>['TValue'], offset?: number): number { return -1; }
 
     /**
      * @summary Get the size in bytes of an element by index.
@@ -190,7 +254,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @summary Iterator for rows in this Table.
      */
     public [Symbol.iterator]() {
-        return new ChunkedIterator(this.data);
+        return new ChunkedIterator(this.data.map((b) => b.data));
     }
 
     /**
@@ -198,7 +262,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @returns An Array of Table rows.
      */
     public toArray() {
-        return this.data.reduce((ary, data) =>
+        return this.data.reduce((ary, { data }) =>
             ary.concat(toArrayVisitor.visit(data)),
             new Array<Struct<T>['TValue']>()
         );
@@ -211,7 +275,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
     public concat(...others: Table<T>[]) {
         const schema = this.schema;
         const data = this.data.concat(others.flatMap(({ data }) => data));
-        return new Table(schema, data.map((data) => new RecordBatch(schema, data)));
+        return new Table(schema, data.map(({ data }) => new RecordBatch(schema, data)));
     }
 
     /**
@@ -222,7 +286,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
     public slice(begin?: number, end?: number): Table<T> {
         const schema = this.schema;
         [begin, end] = clampRange({ length: this.numRows }, begin, end);
-        const data = sliceChunks(this.data, this._offsets, begin, end);
+        const data = sliceChunks(this.data.map((b) => b.data), this._offsets, begin, end);
         return new Table(schema, data.map((chunk) => new RecordBatch(schema, chunk)));
     }
 
@@ -230,8 +294,8 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @summary Returns a child Vector by name, or null if this Vector has no child with the given name.
      * @param name The name of the child to retrieve.
      */
-    public getChild<R extends keyof T['TChildren']>(name: R) {
-        return this.getChildAt(this.schema.fields?.findIndex((f) => f.name === name));
+    public getChild<P extends keyof T>(name: P) {
+        return this.getChildAt<T[P]>(this.schema.fields?.findIndex((f) => f.name === name));
     }
 
     /**
@@ -240,9 +304,64 @@ export class Table<T extends { [key: string]: DataType } = any> {
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
-            return new Vector(this.data.map(({ children }) => children[index] as Data<R>));
+            return new Vector(this.data.map(({ data }) => data.children[index] as Data<R>));
         }
         return null;
+    }
+
+    /**
+     * @summary Sets a child Vector by name.
+     * @param name The name of the child to overwrite.
+     * @returns A new Table with the supplied child for the specified name.
+     */
+    public setChild<P extends keyof T, R extends DataType>(name: P, child: Vector<R>) {
+        return this.setChildAt(this.schema.fields?.findIndex((f) => f.name === name), child) as Table<T & { [K in P]: R }>;
+    }
+
+    /**
+     * @summary Sets a child Vector by index.
+     * @param index The index of the child to overwrite.
+     * @returns A new Table with the supplied child at the specified index.
+     */
+    public setChildAt(index: number, child?: null): Table;
+    public setChildAt<R extends DataType = any>(index: number, child: Vector<R>): Table;
+    public setChildAt(index: number, child: any) {
+        let schema: Schema = this.schema;
+        let data: RecordBatch[] = [...this.data];
+        if (index > -1 && index < this.numCols) {
+            if (!child) {
+                child = new Vector([makeData({ type: new Null, length: this.numRows })]);
+            }
+            const fields = schema.fields.slice() as Field<any>[];
+            const field = fields[index].clone({ type: child.type });
+            const children = this.schema.fields.map((_, i) => this.getChildAt(i)!);
+            [fields[index], children[index]] = [field, child];
+            [schema, data] = distributeVectorsIntoRecordBatches(schema, children);
+        }
+        return new Table(schema, data);
+    }
+
+    /**
+     * @summary Construct a new Table containing only specified columns.
+     *
+     * @param columnNames Names of columns to keep.
+     * @returns A new Table of columns matching the specified names.
+     */
+    public select<K extends keyof T = any>(columnNames: K[]) {
+        const nameToIndex = this.schema.fields.reduce((m, f, i) => m.set(f.name as K, i), new Map<K, number>());
+        return this.selectAt(columnNames.map((columnName) => nameToIndex.get(columnName)!).filter((x) => x > -1));
+    }
+
+    /**
+     * @summary Construct a new Table containing only columns at the specified indices.
+     *
+     * @param columnIndices Indices of columns to keep.
+     * @returns A new Table of columns at the specified indices.
+     */
+    public selectAt<K extends T[keyof T] = any>(columnIndices: number[]) {
+        const schema = this.schema.selectAt(columnIndices);
+        const data = this.data.map((batch) => batch.selectAt(columnIndices));
+        return new Table<{ [key: string]: K }>(schema, data);
     }
 
     // Initialize this static property via an IIFE so bundlers don't tree-shake
@@ -255,7 +374,16 @@ export class Table<T extends { [key: string]: DataType } = any> {
         (proto as any)['set'] = wrapChunkedCall2(setVisitor.getVisitFn(Type.Struct));
         (proto as any)['indexOf'] = wrapChunkedIndexOf(indexOfVisitor.getVisitFn(Type.Struct));
         (proto as any)['getByteLength'] = wrapChunkedCall1(byteLengthVisitor.getVisitFn(Type.Struct));
-        Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin()));
+        Object.setPrototypeOf(proto, new Proxy({}, new NumericIndexingProxyHandlerMixin<Table>(
+            (inst, key) => inst.get(key),
+            (inst, key, val) => inst.set(key, val)
+        )));
+        // Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin<Table>(
+        //     (inst, key) => inst.get(key),
+        //     (inst, key, val) => inst.set(key, val),
+        //     (inst, key) => inst.getChild(key),
+        //     (inst, key, val) => inst.setChild(key, val),
+        // )));
         return 'Table';
     })(Table.prototype);
 }

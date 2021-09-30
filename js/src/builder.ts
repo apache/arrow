@@ -20,7 +20,7 @@ import { BufferType } from './enum';
 import { Data, makeData } from './data';
 import { MapRow, kKeys } from './row/map';
 import { createIsValidFunction } from './builder/valid';
-import { BuilderType as B} from './interfaces';
+import { BuilderType as B } from './interfaces';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer';
 import {
     DataType, strideForType,
@@ -120,7 +120,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @nocollapse
      */
     // @ts-ignore
-    public static new<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> {}
+    public static new<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> { }
 
     /** @nocollapse */
     // @ts-ignore
@@ -158,7 +158,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @nocollapse
      */
     public static throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        return throughIterable(options);
+        return throughIterable({ ['highWaterMark']: Infinity, ...options });
     }
 
     /**
@@ -187,7 +187,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @nocollapse
      */
     public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        return throughAsyncIterable(options);
+        return throughAsyncIterable({ ['highWaterMark']: Infinity, ...options });
     }
 
     /**
@@ -280,20 +280,20 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
 
-    protected _offsets!: DataBufferBuilder<Int32Array>;
+    declare protected _offsets: DataBufferBuilder<Int32Array>;
     public get valueOffsets() { return this._offsets ? this._offsets.buffer : null; }
 
-    protected _values!: BufferBuilder<T['TArray'], any>;
+    declare protected _values: BufferBuilder<T['TArray'], any>;
     public get values() { return this._values ? this._values.buffer : null; }
 
-    protected _nulls: BitmapBufferBuilder;
+    declare protected _nulls: BitmapBufferBuilder;
     public get nullBitmap() { return this._nulls ? this._nulls.buffer : null; }
 
-    protected _typeIds!: DataBufferBuilder<Int8Array>;
+    declare protected _typeIds: DataBufferBuilder<Int8Array>;
     public get typeIds() { return this._typeIds ? this._typeIds.buffer : null; }
 
-    protected _isValid!: (value: T['TValue'] | TNull) => boolean;
-    protected _setValue!: (inst: Builder<T>, index: number, value: T['TValue']) => void;
+    declare protected _isValid: (value: T['TValue'] | TNull) => boolean;
+    declare protected _setValue: (inst: Builder<T>, index: number, value: T['TValue']) => void;
 
     /**
      * Appends a value (or null) to this `Builder`.
@@ -361,9 +361,9 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     public flush() {
 
         const buffers: any = [];
-        const values =  this._values;
-        const offsets =  this._offsets;
-        const typeIds =  this._typeIds;
+        const values = this._values;
+        const offsets = this._offsets;
+        const typeIds = this._typeIds;
         const { length, nullCount } = this;
 
         if (typeIds) { /* Unions */
@@ -380,7 +380,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
         nullCount > 0 && (buffers[BufferType.VALIDITY] = this._nulls.flush(length));
 
-        const data = makeData(<any> {
+        const data = makeData(<any>{
             type: this.type,
             offset: 0, length, nullCount,
             data: buffers[BufferType.DATA],
@@ -497,7 +497,7 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
-    return function*(source: Iterable<T['TValue'] | TNull>) {
+    return function* (source: Iterable<T['TValue'] | TNull>) {
         let numChunks = 0;
         const builder = Builder.new(options);
         for (const value of source) {
