@@ -173,15 +173,16 @@ struct OrderBySinkNode final : public SinkNode {
 
     auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
                                            plan()->exec_context()->memory_pool());
-    if (ErrorIfNotOk(maybe_batch.status())) return;
-    auto record_batch = maybe_batch.MoveValueUnsafe();
-
-    Status status = impl_->InputReceived(std::move(record_batch));
-    if (!status.ok()) {
+    if (ErrorIfNotOk(maybe_batch.status())) {
       StopProducing();
-      ErrorIfNotOk(status);
+      bool cancelled = input_counter_.Cancel();
+      DCHECK(cancelled);
+      finished_.MarkFinished(maybe_batch.status());
       return;
     }
+    auto record_batch = maybe_batch.MoveValueUnsafe();
+
+    impl_->InputReceived(std::move(record_batch));
     if (input_counter_.Increment()) {
       Finish();
     }

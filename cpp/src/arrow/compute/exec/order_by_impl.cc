@@ -41,10 +41,9 @@ class SortBasicImpl : public OrderByImpl {
                 const SortOptions& options = SortOptions{})
       : ctx_(ctx), output_schema_(output_schema), options_(options) {}
 
-  Status InputReceived(std::shared_ptr<RecordBatch> batch) override {
+  void InputReceived(const std::shared_ptr<RecordBatch>& batch) override {
     std::unique_lock<std::mutex> lock(mutex_);
     batches_.push_back(batch);
-    return Status::OK();
   }
 
   Result<Datum> DoFinish() override {

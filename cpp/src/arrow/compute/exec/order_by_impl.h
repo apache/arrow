@@ -34,7 +34,7 @@ class OrderByImpl {
  public:
   virtual ~OrderByImpl() = default;
 
-  virtual Status InputReceived(std::shared_ptr<RecordBatch> batch) = 0;
+  virtual void InputReceived(const std::shared_ptr<RecordBatch>& batch) = 0;
 
   virtual Result<Datum> DoFinish() = 0;
 
