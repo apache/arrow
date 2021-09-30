@@ -69,9 +69,9 @@ struct KeyEncoder {
 
   virtual ~KeyEncoder() = default;
 
-  virtual void AddLength(const ArrayData&, int32_t* lengths) = 0;
+  virtual void AddLength(const Datum&, int64_t batch_length, int32_t* lengths) = 0;
 
-  virtual Status Encode(const ArrayData&, uint8_t** encoded_bytes) = 0;
+  virtual Status Encode(const Datum&, int64_t batch_length, uint8_t** encoded_bytes) = 0;
 
   virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
                                                     int32_t length, MemoryPool*) = 0;
@@ -112,25 +112,36 @@ struct KeyEncoder {
 struct BooleanKeyEncoder : KeyEncoder {
   static constexpr int kByteWidth = 1;
 
-  void AddLength(const ArrayData& data, int32_t* lengths) override {
-    for (int64_t i = 0; i < data.length; ++i) {
+  void AddLength(const Datum& data, int64_t batch_length, int32_t* lengths) override {
+    for (int64_t i = 0; i < batch_length; ++i) {
       lengths[i] += kByteWidth + kExtraByteForNull;
     }
   }
 
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    VisitArrayDataInline<BooleanType>(
-        data,
-        [&](bool value) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kValidByte;
-          *encoded_ptr++ = value;
-        },
-        [&] {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kNullByte;
-          *encoded_ptr++ = 0;
-        });
+  Status Encode(const Datum& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override {
+    if (data.is_array()) {
+      VisitArrayDataInline<BooleanType>(
+          *data.array(),
+          [&](bool value) {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = kValidByte;
+            *encoded_ptr++ = value;
+          },
+          [&] {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = kNullByte;
+            *encoded_ptr++ = 0;
+          });
+    } else {
+      const auto& scalar = data.scalar_as<BooleanScalar>();
+      bool value = scalar.is_valid && scalar.value;
+      for (int64_t i = 0; i < batch_length; i++) {
+        auto& encoded_ptr = *encoded_bytes++;
+        *encoded_ptr++ = kValidByte;
+        *encoded_ptr++ = value;
+      }
+    }
     return Status::OK();
   }
 
@@ -159,30 +170,53 @@ struct FixedWidthKeyEncoder : KeyEncoder {
       : type_(std::move(type)),
         byte_width_(checked_cast<const FixedWidthType&>(*type_).bit_width() / 8) {}
 
-  void AddLength(const ArrayData& data, int32_t* lengths) override {
-    for (int64_t i = 0; i < data.length; ++i) {
+  void AddLength(const Datum& data, int64_t batch_length, int32_t* lengths) override {
+    for (int64_t i = 0; i < batch_length; ++i) {
       lengths[i] += byte_width_ + kExtraByteForNull;
     }
   }
 
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    ArrayData viewed(fixed_size_binary(byte_width_), data.length, data.buffers,
-                     data.null_count, data.offset);
+  Status Encode(const Datum& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override {
+    if (data.is_array()) {
+      const auto& arr = *data.array();
+      ArrayData viewed(fixed_size_binary(byte_width_), arr.length, arr.buffers,
+                       arr.null_count, arr.offset);
 
-    VisitArrayDataInline<FixedSizeBinaryType>(
-        viewed,
-        [&](util::string_view bytes) {
+      VisitArrayDataInline<FixedSizeBinaryType>(
+          viewed,
+          [&](util::string_view bytes) {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = kValidByte;
+            memcpy(encoded_ptr, bytes.data(), byte_width_);
+            encoded_ptr += byte_width_;
+          },
+          [&] {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = kNullByte;
+            memset(encoded_ptr, 0, byte_width_);
+            encoded_ptr += byte_width_;
+          });
+    } else {
+      const auto& scalar = data.scalar_as<arrow::internal::PrimitiveScalarBase>();
+      if (scalar.is_valid) {
+        const util::string_view data = scalar.view();
+        DCHECK_EQ(data.size(), static_cast<size_t>(byte_width_));
+        for (int64_t i = 0; i < batch_length; i++) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kValidByte;
-          memcpy(encoded_ptr, bytes.data(), byte_width_);
+          memcpy(encoded_ptr, data.data(), data.size());
           encoded_ptr += byte_width_;
-        },
-        [&] {
+        }
+      } else {
+        for (int64_t i = 0; i < batch_length; i++) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kNullByte;
           memset(encoded_ptr, 0, byte_width_);
           encoded_ptr += byte_width_;
-        });
+        }
+      }
+    }
     return Status::OK();
   }
 
@@ -214,8 +248,10 @@ struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
   DictionaryKeyEncoder(std::shared_ptr<DataType> type, MemoryPool* pool)
       : FixedWidthKeyEncoder(std::move(type)), pool_(pool) {}
 
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    auto dict = MakeArray(data.dictionary);
+  Status Encode(const Datum& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override {
+    auto dict = data.is_array() ? MakeArray(data.array()->dictionary)
+                                : data.scalar_as<DictionaryScalar>().value.dictionary;
     if (dictionary_) {
       if (!dictionary_->Equals(dict)) {
         // TODO(bkietz) unify if necessary. For now, just error if any batch's dictionary
@@ -225,7 +261,11 @@ struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
     } else {
       dictionary_ = std::move(dict);
     }
-    return FixedWidthKeyEncoder::Encode(data, encoded_bytes);
+    if (data.is_array()) {
+      return FixedWidthKeyEncoder::Encode(data, batch_length, encoded_bytes);
+    }
+    return FixedWidthKeyEncoder::Encode(data.scalar_as<DictionaryScalar>().value.index,
+                                        batch_length, encoded_bytes);
   }
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
@@ -252,34 +292,67 @@ template <typename T>
 struct VarLengthKeyEncoder : KeyEncoder {
   using Offset = typename T::offset_type;
 
-  void AddLength(const ArrayData& data, int32_t* lengths) override {
-    int64_t i = 0;
-    VisitArrayDataInline<T>(
-        data,
-        [&](util::string_view bytes) {
-          lengths[i++] +=
-              kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
-        },
-        [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
+  void AddLength(const Datum& data, int64_t batch_length, int32_t* lengths) override {
+    if (data.is_array()) {
+      int64_t i = 0;
+      VisitArrayDataInline<T>(
+          *data.array(),
+          [&](util::string_view bytes) {
+            lengths[i++] +=
+                kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
+          },
+          [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
+    } else {
+      const Scalar& scalar = *data.scalar();
+      const int32_t buffer_size =
+          scalar.is_valid ? static_cast<int32_t>(UnboxScalar<T>::Unbox(scalar).size())
+                          : 0;
+      for (int64_t i = 0; i < batch_length; i++) {
+        lengths[i] += kExtraByteForNull + sizeof(Offset) + buffer_size;
+      }
+    }
   }
 
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    VisitArrayDataInline<T>(
-        data,
-        [&](util::string_view bytes) {
+  Status Encode(const Datum& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override {
+    if (data.is_array()) {
+      VisitArrayDataInline<T>(
+          *data.array(),
+          [&](util::string_view bytes) {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = kValidByte;
+            util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
+            encoded_ptr += sizeof(Offset);
+            memcpy(encoded_ptr, bytes.data(), bytes.size());
+            encoded_ptr += bytes.size();
+          },
+          [&] {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = kNullByte;
+            util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+            encoded_ptr += sizeof(Offset);
+          });
+    } else {
+      const auto& scalar = data.scalar_as<BaseBinaryScalar>();
+      const auto& bytes = *scalar.value;
+      if (scalar.is_valid) {
+        for (int64_t i = 0; i < batch_length; i++) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kValidByte;
           util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
           encoded_ptr += sizeof(Offset);
           memcpy(encoded_ptr, bytes.data(), bytes.size());
           encoded_ptr += bytes.size();
-        },
-        [&] {
+        }
+      } else {
+        for (int64_t i = 0; i < batch_length; i++) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kNullByte;
           util::SafeStore(encoded_ptr, static_cast<Offset>(0));
           encoded_ptr += sizeof(Offset);
-        });
+        }
+      }
+    }
     return Status::OK();
   }
 
@@ -373,7 +446,7 @@ struct GrouperImpl : Grouper {
   Result<Datum> Consume(const ExecBatch& batch) override {
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
-      encoders_[i]->AddLength(*batch[i].array(), offsets_batch.data());
+      encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
     }
 
     int32_t total_length = 0;
@@ -391,7 +464,7 @@ struct GrouperImpl : Grouper {
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {
-      RETURN_NOT_OK(encoders_[i]->Encode(*batch[i].array(), key_buf_ptrs.data()));
+      RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
     }
 
     TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
@@ -541,9 +614,27 @@ struct GrouperFastImpl : Grouper {
   ~GrouperFastImpl() { map_.cleanup(); }
 
   Result<Datum> Consume(const ExecBatch& batch) override {
+    // ARROW-14027: broadcast scalar arguments for now
+    for (int i = 0; i < batch.num_values(); i++) {
+      if (batch.values[i].is_scalar()) {
+        ExecBatch expanded = batch;
+        for (int j = i; j < expanded.num_values(); j++) {
+          if (expanded.values[j].is_scalar()) {
+            ARROW_ASSIGN_OR_RAISE(
+                expanded.values[j],
+                MakeArrayFromScalar(*expanded.values[j].scalar(), expanded.length,
+                                    ctx_->memory_pool()));
+          }
+        }
+        return ConsumeImpl(expanded);
+      }
+    }
+    return ConsumeImpl(batch);
+  }
+
+  Result<Datum> ConsumeImpl(const ExecBatch& batch) {
     int64_t num_rows = batch.length;
     int num_columns = batch.num_values();
-
     // Process dictionaries
     for (int icol = 0; icol < num_columns; ++icol) {
       if (key_types_[icol]->id() == Type::DICTIONARY) {

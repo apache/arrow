@@ -68,6 +68,8 @@ static inline const std::string& GetInputTimezone(const ArrayData& array) {
 }
 
 struct NonZonedLocalizer {
+  using days_t = sys_days;
+
   // No-op conversions: UTC -> UTC
   template <typename Duration>
   sys_time<Duration> ConvertTimePoint(int64_t t) const {
@@ -78,6 +80,8 @@ struct NonZonedLocalizer {
 };
 
 struct ZonedLocalizer {
+  using days_t = local_days;
+
   // Timezone-localizing conversions: UTC -> local time
   const time_zone* tz;
 

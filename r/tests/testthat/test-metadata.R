@@ -63,6 +63,22 @@ test_that("R metadata is not stored for types that map to Arrow types (factor, D
   expect_null(Table$create(example_with_times[1:3])$metadata$r)
 })
 
+test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixed_size_binary (ARROW-14140)", {
+  raws <- charToRaw("bonjour")
+
+  binary <- Array$create(list(raws), binary())
+  large_binary <- Array$create(list(raws), large_binary())
+  fixed_size_binary <- Array$create(list(raws), fixed_size_binary(7L))
+
+  expect_null(RecordBatch$create(b = binary)$metadata$r)
+  expect_null(RecordBatch$create(b = large_binary)$metadata$r)
+  expect_null(RecordBatch$create(b = fixed_size_binary)$metadata$r)
+
+  expect_null(Table$create(b = binary)$metadata$r)
+  expect_null(Table$create(b = large_binary)$metadata$r)
+  expect_null(Table$create(b = fixed_size_binary)$metadata$r)
+})
+
 test_that("Garbage R metadata doesn't break things", {
   tab <- Table$create(example_data[1:6])
   tab$metadata$r <- "garbage"

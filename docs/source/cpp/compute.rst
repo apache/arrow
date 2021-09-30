@@ -1385,6 +1385,50 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
+Temporal difference
+~~~~~~~~~~~~~~~~~~~
+
+These functions compute the difference between two timestamps in the
+specified unit. The difference is determined by the number of
+boundaries crossed, not the span of time. For example, the difference
+in days between 23:59:59 on one day and 00:00:01 on the next day is
+one day (since midnight was crossed), not zero days (even though less
+than 24 hours elapsed). Additionally, if the timestamp has a defined
+timezone, the difference is calculated in the local timezone. For
+instance, the difference in years between "2019-12-31 18:00:00-0500"
+and "2019-12-31 23:00:00-0500" is zero years, because the local year
+is the same, even though the UTC years would be different.
+
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| Function name                   | Arity      | Input types       | Output type           | Options class              |
++=================================+============+===================+=======================+============================+
+| day_time_interval_between       | Binary     | Temporal          | DayTime interval      |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| days_between                    | Binary     | Timestamp, Date   | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| hours_between                   | Binary     | Temporal          | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| microseconds_between            | Binary     | Temporal          | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| milliseconds_between            | Binary     | Temporal          | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| minutes_between                 | Binary     | Temporal          | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| month_day_nano_interval_between | Binary     | Temporal          | MonthDayNano interval |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| month_interval_between          | Binary     | Timestamp, Date   | Month interval        |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| nanoseconds_between             | Binary     | Temporal          | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| quarters_between                | Binary     | Timestamp, Date   | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| seconds_between                 | Binary     | Temporal          | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| weeks_between                   | Binary     | Timestamp, Date   | Int64                 | :struct:`DayOfWeekOptions` |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+| years_between                   | Binary     | Timestamp, Date   | Int64                 |                            |
++---------------------------------+------------+-------------------+-----------------------+----------------------------+
+
 Timezone handling
 ~~~~~~~~~~~~~~~~~
 

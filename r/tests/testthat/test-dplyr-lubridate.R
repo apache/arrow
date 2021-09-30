@@ -17,8 +17,8 @@
 
 skip_if_not_available("dataset")
 
-library(lubridate)
-library(dplyr)
+library(lubridate, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
 
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
@@ -32,6 +32,8 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
 } else {
   test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
 }
+
+skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13588
 
 test_df <- tibble::tibble(
   datetime = c(test_date, NA),

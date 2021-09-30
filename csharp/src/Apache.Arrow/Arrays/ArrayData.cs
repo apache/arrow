@@ -30,10 +30,10 @@ namespace Apache.Arrow
         public readonly int Offset;
         public readonly ArrowBuffer[] Buffers;
         public readonly ArrayData[] Children;
-        public readonly ArrayData Dictionary; //Only used for dictionary type
+        public readonly ArrayData Dictionary; // Only used for dictionary type
 
-        //This is left for compatibility with lower version binaries
-        //before the dictionary type was supported.
+        // This is left for compatibility with lower version binaries
+        // before the dictionary type was supported.
         public ArrayData(
             IArrowType dataType,
             int length, int nullCount, int offset,
@@ -41,8 +41,8 @@ namespace Apache.Arrow
             this(dataType, length, nullCount, offset, buffers, children, null)
         { }
 
-        //This is left for compatibility with lower version binaries
-        //before the dictionary type was supported.
+        // This is left for compatibility with lower version binaries
+        // before the dictionary type was supported.
         public ArrayData(
             IArrowType dataType,
             int length, int nullCount, int offset,

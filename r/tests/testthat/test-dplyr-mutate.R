@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
@@ -283,6 +283,7 @@ test_that("dplyr::mutate's examples", {
   #>       x     y     z
   #>   <dbl> <dbl> <dbl>
   #> 1     1     2     3
+
   expect_dplyr_equal(
     input %>% mutate(z = x + y, .before = 1) %>% collect(),
     df
@@ -444,8 +445,6 @@ test_that("mutate and write_dataset", {
   skip_if_not_available("dataset")
   # See related test in test-dataset.R
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-
   first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
   df1 <- tibble(
     int = 1:10,
@@ -477,7 +476,7 @@ test_that("mutate and write_dataset", {
 
   new_ds <- open_dataset(dst_dir, format = "feather")
 
-  expect_equivalent(
+  expect_equal(
     new_ds %>%
       select(string = chr, integer = int, twice) %>%
       filter(integer > 6 & integer < 11) %>%

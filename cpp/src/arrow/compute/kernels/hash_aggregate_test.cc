@@ -401,7 +401,10 @@ struct TestGrouper {
 
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(std::to_string(i) + "th key array");
-      auto original = key_batch[i].make_array();
+      auto original =
+          key_batch[i].is_array()
+              ? key_batch[i].make_array()
+              : *MakeArrayFromScalar(*key_batch[i].scalar(), key_batch.length);
       ASSERT_OK_AND_ASSIGN(auto encoded, Take(*uniques_[i].make_array(), *ids));
       AssertArraysEqual(*original, *encoded, /*verbose=*/true,
                         EqualOptions().nans_equal(true));
@@ -637,6 +640,37 @@ TEST(Grouper, MakeGroupings) {
   auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), "[0, null, 1]"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("MakeGroupings with null ids"),
                                   internal::Grouper::MakeGroupings(*ids, 5));
+}
+
+TEST(Grouper, ScalarValues) {
+  // large_utf8 forces GrouperImpl over GrouperFastImpl
+  for (const auto& str_type : {utf8(), large_utf8()}) {
+    {
+      TestGrouper g({ValueDescr::Scalar(boolean()), ValueDescr::Scalar(int32()),
+                     ValueDescr::Scalar(decimal128(3, 2)),
+                     ValueDescr::Scalar(decimal256(3, 2)),
+                     ValueDescr::Scalar(fixed_size_binary(2)),
+                     ValueDescr::Scalar(str_type), ValueDescr::Array(int32())});
+      g.ExpectConsume(
+          R"([
+[true, 1, "1.00", "2.00", "ab", "foo", 2],
+[true, 1, "1.00", "2.00", "ab", "foo", 2],
+[true, 1, "1.00", "2.00", "ab", "foo", 3]
+])",
+          "[0, 0, 1]");
+    }
+    {
+      auto dict_type = dictionary(int32(), utf8());
+      TestGrouper g({ValueDescr::Scalar(dict_type), ValueDescr::Scalar(str_type)});
+      const auto dict = R"(["foo", null])";
+      g.ExpectConsume(
+          {DictScalarFromJSON(dict_type, "0", dict), ScalarFromJSON(str_type, R"("")")},
+          ArrayFromJSON(uint32(), "[0]"));
+      g.ExpectConsume(
+          {DictScalarFromJSON(dict_type, "1", dict), ScalarFromJSON(str_type, R"("")")},
+          ArrayFromJSON(uint32(), "[1]"));
+    }
+  }
 }
 
 TEST(GroupBy, Errors) {

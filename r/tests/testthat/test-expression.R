@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Expressions")
 
 test_that("C++ expressions", {
   skip_if_not_available("dataset")
@@ -48,11 +47,11 @@ test_that("C++ expressions", {
     "Expression\n(f > 4)",
     fixed = TRUE
   )
-  expect_type_equal(
+  expect_equal(
     f$type(schema(f = float64())),
     float64()
   )
-  expect_type_equal(
+  expect_equal(
     (f > 4)$type(schema(f = float64())),
     bool()
   )
