@@ -411,12 +411,16 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
+       compute/kernels/row_encoder.cc
        compute/exec/union_node.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
-       compute/exec/util.cc)
+       compute/exec/util.cc
+       compute/exec/hash_join.cc
+       compute/exec/hash_join_node.cc
+       compute/exec/task_util.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
