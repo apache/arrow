@@ -83,22 +83,17 @@ std::string random_string(int64_t n, uint32_t seed) {
 }
 
 void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
-  pcg32_fast gen(seed);
-  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
-  const int32_t required_bytes = DecimalType::DecimalSize(precision);
-  constexpr int32_t byte_width = 16;
-  std::fill(out, out + byte_width * n, '\0');
-
-  for (int64_t i = 0; i < n; ++i, out += byte_width) {
-    std::generate(out, out + required_bytes,
-                  [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
-
-    // sign extend if the sign bit is set for the last byte generated
-    // 0b10000000 == 0x80 == 128
-    if ((out[required_bytes - 1] & '\x80') != 0) {
-      std::fill(out + required_bytes, out + byte_width, '\xFF');
-    }
+  auto gen = random::RandomArrayGenerator(seed);
+  std::shared_ptr<Array> decimals;
+  int32_t byte_width = 0;
+  if (precision <= Decimal128Type::kMaxPrecision) {
+    decimals = gen.Decimal128(decimal128(precision, 0), n);
+    byte_width = Decimal128Type::kByteWidth;
+  } else {
+    decimals = gen.Decimal256(decimal256(precision, 0), n);
+    byte_width = Decimal256Type::kByteWidth;
   }
+  std::memcpy(out, decimals->data()->GetValues<uint8_t>(1, 0), byte_width * n);
 }
 
 void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {

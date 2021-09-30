@@ -247,6 +247,7 @@ class RandomDecimalArrayTest : public ::testing::Test {
     ASSERT_LE(over_half, non_nulls * 0.7);
     ASSERT_GE(negative, non_nulls * 0.3);
     ASSERT_LE(negative, non_nulls * 0.7);
+    ASSERT_OK(values.ValidateFull());
   }
 };
 

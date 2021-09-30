@@ -54,6 +54,9 @@ DEFINE_string(
     "Mode of integration testing tool (ARROW_TO_JSON, JSON_TO_ARROW, VALIDATE)");
 DEFINE_bool(integration, false, "Run in integration test mode");
 DEFINE_bool(verbose, true, "Verbose output");
+DEFINE_bool(no_decimal_validate, false,
+            "Do not validate decimal values (ARROW-13558: 'golden' test data from "
+            "previous versions may have out-of-range decimal values)");
 
 namespace arrow {
 
@@ -120,6 +123,21 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   return out_file->Write(result.c_str(), static_cast<int64_t>(result.size()));
 }
 
+// Validate the batch, accounting for the -no_decimal_validate flag
+static Status ValidateFull(const RecordBatch& batch) {
+  if (FLAGS_no_decimal_validate) {
+    RETURN_NOT_OK(batch.Validate());
+    for (const auto& column : batch.columns()) {
+      if (is_decimal(column->type()->id())) {
+        continue;
+      }
+      RETURN_NOT_OK(column->ValidateFull());
+    }
+    return Status::OK();
+  }
+  return batch.ValidateFull();
+}
+
 static Status ValidateArrowVsJson(const std::string& arrow_path,
                                   const std::string& json_path) {
   // Construct JSON reader
@@ -166,12 +184,12 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   for (int i = 0; i < json_nbatches; ++i) {
     RETURN_NOT_OK(json_reader->ReadRecordBatch(i, &json_batch));
     ARROW_ASSIGN_OR_RAISE(arrow_batch, arrow_reader->ReadRecordBatch(i));
-    Status valid_st = json_batch->ValidateFull();
+    Status valid_st = ValidateFull(*json_batch);
     if (!valid_st.ok()) {
       return Status::Invalid("JSON record batch ", i, " did not validate:\n",
                              valid_st.ToString());
     }
-    valid_st = arrow_batch->ValidateFull();
+    valid_st = ValidateFull(*arrow_batch);
     if (!valid_st.ok()) {
       return Status::Invalid("Arrow record batch ", i, " did not validate:\n",
                              valid_st.ToString());

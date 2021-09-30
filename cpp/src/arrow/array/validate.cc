@@ -483,6 +483,10 @@ struct ValidateArrayFullImpl {
 
   Status Visit(const LargeBinaryType& type) { return ValidateBinaryLike(type); }
 
+  Status Visit(const Decimal128Type& type) { return ValidateDecimal(type); }
+
+  Status Visit(const Decimal256Type& type) { return ValidateDecimal(type); }
+
   Status Visit(const ListType& type) { return ValidateListLike(type); }
 
   Status Visit(const LargeListType& type) { return ValidateListLike(type); }
@@ -591,6 +595,24 @@ struct ValidateArrayFullImpl {
       return Status::Invalid("Binary data buffer is null");
     }
     return ValidateOffsets(type, data_buffer->size());
+  }
+
+  template <typename DecimalType>
+  Status ValidateDecimal(const DecimalType& type) {
+    using CType = typename TypeTraits<DecimalType>::CType;
+    const int32_t precision = type.precision();
+    return VisitArrayDataInline<DecimalType>(
+        data,
+        [&](util::string_view bytes) {
+          DCHECK_EQ(bytes.size(), DecimalType::kByteWidth);
+          CType value(reinterpret_cast<const uint8_t*>(bytes.data()));
+          if (!value.FitsInPrecision(precision)) {
+            return Status::Invalid("Decimal value ", value.ToIntegerString(),
+                                   " does not fit in precision of ", type);
+          }
+          return Status::OK();
+        },
+        []() { return Status::OK(); });
   }
 
   template <typename ListType>
