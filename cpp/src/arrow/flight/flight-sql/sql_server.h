@@ -267,8 +267,14 @@ class SqlSchema {
 
   /// \brief Gets the Schema used on CommandGetSchemas response.
   static std::shared_ptr<Schema> GetSchemasSchema();
+
+  /// \brief Gets the Schema used on CommandGetTables response when included schema
+  /// flags is set to false.
   static std::shared_ptr<Schema> GetTablesSchema();
-  static std::shared_ptr<Schema> GetTablesSchemaWithSchema();
+
+  /// \brief Gets the Schema used on CommandGetTables response when included schema
+  /// flags is set to true.
+  static std::shared_ptr<Schema> GetTablesSchemaWithIncludedSchema();
 };
 }  // namespace sql
 }  // namespace flight

@@ -260,7 +260,7 @@ std::shared_ptr<Schema> SqlSchema::GetTablesSchema() {
                         field("table_name", utf8()), field("table_type", utf8())});
 }
 
-std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithSchema() {
+std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithIncludedSchema() {
   return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
                         field("table_name", utf8()), field("table_type", utf8()),
                         field("table_schema", binary())});

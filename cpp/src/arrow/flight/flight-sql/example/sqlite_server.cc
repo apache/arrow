@@ -15,17 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight-sql/example/sqlite_server.h"
-
 #include <sqlite3.h>
 
 #include <sstream>
 
 #include "arrow/api.h"
+#include "arrow/flight/flight-sql/sql_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
-#include "arrow/flight/flight-sql/sql_server.h"
-#include "sqlite_tables_schema_batch_reader.h"
+#include "arrow/flight/flight-sql/example/sqlite_server.h"
+#include "arrow/flight/flight-sql/example/sqlite_tables_schema_batch_reader.h"
 
 namespace arrow {
 namespace flight {
@@ -183,32 +182,33 @@ Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& com
   return Status::OK();
 }
 
-  Status
-  SQLiteFlightSqlServer::GetFlightInfoTables(const pb::sql::CommandGetTables &command, const ServerCallContext &context,
-                                             const FlightDescriptor &descriptor, std::unique_ptr<FlightInfo> *info) {
+Status SQLiteFlightSqlServer::GetFlightInfoTables(
+    const pb::sql::CommandGetTables& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
   google::protobuf::Any ticketParsed;
 
   ticketParsed.PackFrom(command);
 
   std::vector<FlightEndpoint> endpoints{
-    FlightEndpoint{{ticketParsed.SerializeAsString()}, {}}};
+      FlightEndpoint{{ticketParsed.SerializeAsString()}, {}}};
 
   if (command.include_schema()) {
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*SqlSchema::GetTablesSchemaWithSchema(),
-                                           descriptor, endpoints, -1, -1))
-                                           *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*SqlSchema::GetTablesSchemaWithIncludedSchema(),
+                                      descriptor, endpoints, -1, -1))
+    *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
   } else {
     ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*SqlSchema::GetTablesSchema(),
                                                         descriptor, endpoints, -1, -1))
-                                                        *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
+    *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
   }
 
   return Status::OK();
-  }
+}
 
-  Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables &command, const ServerCallContext &context,
-                                            std::unique_ptr<FlightDataStream> *result) {
+Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& command,
+                                          const ServerCallContext& context,
+                                          std::unique_ptr<FlightDataStream>* result) {
   std::string table_query(
       "SELECT 'sqlite_master' as catalog_name, 'main' as schema_name, name as "
       "table_name, type as table_type FROM sqlite_master where 1=1");
@@ -225,17 +225,18 @@ Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& com
   }
 
   if (command.has_table_name_filter_pattern()) {
-    table_query = table_query + " and table_name LIKE '" + command.table_name_filter_pattern() + "'";
+    table_query = table_query + " and table_name LIKE '" +
+                  command.table_name_filter_pattern() + "'";
   }
 
-  if(command.table_types_size() > 0) {
+  if (command.table_types_size() > 0) {
     google::protobuf::RepeatedPtrField<std::string> types = command.table_types();
 
     std::stringstream ss;
     int size = types.size();
     for (int i = 0; i < size; i++) {
       ss << "'" << types.at(i) << "'";
-      if(size - 1 != i){
+      if (size - 1 != i) {
         ss << ",";
       }
     }
@@ -246,7 +247,8 @@ Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& com
   ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, table_query, &statement));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, SqlSchema::GetTablesSchema(), &reader));
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
+      statement, SqlSchema::GetTablesSchema(), &reader));
 
   if (command.include_schema()) {
     std::shared_ptr<SqliteTablesWithSchemaBatchReader> pReader =
@@ -257,7 +259,7 @@ Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& com
   }
 
   return Status::OK();
-  }
+}
 }  // namespace example
 }  // namespace sql
 }  // namespace flight
