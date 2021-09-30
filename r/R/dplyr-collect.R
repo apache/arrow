@@ -89,6 +89,14 @@ implicit_schema <- function(.data) {
 
   if (is.null(.data$aggregations)) {
     new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
+    if (!is.null(.data$join) && !(.data$join$type %in% JoinType[1:4])) {
+      # Add cols from right side, except for semi/anti joins
+      right_cols <- .data$join$right_data$selected_columns
+      new_fields <- c(new_fields, map(
+        right_cols[setdiff(names(right_cols), .data$join$by)],
+        ~ .$type(.data$join$right_data$.data$schema)
+      ))
+    }
   } else {
     new_fields <- map(summarize_projection(.data), ~ .$type(old_schm))
     # * Put group_by_vars first (this can't be done by summarize,

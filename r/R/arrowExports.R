@@ -284,6 +284,10 @@ ExecPlan_run <- function(plan, final_node, sort_options) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
 }
 
+ExecNode_output_schema <- function(node) {
+  .Call(`_arrow_ExecNode_output_schema`, node)
+}
+
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
 }
@@ -298,6 +302,10 @@ ExecNode_Project <- function(input, exprs, names) {
 
 ExecNode_Aggregate <- function(input, options, target_names, out_field_names, key_names) {
   .Call(`_arrow_ExecNode_Aggregate`, input, options, target_names, out_field_names, key_names)
+}
+
+ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output) {
+  .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
