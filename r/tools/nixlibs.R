@@ -205,7 +205,11 @@ system_release <- function() {
   }
 }
 
-read_system_release <- function() utils::head(readLines("/etc/system-release"), 1)
+read_system_release <- function() {
+  if (file.exists("/etc/system-release")) {
+    readLines("/etc/system-release")[1]
+  }
+}
 
 #### end distro ####
 
