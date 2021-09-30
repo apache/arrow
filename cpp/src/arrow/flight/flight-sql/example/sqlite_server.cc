@@ -228,11 +228,25 @@ Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& com
     table_query = table_query + " and table_name LIKE '" + command.table_name_filter_pattern() + "'";
   }
 
+  if(command.table_types_size() > 0) {
+    google::protobuf::RepeatedPtrField<std::string> types = command.table_types();
+
+    std::stringstream ss;
+    int size = types.size();
+    for (int i = 0; i < size; i++) {
+      ss << "'" << types.at(i) << "'";
+      if(size - 1 != i){
+        ss << ",";
+      }
+    }
+    table_query = table_query + " and table_type IN (" + ss.str() + ")";
+  }
+
   std::shared_ptr<SqliteStatement> statement;
   ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, table_query, &statement));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, SqlSchema::GetTablesSchema(), &reader));
 
   if (command.include_schema()) {
     std::shared_ptr<SqliteTablesWithSchemaBatchReader> pReader =
