@@ -46,6 +46,15 @@
 // example on a local linux system
 // ./comparison_example file:///$PWD
 
+#define ABORT_ON_FAILURE(expr)                     \
+  do {                                             \
+    arrow::Status status_ = (expr);                \
+    if (!status_.ok()) {                           \
+      std::cerr << status_.message() << std::endl; \
+      abort();                                     \
+    }                                              \
+  } while (0);
+
 int main(int argc, char** argv) {
   if (argc < 2) {
     std::cout << "Please enter the path to which you want data saved" << std::endl;
@@ -58,19 +67,19 @@ int main(int argc, char** argv) {
   arrow::BooleanBuilder boolean_builder;
 
   // Make place for 8 values in total
-  ARROW_RETURN_NOT_OK(int64_builder.Resize(8));
-  ARROW_RETURN_NOT_OK(boolean_builder.Resize(8));
+  ABORT_ON_FAILURE(int64_builder.Resize(8));
+  ABORT_ON_FAILURE(boolean_builder.Resize(8));
 
   // Bulk append the given values
   std::vector<int64_t> int64_values = {1, 2, 3, 4, 5, 6, 7, 8};
-  ARROW_RETURN_NOT_OK(int64_builder.AppendValues(int64_values));
+  ABORT_ON_FAILURE(int64_builder.AppendValues(int64_values));
   std::shared_ptr<arrow::Array> array_a;
-  ARROW_RETURN_NOT_OK(int64_builder.Finish(&array_a));
+  ABORT_ON_FAILURE(int64_builder.Finish(&array_a));
   int64_builder.Reset();
   int64_values = {2, 5, 1, 3, 6, 2, 7, 4};
   std::shared_ptr<arrow::Array> array_b;
-  ARROW_RETURN_NOT_OK(int64_builder.AppendValues(int64_values));
-  ARROW_RETURN_NOT_OK(int64_builder.Finish(&array_b));
+  ABORT_ON_FAILURE(int64_builder.AppendValues(int64_values));
+  ABORT_ON_FAILURE(int64_builder.Finish(&array_b));
 
   // Cast the arrays to their actual types
   auto int64_array_a = std::static_pointer_cast<arrow::Int64Array>(array_a);
@@ -83,7 +92,7 @@ int main(int argc, char** argv) {
     }
   }
   std::shared_ptr<arrow::Array> array_c;
-  ARROW_RETURN_NOT_OK(boolean_builder.Finish(&array_c));
+  ABORT_ON_FAILURE(boolean_builder.Finish(&array_c));
   std::cout << "Array explicitly compared" << std::endl;
 
   // Try a compute function for comparison
@@ -115,7 +124,7 @@ int main(int argc, char** argv) {
   auto fs = arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
   std::string base_path = root_path + "/csv_dataset";
   std::cout << "Base path " << base_path << std::endl;
-  ARROW_RETURN_NOT_OK(fs->CreateDir(base_path));
+  ABORT_ON_FAILURE(fs->CreateDir(base_path));
   auto csv_filename = base_path + "/output.csv";
 
   // Write table to CSV file
