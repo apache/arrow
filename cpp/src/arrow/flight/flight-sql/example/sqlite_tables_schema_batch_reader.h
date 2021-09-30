@@ -35,15 +35,21 @@ class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
   std::shared_ptr<example::SqliteStatementBatchReader> reader_;
   sqlite3* db_;
 
-  SqliteTablesWithSchemaBatchReader(std::shared_ptr<example::SqliteStatementBatchReader> reader,
-                                    sqlite3* db_)
-      : reader_(reader), db_(db_) {}
+  /// Constructor for SqliteTablesWithSchemaBatchReader class
+  /// \param reader an shared_ptr from a SqliteStatementBatchReader.
+  /// \param db_    a pointer to the sqlite3 db.
+  SqliteTablesWithSchemaBatchReader(
+      std::shared_ptr<example::SqliteStatementBatchReader> p_reader, sqlite3* p_db_)
+      : reader_(std::move(p_reader)), db_(p_db_) {}
 
   std::shared_ptr<Schema> schema() const override;
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override;
 
-  std::shared_ptr<DataType> GetArrowType(const std::string& sqlite_type);
+  /// Convert a column type to a ArrowType.
+  /// \param sqlite_type the sqlite type.
+  /// \return            The equivalent ArrowType.
+  static std::shared_ptr<DataType> GetArrowType(const std::string& sqlite_type);
 };
 }  // namespace sql
 }  // namespace flight
