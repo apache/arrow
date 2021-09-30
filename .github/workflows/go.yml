@@ -272,13 +272,7 @@ jobs:
       - name: Setup MSYS2
         shell: msys2 {0}
         run: |
-          ci/scripts/msys2_setup.sh cgo
-      - name: Update CGO Env vars
-        shell: msys2 {0}
-        run: |
-          echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
-          echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
-          echo "$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_PATH
+          ci/scripts/msys2_setup.sh cgo     
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .

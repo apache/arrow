@@ -64,6 +64,9 @@ case "${target}" in
   cgo)
     packages+=(${MINGW_PACKAGE_PREFIX}-arrow)
     packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
+
+    echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
+    echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
     ;;
 esac
 
