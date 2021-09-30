@@ -282,8 +282,8 @@ class TypedStatistics : public Statistics {
 
   /// \brief Batch statistics update with supplied validity bitmap
   virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
-                            int64_t valid_bits_offset, int64_t num_not_null,
-                            int64_t num_null) = 0;
+                            int64_t valid_bits_offset, int64_t num_spaced_values,
+                            int64_t num_not_null, int64_t num_null) = 0;
 
   /// \brief EXPERIMENTAL: Update statistics with an Arrow array without
   /// conversion to a primitive Parquet C type. Only implemented for certain
