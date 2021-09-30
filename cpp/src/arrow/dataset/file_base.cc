@@ -399,7 +399,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
               {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
               {"project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"write", WriteNodeOptions{write_options}},
+              {"write",
+               WriteNodeOptions{write_options, scanner->options()->projected_schema}},
           })
           .AddToPlan(plan.get()));
 
@@ -416,10 +417,11 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
   }
   auto input = inputs[0];
 
-  const FileSystemDatasetWriteOptions& write_options =
-      checked_cast<const WriteNodeOptions&>(options).write_options;
+  const WriteNodeOptions write_node_options =
+      checked_cast<const WriteNodeOptions&>(options);
+  const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
+  std::shared_ptr<Schema> schema = write_node_options.schema;
 
-  std::shared_ptr<Schema> schema = input->output_schema();
   ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
                         internal::DatasetWriter::Make(write_options));
 
