@@ -1859,7 +1859,8 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     ChunkedArrayVector columns;
     columns.reserve(fields.size());
 
-    // Chunk each column independently
+    // Chunk each column independently, and make sure they consist of
+    // physically non-contiguous chunks.
     for (const auto& factory : column_factories) {
       const int64_t num_chunks = num_chunk_dist(engine);
       ArrayVector chunks(num_chunks);
@@ -1883,23 +1884,20 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   }
 
   // Also validate RecordBatch sorting
-  ChunkedArrayVector columns;
+  ARROW_SCOPED_TRACE("Record batch sorting");
+  ArrayVector columns;
   columns.reserve(fields.size());
   for (const auto& factory : column_factories) {
-    columns.push_back(std::make_shared<ChunkedArray>(factory(length)));
+    columns.push_back(factory(length));
   }
-  auto table = Table::Make(schema, std::move(columns));
-  ASSERT_OK(table->ValidateFull());
+  auto batch = RecordBatch::Make(schema, length, std::move(columns));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(schema, {batch}));
 
-  TableBatchReader reader(*table);
-  RecordBatchVector batches;
-  ASSERT_OK(reader.ReadAll(&batches));
-  ASSERT_EQ(batches.size(), 1);
-  ARROW_SCOPED_TRACE("Record batch sorting");
   for (auto null_placement : AllNullPlacements()) {
     ARROW_SCOPED_TRACE("null_placement = ", null_placement);
     options.null_placement = null_placement;
-    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*batches[0]), options));
+    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(batch), options));
     Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
   }
 }
