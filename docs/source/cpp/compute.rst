@@ -1363,9 +1363,10 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
-  represented by 0 and ends on Sunday represented by 6. :member:`DayOfWeekOptions::week_start` can be used to set
-  the starting day of the week using ISO convention (Monday=1, Sunday=7). Day numbering can start with 0 or 1
-  using :member:`DayOfWeekOptions::count_from_zero` parameter.
+  represented by 0 and ends on Sunday represented by 6. Day numbering can start with 0 or 1 based on
+  :member:`DayOfWeekOptions::count_from_zero` parameter. :member:`DayOfWeekOptions::week_start` can be
+  used to set the starting day of the week using ISO convention (Monday=1, Sunday=7).
+  :member:`DayOfWeekOptions::week_start` parameter is not affected by :member:`DayOfWeekOptions::count_from_zero`.
 
 * \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
   starts with the first ISO week. ISO week starts on Monday.
