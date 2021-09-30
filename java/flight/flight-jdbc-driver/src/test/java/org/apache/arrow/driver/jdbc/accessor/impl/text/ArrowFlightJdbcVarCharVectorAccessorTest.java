@@ -29,6 +29,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
@@ -58,7 +59,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
-  private Accessor accessor;
+  private ArrowFlightJdbcVarCharVectorAccessor accessor;
   private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
   private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSSXXX");
 
@@ -575,22 +576,36 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     collector.checkThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T05:30:00.000Z"));
   }
 
-  @Test
-  public void testShouldGetBooleanReturnTrueForNonEmpty() throws Exception {
-    Text value = new Text("anything");
+  private void assertGetBoolean(Text value, boolean expectedResult) throws SQLException {
     when(getter.get(0)).thenReturn(value);
 
     boolean result = accessor.getBoolean();
-    collector.checkThat(result, equalTo(true));
+    collector.checkThat(result, equalTo(expectedResult));
+  }
+
+  @Test
+  public void testShouldGetBooleanReturnTrueForNonEmpty() throws Exception {
+    assertGetBoolean(new Text("anything"), true);
   }
 
   @Test
   public void testShouldGetBooleanReturnFalseForEmpty() throws Exception {
-    Text value = new Text("");
-    when(getter.get(0)).thenReturn(value);
+    assertGetBoolean(new Text(""), false);
+  }
 
-    boolean result = accessor.getBoolean();
-    collector.checkThat(result, equalTo(false));
+  @Test
+  public void testShouldGetBooleanReturnFalseFor0() throws Exception {
+    assertGetBoolean(new Text("0"), false);
+  }
+
+  @Test
+  public void testShouldGetBooleanReturnFalseForFalseString() throws Exception {
+    assertGetBoolean(new Text("false"), false);
+  }
+
+  @Test
+  public void testShouldGetBooleanReturnFalseForNull() throws Exception {
+    assertGetBoolean(null, false);
   }
 
   @Test
@@ -668,5 +683,11 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
       Date date = accessor.getDate(null);
       collector.checkThat(date, equalTo(dateVectorAccessor.getDate(null)));
     }
+  }
+
+  @Test
+  public void testShouldGetObjectClassReturnString() {
+    final Class<?> clazz = accessor.getObjectClass();
+    collector.checkThat(clazz, equalTo(String.class));
   }
 }

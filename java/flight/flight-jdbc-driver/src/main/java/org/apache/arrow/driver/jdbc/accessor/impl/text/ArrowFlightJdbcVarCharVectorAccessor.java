@@ -67,7 +67,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public Class<?> getObjectClass() {
-    return Text.class;
+    return String.class;
   }
 
   private Text getText() {
