@@ -117,6 +117,7 @@ handle_join_by <- function(by, x, y) {
   if (is.null(names(by))) {
     by <- set_names(by)
   }
+  # TODO: nicer messages?
   stopifnot(
     all(names(by) %in% names(x)),
     all(by %in% names(y))

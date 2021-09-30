@@ -34,12 +34,16 @@ to_join <- tibble::tibble(
 )
 
 test_that("left_join", {
-  expect_dplyr_equal(
-    input %>%
-      left_join(to_join) %>%
-      collect(),
-    left
+  expect_message(
+    expect_dplyr_equal(
+      input %>%
+        left_join(to_join) %>%
+        collect(),
+      left
+    ),
+    'Joining, by = "some_grouping"'
   )
+
 })
 
 test_that("left_join `by` args", {
@@ -49,6 +53,19 @@ test_that("left_join `by` args", {
       collect(),
     left
   )
+  expect_dplyr_equal(
+    input %>%
+      left_join(
+        to_join %>%
+          rename(the_grouping = some_grouping),
+        by = c(some_grouping = "the_grouping")
+      ) %>%
+      collect(),
+    left
+  )
+
+  # TODO: allow renaming columns on the right side as well
+  skip("ARROW-XXX")
   expect_dplyr_equal(
     input %>%
       rename(the_grouping = some_grouping) %>%
@@ -61,13 +78,25 @@ test_that("left_join `by` args", {
   )
 })
 
+
+test_that("Error handling", {
+  tab <- Table$create(left)
+
+  expect_error(
+    tab %>%
+      left_join(to_join, by = "not_a_col") %>%
+      collect(),
+    "all(names(by) %in% names(x)) is not TRUE",
+    fixed = TRUE
+  )
+})
+
 # TODO: test duplicate col names
-# TODO: test invalid 'by'
 
 test_that("right_join", {
   expect_dplyr_equal(
     input %>%
-      right_join(to_join) %>%
+      right_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )
@@ -76,7 +105,7 @@ test_that("right_join", {
 test_that("inner_join", {
   expect_dplyr_equal(
     input %>%
-      inner_join(to_join) %>%
+      inner_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )
@@ -85,7 +114,7 @@ test_that("inner_join", {
 test_that("full_join", {
   expect_dplyr_equal(
     input %>%
-      full_join(to_join) %>%
+      full_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )
@@ -94,7 +123,7 @@ test_that("full_join", {
 test_that("semi_join", {
   expect_dplyr_equal(
     input %>%
-      semi_join(to_join) %>%
+      semi_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )
@@ -103,7 +132,7 @@ test_that("semi_join", {
 test_that("anti_join", {
   expect_dplyr_equal(
     input %>%
-      anti_join(to_join) %>%
+      anti_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )
