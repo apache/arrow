@@ -171,7 +171,9 @@ test_apt() {
 }
 
 test_yum() {
-  for target in "amazonlinux:2" \
+  for target in "almalinux:8" \
+                "arm64v8/almalinux:8" \
+                "amazonlinux:2" \
                 "centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
