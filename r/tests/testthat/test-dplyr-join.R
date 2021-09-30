@@ -27,11 +27,16 @@ left <- example_data
 left$fct <- NULL
 left$some_grouping <- rep(c(1, 2), 5)
 
+left_tab <- Table$create(left)
+
 to_join <- tibble::tibble(
   some_grouping = c(1, 2),
   capital_letters = c("A", "B"),
   another_column = TRUE
 )
+to_join_tab <- Table$create(to_join)
+
+
 
 test_that("left_join", {
   expect_message(
@@ -43,7 +48,6 @@ test_that("left_join", {
     ),
     'Joining, by = "some_grouping"'
   )
-
 })
 
 test_that("left_join `by` args", {
@@ -65,7 +69,7 @@ test_that("left_join `by` args", {
   )
 
   # TODO: allow renaming columns on the right side as well
-  skip("ARROW-XXX")
+  skip("ARROW-14184")
   expect_dplyr_equal(
     input %>%
       rename(the_grouping = some_grouping) %>%
@@ -79,11 +83,20 @@ test_that("left_join `by` args", {
 })
 
 
-test_that("Error handling", {
-  tab <- Table$create(left)
+test_that("join two tables", {
+  expect_identical(
+    left_tab %>%
+      left_join(to_join_tab, by = "some_grouping") %>%
+      collect(),
+    left %>%
+      left_join(to_join, by = "some_grouping") %>%
+      collect()
+  )
+})
 
+test_that("Error handling", {
   expect_error(
-    tab %>%
+    left_tab %>%
       left_join(to_join, by = "not_a_col") %>%
       collect(),
     "all(names(by) %in% names(x)) is not TRUE",
@@ -92,6 +105,7 @@ test_that("Error handling", {
 })
 
 # TODO: test duplicate col names
+# TODO: casting: int and float columns?
 
 test_that("right_join", {
   expect_dplyr_equal(
