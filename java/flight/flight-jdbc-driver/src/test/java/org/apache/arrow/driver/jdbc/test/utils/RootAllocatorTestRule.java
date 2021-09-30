@@ -445,11 +445,20 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    * @return VarBinaryVector
    */
   public VarBinaryVector createVarBinaryVector() {
-    VarBinaryVector valueVector = new VarBinaryVector("", this.getRootAllocator());
+    return createVarBinaryVector("");
+  }
+
+  /**
+   * Create a VarBinaryVector to be used in the accessor tests.
+   *
+   * @return VarBinaryVector
+   */
+  public VarBinaryVector createVarBinaryVector(final String fieldName) {
+    VarBinaryVector valueVector = new VarBinaryVector(fieldName, this.getRootAllocator());
     valueVector.allocateNew(3);
-    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
-    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
-    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
+    valueVector.setSafe(0, (fieldName + "__BINARY_DATA_0001").getBytes());
+    valueVector.setSafe(1, (fieldName + "__BINARY_DATA_0002").getBytes());
+    valueVector.setSafe(2, (fieldName + "__BINARY_DATA_0003").getBytes());
     valueVector.setValueCount(3);
 
     return valueVector;
@@ -737,7 +746,11 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   }
 
   public ListVector createListVector() {
-    ListVector valueVector = ListVector.empty("", this.getRootAllocator());
+    return createListVector("");
+  }
+
+  public ListVector createListVector(String fieldName) {
+    ListVector valueVector = ListVector.empty(fieldName, this.getRootAllocator());
     valueVector.setInitialCapacity(MAX_VALUE);
 
     UnionListWriter writer = valueVector.getWriter();
