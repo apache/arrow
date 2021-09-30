@@ -127,7 +127,7 @@ class ARROW_EXPORT AsyncTaskGroup {
   ///
   /// Any attempt to add a task after the returned future has completed will fail.
   ///
-  /// Returns a future that will finish when all running tasks have finsihed.
+  /// The returned future that will finish when all running tasks have finsihed.
   Future<> End();
   /// A future that will be finished after End is called and all tasks have completed
   ///
@@ -157,7 +157,7 @@ class ARROW_EXPORT AsyncTaskGroup {
 /// with some kind of backpressure
 class ARROW_EXPORT SerializedAsyncTaskGroup {
  public:
-  explicit SerializedAsyncTaskGroup();
+  SerializedAsyncTaskGroup();
   /// Push an item into the serializer and (eventually) into the consumer
   ///
   /// The item will not be delivered to the consumer until all previous items have been
@@ -171,9 +171,9 @@ class ARROW_EXPORT SerializedAsyncTaskGroup {
   /// queued
   Status AddTask(std::function<Result<Future<>>()> task);
 
-  /// Signals that all tasks have been added
+  /// Signal that all top level tasks have been added
   ///
-  /// Returns a future that will finish when all tasks have been consumed.
+  /// The returned future that will finish when all tasks have been consumed.
   Future<> End();
 
   /// A future that finishes when all queued items have been delivered.
@@ -184,7 +184,7 @@ class ARROW_EXPORT SerializedAsyncTaskGroup {
   Future<> OnFinished() const { return on_finished_; }
 
  private:
-  void ConsumeAsMuchAsPossibleUnlocked();
+  void ConsumeAsMuchAsPossibleUnlocked(util::Mutex::Guard&& guard);
   bool TryDrainUnlocked();
 
   Future<> on_finished_;

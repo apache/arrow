@@ -16,11 +16,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/exec/exec_plan.h"
+
 #include <mutex>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/order_by_impl.h"
@@ -134,8 +135,8 @@ class SinkNode : public ExecNode {
 
 // A sink node that owns consuming the data and will not finish until the consumption
 // is finished.  Use SinkNode if you are transferring the ownership of the data to another
-// system.  Use ConsumingSinkNode if the data is being consumed within the exec plan (e.g.
-// in a plan that consumes by writing the data out).
+// system.  Use ConsumingSinkNode if the data is being consumed within the exec plan (i.e.
+// the exec plan should not complete until the consumption has completed).
 class ConsumingSinkNode : public ExecNode {
  public:
   ConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -169,7 +170,7 @@ class ConsumingSinkNode : public ExecNode {
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
   void StopProducing() override {
-    Finish();
+    Finish(Status::Invalid("ExecPlan was stopped early"));
     inputs_[0]->StopProducing(this);
   }
 
@@ -178,10 +179,23 @@ class ConsumingSinkNode : public ExecNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    if (ErrorIfNotOk(consumer_->Consume(std::move(batch)))) return;
+    // This can happen if an error was received and the source hasn't yet stopped.  Since
+    // we have already called consumer_->Finish we don't want to call consumer_->Consume
+    if (input_counter_.Completed()) {
+      return;
+    }
+
+    Status consumption_status = consumer_->Consume(std::move(batch));
+    if (!consumption_status.ok()) {
+      if (input_counter_.Cancel()) {
+        Finish(std::move(consumption_status));
+      }
+      inputs_[0]->StopProducing(this);
+      return;
+    }
 
     if (input_counter_.Increment()) {
-      Finish();
+      Finish(Status::OK());
     }
   }
 
@@ -189,7 +203,7 @@ class ConsumingSinkNode : public ExecNode {
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.Cancel()) {
-      Finish();
+      Finish(std::move(error));
     }
 
     inputs_[0]->StopProducing(this);
@@ -197,14 +211,17 @@ class ConsumingSinkNode : public ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {
     if (input_counter_.SetTotal(total_batches)) {
-      Finish();
+      Finish(Status::OK());
     }
   }
 
  protected:
-  virtual void Finish() {
-    consumer_->Finish().AddCallback(
-        [this](const Status& st) { finished_.MarkFinished(st); });
+  virtual void Finish(const Status& finish_st) {
+    consumer_->Finish().AddCallback([this, finish_st](const Status& st) {
+      // Prefer the plan error over the consumer error
+      Status final_status = finish_st & st;
+      finished_.MarkFinished(std::move(final_status));
+    });
   }
 
   AtomicCounter input_counter_;

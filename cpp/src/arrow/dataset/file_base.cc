@@ -328,10 +328,10 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   DatasetWritingSinkNodeConsumer(std::shared_ptr<Schema> schema,
                                  std::unique_ptr<internal::DatasetWriter> dataset_writer,
-                                 const FileSystemDatasetWriteOptions& write_options)
+                                 FileSystemDatasetWriteOptions write_options)
       : schema(std::move(schema)),
         dataset_writer(std::move(dataset_writer)),
-        write_options(write_options) {}
+        write_options(std::move(write_options)) {}
 
   Status Consume(compute::ExecBatch batch) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
@@ -369,8 +369,8 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   }
 
   std::shared_ptr<Schema> schema;
-  std::unique_ptr<DatasetWriter> dataset_writer;
-  const FileSystemDatasetWriteOptions& write_options;
+  std::unique_ptr<internal::DatasetWriter> dataset_writer;
+  FileSystemDatasetWriteOptions write_options;
 
   util::SerializedAsyncTaskGroup task_group;
 };
@@ -379,31 +379,6 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
-<<<<<<< HEAD
-  ARROW_ASSIGN_OR_RAISE(auto batch_gen, scanner->ScanBatchesAsync());
-  ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                        internal::DatasetWriter::Make(write_options));
-
-  AsyncGenerator<std::shared_ptr<int>> queued_batch_gen =
-      [batch_gen, &dataset_writer, &write_options]() -> Future<std::shared_ptr<int>> {
-    Future<TaggedRecordBatch> next_batch_fut = batch_gen();
-    return next_batch_fut.Then(
-        [&dataset_writer, &write_options](const TaggedRecordBatch& batch) {
-          if (IsIterationEnd(batch)) {
-            return AsyncGeneratorEnd<std::shared_ptr<int>>();
-          }
-          return WriteNextBatch(dataset_writer.get(), batch, write_options).Then([] {
-            return std::make_shared<int>(0);
-          });
-        });
-  };
-  Future<> queue_fut =
-      VisitAsyncGenerator(std::move(queued_batch_gen),
-                          [&](const std::shared_ptr<int>&) { return Status::OK(); });
-
-  ARROW_RETURN_NOT_OK(queue_fut.status());
-  return dataset_writer->Finish().status();
-=======
   const io::IOContext& io_context = scanner->options()->io_context;
   std::shared_ptr<compute::ExecContext> exec_context =
       std::make_shared<compute::ExecContext>(io_context.pool(),
@@ -422,7 +397,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
           {
               {"scan", ScanNodeOptions{dataset, scanner->options()}},
               {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
-              {"augmented_project",
+              {"project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
               {"write", WriteNodeOptions{write_options}},
           })
@@ -430,7 +405,6 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   RETURN_NOT_OK(plan->StartProducing());
   return plan->finished().status();
->>>>>>> fd2b23717... ARROW-13542: Reworked dataset write node to simplify logic and create some new async utilities
 }
 
 Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
@@ -446,7 +420,8 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
       checked_cast<const WriteNodeOptions&>(options).write_options;
 
   std::shared_ptr<Schema> schema = input->output_schema();
-  ARROW_ASSIGN_OR_RAISE(auto dataset_writer, DatasetWriter::Make(write_options));
+  ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
+                        internal::DatasetWriter::Make(write_options));
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
       std::make_shared<DatasetWritingSinkNodeConsumer>(
@@ -454,7 +429,7 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,
-      compute::MakeExecNode("sink", plan, std::move(inputs),
+      compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
                             compute::ConsumingSinkNodeOptions{std::move(consumer)}));
 
   return node;

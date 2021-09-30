@@ -104,14 +104,14 @@ Future<> AsyncTaskGroup::OnFinished() const { return all_tasks_done_; }
 SerializedAsyncTaskGroup::SerializedAsyncTaskGroup() : on_finished_(Future<>::Make()) {}
 
 Status SerializedAsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task) {
-  util::Mutex::Guard lock = mutex_.Lock();
+  util::Mutex::Guard guard = mutex_.Lock();
   ARROW_RETURN_NOT_OK(err_);
   if (on_finished_.is_finished()) {
     return Status::Invalid("Attempt to add a task after a task group has finished");
   }
   tasks_.push(std::move(task));
   if (!processing_.is_valid()) {
-    ConsumeAsMuchAsPossibleUnlocked();
+    ConsumeAsMuchAsPossibleUnlocked(std::move(guard));
   }
   return err_;
 }
@@ -126,10 +126,12 @@ Future<> SerializedAsyncTaskGroup::End() {
   return on_finished_;
 }
 
-void SerializedAsyncTaskGroup::ConsumeAsMuchAsPossibleUnlocked() {
+void SerializedAsyncTaskGroup::ConsumeAsMuchAsPossibleUnlocked(
+    util::Mutex::Guard&& guard) {
   while (err_.ok() && !tasks_.empty() && TryDrainUnlocked()) {
   }
   if (ended_ && tasks_.empty() && !processing_.is_valid()) {
+    guard.Unlock();
     on_finished_.MarkFinished(err_);
   }
 }
@@ -155,7 +157,7 @@ bool SerializedAsyncTaskGroup::TryDrainUnlocked() {
     util::Mutex::Guard guard = mutex_.Lock();
     processing_ = Future<>();
     err_ &= st;
-    ConsumeAsMuchAsPossibleUnlocked();
+    ConsumeAsMuchAsPossibleUnlocked(std::move(guard));
   });
   return false;
 }
