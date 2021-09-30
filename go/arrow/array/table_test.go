@@ -225,7 +225,6 @@ func TestColumn(t *testing.T) {
 		len    int
 		nulls  int
 		chunks int
-		err    error
 	}
 
 	for _, tc := range []struct {
@@ -396,8 +395,8 @@ func TestTable(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -456,11 +455,6 @@ func TestTable(t *testing.T) {
 	defer col2.Release()
 
 	cols := []array.Column{*col1, *col2}
-	defer func(cols []array.Column) {
-		for i := range cols {
-			cols[i].Release()
-		}
-	}(cols)
 
 	tbl := array.NewTable(schema, cols, -1)
 	defer tbl.Release()
@@ -503,7 +497,7 @@ func TestTable(t *testing.T) {
 		{
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
 				},
 				nil,
 			),
@@ -514,8 +508,8 @@ func TestTable(t *testing.T) {
 		{
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int32},
 				},
 				nil,
 			),
@@ -526,8 +520,8 @@ func TestTable(t *testing.T) {
 		{
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-f32", Type: arrow.PrimitiveTypes.Float64},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-f32", Type: arrow.PrimitiveTypes.Float64},
 				},
 				nil,
 			),
@@ -584,8 +578,8 @@ func TestTableFromRecords(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -630,8 +624,8 @@ func TestTableReader(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)

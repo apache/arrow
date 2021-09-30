@@ -31,7 +31,7 @@ esac
 
 pushd ${source_dir}/arrow
 
-TAGS="test"
+TAGS="assert,test"
 if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     TAGS="${TAGS},ccalloc"
 fi
@@ -50,7 +50,7 @@ popd
 pushd ${source_dir}/parquet
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $testargs  $d
+    go test $testargs -tags assert $d
 done
 
 popd
