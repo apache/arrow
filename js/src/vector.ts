@@ -298,16 +298,16 @@ export class Vector<T extends DataType = any> {
 
 import * as dtypes from './type';
 
-export function makeVector(data: Int8Array | readonly Int8Array[]):/*      */Vector<dtypes.Int8>;
-export function makeVector(data: Int16Array | readonly Int16Array[]):/*     */Vector<dtypes.Int16>;
-export function makeVector(data: Int32Array | readonly Int32Array[]):/*     */Vector<dtypes.Int32>;
-export function makeVector(data: BigInt64Array | readonly BigInt64Array[]):/*  */Vector<dtypes.Int64>;
-export function makeVector(data: Uint8Array | readonly Uint8Array[]):/*     */Vector<dtypes.Uint8>;
-export function makeVector(data: Uint16Array | readonly Uint16Array[]):/*    */Vector<dtypes.Uint16>;
-export function makeVector(data: Uint32Array | readonly Uint32Array[]):/*    */Vector<dtypes.Uint32>;
-export function makeVector(data: BigUint64Array | readonly BigUint64Array[]):/* */Vector<dtypes.Uint64>;
-export function makeVector(data: Float32Array | readonly Float32Array[]):/*   */Vector<dtypes.Float32>;
-export function makeVector(data: Float64Array | readonly Float64Array[]):/*   */Vector<dtypes.Float64>;
+export function makeVector(data: Int8Array | readonly Int8Array[]): Vector<dtypes.Int8>;
+export function makeVector(data: Int16Array | readonly Int16Array[]): Vector<dtypes.Int16>;
+export function makeVector(data: Int32Array | readonly Int32Array[]): Vector<dtypes.Int32>;
+export function makeVector(data: BigInt64Array | readonly BigInt64Array[]): Vector<dtypes.Int64>;
+export function makeVector(data: Uint8Array | readonly Uint8Array[]): Vector<dtypes.Uint8>;
+export function makeVector(data: Uint16Array | readonly Uint16Array[]): Vector<dtypes.Uint16>;
+export function makeVector(data: Uint32Array | readonly Uint32Array[]): Vector<dtypes.Uint32>;
+export function makeVector(data: BigUint64Array | readonly BigUint64Array[]): Vector<dtypes.Uint64>;
+export function makeVector(data: Float32Array | readonly Float32Array[]): Vector<dtypes.Float32>;
+export function makeVector(data: Float64Array | readonly Float64Array[]): Vector<dtypes.Float64>;
 export function makeVector<T extends DataType>(data: Data<T> | readonly Data<T>[]): Vector<T>;
 export function makeVector<T extends DataType>(data: Vector<T> | readonly Vector<T>[]): Vector<T>;
 export function makeVector<T extends DataType>(data: DataProps<T> | readonly DataProps<T>[]): Vector<T>;
