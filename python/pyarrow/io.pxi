@@ -1485,7 +1485,7 @@ def transcoding_input_stream(stream, src_encoding, dest_encoding):
     """
     Add a transcoding transformation to the stream.
     Incoming data will be decoded according to ``src_encoding`` and
-    emitted data will be encoded according to ``dest_encoding``.
+    then re-encoded according to ``dest_encoding``.
 
     Parameters
     ----------
@@ -1547,14 +1547,14 @@ def foreign_buffer(address, size, base=None):
     Parameters
     ----------
     address : int
-        Specify the starting address of the buffer. The address can
+        The starting address of the buffer. The address can
         refer to both device or host memory but it must be
         accessible from device after mapping it with
         `get_device_address` method.
     size : int
-        Specify the size of device buffer in bytes.
+        The size of device buffer in bytes.
     base : {None, object}
-        Specify object that owns the referenced memory.
+        Object that owns the referenced memory.
     """
     cdef:
         intptr_t c_addr = address
@@ -1786,8 +1786,8 @@ cdef class Codec(_Weakrefable):
         Parameters
         ----------
         compression : str
-             Type of compression codec, valid values are: gzip, bz2, brotli,
-             lz4, zstd and snappy.
+             Type of compression codec,
+             refer to Codec docstring for a list of supported ones.
 
         Returns
         -------
@@ -1805,8 +1805,8 @@ cdef class Codec(_Weakrefable):
         Parameters
         ----------
         compression : str
-            Type of compression codec, valid values are: gzip, bz2, brotli,
-            lz4, zstd and snappy.
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return CCodec.SupportsCompressionLevel(typ)
@@ -1820,8 +1820,8 @@ cdef class Codec(_Weakrefable):
         Parameters
         ----------
         compression : str
-            Type of compression codec, valid values are: gzip, bz2, brotli,
-            lz4, zstd and snappy.
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.DefaultCompressionLevel(typ))
@@ -1834,8 +1834,8 @@ cdef class Codec(_Weakrefable):
         Parameters
         ----------
         compression : str
-            Type of compression codec, valid values are: gzip, bz2, brotli,
-            lz4, zstd and snappy.
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.MinimumCompressionLevel(typ))
@@ -1848,8 +1848,8 @@ cdef class Codec(_Weakrefable):
         Parameters
         ----------
         compression : str
-            Type of compression codec, valid values are: gzip, bz2, brotli,
-            lz4, zstd and snappy.
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.MaximumCompressionLevel(typ))
