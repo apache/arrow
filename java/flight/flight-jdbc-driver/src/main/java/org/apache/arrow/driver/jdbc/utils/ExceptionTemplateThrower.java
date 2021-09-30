@@ -37,24 +37,8 @@ public final class ExceptionTemplateThrower {
    *
    * @return the exception.
    */
-  public static UnsupportedOperationException getOperationNotSupported(Class<?> type) {
+  public static UnsupportedOperationException getOperationNotSupported(final Class<?> type) {
     return new UnsupportedOperationException(
             format("Operation not supported for type: %s.", type.getName()));
-  }
-
-  /**
-   * Generate {@link Exception} for an illegal attempt at casting a data type
-   * to another.
-   *
-   * @param actual the {@link Class} to which the attempt to cast was made.
-   * @param expected the {@code Class} expected to be the parent of {@code actual}.
-   * @param object the {@link Object} that could not be casted into {@code actual}.
-   */
-  public static IllegalArgumentException getCannotPerformDataConversion(
-      Class<?> actual, Class<?> expected, Object object) {
-    return new IllegalArgumentException(
-            format("Provided class (%s) is invalid: not a subtype of %s," +
-                            " which \"%s\" belongs to.",
-                    actual.getName(), expected.getName(), object));
   }
 }
