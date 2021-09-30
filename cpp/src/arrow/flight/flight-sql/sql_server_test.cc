@@ -144,8 +144,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   std::vector<std::string> table_types;
 
   std::string table_filter_pattern = "int%";
-  std::string schema_filter_pattern = "main";
-  ASSERT_OK(sql_client->GetTables({}, nullptr, &schema_filter_pattern, &table_filter_pattern, false, table_types, &flight_info));
+  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
@@ -193,8 +192,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithCatalogFilter) {
   std::vector<std::string> table_types;
 
   std::string catalog_filter_pattern = "sqlite_master";
-  std::string table_filter_pattern = "int%";
-  ASSERT_OK(sql_client->GetTables({}, &catalog_filter_pattern, nullptr, &table_filter_pattern, false, table_types, &flight_info));
+  ASSERT_OK(sql_client->GetTables({}, &catalog_filter_pattern, nullptr, nullptr, false, table_types, &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
@@ -212,7 +210,6 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithCatalogFilter) {
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
-
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceSchemaFilter) {
   std::unique_ptr<FlightInfo> flight_info;
@@ -245,34 +242,84 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceCatalogFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  StringBuilder catalog_name_builder;
-  StringBuilder schema_name_builder;
-  StringBuilder table_name_builder;
-  StringBuilder table_type_builder;
+  ASSERT_TRUE(table->schema()->Equals(SqlSchema::GetTablesSchema()));
 
-  std::shared_ptr<arrow::Array> catalog_name;
-  std::shared_ptr<arrow::Array> schema_name;
-  std::shared_ptr<arrow::Array> table_name;
-  std::shared_ptr<arrow::Array> table_type;
+  ASSERT_EQ(table->num_rows(), 0);
+}
 
-  catalog_name_builder.Finish(&catalog_name);
-  schema_name_builder.Finish(&schema_name);
-  table_name_builder.Finish(&table_name);
-  table_type_builder.Finish(&table_type);
+TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
+  std::unique_ptr<FlightInfo> flight_info;
+  std::vector<std::string> table_types {"index"};
 
-//  DECLARE_EMPTY_ARRAY(catalog_name, String);
-//  DECLARE_EMPTY_ARRAY(schema_name, String);
-//  DECLARE_EMPTY_ARRAY(table_name, String);
-//  DECLARE_EMPTY_ARRAY(table_type, String);
+  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types, &flight_info));
 
-  std::unique_ptr<ArrayBuilder> builder;
-  MakeBuilder(default_memory_pool(), utf8(), &builder);
-  builder->Resize(0);
-  builder->Finish();
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  ASSERT_TRUE(table->schema()->Equals(SqlSchema::GetTablesSchema()));
+
+  ASSERT_EQ(table->num_rows(), 0);
+}
+
+TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
+  std::unique_ptr<FlightInfo> flight_info;
+  std::vector<std::string> table_types {"table"};
+
+  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types, &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master", "sqlite_master", "sqlite_master"}));
+  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
+  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
+  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
-      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type}, 0);
+      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
 
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
+  std::unique_ptr<FlightInfo> flight_info;
+  std::vector<std::string> table_types;
+
+  std::string table_filter_pattern = "int%";
+  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, true, table_types, &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master"}));
+  DECLARE_ARRAY(schema_name, String, ({"main" }));
+  DECLARE_ARRAY(table_name, String, ({"intTable"}));
+  DECLARE_ARRAY(table_type, String, ({"table"}));
+
+  const std::shared_ptr<Schema> schema_table = arrow::schema(
+      {arrow::field("id", int64(), true, NULL),
+             arrow::field("keyName", utf8(), true, NULL),
+             arrow::field("value", int64(), true, NULL),
+             arrow::field("foreignId", int64(), true, NULL)
+  });
+
+  const arrow::Result<std::shared_ptr<Buffer>>& value =
+      ipc::SerializeSchema(*schema_table);
+  value.ValueOrDie()->data(), value.ValueOrDie()->size();
+
+  DECLARE_BINARY_ARRAY(table_schema, ({value.ValueOrDie()->data()}), value.ValueOrDie()->size());
+
+  const std::shared_ptr<Table>& expected_table = Table::Make(
+      SqlSchema::GetTablesSchemaWithSchema(), {catalog_name, schema_name, table_name, table_type, table_schema});
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
