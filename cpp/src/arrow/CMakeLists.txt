@@ -364,6 +364,7 @@ if(ARROW_CSV)
 endif()
 
 if(ARROW_COMPUTE)
+<<<<<<< HEAD
   list(APPEND
        ARROW_SRCS
        compute/api_aggregate.cc
@@ -375,9 +376,15 @@ if(ARROW_COMPUTE)
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
        compute/exec/filter_node.cc
+       compute/exec/key_compare.cc
+       compute/exec/key_encode.cc
+       compute/exec/key_hash.cc
+       compute/exec/key_map.cc
        compute/exec/project_node.cc
        compute/exec/source_node.cc
        compute/exec/sink_node.cc
+       compute/exec/union_node.cc
+       compute/exec/util.cc)
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
@@ -412,10 +419,6 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
        compute/exec/union_node.cc
-       compute/exec/key_hash.cc
-       compute/exec/key_map.cc
-       compute/exec/key_compare.cc
-       compute/exec/key_encode.cc
        compute/exec/util.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
