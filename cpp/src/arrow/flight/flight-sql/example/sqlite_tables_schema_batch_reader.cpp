@@ -8,6 +8,7 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/record_batch.h>
 #include <sqlite3.h>
+#include <boost/algorithm/string.hpp>
 
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
@@ -80,13 +81,15 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
 }
 
 std::shared_ptr<DataType> SqliteTablesWithSchemaBatchReader::GetArrowType(const std::string& sqlite_type) {
-  if(sqlite_type == "INT") {
+  if(boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
     return int64();
-  } else if ( sqlite_type == "REAL") {
+  } else if ( boost::iequals(sqlite_type, "REAL")) {
     return float64();
-  } else if(sqlite_type == "BLOB") {
+  } else if(boost::iequals(sqlite_type, "BLOB")) {
     return binary();
-  } else if (sqlite_type == "TEXT" || sqlite_type.find("CHAR") != std::string::npos) {
+  } else if (boost::iequals(sqlite_type, "TEXT") ||
+  boost::icontains(sqlite_type, "char") ||
+  boost::icontains(sqlite_type, "varchar")) {
     return utf8();
   } else {
     return null();
