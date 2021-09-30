@@ -176,12 +176,8 @@ describe(`Table`, () => {
             const i32 = makeVector(i32s);
             const f32 = makeVector(f32s);
 
-            // expect(i32.name).toBe('i32');
-            // expect(f32.name).toBe('f32');
             expect(i32).toHaveLength(i32s.length);
             expect(f32).toHaveLength(f32s.length);
-            // expect(i32.nullable).toBe(true);
-            // expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -189,14 +185,20 @@ describe(`Table`, () => {
             const i32Field = table.schema.fields[0];
             const f32Field = table.schema.fields[1];
 
+            expect(table.numRows).toBe(20);
+
             expect(i32Field.name).toBe('i32');
             expect(f32Field.name).toBe('f32');
-            expect(i32).toHaveLength(i32s.length);
-            expect(f32).toHaveLength(i32s.length); // new length should be the same as the longest sibling
-            expect(i32Field.nullable).toBe(true);
+
+            const i32Vector = table.getChild('i32')!;
+            const f32Vector = table.getChild('f32')!;
+
+            expect(i32Vector).toHaveLength(i32s.length);
+            expect(f32Vector).toHaveLength(i32s.length); // new length should be the same as the longest sibling
+            expect(i32Field.nullable).toBe(false);
             expect(f32Field.nullable).toBe(true); // true, with 12 additional nulls
-            expect(i32.nullCount).toBe(0);
-            expect(f32.nullCount).toBe(i32s.length - f32s.length);
+            expect(i32Vector.nullCount).toBe(0);
+            expect(f32Vector.nullCount).toBe(i32s.length - f32s.length);
 
             const f32Expected = makeData({
                 type: f32.type,
@@ -207,8 +209,8 @@ describe(`Table`, () => {
                 nullBitmap: new Uint8Array(8).fill(255, 0, 1),
             });
 
-            expect(i32).toEqualVector(makeVector(i32s));
-            expect(f32).toEqualVector(new Vector([f32Expected]));
+            expect(i32Vector).toEqualVector(makeVector(i32s));
+            expect(f32Vector).toEqualVector(new Vector([f32Expected]));
         });
 
         test(`creates a new Table from Columns with different lengths and number of inner chunks`, () => {
@@ -219,12 +221,8 @@ describe(`Table`, () => {
             const i32 = makeVector(i32s);
             const f32 = makeVector(f32s.slice(0, 8)).concat(makeVector(f32s.slice(8, 16)));
 
-            // expect(i32.name).toBe('i32');
-            // expect(f32.name).toBe('f32');
             expect(i32).toHaveLength(i32s.length);
             expect(f32).toHaveLength(f32s.length);
-            // expect(i32.nullable).toBe(true);
-            // expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -234,11 +232,13 @@ describe(`Table`, () => {
             const i32Renamed = table.getChild('i32Renamed')!;
             const f32Renamed = table.getChild('f32Renamed')!;
 
+            expect(table.numRows).toBe(20);
+
             expect(i32RenamedField.name).toBe('i32Renamed');
             expect(f32RenamedField.name).toBe('f32Renamed');
             expect(i32Renamed).toHaveLength(i32s.length);
             expect(f32Renamed).toHaveLength(i32s.length); // new length should be the same as the longest sibling
-            expect(i32RenamedField.nullable).toBe(true);
+            expect(i32RenamedField.nullable).toBe(false);
             expect(f32RenamedField.nullable).toBe(true); // true, with 4 additional nulls
             expect(i32Renamed.nullCount).toBe(0);
             expect(f32Renamed.nullCount).toBe(i32s.length - f32s.length);
@@ -251,8 +251,8 @@ describe(`Table`, () => {
                 nullBitmap: new Uint8Array(8).fill(255, 0, 2),
             });
 
-            expect(i32).toEqualVector(makeVector(i32s));
-            expect(f32).toEqualVector(new Vector([f32Expected]));
+            expect(i32Renamed).toEqualVector(makeVector(i32s));
+            expect(f32Renamed).toEqualVector(new Vector([f32Expected]));
         });
 
         test(`creates a new Table from Typed Arrays`, () => {

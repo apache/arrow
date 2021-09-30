@@ -81,7 +81,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
             return this;
         }
 
-        const data: RecordBatch<T>[] = [];
+        let data: RecordBatch<T>[] = [];
         let schema: Schema<T> | undefined = undefined;
         let offsets: Uint32Array | undefined = undefined;
 
@@ -102,18 +102,8 @@ export class Table<T extends { [key: string]: DataType } = any> {
             } else if (x && typeof x === 'object') {
                 const keys = Object.keys(x) as (keyof T)[];
                 const vecs = keys.map((k) => new Vector(x[k]));
-                const empty = keys.reduce((empty, key, i) => {
-                    empty[key] = vecs[i].data[0].slice(0, 0);
-                    return empty;
-                }, Object.create(null) as { [P in keyof T]: Data<T[P]> });
-                data.push(...keys
-                    .reduce((batches, name, i) => {
-                        vecs[i].data.forEach((data, j) => {
-                            (batches[j] || (batches[j] = { ...empty }))[name] = data;
-                        });
-                        return batches;
-                    }, new Array<{ [P in keyof T]: Data<T[P]> }>())
-                    .map((batch) => new RecordBatch<T>(batch)));
+                const s = new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type)));
+                [schema, data] = distributeVectorsIntoRecordBatches(s, vecs);
             }
         });
 
