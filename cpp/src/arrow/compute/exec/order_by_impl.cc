@@ -47,7 +47,7 @@ class SortBasicImpl : public OrderByImpl {
     return Status::OK();
   }
 
-  virtual Result<Datum> DoFinish() override {
+  Result<Datum> DoFinish() override {
     std::unique_lock<std::mutex> lock(mutex_);
     ARROW_ASSIGN_OR_RAISE(auto table,
                           Table::FromRecordBatches(output_schema_, std::move(batches_)));
@@ -55,7 +55,7 @@ class SortBasicImpl : public OrderByImpl {
     return Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_);
   }
 
-  virtual std::string ToString() const override { return options_.ToString(); }
+  std::string ToString() const override { return options_.ToString(); }
 
  protected:
   ExecContext* ctx_;
@@ -81,7 +81,7 @@ class SelectKBasicImpl : public SortBasicImpl {
     return Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_);
   }
 
-  virtual std::string ToString() const override { return options_.ToString(); }
+  std::string ToString() const override { return options_.ToString(); }
 
  private:
   const SelectKOptions options_;
