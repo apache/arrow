@@ -179,7 +179,7 @@ shape: {0.shape}""".format(self)
             Coordinates of the data.
         shape : tuple
             Shape of the tensor.
-        dim_names : list
+        dim_names : list, optional
             Names of the dimensions.
         """
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
@@ -257,7 +257,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         obj : pydata.sparse.COO
-            The object that should be converted.
+            The sparse multidimensional array that should be converted.
         dim_names : list, optional
             Names of the dimensions.
         """
@@ -439,7 +439,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         obj : numpy.ndarray
-            The source numpy array
+            The dense numpy array that should be converted.
         dim_names : list, optional
             The names of the dimensions.
         """
@@ -453,7 +453,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         data : numpy.ndarray
-            Data used to populate the rows.
+            Data used to populate the sparse matrix.
         indptr : numpy.ndarray
             Range of the rows,
             The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
@@ -461,7 +461,7 @@ shape: {0.shape}""".format(self)
             Column indices of the corresponding non-zero values.
         shape : tuple
             Shape of the matrix.
-        dim_names : list
+        dim_names : list, optional
             Names of the dimensions.
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
@@ -534,7 +534,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         obj : Tensor
-            The tensor that should be converted.
+            The dense tensor that should be converted.
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
@@ -662,7 +662,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         data : numpy.ndarray
-            Data used to populate the rows.
+            Data used to populate the sparse matrix.
         indptr : numpy.ndarray
             Range of the rows,
             The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
@@ -670,7 +670,7 @@ shape: {0.shape}""".format(self)
             Column indices of the corresponding non-zero values.
         shape : tuple
             Shape of the matrix.
-        dim_names : list
+        dim_names : list, optional
             Names of the dimensions.
         """
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
@@ -706,7 +706,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         obj : scipy.sparse.csc_matrix
-            The SciPy matrix that should be converted.
+            The scipy matrix that should be converted.
         dim_names : list, optional
             Names of the dimensions.
         """
@@ -743,7 +743,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         obj : Tensor
-            The tensor that should be converted.
+            The dense tensor that should be converted.
         """
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
@@ -874,7 +874,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         data : numpy.ndarray
-            Data used to populate the rows.
+            Data used to populate the sparse tensor.
         indptr : numpy.ndarray
             Range of the rows,
             The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
@@ -936,7 +936,7 @@ shape: {0.shape}""".format(self)
         Parameters
         ----------
         obj : Tensor
-            The tensor that should be converted.
+            The dense tensor that should be converted.
         """
         cdef shared_ptr[CSparseCSFTensor] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)

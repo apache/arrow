@@ -48,7 +48,6 @@ def is_null(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_NA
 
@@ -60,7 +59,6 @@ def is_boolean(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_BOOL
 
@@ -72,7 +70,6 @@ def is_integer(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _INTEGER_TYPES
 
@@ -84,7 +81,6 @@ def is_signed_integer(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _SIGNED_INTEGER_TYPES
 
@@ -96,7 +92,6 @@ def is_unsigned_integer(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _UNSIGNED_INTEGER_TYPES
 
@@ -108,7 +103,6 @@ def is_int8(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_INT8
 
@@ -120,7 +114,6 @@ def is_int16(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_INT16
 
@@ -132,7 +125,6 @@ def is_int32(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_INT32
 
@@ -144,7 +136,6 @@ def is_int64(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_INT64
 
@@ -156,7 +147,6 @@ def is_uint8(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_UINT8
 
@@ -168,7 +158,6 @@ def is_uint16(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_UINT16
 
@@ -180,7 +169,6 @@ def is_uint32(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_UINT32
 
@@ -192,7 +180,6 @@ def is_uint64(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_UINT64
 
@@ -204,7 +191,6 @@ def is_floating(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _FLOATING_TYPES
 
@@ -216,7 +202,6 @@ def is_float16(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_HALF_FLOAT
 
@@ -228,7 +213,6 @@ def is_float32(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_FLOAT
 
@@ -240,7 +224,6 @@ def is_float64(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_DOUBLE
 
@@ -252,7 +235,6 @@ def is_list(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_LIST
 
@@ -264,7 +246,6 @@ def is_large_list(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_LARGE_LIST
 
@@ -276,7 +257,6 @@ def is_fixed_size_list(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_FIXED_SIZE_LIST
 
@@ -288,7 +268,6 @@ def is_struct(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_STRUCT
 
@@ -300,7 +279,6 @@ def is_union(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _UNION_TYPES
 
@@ -312,7 +290,6 @@ def is_nested(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _NESTED_TYPES
 
@@ -324,7 +301,6 @@ def is_temporal(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _TEMPORAL_TYPES
 
@@ -336,7 +312,6 @@ def is_timestamp(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_TIMESTAMP
 
@@ -348,7 +323,6 @@ def is_duration(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_DURATION
 
@@ -360,7 +334,6 @@ def is_time(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _TIME_TYPES
 
@@ -372,7 +345,6 @@ def is_time32(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_TIME32
 
@@ -384,7 +356,6 @@ def is_time64(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_TIME64
 
@@ -396,7 +367,6 @@ def is_binary(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_BINARY
 
@@ -409,7 +379,6 @@ def is_large_binary(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_LARGE_BINARY
 
@@ -421,7 +390,6 @@ def is_unicode(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return is_string(t)
 
@@ -433,7 +401,6 @@ def is_string(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_STRING
 
@@ -445,7 +412,6 @@ def is_large_unicode(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return is_large_string(t)
 
@@ -457,7 +423,6 @@ def is_large_string(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_LARGE_STRING
 
@@ -469,7 +434,6 @@ def is_fixed_size_binary(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_FIXED_SIZE_BINARY
 
@@ -481,7 +445,6 @@ def is_date(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _DATE_TYPES
 
@@ -493,7 +456,6 @@ def is_date32(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_DATE32
 
@@ -505,7 +467,6 @@ def is_date64(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_DATE64
 
@@ -517,7 +478,6 @@ def is_map(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_MAP
 
@@ -529,7 +489,6 @@ def is_decimal(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id in _DECIMAL_TYPES
 
@@ -541,7 +500,6 @@ def is_decimal128(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_DECIMAL128
 
@@ -553,7 +511,6 @@ def is_decimal256(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_DECIMAL256
 
@@ -565,7 +522,6 @@ def is_dictionary(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return t.id == lib.Type_DICTIONARY
 
@@ -577,6 +533,5 @@ def is_primitive(t):
     Parameters
     ----------
     t : DataType
-        type to check
     """
     return lib._is_primitive(t.id)

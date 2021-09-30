@@ -63,7 +63,7 @@ def set_cpu_count(int count):
     Parameters
     ----------
     count : int
-        The number of concurrent cpu that should be set.
+        The number of concurrent threads that should be used.
 
     See Also
     --------
