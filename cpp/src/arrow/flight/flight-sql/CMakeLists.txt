@@ -22,9 +22,8 @@ arrow_install_all_headers("arrow/flight/flight-sql")
 set(FLIGHT_SQL_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
 
-set(FLIGHT_SQL_GENERATED_PROTO_FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
-    "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.h")
+set(FLIGHT_SQL_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
+                                     "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.h")
 
 set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
@@ -92,7 +91,8 @@ add_arrow_test(flight_sql_test
                LABELS
                "arrow_flight_sql")
 
-add_executable(flight_sql_test_app test_app.cc)
+add_executable(flight_sql_test_app test_app.cc
+                                   ${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc)
 target_link_libraries(flight_sql_test_app PRIVATE arrow_flight_sql_static
                                                   ${GFLAGS_LIBRARIES})
 
