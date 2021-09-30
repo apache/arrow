@@ -75,13 +75,13 @@ export class Table<T extends { [key: string]: DataType } = any> {
     constructor(...args: any[]) {
 
         if (args.length === 0) {
-            this.data = []
+            this.data = [];
             this.schema = new Schema([]);
             this._offsets = new Uint32Array([0]);
             return this;
         }
 
-        let data: RecordBatch<T>[] = [];
+        const data: RecordBatch<T>[] = [];
         let schema: Schema<T> | undefined = undefined;
         let offsets: Uint32Array | undefined = undefined;
 

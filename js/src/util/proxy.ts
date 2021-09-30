@@ -31,7 +31,7 @@ export class IndexingProxyHandlerMixin<T extends object = any> implements ProxyH
 
     get(target: any, key: any, instance: any) {
         if (typeof key === 'string') {
-            let num = +key;
+            const num = +key;
             if (num === num) {
                 return this.getNumberProp(instance || target, num);
             }
@@ -41,7 +41,7 @@ export class IndexingProxyHandlerMixin<T extends object = any> implements ProxyH
     }
     set(target: any, key: any, value: any, instance: any) {
         if (typeof key === 'string') {
-            let num = +key;
+            const num = +key;
             if (num === num) {
                 return (this.setNumberProp(instance || target, num, value), true);
             }
@@ -55,7 +55,7 @@ export class NumericIndexingProxyHandlerMixin<T extends object = any> implements
     constructor(protected getNumberProp: GetNumber<T>, protected setNumberProp: SetNumber<T>) { }
     get(target: any, key: any, instance: any) {
         if (typeof key === 'string') {
-            let num = +key;
+            const num = +key;
             if (num === num) {
                 return this.getNumberProp(instance || target, num);
             }
@@ -64,7 +64,7 @@ export class NumericIndexingProxyHandlerMixin<T extends object = any> implements
     }
     set(target: any, key: any, value: any, instance: any) {
         if (typeof key === 'string') {
-            let num = +key;
+            const num = +key;
             if (num === num) {
                 return (this.setNumberProp(instance || target, num, value), true);
             }

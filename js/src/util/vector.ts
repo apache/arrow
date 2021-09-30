@@ -54,7 +54,7 @@ export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = Cl
     (rhs < 0) && (rhs = ((rhs % len) + len) % len);
     // ensure lhs <= rhs
     (rhs < lhs) && (tmp = lhs, lhs = rhs, rhs = tmp);
-     // ensure rhs <= length
+    // ensure rhs <= length
     (rhs > len) && (rhs = len);
 
     return then ? then(source, lhs, rhs) : [lhs, rhs];
@@ -181,7 +181,7 @@ function compareObject(comparators: ((x: any) => boolean)[], obj: Map<any, any>,
     let rKey = rKeyItr.next();
 
     for (; i < n && !lKey.done && !rKey.done && !rVal.done;
-         ++i, lKey = lKeyItr.next(), rKey = rKeyItr.next(), rVal = rValItr.next()) {
+        ++i, lKey = lKeyItr.next(), rKey = rKeyItr.next(), rVal = rValItr.next()) {
         if (lKey.value !== rKey.value || !comparators[i](rVal.value)) {
             break;
         }

@@ -336,7 +336,7 @@ function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
         new Schema<T>(fields),
         makeData({ type: new Struct<T>(fields), length: maxLength, children, nullCount: 0 })
     ] as [Schema<T>, Data<Struct<T>>];
-};
+}
 
 
 /** @ignore */
