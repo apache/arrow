@@ -41,14 +41,16 @@
     ASSERT_OK(builder.Finish(&(ARRAY_NAME)));           \
   }
 
-#define DECLARE_EMPTY_ARRAY(ARRAY_NAME, TYPE_CLASS)     \
-  std::shared_ptr<arrow::TYPE_CLASS##Array> ARRAY_NAME; \
-  {                                                     \
-    arrow::TYPE_CLASS##Builder builder;                 \
-    builder.AppendNull();                                \
-                                                        \
-    ASSERT_OK(builder.Finish(&(ARRAY_NAME)));           \
-  }
+#define DECLARE_BINARY_ARRAY(ARRAY_NAME, DATA, LENGTH)     \
+std::shared_ptr<arrow::Binary##Array> ARRAY_NAME; \
+{                                                     \
+arrow::Binary##Builder builder;                 \
+auto data = unparen DATA;                           \
+for (const auto& item : data) {                     \
+ASSERT_OK(builder.Append(item, LENGTH));                  \
+}                                                   \
+ASSERT_OK(builder.Finish(&(ARRAY_NAME)));           \
+}
 
 using ::testing::_;
 using ::testing::Ref;
