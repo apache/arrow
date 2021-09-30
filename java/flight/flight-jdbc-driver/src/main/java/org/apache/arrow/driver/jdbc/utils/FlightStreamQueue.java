@@ -26,8 +26,6 @@ import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionService;
@@ -36,7 +34,6 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.arrow.flight.FlightStream;
@@ -87,32 +84,21 @@ public class FlightStreamQueue implements AutoCloseable {
     return closed.get();
   }
 
-  /**
-   * Blocking request with timeout to get the next ready FlightStream in queue.
-   *
-   * @param timeoutValue the amount of time to be waited
-   * @param timeoutUnit  the timeoutValue time unit
-   * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
-   */
-  public FlightStream next(long timeoutValue, TimeUnit timeoutUnit) throws SQLException {
+  @FunctionalInterface
+  interface FlightStreamSupplier {
+    Future<FlightStream> get() throws SQLTimeoutException;
+  }
+
+  private FlightStream next(final FlightStreamSupplier flightStreamSupplier) throws SQLException {
     checkOpen();
     while (!futures.isEmpty()) {
-      Optional<FlightStream> loadedStream;
+      final Future<FlightStream> future = flightStreamSupplier.get();
+      futures.remove(future);
       try {
-        final Future<FlightStream> future = completionService.poll(timeoutValue, timeoutUnit);
-        if (future == null) {
-          // The poll method with timeout values returns null if it didn't get anything until the time is out.
-          throw new TimeoutException();
-        }
-        futures.remove(future);
-        loadedStream = Optional.ofNullable(future.get());
-        final FlightStream stream = loadedStream.orElseThrow(NoSuchElementException::new);
+        final FlightStream stream = future.get();
         if (stream.getRoot().getRowCount() > 0) {
           return stream;
         }
-      } catch (final TimeoutException e) {
-        throw new SQLTimeoutException(
-            String.format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit));
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
         throw AvaticaConnection.HELPER.wrap("Query canceled", e);
       }
@@ -121,29 +107,45 @@ public class FlightStreamQueue implements AutoCloseable {
   }
 
   /**
+   * Blocking request with timeout to get the next ready FlightStream in queue.
+   *
+   * @param timeoutValue the amount of time to be waited
+   * @param timeoutUnit  the timeoutValue time unit
+   * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
+   */
+  public FlightStream next(final long timeoutValue, final TimeUnit timeoutUnit)
+      throws SQLException {
+    final FlightStreamSupplier futureCallable = () -> {
+      try {
+        final Future<FlightStream> future = completionService.poll(timeoutValue, timeoutUnit);
+        if (future != null) {
+          return future;
+        }
+      } catch (final InterruptedException ignored) {
+      }
+
+      throw new SQLTimeoutException(
+          String.format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit));
+    };
+
+    return next(futureCallable);
+  }
+
+  /**
    * Blocking request to get the next ready FlightStream in queue.
    *
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
   public FlightStream next() throws SQLException {
-    checkOpen();
-    FlightStream result = null; // If empty.
-    while (!futures.isEmpty()) {
-      Optional<FlightStream> loadedStream;
+    final FlightStreamSupplier futureCallable = () -> {
       try {
-        final Future<FlightStream> future = completionService.take();
-        futures.remove(future);
-        loadedStream = Optional.ofNullable(future.get());
-        final FlightStream stream = loadedStream.orElseThrow(NoSuchElementException::new);
-        if (stream.getRoot().getRowCount() > 0) {
-          result = stream;
-          break;
-        }
-      } catch (final ExecutionException | InterruptedException | CancellationException e) {
+        return completionService.take();
+      } catch (final InterruptedException e) {
         throw AvaticaConnection.HELPER.wrap("Query canceled", e);
       }
-    }
-    return result;
+    };
+
+    return next(futureCallable);
   }
 
   /**
@@ -182,7 +184,7 @@ public class FlightStreamQueue implements AutoCloseable {
     }
     try {
       futures.forEach(future -> future.cancel(true));
-      for (final FlightStream flightStream: allStreams) {
+      for (final FlightStream flightStream : allStreams) {
         try {
           AutoCloseables.close(flightStream);
         } catch (final Exception e) {
