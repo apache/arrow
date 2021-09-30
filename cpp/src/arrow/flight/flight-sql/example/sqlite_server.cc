@@ -210,7 +210,7 @@ Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& comma
                                           const ServerCallContext& context,
                                           std::unique_ptr<FlightDataStream>* result) {
   std::string table_query(
-      "SELECT 'sqlite_master' as catalog_name, 'main' as schema_name, name as "
+      "SELECT null as catalog_name, null as schema_name, name as "
       "table_name, type as table_type FROM sqlite_master where 1=1");
 
   std::shared_ptr<RecordBatchReader> batch_reader;

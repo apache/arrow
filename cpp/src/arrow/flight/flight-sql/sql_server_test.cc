@@ -41,7 +41,7 @@
   }
 
 #define DECLARE_BINARY_ARRAY(ARRAY_NAME, DATA, LENGTH) \
-  std::shared_ptr<arrow::Binary##Array> ARRAY_NAME;    \
+  std::shared_ptr<arrow::BinaryArray> ARRAY_NAME;    \
   {                                                    \
     arrow::Binary##Builder builder;                    \
     auto data = unparen DATA;                          \
@@ -49,6 +49,16 @@
       ASSERT_OK(builder.Append(item, LENGTH));         \
     }                                                  \
     ASSERT_OK(builder.Finish(&(ARRAY_NAME)));          \
+  }
+
+#define DECLARE_NULL_ARRAY(ARRAY_NAME, TYPE_CLASS, LENGTH) \
+  std::shared_ptr<arrow::TYPE_CLASS##Array> ARRAY_NAME;    \
+  {                                                        \
+    arrow::TYPE_CLASS##Builder builder;                    \
+    for (int i = 0; i < LENGTH; i++) {                     \
+      ASSERT_OK(builder.AppendNull());                     \
+    }                                                      \
+    ASSERT_OK(builder.Finish(&(ARRAY_NAME)));              \
   }
 
 using ::testing::_;
@@ -128,9 +138,8 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String,
-                ({"sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
+  DECLARE_NULL_ARRAY(catalog_name, String,3);
+  DECLARE_NULL_ARRAY(schema_name, String, 3);
   DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
@@ -154,8 +163,8 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main"}));
+  DECLARE_NULL_ARRAY(catalog_name, String, 1);
+  DECLARE_NULL_ARRAY(schema_name, String, 1);
   DECLARE_ARRAY(table_name, String, ({"intTable"}));
   DECLARE_ARRAY(table_type, String, ({"table"}));
 
@@ -165,95 +174,6 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
-TEST(TestFlightSqlServer, TestCommandGetTablesWithSchemaFilter) {
-  std::unique_ptr<FlightInfo> flight_info;
-  std::vector<std::string> table_types;
-
-  std::string schema_filter_pattern = "main";
-  ASSERT_OK(sql_client->GetTables({}, nullptr, &schema_filter_pattern, nullptr, false,
-                                  table_types, &flight_info));
-
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
-
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
-
-  DECLARE_ARRAY(catalog_name, String,
-                ({"sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
-
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
-
-  ASSERT_TRUE(expected_table->Equals(*table));
-}
-
-TEST(TestFlightSqlServer, TestCommandGetTablesWithCatalogFilter) {
-  std::unique_ptr<FlightInfo> flight_info;
-  std::vector<std::string> table_types;
-
-  std::string catalog_filter_pattern = "sqlite_master";
-  ASSERT_OK(sql_client->GetTables({}, &catalog_filter_pattern, nullptr, nullptr, false,
-                                  table_types, &flight_info));
-
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
-
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
-
-  DECLARE_ARRAY(catalog_name, String,
-                ({"sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
-
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
-
-  ASSERT_TRUE(expected_table->Equals(*table));
-}
-
-TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceSchemaFilter) {
-  std::unique_ptr<FlightInfo> flight_info;
-  std::vector<std::string> table_types;
-
-  std::string schema_filter_pattern = "unknown";
-  ASSERT_OK(sql_client->GetTables({}, nullptr, &schema_filter_pattern, nullptr, false,
-                                  table_types, &flight_info));
-
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
-
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
-
-  ASSERT_TRUE(table->schema()->Equals(SqlSchema::GetTablesSchema()));
-
-  ASSERT_EQ(table->num_rows(), 0);
-}
-
-TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceCatalogFilter) {
-  std::unique_ptr<FlightInfo> flight_info;
-  std::vector<std::string> table_types;
-
-  std::string catalog_filter_pattern = "unknown";
-  ASSERT_OK(sql_client->GetTables({}, &catalog_filter_pattern, nullptr, nullptr, false,
-                                  table_types, &flight_info));
-
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
-
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
-
-  ASSERT_TRUE(table->schema()->Equals(SqlSchema::GetTablesSchema()));
-
-  ASSERT_EQ(table->num_rows(), 0);
-}
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
   std::unique_ptr<FlightInfo> flight_info;
@@ -286,9 +206,8 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String,
-                ({"sqlite_master", "sqlite_master", "sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main", "main", "main"}));
+  DECLARE_NULL_ARRAY(catalog_name, String,3);
+  DECLARE_NULL_ARRAY(schema_name, String, 3);
   DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
@@ -312,8 +231,8 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(catalog_name, String, ({"sqlite_master"}));
-  DECLARE_ARRAY(schema_name, String, ({"main"}));
+  DECLARE_NULL_ARRAY(catalog_name, String, 1);
+  DECLARE_NULL_ARRAY(schema_name, String, 1);
   DECLARE_ARRAY(table_name, String, ({"intTable"}));
   DECLARE_ARRAY(table_type, String, ({"table"}));
 
