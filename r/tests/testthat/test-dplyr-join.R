@@ -53,7 +53,7 @@ test_that("left_join `by` args", {
     input %>%
       rename(the_grouping = some_grouping) %>%
       left_join(
-        to_join
+        to_join,
         by = c(the_grouping = "some_grouping")
       ) %>%
       collect(),
