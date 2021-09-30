@@ -483,7 +483,8 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
   # Error checking a single function because they all use the same code path.
   expect_error(
     nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
-    "Providing a value for 'locale' other than the default ('en') is not supported by Arrow"
+    "Providing a value for 'locale' other than the default ('en') is not supported by Arrow",
+    fixed = TRUE
   )
 })
 
