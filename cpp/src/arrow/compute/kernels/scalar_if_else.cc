@@ -948,9 +948,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
 };
 
 // Use builders for dictionaries - slower, but allows us to unify dictionaries
-template <typename Type>
-struct IfElseFunctor<
-    Type, enable_if_t<is_nested_type<Type>::value || is_dictionary_type<Type>::value>> {
+struct NestedIfElseExec {
   // A - Array, S - Scalar, X = Array/Scalar
 
   // SXX
@@ -989,11 +987,11 @@ struct IfElseFunctor<
                      const ArrayData& right, ArrayData* out) {
     return RunLoop(
         ctx, cond, out,
-        [&](ArrayBuilder* builder, int64_t i) {
-          return builder->AppendArraySlice(left, i, /*length=*/1);
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(left, i, length);
         },
-        [&](ArrayBuilder* builder, int64_t i) {
-          return builder->AppendArraySlice(right, i, /*length=*/1);
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(right, i, length);
         });
   }
 
@@ -1002,9 +1000,11 @@ struct IfElseFunctor<
                      const ArrayData& right, ArrayData* out) {
     return RunLoop(
         ctx, cond, out,
-        [&](ArrayBuilder* builder, int64_t i) { return builder->AppendScalar(left); },
-        [&](ArrayBuilder* builder, int64_t i) {
-          return builder->AppendArraySlice(right, i, /*length=*/1);
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(left, length);
+        },
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(right, i, length);
         });
   }
 
@@ -1013,10 +1013,12 @@ struct IfElseFunctor<
                      const Scalar& right, ArrayData* out) {
     return RunLoop(
         ctx, cond, out,
-        [&](ArrayBuilder* builder, int64_t i) {
-          return builder->AppendArraySlice(left, i, /*length=*/1);
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(left, i, length);
         },
-        [&](ArrayBuilder* builder, int64_t i) { return builder->AppendScalar(right); });
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(right, length);
+        });
   }
 
   // ASS
@@ -1024,8 +1026,12 @@ struct IfElseFunctor<
                      const Scalar& right, ArrayData* out) {
     return RunLoop(
         ctx, cond, out,
-        [&](ArrayBuilder* builder, int64_t i) { return builder->AppendScalar(left); },
-        [&](ArrayBuilder* builder, int64_t i) { return builder->AppendScalar(right); });
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(left, length);
+        },
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(right, length);
+        });
   }
 
   template <typename HandleLeft, typename HandleRight>
@@ -1036,31 +1042,67 @@ struct IfElseFunctor<
     RETURN_NOT_OK(raw_builder->Reserve(out->length));
 
     const auto* cond_data = cond.buffers[1]->data();
-    if (out->buffers[0]) {
-      const uint8_t* out_valid = out->buffers[0]->data();
-      for (int64_t i = 0; i < cond.length; i++) {
-        if (BitUtil::GetBit(out_valid, i)) {
-          if (BitUtil::GetBit(cond_data, cond.offset + i)) {
-            RETURN_NOT_OK(handle_left(raw_builder.get(), i));
-          } else {
-            RETURN_NOT_OK(handle_right(raw_builder.get(), i));
+    if (cond.buffers[0]) {
+      BitRunReader reader(cond.buffers[0]->data(), cond.offset, cond.length);
+      int64_t position = 0;
+      while (true) {
+        auto run = reader.NextRun();
+        if (run.length == 0) break;
+        if (run.set) {
+          for (int j = 0; j < run.length; j++) {
+            if (BitUtil::GetBit(cond_data, cond.offset + position + j)) {
+              RETURN_NOT_OK(handle_left(raw_builder.get(), position + j, 1));
+            } else {
+              RETURN_NOT_OK(handle_right(raw_builder.get(), position + j, 1));
+            }
           }
         } else {
-          RETURN_NOT_OK(raw_builder->AppendNull());
+          RETURN_NOT_OK(raw_builder->AppendNulls(run.length));
         }
+        position += run.length;
       }
     } else {
-      for (int64_t i = 0; i < cond.length; i++) {
-        if (BitUtil::GetBit(cond_data, cond.offset + i)) {
-          RETURN_NOT_OK(handle_left(raw_builder.get(), i));
+      BitRunReader reader(cond_data, cond.offset, cond.length);
+      int64_t position = 0;
+      while (true) {
+        auto run = reader.NextRun();
+        if (run.length == 0) break;
+        if (run.set) {
+          RETURN_NOT_OK(handle_left(raw_builder.get(), position, run.length));
         } else {
-          RETURN_NOT_OK(handle_right(raw_builder.get(), i));
+          RETURN_NOT_OK(handle_right(raw_builder.get(), position, run.length));
         }
+        position += run.length;
       }
     }
     ARROW_ASSIGN_OR_RAISE(auto out_arr, raw_builder->Finish());
     *out = std::move(*out_arr->data());
     return Status::OK();
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[1], /*count=*/2));
+    if (batch[0].is_scalar()) {
+      const auto& cond = batch[0].scalar_as<BooleanScalar>();
+      return Call(ctx, cond, batch[1], batch[2], out);
+    }
+    if (batch[1].kind() == Datum::ARRAY) {
+      if (batch[2].kind() == Datum::ARRAY) {  // AAA
+        return Call(ctx, *batch[0].array(), *batch[1].array(), *batch[2].array(),
+                    out->mutable_array());
+      } else {  // AAS
+        return Call(ctx, *batch[0].array(), *batch[1].array(), *batch[2].scalar(),
+                    out->mutable_array());
+      }
+    } else {
+      if (batch[2].kind() == Datum::ARRAY) {  // ASA
+        return Call(ctx, *batch[0].array(), *batch[1].scalar(), *batch[2].array(),
+                    out->mutable_array());
+      } else {  // ASS
+        return Call(ctx, *batch[0].array(), *batch[1].scalar(), *batch[2].scalar(),
+                    out->mutable_array());
+      }
+    }
   }
 };
 
@@ -1136,8 +1178,10 @@ struct IfElseFunction : ScalarFunction {
 
     internal::ReplaceNullWithOtherType(left_arg, num_args);
 
-    if (is_dictionary((*values)[1].type->id()) &&
-        (*values)[1].type->Equals(*(*values)[2].type)) {
+    // If both are identical dictionary types, dispatch to the dictionary kernel
+    // TODO(ARROW-14105): apply implicit casts to dictionary types too
+    ValueDescr* right_arg = &(*values)[2];
+    if (is_dictionary(left_arg->type->id()) && left_arg->type->Equals(right_arg->type)) {
       auto kernel = DispatchExactImpl(this, *values);
       DCHECK(kernel);
       return kernel;
@@ -1147,14 +1191,11 @@ struct IfElseFunction : ScalarFunction {
 
     if (auto type = internal::CommonNumeric(left_arg, num_args)) {
       internal::ReplaceTypes(type, left_arg, num_args);
-    }
-    if (auto type = internal::CommonTemporal(left_arg, num_args)) {
+    } else if (auto type = internal::CommonTemporal(left_arg, num_args)) {
       internal::ReplaceTypes(type, left_arg, num_args);
-    }
-    if (auto type = internal::CommonBinary(left_arg, num_args)) {
+    } else if (auto type = internal::CommonBinary(left_arg, num_args)) {
       internal::ReplaceTypes(type, left_arg, num_args);
-    }
-    if (HasDecimal(*values)) {
+    } else if (HasDecimal(*values)) {
       RETURN_NOT_OK(CastDecimalArgs(left_arg, num_args));
     }
 
@@ -1230,14 +1271,17 @@ void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_fun
   DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
 }
 
-void AddNestedIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function,
-                           detail::GetTypeId get_id, ArrayKernelExec exec) {
-  ScalarKernel kernel({boolean(), InputType(get_id.id), InputType(get_id.id)},
-                      OutputType(LastType), std::move(exec));
-  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  kernel.can_write_into_slices = false;
-  DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function) {
+  for (const auto type_id :
+       {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST, Type::STRUCT,
+        Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
+    ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)},
+                        OutputType(LastType), NestedIfElseExec::Exec);
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.can_write_into_slices = false;
+    DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+  }
 }
 
 // Helper to copy or broadcast fixed-width values between buffers.
@@ -2795,20 +2839,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddFixedWidthIfElseKernel<FixedSizeBinaryType>(func);
     AddFixedWidthIfElseKernel<Decimal128Type>(func);
     AddFixedWidthIfElseKernel<Decimal256Type>(func);
-    AddNestedIfElseKernel(func, Type::LIST,
-                          ResolveIfElseExec<ListType, std::true_type>::Exec);
-    AddNestedIfElseKernel(func, Type::LARGE_LIST,
-                          ResolveIfElseExec<LargeListType, std::true_type>::Exec);
-    AddNestedIfElseKernel(func, Type::FIXED_SIZE_LIST,
-                          ResolveIfElseExec<FixedSizeListType, std::true_type>::Exec);
-    AddNestedIfElseKernel(func, Type::STRUCT,
-                          ResolveIfElseExec<StructType, std::true_type>::Exec);
-    AddNestedIfElseKernel(func, Type::DENSE_UNION,
-                          ResolveIfElseExec<DenseUnionType, std::true_type>::Exec);
-    AddNestedIfElseKernel(func, Type::SPARSE_UNION,
-                          ResolveIfElseExec<SparseUnionType, std::true_type>::Exec);
-    AddNestedIfElseKernel(func, Type::DICTIONARY,
-                          ResolveIfElseExec<DictionaryType, std::true_type>::Exec);
+    AddNestedIfElseKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

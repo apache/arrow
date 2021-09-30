@@ -116,54 +116,49 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
   CheckScalar("if_else", {cond, left, right}, expected);
 
   auto len = left->length();
+  std::vector<int64_t> array_indices = {-1};  // sentinel for make_input
+  std::vector<int64_t> scalar_indices(len);
+  std::iota(scalar_indices.begin(), scalar_indices.end(), 0);
+  auto make_input = [&](const std::shared_ptr<Array>& array, int64_t index, Datum* input,
+                        Datum* input_broadcast, std::string* trace) {
+    if (index >= 0) {
+      // Use scalar from array[index] as input; broadcast scalar for computing expected
+      // result
+      ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(index));
+      *trace += "@" + std::to_string(index) + "=" + scalar->ToString();
+      *input = std::move(scalar);
+      ASSERT_OK_AND_ASSIGN(*input_broadcast, MakeArrayFromScalar(*input->scalar(), len));
+    } else {
+      // Use array as input
+      *trace += "=Array";
+      *input = *input_broadcast = array;
+    }
+  };
 
   enum { COND_SCALAR = 1, LEFT_SCALAR = 2, RIGHT_SCALAR = 4 };
   for (int mask = 1; mask <= (COND_SCALAR | LEFT_SCALAR | RIGHT_SCALAR); ++mask) {
-    for (int64_t cond_idx = 0; cond_idx < len; ++cond_idx) {
+    for (int64_t cond_idx : (mask & COND_SCALAR) ? scalar_indices : array_indices) {
       Datum cond_in, cond_bcast;
       std::string trace_cond = "Cond";
-      if (mask & COND_SCALAR) {
-        ASSERT_OK_AND_ASSIGN(cond_in, cond->GetScalar(cond_idx));
-        ASSERT_OK_AND_ASSIGN(cond_bcast, MakeArrayFromScalar(*cond_in.scalar(), len));
-        trace_cond += "@" + std::to_string(cond_idx) + "=" + cond_in.scalar()->ToString();
-      } else {
-        cond_in = cond_bcast = cond;
-        trace_cond += "=Array";
-      }
-      SCOPED_TRACE(trace_cond);
+      make_input(cond, cond_idx, &cond_in, &cond_bcast, &trace_cond);
 
-      for (int64_t left_idx = 0; left_idx < len; ++left_idx) {
+      for (int64_t left_idx : (mask & LEFT_SCALAR) ? scalar_indices : array_indices) {
         Datum left_in, left_bcast;
         std::string trace_left = "Left";
-        if (mask & LEFT_SCALAR) {
-          ASSERT_OK_AND_ASSIGN(left_in, left->GetScalar(left_idx).As<Datum>());
-          ASSERT_OK_AND_ASSIGN(left_bcast, MakeArrayFromScalar(*left_in.scalar(), len));
-          trace_left +=
-              "@" + std::to_string(left_idx) + "=" + left_in.scalar()->ToString();
-        } else {
-          left_in = left_bcast = left;
-          trace_left += "=Array";
-        }
-        SCOPED_TRACE(trace_left);
+        make_input(left, left_idx, &left_in, &left_bcast, &trace_left);
 
-        for (int64_t right_idx = 0; right_idx < len; ++right_idx) {
+        for (int64_t right_idx : (mask & RIGHT_SCALAR) ? scalar_indices : array_indices) {
           Datum right_in, right_bcast;
           std::string trace_right = "Right";
-          if (mask & RIGHT_SCALAR) {
-            ASSERT_OK_AND_ASSIGN(right_in, right->GetScalar(right_idx));
-            ASSERT_OK_AND_ASSIGN(right_bcast,
-                                 MakeArrayFromScalar(*right_in.scalar(), len));
-            trace_right +=
-                "@" + std::to_string(right_idx) + "=" + right_in.scalar()->ToString();
-          } else {
-            right_in = right_bcast = right;
-            trace_right += "=Array";
-          }
+          make_input(right, right_idx, &right_in, &right_bcast, &trace_right);
+
           SCOPED_TRACE(trace_right);
+          SCOPED_TRACE(trace_left);
+          SCOPED_TRACE(trace_cond);
 
           Datum expected;
           ASSERT_OK_AND_ASSIGN(auto actual, IfElse(cond_in, left_in, right_in));
-          if (mask & COND_SCALAR && mask & LEFT_SCALAR && mask & RIGHT_SCALAR) {
+          if (mask == (COND_SCALAR | LEFT_SCALAR | RIGHT_SCALAR)) {
             const auto& scalar = cond_in.scalar_as<BooleanScalar>();
             if (scalar.is_valid) {
               expected = scalar.value ? left_in : right_in;
@@ -177,13 +172,9 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
           } else {
             ASSERT_OK_AND_ASSIGN(expected, IfElse(cond_bcast, left_bcast, right_bcast));
           }
-          AssertDatumsEqual(actual, expected, /*verbose=*/true);
-
-          if (right_in.is_array()) break;
+          AssertDatumsEqual(expected, actual, /*verbose=*/true);
         }
-        if (left_in.is_array()) break;
       }
-      if (cond_in.is_array()) break;
     }
   }  // for (mask)
 }
@@ -733,6 +724,13 @@ TEST_F(TestIfElseKernel, ParameterizedTypes) {
                            "but got: list<item: int32>"),
       CallFunction("if_else",
                    {cond, ArrayFromJSON(type0, "[[0]]"), ArrayFromJSON(type1, "[[0]]")}));
+
+  type0 = timestamp(TimeUnit::SECOND);
+  type1 = timestamp(TimeUnit::MILLI);
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type0, "[1, 2, 3, 4]"),
+                           ArrayFromJSON(type1, "[5, 6, 7, 8]"),
+                           ArrayFromJSON(type1, "[1000, 2000, 3000, 8]"));
 
   type0 = timestamp(TimeUnit::SECOND);
   type1 = timestamp(TimeUnit::SECOND, "America/Phoenix");
