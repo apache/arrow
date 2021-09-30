@@ -552,8 +552,14 @@ struct ArrayExporter {
     // not able to import arrays without a null bitmap and null_count == -1.
     data->GetNullCount();
     // Store buffer pointers
-    export_.buffers_.resize(data->buffers.size());
-    std::transform(data->buffers.begin(), data->buffers.end(), export_.buffers_.begin(),
+    size_t n_buffers = data->buffers.size();
+    auto buffers_begin = data->buffers.begin();
+    if (n_buffers > 0 && !internal::HasValidityBitmap(data->type->id())) {
+      --n_buffers;
+      ++buffers_begin;
+    }
+    export_.buffers_.resize(n_buffers);
+    std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
                    [](const std::shared_ptr<Buffer>& buffer) -> const void* {
                      return buffer ? buffer->data() : nullptr;
                    });
@@ -1371,10 +1377,15 @@ struct ArrayImporter {
 
   Status Visit(const NullType& type) {
     RETURN_NOT_OK(CheckNoChildren());
-    // XXX should we be lenient on the number of buffers?
-    RETURN_NOT_OK(CheckNumBuffers(1));
-    RETURN_NOT_OK(AllocateArrayData());
-    RETURN_NOT_OK(ImportBitsBuffer(0));
+    if (c_struct_->n_buffers == 1) {
+      // Legacy format exported by older Arrow C++ versions
+      RETURN_NOT_OK(AllocateArrayData());
+    } else {
+      RETURN_NOT_OK(CheckNumBuffers(0));
+      RETURN_NOT_OK(AllocateArrayData());
+      data_->buffers.insert(data_->buffers.begin(), nullptr);
+    }
+    data_->null_count = data_->length;
     return Status::OK();
   }
 
@@ -1405,18 +1416,36 @@ struct ArrayImporter {
     return Status::OK();
   }
 
-  Status Visit(const UnionType& type) {
-    auto mode = type.mode();
-    if (mode == UnionMode::SPARSE) {
-      RETURN_NOT_OK(CheckNumBuffers(2));
+  Status Visit(const SparseUnionType& type) {
+    RETURN_NOT_OK(CheckNoNulls());
+    if (c_struct_->n_buffers == 2) {
+      // ARROW-14179: legacy format exported by older Arrow C++ versions
+      RETURN_NOT_OK(AllocateArrayData());
+      RETURN_NOT_OK(ImportFixedSizeBuffer(1, sizeof(int8_t)));
     } else {
-      RETURN_NOT_OK(CheckNumBuffers(3));
+      RETURN_NOT_OK(CheckNumBuffers(1));
+      RETURN_NOT_OK(AllocateArrayData());
+      RETURN_NOT_OK(ImportFixedSizeBuffer(0, sizeof(int8_t)));
+      // Prepend a null bitmap buffer, as expected by SparseUnionArray
+      data_->buffers.insert(data_->buffers.begin(), nullptr);
     }
-    RETURN_NOT_OK(AllocateArrayData());
-    RETURN_NOT_OK(ImportNullBitmap());
-    RETURN_NOT_OK(ImportFixedSizeBuffer(1, sizeof(int8_t)));
-    if (mode == UnionMode::DENSE) {
+    return Status::OK();
+  }
+
+  Status Visit(const DenseUnionType& type) {
+    RETURN_NOT_OK(CheckNoNulls());
+    if (c_struct_->n_buffers == 3) {
+      // ARROW-14179: legacy format exported by older Arrow C++ versions
+      RETURN_NOT_OK(AllocateArrayData());
+      RETURN_NOT_OK(ImportFixedSizeBuffer(1, sizeof(int8_t)));
       RETURN_NOT_OK(ImportFixedSizeBuffer(2, sizeof(int32_t)));
+    } else {
+      RETURN_NOT_OK(CheckNumBuffers(2));
+      RETURN_NOT_OK(AllocateArrayData());
+      RETURN_NOT_OK(ImportFixedSizeBuffer(0, sizeof(int8_t)));
+      RETURN_NOT_OK(ImportFixedSizeBuffer(1, sizeof(int32_t)));
+      // Prepend a null bitmap pointer, as expected by DenseUnionArray
+      data_->buffers.insert(data_->buffers.begin(), nullptr);
     }
     return Status::OK();
   }
@@ -1472,6 +1501,14 @@ struct ArrayImporter {
       return Status::Invalid("Expected ", n_buffers, " buffers for imported type ",
                              type_->ToString(), ", ArrowArray struct has ",
                              c_struct_->n_buffers);
+    }
+    return Status::OK();
+  }
+
+  Status CheckNoNulls() {
+    if (c_struct_->null_count != 0) {
+      return Status::Invalid("Unexpected non-zero null count for imported type ",
+                             type_->ToString());
     }
     return Status::OK();
   }
