@@ -41,7 +41,7 @@
   }
 
 #define DECLARE_BINARY_ARRAY(ARRAY_NAME, DATA, LENGTH) \
-  std::shared_ptr<arrow::BinaryArray> ARRAY_NAME;    \
+  std::shared_ptr<arrow::BinaryArray> ARRAY_NAME;      \
   {                                                    \
     arrow::Binary##Builder builder;                    \
     auto data = unparen DATA;                          \
@@ -138,7 +138,7 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(catalog_name, String,3);
+  DECLARE_NULL_ARRAY(catalog_name, String, 3);
   DECLARE_NULL_ARRAY(schema_name, String, 3);
   DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
@@ -174,7 +174,6 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
-
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types{"index"};
@@ -206,7 +205,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(catalog_name, String,3);
+  DECLARE_NULL_ARRAY(catalog_name, String, 3);
   DECLARE_NULL_ARRAY(schema_name, String, 3);
   DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
