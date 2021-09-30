@@ -262,7 +262,6 @@ class FlightSqlServerBase : public FlightServerBase {
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.
 class SqlSchema {
  public:
-
   /// \brief Gets the Schema used on CommandGetCatalogs response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetCatalogsSchema();
