@@ -30,10 +30,13 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -196,6 +199,38 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
 
   out.schema = schema;
   return out;
+}
+
+Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {
+  std::vector<SortKey> sort_keys;
+  for (auto&& f : tab->schema()->fields()) {
+    sort_keys.emplace_back(f->name());
+  }
+  ARROW_ASSIGN_OR_RAISE(auto sort_ids, SortIndices(tab, SortOptions(sort_keys)));
+  ARROW_ASSIGN_OR_RAISE(auto tab_sorted, Take(tab, sort_ids));
+  return tab_sorted.table();
+}
+
+void AssertTablesEqual(const std::shared_ptr<Table>& exp,
+                       const std::shared_ptr<Table>& act) {
+  ASSERT_EQ(exp->num_columns(), act->num_columns());
+  if (exp->num_rows() == 0) {
+    ASSERT_EQ(exp->num_rows(), act->num_rows());
+  } else {
+    ASSERT_OK_AND_ASSIGN(auto exp_sorted, SortTableOnAllFields(exp));
+    ASSERT_OK_AND_ASSIGN(auto act_sorted, SortTableOnAllFields(act));
+
+    AssertTablesEqual(*exp_sorted, *act_sorted,
+                      /*same_chunk_layout=*/false, /*flatten=*/true);
+  }
+}
+
+void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
+                            const std::vector<ExecBatch>& exp,
+                            const std::vector<ExecBatch>& act) {
+  ASSERT_OK_AND_ASSIGN(auto exp_tab, TableFromExecBatches(schema, exp));
+  ASSERT_OK_AND_ASSIGN(auto act_tab, TableFromExecBatches(schema, act));
+  AssertTablesEqual(exp_tab, act_tab);
 }
 
 }  // namespace compute
