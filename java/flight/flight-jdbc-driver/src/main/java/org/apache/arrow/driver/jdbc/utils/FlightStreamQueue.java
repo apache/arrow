@@ -115,20 +115,19 @@ public class FlightStreamQueue implements AutoCloseable {
    */
   public FlightStream next(final long timeoutValue, final TimeUnit timeoutUnit)
       throws SQLException {
-    final FlightStreamSupplier futureCallable = () -> {
+    return next(() -> {
       try {
         final Future<FlightStream> future = completionService.poll(timeoutValue, timeoutUnit);
         if (future != null) {
           return future;
         }
-      } catch (final InterruptedException ignored) {
+      } catch (final InterruptedException e) {
+        throw new SQLTimeoutException("Query was interrupted", e);
       }
 
       throw new SQLTimeoutException(
-          String.format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit));
-    };
-
-    return next(futureCallable);
+          String.format("Query timed out after %d %s", timeoutValue, timeoutUnit));
+    });
   }
 
   /**
@@ -137,15 +136,13 @@ public class FlightStreamQueue implements AutoCloseable {
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
   public FlightStream next() throws SQLException {
-    final FlightStreamSupplier futureCallable = () -> {
+    return next(() -> {
       try {
         return completionService.take();
       } catch (final InterruptedException e) {
         throw AvaticaConnection.HELPER.wrap("Query canceled", e);
       }
-    };
-
-    return next(futureCallable);
+    });
   }
 
   /**

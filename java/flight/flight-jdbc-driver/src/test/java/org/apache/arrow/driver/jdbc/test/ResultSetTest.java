@@ -346,7 +346,7 @@ public class ResultSetTest {
       collector.checkThat(comparisonCause,
           is(instanceOf(SQLTimeoutException.class)));
       collector.checkThat(comparisonCause.getMessage(),
-          is(format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit)));
+          is(format("Query timed out after %d %s", timeoutValue, timeoutUnit)));
     }
   }
 
