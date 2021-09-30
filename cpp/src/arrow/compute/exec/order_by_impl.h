@@ -30,16 +30,23 @@
 namespace arrow {
 namespace compute {
 
-class SelectKImpl {
+class OrderByImpl {
  public:
-  virtual ~SelectKImpl() = default;
-  virtual Status Init(ExecContext* ctx, SelectKOptions select_k_options,
-                      const std::shared_ptr<Schema>& output_schema) = 0;
-  virtual Status InputReceived(std::shared_ptr<RecordBatch> batch) = 0;
-  virtual Result<Datum> DoFinish() = 0;
-  virtual void Abort(bool pos_abort_callback) = 0;
+  virtual ~OrderByImpl() = default;
 
-  static Result<std::unique_ptr<SelectKImpl>> MakeBasic();
+  virtual Status InputReceived(std::shared_ptr<RecordBatch> batch) = 0;
+
+  virtual Result<Datum> DoFinish() = 0;
+
+  virtual std::string ToString() const = 0;
+
+  static Result<std::unique_ptr<OrderByImpl>> MakeSort(
+      ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
+      const SortOptions& options);
+
+  static Result<std::unique_ptr<OrderByImpl>> MakeSelectK(
+      ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
+      const SelectKOptions& options);
 };
 
 }  // namespace compute

@@ -675,14 +675,12 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-    SelectKOptions options = SelectKOptions::TopKDefault(/*k=*/2, {"str"});
+    SelectKOptions options = SelectKOptions::TopKDefault(/*k=*/1, {"str"});
     ASSERT_OK(
         Declaration::Sequence(
             {
                 {"source",
                  SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
-                {"filter",
-                 FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
                 {"project", ProjectNodeOptions{{
                                 field_ref("str"),
                                 call("multiply", {field_ref("i32"), literal(2)}),
@@ -691,16 +689,14 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
                                                    /*targets=*/{"multiply(i32, 2)"},
                                                    /*names=*/{"sum(multiply(i32, 2))"},
                                                    /*keys=*/{"str"}}},
-                {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
-                                                     literal(10 * batch_multiplicity))}},
                 {"select_k_sink", SelectKSinkNodeOptions{options, &sink_gen}},
             })
             .AddToPlan(plan.get()));
 
-    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
-                    {int64(), utf8()}, parallel ? R"([[2000, "beta"], [3600, "alfa"]])"
-                                                : R"([[20, "beta"], [36, "alfa"]])")}))));
+    ASSERT_THAT(
+        StartAndCollect(plan.get(), sink_gen),
+        Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
+            {int64(), utf8()}, parallel ? R"([[800, "gama"]])" : R"([[8, "gama"]])")}))));
   }
 }
 

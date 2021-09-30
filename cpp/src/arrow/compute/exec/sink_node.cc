@@ -24,7 +24,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/select_k.h"
+#include "arrow/compute/exec/order_by_impl.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
@@ -132,109 +132,40 @@ class SinkNode : public ExecNode {
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 
-// A sink node that accumulates inputs, then sorts them before emitting them.
 struct OrderBySinkNode final : public SinkNode {
-  OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs, SortOptions sort_options,
+  OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                  std::unique_ptr<OrderByImpl> impl,
                   AsyncGenerator<util::optional<ExecBatch>>* generator)
-      : SinkNode(plan, std::move(inputs), generator),
-        sort_options_(std::move(sort_options)) {}
+      : SinkNode(plan, std::move(inputs), generator), impl_{std::move(impl)} {}
 
   const char* kind_name() const override { return "OrderBySinkNode"; }
 
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
+  // A sink node that accumulates inputs, then sorts them before emitting them.
+  static Result<ExecNode*> MakeSort(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                    const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
 
     const auto& sink_options = checked_cast<const OrderBySinkNodeOptions&>(options);
-    return plan->EmplaceNode<OrderBySinkNode>(
-        plan, std::move(inputs), sink_options.sort_options, sink_options.generator);
+    ARROW_ASSIGN_OR_RAISE(
+        std::unique_ptr<OrderByImpl> impl,
+        OrderByImpl::MakeSort(plan->exec_context(), inputs[0]->output_schema(),
+                              sink_options.sort_options));
+    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
+                                              sink_options.generator);
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
-    DCHECK_EQ(input, inputs_[0]);
-
-    // Accumulate data
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
-                                             plan()->exec_context()->memory_pool());
-      if (ErrorIfNotOk(maybe_batch.status())) return;
-      batches_.push_back(maybe_batch.MoveValueUnsafe());
-    }
-
-    if (input_counter_.Increment()) {
-      Finish();
-    }
-  }
-
- protected:
-  Status DoFinish() {
-    Datum sorted;
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      ARROW_ASSIGN_OR_RAISE(
-          auto table,
-          Table::FromRecordBatches(inputs_[0]->output_schema(), std::move(batches_)));
-      ARROW_ASSIGN_OR_RAISE(auto indices,
-                            SortIndices(table, sort_options_, plan()->exec_context()));
-      ARROW_ASSIGN_OR_RAISE(sorted, Take(table, indices, TakeOptions::NoBoundsCheck(),
-                                         plan()->exec_context()));
-    }
-    TableBatchReader reader(*sorted.table());
-    while (true) {
-      std::shared_ptr<RecordBatch> batch;
-      RETURN_NOT_OK(reader.ReadNext(&batch));
-      if (!batch) break;
-      bool did_push = producer_.Push(ExecBatch(*batch));
-      if (!did_push) break;  // producer_ was Closed already
-    }
-    return Status::OK();
-  }
-
-  void Finish() override {
-    Status st = DoFinish();
-    if (ErrorIfNotOk(st)) {
-      producer_.Push(std::move(st));
-    }
-    SinkNode::Finish();
-  }
-
- protected:
-  std::string ToStringExtra() const override { return "by=" + sort_options_.ToString(); }
-
- private:
-  SortOptions sort_options_;
-  std::mutex mutex_;
-  std::vector<std::shared_ptr<RecordBatch>> batches_;
-};
-
-// A sink node that receives inputs and then compute top_k/bottom_k.
-struct SelectKSinkNode final : public SinkNode {
-  SelectKSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                  SelectKOptions select_k_options, std::unique_ptr<SelectKImpl> impl,
-                  AsyncGenerator<util::optional<ExecBatch>>* generator)
-      : SinkNode(plan, std::move(inputs), generator),
-        select_k_options_(std::move(select_k_options)),
-        impl_{std::move(impl)} {}
-
-  const char* kind_name() const override { return "SelectKSinkNode"; }
-
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SelectKSinkNode"));
+  // A sink node that receives inputs and then compute top_k/bottom_k.
+  static Result<ExecNode*> MakeSelectK(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                       const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
 
     const auto& sink_options = checked_cast<const SelectKSinkNodeOptions&>(options);
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<SelectKImpl> impl, SelectKImpl::MakeBasic());
-    return plan->EmplaceNode<SelectKSinkNode>(plan, std::move(inputs),
-                                              sink_options.select_k_options,
-                                              std::move(impl), sink_options.generator);
-  }
-
-  Status StartProducing() override {
-    finished_ = Future<>::Make();
-    RETURN_NOT_OK(impl_->Init(plan_->exec_context(), select_k_options_,
-                              inputs_[0]->output_schema()));
-    return Status::OK();
+    ARROW_ASSIGN_OR_RAISE(
+        std::unique_ptr<OrderByImpl> impl,
+        OrderByImpl::MakeSelectK(plan->exec_context(), inputs[0]->output_schema(),
+                                 sink_options.select_k_options));
+    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
+                                              sink_options.generator);
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
@@ -280,12 +211,11 @@ struct SelectKSinkNode final : public SinkNode {
 
  protected:
   std::string ToStringExtra() const override {
-    return "by=" + select_k_options_.ToString();
+    return std::string("by=") + impl_->ToString();
   }
 
  private:
-  SelectKOptions select_k_options_;
-  std::unique_ptr<SelectKImpl> impl_;
+  std::unique_ptr<OrderByImpl> impl_;
 };
 
 }  // namespace
@@ -293,8 +223,8 @@ struct SelectKSinkNode final : public SinkNode {
 namespace internal {
 
 void RegisterSinkNode(ExecFactoryRegistry* registry) {
-  DCHECK_OK(registry->AddFactory("select_k_sink", SelectKSinkNode::Make));
-  DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::Make));
+  DCHECK_OK(registry->AddFactory("select_k_sink", OrderBySinkNode::MakeSelectK));
+  DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
 }
 
