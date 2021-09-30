@@ -94,7 +94,7 @@
 
 #define ARROW_EXPECT_OK(expr)                                           \
   do {                                                                  \
-    const auto& _res = (expr);                                          \
+    auto _res = (expr);                                                 \
     ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);     \
     EXPECT_TRUE(_st.ok()) << "'" ARROW_STRINGIFY(expr) "' failed with " \
                           << _st.ToString();                            \

@@ -15,17 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/filesystem/test_util.h"
-
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <chrono>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
