@@ -59,6 +59,11 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
         closed = true;
       }
     }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+      return this.closed || super.isClosed();
+    }
   }
 
   ArrowFlightJdbcPooledConnection(ArrowFlightConnection connection) {
