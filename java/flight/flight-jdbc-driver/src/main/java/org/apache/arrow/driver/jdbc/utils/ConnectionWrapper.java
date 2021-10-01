@@ -106,7 +106,7 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public final boolean isClosed() throws SQLException {
+  public boolean isClosed() throws SQLException {
     return realConnection.isClosed();
   }
 
