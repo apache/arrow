@@ -97,6 +97,7 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
 #if defined(ARROW_R_WITH_DATASET)
 
 #include <arrow/dataset/scanner.h>
+#include <arrow/dataset/plan.h>
 
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
