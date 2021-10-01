@@ -49,4 +49,6 @@ elif [[ ${version} != "latest" ]]; then
 fi
 
 wget -nv -P ${prefix}/bin https://dl.min.io/server/minio/release/${platform}-${arch}/minio
+wget -nv -P ${prefix}/bin https://dl.min.io/client/mc/release/${platform}-${arch}/mc
 chmod +x ${prefix}/bin/minio
+chmod +x ${prefix}/bin/mc
