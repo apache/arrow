@@ -25,9 +25,9 @@
 #include <utility>
 
 #include "arrow/io/slow.h"
+#include "arrow/testing/async_test_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/async_test_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
@@ -1242,31 +1242,24 @@ INSTANTIATE_TEST_SUITE_P(EnumeratedTests, EnumeratorTestFixture,
                          ::testing::Values(false, true));
 
 class PauseableTestFixture : public GeneratorTestFixture {
-
  protected:
   PauseableTestFixture() : toggle_(std::make_shared<util::AsyncToggle>()) {
     sink_.clear();
     counter_ = 0;
     AsyncGenerator<TestInt> source = GetSource();
     AsyncGenerator<TestInt> pauseable = MakePauseable(std::move(source), toggle_);
-    finished_ = VisitAsyncGenerator(std::move(pauseable), [this] (TestInt val) {
+    finished_ = VisitAsyncGenerator(std::move(pauseable), [this](TestInt val) {
       std::lock_guard<std::mutex> lg(mutex_);
       sink_.push_back(val.value);
       return Status::OK();
     });
   }
 
-  void Emit() {
-    generator_.producer().Push(counter_++);
-  }
+  void Emit() { generator_.producer().Push(counter_++); }
 
-  void Pause() {
-    toggle_->Close();
-  }
+  void Pause() { toggle_->Close(); }
 
-  void Resume() {
-    toggle_->Open();
-  }
+  void Resume() { toggle_->Open(); }
 
   int NumCollected() {
     std::lock_guard<std::mutex> lg(mutex_);
@@ -1289,10 +1282,8 @@ class PauseableTestFixture : public GeneratorTestFixture {
   }
 
   void AssertAtLeastNCollected(int target_count) {
-      BusyWait(10, [this, target_count] {
-        return NumCollected() >= target_count;
-      });
-      ASSERT_GE(NumCollected(), target_count);
+    BusyWait(10, [this, target_count] { return NumCollected() >= target_count; });
+    ASSERT_GE(NumCollected(), target_count);
   }
 
   void AssertNoMoreThanNCollected(int target_count) {
@@ -1314,7 +1305,6 @@ class PauseableTestFixture : public GeneratorTestFixture {
   std::shared_ptr<util::AsyncToggle> toggle_;
   std::vector<int> sink_;
   Future<> finished_;
-
 };
 
 INSTANTIATE_TEST_SUITE_P(PauseableTests, PauseableTestFixture,
@@ -1434,7 +1424,8 @@ TEST_P(SequencerTestFixture, SequenceError) {
 TEST_P(SequencerTestFixture, Readahead) {
   AsyncGenerator<TestInt> original = MakeSource({4, 2, 0, 6});
   util::TrackingGenerator<TestInt> tracker(original);
-  AsyncGenerator<TestInt> sequenced = MakeSequencingGenerator(static_cast<AsyncGenerator<TestInt>>(tracker), cmp_, is_next_, TestInt(-2));
+  AsyncGenerator<TestInt> sequenced = MakeSequencingGenerator(
+      static_cast<AsyncGenerator<TestInt>>(tracker), cmp_, is_next_, TestInt(-2));
   ASSERT_FINISHES_OK_AND_EQ(TestInt(0), sequenced());
   ASSERT_EQ(3, tracker.num_read());
   ASSERT_FINISHES_OK_AND_EQ(TestInt(2), sequenced());

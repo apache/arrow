@@ -786,7 +786,7 @@ class ReadaheadGenerator {
 template <typename T>
 class PushGenerator {
   struct State {
-    State(util::BackpressureOptions backpressure)
+    explicit State(util::BackpressureOptions backpressure)
         : backpressure(std::move(backpressure)) {}
 
     void OpenBackpressureIfFree() {
@@ -888,7 +888,7 @@ class PushGenerator {
     const std::weak_ptr<State> weak_state_;
   };
 
-  PushGenerator(util::BackpressureOptions backpressure = {})
+  explicit PushGenerator(util::BackpressureOptions backpressure = {})
       : state_(std::make_shared<State>(std::move(backpressure))) {}
 
   /// Read an item from the queue

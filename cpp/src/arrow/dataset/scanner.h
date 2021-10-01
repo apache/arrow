@@ -419,9 +419,12 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
  public:
-  explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
-                           std::shared_ptr<ScanOptions> scan_options, std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
-      : dataset(std::move(dataset)), scan_options(std::move(scan_options)), backpressure_toggle(std::move(backpressure_toggle)) {}
+  explicit ScanNodeOptions(
+      std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
+      : dataset(std::move(dataset)),
+        scan_options(std::move(scan_options)),
+        backpressure_toggle(std::move(backpressure_toggle)) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;

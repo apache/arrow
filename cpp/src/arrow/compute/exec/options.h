@@ -111,7 +111,8 @@ class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
 /// Emitted batches will not be ordered.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator, util::BackpressureOptions backpressure = {})
+  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
+                           util::BackpressureOptions backpressure = {})
       : generator(generator), backpressure(std::move(backpressure)) {}
 
   std::function<Future<util::optional<ExecBatch>>()>* generator;

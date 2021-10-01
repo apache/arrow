@@ -223,7 +223,7 @@ class ARROW_EXPORT AsyncToggle {
 /// \brief Options to control backpressure behavior
 struct BackpressureOptions {
   /// \brief Create default options that perform no backpressure
-  BackpressureOptions() : toggle(NULLPTR), resume_if_below(0), pause_if_above(0){};
+  BackpressureOptions() : toggle(NULLPTR), resume_if_below(0), pause_if_above(0) {}
   /// \brief Create options that will perform backpressure
   ///
   /// \param toggle A toggle to be shared between the producer and consumer

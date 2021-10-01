@@ -193,7 +193,8 @@ bool AsyncToggle::IsOpen() {
   return when_open_.is_finished();
 }
 
-BackpressureOptions MakeBackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above) {
+BackpressureOptions MakeBackpressureOptions(uint32_t resume_if_below,
+                                            uint32_t pause_if_above) {
   auto toggle = std::make_shared<util::AsyncToggle>();
   return BackpressureOptions{std::move(toggle), resume_if_below, pause_if_above};
 }

@@ -49,7 +49,8 @@ namespace {
 class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-           AsyncGenerator<util::optional<ExecBatch>>* generator, util::BackpressureOptions backpressure)
+           AsyncGenerator<util::optional<ExecBatch>>* generator,
+           util::BackpressureOptions backpressure)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
         producer_(MakeProducer(generator, std::move(backpressure))) {}
@@ -59,11 +60,13 @@ class SinkNode : public ExecNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SinkNode"));
 
     const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
-    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator, sink_options.backpressure);
+    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
+                                       sink_options.backpressure);
   }
 
   static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
-      AsyncGenerator<util::optional<ExecBatch>>* out_gen, util::BackpressureOptions backpressure) {
+      AsyncGenerator<util::optional<ExecBatch>>* out_gen,
+      util::BackpressureOptions backpressure) {
     PushGenerator<util::optional<ExecBatch>> push_gen(std::move(backpressure));
     auto out = push_gen.producer();
     *out_gen = std::move(push_gen);

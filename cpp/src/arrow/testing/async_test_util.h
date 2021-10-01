@@ -20,8 +20,8 @@
 #include <atomic>
 #include <memory>
 
-#include "arrow/util/future.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/future.h"
 
 namespace arrow {
 namespace util {
@@ -50,5 +50,5 @@ class TrackingGenerator {
   std::shared_ptr<State> state_;
 };
 
-}
-}
+}  // namespace util
+}  // namespace arrow

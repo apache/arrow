@@ -741,8 +741,9 @@ INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
 class ControlledFragment : public Fragment {
  public:
   explicit ControlledFragment(std::shared_ptr<Schema> schema)
-      : Fragment(literal(true), std::move(schema)), record_batch_generator_(), tracking_generator_(record_batch_generator_) {
-  }
+      : Fragment(literal(true), std::move(schema)),
+        record_batch_generator_(),
+        tracking_generator_(record_batch_generator_) {}
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
     return Status::NotImplemented(
@@ -969,13 +970,10 @@ TEST_F(TestReordering, ScanBatchesUnordered) {
 }
 
 class TestBackpressure : public ::testing::Test {
-
  protected:
-
   static constexpr int NFRAGMENTS = 10;
   static constexpr int NBATCHES = 1000;
   static constexpr int NROWS = 10;
-
 
   FragmentVector MakeFragments() {
     FragmentVector fragments;
@@ -1021,38 +1019,35 @@ class TestBackpressure : public ::testing::Test {
 
   std::shared_ptr<Schema> schema_ = schema({field("values", int32())});
   std::vector<std::shared_ptr<ControlledFragment>> controlled_fragments_;
-
 };
 
 TEST_F(TestBackpressure, ScanBatchesUnordered) {
   std::shared_ptr<Scanner> scanner = MakeScanner();
-  EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen, scanner->ScanBatchesUnorderedAsync());
+  EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
+                       scanner->ScanBatchesUnorderedAsync());
   ASSERT_FINISHES_OK(gen());
 
   // The exact numbers may be imprecise due to threading but we should pretty quickly read
   // up to our backpressure limit and a little above.  We should not be able to go too far
   // above.
-  BusyWait(10, [&] {
-    return TotalBatchesRead() >= kDefaultBackpressureHigh;
-  });
+  BusyWait(10, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
   SleepABit();
   ASSERT_LT(TotalBatchesRead(), 2 * kDefaultBackpressureHigh);
 }
 
 TEST_F(TestBackpressure, DISABLED_ScanBatchesOrdered) {
   std::shared_ptr<Scanner> scanner = MakeScanner();
-  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen, scanner->ScanBatchesAsync());
+  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen,
+                       scanner->ScanBatchesAsync());
   // This future never actually finishes because we only emit the first batch so far and
   // the scanner delays by one batch.  It is enough to start the system pumping though so
   // we don't need it to finish.
-  Future<TaggedRecordBatch> fut =gen();
+  Future<TaggedRecordBatch> fut = gen();
 
   // The exact numbers may be imprecise due to threading but we should pretty quickly read
   // up to our backpressure limit and a little above.  We should not be able to go too far
   // above.
-  BusyWait(10, [&] {
-    return TotalBatchesRead() >= kDefaultBackpressureHigh;
-  });
+  BusyWait(10, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
   // This can yield some false passes but it is tricky to test that a counter doesn't
   // increase over time.
   for (int i = 0; i < 20; i++) {
