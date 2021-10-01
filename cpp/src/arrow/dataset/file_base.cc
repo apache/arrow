@@ -333,7 +333,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
       : schema(std::move(schema)),
         dataset_writer(std::move(dataset_writer)),
         write_options(std::move(write_options)),
-  backpressure_toggle_(std::move(backpressure_toggle)) {}
+        backpressure_toggle_(std::move(backpressure_toggle)) {}
 
   Status Consume(compute::ExecBatch batch) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
@@ -367,9 +367,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
         Future<> has_room = dataset_writer->WriteRecordBatch(next_batch, destination);
         if (!has_room.is_finished() && backpressure_toggle_) {
           backpressure_toggle_->Close();
-          return has_room.Then([this] {
-            backpressure_toggle_->Open();
-          });
+          return has_room.Then([this] { backpressure_toggle_->Open(); });
         }
         return has_room;
       }));
@@ -408,7 +406,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
                    scanner->options()->projection.call()->options.get())
                    ->field_names;
   std::shared_ptr<Dataset> dataset = scanner->dataset();
-  std::shared_ptr<util::AsyncToggle> backpressure_toggle = std::make_shared<util::AsyncToggle>();
+  std::shared_ptr<util::AsyncToggle> backpressure_toggle =
+      std::make_shared<util::AsyncToggle>();
 
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
@@ -418,7 +417,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
               {"project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
               {"write",
-               WriteNodeOptions{write_options, scanner->options()->projected_schema, backpressure_toggle}},
+               WriteNodeOptions{write_options, scanner->options()->projected_schema,
+                                backpressure_toggle}},
           })
           .AddToPlan(plan.get()));
 
@@ -438,7 +438,8 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
       checked_cast<const WriteNodeOptions&>(options);
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
   const std::shared_ptr<Schema>& schema = write_node_options.schema;
-  const std::shared_ptr<util::AsyncToggle>& backpressure_toggle = write_node_options.backpressure_toggle;
+  const std::shared_ptr<util::AsyncToggle>& backpressure_toggle =
+      write_node_options.backpressure_toggle;
 
   ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
                         internal::DatasetWriter::Make(write_options));
