@@ -326,7 +326,6 @@ void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("select_k_sink", OrderBySinkNode::MakeSelectK));
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
-  DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
 }
 
