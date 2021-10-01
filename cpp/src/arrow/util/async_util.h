@@ -195,5 +195,55 @@ class ARROW_EXPORT SerializedAsyncTaskGroup {
   Future<> processing_;
 };
 
+class ARROW_EXPORT AsyncToggle {
+ public:
+  /// Get a future that will complete when the toggle next becomes open
+  ///
+  /// If the toggle is open this returns immediately
+  /// If the toggle is closed this future will be unfinished until the next call to Open
+  Future<> WhenOpen();
+  /// \brief Close the toggle
+  ///
+  /// After this call any call to WhenOpen will be delayed until the next open
+  void Close();
+  /// \brief Open the toggle
+  ///
+  /// All current waiters will be released to enter, even if another close call
+  /// quickly follows
+  void Open();
+
+  /// \brief Return true if the toggle is currently open
+  bool IsOpen();
+
+ private:
+  Future<> when_open_ = Future<>::MakeFinished();
+  util::Mutex mutex_;
+};
+
+/// \brief Options to control backpressure behavior
+struct BackpressureOptions {
+  /// \brief Create default options that perform no backpressure
+  BackpressureOptions() : toggle(NULLPTR), resume_if_below(0), pause_if_above(0){};
+  /// \brief Create options that will perform backpressure
+  ///
+  /// \param toggle A toggle to be shared between the producer and consumer
+  /// \param resume_if_below The producer should resume producing if the backpressure
+  ///                        queue has fewer than resume_if_below items.
+  /// \param pause_if_above The producer should pause producing if the backpressure
+  ///                       queue has more than pause_if_above items
+  BackpressureOptions(std::shared_ptr<util::AsyncToggle> toggle, uint32_t resume_if_below,
+                      uint32_t pause_if_above)
+      : toggle(std::move(toggle)),
+        resume_if_below(resume_if_below),
+        pause_if_above(pause_if_above) {}
+
+  std::shared_ptr<util::AsyncToggle> toggle;
+  uint32_t resume_if_below;
+  uint32_t pause_if_above;
+};
+
+BackpressureOptions MakeBackpressureOptions(uint32_t resume_if_below = 32,
+                                            uint32_t pause_if_above = 64);
+
 }  // namespace util
 }  // namespace arrow

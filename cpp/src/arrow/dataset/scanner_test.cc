@@ -32,6 +32,7 @@
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/async_test_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
@@ -740,7 +741,8 @@ INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
 class ControlledFragment : public Fragment {
  public:
   explicit ControlledFragment(std::shared_ptr<Schema> schema)
-      : Fragment(literal(true), std::move(schema)) {}
+      : Fragment(literal(true), std::move(schema)), record_batch_generator_(), tracking_generator_(record_batch_generator_) {
+  }
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
     return Status::NotImplemented(
@@ -753,8 +755,10 @@ class ControlledFragment : public Fragment {
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override {
-    return record_batch_generator_;
+    return tracking_generator_;
   };
+
+  int NumBatchesRead() { return tracking_generator_.num_read(); }
 
   void Finish() { ARROW_UNUSED(record_batch_generator_.producer().Close()); }
   void DeliverBatch(uint32_t num_rows) {
@@ -764,6 +768,7 @@ class ControlledFragment : public Fragment {
 
  private:
   PushGenerator<std::shared_ptr<RecordBatch>> record_batch_generator_;
+  util::TrackingGenerator<std::shared_ptr<RecordBatch>> tracking_generator_;
 };
 
 // TODO(ARROW-8163) Add testing for fragments arriving out of order
@@ -961,6 +966,99 @@ TEST_F(TestReordering, ScanBatchesUnordered) {
   ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesUnorderedAsync());
   auto collected = DeliverAndCollect({0, 0, 1, 1, 0}, std::move(batch_gen));
   AssertBatchesInOrder(collected, {0, 0, 1, 1, 2}, {0, 2, 3, 1, 4});
+}
+
+class TestBackpressure : public ::testing::Test {
+
+ protected:
+
+  static constexpr int NFRAGMENTS = 10;
+  static constexpr int NBATCHES = 1000;
+  static constexpr int NROWS = 10;
+
+
+  FragmentVector MakeFragments() {
+    FragmentVector fragments;
+    for (int i = 0; i < NFRAGMENTS; i++) {
+      controlled_fragments_.emplace_back(std::make_shared<ControlledFragment>(schema_));
+      fragments.push_back(controlled_fragments_[i]);
+      // We only emit one batch on the first fragment.  This triggers the sequencing
+      // generator to dig really deep to try and find the second batch
+      int num_to_emit = NBATCHES;
+      if (i == 0) {
+        num_to_emit = 1;
+      }
+      for (int j = 0; j < num_to_emit; j++) {
+        controlled_fragments_[i]->DeliverBatch(NROWS);
+      }
+    }
+    return fragments;
+  }
+
+  std::shared_ptr<Dataset> MakeDataset() {
+    FragmentVector fragments = MakeFragments();
+    return std::make_shared<FragmentDataset>(schema_, std::move(fragments));
+  }
+
+  std::shared_ptr<Scanner> MakeScanner() {
+    std::shared_ptr<Dataset> dataset = MakeDataset();
+    std::shared_ptr<ScanOptions> options = std::make_shared<ScanOptions>();
+    ScannerBuilder builder(std::move(dataset), options);
+    ARROW_EXPECT_OK(builder.UseThreads(true));
+    ARROW_EXPECT_OK(builder.UseAsync(true));
+    ARROW_EXPECT_OK(builder.FragmentReadahead(4));
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
+  }
+
+  int TotalBatchesRead() {
+    int sum = 0;
+    for (const auto& controlled_fragment : controlled_fragments_) {
+      sum += controlled_fragment->NumBatchesRead();
+    }
+    return sum;
+  }
+
+  std::shared_ptr<Schema> schema_ = schema({field("values", int32())});
+  std::vector<std::shared_ptr<ControlledFragment>> controlled_fragments_;
+
+};
+
+TEST_F(TestBackpressure, ScanBatchesUnordered) {
+  std::shared_ptr<Scanner> scanner = MakeScanner();
+  EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen, scanner->ScanBatchesUnorderedAsync());
+  ASSERT_FINISHES_OK(gen());
+
+  // The exact numbers may be imprecise due to threading but we should pretty quickly read
+  // up to our backpressure limit and a little above.  We should not be able to go too far
+  // above.
+  BusyWait(10, [&] {
+    return TotalBatchesRead() >= kDefaultBackpressureHigh;
+  });
+  SleepABit();
+  ASSERT_LT(TotalBatchesRead(), 2 * kDefaultBackpressureHigh);
+}
+
+TEST_F(TestBackpressure, DISABLED_ScanBatchesOrdered) {
+  std::shared_ptr<Scanner> scanner = MakeScanner();
+  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen, scanner->ScanBatchesAsync());
+  // This future never actually finishes because we only emit the first batch so far and
+  // the scanner delays by one batch.  It is enough to start the system pumping though so
+  // we don't need it to finish.
+  Future<TaggedRecordBatch> fut =gen();
+
+  // The exact numbers may be imprecise due to threading but we should pretty quickly read
+  // up to our backpressure limit and a little above.  We should not be able to go too far
+  // above.
+  BusyWait(10, [&] {
+    return TotalBatchesRead() >= kDefaultBackpressureHigh;
+  });
+  // This can yield some false passes but it is tricky to test that a counter doesn't
+  // increase over time.
+  for (int i = 0; i < 20; i++) {
+    SleepABit();
+  }
+  ASSERT_LT(TotalBatchesRead(), 2 * kDefaultBackpressureHigh);
 }
 
 struct BatchConsumer {

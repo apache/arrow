@@ -162,5 +162,41 @@ bool SerializedAsyncTaskGroup::TryDrainUnlocked() {
   return false;
 }
 
+Future<> AsyncToggle::WhenOpen() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  return when_open_;
+}
+
+void AsyncToggle::Open() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  if (when_open_.is_finished()) {
+    return;
+  }
+  // This swap is needed to ensure we mark finished outside the lock.  It does mean that
+  // later calls to Open might finish before earlier calls to Open but that should be ok.
+  Future<> to_finish = std::move(when_open_);
+  when_open_ = Future<>::MakeFinished();
+  guard.Unlock();
+  to_finish.MarkFinished();
+}
+
+void AsyncToggle::Close() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  if (!when_open_.is_finished()) {
+    return;
+  }
+  when_open_ = Future<>::Make();
+}
+
+bool AsyncToggle::IsOpen() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  return when_open_.is_finished();
+}
+
+BackpressureOptions MakeBackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above) {
+  auto toggle = std::make_shared<util::AsyncToggle>();
+  return BackpressureOptions{std::move(toggle), resume_if_below, pause_if_above};
+}
+
 }  // namespace util
 }  // namespace arrow
