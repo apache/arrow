@@ -415,7 +415,6 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
     return Status::Invalid("Write SinkNode requires exactly 1 input, got ",
                            inputs.size());
   }
-  auto input = inputs[0];
 
   const WriteNodeOptions write_node_options =
       checked_cast<const WriteNodeOptions&>(options);
