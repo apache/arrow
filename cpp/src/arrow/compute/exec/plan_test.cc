@@ -665,6 +665,41 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
   }
 }
 
+TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    int batch_multiplicity = parallel ? 100 : 1;
+    auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    SelectKOptions options = SelectKOptions::TopKDefault(/*k=*/1, {"str"});
+    ASSERT_OK(
+        Declaration::Sequence(
+            {
+                {"source",
+                 SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+                {"project", ProjectNodeOptions{{
+                                field_ref("str"),
+                                call("multiply", {field_ref("i32"), literal(2)}),
+                            }}},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                                   /*targets=*/{"multiply(i32, 2)"},
+                                                   /*names=*/{"sum(multiply(i32, 2))"},
+                                                   /*keys=*/{"str"}}},
+                {"select_k_sink", SelectKSinkNodeOptions{options, &sink_gen}},
+            })
+            .AddToPlan(plan.get()));
+
+    ASSERT_THAT(
+        StartAndCollect(plan.get(), sink_gen),
+        Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
+            {int64(), utf8()}, parallel ? R"([[800, "gama"]])" : R"([[8, "gama"]])")}))));
+  }
+}
+
 TEST(ExecPlanExecution, SourceScalarAggSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;

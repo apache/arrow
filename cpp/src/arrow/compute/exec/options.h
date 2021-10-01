@@ -219,5 +219,20 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   std::string output_prefix_for_right;
 };
 
+/// \brief Make a node which select top_k/bottom_k rows passed through it
+///
+/// All batches pushed to this node will be accumulated, then selected, by the given
+/// fields. Then sorted batches will be forwarded to the generator in sorted order.
+class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
+ public:
+  explicit SelectKSinkNodeOptions(
+      SelectKOptions select_k_options,
+      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      : SinkNodeOptions(generator), select_k_options(std::move(select_k_options)) {}
+
+  /// SelectK options
+  SelectKOptions select_k_options;
+};
+
 }  // namespace compute
 }  // namespace arrow
