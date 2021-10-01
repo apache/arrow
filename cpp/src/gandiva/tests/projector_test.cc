@@ -2256,7 +2256,8 @@ TEST_F(TestProjector, TestInstr) {
 
 
   // Build expression
-  auto instr_expr = TreeExprBuilder::MakeExpression("instr", {field0, field1}, output_instr);
+  auto instr_expr = TreeExprBuilder::MakeExpression("instr",
+                                                    {field0, field1}, output_instr);
 
 
   std::shared_ptr<Projector> projector;
@@ -2266,8 +2267,12 @@ TEST_F(TestProjector, TestInstr) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayUtf8({"hello world!", "apple, banana, mango", "", "open the door"}, {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"world", "mango", "mango", ""}, {true, true, true, true});
+  auto array0 = MakeArrowArrayUtf8(
+      {"hello world!", "apple, banana, mango", "", "open the door"},
+      {true, true, true, true});
+  auto array1 = MakeArrowArrayUtf8(
+      {"world", "mango", "mango", ""},
+      {true, true, true, true});
   // expected output
   auto exp_sum = MakeArrowArrayInt32({6, 15, 0, 0}, {true, true, true, true});
 
