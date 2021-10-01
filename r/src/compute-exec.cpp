@@ -98,7 +98,7 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
 
 #include <arrow/dataset/scanner.h>
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
@@ -140,7 +140,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
 #endif
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Filter(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::shared_ptr<compute::Expression>& filter) {
@@ -148,7 +148,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Filter(
                             compute::FilterNodeOptions{*filter});
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Project(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::vector<std::shared_ptr<compute::Expression>>& exprs,
@@ -163,7 +163,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
       compute::ProjectNodeOptions{std::move(expressions), std::move(names)});
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> target_names, std::vector<std::string> out_field_names,
@@ -193,7 +193,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
                                     std::move(out_field_names), std::move(keys)});
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Join(
     const std::shared_ptr<compute::ExecNode>& input, int type,
     const std::shared_ptr<compute::ExecNode>& right_data,
