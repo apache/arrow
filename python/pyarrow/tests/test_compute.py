@@ -1409,8 +1409,7 @@ def test_round_to_multiple():
         result = pc.round_to_multiple(values, options=options)
         np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)
 
-    with pytest.raises(pa.ArrowInvalid,
-                       match="multiple has to be a positive value"):
+    with pytest.raises(pa.ArrowInvalid, match="multiple must be positive"):
         pc.round_to_multiple(values, multiple=-2)
 
 
