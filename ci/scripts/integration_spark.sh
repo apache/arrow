@@ -55,10 +55,10 @@ pushd ${spark_dir}
 
     # Update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
     echo "Building Spark ${SPARK_VERSION} with Arrow ${arrow_version}"
-    mvn versions:set-property -Dproperty=arrow.version -DnewVersion=${arrow_version}
+    build/mvn versions:set-property -Dproperty=arrow.version -DnewVersion=${arrow_version}
 
     # Build Spark with new Arrow Java
-    build/mvn -B -DskipTests package -pl sql/core -pl assembly -am
+    build/mvn -B -DskipTests package
 
     spark_scala_tests=(
       "org.apache.spark.sql.execution.arrow"
