@@ -175,6 +175,10 @@ ExecPlan <- R6Class("ExecPlan",
           temp_columns = names(.data$temp_columns)
         )
       }
+
+      # TODO: head/tail
+      # if node$sort, translate into topK
+      # else, warn that order not deterministic?
       node
     },
     Run = function(node) {

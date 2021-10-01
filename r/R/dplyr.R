@@ -162,14 +162,22 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  out <- head.Dataset(ensure_group_vars(x), n, ...)
-  restore_dplyr_features(out, x)
+  # TODO: test that nrow on collapsed query with agg/join/head
+  # TODO: handle head/tail in collect/compute
+  out <- as_adq(x)
+  out$head <- n
+  collapse.arrow_dplyr_query(out)
+  # out <- head.Dataset(ensure_group_vars(x), n, ...)
+  # restore_dplyr_features(out, x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  out <- tail.Dataset(ensure_group_vars(x), n, ...)
-  restore_dplyr_features(out, x)
+  out <- as_adq(x)
+  out$tail <- n
+  collapse.arrow_dplyr_query(out)
+  # out <- tail.Dataset(ensure_group_vars(x), n, ...)
+  # restore_dplyr_features(out, x)
 }
 
 #' @export
