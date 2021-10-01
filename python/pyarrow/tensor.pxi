@@ -841,6 +841,13 @@ shape: {0.shape}""".format(self)
 cdef class SparseCSFTensor(_Weakrefable):
     """
     A sparse CSF tensor.
+
+    CSF is a generalization of compressed sparse row (CSR) index.
+
+    CSF index recursively compresses each dimension of a tensor into a set
+    of prefix trees. Each path from a root to leaf forms one tensor
+    non-zero index. CSF is implemented with two arrays of buffers and one
+    arrays of integers.
     """
 
     def __init__(self):
@@ -876,14 +883,20 @@ shape: {0.shape}""".format(self)
         data : numpy.ndarray
             Data used to populate the sparse tensor.
         indptr : numpy.ndarray
-            Range of the rows,
-            The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
+            The sparsity structure.
+            Each two consecutive dimensions in a tensor correspond to
+            a buffer in indices.
+            A pair of consecutive values at `indptr[dim][i]`
+            `indptr[dim][i + 1]` signify a range of nodes in
+            `indices[dim + 1]` who are children of `indices[dim][i]` node.
         indices : numpy.ndarray
-            Column indices of the corresponding non-zero values.
+            Stores values of nodes.
+            Each tensor dimension corresponds to a buffer in indptr.
         shape : tuple
             Shape of the matrix.
         axis_order : list, optional
-            The order of the axis.
+            the sequence in which dimensions were traversed to
+            produce the prefix tree.
         dim_names : list, optional
             Names of the dimensions.
         """
