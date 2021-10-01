@@ -18,9 +18,7 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.SQLException;
-import java.util.HashSet;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,7 +31,6 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
-import org.apache.calcite.avatica.AvaticaStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,11 +87,13 @@ public final class ArrowFlightConnection extends AvaticaConnection {
       throws SQLException {
     final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
     final FlightClientHandler clientHandler = createNewClientHandler(config, allocator);
-    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
+    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator,
+        clientHandler);
   }
 
-  private static FlightClientHandler createNewClientHandler(final ArrowFlightConnectionConfigImpl config,
-                                                            final BufferAllocator allocator) throws SQLException {
+  private static FlightClientHandler createNewClientHandler(
+      final ArrowFlightConnectionConfigImpl config,
+      final BufferAllocator allocator) throws SQLException {
     try {
       return new ArrowFlightSqlClientHandler.Builder()
           .withHost(config.getHost())
@@ -114,29 +113,20 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   }
 
   void reset() throws SQLException {
-    final Set<SQLException> exceptions = new HashSet<>();
     // Clean up any open Statements
-    for (final AvaticaStatement statement : statementMap.values()) {
-      try {
-        AutoCloseables.close(statement);
-      } catch (final Exception e) {
-        exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
-      }
-    }
-    statementMap.clear();
     try {
-      // Reset Holdability
-      this.setHoldability(this.metaData.getResultSetHoldability());
-    } catch (final SQLException e) {
-      exceptions.add(e);
+      AutoCloseables.close(statementMap.values());
+    } catch (final Exception e) {
+      throw AvaticaConnection.HELPER.createException(e.getMessage(), e);
     }
+
+    statementMap.clear();
+
+    // Reset Holdability
+    this.setHoldability(this.metaData.getResultSetHoldability());
+
     // Reset Meta
     ((ArrowFlightMetaImpl) this.meta).setDefaultConnectionProperties();
-    if (!exceptions.isEmpty()) {
-      final SQLException exception = AvaticaConnection.HELPER.createException("Failed to reset connection.");
-      exceptions.forEach(exception::setNextException);
-      throw exception;
-    }
   }
 
   /**
@@ -155,7 +145,8 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    */
   synchronized ExecutorService getExecutorService() {
     return executorService = executorService == null ?
-        Executors.newFixedThreadPool(config.threadPoolSize(), new DefaultThreadFactory(getClass().getSimpleName())) :
+        Executors.newFixedThreadPool(config.threadPoolSize(),
+            new DefaultThreadFactory(getClass().getSimpleName())) :
         executorService;
   }
 
@@ -170,38 +161,15 @@ public final class ArrowFlightConnection extends AvaticaConnection {
       executorService.shutdown();
     }
 
-    final Set<SQLException> exceptions = new HashSet<>();
-
     try {
       AutoCloseables.close(clientHandler);
-    } catch (final Exception e) {
-      exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
-    }
-
-    try {
       allocator.getChildAllocators().forEach(AutoCloseables::closeNoChecked);
       AutoCloseables.close(allocator);
-    } catch (final Exception e) {
-      exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
-    }
 
-    try {
       super.close();
     } catch (final Exception e) {
-      exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
+      throw AvaticaConnection.HELPER.createException(e.getMessage(), e);
     }
-    if (exceptions.isEmpty()) {
-      return;
-    }
-    final SQLException exception =
-        AvaticaConnection.HELPER.createException("Failed to clean up resources; a memory leak will likely take place.");
-    exceptions.forEach(exception::setNextException);
-    /*
-     * FIXME Properly close allocator held open with outstanding child allocators.
-     * A bug has been detected in this code. Closing the connection does not release the resources
-     * from the allocator appropriately. This should be fixed in a future patch.
-     */
-    LOGGER.error("Memory leak detected!", exception);
   }
 
   BufferAllocator getBufferAllocator() {
