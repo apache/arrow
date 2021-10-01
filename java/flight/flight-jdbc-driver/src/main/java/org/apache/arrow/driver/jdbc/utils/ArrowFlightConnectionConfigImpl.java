@@ -118,20 +118,6 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return new HeaderCallOption(headers);
   }
 
-  /**
-   * Gets a copy of this {@link ArrowFlightConnectionConfigImpl} with replaced properties.
-   *
-   * @param replacements the replacements.
-   * @return a copy of this instance with replacements applied.
-   */
-  public ArrowFlightConnectionConfigImpl copyReplace(final Map<ConnectionProperty, Object> replacements) {
-    Preconditions.checkNotNull(replacements);
-    final Properties newProperties = new Properties();
-    newProperties.putAll(properties);
-    replacements.forEach((key, value) -> newProperties.replace(key.camelName(), value));
-    return new ArrowFlightConnectionConfigImpl(newProperties);
-  }
-
   @Override
   public int hashCode() {
     return Objects.hash(properties);
