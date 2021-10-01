@@ -85,10 +85,13 @@ class SimpleParallelRunner : public SimpleSyncRunnerImpl {
     if (finished_.is_finished()) {
       return Status::OK();
     }
-    task_group_.AddTask([this, task]() -> Result<Future<>> {
+    auto status = task_group_.AddTask([this, task]() -> Result<Future<>> {
       return this->executor_->Submit(this->stop_source_.token(),
                                      [task]() { return task(); });
     });
+    if (!status.ok()) {
+      return status;
+    }
     if (input_counter_.Increment()) {
       this->MarkFinished();
     }
