@@ -60,9 +60,11 @@ Grouped Aggregations
    hash_mean
    hash_min
    hash_min_max
-   hash_min_sum
-   hash_min_tdigest
-   hash_min_variance
+   hash_product
+   hash_stddev
+   hash_sum
+   hash_tdigest
+   hash_variance
 
 Arithmetic Functions
 --------------------
@@ -342,7 +344,7 @@ String Slicing
 .. autosummary::
    :toctree: ../generated/
 
-   utf8_slice_codepoints
+   utf8_slice_codeunits
 
 Containment Tests
 -----------------

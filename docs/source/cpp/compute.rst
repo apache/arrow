@@ -1032,7 +1032,7 @@ in reverse order.
 +--------------------------+------------+----------------+-----------------+--------------------------+---------+
 | Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
 +==========================+============+================+=================+==========================+=========+
-| utf8_slice_codepoints    | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
+| utf8_slice_codeunits     | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
 +--------------------------+------------+----------------+-----------------+--------------------------+---------+
 
 * \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
