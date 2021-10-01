@@ -22,6 +22,7 @@
 #include <sqlite3.h>
 
 #include <utility>
+#include <sstream>
 
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
@@ -33,14 +34,15 @@ namespace sql {
 class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
  public:
   std::shared_ptr<example::SqliteStatementBatchReader> reader_;
+  std::string main_query;
   sqlite3* db_;
 
   /// Constructor for SqliteTablesWithSchemaBatchReader class
   /// \param reader an shared_ptr from a SqliteStatementBatchReader.
   /// \param db_    a pointer to the sqlite3 db.
   SqliteTablesWithSchemaBatchReader(
-      std::shared_ptr<example::SqliteStatementBatchReader> p_reader, sqlite3* p_db_)
-      : reader_(std::move(p_reader)), db_(p_db_) {}
+      std::shared_ptr<example::SqliteStatementBatchReader> p_reader, std::string p_main_query, sqlite3* p_db_)
+      : reader_(std::move(p_reader)), main_query(std::move(p_main_query)) , db_(p_db_){}
 
   std::shared_ptr<Schema> schema() const override;
 

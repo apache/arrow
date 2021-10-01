@@ -21,6 +21,7 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/record_batch.h>
 #include <sqlite3.h>
+#include <sstream>
 
 #include <boost/algorithm/string.hpp>
 
@@ -35,13 +36,14 @@ std::shared_ptr<Schema> SqliteTablesWithSchemaBatchReader::schema() const {
 }
 
 Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
-  const std::string schema_query =
-      "SELECT table_name, name, type, [notnull] FROM pragma_table_info(table_name)"
-      " JOIN (SELECT tbl_name as table_name FROM sqlite_master)";
+  std::stringstream schema_query;
+
+  schema_query << "SELECT table_name, name, type, [notnull] FROM pragma_table_info(table_name)" <<
+  "JOIN(" << main_query << ") order by table_name";
 
   std::shared_ptr<example::SqliteStatement> schema_statement;
   ARROW_RETURN_NOT_OK(
-      example::SqliteStatement::Create(db_, schema_query, &schema_statement));
+      example::SqliteStatement::Create(db_, schema_query.str(), &schema_statement));
 
   std::shared_ptr<RecordBatch> first_batch;
 
