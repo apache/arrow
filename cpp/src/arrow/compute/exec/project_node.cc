@@ -29,6 +29,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "exec_node_runner_impl.h"
 
 namespace arrow {
 
@@ -40,11 +41,13 @@ namespace {
 class ProjectNode : public ExecNode {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)
+              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs,
+              std::unique_ptr<ExecNodeRunnerImpl> impl)
       : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
                  std::move(output_schema),
                  /*num_outputs=*/1),
-        exprs_(std::move(exprs)) {}
+        exprs_(std::move(exprs)),
+        impl_(std::move(impl)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -70,9 +73,17 @@ class ProjectNode : public ExecNode {
       fields[i] = field(std::move(names[i]), expr.type());
       ++i;
     }
-
+    std::unique_ptr<ExecNodeRunnerImpl> impl;
+    if (plan->exec_context()->executor() == nullptr) {
+      ARROW_ASSIGN_OR_RAISE(
+          impl, ExecNodeRunnerImpl::MakeSimpleSyncRunner(plan->exec_context()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          impl, ExecNodeRunnerImpl::MakeSimpleParallelRunner(plan->exec_context()));
+    }
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
-                                          schema(std::move(fields)), std::move(exprs));
+                                          schema(std::move(fields)), std::move(exprs),
+                                          std::move(impl));
   }
 
   const char* kind_name() const override { return "ProjectNode"; }
@@ -94,11 +105,19 @@ class ProjectNode : public ExecNode {
     auto task = [this, batch]() {
       auto maybe_projected = DoProject(std::move(batch));
       if (ErrorIfNotOk(maybe_projected.status())) return maybe_projected.status();
+
       maybe_projected->guarantee = batch.guarantee;
       outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
       return Status::OK();
     };
-    DCHECK_OK(this->SubmitTask(task));
+    auto status = impl_->SubmitTask(task);
+    if (!status.ok()) {
+      StopProducing();
+      bool cancelled = impl_->Cancel();
+      DCHECK(cancelled);
+      impl_->MarkFinished(status);
+      return;
+    }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -108,10 +127,8 @@ class ProjectNode : public ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
-    if (batch_count_.SetTotal(total_batches)) {
-      this->MarkFinished();
-    }
     outputs_[0]->InputFinished(this, total_batches);
+    impl_->InputFinished(total_batches);
   }
 
   Status StartProducing() override { return Status::OK(); }
@@ -126,13 +143,11 @@ class ProjectNode : public ExecNode {
   }
 
   void StopProducing() override {
-    if (batch_count_.Cancel()) {
-      this->MarkFinished(/*request_stop=*/true);
-    }
+    impl_->StopProducing();
     inputs_[0]->StopProducing(this);
   }
 
-  Future<> finished() override { return finished_; }
+  Future<> finished() override { return impl_->finished(); }
 
  protected:
   std::string ToStringExtra() const override {
@@ -152,6 +167,7 @@ class ProjectNode : public ExecNode {
 
  private:
   std::vector<Expression> exprs_;
+  std::unique_ptr<ExecNodeRunnerImpl> impl_;
 };
 
 }  // namespace

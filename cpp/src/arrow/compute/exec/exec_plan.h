@@ -23,19 +23,13 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_util.h"
-#include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/task_group.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-using internal::TaskGroup;
 
 namespace compute {
 
@@ -242,15 +236,6 @@ class ARROW_EXPORT ExecNode {
   /// \brief Is an executor available?
   bool has_executor() const { return plan_->exec_context()->executor() != nullptr; }
 
-  /// \brief submit a task, independently if an executor is available or not
-  Status SubmitTask(std::function<Status()> task);
-
-  /// \brief Mark Future<> `finished_` as Finished, independently if an executor is
-  /// available or not
-  ///
-  /// A boolean var `request_stop` can be send to cancel remaining tasks in the executor.
-  void MarkFinished(bool request_stop = false);
-
   ExecPlan* plan_;
   std::string label_;
 
@@ -260,15 +245,6 @@ class ARROW_EXPORT ExecNode {
   std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
-
-  // Counter for the number of batches received
-  AtomicCounter batch_count_;
-  // Future to sync finished
-  Future<> finished_;
-  // Variable used to cancel remaining tasks in the executor
-  StopSource stop_source_;
-  // The task group for the corresponding batches
-  std::shared_ptr<TaskGroup> task_group_{nullptr};
 };
 
 /// \brief An extensible registry for factories of ExecNodes

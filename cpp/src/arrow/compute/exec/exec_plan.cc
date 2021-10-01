@@ -32,7 +32,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -225,12 +224,6 @@ ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
   for (auto input : inputs_) {
     input->outputs_.push_back(this);
   }
-  finished_ = Future<>::Make();
-  auto executor = plan->exec_context()->executor();
-  if (executor) {
-    StopToken stop_token = stop_source_.token();
-    task_group_ = TaskGroup::MakeThreaded(executor, stop_token);
-  }
 }
 
 Status ExecNode::Validate() const {
@@ -292,35 +285,6 @@ bool ExecNode::ErrorIfNotOk(Status status) {
     out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
   }
   return true;
-}
-
-Status ExecNode::SubmitTask(std::function<Status()> task) {
-  if (finished_.is_finished()) {
-    return Status::OK();
-  }
-  if (this->has_executor()) {
-    DCHECK(task_group_ != nullptr);
-    task_group_->Append(std::move(task));
-  } else {
-    return task();
-  }
-  if (batch_count_.Increment()) {
-    this->MarkFinished();
-  }
-  return Status::OK();
-}
-
-void ExecNode::MarkFinished(bool request_stop) {
-  if (this->has_executor()) {
-    if (request_stop) {
-      this->stop_source_.RequestStop();
-    }
-    task_group_->FinishAsync().AddCallback([this](const Status& status) {
-      if (!this->finished_.is_finished()) this->finished_.MarkFinished(status);
-    });
-  } else {
-    this->finished_.MarkFinished();
-  }
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
