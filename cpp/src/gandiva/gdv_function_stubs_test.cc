@@ -935,4 +935,44 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 }
 
+
+TEST(TestGdvFnStubs, TestInstr) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  std::string s1 = "hello world!";
+  auto s1_len = static_cast<int32_t>(s1.size());
+  std::string s2 = "world";
+  auto s2_len = static_cast<int32_t>(s2.size());
+
+  auto result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 6);
+
+  s1 = "apple, banana, mango";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "mango";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 15);
+
+  s1 = "";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "mango";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "open the door";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+}
+
+
 }  // namespace gandiva
