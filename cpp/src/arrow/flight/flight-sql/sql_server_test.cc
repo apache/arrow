@@ -140,7 +140,7 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
 
   DECLARE_NULL_ARRAY(catalog_name, String, 3);
   DECLARE_NULL_ARRAY(schema_name, String, 3);
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
+  DECLARE_ARRAY(table_name, String, ({"foreignTable", "intTable", "sqlite_sequence", }));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
@@ -207,7 +207,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
 
   DECLARE_NULL_ARRAY(catalog_name, String, 3);
   DECLARE_NULL_ARRAY(schema_name, String, 3);
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "sqlite_sequence", "intTable"}));
+  DECLARE_ARRAY(table_name, String, ({"foreignTable", "intTable", "sqlite_sequence", }));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
