@@ -1110,7 +1110,7 @@ extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP s
 #endif
 
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<compute::ExecNode>& node);
 extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 BEGIN_CPP11
@@ -1143,7 +1143,7 @@ extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP fil
 #endif
 
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<compute::ExecNode> ExecNode_Filter(const std::shared_ptr<compute::ExecNode>& input, const std::shared_ptr<compute::Expression>& filter);
 extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
 BEGIN_CPP11
@@ -1159,7 +1159,7 @@ extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
 #endif
 
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<compute::ExecNode> ExecNode_Project(const std::shared_ptr<compute::ExecNode>& input, const std::vector<std::shared_ptr<compute::Expression>>& exprs, std::vector<std::string> names);
 extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
 BEGIN_CPP11
@@ -1176,7 +1176,7 @@ extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP n
 #endif
 
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(const std::shared_ptr<compute::ExecNode>& input, cpp11::list options, std::vector<std::string> target_names, std::vector<std::string> out_field_names, std::vector<std::string> key_names);
 extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP target_names_sexp, SEXP out_field_names_sexp, SEXP key_names_sexp){
 BEGIN_CPP11
@@ -1195,7 +1195,7 @@ extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SE
 #endif
 
 // compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output);
 extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp){
 BEGIN_CPP11
