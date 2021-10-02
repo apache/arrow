@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=debian:bullseye
+ARG FROM=debian:bookworm
 FROM ${FROM}
 
 RUN \
@@ -78,5 +78,4 @@ RUN \
   fi && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \
-  apt clean && \
-  rm -rf /var/lib/apt/lists/*
+  apt clean

@@ -135,10 +135,12 @@ test_binary() {
 }
 
 test_apt() {
-  for target in "debian:bullseye" \
-                "arm64v8/debian:bullseye" \
-                "debian:buster" \
+  for target in "debian:buster" \
                 "arm64v8/debian:buster" \
+                "debian:bullseye" \
+                "arm64v8/debian:bullseye" \
+                "debian:bookworm" \
+                "arm64v8/debian:bookworm" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
