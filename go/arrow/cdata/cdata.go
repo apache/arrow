@@ -27,7 +27,7 @@ package cdata
 // int stream_get_next(struct ArrowArrayStream* st, struct ArrowArray* out) { return st->get_next(st, out); }
 // const char* stream_get_last_error(struct ArrowArrayStream* st) { return st->get_last_error(st); }
 // struct ArrowArray* get_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
-// struct ArrowArrayStream get_stream() { struct ArrowArrayStream stream; return stream; }
+// struct ArrowArrayStream* get_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
 //
 import "C"
 
@@ -527,10 +527,12 @@ func importCArrayAsType(arr *CArrowArray, dt arrow.DataType) (imp *cimporter, er
 }
 
 func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
-	st := C.get_stream()
-	rdr.stream = &st
+	rdr.stream = C.get_stream()
 	C.ArrowArrayStreamMove(stream, rdr.stream)
-	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) { C.ArrowArrayStreamRelease(r.stream) })
+	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) {
+		C.ArrowArrayStreamRelease(r.stream)
+		C.free(unsafe.Pointer(r.stream))
+	})
 }
 
 // Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
