@@ -51,14 +51,15 @@ class BaseTestStringKernels : public ::testing::Test {
   }
 
   void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
-                    std::shared_ptr<DataType> out_ty, std::string json_expected,
-                    const FunctionOptions* options = nullptr) {
-    CheckScalar(func_name, {Datum(input)}, Datum(ArrayFromJSON(out_ty, json_expected)), options);
+                  std::shared_ptr<DataType> out_ty, std::string json_expected,
+                  const FunctionOptions* options = nullptr) {
+    CheckScalar(func_name, {Datum(input)}, Datum(ArrayFromJSON(out_ty, json_expected)),
+                options);
   }
 
   void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
-                    const std::shared_ptr<Array> expected,
-                    const FunctionOptions* options = nullptr) {
+                  const std::shared_ptr<Array> expected,
+                  const FunctionOptions* options = nullptr) {
     CheckScalar(func_name, {Datum(input)}, Datum(expected), options);
   }
 
@@ -102,7 +103,8 @@ class BaseTestStringKernels : public ::testing::Test {
   }
 
   template <typename CType = const char*>
-  std::shared_ptr<Array> MakeArray(const std::vector<CType>& values, const std::vector<bool>& is_valid = {}) {
+  std::shared_ptr<Array> MakeArray(const std::vector<CType>& values,
+                                   const std::vector<bool>& is_valid = {}) {
     return _MakeArray<TestType, CType>(type(), values, is_valid);
   }
 };
@@ -127,8 +129,8 @@ TYPED_TEST(TestBinaryKernels, BinaryLength) {
                    this->offset_type(), "[3, null, 10, 0, 1]");
 
   // Binary non-UTF8 inputs
-  this->CheckUnary("binary_length",
-                   this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}), this->offset_type(), "[3, 4]");
+  this->CheckUnary("binary_length", this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}),
+                   this->offset_type(), "[3, 4]");
 }
 
 TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
@@ -136,9 +138,9 @@ TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
   // [Large]StringType data. These tests use binary non-encoded inputs.
   {
     ReplaceSliceOptions options{1, 2, "\xfc\x40"};
-    this->CheckUnary("binary_replace_slice",
-                     this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}),
-                     this->MakeArray({"\xf7\xfc\x40\xab", "\xff\xfc\x40\xc3\xbb"}), &options);
+    this->CheckUnary(
+        "binary_replace_slice", this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}),
+        this->MakeArray({"\xf7\xfc\x40\xab", "\xff\xfc\x40\xc3\xbb"}), &options);
   }
   {
     MatchSubstringOptions options{"\xfc\x40"};
@@ -157,9 +159,10 @@ TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
   {
     MatchSubstringOptions options{"\xfc\x40", /*ignore_case=*/true};
     auto input = Datum(this->MakeArray({"\xfc\x40\xab"}));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
-                                    ::testing::HasSubstr("ignore_case is not supported for non-encoded binary types"),
-                                    CallFunction("find_substring", {input}, &options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented,
+        ::testing::HasSubstr("ignore_case is not supported for non-encoded binary types"),
+        CallFunction("find_substring", {input}, &options));
   }
 }
 
