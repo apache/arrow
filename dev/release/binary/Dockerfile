@@ -38,7 +38,7 @@ RUN \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
 
-RUN gem install apt-dists-merge -v ">= 1.0.1"
+RUN gem install apt-dists-merge -v ">= 1.0.2"
 
 RUN locale-gen en_US.UTF-8
 
