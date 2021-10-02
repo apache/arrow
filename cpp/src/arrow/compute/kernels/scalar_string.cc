@@ -1084,34 +1084,38 @@ struct MatchLike {
 
     Status status;
     std::string pattern;
-    if (!original_options.ignore_case &&
-        re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
-                            &pattern)) {
-      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
-    } else if (!original_options.ignore_case &&
-               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsStartsWith,
-                                   &pattern)) {
-      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
-    } else if (!original_options.ignore_case &&
-               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsEndsWith,
-                                   &pattern)) {
-      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
-    } else {
+    bool matched = false;
+    if (!original_options.ignore_case) {
+      if ((matched = re2::RE2::FullMatch(original_options.pattern,
+                                         kLikePatternIsSubstringMatch, &pattern))) {
+        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+        MatchSubstringState converted_state(converted_options);
+        ctx->SetState(&converted_state);
+        status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
+      } else if ((matched = re2::RE2::FullMatch(original_options.pattern,
+                                                kLikePatternIsStartsWith, &pattern))) {
+        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+        MatchSubstringState converted_state(converted_options);
+        ctx->SetState(&converted_state);
+        status =
+            MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
+      } else if ((matched = re2::RE2::FullMatch(original_options.pattern,
+                                                kLikePatternIsEndsWith, &pattern))) {
+        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+        MatchSubstringState converted_state(converted_options);
+        ctx->SetState(&converted_state);
+        status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
+      }
+    }
+#ifdef ARROW_WITH_RE2
+    if (!matched) {
       MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
                                               original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
       ctx->SetState(&converted_state);
       status = MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
     }
+#endif
     ctx->SetState(original_state);
     return status;
   }
