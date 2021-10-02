@@ -35,7 +35,7 @@ namespace compute {
 
 class SimpleSyncRunnerImpl : public ExecNodeRunnerImpl {
  public:
-  SimpleSyncRunnerImpl(ExecContext* ctx) : ctx_(ctx) {}
+  explicit SimpleSyncRunnerImpl(ExecContext* ctx) : ctx_(ctx) {}
 
   Status SubmitTask(std::function<Status()> task) override {
     if (finished_.is_finished()) {
@@ -77,7 +77,7 @@ class SimpleSyncRunnerImpl : public ExecNodeRunnerImpl {
 
 class SimpleParallelRunner : public SimpleSyncRunnerImpl {
  public:
-  SimpleParallelRunner(ExecContext* ctx) : SimpleSyncRunnerImpl(ctx) {
+  explicit SimpleParallelRunner(ExecContext* ctx) : SimpleSyncRunnerImpl(ctx) {
     executor_ = ctx->executor();
   }
 
@@ -100,10 +100,10 @@ class SimpleParallelRunner : public SimpleSyncRunnerImpl {
 
   void MarkFinished(Status status = Status::OK()) override {
     if (!status.ok()) {
-      StopProducing();
-      bool cancelled = this->Cancel();
-      DCHECK(cancelled);
-      this->MarkFinished(status);
+      this->StopProducing();
+      if (input_counter_.Cancel()) {
+        this->MarkFinished();
+      }
       return;
     }
     task_group_.End().AddCallback([this](const Status& status) {

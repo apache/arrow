@@ -118,9 +118,9 @@ class FilterNode : public ExecNode {
     auto status = impl_->SubmitTask(task);
     if (!status.ok()) {
       StopProducing();
-      bool cancelled = impl_->Cancel();
-      DCHECK(cancelled);
-      impl_->MarkFinished(status);
+      if (impl_->Cancel()) {
+        impl_->MarkFinished(status);
+      }
       return;
     }
   }
