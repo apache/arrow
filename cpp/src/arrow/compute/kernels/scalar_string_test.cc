@@ -34,9 +34,9 @@ namespace compute {
 // interesting utf8 characters for testing (lower case / upper case):
 //  * ῦ / Υ͂ (3 to 4 code units) (Note, we don't support this yet, utf8proc does not use
 //  SpecialCasing.txt)
-//  * ɑ /  Ɑ (2 to 3 code units)
+//  * ɑ / Ɑ (2 to 3 code units)
 //  * ı / I (2 to 1 code units)
-//  * Ⱥ / ⱥ  (2 to 3 code units)
+//  * Ⱥ / ⱥ (2 to 3 code units)
 
 template <typename TestType>
 class BaseTestStringKernels : public ::testing::Test {
@@ -48,6 +48,18 @@ class BaseTestStringKernels : public ::testing::Test {
                   std::shared_ptr<DataType> out_ty, std::string json_expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
+  }
+
+  void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
+                    std::shared_ptr<DataType> out_ty, std::string json_expected,
+                    const FunctionOptions* options = nullptr) {
+    CheckScalar(func_name, {Datum(input)}, Datum(ArrayFromJSON(out_ty, json_expected)), options);
+  }
+
+  void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
+                    const std::shared_ptr<Array> expected,
+                    const FunctionOptions* options = nullptr) {
+    CheckScalar(func_name, {Datum(input)}, Datum(expected), options);
   }
 
   void CheckBinaryScalar(std::string func_name, std::string json_left_input,
@@ -72,7 +84,7 @@ class BaseTestStringKernels : public ::testing::Test {
     CheckScalar(func_name, inputs, ScalarFromJSON(out_ty, json_expected), options);
   }
 
-  void CheckVarArgs(std::string func_name, const std::vector<Datum>& inputs,
+  void CheckVarArgs(std::string func_name, const DatumVector& inputs,
                     std::shared_ptr<DataType> out_ty, std::string json_expected,
                     const FunctionOptions* options = nullptr) {
     CheckScalar(func_name, inputs, ArrayFromJSON(out_ty, json_expected), options);
@@ -88,21 +100,45 @@ class BaseTestStringKernels : public ::testing::Test {
   std::shared_ptr<DataType> offset_type() {
     return TypeTraits<OffsetType>::type_singleton();
   }
+
+  template <typename CType = const char*>
+  std::shared_ptr<Array> MakeArray(const std::vector<CType>& values, const std::vector<bool>& is_valid = {}) {
+    return _MakeArray<TestType, CType>(type(), values, is_valid);
+  }
 };
 
 template <typename TestType>
-class TestStringKernels : public BaseTestStringKernels<TestType> {};
+class TestBinaryBaseKernels : public BaseTestStringKernels<TestType> {};
 
-TYPED_TEST_SUITE(TestStringKernels, StringArrowTypes);
+TYPED_TEST_SUITE(TestBinaryBaseKernels, BinaryBaseArrowTypes);
 
 template <typename TestType>
 class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 
 TYPED_TEST_SUITE(TestBinaryKernels, BinaryArrowTypes);
 
+template <typename TestType>
+class TestStringKernels : public BaseTestStringKernels<TestType> {};
+
+TYPED_TEST_SUITE(TestStringKernels, StringArrowTypes);
+
 TYPED_TEST(TestBinaryKernels, BinaryLength) {
   this->CheckUnary("binary_length", R"(["aaa", null, "áéíóú", "", "b"])",
                    this->offset_type(), "[3, null, 10, 0, 1]");
+
+  // Binary non-UTF8 inputs
+  this->CheckUnary("binary_length",
+                   this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}), this->offset_type(), "[3, 4]");
+}
+
+TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
+  // Kernels found here do not accept invalid UTF-8 when processing
+  // [Large]StringType data. These tests use binary non-encoded inputs.
+  std::vector<bool> valid_mask = { true, false };
+  ReplaceSliceOptions options_binary{1, 2, "\xfc\x40"};
+  this->CheckUnary("binary_replace_slice",
+                   this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}, valid_mask),
+                   this->MakeArray({"\xf7\xfc\x40\xab", "\xff\xfc\x40\xc3\xbb"}, valid_mask), &options_binary);
 }
 
 TYPED_TEST(TestBinaryKernels, BinaryReplaceSlice) {
