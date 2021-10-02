@@ -1235,6 +1235,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def available_yum_targets
     [
+      ["almalinux", "8"],
       ["amazon-linux", "2"],
       ["centos", "7"],
       ["centos", "8"],
@@ -1681,6 +1682,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       task :rc do
         puts(<<-SUMMARY)
 Success! The release candidate binaries are available here:
+  https://apache.jfrog.io/artifactory/arrow/almalinux-rc/
   https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
   https://apache.jfrog.io/artifactory/arrow/centos-rc/
   https://apache.jfrog.io/artifactory/arrow/debian-rc/
@@ -1694,6 +1696,7 @@ Success! The release candidate binaries are available here:
       task :release do
         puts(<<-SUMMARY)
 Success! The release binaries are available here:
+  https://apache.jfrog.io/arrow/almalinux/
   https://apache.jfrog.io/arrow/amazon-linux/
   https://apache.jfrog.io/arrow/centos/
   https://apache.jfrog.io/arrow/debian/
