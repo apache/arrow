@@ -151,6 +151,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
     build_glog()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "google_cloud_cpp_storage")
+    build_google_cloud_cpp_storage()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gRPC")
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
@@ -3509,7 +3511,6 @@ macro(build_crc32c_once)
     set(CRC32C_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
         -DCMAKE_CXX_STANDARD=11
@@ -3570,7 +3571,7 @@ macro(build_nlohmann_json_once)
   endif()
 endmacro()
 
-macro(build_google_cloud_cpp)
+macro(build_google_cloud_cpp_storage)
   message(STATUS "Building google-cloud-cpp from source")
   message(STATUS "Only building the google-cloud-cpp::storage component")
 
@@ -3601,7 +3602,6 @@ macro(build_google_cloud_cpp)
       ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_TESTING=OFF
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-      "-DCMAKE_CXX_FLAGS=${GOOGLE_CLOUD_CPP_CXX_FLAGS}"
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
       -DCMAKE_INSTALL_RPATH=$ORIGIN
@@ -3645,7 +3645,7 @@ macro(build_google_cloud_cpp)
                         PROPERTIES IMPORTED_LOCATION
                                    "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}"
                                    INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}")
+                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   set_property(TARGET google-cloud-cpp::common
                PROPERTY INTERFACE_LINK_LIBRARIES
                         absl::any
@@ -3675,7 +3675,7 @@ macro(build_google_cloud_cpp)
                         Threads::Threads
                         OpenSSL::SSL
                         OpenSSL::Crypto)
-  add_dependencies(google-cloud-cpp::storage GOOGLE_CLOUD_CPP_ep)
+  add_dependencies(google-cloud-cpp::storage google_cloud_cpp_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS google-cloud-cpp::storage
        google-cloud-cpp::common)
@@ -3685,10 +3685,10 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   if(GOOGLE_CLOUD_CPP_SOURCE STREQUAL "AUTO")
     find_package(google_cloud_cpp_storage QUIET)
     if(NOT google_cloud_cpp_storage_FOUND)
-      build_google_cloud_cpp()
+      build_google_cloud_cpp_storage()
     endif()
   elseif(GOOGLE_CLOUD_CPP_SOURCE STREQUAL "BUNDLED")
-    build_google_cloud_cpp()
+    build_google_cloud_cpp_storage()
   elseif(GOOGLE_CLOUD_CPP_SOURCE STREQUAL "SYSTEM")
     find_package(google_cloud_cpp_storage REQUIRED)
   endif()
