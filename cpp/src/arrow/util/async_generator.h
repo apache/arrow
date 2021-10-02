@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cstring>
 #include <deque>
+#include <iostream>
 #include <limits>
 #include <queue>
 
@@ -711,6 +712,27 @@ AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generato
   return SerialReadaheadGenerator<T>(std::move(source_generator), max_readahead);
 }
 
+template <typename T>
+AsyncGenerator<T> MakeAutoStartingGenerator(AsyncGenerator<T> generator) {
+  struct AutostartGenerator {
+
+    Future<T> operator()() {
+      if (first_future->is_valid()) {
+        Future<T> result = *first_future;
+        *first_future = Future<T>();
+        return result;
+      }
+      return source();
+    }
+
+    std::shared_ptr<Future<T>> first_future;
+    AsyncGenerator<T> source;
+  };
+
+  std::shared_ptr<Future<T>> first_future = std::make_shared<Future<T>>(generator());
+  return AutostartGenerator{std::move(first_future), std::move(generator)};
+}
+
 /// \see MakeReadaheadGenerator
 template <typename T>
 class ReadaheadGenerator {
@@ -1154,6 +1176,21 @@ template <typename T>
 AsyncGenerator<T> MakeMergedGenerator(AsyncGenerator<AsyncGenerator<T>> source,
                                       int max_subscriptions) {
   return MergedGenerator<T>(std::move(source), max_subscriptions);
+}
+
+template <typename T>
+Result<AsyncGenerator<T>> MakeSequencedMergedGenerator(AsyncGenerator<AsyncGenerator<T>> source, int max_subscriptions) {
+  if (max_subscriptions < 0) {
+    return Status::Invalid("max_subscriptions must be a positive integer");
+  }
+  if (max_subscriptions == 1) {
+    return Status::Invalid("Use MakeConcatenatedGenerator is max_subscriptions is 1");
+  }
+  AsyncGenerator<AsyncGenerator<T>> autostarting_source = MakeMappedGenerator(std::move(source), [] (const AsyncGenerator<T>& sub) {
+    return MakeAutoStartingGenerator(sub);
+  });
+  AsyncGenerator<AsyncGenerator<T>> sub_readahead = MakeSerialReadaheadGenerator(std::move(autostarting_source), max_subscriptions - 1);
+  return MakeConcatenatedGenerator(std::move(sub_readahead));
 }
 
 /// \brief Creates a generator that takes in a stream of generators and pulls from each
