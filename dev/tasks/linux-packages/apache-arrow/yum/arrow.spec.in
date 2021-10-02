@@ -160,7 +160,6 @@ cd cpp/build
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DARROW_USE_CCACHE=OFF \
-  -DCMAKE_UNITY_BUILD=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
 %if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
