@@ -29,6 +29,10 @@ case "$(uname)" in
         ;;
 esac
 
+if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
+    testargs="" # -race not supported on s390x
+fi
+
 pushd ${source_dir}/arrow
 
 TAGS="assert,test"
