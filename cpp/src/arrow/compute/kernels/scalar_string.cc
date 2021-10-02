@@ -1252,8 +1252,7 @@ void AddMatchSubstring(FunctionRegistry* registry) {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
                                                  &match_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
-      auto exec =
-          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, PlainSubstringMatcher>(ty);
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainSubstringMatcher>(ty);
       DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -1263,7 +1262,7 @@ void AddMatchSubstring(FunctionRegistry* registry) {
                                                  &match_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec =
-          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, PlainStartsWithMatcher>(ty);
+          GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
       DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -1272,8 +1271,7 @@ void AddMatchSubstring(FunctionRegistry* registry) {
     auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
                                                  &match_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
-      auto exec =
-          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, PlainEndsWithMatcher>(ty);
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
       DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -1283,8 +1281,7 @@ void AddMatchSubstring(FunctionRegistry* registry) {
     auto func = std::make_shared<ScalarFunction>("match_substring_regex", Arity::Unary(),
                                                  &match_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
-      auto exec =
-          GenerateTypeAgnosticVarBinaryBase<MatchSubstring, RegexSubstringMatcher>(ty);
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, RegexSubstringMatcher>(ty);
       DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -1293,7 +1290,7 @@ void AddMatchSubstring(FunctionRegistry* registry) {
     auto func =
         std::make_shared<ScalarFunction>("match_like", Arity::Unary(), &match_like_doc);
     for (const auto& ty : BaseBinaryTypes()) {
-      auto exec = GenerateTypeAgnosticVarBinaryBase<MatchLike>(ty);
+      auto exec = GenerateVarBinaryToVarBinary<MatchLike>(ty);
       DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -1397,7 +1394,7 @@ void AddFindSubstring(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
-                                GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                                GenerateVarBinaryToVarBinary<FindSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
@@ -1411,10 +1408,9 @@ void AddFindSubstring(FunctionRegistry* registry) {
                                                  &find_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
-      DCHECK_OK(
-          func->AddKernel({ty}, offset_type,
-                          GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
-                          MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateVarBinaryToVarBinary<FindSubstringRegexExec>(ty),
+                                MatchSubstringState::Init));
     }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               FindSubstringRegexExec<FixedSizeBinaryType>::Exec,
@@ -1547,7 +1543,7 @@ void AddCountSubstring(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
-                                GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
+                                GenerateVarBinaryToVarBinary<CountSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
@@ -1561,10 +1557,9 @@ void AddCountSubstring(FunctionRegistry* registry) {
                                                  &count_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
-      DCHECK_OK(
-          func->AddKernel({ty}, offset_type,
-                          GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
-                          MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateVarBinaryToVarBinary<CountSubstringRegexExec>(ty),
+                                MatchSubstringState::Init));
     }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               CountSubstringRegexExec<FixedSizeBinaryType>::Exec,
@@ -3060,7 +3055,7 @@ void AddExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
                                                &extract_regex_doc);
   OutputType out_ty(ResolveExtractRegexOutput);
-  for (const auto& ty : BaseBinaryTypes()) {
+  for (const auto& ty : StringTypes()) {
     ScalarKernel kernel{{ty},
                         out_ty,
                         GenerateVarBinaryToVarBinary<ExtractRegex>(ty),

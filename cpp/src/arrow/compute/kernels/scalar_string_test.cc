@@ -147,17 +147,7 @@ TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
     this->CheckUnary("find_substring",
                      this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\xff"}),
                      this->offset_type(), "[0, 2, -1]", &options);
-  }
-#ifdef ARROW_WITH_RE2
-  {
-    MatchSubstringOptions options{"\xfc\x40"};
-    this->CheckUnary("find_substring",
-                     this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\xff"}),
-                     this->offset_type(), "[0, 2, -1]", &options);
-  }
-#endif
-  {
-    MatchSubstringOptions options{"\xfc\x40", /*ignore_case=*/true};
+    options.ignore_case = true;
     auto input = Datum(this->MakeArray({"\xfc\x40\xab"}));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented,
@@ -240,7 +230,7 @@ TYPED_TEST(TestBinaryKernels, FindSubstring) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryKernels, FindSubstringIgnoreCase) {
+TYPED_TEST(TestStringKernels, FindSubstringIgnoreCase) {
   MatchSubstringOptions options{"?AB)", /*ignore_case=*/true};
   this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
   this->CheckUnary("find_substring",
@@ -248,7 +238,7 @@ TYPED_TEST(TestBinaryKernels, FindSubstringIgnoreCase) {
                    this->offset_type(), "[0, -1, 1, null, -1, -1]", &options);
 }
 
-TYPED_TEST(TestBinaryKernels, FindSubstringRegex) {
+TYPED_TEST(TestStringKernels, FindSubstringRegex) {
   MatchSubstringOptions options{"a+", /*ignore_case=*/false};
   this->CheckUnary("find_substring_regex", "[]", this->offset_type(), "[]", &options);
   this->CheckUnary("find_substring_regex", R"(["a", "A", "baaa", null, "", "AaaA"])",
@@ -260,7 +250,7 @@ TYPED_TEST(TestBinaryKernels, FindSubstringRegex) {
                    this->offset_type(), "[0, 0, 1, null, -1, 0]", &options);
 }
 #else
-TYPED_TEST(TestBinaryKernels, FindSubstringIgnoreCase) {
+TYPED_TEST(TestStringKernels, FindSubstringIgnoreCase) {
   MatchSubstringOptions options{"a+", /*ignore_case=*/true};
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
@@ -313,7 +303,7 @@ TYPED_TEST(TestBinaryKernels, CountSubstringRegex) {
                    this->offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
 }
 
-TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
+TYPED_TEST(TestStringKernels, CountSubstringIgnoreCase) {
   MatchSubstringOptions options{"aba", /*ignore_case=*/true};
   this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
   this->CheckUnary(
@@ -326,7 +316,7 @@ TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
                    "[1, null, 4]", &options_empty);
 }
 
-TYPED_TEST(TestBinaryKernels, CountSubstringRegexIgnoreCase) {
+TYPED_TEST(TestStringKernels, CountSubstringRegexIgnoreCase) {
   MatchSubstringOptions options_as{"a+", /*ignore_case=*/true};
   this->CheckUnary("count_substring_regex", R"(["", "bacAaAdaAaA", "c", "AAA"])",
                    this->offset_type(), "[0, 3, 0, 1]", &options_as);
@@ -336,7 +326,7 @@ TYPED_TEST(TestBinaryKernels, CountSubstringRegexIgnoreCase) {
                    this->offset_type(), "[1, 7, 2, 2]", &options_empty_match);
 }
 #else
-TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
+TYPED_TEST(TestStringKernels, CountSubstringIgnoreCase) {
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   MatchSubstringOptions options{"a", /*ignore_case=*/true};
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
@@ -1010,14 +1000,14 @@ TYPED_TEST(TestBinaryKernels, MatchSubstring) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryKernels, MatchSubstringIgnoreCase) {
+TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
   MatchSubstringOptions options_insensitive{"aé(", /*ignore_case=*/true};
   this->CheckUnary("match_substring", R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])",
                    boolean(), "[false, false, true, true, false, true]",
                    &options_insensitive);
 }
 #else
-TYPED_TEST(TestBinaryKernels, MatchSubstringIgnoreCase) {
+TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   MatchSubstringOptions options{"a", /*ignore_case=*/true};
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
@@ -1045,7 +1035,7 @@ TYPED_TEST(TestBinaryKernels, MatchEndsWith) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryKernels, MatchStartsWithIgnoreCase) {
+TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
   MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
   this->CheckUnary("starts_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -1054,7 +1044,7 @@ TYPED_TEST(TestBinaryKernels, MatchStartsWithIgnoreCase) {
                    boolean(), "[true, false, true, false, true]", &options);
 }
 
-TYPED_TEST(TestBinaryKernels, MatchEndsWithIgnoreCase) {
+TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
   MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
   this->CheckUnary("ends_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -1063,7 +1053,7 @@ TYPED_TEST(TestBinaryKernels, MatchEndsWithIgnoreCase) {
                    boolean(), "[true, true, false, true, false]", &options);
 }
 #else
-TYPED_TEST(TestBinaryKernels, MatchStartsWithIgnoreCase) {
+TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   MatchSubstringOptions options{"a", /*ignore_case=*/true};
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
@@ -1071,7 +1061,7 @@ TYPED_TEST(TestBinaryKernels, MatchStartsWithIgnoreCase) {
                                   CallFunction("starts_with", {input}, &options));
 }
 
-TYPED_TEST(TestBinaryKernels, MatchEndsWithIgnoreCase) {
+TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
   MatchSubstringOptions options{"a", /*ignore_case=*/true};
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
@@ -1081,7 +1071,7 @@ TYPED_TEST(TestBinaryKernels, MatchEndsWithIgnoreCase) {
 #endif
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryKernels, MatchSubstringRegex) {
+TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("match_substring_regex", "[]", boolean(), "[]", &options);
   this->CheckUnary("match_substring_regex", R"(["abc", "acb", "cab", null, "bac", "AB"])",
@@ -1124,7 +1114,7 @@ TYPED_TEST(TestBinaryKernels, MatchSubstringRegexInvalid) {
       CallFunction("match_substring_regex", {input}, &options));
 }
 
-TYPED_TEST(TestBinaryKernels, MatchLike) {
+TYPED_TEST(TestStringKernels, MatchLike) {
   auto inputs = R"(["foo", "bar", "foobar", "barfoo", "o", "\nfoo", "foo\n", null])";
 
   MatchSubstringOptions prefix_match{"foo%"};
@@ -1421,7 +1411,7 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringRegexInvalid) {
       CallFunction("replace_substring_regex", {input}, &options));
 }
 
-TYPED_TEST(TestBinaryKernels, ExtractRegex) {
+TYPED_TEST(TestStringKernels, ExtractRegex) {
   ExtractRegexOptions options{"(?P<letter>[ab])(?P<digit>\\d)"};
   auto type = struct_({field("letter", this->type()), field("digit", this->type())});
   this->CheckUnary("extract_regex", R"([])", type, R"([])", &options);
@@ -1441,7 +1431,7 @@ TYPED_TEST(TestBinaryKernels, ExtractRegex) {
                    &options);
 }
 
-TYPED_TEST(TestBinaryKernels, ExtractRegexNoCapture) {
+TYPED_TEST(TestStringKernels, ExtractRegexNoCapture) {
   // XXX Should we accept this or is it a user error?
   ExtractRegexOptions options{"foo"};
   auto type = struct_({});
@@ -1449,12 +1439,12 @@ TYPED_TEST(TestBinaryKernels, ExtractRegexNoCapture) {
                    R"([{}, null, null])", &options);
 }
 
-TYPED_TEST(TestBinaryKernels, ExtractRegexNoOptions) {
+TYPED_TEST(TestStringKernels, ExtractRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("extract_regex", {input}));
 }
 
-TYPED_TEST(TestBinaryKernels, ExtractRegexInvalid) {
+TYPED_TEST(TestStringKernels, ExtractRegexInvalid) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ExtractRegexOptions options{"invalid["};
   EXPECT_RAISES_WITH_MESSAGE_THAT(
