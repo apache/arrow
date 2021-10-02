@@ -22,11 +22,11 @@ package cdata
 
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
-//
+// #include <stdlib.h>
 // int stream_get_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) { return st->get_schema(st, out); }
 // int stream_get_next(struct ArrowArrayStream* st, struct ArrowArray* out) { return st->get_next(st, out); }
 // const char* stream_get_last_error(struct ArrowArrayStream* st) { return st->get_last_error(st); }
-// struct ArrowArray get_arr() { struct ArrowArray arr; return arr; }
+// struct ArrowArray* get_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
 // struct ArrowArrayStream get_stream() { struct ArrowArrayStream stream; return stream; }
 //
 import "C"
@@ -306,8 +306,7 @@ func (imp *cimporter) doImportChildren() error {
 }
 
 func (imp *cimporter) initarr() {
-	arr := C.get_arr()
-	imp.arr = &arr
+	imp.arr = C.get_arr()
 }
 
 // import is called recursively as needed for importing an array and its children
@@ -319,6 +318,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	// *array.Data object so we clean up our Array's memory when garbage collected.
 	C.ArrowArrayMove(src, imp.arr)
 	defer func(arr *CArrowArray) {
+		defer C.free(unsafe.Pointer(arr))
 		if imp.data != nil {
 			runtime.SetFinalizer(imp.data, func(*array.Data) {
 				C.ArrowArrayRelease(arr)
@@ -560,14 +560,15 @@ func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
 	}
 
 	arr := C.get_arr()
-	errno := C.stream_get_next(n.stream, &arr)
+	defer C.free(unsafe.Pointer(arr))
+	errno := C.stream_get_next(n.stream, arr)
 	if errno != 0 {
 		return nil, n.getError(int(errno))
 	}
 
-	if C.ArrowArrayIsReleased(&arr) == 1 {
+	if C.ArrowArrayIsReleased(arr) == 1 {
 		return nil, io.EOF
 	}
 
-	return ImportCRecordBatchWithSchema(&arr, n.schema)
+	return ImportCRecordBatchWithSchema(arr, n.schema)
 }
