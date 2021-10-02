@@ -134,11 +134,33 @@ TYPED_TEST(TestBinaryKernels, BinaryLength) {
 TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
   // Kernels found here do not accept invalid UTF-8 when processing
   // [Large]StringType data. These tests use binary non-encoded inputs.
-  std::vector<bool> valid_mask = { true, false };
-  ReplaceSliceOptions options_binary{1, 2, "\xfc\x40"};
-  this->CheckUnary("binary_replace_slice",
-                   this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}, valid_mask),
-                   this->MakeArray({"\xf7\xfc\x40\xab", "\xff\xfc\x40\xc3\xbb"}, valid_mask), &options_binary);
+  {
+    ReplaceSliceOptions options{1, 2, "\xfc\x40"};
+    this->CheckUnary("binary_replace_slice",
+                     this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}),
+                     this->MakeArray({"\xf7\xfc\x40\xab", "\xff\xfc\x40\xc3\xbb"}), &options);
+  }
+  {
+    MatchSubstringOptions options{"\xfc\x40"};
+    this->CheckUnary("find_substring",
+                     this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\xff"}),
+                     this->offset_type(), "[0, 2, -1]", &options);
+  }
+#ifdef ARROW_WITH_RE2
+  {
+    MatchSubstringOptions options{"\xfc\x40"};
+    this->CheckUnary("find_substring",
+                     this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\xff"}),
+                     this->offset_type(), "[0, 2, -1]", &options);
+  }
+#endif
+  {
+    MatchSubstringOptions options{"\xfc\x40", /*ignore_case=*/true};
+    auto input = Datum(this->MakeArray({"\xfc\x40\xab"}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                    ::testing::HasSubstr("ignore_case is not supported for non-encoded binary types"),
+                                    CallFunction("find_substring", {input}, &options));
+  }
 }
 
 TYPED_TEST(TestBinaryKernels, BinaryReplaceSlice) {
