@@ -37,7 +37,7 @@ local_prefix="/arrow/dev/tasks/linux-packages"
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
-distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
+distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
 distribution_prefix="centos"
 
 cmake_package=cmake
