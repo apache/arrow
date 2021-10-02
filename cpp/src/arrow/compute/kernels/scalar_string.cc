@@ -1035,6 +1035,9 @@ struct MatchSubstring<Type, PlainSubstringMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
+      if (!Type::is_utf8) {
+        return Status::NotImplemented("ignore_case is not supported for non-encoded binary types");
+      }
 #ifdef ARROW_WITH_RE2
       ARROW_ASSIGN_OR_RAISE(auto matcher,
                             RegexSubstringMatcher::Make(options, /*literal=*/true));
@@ -1055,6 +1058,9 @@ struct MatchSubstring<Type, PlainStartsWithMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
+      if (!Type::is_utf8) {
+        return Status::NotImplemented("ignore_case is not supported for non-encoded binary types");
+      }
 #ifdef ARROW_WITH_RE2
       MatchSubstringOptions converted_options = options;
       converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
@@ -1076,6 +1082,9 @@ struct MatchSubstring<Type, PlainEndsWithMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
+      if (!Type::is_utf8) {
+        return Status::NotImplemented("ignore_case is not supported for non-encoded binary types");
+      }
 #ifdef ARROW_WITH_RE2
       MatchSubstringOptions converted_options = options;
       converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
@@ -1209,6 +1218,9 @@ struct MatchLike {
       ctx->SetState(&converted_state);
       status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
     } else {
+      if (original_options.ignore_case && !StringType::is_utf8) {
+        return Status::NotImplemented("ignore_case is not supported for non-encoded binary types");
+      }
       MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
                                               original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
@@ -1330,6 +1342,9 @@ struct FindSubstringExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
+      if (!InputType::is_utf8) {
+        return Status::NotImplemented("ignore_case is not supported for non-encoded binary types");
+      }
 #ifdef ARROW_WITH_RE2
       applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
           kernel{FindSubstringRegex(options, /*literal=*/true)};
@@ -1484,6 +1499,9 @@ struct CountSubstringExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
+      if (!InputType::is_utf8) {
+        return Status::NotImplemented("ignore_case is not supported for non-encoded binary types");
+      }
 #ifdef ARROW_WITH_RE2
       ARROW_ASSIGN_OR_RAISE(auto counter,
                             CountSubstringRegex::Make(options, /*literal=*/true));
