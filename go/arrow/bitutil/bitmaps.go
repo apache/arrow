@@ -38,7 +38,7 @@ func init() {
 	} else {
 		// identity function if we're on a little endian architecture
 		toFromLEFunc = func(in uint64) uint64 { return in }
-		byteZero = 1
+		byteZero = 0
 	}
 }
 
@@ -221,7 +221,7 @@ func NewBitmapWordReader(bitmap []byte, offset, length int) *BitmapWordReader {
 	if bm.nwords > 0 {
 		bm.curword = toFromLEFunc(endian.Native.Uint64(bm.bitmap))
 	} else {
-		bm.curword = toFromLEFunc(uint64(bm.bitmap[0]))
+		(*[8]byte)(unsafe.Pointer(&bm.curword))[byteZero] = bm.bitmap[0]
 	}
 	return bm
 }
@@ -321,7 +321,7 @@ func NewBitmapWordWriter(bitmap []byte, start, len int) *BitmapWordWriter {
 		if ret.len >= int(unsafe.Sizeof(uint64(0))*8) {
 			ret.currentWord = toFromLEFunc(endian.Native.Uint64(ret.bitmap))
 		} else if ret.len > 0 {
-			ret.currentWord = toFromLEFunc(uint64(ret.bitmap[0]))
+			(*[8]byte)(unsafe.Pointer(&ret.currentWord))[byteZero] = ret.bitmap[0]
 		}
 	}
 	return ret
