@@ -175,6 +175,8 @@ using TemporalArrowTypes =
 
 using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
 
+using BinaryBaseArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
+
 using BinaryArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
 
