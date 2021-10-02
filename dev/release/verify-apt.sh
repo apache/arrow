@@ -34,6 +34,9 @@ TYPE="$2"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
+
+echo "::group::Prepare repository"
+
 export DEBIAN_FRONTEND=noninteractive
 
 apt update
@@ -113,7 +116,11 @@ fi
 
 apt update
 
-apt install -y -V libarrow-glib-dev=${package_version}
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow C++"
+apt install -y -V libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
 required_packages+=(g++)
@@ -127,25 +134,44 @@ cmake .
 make -j$(nproc)
 ./arrow_example
 popd
+echo "::endgroup::"
 
+
+echo "::group::Test Apache Arrow GLib"
 apt install -y -V libarrow-glib-dev=${package_version}
 apt install -y -V libarrow-glib-doc=${package_version}
+echo "::endgroup::"
+
 
 if [ "${have_flight}" = "yes" ]; then
+  echo "::group::Test Apache Arrow Flight"
   apt install -y -V libarrow-flight-glib-dev=${package_version}
   apt install -y -V libarrow-flight-glib-doc=${package_version}
+  echo "::endgroup::"
 fi
 
+
+echo "::group::Test libarrow-python"
 apt install -y -V libarrow-python-dev=${package_version}
+echo "::endgroup::"
+
 
 if [ "${have_plasma}" = "yes" ]; then
+  echo "::group::Test Plasma"
   apt install -y -V libplasma-glib-dev=${package_version}
   apt install -y -V libplasma-glib-doc=${package_version}
   apt install -y -V plasma-store-server=${package_version}
+  echo "::endgroup::"
 fi
 
+
+echo "::group::Test Gandiva"
 apt install -y -V libgandiva-glib-dev=${package_version}
 apt install -y -V libgandiva-glib-doc=${package_version}
+echo "::endgroup::"
 
+
+echo "::group::Test Parquet"
 apt install -y -V libparquet-glib-dev=${package_version}
 apt install -y -V libparquet-glib-doc=${package_version}
+echo "::endgroup::"
