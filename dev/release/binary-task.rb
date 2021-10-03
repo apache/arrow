@@ -1723,13 +1723,13 @@ Success! The release candidate binaries are available here:
       task :release do
         puts(<<-SUMMARY)
 Success! The release binaries are available here:
-  https://apache.jfrog.io/arrow/almalinux/
-  https://apache.jfrog.io/arrow/amazon-linux/
-  https://apache.jfrog.io/arrow/centos/
-  https://apache.jfrog.io/arrow/debian/
-  https://apache.jfrog.io/arrow/nuget/#{version}
-  https://apache.jfrog.io/arrow/python/#{version}
-  https://apache.jfrog.io/arrow/ubuntu/
+  https://apache.jfrog.io/artifactory/arrow/almalinux/
+  https://apache.jfrog.io/artifactory/arrow/amazon-linux/
+  https://apache.jfrog.io/artifactory/arrow/centos/
+  https://apache.jfrog.io/artifactory/arrow/debian/
+  https://apache.jfrog.io/artifactory/arrow/nuget/#{version}
+  https://apache.jfrog.io/artifactory/arrow/python/#{version}
+  https://apache.jfrog.io/artifactory/arrow/ubuntu/
         SUMMARY
       end
     end
