@@ -128,6 +128,7 @@ required_packages+=(cmake)
 required_packages+=(g++)
 required_packages+=(git)
 required_packages+=(make)
+required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
 ${APT_INSTALL} ${required_packages[@]}
 mkdir -p build
