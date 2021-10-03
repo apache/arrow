@@ -262,6 +262,8 @@ class PackageTask
       # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
+      "debian-bookworm",
+      # "debian-bookworm-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",

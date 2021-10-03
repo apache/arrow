@@ -439,6 +439,7 @@ tasks:
 
 {% for target in ["debian-buster",
                   "debian-bullseye",
+                  "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
                   "ubuntu-hirsute"] %}

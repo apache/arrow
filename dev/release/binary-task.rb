@@ -865,6 +865,7 @@ class BinaryTask
     [
       ["debian", "buster", "main"],
       ["debian", "bullseye", "main"],
+      ["debian", "bookworm", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "groovy", "main"],
