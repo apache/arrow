@@ -19,6 +19,7 @@
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_node_runner_impl.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
@@ -26,7 +27,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "exec_node_runner_impl.h"
 namespace arrow {
 
 using internal::checked_cast;

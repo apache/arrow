@@ -233,9 +233,6 @@ class ARROW_EXPORT ExecNode {
   /// Provide extra info to include in the string representation.
   virtual std::string ToStringExtra() const;
 
-  /// \brief Is an executor available?
-  bool has_executor() const { return plan_->exec_context()->executor() != nullptr; }
-
   ExecPlan* plan_;
   std::string label_;
 
