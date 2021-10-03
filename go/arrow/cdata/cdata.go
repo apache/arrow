@@ -318,7 +318,6 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	// *array.Data object so we clean up our Array's memory when garbage collected.
 	C.ArrowArrayMove(src, imp.arr)
 	defer func(arr *CArrowArray) {
-		defer C.free(unsafe.Pointer(arr))
 		if imp.data != nil {
 			runtime.SetFinalizer(imp.data, func(*array.Data) {
 				defer C.free(unsafe.Pointer(arr))
