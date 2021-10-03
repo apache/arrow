@@ -1508,6 +1508,30 @@ cdef class DurationArray(NumericArray):
     Concrete class for Arrow arrays of duration data type.
     """
 
+cdef class MonthDayNanoIntervalArray(Array):
+    """
+    Concrete class for Arrow arrays of interval[MonthDayNano] type.
+    """
+
+    def to_pylist(self):
+        """
+        Convert to a list of native Python objects.
+
+        is installed the objects will be
+        pd.tseries.offsets.DateOffset objects.  Otherwise they are
+        pyarrow.MonthDayNanoTuple objects.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CResult[PyObject*] maybe_py_list
+            PyObject* py_list
+        maybe_py_list = ARROW_TO_PYTHON.ToPyList(deref(self.sp_array))
+        py_list = GetResultValue(maybe_py_list)
+        return PyObject_to_object(py_list)
+
 cdef class HalfFloatArray(FloatingPointArray):
     """
     Concrete class for Arrow arrays of float16 data type.
@@ -2389,6 +2413,7 @@ cdef dict _array_classes = {
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
     _Type_DURATION: DurationArray,
+    _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalArray,
     _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,

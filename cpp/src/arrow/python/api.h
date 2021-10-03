@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/python/arrow_to_pandas.h"
+#include "arrow/python/arrow_to_python.h"
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/deserialize.h"

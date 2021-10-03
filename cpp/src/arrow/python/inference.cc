@@ -39,6 +39,43 @@
 
 namespace arrow {
 namespace py {
+namespace {
+// Assigns a tuple to interval_types_tuple containing the nametuple for
+// MonthDayNanoIntervalType and if present dateutil's relativedelta and
+// pandas DateOffset.
+Status ImportPresentIntervalTypes(OwnedRefNoGIL* interval_types_tuple) {
+  OwnedRef relative_delta_module;
+  // These are Optional imports so swallow errors.
+  OwnedRef relative_delta_type;
+  // Try to import pandas to get types.
+  internal::InitPandasStaticData();
+  if (internal::ImportModule("dateutil.relativedelta", &relative_delta_module).ok()) {
+    RETURN_NOT_OK(internal::ImportFromModule(relative_delta_module.obj(), "relativedelta",
+                                             &relative_delta_type));
+  }
+
+  PyObject* date_offset_type = internal::BorrowPandasDataOffsetType();
+  interval_types_tuple->reset(
+      PyTuple_New(1 + (date_offset_type != nullptr ? 1 : 0) +
+                  (relative_delta_type.obj() != nullptr ? 1 : 0)));
+  RETURN_IF_PYERROR();
+  int index = 0;
+  PyTuple_SetItem(interval_types_tuple->obj(), index++,
+                  internal::NewMonthDayNanoTupleType());
+  RETURN_IF_PYERROR();
+  if (date_offset_type != nullptr) {
+    Py_XINCREF(date_offset_type);
+    PyTuple_SetItem(interval_types_tuple->obj(), index++, date_offset_type);
+    RETURN_IF_PYERROR();
+  }
+  if (relative_delta_type.obj() != nullptr) {
+    PyTuple_SetItem(interval_types_tuple->obj(), index++, relative_delta_type.detach());
+    RETURN_IF_PYERROR();
+  }
+  return Status::OK();
+}
+
+}  // namespace
 
 #define _NUMPY_UNIFY_NOOP(DTYPE) \
   case NPY_##DTYPE:              \
@@ -304,10 +341,12 @@ class TypeInferrer {
         list_count_(0),
         struct_count_(0),
         numpy_dtype_count_(0),
+        interval_count_(0),
         max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
                               std::numeric_limits<int32_t>::min()),
         decimal_type_() {
     ARROW_CHECK_OK(internal::ImportDecimalType(&decimal_type_));
+    ARROW_CHECK_OK(ImportPresentIntervalTypes(&interval_types_));
   }
 
   /// \param[in] obj a Python object in the sequence
@@ -365,6 +404,8 @@ class TypeInferrer {
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
+    } else if (PyObject_IsInstance(obj, interval_types_.obj())) {
+      ++interval_count_;
     } else {
       return internal::InvalidValue(obj,
                                     "did not recognize Python value type when inferring "
@@ -489,6 +530,8 @@ class TypeInferrer {
       *out = binary();
     } else if (unicode_count_) {
       *out = utf8();
+    } else if (interval_count_) {
+      *out = month_day_nano_interval();
     } else {
       *out = null();
     }
@@ -631,6 +674,7 @@ class TypeInferrer {
   int64_t list_count_;
   int64_t struct_count_;
   int64_t numpy_dtype_count_;
+  int64_t interval_count_;
   std::unique_ptr<TypeInferrer> list_inferrer_;
   std::map<std::string, TypeInferrer> struct_inferrers_;
 
@@ -640,9 +684,8 @@ class TypeInferrer {
 
   internal::DecimalMetadata max_decimal_metadata_;
 
-  // Place to accumulate errors
-  // std::vector<Status> errors_;
   OwnedRefNoGIL decimal_type_;
+  OwnedRefNoGIL interval_types_;
 };
 
 // Non-exhaustive type inference

@@ -37,6 +37,10 @@ arrow_init_numpy()
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
 
+cdef libarrow.ArrowToPython ARROW_TO_PYTHON
+
+MonthDayNanoTuple = NewMonthDayNanoTupleType()
+
 
 def cpu_count():
     """

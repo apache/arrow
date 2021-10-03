@@ -107,6 +107,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME32" arrow::Type::TIME32"
         _Type_TIME64" arrow::Type::TIME64"
         _Type_DURATION" arrow::Type::DURATION"
+        _Type_INTERVAL_MONTH_DAY_NANO" arrow::Type::INTERVAL_MONTH_DAY_NANO"
 
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
@@ -2212,6 +2213,14 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
     CResult[shared_ptr[CDataType]] InferArrowType(
         object obj, object mask, c_bool pandas_null_sentinels)
+
+    cdef cppclass ArrowToPython:
+        CResult[PyObject*] ToPyList(const CArray& array)
+        CResult[PyObject*] ToPrimitive(const CScalar& scalar)
+        CResult[PyObject*] ToLogical(const CScalar& scalar)
+
+cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
+    cdef object NewMonthDayNanoTupleType()
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

@@ -42,6 +42,10 @@ extern PyDateTime_CAPI* datetime_api;
 ARROW_PYTHON_EXPORT
 void InitDatetime();
 
+// Returns the MonthDayNano namedtuple type (increments the reference count).
+ARROW_PYTHON_EXPORT
+PyObject* NewMonthDayNanoTupleType();
+
 ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_us(PyObject* pytime) {
   return (PyDateTime_TIME_GET_HOUR(pytime) * 3600000000LL +
@@ -177,6 +181,17 @@ Result<PyObject*> StringToTzinfo(const std::string& tz);
 /// GIL must be held when calling this method.
 ARROW_PYTHON_EXPORT
 Result<std::string> TzinfoToString(PyObject* pytzinfo);
+
+/// Converts MonthDayNano to a python dictionary.
+///
+/// Returns a named tuple (pyarrow.MonthDayNanoTuple) containin attributes
+/// "months", "days", "nanoseconds" in the given order
+/// with values extracted from the fields on interval.
+///
+/// GIL must be held when calling this method.
+ARROW_PYTHON_EXPORT
+Result<PyObject*> MonthDayNanoIntervalToNamedTuple(
+    const MonthDayNanoIntervalType::MonthDayNanos& interval);
 
 }  // namespace internal
 }  // namespace py

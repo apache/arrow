@@ -514,6 +514,32 @@ cdef class DurationScalar(Scalar):
             return datetime.timedelta(microseconds=sp.value // 1000)
 
 
+cdef class MonthDayNanoIntervalScalar(Scalar):
+    """
+    Concrete class for month, day, nanosecond scalars.
+    """
+
+    @property
+    def value(self):
+        """
+        Returns this value pyarrow.MonthDayNanoTuple.
+        """
+        cdef PyObject* val
+        val = GetResultValue(ARROW_TO_PYTHON.ToPrimitive(
+            (deref(self.wrapped.get()))))
+        return PyObject_to_object(val)
+
+    def as_py(self):
+        """
+        Return this value as a Pandas DateOffset instance if Pandas is present
+        otherwise as a named tuple containing months days and nanoseconds.
+        """
+        cdef PyObject* val
+        val = GetResultValue(ARROW_TO_PYTHON.ToLogical(
+            (deref(self.wrapped.get()))))
+        return PyObject_to_object(val)
+
+
 cdef class BinaryScalar(Scalar):
     """
     Concrete class for binary-like scalars.
@@ -940,6 +966,7 @@ cdef dict _scalar_classes = {
     _Type_DICTIONARY: DictionaryScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
+    _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,
     _Type_EXTENSION: ExtensionScalar,
 }
 

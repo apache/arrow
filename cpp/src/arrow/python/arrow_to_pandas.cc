@@ -48,6 +48,7 @@
 
 #include "arrow/compute/api.h"
 
+#include "arrow/python/arrow_to_python.h"
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
@@ -574,79 +575,6 @@ inline void ConvertIntegerNoNullsCast(const PandasOptions& options,
   }
 }
 
-// Generic Array -> PyObject** converter that handles object deduplication, if
-// requested
-template <typename ArrayType, typename WriteValue>
-inline Status WriteArrayObjects(const ArrayType& arr, WriteValue&& write_func,
-                                PyObject** out_values) {
-  const bool has_nulls = arr.null_count() > 0;
-  for (int64_t i = 0; i < arr.length(); ++i) {
-    if (has_nulls && arr.IsNull(i)) {
-      Py_INCREF(Py_None);
-      *out_values = Py_None;
-    } else {
-      RETURN_NOT_OK(write_func(arr.GetView(i), out_values));
-    }
-    ++out_values;
-  }
-  return Status::OK();
-}
-
-template <typename T, typename Enable = void>
-struct MemoizationTraits {
-  using Scalar = typename T::c_type;
-};
-
-template <typename T>
-struct MemoizationTraits<T, enable_if_has_string_view<T>> {
-  // For binary, we memoize string_view as a scalar value to avoid having to
-  // unnecessarily copy the memory into the memo table data structure
-  using Scalar = util::string_view;
-};
-
-template <typename Type, typename WrapFunction>
-inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArray& data,
-                                 WrapFunction&& wrap_func, PyObject** out_values) {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using Scalar = typename MemoizationTraits<Type>::Scalar;
-
-  // TODO(fsaintjacques): propagate memory pool.
-  ::arrow::internal::ScalarMemoTable<Scalar> memo_table(default_memory_pool());
-  std::vector<PyObject*> unique_values;
-  int32_t memo_size = 0;
-
-  auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
-    int32_t memo_index;
-    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
-    if (memo_index == memo_size) {
-      // New entry
-      RETURN_NOT_OK(wrap_func(value, out_values));
-      unique_values.push_back(*out_values);
-      ++memo_size;
-    } else {
-      // Duplicate entry
-      Py_INCREF(unique_values[memo_index]);
-      *out_values = unique_values[memo_index];
-    }
-    return Status::OK();
-  };
-
-  auto WrapUnmemoized = [&](const Scalar& value, PyObject** out_values) {
-    return wrap_func(value, out_values);
-  };
-
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = checked_cast<const ArrayType&>(*data.chunk(c));
-    if (options.deduplicate_objects) {
-      RETURN_NOT_OK(WriteArrayObjects(arr, WrapMemoized, out_values));
-    } else {
-      RETURN_NOT_OK(WriteArrayObjects(arr, WrapUnmemoized, out_values));
-    }
-    out_values += arr.length();
-  }
-  return Status::OK();
-}
-
 Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
                      PyObject** out_values) {
   if (data.num_chunks() == 0) {
@@ -970,6 +898,17 @@ class TypedPandasWriter : public PandasWriter {
   Status Allocate() override { return AllocateNDArray(NPY_TYPE); }
 };
 
+template <typename Type, typename WrapFunction>
+inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArray& data,
+                                 WrapFunction&& wrap_func, PyObject** out_values) {
+  ArrowToPythonObjectOptions to_object_options;
+  to_object_options.pool = options.pool;
+  to_object_options.deduplicate_objects = options.deduplicate_objects;
+
+  return internal::ConvertAsPyObjects<Type>(to_object_options, data, wrap_func,
+                                            out_values);
+}
+
 struct ObjectWriterVisitor {
   const PandasOptions& options;
   const ChunkedArray& data;
@@ -1097,6 +1036,16 @@ struct ObjectWriterVisitor {
     return Status::OK();
   }
 
+  template <typename Type>
+  enable_if_t<std::is_same<Type, MonthDayNanoIntervalType>::value, Status> Visit(
+      const Type& type) {
+    ArrowToPython arrow_to_python;
+    ArrowToPythonObjectOptions to_py_options;
+    to_py_options.pool = options.pool;
+    to_py_options.deduplicate_objects = options.deduplicate_objects;
+    return arrow_to_python.ToNumpyObjectArray(to_py_options, data, out_values);
+  }
+
   Status Visit(const Decimal128Type& type) {
     OwnedRef decimal;
     OwnedRef Decimal;
@@ -1171,7 +1120,8 @@ struct ObjectWriterVisitor {
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
-                  std::is_base_of<IntervalType, Type>::value ||
+                  (std::is_base_of<IntervalType, Type>::value &&
+                   !std::is_same<MonthDayNanoIntervalType, Type>::value) ||
                   std::is_base_of<UnionType, Type>::value,
               Status>
   Visit(const Type& type) {
@@ -1869,13 +1819,14 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::LARGE_STRING:  // fall through
     case Type::BINARY:        // fall through
     case Type::LARGE_BINARY:
-    case Type::NA:                 // fall through
-    case Type::FIXED_SIZE_BINARY:  // fall through
-    case Type::STRUCT:             // fall through
-    case Type::TIME32:             // fall through
-    case Type::TIME64:             // fall through
-    case Type::DECIMAL128:         // fall through
-    case Type::DECIMAL256:         // fall through
+    case Type::NA:                       // fall through
+    case Type::FIXED_SIZE_BINARY:        // fall through
+    case Type::STRUCT:                   // fall through
+    case Type::TIME32:                   // fall through
+    case Type::TIME64:                   // fall through
+    case Type::DECIMAL128:               // fall through
+    case Type::DECIMAL256:               // fall through
+    case Type::INTERVAL_MONTH_DAY_NANO:  // fall through
       *output_type = PandasWriter::OBJECT;
       break;
     case Type::DATE32:  // fall through

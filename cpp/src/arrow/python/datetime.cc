@@ -71,6 +71,19 @@ bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
   return iter == (tz.data() + tz.size());
 }
 
+static PyTypeObject MonthDayNanoTupleType = {0, 0};
+
+static PyStructSequence_Field MonthDayNanoField[] = {
+    {"months", "The number of months in the interval"},
+    {"days", "The number days in the interval"},
+    {"nanoseconds", "The number of nanoseconds in the interval"},
+    {nullptr, nullptr}};
+
+static PyStructSequence_Desc MonthDayNanoTupleDesc = {
+    "MonthDayNanoTuple", "A interval consistent of months, days and nanoseconds.",
+    MonthDayNanoField,
+    /*n_in_sequence=*/3};
+
 }  // namespace
 
 PyDateTime_CAPI* datetime_api = nullptr;
@@ -270,6 +283,18 @@ static inline Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_
   return Status::OK();
 }
 
+PyObject* NewMonthDayNanoTupleType() {
+  if (MonthDayNanoTupleType.tp_name == nullptr) {
+    if (PyStructSequence_InitType2(&MonthDayNanoTupleType, &MonthDayNanoTupleDesc) != 0) {
+      Py_FatalError("Could not initialize MonthDayNanoTuple");
+    }
+  }
+  Py_INCREF(&MonthDayNanoTupleType);
+  return (PyObject*)&MonthDayNanoTupleType;
+}
+
+PyTypeObject* BorrowMonthDayNanoTupleType() { return &MonthDayNanoTupleType; }
+
 Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
   int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
@@ -448,6 +473,19 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
 
   // fall back to HH:MM offset string representation based on tzinfo.utcoffset(None)
   return PyTZInfo_utcoffset_hhmm(tzinfo);
+}
+
+Result<PyObject*> MonthDayNanoIntervalToNamedTuple(
+    const MonthDayNanoIntervalType::MonthDayNanos& interval) {
+  OwnedRef tuple(PyStructSequence_New(&MonthDayNanoTupleType));
+  if (ARROW_PREDICT_FALSE(tuple.obj() == nullptr)) {
+    return nullptr;
+  }
+  PyStructSequence_SetItem(tuple.obj(), /*pos=*/0, PyLong_FromLong(interval.months));
+  PyStructSequence_SetItem(tuple.obj(), /*pos=*/1, PyLong_FromLong(interval.days));
+  PyStructSequence_SetItem(tuple.obj(), /*pos=*/2,
+                           PyLong_FromLongLong(interval.nanoseconds));
+  return tuple.detach();
 }
 
 }  // namespace internal
