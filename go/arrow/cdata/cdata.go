@@ -22,12 +22,12 @@ package cdata
 
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
-//
+// #include <stdlib.h>
 // int stream_get_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) { return st->get_schema(st, out); }
 // int stream_get_next(struct ArrowArrayStream* st, struct ArrowArray* out) { return st->get_next(st, out); }
 // const char* stream_get_last_error(struct ArrowArrayStream* st) { return st->get_last_error(st); }
-// struct ArrowArray get_arr() { struct ArrowArray arr; return arr; }
-// struct ArrowArrayStream get_stream() { struct ArrowArrayStream stream; return stream; }
+// struct ArrowArray* get_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
+// struct ArrowArrayStream* get_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
 //
 import "C"
 
@@ -306,8 +306,7 @@ func (imp *cimporter) doImportChildren() error {
 }
 
 func (imp *cimporter) initarr() {
-	arr := C.get_arr()
-	imp.arr = &arr
+	imp.arr = C.get_arr()
 }
 
 // import is called recursively as needed for importing an array and its children
@@ -321,11 +320,14 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	defer func(arr *CArrowArray) {
 		if imp.data != nil {
 			runtime.SetFinalizer(imp.data, func(*array.Data) {
+				defer C.free(unsafe.Pointer(arr))
 				C.ArrowArrayRelease(arr)
 				if C.ArrowArrayIsReleased(arr) != 1 {
 					panic("did not release C mem")
 				}
 			})
+		} else {
+			C.free(unsafe.Pointer(arr))
 		}
 	}(imp.arr)
 
@@ -527,10 +529,12 @@ func importCArrayAsType(arr *CArrowArray, dt arrow.DataType) (imp *cimporter, er
 }
 
 func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
-	st := C.get_stream()
-	rdr.stream = &st
+	rdr.stream = C.get_stream()
 	C.ArrowArrayStreamMove(stream, rdr.stream)
-	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) { C.ArrowArrayStreamRelease(r.stream) })
+	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) {
+		C.ArrowArrayStreamRelease(r.stream)
+		C.free(unsafe.Pointer(r.stream))
+	})
 }
 
 // Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
@@ -560,14 +564,15 @@ func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
 	}
 
 	arr := C.get_arr()
-	errno := C.stream_get_next(n.stream, &arr)
+	defer C.free(unsafe.Pointer(arr))
+	errno := C.stream_get_next(n.stream, arr)
 	if errno != 0 {
 		return nil, n.getError(int(errno))
 	}
 
-	if C.ArrowArrayIsReleased(&arr) == 1 {
+	if C.ArrowArrayIsReleased(arr) == 1 {
 		return nil, io.EOF
 	}
 
-	return ImportCRecordBatchWithSchema(&arr, n.schema)
+	return ImportCRecordBatchWithSchema(arr, n.schema)
 }
