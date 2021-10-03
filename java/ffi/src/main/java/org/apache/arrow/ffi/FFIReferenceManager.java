@@ -63,7 +63,7 @@ final class FFIReferenceManager implements ReferenceManager {
     // decrement the ref count
     final int refCnt = bufRefCnt.addAndGet(-decrement);
     // the new ref count should be >= 0
-    Preconditions.checkState(refCnt >= 0, "RefCnt has gone negative");
+    Preconditions.checkState(refCnt >= 0, "ref count has gone negative");
     if (refCnt == 0) {
       // refcount of this reference manager has dropped to 0
       // release the underlying memory
@@ -82,7 +82,7 @@ final class FFIReferenceManager implements ReferenceManager {
   public void retain(int increment) {
     Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
     final int originalReferenceCount = bufRefCnt.getAndAdd(increment);
-    Preconditions.checkArgument(originalReferenceCount > 0);
+    Preconditions.checkState(originalReferenceCount > 0, "retain called but memory was already released");
   }
 
   @Override
