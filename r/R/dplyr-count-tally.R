@@ -38,8 +38,8 @@ count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL
 count.Dataset <- count.ArrowTabular <- count.arrow_dplyr_query
 
 tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
-  n <- dplyr:::tally_n(x, {{ wt }})
-  name <- dplyr:::check_name(name, group_vars(x))
+  n <- tally_n(x, {{ wt }})
+  name <- check_name(name, group_vars(x))
 
   out <- local({
     old.options <- options(dplyr.summarise.inform = FALSE)
@@ -55,3 +55,16 @@ tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
 }
 
 tally.Dataset <- tally.ArrowTabular <- tally.arrow_dplyr_query
+
+tally_n <- function(x, wt){
+  wt <- enquo(wt)
+
+  if (quo_is_null(wt)) {
+    expr(n())
+  }
+  else{
+    expr(sum(!!wt, na.rm = TRUE))
+  }
+}
+
+check_name <- utils::getFromNamespace("check_name", "dplyr")
