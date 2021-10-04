@@ -25,7 +25,6 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/util_internal.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
