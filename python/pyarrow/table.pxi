@@ -1006,8 +1006,8 @@ cdef class RecordBatch(_PandasConvertible):
 
         Parameters
         ----------
-        df: pandas.DataFrame
-        schema: pyarrow.Schema, optional
+        df : pandas.DataFrame
+        schema : pyarrow.Schema, optional
             The expected schema of the RecordBatch. This can be used to
             indicate the type of columns if we cannot infer it automatically.
             If passed, the output will have exactly this schema. Columns
@@ -1043,7 +1043,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         Parameters
         ----------
-        arrays: list of pyarrow.Array
+        arrays : list of pyarrow.Array
             One for each field in RecordBatch
         names : list of str, optional
             Names for the batch fields. If not passed, schema must be passed
@@ -2283,7 +2283,7 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     ----------
     tables : iterable of pyarrow.Table objects
         Pyarrow tables to concatenate into a single Table.
-    promote: bool, default False
+    promote : bool, default False
         If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.

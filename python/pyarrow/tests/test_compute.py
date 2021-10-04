@@ -652,10 +652,13 @@ def test_generated_docstrings():
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         options : pyarrow.compute.ScalarAggregateOptions, optional
-            Parameters altering compute function semantics
-        **kwargs : optional
-            Parameters for ScalarAggregateOptions constructor. Either `options`
-            or `**kwargs` can be passed, but not both at the same time.
+            Parameters altering compute function semantics.
+        skip_nulls : optional
+            Parameter for ScalarAggregateOptions constructor. Either `options`
+            or `skip_nulls` can be passed, but not both at the same time.
+        min_count : optional
+            Parameter for ScalarAggregateOptions constructor. Either `options`
+            or `min_count` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
         Add the arguments element-wise.
