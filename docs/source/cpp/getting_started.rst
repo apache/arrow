@@ -31,6 +31,7 @@ User Guide
    datatypes
    tables
    compute
+   streaming_execution
    io
    ipc
    parquet
