@@ -159,12 +159,6 @@ RecordBatch$create <- function(..., schema = NULL) {
   }
   stopifnot(length(arrays) > 0)
 
-  # Preserve any grouping
-  if (length(arrays) == 1 && inherits(arrays[[1]], "grouped_df")) {
-    out <- RecordBatch__from_arrays(schema, arrays)
-    return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
-  }
-
   # If any arrays are length 1, recycle them
   arrays <- recycle_scalars(arrays)
 

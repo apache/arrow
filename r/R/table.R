@@ -174,13 +174,7 @@ Table$create <- function(..., schema = NULL) {
   # If any arrays are length 1, recycle them
   dots <- recycle_scalars(dots)
 
-  out <- Table__from_dots(dots, schema, option_use_threads())
-
-  # Preserve any grouping
-  if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
-    out <- dplyr::group_by(out, !!!dplyr::groups(dots[[1]]))
-  }
-  out
+  Table__from_dots(dots, schema, option_use_threads())
 }
 
 #' @export
