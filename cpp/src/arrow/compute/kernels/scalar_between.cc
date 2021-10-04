@@ -71,9 +71,9 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name) {
 
   AddGenericBetween<FloatType, Op>(float32(), func.get());
   AddGenericBetween<DoubleType, Op>(float64(), func.get());
-
+  
   // Add timestamp kernels
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(
@@ -82,7 +82,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name) {
   }
 
   // Duration
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(

@@ -400,6 +400,7 @@ if(ARROW_COMPUTE)
        compute/kernels/codegen_internal.cc
        compute/kernels/hash_aggregate.cc
        compute/kernels/scalar_arithmetic.cc
+       compute/kernels/scalar_between.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_cast_boolean.cc
        compute/kernels/scalar_cast_dictionary.cc

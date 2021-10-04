@@ -1204,7 +1204,7 @@ struct ScalarTernaryNotNullStateful {
     if (batch[0].kind() == Datum::ARRAY) {
       if (batch[1].kind() == Datum::ARRAY) {
         if (batch[2].kind() == Datum::ARRAY) {
-          ctx->SetStatus(Status::NotImplemented("NYI"));
+          //ctx->SetStatus(Status::NotImplemented("NYI"));
           return;
         } else {
           return ArrayArrayScalar(ctx, *batch[0].array(), *batch[1].array(),
@@ -1241,7 +1241,7 @@ struct ScalarTernaryNotNullStateful {
   }
 };
 
-// An alternative to ScalarBinary that Applies a scalar operation on only
+// An alternative to Scalarternary that Applies a scalar operation on only
 // the value pairs which are not-null in both arrays.
 // The operator is not stateful; if the operator requires some initialization
 // use ScalarTernaryNotNullStateful.
@@ -1259,6 +1259,21 @@ struct ScalarTernaryNotNull {
     return kernel.Exec(ctx, batch, out);
   }
 };
+
+// A kernel exec generator for ternary kernels where all three input types are the
+// same
+template <typename OutType, typename ArgType, typename Op>
+using ScalarTernaryEqualTypes = ScalarTernary<OutType, ArgType, ArgType, ArgType, Op>;
+
+// A kernel exec generator for non-null ternary kernels where both input types are the
+// same
+template <typename OutType, typename ArgType, typename Op>
+using ScalarTernaryNotNullEqualTypes = ScalarTernaryNotNull<OutType, ArgType, ArgType, ArgType, Op>;
+
+template <typename OutType, typename ArgType, typename Op>
+using ScalarTernaryNotNullStatefulEqualTypes =
+    ScalarTernaryNotNullStateful<OutType, ArgType, ArgType, ArgType, Op>;
+
 
 }  // namespace applicator
 
