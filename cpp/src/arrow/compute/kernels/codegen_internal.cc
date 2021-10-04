@@ -66,29 +66,45 @@ Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& desc
   return result;
 }
 
+Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs) {
+  ValueDescr result = descrs.back();
+  result.shape = GetBroadcastShape(descrs);
+  return result;
+}
+
 Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
   const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
   return ValueDescr(list_type.value_type(), GetBroadcastShape(args));
 }
 
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
-  for (ValueDescr& descr : *descrs) {
-    if (descr.type->id() == Type::DICTIONARY) {
-      descr.type = checked_cast<const DictionaryType&>(*descr.type).value_type();
+  EnsureDictionaryDecoded(descrs->data(), descrs->size());
+}
+
+void EnsureDictionaryDecoded(ValueDescr* begin, size_t count) {
+  auto* end = begin + count;
+  for (auto it = begin; it != end; it++) {
+    if (it->type->id() == Type::DICTIONARY) {
+      it->type = checked_cast<const DictionaryType&>(*it->type).value_type();
     }
   }
 }
 
 void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs) {
-  DCHECK_EQ(descrs->size(), 2);
+  ReplaceNullWithOtherType(descrs->data(), descrs->size());
+}
 
-  if (descrs->at(0).type->id() == Type::NA) {
-    descrs->at(0).type = descrs->at(1).type;
+void ReplaceNullWithOtherType(ValueDescr* first, size_t count) {
+  DCHECK_EQ(count, 2);
+
+  ValueDescr* second = first++;
+  if (first->type->id() == Type::NA) {
+    first->type = second->type;
     return;
   }
 
-  if (descrs->at(1).type->id() == Type::NA) {
-    descrs->at(1).type = descrs->at(0).type;
+  if (second->type->id() == Type::NA) {
+    second->type = first->type;
     return;
   }
 }
@@ -164,14 +180,15 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   return int8();
 }
 
-std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs) {
+std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) {
   TimeUnit::type finest_unit = TimeUnit::SECOND;
   const std::string* timezone = nullptr;
   bool saw_date32 = false;
   bool saw_date64 = false;
 
-  for (const auto& descr : descrs) {
-    auto id = descr.type->id();
+  const ValueDescr* end = begin + count;
+  for (auto it = begin; it != end; it++) {
+    auto id = it->type->id();
     // a common timestamp is only possible if all types are timestamp like
     switch (id) {
       case Type::DATE32:
@@ -183,9 +200,7 @@ std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs) 
         saw_date64 = true;
         continue;
       case Type::TIMESTAMP: {
-        const auto& ty = checked_cast<const TimestampType&>(*descr.type);
-        // Don't cast to common timezone by default (may not make
-        // sense for all kernels)
+        const auto& ty = checked_cast<const TimestampType&>(*it->type);
         if (timezone && *timezone != ty.timezone()) return nullptr;
         timezone = &ty.timezone();
         finest_unit = std::max(finest_unit, ty.unit());
@@ -207,11 +222,12 @@ std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs) 
   return nullptr;
 }
 
-std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
+std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
   bool all_utf8 = true, all_offset32 = true;
 
-  for (const auto& descr : descrs) {
-    auto id = descr.type->id();
+  const ValueDescr* end = begin + count;
+  for (auto it = begin; it != end; ++it) {
+    auto id = it->type->id();
     // a common varbinary type is only possible if all types are binary like
     switch (id) {
       case Type::STRING:

@@ -810,12 +810,11 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
         },
         /*BroadcastScalar*/
         [&](const Scalar& scalar, ArrayData* out_array) {
-          const util::string_view& scalar_data =
-              internal::UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
+          const uint8_t* scalar_data = UnboxBinaryScalar(scalar);
           uint8_t* start =
               out_array->buffers[1]->mutable_data() + out_array->offset * byte_width;
           for (int64_t i = 0; i < out_array->length; i++) {
-            std::memcpy(start + i * byte_width, scalar_data.data(), scalar_data.size());
+            std::memcpy(start + i * byte_width, scalar_data, byte_width);
           }
         });
   }
@@ -852,14 +851,12 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
     std::memcpy(out_values, right_data, right.length * byte_width);
 
     // selectively copy values from left data
-    const util::string_view& left_data =
-        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(left);
+    const uint8_t* left_data = UnboxBinaryScalar(left);
 
     RunIfElseLoop(cond, [&](int64_t data_offset, int64_t num_elems) {
-      if (left_data.data()) {
+      if (left_data) {
         for (int64_t i = 0; i < num_elems; i++) {
-          std::memcpy(out_values + (data_offset + i) * byte_width, left_data.data(),
-                      left_data.size());
+          std::memcpy(out_values + (data_offset + i) * byte_width, left_data, byte_width);
         }
       }
     });
@@ -877,14 +874,13 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
     const uint8_t* left_data = left.buffers[1]->data() + left.offset * byte_width;
     std::memcpy(out_values, left_data, left.length * byte_width);
 
-    const util::string_view& right_data =
-        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(right);
+    const uint8_t* right_data = UnboxBinaryScalar(right);
 
     RunIfElseLoopInverted(cond, [&](int64_t data_offset, int64_t num_elems) {
-      if (right_data.data()) {
+      if (right_data) {
         for (int64_t i = 0; i < num_elems; i++) {
-          std::memcpy(out_values + (data_offset + i) * byte_width, right_data.data(),
-                      right_data.size());
+          std::memcpy(out_values + (data_offset + i) * byte_width, right_data,
+                      byte_width);
         }
       }
     });
@@ -899,23 +895,19 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
     auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
 
     // copy right data to out_buff
-    const util::string_view& right_data =
-        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(right);
-    if (right_data.data()) {
+    const uint8_t* right_data = UnboxBinaryScalar(right);
+    if (right_data) {
       for (int64_t i = 0; i < cond.length; i++) {
-        std::memcpy(out_values + i * byte_width, right_data.data(), right_data.size());
+        std::memcpy(out_values + i * byte_width, right_data, byte_width);
       }
     }
 
     // selectively copy values from left data
-    const util::string_view& left_data =
-        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(left);
-
+    const uint8_t* left_data = UnboxBinaryScalar(left);
     RunIfElseLoop(cond, [&](int64_t data_offset, int64_t num_elems) {
-      if (left_data.data()) {
+      if (left_data) {
         for (int64_t i = 0; i < num_elems; i++) {
-          std::memcpy(out_values + (data_offset + i) * byte_width, left_data.data(),
-                      left_data.size());
+          std::memcpy(out_values + (data_offset + i) * byte_width, left_data, byte_width);
         }
       }
     });
@@ -923,13 +915,193 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
     return Status::OK();
   }
 
-  static Result<int32_t> GetByteWidth(const DataType& left_type,
-                                      const DataType& right_type) {
-    int width = checked_cast<const FixedSizeBinaryType&>(left_type).byte_width();
-    if (width == checked_cast<const FixedSizeBinaryType&>(right_type).byte_width()) {
-      return width;
+  template <typename T = Type>
+  static enable_if_t<!is_decimal_type<T>::value, const uint8_t*> UnboxBinaryScalar(
+      const Scalar& scalar) {
+    return reinterpret_cast<const uint8_t*>(
+        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(scalar).data());
+  }
+
+  template <typename T = Type>
+  static enable_if_decimal<T, const uint8_t*> UnboxBinaryScalar(const Scalar& scalar) {
+    return internal::UnboxScalar<T>::Unbox(scalar).native_endian_bytes();
+  }
+
+  template <typename T = Type>
+  static enable_if_t<!is_decimal_type<T>::value, Result<int32_t>> GetByteWidth(
+      const DataType& left_type, const DataType& right_type) {
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(left_type).byte_width();
+    DCHECK_EQ(width, checked_cast<const FixedSizeBinaryType&>(right_type).byte_width());
+    return width;
+  }
+
+  template <typename T = Type>
+  static enable_if_decimal<T, Result<int32_t>> GetByteWidth(const DataType& left_type,
+                                                            const DataType& right_type) {
+    const auto& left = checked_cast<const T&>(left_type);
+    const auto& right = checked_cast<const T&>(right_type);
+    DCHECK_EQ(left.precision(), right.precision());
+    DCHECK_EQ(left.scale(), right.scale());
+    return left.byte_width();
+  }
+};
+
+// Use builders for dictionaries - slower, but allows us to unify dictionaries
+struct NestedIfElseExec {
+  // A - Array, S - Scalar, X = Array/Scalar
+
+  // SXX
+  static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
+                     const Datum& right, Datum* out) {
+    if (left.is_scalar() && right.is_scalar()) {
+      if (cond.is_valid) {
+        *out = cond.value ? left.scalar() : right.scalar();
+      } else {
+        *out = MakeNullScalar(left.type());
+      }
+      return Status::OK();
+    }
+    // either left or right is an array. Output is always an array
+    int64_t out_arr_len = std::max(left.length(), right.length());
+    if (!cond.is_valid) {
+      // cond is null; just create a null array
+      ARROW_ASSIGN_OR_RAISE(*out,
+                            MakeArrayOfNull(left.type(), out_arr_len, ctx->memory_pool()))
+      return Status::OK();
+    }
+
+    const auto& valid_data = cond.value ? left : right;
+    if (valid_data.is_array()) {
+      *out = valid_data;
     } else {
-      return Status::Invalid("FixedSizeBinaryType byte_widths should be equal");
+      // valid data is a scalar that needs to be broadcasted
+      ARROW_ASSIGN_OR_RAISE(*out, MakeArrayFromScalar(*valid_data.scalar(), out_arr_len,
+                                                      ctx->memory_pool()));
+    }
+    return Status::OK();
+  }
+
+  //  AAA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const ArrayData& right, ArrayData* out) {
+    return RunLoop(
+        ctx, cond, out,
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(left, i, length);
+        },
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(right, i, length);
+        });
+  }
+
+  // ASA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const ArrayData& right, ArrayData* out) {
+    return RunLoop(
+        ctx, cond, out,
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(left, length);
+        },
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(right, i, length);
+        });
+  }
+
+  // AAS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const Scalar& right, ArrayData* out) {
+    return RunLoop(
+        ctx, cond, out,
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendArraySlice(left, i, length);
+        },
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(right, length);
+        });
+  }
+
+  // ASS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const Scalar& right, ArrayData* out) {
+    return RunLoop(
+        ctx, cond, out,
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(left, length);
+        },
+        [&](ArrayBuilder* builder, int64_t i, int64_t length) {
+          return builder->AppendScalar(right, length);
+        });
+  }
+
+  template <typename HandleLeft, typename HandleRight>
+  static Status RunLoop(KernelContext* ctx, const ArrayData& cond, ArrayData* out,
+                        HandleLeft&& handle_left, HandleRight&& handle_right) {
+    std::unique_ptr<ArrayBuilder> raw_builder;
+    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type, &raw_builder));
+    RETURN_NOT_OK(raw_builder->Reserve(out->length));
+
+    const auto* cond_data = cond.buffers[1]->data();
+    if (cond.buffers[0]) {
+      BitRunReader reader(cond.buffers[0]->data(), cond.offset, cond.length);
+      int64_t position = 0;
+      while (true) {
+        auto run = reader.NextRun();
+        if (run.length == 0) break;
+        if (run.set) {
+          for (int j = 0; j < run.length; j++) {
+            if (BitUtil::GetBit(cond_data, cond.offset + position + j)) {
+              RETURN_NOT_OK(handle_left(raw_builder.get(), position + j, 1));
+            } else {
+              RETURN_NOT_OK(handle_right(raw_builder.get(), position + j, 1));
+            }
+          }
+        } else {
+          RETURN_NOT_OK(raw_builder->AppendNulls(run.length));
+        }
+        position += run.length;
+      }
+    } else {
+      BitRunReader reader(cond_data, cond.offset, cond.length);
+      int64_t position = 0;
+      while (true) {
+        auto run = reader.NextRun();
+        if (run.length == 0) break;
+        if (run.set) {
+          RETURN_NOT_OK(handle_left(raw_builder.get(), position, run.length));
+        } else {
+          RETURN_NOT_OK(handle_right(raw_builder.get(), position, run.length));
+        }
+        position += run.length;
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out_arr, raw_builder->Finish());
+    *out = std::move(*out_arr->data());
+    return Status::OK();
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[1], /*count=*/2));
+    if (batch[0].is_scalar()) {
+      const auto& cond = batch[0].scalar_as<BooleanScalar>();
+      return Call(ctx, cond, batch[1], batch[2], out);
+    }
+    if (batch[1].kind() == Datum::ARRAY) {
+      if (batch[2].kind() == Datum::ARRAY) {  // AAA
+        return Call(ctx, *batch[0].array(), *batch[1].array(), *batch[2].array(),
+                    out->mutable_array());
+      } else {  // AAS
+        return Call(ctx, *batch[0].array(), *batch[1].array(), *batch[2].scalar(),
+                    out->mutable_array());
+      }
+    } else {
+      if (batch[2].kind() == Datum::ARRAY) {  // ASA
+        return Call(ctx, *batch[0].array(), *batch[1].scalar(), *batch[2].array(),
+                    out->mutable_array());
+      } else {  // ASS
+        return Call(ctx, *batch[0].array(), *batch[1].scalar(), *batch[2].scalar(),
+                    out->mutable_array());
+      }
     }
   }
 };
@@ -937,6 +1109,10 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
 template <typename Type, typename AllocateMem>
 struct ResolveIfElseExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // Check is unconditional because parametric types like timestamp
+    // are templated as integer
+    RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[1], /*count=*/2));
+
     // cond is scalar
     if (batch[0].is_scalar()) {
       const auto& cond = batch[0].scalar_as<BooleanScalar>();
@@ -988,7 +1164,8 @@ struct IfElseFunction : ScalarFunction {
     RETURN_NOT_OK(CheckArity(*values));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    // Do not DispatchExact here because it'll let through something like (bool,
+    // timestamp[s], timestamp[s, "UTC"])
 
     // if 0th descriptor is null, replace with bool
     if (values->at(0).type->id() == Type::NA) {
@@ -996,15 +1173,31 @@ struct IfElseFunction : ScalarFunction {
     }
 
     // if-else 0'th descriptor is bool, so skip it
-    std::vector<ValueDescr> values_copy(values->begin() + 1, values->end());
-    internal::EnsureDictionaryDecoded(&values_copy);
-    internal::ReplaceNullWithOtherType(&values_copy);
+    ValueDescr* left_arg = &(*values)[1];
+    constexpr size_t num_args = 2;
 
-    if (auto type = internal::CommonNumeric(values_copy)) {
-      internal::ReplaceTypes(type, &values_copy);
+    internal::ReplaceNullWithOtherType(left_arg, num_args);
+
+    // If both are identical dictionary types, dispatch to the dictionary kernel
+    // TODO(ARROW-14105): apply implicit casts to dictionary types too
+    ValueDescr* right_arg = &(*values)[2];
+    if (is_dictionary(left_arg->type->id()) && left_arg->type->Equals(right_arg->type)) {
+      auto kernel = DispatchExactImpl(this, *values);
+      DCHECK(kernel);
+      return kernel;
     }
 
-    std::move(values_copy.begin(), values_copy.end(), values->begin() + 1);
+    internal::EnsureDictionaryDecoded(left_arg, num_args);
+
+    if (auto type = internal::CommonNumeric(left_arg, num_args)) {
+      internal::ReplaceTypes(type, left_arg, num_args);
+    } else if (auto type = internal::CommonTemporal(left_arg, num_args)) {
+      internal::ReplaceTypes(type, left_arg, num_args);
+    } else if (auto type = internal::CommonBinary(left_arg, num_args)) {
+      internal::ReplaceTypes(type, left_arg, num_args);
+    } else if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastDecimalArgs(left_arg, num_args));
+    }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
 
@@ -1030,7 +1223,16 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
         internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec,
                                                 /*AllocateMem=*/std::false_type>(*type);
     // cond array needs to be boolean always
-    ScalarKernel kernel({boolean(), type, type}, type, exec);
+    std::shared_ptr<KernelSignature> sig;
+    if (type->id() == Type::TIMESTAMP) {
+      auto unit = checked_cast<const TimestampType&>(*type).unit();
+      sig = KernelSignature::Make(
+          {boolean(), match::TimestampTypeUnit(unit), match::TimestampTypeUnit(unit)},
+          OutputType(LastType));
+    } else {
+      sig = KernelSignature::Make({boolean(), type, type}, type);
+    }
+    ScalarKernel kernel(std::move(sig), exec);
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::PREALLOCATE;
     kernel.can_write_into_slices = true;
@@ -1056,19 +1258,30 @@ void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
   }
 }
 
-void AddFSBinaryIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function) {
-  // cond array needs to be boolean always
-  ScalarKernel kernel(
-      {boolean(), InputType(Type::FIXED_SIZE_BINARY), InputType(Type::FIXED_SIZE_BINARY)},
-      OutputType([](KernelContext*, const std::vector<ValueDescr>& descrs) {
-        return ValueDescr(descrs[1].type, ValueDescr::ANY);
-      }),
-      ResolveIfElseExec<FixedSizeBinaryType, /*AllocateMem=*/std::false_type>::Exec);
+template <typename T>
+void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function) {
+  auto type_id = T::type_id;
+  ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)},
+                      OutputType(LastType),
+                      ResolveIfElseExec<T, /*AllocateMem=*/std::false_type>::Exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = true;
 
   DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+}
+
+void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function) {
+  for (const auto type_id :
+       {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST, Type::STRUCT,
+        Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
+    ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)},
+                        OutputType(LastType), NestedIfElseExec::Exec);
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.can_write_into_slices = false;
+    DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+  }
 }
 
 // Helper to copy or broadcast fixed-width values between buffers.
@@ -1755,10 +1968,10 @@ struct CoalesceFunction : ScalarFunction {
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
     }
-    if (auto type = CommonBinary(*values)) {
+    if (auto type = CommonBinary(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
-    if (auto type = CommonTemporal(*values)) {
+    if (auto type = CommonTemporal(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
     if (HasDecimal(*values)) {
@@ -2500,12 +2713,6 @@ struct ChooseFunction : ScalarFunction {
   }
 };
 
-Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  ValueDescr result = descrs.back();
-  result.shape = GetBroadcastShape(descrs);
-  return result;
-}
-
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(
@@ -2629,7 +2836,10 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveIfElseKernels(func, {boolean()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
-    AddFSBinaryIfElseKernel(func);
+    AddFixedWidthIfElseKernel<FixedSizeBinaryType>(func);
+    AddFixedWidthIfElseKernel<Decimal128Type>(func);
+    AddFixedWidthIfElseKernel<Decimal256Type>(func);
+    AddNestedIfElseKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
