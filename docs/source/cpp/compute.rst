@@ -1145,11 +1145,11 @@ depending on a condition.
 +==================+============+===================================================+=====================+=========+
 | case_when        | Varargs    | Struct of Boolean (Arg 0), Any (rest)             | Input type          | \(1)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
-| choose           | Varargs    | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
+| choose           | Varargs    | Integral (Arg 0), Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
 | coalesce         | Varargs    | Any                                               | Input type          | \(3)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
-| if_else          | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(4)    |
+| if_else          | Ternary    | Boolean (Arg 0), Any (rest)                       | Input type          | \(4)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
 
 * \(1) This function acts like a SQL "case when" statement or switch-case. The
