@@ -35,6 +35,8 @@ func NewCheckedAllocator(mem Allocator) *CheckedAllocator {
 	return &CheckedAllocator{mem: mem}
 }
 
+func (a *CheckedAllocator) CurrentAlloc() int { return a.sz }
+
 func (a *CheckedAllocator) Allocate(size int) []byte {
 	a.sz += size
 	out := a.mem.Allocate(size)
