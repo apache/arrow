@@ -254,21 +254,16 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   dst_dir <- make_temp_dir()
 
-  withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE), {
-      expect_warning(
-        write_dataset(df, dst_dir, partitioning = "part"),
-        "Row-level metadata is not compatible with datasets and will be discarded"
-      )
-    })
+  withr::local_options(list("arrow.preserve_row_level_metadata" = TRUE))
+  expect_warning(
+    write_dataset(df, dst_dir, partitioning = "part"),
+    "Row-level metadata is not compatible with datasets and will be discarded"
+  )
 
   # but we need to write a dataset with row-level metadata to make sure when
   # reading ones that have been written with them we warn appropriately
   fake_func_name <- write_dataset
-  withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE),
-    fake_func_name(df, dst_dir, partitioning = "part")
-  )
+  fake_func_name(df, dst_dir, partitioning = "part")
 
   ds <- open_dataset(dst_dir)
   expect_warning(
