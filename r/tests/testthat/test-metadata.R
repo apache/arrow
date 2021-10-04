@@ -193,6 +193,7 @@ test_that("metadata keeps attribute of top level data frame", {
   expect_identical(as.data.frame(tab), df)
 })
 
+
 test_that("metadata drops readr's problems attribute", {
   readr_like <- tibble::tibble(
     dbl = 1.1,
@@ -219,6 +220,7 @@ test_that("metadata of list elements (ARROW-10386)", {
   expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
   expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
 })
+
 
 test_that("metadata of list elements (ARROW-10386)", {
   skip_if_not_available("dataset")
