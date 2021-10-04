@@ -354,14 +354,12 @@ class TypeInferrer {
       *keep_going = make_unions_;
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
-    } else if (PySet_Check(obj) || (Py_TYPE(obj) == &PyDictValues_Type)) {
-      RETURN_NOT_OK(VisitSet(obj, keep_going));
+    } else if (PyList_Check(obj)) {
+      RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PyArray_Check(obj)) {
       RETURN_NOT_OK(VisitNdarray(obj, keep_going));
     } else if (PyDict_Check(obj)) {
       RETURN_NOT_OK(VisitDict(obj));
-    } else if (PyList_Check(obj) || PyTuple_Check(obj)) {
-      RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
@@ -395,13 +393,6 @@ class TypeInferrer {
             }
           });
     }
-  }
-
-  // Infer value type from a sequence of values
-  Status VisitIterable(PyObject* obj) {
-    return internal::VisitIterable(obj, [this](PyObject* value, bool* keep_going) {
-      return Visit(value, keep_going);
-    });
   }
 
   Status GetType(std::shared_ptr<DataType>* out) {
@@ -530,15 +521,6 @@ class TypeInferrer {
     }
     ++list_count_;
     return list_inferrer_->VisitSequence(obj);
-  }
-
-  Status VisitSet(PyObject* obj, bool* keep_going /* unused */) {
-    if (!list_inferrer_) {
-      list_inferrer_.reset(
-          new TypeInferrer(pandas_null_sentinels_, validate_interval_, make_unions_));
-    }
-    ++list_count_;
-    return list_inferrer_->VisitIterable(obj);
   }
 
   Status VisitNdarray(PyObject* obj, bool* keep_going) {

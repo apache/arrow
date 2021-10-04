@@ -576,7 +576,7 @@ def test_expression_construction():
         field.isin(1)
 
     with pytest.raises(pa.ArrowInvalid):
-        field != object()
+        field != {1}
 
 
 def test_expression_boolean_operators():
