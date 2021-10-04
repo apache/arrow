@@ -151,7 +151,7 @@ void free_malloced_schemas(struct ArrowSchema** schemas) {
     free(schemas);
 }
 
-struct ArrowSchema** test_lists(const char** fmts, const char** names, const int n) {
+struct ArrowSchema** test_lists(const char** fmts, const char** names, const int* nullflags, const int n) {
     struct ArrowSchema** schemas = malloc(sizeof(struct ArrowSchema*)*n);
     for (int i = 0; i < n; ++i) {
         schemas[i] = malloc(sizeof(struct ArrowSchema));
@@ -168,6 +168,7 @@ struct ArrowSchema** test_lists(const char** fmts, const char** names, const int
         if (i != 0) {
             schemas[i-1]->n_children = 1;
             schemas[i-1]->children = &schemas[i];
+            schemas[i]->flags = nullflags[i-1];
         }
     }    
     return schemas;

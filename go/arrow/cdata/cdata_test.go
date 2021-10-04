@@ -175,18 +175,19 @@ func TestImportTemporalSchema(t *testing.T) {
 
 func TestListSchemas(t *testing.T) {
 	tests := []struct {
-		typ   arrow.DataType
-		fmts  []string
-		names []string
+		typ    arrow.DataType
+		fmts   []string
+		names  []string
+		isnull []bool
 	}{
-		{arrow.ListOf(arrow.PrimitiveTypes.Int8), []string{"+l", "c"}, []string{"", "item"}},
-		{arrow.FixedSizeListOf(2, arrow.PrimitiveTypes.Int64), []string{"+w:2", "l"}, []string{"", "item"}},
-		{arrow.ListOf(arrow.ListOf(arrow.PrimitiveTypes.Int32)), []string{"+l", "+l", "i"}, []string{"", "item", "item"}},
+		{arrow.ListOf(arrow.PrimitiveTypes.Int8), []string{"+l", "c"}, []string{"", "item"}, []bool{true}},
+		{arrow.FixedSizeListOfNonNullable(2, arrow.PrimitiveTypes.Int64), []string{"+w:2", "l"}, []string{"", "item"}, []bool{false}},
+		{arrow.ListOfNonNullable(arrow.ListOf(arrow.PrimitiveTypes.Int32)), []string{"+l", "+l", "i"}, []string{"", "item", "item"}, []bool{false, true}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.typ.Name(), func(t *testing.T) {
-			sc := testNested(tt.fmts, tt.names)
+			sc := testNested(tt.fmts, tt.names, tt.isnull)
 			defer freeMallocedSchemas(sc)
 
 			top := (*[1]*CArrowSchema)(unsafe.Pointer(sc))[0]
