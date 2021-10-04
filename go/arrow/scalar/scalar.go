@@ -769,7 +769,7 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 	case TemporalScalar:
 		valueHash(s.value())
 	case ListScalar:
-		array.Hash(&h, s.List().Data())
+		array.Hash(&h, s.GetList().Data())
 		hash()
 	case *Struct:
 		for _, c := range s.Value {
