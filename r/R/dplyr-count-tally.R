@@ -24,7 +24,7 @@ count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL
     out <- x
   }
 
-  out <- tally(out, wt = !!enquo(wt), sort = sort, name = name)
+  out <- tally(out, wt = {{ wt }}, sort = sort, name = name)
 
   # Restore original group vars
   gv <- dplyr::group_vars(x)
