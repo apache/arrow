@@ -33,7 +33,7 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
   # so don't try to select() them (use intersect() to exclude them)
   # Note that this select() isn't useful for the Arrow summarize implementation
   # because it will effectively project to keep what it needs anyway,
-  # but the duckdb and data.frame fallback versions do benefit from select here
+  # but the data.frame fallback version does benefit from select here
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
 
   # Try stuff, if successful return()
