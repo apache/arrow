@@ -29,7 +29,7 @@
 #' @param table_name a name to use in DuckDB for this object. The default is a
 #' unique string `"arrow_"` followed by numbers.
 #' @param auto_disconnect should the table be automatically cleaned up when the
-#' resulting object is removed (and garbage collected)? Default: `TRUE`
+#' resulting object is removed (and garbage collected)? Default: `FALSE`
 #'
 #' @return A `tbl` of the new table in DuckDB
 #'
@@ -48,7 +48,7 @@
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),
-                      auto_disconnect = TRUE) {
+                      auto_disconnect = FALSE) {
   .data <- as_adq(.data)
   duckdb::duckdb_register_arrow(con, table_name, .data)
 
