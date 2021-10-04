@@ -760,7 +760,7 @@ test_that("strftime", {
     date = c(as.Date("2021-01-01"), NA)
   )
   formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
-  formats_date <- "%a %A %w %d %b %B %m %y %Y %j %U %W %x %G %V %u"
+  formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
 
   expect_dplyr_equal(
     input %>%
