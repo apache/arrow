@@ -56,13 +56,12 @@ tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
 
 tally.Dataset <- tally.ArrowTabular <- tally.arrow_dplyr_query
 
-tally_n <- function(x, wt){
+tally_n <- function(x, wt) {
   wt <- enquo(wt)
 
   if (quo_is_null(wt)) {
     expr(n())
-  }
-  else{
+  } else {
     expr(sum(!!wt, na.rm = TRUE))
   }
 }

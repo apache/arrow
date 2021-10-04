@@ -24,7 +24,6 @@ tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)
 
 test_that("count/tally", {
-
   expect_dplyr_equal(
     input %>%
       count() %>%
@@ -38,7 +37,6 @@ test_that("count/tally", {
       collect(),
     tbl
   )
-
 })
 
 test_that("count/tally with wt and grouped data", {
@@ -57,7 +55,6 @@ test_that("count/tally with wt and grouped data", {
       collect(),
     tbl
   )
-
 })
 
 test_that("count/tally with sort", {
@@ -76,11 +73,9 @@ test_that("count/tally with sort", {
       collect(),
     tbl
   )
-
 })
 
 test_that("count/tally with name arg", {
-
   expect_dplyr_equal(
     input %>%
       count(name = "new_col") %>%
@@ -94,5 +89,4 @@ test_that("count/tally with name arg", {
       collect(),
     tbl
   )
-
 })
