@@ -660,7 +660,6 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
   )
 })
 
-
 test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
 

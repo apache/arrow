@@ -323,13 +323,6 @@ test_that("coalesce()", {
     df_fct
   )
 
-  # integer
-  df <- tibble(
-    w = c(NA_integer_, NA_integer_, NA_integer_),
-    x = c(NA_integer_, NA_integer_, 3L),
-    y = c(NA_integer_, 2L, 3L),
-    z = 1:3
-  )
   compare_dplyr_binding(
     .input %>%
       mutate(

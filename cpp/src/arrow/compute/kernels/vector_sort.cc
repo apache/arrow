@@ -118,6 +118,28 @@ std::shared_ptr<ChunkedArray> GetTableColumn(const Table& table, const FieldRef&
   return table.column(index);
 }
 
+struct ChunkedArrayResolver : protected ChunkResolver {
+  explicit ChunkedArrayResolver(const std::vector<const Array*>& chunks)
+      : ChunkResolver(MakeLengths(chunks)), chunks_(chunks) {}
+
+  template <typename ArrayType>
+  ResolvedChunk<ArrayType> Resolve(int64_t index) const {
+    const auto loc = ChunkResolver::Resolve(index);
+    return ResolvedChunk<ArrayType>(
+        checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
+  }
+
+ protected:
+  static std::vector<int64_t> MakeLengths(const std::vector<const Array*>& chunks) {
+    std::vector<int64_t> lengths(chunks.size());
+    std::transform(chunks.begin(), chunks.end(), lengths.begin(),
+                   [](const Array* arr) { return arr->length(); });
+    return lengths;
+  }
+
+  const std::vector<const Array*> chunks_;
+};
+
 // We could try to reproduce the concrete Array classes' facilities
 // (such as cached raw values pointer) in a separate hierarchy of
 // physical accessors, but doing so ends up too cumbersome.

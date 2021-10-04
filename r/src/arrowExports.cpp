@@ -1175,6 +1175,21 @@ extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<compute::ExecNode>& node);
+extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type node(node_sexp);
+	return cpp11::as_sexp(ExecNode_output_schema(node));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
+	Rf_error("Cannot call ExecNode_output_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::dataset::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, std::vector<std::string> materialized_field_names);
 extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
 BEGIN_CPP11

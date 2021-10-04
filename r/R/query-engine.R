@@ -151,7 +151,15 @@ ExecPlan <- R6Class("ExecPlan",
             )
           }
         }
-      } else {
+      } else if (!is.null(.data$join)) {
+        node <- node$Join(
+          type = .data$join$type,
+          right_node = self$Build(.data$join$right_data),
+          by = .data$join$by,
+          left_output = names(.data),
+          right_output = setdiff(names(.data$join$right_data), .data$join$by)
+        )
+      } else if (length(node$schema)) {
         # If any columns are derived, reordered, or renamed we need to Project
         # If there are aggregations, the projection was already handled above
         # We have to project at least once to eliminate some junk columns
