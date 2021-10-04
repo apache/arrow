@@ -19,8 +19,6 @@ skip_if_not_installed("duckdb", minimum_version = "0.2.8")
 skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
 
-# when we remove this, we should also remove the FALSE in run_duckdb_examples
-skip("These tests are flaking: https://github.com/duckdb/duckdb/issues/2100")
 library(duckdb)
 library(dplyr)
 
@@ -57,26 +55,6 @@ test_that("to_duckdb", {
       group_by(lgl) %>%
       to_duckdb() %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
-    tibble::tibble(
-      lgl = c(TRUE, NA, FALSE),
-      mean_int = c(3, 6.25, 8.5),
-      mean_dbl = c(3.1, 6.35, 6.1)
-    )
-  )
-})
-
-test_that("summarise(..., .engine)", {
-  ds <- InMemoryDataset$create(example_data)
-  expect_identical(
-    ds %>%
-      select(int, lgl, dbl) %>%
-      group_by(lgl) %>%
-      summarise(
-        mean_int = mean(int, na.rm = TRUE),
-        mean_dbl = mean(dbl, na.rm = TRUE),
-        .engine = "duckdb"
-      ) %>%
       collect(),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),

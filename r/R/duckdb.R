@@ -23,11 +23,6 @@
 #'
 #' The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
 #'
-#' Alternatively, one can pass the argument `.engine = "duckdb"` to `summarise()`
-#' that starts with an Arrow object to use DuckDB to calculate the summarization
-#' step. Internally, this calls `to_duckdb()` with all of the default argument
-#' values.
-#'
 #' @param .data the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
 #' @param con a DuckDB connection to use (default will create one and store it
 #' in `options("arrow_duck_con")`)
@@ -50,12 +45,6 @@
 #'   to_duckdb() %>%
 #'   group_by(cyl) %>%
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE))
-#'
-#' # the same query can be simplified using .engine = "duckdb"
-#' ds %>%
-#'   filter(mpg < 30) %>%
-#'   group_by(cyl) %>%
-#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),
@@ -96,9 +85,7 @@ run_duckdb_examples <- function() {
     requireNamespace("duckdb", quietly = TRUE) &&
     packageVersion("duckdb") > "0.2.7" &&
     requireNamespace("dplyr", quietly = TRUE) &&
-    requireNamespace("dbplyr", quietly = TRUE) &&
-    # These examples are flaking: https://github.com/duckdb/duckdb/issues/2100
-    FALSE
+    requireNamespace("dbplyr", quietly = TRUE)
 }
 
 # Adapted from dbplyr
