@@ -216,7 +216,7 @@ test_that("metadata drops readr's problems attribute", {
 
 test_that("Row-level metadata (does not by default) roundtrip", {
   # First tracked at ARROW-10386, though it was later determined that row-level
-  # metadata should be handled separately ARROW-14020, ARROW-XXX
+  # metadata should be handled separately ARROW-14020, ARROW-12542
   df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
   tab <- Table$create(df)
   r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
@@ -234,7 +234,7 @@ test_that("Row-level metadata (does not by default) roundtrip", {
 
 test_that("Row-level metadata (does not) roundtrip in datasets", {
   # First tracked at ARROW-10386, though it was later determined that row-level
-  # metadata should be handled separately ARROW-14020, ARROW-XXX
+  # metadata should be handled separately ARROW-14020, ARROW-12542
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
