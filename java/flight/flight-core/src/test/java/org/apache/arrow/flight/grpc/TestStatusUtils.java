@@ -22,7 +22,6 @@ import org.apache.arrow.flight.FlightStatusCode;
 import org.junit.Assert;
 import org.junit.Test;
 
-import io.grpc.InternalMetadata;
 import io.grpc.Metadata;
 import io.grpc.Status;
 
@@ -35,9 +34,9 @@ public class TestStatusUtils {
 
     // gRPC can have trailers with certain metadata keys beginning with ":", such as ":status".
     // See https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md
-    trailers.put(InternalMetadata.keyOf(":status", Metadata.ASCII_STRING_MARSHALLER), "502");
-    trailers.put(Metadata.Key.of("date", Metadata.ASCII_STRING_MARSHALLER), "Fri, 13 Sep 2015 11:23:58 GMT");
-    trailers.put(Metadata.Key.of("content-type", Metadata.ASCII_STRING_MARSHALLER), "text/html");
+    trailers.put(StatusUtils.keyOfAscii(":status"), "502");
+    trailers.put(StatusUtils.keyOfAscii("date"), "Fri, 13 Sep 2015 11:23:58 GMT");
+    trailers.put(StatusUtils.keyOfAscii("content-type"), "text/html");
 
     CallStatus callStatus = StatusUtils.fromGrpcStatusAndTrailers(status, trailers);
 
