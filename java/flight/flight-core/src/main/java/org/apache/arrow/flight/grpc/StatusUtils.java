@@ -123,12 +123,12 @@ public class StatusUtils {
   }
 
   /** Create Metadata Key for binary metadata. */
-  public static Metadata.Key<byte[]> keyOfBinary(String name) {
+  static Metadata.Key<byte[]> keyOfBinary(String name) {
     return Metadata.Key.of(name, Metadata.BINARY_BYTE_MARSHALLER);
   }
 
   /** Create Metadata Key for ascii metadata. */
-  public static Metadata.Key<String> keyOfAscii(String name) {
+  static Metadata.Key<String> keyOfAscii(String name) {
     // Use InternalMetadata for keys that start with ":", e.g. ":status". See ARROW-14014.
     return InternalMetadata.keyOf(name, Metadata.ASCII_STRING_MARSHALLER);
   }
