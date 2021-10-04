@@ -25,11 +25,10 @@
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
 // cpp/cmake_modules/BuildUtils.cmake for details.
-#include <boost/process.hpp>
-
+#include <aws/core/Aws.h>
 #include <gtest/gtest.h>
 
-#include <aws/core/Aws.h>
+#include <boost/process.hpp>
 
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/status.h"

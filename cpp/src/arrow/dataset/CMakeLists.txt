@@ -21,6 +21,7 @@ arrow_install_all_headers("arrow/dataset")
 
 set(ARROW_DATASET_SRCS
     dataset.cc
+    dataset_writer.cc
     discovery.cc
     file_base.cc
     file_ipc.cc
@@ -110,6 +111,7 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
 endfunction()
 
 add_arrow_dataset_test(dataset_test)
+add_arrow_dataset_test(dataset_writer_test)
 add_arrow_dataset_test(discovery_test)
 add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
