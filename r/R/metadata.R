@@ -142,7 +142,9 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   }
 
   columns <- NULL
-  if (is.list(x) && !inherits(x, "POSIXlt")) {
+  attempt_to_save_row_level <- getOption("arrow.preserve_row_level_metadata", FALSE) &&
+    is.list(x) && !inherits(x, "POSIXlt")
+  if (attempt_to_save_row_level) {
     # However, if we are inside of a dplyr collection (including all datasets),
     # we cannot apply this row-level metadata, since the order of the rows is
     # not guaranteed to be the same, so don't even try, but warn what's going on
