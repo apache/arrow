@@ -515,11 +515,30 @@ func TestNumericScalarCasts(t *testing.T) {
 		arrow.FixedWidthTypes.MonthInterval,
 	}
 
+	falseScalar := scalar.NewBooleanScalar(false)
+	trueScalar := scalar.NewBooleanScalar(true)
+	nullBool := scalar.MakeNullScalar(arrow.FixedWidthTypes.Boolean)
+
 	for _, tt := range tests {
+		t.Run(tt.ID().String()+"from bool", func(t *testing.T) {
+			zero, _ := scalar.ParseScalar(tt, "0")
+			zeroFromBool, err := falseScalar.CastTo(tt)
+			assert.NoError(t, err)
+			assert.True(t, scalar.Equals(zero, zeroFromBool))
+
+			one, _ := scalar.ParseScalar(tt, "1")
+			oneFromBool, err := trueScalar.CastTo(tt)
+			assert.NoError(t, err)
+			assert.True(t, scalar.Equals(one, oneFromBool))
+		})
 		t.Run(tt.ID().String(), func(t *testing.T) {
 			for _, repr := range []string{"0", "1", "3"} {
 				nullTest := scalar.MakeNullScalar(tt)
 				assert.Equal(t, "null", nullTest.String())
+
+				castedNull, err := nullBool.CastTo(tt)
+				assert.NoError(t, err)
+				assert.True(t, scalar.Equals(castedNull, nullTest))
 
 				s, err := scalar.ParseScalar(tt, repr)
 				assert.NoError(t, err)
@@ -686,7 +705,7 @@ func TestMapScalarBasics(t *testing.T) {
 
 	expectedScalarType := arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int8)
 	assert.True(t, arrow.TypeEqual(s.DataType(), expectedScalarType))
-	assert.True(t, array.ArrayEqual(value, s.Value))
+	assert.True(t, array.ArrayEqual(value, s.GetList()))
 
 	checkMakeNullScalar(t, expectedScalarType)
 }
@@ -766,4 +785,95 @@ func TestStructScalarValidateErrors(t *testing.T) {
 	sc = scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar("\xff")}, ty)
 	assert.NoError(t, sc.Validate())
 	assert.Error(t, sc.ValidateFull())
+}
+
+func getScalars(mem memory.Allocator) []scalar.Scalar {
+	hello := memory.NewBufferBytes([]byte("hello"))
+	daytime := arrow.DayTimeInterval{Days: 1, Milliseconds: 100}
+
+	int8Bldr := array.NewInt8Builder(mem)
+	defer int8Bldr.Release()
+
+	int8Bldr.AppendValues([]int8{1, 2, 3, 4}, nil)
+	int8Arr := int8Bldr.NewInt8Array()
+	defer int8Arr.Release()
+
+	mapBldr := array.NewMapBuilder(mem, arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String, false)
+	defer mapBldr.Release()
+
+	kb := mapBldr.KeyBuilder().(*array.Int8Builder)
+	ib := mapBldr.ItemBuilder().(*array.StringBuilder)
+
+	mapBldr.Append(true)
+	kb.AppendValues([]int8{1, 2, 3}, nil)
+	ib.AppendValues([]string{"foo", "bar", "baz"}, nil)
+
+	mapArr := mapBldr.NewMapArray()
+	defer mapArr.Release()
+
+	return []scalar.Scalar{
+		scalar.NewBooleanScalar(false),
+		scalar.NewInt8Scalar(3),
+		scalar.NewUint16Scalar(3),
+		scalar.NewInt32Scalar(3),
+		scalar.NewUint64Scalar(3),
+		scalar.NewFloat64Scalar(3.0),
+		scalar.NewDate32Scalar(10),
+		scalar.NewDate64Scalar(11),
+		scalar.NewTime32Scalar(1000, arrow.FixedWidthTypes.Time32s),
+		scalar.NewTime64Scalar(1111, arrow.FixedWidthTypes.Time64us),
+		scalar.NewTimestampScalar(111, arrow.FixedWidthTypes.Timestamp_ms),
+		scalar.NewMonthIntervalScalar(1),
+		scalar.NewDayTimeIntervalScalar(daytime),
+		scalar.NewDurationScalar(60, arrow.FixedWidthTypes.Duration_s),
+		scalar.NewBinaryScalar(hello, arrow.BinaryTypes.Binary),
+		scalar.NewFixedSizeBinaryScalar(hello, &arrow.FixedSizeBinaryType{ByteWidth: hello.Len()}),
+		scalar.NewDecimal128Scalar(decimal128.FromI64(10), &arrow.Decimal128Type{Precision: 16, Scale: 4}),
+		scalar.NewStringScalarFromBuffer(hello),
+		scalar.NewListScalar(int8Arr),
+		scalar.NewMapScalar(mapArr.List.ListValues()),
+		scalar.NewFixedSizeListScalar(int8Arr),
+		scalar.NewStructScalar([]scalar.Scalar{scalar.NewInt32Scalar(2), scalar.NewInt32Scalar(6)},
+			arrow.StructOf([]arrow.Field{{Name: "min", Type: arrow.PrimitiveTypes.Int32}, {Name: "max", Type: arrow.PrimitiveTypes.Int32}}...)),
+	}
+}
+
+func TestMakeArrayFromScalar(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	nullArray, err := scalar.MakeArrayFromScalar(scalar.ScalarNull, 5, mem)
+	assert.NoError(t, err)
+	defer nullArray.Release()
+
+	assert.Equal(t, 5, nullArray.Len())
+	assert.Equal(t, 5, nullArray.NullN())
+
+	scalars := getScalars(mem)
+
+	for _, length := range []int{16} {
+		for _, s := range scalars {
+			t.Run(s.DataType().Name(), func(t *testing.T) {
+				if ls, ok := s.(scalar.Releasable); ok {
+					defer ls.Release()
+				}
+
+				arr, err := scalar.MakeArrayFromScalar(s, length, mem)
+				assert.NoError(t, err)
+				defer arr.Release()
+
+				assert.Equal(t, length, arr.Len())
+				assert.Zero(t, arr.NullN())
+
+				for _, i := range []int{0, length / 2, length - 1} {
+					scalarCompare, err := scalar.GetScalar(arr, i)
+					assert.NoError(t, err)
+					assert.True(t, scalar.Equals(s, scalarCompare))
+					if ls, ok := scalarCompare.(scalar.Releasable); ok {
+						ls.Release()
+					}
+				}
+			})
+		}
+	}
 }
