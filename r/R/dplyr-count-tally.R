@@ -67,4 +67,4 @@ tally_n <- function(x, wt){
   }
 }
 
-check_name <- utils::getFromNamespace("check_name", "dplyr")
+check_name <- getFromNamespace("check_name", "dplyr")
