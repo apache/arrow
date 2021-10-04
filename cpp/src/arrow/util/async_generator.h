@@ -1700,7 +1700,10 @@ struct PauseableGenerator {
 
 /// \brief Allows an async generator to be paused
 ///
-/// This generator is async-reentrant if the source is
+/// This generator is NOT async-reentrant and calling it in an async-reentrant fashion
+/// may lead to items getting reordered (and potentially truncated if the end token is
+/// reordered ahead of valid items)
+///
 /// This generator forwards async-reentrant pressure
 template <typename T>
 AsyncGenerator<T> MakePauseable(AsyncGenerator<T> source,

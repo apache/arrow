@@ -211,6 +211,9 @@ class ARROW_EXPORT AsyncToggle {
   /// Note: This call may complete a future, triggering any callbacks, and generally
   /// should not be done while holding any locks.
   ///
+  /// Note: If Open is called from multiple threads it could lead to a situation where
+  /// callbacks from the second open finish before callbacks on the first open.
+  ///
   /// All current waiters will be released to enter, even if another close call
   /// quickly follows
   void Open();
