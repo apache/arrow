@@ -26,6 +26,7 @@ import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 
+import io.grpc.InternalMetadata;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.Status.Code;
@@ -161,7 +162,7 @@ public class StatusUtils {
       } else {
         metadata.insert(key,
                      Objects.requireNonNull(
-                     trailers.get(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))).getBytes()
+                     trailers.get(InternalMetadata.keyOf(key, Metadata.ASCII_STRING_MARSHALLER))).getBytes()
         );
       }
     }
@@ -209,7 +210,7 @@ public class StatusUtils {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
         trailers.put(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER), metadata.getByte(key));
       } else {
-        trailers.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), metadata.get(key));
+        trailers.put(InternalMetadata.keyOf(key, Metadata.ASCII_STRING_MARSHALLER), metadata.get(key));
       }
     }
     return trailers;
