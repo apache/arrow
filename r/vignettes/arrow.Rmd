@@ -195,8 +195,7 @@ converted to `double` ("numeric") and `int64` is converted to
 yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
 
 ^2^: Some Arrow data types do not have an R equivalent and will raise an error
-if cast to or mapped to via a schema.  See 
-[this discussion section](#no-compat-type) for an example of this.
+if cast to or mapped to via a schema.
 
 ^3^: `arrow*_binary` classes are implemented as lists of raw vectors. 
 
