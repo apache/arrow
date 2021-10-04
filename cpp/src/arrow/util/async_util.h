@@ -116,7 +116,7 @@ class ARROW_EXPORT AsyncTaskGroup {
   /// If WaitForTasksToFinish has been called and the returned future has been marked
   /// completed then adding a task will fail.
   Status AddTask(std::function<Result<Future<>>()> task);
-  /// Add a task that's already been started
+  /// Add a task that has already been started
   Status AddTask(const Future<>& task);
   /// Signal that top level tasks are done being added
   ///
@@ -149,7 +149,7 @@ class ARROW_EXPORT AsyncTaskGroup {
   util::Mutex mutex_;
 };
 
-/// Serializes an asynchronous push
+/// A task group which serializes asynchronous tasks in a push-based workflow
 ///
 /// Tasks will be executed in the order they are added
 ///

@@ -117,9 +117,9 @@ class ARROW_EXPORT SinkNodeConsumer {
   virtual ~SinkNodeConsumer() = default;
   /// \brief Consume a batch of data
   virtual Status Consume(ExecBatch batch) = 0;
-  /// \brief Signals to the consumer that the last batch has been delivered
+  /// \brief Signal to the consumer that the last batch has been delivered
   ///
-  /// The returned future should only return when all outstanding tasks have completed
+  /// The returned future should only finish when all outstanding tasks have completed
   virtual Future<> Finish() = 0;
 };
 

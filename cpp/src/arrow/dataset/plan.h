@@ -23,6 +23,8 @@ namespace arrow {
 namespace dataset {
 namespace internal {
 
+/// Register dataset-based exec nodes with the exec node registry
+///
 /// This function must be called before using dataset ExecNode factories
 ARROW_DS_EXPORT void Initialize();
 
