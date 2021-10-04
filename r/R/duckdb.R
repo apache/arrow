@@ -23,6 +23,13 @@
 #'
 #' The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
 #'
+#' If `auto_disconnect = TRUE`, the DuckDB table that is created will be configured
+#' to be unregistered when the `tbl` object is garbage collected. This is helpful
+#' if you don't want to have extra table objects in DuckDB after you've finished
+#' using them. Currently, this cleanup can, however, sometimes lead to hangs if
+#' tables are created and deleted in quick succession, hence the default value
+#' of `FALSE`
+#'
 #' @param .data the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
 #' @param con a DuckDB connection to use (default will create one and store it
 #' in `options("arrow_duck_con")`)

@@ -33,6 +33,13 @@ that is backed by the Arrow object given. No data is copied or modified until
 }
 \details{
 The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
+
+If \code{auto_disconnect = TRUE}, the DuckDB table that is created will be configured
+to be unregistered when the \code{tbl} object is garbage collected. This is helpful
+if you don't want to have extra table objects in DuckDB after you've finished
+using them. Currently, this cleanup can, however, sometimes lead to hangs if
+tables are created and deleted in quick succession, hence the default value
+of \code{FALSE}
 }
 \examples{
 \dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
