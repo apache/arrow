@@ -908,4 +908,18 @@ visible: false
       TABLE
     end
   end
+
+  sub_test_case("#concatenate") do
+    test("options: :unify_schemas") do
+      table1 = Arrow::Table.new(a: [true],
+                                b: [false])
+      table2 = Arrow::Table.new(b: [false])
+      concatenated = table1.concatenate([table2], unify_schemas: true)
+      assert_equal(<<-TABLE, concatenated.to_s)
+	a	b
+0	true	false
+1	(null)	false
+      TABLE
+    end
+  end
 end
