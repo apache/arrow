@@ -275,7 +275,7 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 					cts.NoError(err)
 					defer actual.Release()
 
-					cts.True(array.ArrayEqual(expected, actual))
+					cts.Truef(array.ArrayEqual(expected, actual), "expected: %s\ngot: %s\n", expected, actual)
 					if len(actual.Data().Buffers()) > 0 {
 						if actual.Data().Buffers()[0] != nil {
 							cts.checkTrailingBitsZeroed(actual.Data().Buffers()[0], int64(actual.Len()))

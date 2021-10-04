@@ -123,6 +123,11 @@ def proxy_memory_pool(MemoryPool parent):
     """
     Create and return a MemoryPool instance that redirects to the
     *parent*, but with separate allocation statistics.
+
+    Parameters
+    ----------
+    parent : MemoryPool
+        The real memory pool that should be used for allocations.
     """
     cdef ProxyMemoryPool out = ProxyMemoryPool.__new__(ProxyMemoryPool)
     out.proxy_pool.reset(new CProxyMemoryPool(parent.pool))
@@ -134,6 +139,11 @@ def logging_memory_pool(MemoryPool parent):
     """
     Create and return a MemoryPool instance that redirects to the
     *parent*, but also dumps allocation logs on stderr.
+
+    Parameters
+    ----------
+    parent : MemoryPool
+        The real memory pool that should be used for allocations.
     """
     cdef LoggingMemoryPool out = LoggingMemoryPool.__new__(
         LoggingMemoryPool, parent)
@@ -181,6 +191,14 @@ def mimalloc_memory_pool():
 
 
 def set_memory_pool(MemoryPool pool):
+    """
+    Set the default memory pool.
+
+    Parameters
+    ----------
+    pool : MemoryPool
+        The memory pool that should be used by default.
+    """
     c_set_default_memory_pool(pool.pool)
 
 

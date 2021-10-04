@@ -92,6 +92,7 @@ Collate:
     'expression.R'
     'dplyr-functions.R'
     'dplyr-group-by.R'
+    'dplyr-join.R'
     'dplyr-mutate.R'
     'dplyr-select.R'
     'dplyr-summarize.R'

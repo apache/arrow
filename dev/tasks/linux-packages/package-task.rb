@@ -262,6 +262,8 @@ class PackageTask
       # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
+      "debian-bookworm",
+      # "debian-bookworm-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
@@ -402,6 +404,8 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-8",
+      # "almalinux-8-arch64",
       "amazon-linux-2",
       # "amazon-linux-2-arch64",
       "centos-7",

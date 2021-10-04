@@ -78,4 +78,5 @@ RUN \
   fi && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \
-  apt clean
+  apt clean && \
+  rm -rf /var/lib/apt/lists/*

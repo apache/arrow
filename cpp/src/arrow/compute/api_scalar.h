@@ -323,7 +323,8 @@ struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
 
   /// Number days from 0 if true and from 1 if false
   bool count_from_zero;
-  /// What day does the week start with (Monday=1, Sunday=7)
+  /// What day does the week start with (Monday=1, Sunday=7).
+  /// The numbering is unaffected by the count_from_zero parameter.
   uint32_t week_start;
 };
 

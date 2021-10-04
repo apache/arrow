@@ -16,10 +16,19 @@
 
 package memory
 
+import (
+	"os"
+	"runtime"
+	"strconv"
+	"sync"
+	"unsafe"
+)
+
 type CheckedAllocator struct {
-	mem  Allocator
-	base int
-	sz   int
+	mem Allocator
+	sz  int
+
+	allocs sync.Map
 }
 
 func NewCheckedAllocator(mem Allocator) *CheckedAllocator {
@@ -28,17 +37,79 @@ func NewCheckedAllocator(mem Allocator) *CheckedAllocator {
 
 func (a *CheckedAllocator) Allocate(size int) []byte {
 	a.sz += size
-	return a.mem.Allocate(size)
+	out := a.mem.Allocate(size)
+	if size == 0 {
+		return out
+	}
+
+	ptr := uintptr(unsafe.Pointer(&out[0]))
+	if pc, _, l, ok := runtime.Caller(allocFrames); ok {
+		a.allocs.Store(ptr, &dalloc{pc: pc, line: l, sz: size})
+	}
+	return out
 }
 
 func (a *CheckedAllocator) Reallocate(size int, b []byte) []byte {
 	a.sz += size - len(b)
-	return a.mem.Reallocate(size, b)
+
+	oldptr := uintptr(unsafe.Pointer(&b[0]))
+	out := a.mem.Reallocate(size, b)
+	if size == 0 {
+		return out
+	}
+
+	newptr := uintptr(unsafe.Pointer(&out[0]))
+	a.allocs.Delete(oldptr)
+	if pc, _, l, ok := runtime.Caller(reallocFrames); ok {
+		a.allocs.Store(newptr, &dalloc{pc: pc, line: l, sz: size})
+	}
+	return out
 }
 
 func (a *CheckedAllocator) Free(b []byte) {
 	a.sz -= len(b)
-	a.mem.Free(b)
+	defer a.mem.Free(b)
+
+	if len(b) == 0 {
+		return
+	}
+
+	ptr := uintptr(unsafe.Pointer(&b[0]))
+	a.allocs.Delete(ptr)
+}
+
+// typically the allocations are happening in memory.Buffer, not by consumers calling
+// allocate/reallocate directly. As a result, we want to skip the caller frames
+// of the inner workings of Buffer in order to find the caller that actually triggered
+// the allocation via a call to Resize/Reserve/etc.
+const (
+	defAllocFrames   = 4
+	defReallocFrames = 3
+)
+
+// Use the environment variables ARROW_CHECKED_ALLOC_FRAMES and ARROW_CHECKED_REALLOC_FRAMES
+// to control how many frames up it checks when storing the caller for allocations/reallocs
+// when using this to find memory leaks.
+var allocFrames, reallocFrames int = defAllocFrames, defReallocFrames
+
+func init() {
+	if val, ok := os.LookupEnv("ARROW_CHECKED_ALLOC_FRAMES"); ok {
+		if f, err := strconv.Atoi(val); err == nil {
+			allocFrames = f
+		}
+	}
+
+	if val, ok := os.LookupEnv("ARROW_CHECKED_REALLOC_FRAMES"); ok {
+		if f, err := strconv.Atoi(val); err == nil {
+			reallocFrames = f
+		}
+	}
+}
+
+type dalloc struct {
+	pc   uintptr
+	line int
+	sz   int
 }
 
 type TestingT interface {
@@ -47,6 +118,13 @@ type TestingT interface {
 }
 
 func (a *CheckedAllocator) AssertSize(t TestingT, sz int) {
+	a.allocs.Range(func(_, value interface{}) bool {
+		info := value.(*dalloc)
+		f := runtime.FuncForPC(info.pc)
+		t.Errorf("LEAK of %d bytes FROM %s line %d\n", info.sz, f.Name(), info.line)
+		return true
+	})
+
 	if a.sz != sz {
 		t.Helper()
 		t.Errorf("invalid memory size exp=%d, got=%d", sz, a.sz)

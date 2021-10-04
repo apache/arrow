@@ -256,6 +256,12 @@ class FSSpecHandler(FileSystemHandler):
 
     https://filesystem-spec.readthedocs.io/en/latest/index.html
 
+    Parameters
+    ----------
+    fs : The FSSpec-compliant filesystem instance.
+
+    Examples
+    --------
     >>> PyFileSystem(FSSpecHandler(fsspec_fs))
     """
 

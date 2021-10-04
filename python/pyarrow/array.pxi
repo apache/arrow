@@ -388,7 +388,7 @@ def repeat(value, size, MemoryPool memory_pool=None):
 
     Parameters
     ----------
-    value: Scalar-like object
+    value : Scalar-like object
         Either a pyarrow.Scalar or any python object coercible to a Scalar.
     size : int
         Number of times to repeat the scalar in the output Array.
@@ -878,7 +878,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        sequence : ndarray, pandas.Series, array-like
+        obj : ndarray, pandas.Series, array-like
         mask : array (boolean), optional
             Indicate which values are null (True) or not null (False).
         type : pyarrow.DataType
@@ -1618,6 +1618,7 @@ cdef class ListArray(BaseListArray):
         ----------
         offsets : Array (int32 type)
         values : Array (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -1699,6 +1700,7 @@ cdef class LargeListArray(BaseListArray):
         ----------
         offsets : Array (int64 type)
         values : Array (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -1748,6 +1750,7 @@ cdef class MapArray(Array):
         offsets : array-like or sequence (int32 type)
         keys : array-like or sequence (any type)
         items : array-like or sequence (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -2322,9 +2325,9 @@ cdef class ExtensionArray(Array):
 
         Parameters
         ----------
-        typ: DataType
+        typ : DataType
             The extension type for the result array.
-        storage: Array
+        storage : Array
             The underlying storage for the result array.
 
         Returns
