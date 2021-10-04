@@ -208,6 +208,9 @@ class ARROW_EXPORT AsyncToggle {
   void Close();
   /// \brief Open the toggle
   ///
+  /// Note: This call may complete a future, triggering any callbacks, and generally
+  /// should not be done while holding any locks.
+  ///
   /// All current waiters will be released to enter, even if another close call
   /// quickly follows
   void Open();
@@ -217,6 +220,7 @@ class ARROW_EXPORT AsyncToggle {
 
  private:
   Future<> when_open_ = Future<>::MakeFinished();
+  bool closed_ = false;
   util::Mutex mutex_;
 };
 

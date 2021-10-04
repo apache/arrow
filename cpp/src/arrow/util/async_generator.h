@@ -790,15 +790,13 @@ class PushGenerator {
         : backpressure(std::move(backpressure)) {}
 
     void OpenBackpressureIfFree() {
-      if (backpressure.toggle && !backpressure.toggle->IsOpen() &&
-          result_q.size() < backpressure.resume_if_below) {
+      if (backpressure.toggle && result_q.size() < backpressure.resume_if_below) {
         backpressure.toggle->Open();
       }
     }
 
     void CloseBackpressureIfFull() {
-      if (backpressure.toggle && backpressure.toggle->IsOpen() &&
-          result_q.size() > backpressure.pause_if_above) {
+      if (backpressure.toggle && result_q.size() > backpressure.pause_if_above) {
         backpressure.toggle->Close();
       }
     }
@@ -898,6 +896,8 @@ class PushGenerator {
     if (!state_->result_q.empty()) {
       auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
       state_->result_q.pop_front();
+      // OpenBackpressureIfFree might trigger callbacks so release the lock first
+      lock.Unlock();
       state_->OpenBackpressureIfFree();
       return fut;
     }

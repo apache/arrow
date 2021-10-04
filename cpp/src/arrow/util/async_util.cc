@@ -169,28 +169,27 @@ Future<> AsyncToggle::WhenOpen() {
 
 void AsyncToggle::Open() {
   util::Mutex::Guard guard = mutex_.Lock();
-  if (when_open_.is_finished()) {
+  if (!closed_) {
     return;
   }
-  // This swap is needed to ensure we mark finished outside the lock.  It does mean that
-  // later calls to Open might finish before earlier calls to Open but that should be ok.
-  Future<> to_finish = std::move(when_open_);
-  when_open_ = Future<>::MakeFinished();
+  closed_ = false;
+  Future<> to_finish = when_open_;
   guard.Unlock();
   to_finish.MarkFinished();
 }
 
 void AsyncToggle::Close() {
   util::Mutex::Guard guard = mutex_.Lock();
-  if (!when_open_.is_finished()) {
+  if (closed_) {
     return;
   }
+  closed_ = true;
   when_open_ = Future<>::Make();
 }
 
 bool AsyncToggle::IsOpen() {
   util::Mutex::Guard guard = mutex_.Lock();
-  return when_open_.is_finished();
+  return !closed_;
 }
 
 BackpressureOptions MakeBackpressureOptions(uint32_t resume_if_below,

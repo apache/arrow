@@ -19,6 +19,11 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
 #include "arrow/result.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
