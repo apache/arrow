@@ -8,7 +8,7 @@ to_duckdb(
   .data,
   con = arrow_duck_connection(),
   table_name = unique_arrow_tablename(),
-  auto_disconnect = TRUE
+  auto_disconnect = FALSE
 )
 }
 \arguments{
@@ -21,7 +21,7 @@ in \code{options("arrow_duck_con")})}
 unique string \code{"arrow_"} followed by numbers.}
 
 \item{auto_disconnect}{should the table be automatically cleaned up when the
-resulting object is removed (and garbage collected)? Default: \code{TRUE}}
+resulting object is removed (and garbage collected)? Default: \code{FALSE}}
 }
 \value{
 A \code{tbl} of the new table in DuckDB
