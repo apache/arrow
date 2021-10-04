@@ -199,3 +199,37 @@ func TestDayTimeIntervalTraits(t *testing.T) {
 		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)
 	}
 }
+
+func TestMonthDayNanoIntervalTraits(t *testing.T) {
+	const N = 10
+	b1 := arrow.MonthDayNanoIntervalTraits.CastToBytes([]arrow.MonthDayNanoInterval{
+		{0, 0, 0}, {1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000}, {5, 5, 5000}, {6, 6, 6000}, {7, 7, 7000}, {8, 8, 8000}, {9, 9, 9000},
+	})
+
+	b2 := make([]byte, arrow.MonthDayNanoIntervalTraits.BytesRequired(N))
+	for i := 0; i < N; i++ {
+		beg := i * arrow.MonthDayNanoIntervalSizeBytes
+		end := (i + 1) * arrow.MonthDayNanoIntervalSizeBytes
+		arrow.MonthDayNanoIntervalTraits.PutValue(b2[beg:end], arrow.MonthDayNanoInterval{int32(i), int32(i), int64(i) * 1000})
+	}
+
+	if !reflect.DeepEqual(b1, b2) {
+		v1 := arrow.MonthDayNanoIntervalTraits.CastFromBytes(b1)
+		v2 := arrow.MonthDayNanoIntervalTraits.CastFromBytes(b2)
+		t.Fatalf("invalid values:\nb1=%v\nb2=%v\nv1=%v\nv2=%v\n", b1, b2, v1, v2)
+	}
+
+	v1 := arrow.MonthDayNanoIntervalTraits.CastFromBytes(b1)
+	for i, v := range v1 {
+		if got, want := v, (arrow.MonthDayNanoInterval{int32(i), int32(i), int64(i) * 1000}); got != want {
+			t.Fatalf("invalid value[%d]. got=%v, want=%v", i, got, want)
+		}
+	}
+
+	v2 := make([]arrow.MonthDayNanoInterval, N)
+	arrow.MonthDayNanoIntervalTraits.Copy(v2, v1)
+
+	if !reflect.DeepEqual(v1, v2) {
+		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)
+	}
+}
