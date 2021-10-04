@@ -553,6 +553,7 @@ func makeIntervalsRecords() []array.Record {
 		[]arrow.Field{
 			arrow.Field{Name: "months", Type: arrow.FixedWidthTypes.MonthInterval, Nullable: true},
 			arrow.Field{Name: "days", Type: arrow.FixedWidthTypes.DayTimeInterval, Nullable: true},
+			arrow.Field{Name: "nanos", Type: arrow.FixedWidthTypes.MonthDayNanoInterval, Nullable: true},
 		}, nil,
 	)
 
