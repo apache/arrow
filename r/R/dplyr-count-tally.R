@@ -19,7 +19,7 @@
 
 count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL) {
   if (!missing(...)) {
-    out <- group_by(x, ..., .add = TRUE, .drop = .drop)
+    out <- group_by(x, ..., .add = TRUE)
   } else {
     out <- x
   }
