@@ -475,9 +475,9 @@ else()
 endif()
 
 if(DEFINED ENV{ARROW_GOOGLE_CLOUD_CPP_URL})
-  set(GOOGLE_CLOUD_CPP_SOURCE_URL "$ENV{ARROW_GOOGLE_CLOUD_CPP_URL}")
+  set(google_cloud_cpp_storage_SOURCE_URL "$ENV{ARROW_GOOGLE_CLOUD_CPP_URL}")
 else()
-  set_urls(GOOGLE_CLOUD_CPP_SOURCE_URL
+  set_urls(google_cloud_cpp_storage_SOURCE_URL
            "https://github.com/googleapis/google-cloud-cpp/archive/${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
   )
 endif()
@@ -3510,14 +3510,12 @@ macro(build_crc32c_once)
     set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
     set(CRC32C_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
         -DCMAKE_CXX_STANDARD=11
         -DCRC32C_BUILD_TESTS=OFF
         -DCRC32C_BUILD_BENCHMARKS=OFF
         -DCRC32C_USE_GLOG=OFF)
-    set(CRC32C_BUILD_BYPRODUCTS)
 
     set(_CRC32C_STATIC_LIBRARY
         "${CRC32C_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crc32c${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3547,12 +3545,8 @@ macro(build_nlohmann_json_once)
     # "Build" nlohmann-json
     set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
     set(NLOHMANN_JSON_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        -DCMAKE_CXX_STANDARD=11
-        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DBUILD_TESTING=OFF)
+        ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
+        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
 
     set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/json.hpp)
 
@@ -3601,11 +3595,13 @@ macro(build_google_cloud_cpp_storage)
   set(GOOGLE_CLOUD_CPP_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_TESTING=OFF
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
       -DCMAKE_INSTALL_RPATH=$ORIGIN
       -DCMAKE_PREFIX_PATH=${GOOGLE_CLOUD_CPP_PREFIX_PATH}
+      # Compile only the storage library and its dependencies. To enable
+      # other services (Spanner, Bigtable, etc.) add them (as a list) to this
+      # parameter. Each has its own `google-cloud-cpp::*` library.
       -DGOOGLE_CLOUD_CPP_ENABLE=storage)
   if(OPENSSL_ROOT_DIR)
     list(APPEND GOOGLE_CLOUD_CPP_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
@@ -3616,8 +3612,18 @@ macro(build_google_cloud_cpp_storage)
   add_dependencies(google_cloud_cpp_dependencies absl_ep)
   add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json_ep)
-  if(CARES_VENDORED)
-    add_dependencies(google_cloud_cpp_dependencies cares_ep)
+  # Typically the steps to build the AWKSSDK provide `CURL::libcurl`, but if that is
+  # disabled we need to provide our own.
+  if(NOT TARGET CURL::libcurl)
+    find_package(CURL REQUIRED)
+    if(NOT TARGET CURL::libcurl)
+      # For CMake 3.11 or older
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                                              "${CURL_LIBRARIES}")
+    endif()
   endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
@@ -3632,7 +3638,7 @@ macro(build_google_cloud_cpp_storage)
                       ${EP_LOG_OPTIONS}
                       LIST_SEPARATOR ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST_SEP_CHAR}
                       INSTALL_DIR ${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}
-                      URL ${GOOGLE_CLOUD_CPP_SOURCE_URL}
+                      URL ${google_cloud_cpp_storage_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
@@ -3682,16 +3688,6 @@ macro(build_google_cloud_cpp_storage)
 endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
-  if(GOOGLE_CLOUD_CPP_SOURCE STREQUAL "AUTO")
-    find_package(google_cloud_cpp_storage QUIET)
-    if(NOT google_cloud_cpp_storage_FOUND)
-      build_google_cloud_cpp_storage()
-    endif()
-  elseif(GOOGLE_CLOUD_CPP_SOURCE STREQUAL "BUNDLED")
-    build_google_cloud_cpp_storage()
-  elseif(GOOGLE_CLOUD_CPP_SOURCE STREQUAL "SYSTEM")
-    find_package(google_cloud_cpp_storage REQUIRED)
-  endif()
   resolve_dependency(google_cloud_cpp_storage)
 endif()
 

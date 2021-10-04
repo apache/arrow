@@ -122,7 +122,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
       -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
       -Dgflags_SOURCE=${gflags_SOURCE:-} \
-      -DGOOGLE_CLOUD_CPP_SOURCE=${GOOGLE_CLOUD_CPP_SOURCE:-} \
+      -Dgoogle_cloud_cpp_storage_SOURCE=${google_cloud_cpp_storage_SOURCE:-} \
       -DgRPC_SOURCE=${gRPC_SOURCE:-} \
       -DGTest_SOURCE=${GTest_SOURCE:-} \
       -DLz4_SOURCE=${Lz4_SOURCE:-} \
