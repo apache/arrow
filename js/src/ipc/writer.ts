@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from '../data';
 import { Table } from '../table';
 import { MAGIC } from './message';
 import { Vector } from '../vector';
@@ -255,9 +256,9 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
             ._writeBodyBuffers(buffers);
     }
 
-    protected _writeDictionaryBatch(dictionary: Vector, id: number, isDelta = false) {
+    protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
-        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(dictionary);
+        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(new Vector(dictionary));
         const recordBatch = new metadata.RecordBatch(dictionary.length, nodes, bufferRegions);
         const dictionaryBatch = new metadata.DictionaryBatch(recordBatch, id, isDelta);
         const message = Message.from(dictionaryBatch, byteLength);
@@ -284,10 +285,9 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         for (let [id, dictionary] of batch.dictionaries) {
             let offset = this._dictionaryDeltaOffsets.get(id) || 0;
             if (offset === 0 || (dictionary = dictionary.slice(offset)).length > 0) {
-                const chunks = 'chunks' in dictionary ? (dictionary as any).chunks : [dictionary];
-                for (const chunk of chunks) {
-                    this._writeDictionaryBatch(chunk, id, offset > 0);
-                    offset += chunk.length;
+                for (const data of dictionary.data) {
+                    this._writeDictionaryBatch(data, id, offset > 0);
+                    offset += data.length;
                 }
             }
         }
@@ -388,10 +388,10 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
         }
         return this;
     }
-    protected _writeDictionaryBatch(dictionary: Vector, id: number, isDelta = false) {
+    protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         this._write(this._dictionaryBlocks.length === 0 ? `    ` : `,\n    `);
-        this._write(`${dictionaryBatchToJSON(dictionary, id, isDelta)}`);
+        this._write(`${dictionaryBatchToJSON(new Vector(dictionary), id, isDelta)}`);
         this._dictionaryBlocks.push(new FileBlock(0, 0, 0));
         return this;
     }

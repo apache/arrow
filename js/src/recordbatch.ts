@@ -342,7 +342,7 @@ function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
 /** @ignore */
 class DictionaryCollector extends Visitor {
     public dictionaries = new Map<number, Vector>();
-    public visit<T extends DataType>(data: Data<T>) {
+    public visit<T extends DataType>(data: Data<T>): this {
         if (DataType.isDictionary(data.type)) {
             return super.visit(data);
         } else {

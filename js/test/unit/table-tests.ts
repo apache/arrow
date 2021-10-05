@@ -281,8 +281,8 @@ describe(`Table`, () => {
         compareBatchAndTable(table, m, batch2, deepCopy(table.slice(m, n)));
 
         // Then compare what happens when creating a RecordBatch by slicing the data
-        batch1 = new RecordBatch(batch1.schema, batch1.data.slice(0, m));
-        batch2 = new RecordBatch(batch2.schema, batch2.data.slice(m, m));
+        batch1 = new RecordBatch(batch1.schema, batch.data.slice(0, m));
+        batch2 = new RecordBatch(batch2.schema, batch.data.slice(m, m));
 
         compareBatchAndTable(table, 0, batch1, deepCopy(new Table([batch1])));
         compareBatchAndTable(table, m, batch2, deepCopy(new Table([batch2])));
