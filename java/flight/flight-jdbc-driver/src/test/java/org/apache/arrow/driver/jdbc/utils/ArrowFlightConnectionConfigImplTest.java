@@ -77,11 +77,17 @@ public final class ArrowFlightConnectionConfigImplTest {
   public static List<Object[]> provideParameters() {
     return asList(new Object[][]{
         {HOST, "host", (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getHost},
-        {PORT, RANDOM.nextInt(Short.toUnsignedInt(Short.MAX_VALUE)), (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPort},
+        {PORT,
+            RANDOM.nextInt(Short.toUnsignedInt(Short.MAX_VALUE)),
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPort},
         {USER, "user", (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getUser},
-        {PASSWORD, "password", (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPassword},
-        {USE_TLS, RANDOM.nextBoolean(), (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::useTls},
-        {THREAD_POOL_SIZE, RANDOM.nextInt(getRuntime().availableProcessors()), (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::threadPoolSize},
+        {PASSWORD, "password",
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPassword},
+        {USE_TLS, RANDOM.nextBoolean(),
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::useTls},
+        {THREAD_POOL_SIZE,
+            RANDOM.nextInt(getRuntime().availableProcessors()),
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::threadPoolSize},
     });
   }
 }
