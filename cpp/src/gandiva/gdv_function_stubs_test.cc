@@ -766,4 +766,43 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
   ctx.Reset();
 }
 
+
+TEST(TestGdvFnStubs, TestLocate) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  std::string s1 = "hello world!";
+  auto s1_len = static_cast<int32_t>(s1.size());
+  std::string s2 = "world";
+  auto s2_len = static_cast<int32_t>(s2.size());
+
+  auto result = gdv_fn_locate_utf8(ctx_ptr, s2.c_str(), s2_len, s1.c_str(), s1_len);
+  EXPECT_EQ(result, 6);
+
+  s1 = "mango, apple, banana, mango";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "mango";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len, s1.c_str(), s1_len, 6);
+  EXPECT_EQ(result, 22);
+
+  s1 = "";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "mango";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len, s1.c_str(), s1_len, 2);
+  EXPECT_EQ(result, 0);
+
+  s1 = "open the door";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len, s1.c_str(), s1_len, 1);
+  EXPECT_EQ(result, 0);
+}
+
 }  // namespace gandiva
