@@ -98,6 +98,39 @@ test_that("to_duckdb then to_arrow", {
   )
 })
 
+test_that("to_duckdb then to_arrow, streaming", {
+  ds <- InMemoryDataset$create(example_data)
+
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip
+    select(-fct) %>%
+    to_arrow(as_table = FALSE)
+
+  expect_identical(
+    collect(ds_rt),
+    ds %>%
+      select(-fct) %>%
+      collect()
+  )
+
+  # And we can continue the pipeline
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip
+    select(-fct) %>%
+    to_arrow(as_table = FALSE) %>%
+    filter(int > 5)
+
+  expect_identical(
+    collect(ds_rt),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5) %>%
+      collect()
+  )
+})
+
 # The next set of tests use an already-extant connection to test features of
 # persistence and querying against the table without using the `tbl` itself, so
 # we need to create a connection separate from the ephemeral one that is made

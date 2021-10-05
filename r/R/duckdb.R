@@ -119,8 +119,37 @@ duckdb_disconnector <- function(con, tbl_name) {
   environment()
 }
 
-to_arrow <- function(.data) {
+#' Create an Arrow object from others
+#'
+#' This can be used in pipelines that pass data back and forth between Arrow and
+#' other processes (like DuckDB).
+#'
+#' @param .data the object to be converted
+#' @param as_table should the results be materialized as a table? (default: TRUE)
+#'
+#' @return an `arrow_dplyr_query` object, to be used in dplyr pipelines.
+#' @export
+#'
+#' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
+#' library(dplyr)
+#'
+#' ds <- InMemoryDataset$create(mtcars)
+#'
+#' ds %>%
+#'   filter(mpg < 30) %>%
+#'   to_duckdb() %>%
+#'   group_by(cyl) %>%
+#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
+#'   to_arrow() %>%
+#'   collect()
+to_arrow <- function(.data, as_table = TRUE) {
+  # TODO: figure out WTAF .data is before just doing stuff
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
+  if (as_table) {
+    # This could be simply a table, but then the rerturn type varies
+    arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res)$read_table())
+  } else {
+    arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
+  }
 }
