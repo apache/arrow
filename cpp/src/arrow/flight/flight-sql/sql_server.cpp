@@ -18,6 +18,7 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
+#include "arrow/buffer.h"
 #include "arrow/flight/flight-sql/sql_server.h"
 
 namespace arrow {
@@ -123,6 +124,38 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
     return DoGetImportedKeys(command, context, stream);
   }
 
+  return Status::Invalid("The defined request is invalid.");
+}
+
+Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
+                                        std::vector<ActionType>* actions) {
+  *actions = {
+      FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT,
+      FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT
+  };
+  return Status::OK();
+}
+
+Status FlightSqlServerBase::DoAction(const ServerCallContext &context,
+                                     const Action &action,
+                                     std::unique_ptr<ResultStream> *result) {
+  if (action.type == FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT.type) {
+    google::protobuf::Any anyCommand;
+    anyCommand.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
+
+    pb::sql::ActionCreatePreparedStatementRequest command;
+    anyCommand.UnpackTo(&command);
+
+    return CreatePreparedStatement(command, context, result);
+  } else if (action.type == FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.type) {
+    google::protobuf::Any anyCommand;
+    anyCommand.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
+
+    pb::sql::ActionClosePreparedStatementRequest command;
+    anyCommand.UnpackTo(&command);
+
+    return ClosePreparedStatement(command, context, result);
+  }
   return Status::Invalid("The defined request is invalid.");
 }
 
@@ -261,6 +294,18 @@ Status FlightSqlServerBase::GetFlightInfoImportedKeys(
     const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
   return Status::NotImplemented("DoGetExportedKeys not implemented");
+}
+
+Status FlightSqlServerBase::CreatePreparedStatement(
+    const pb::sql::ActionCreatePreparedStatementRequest& request,
+    const ServerCallContext& context, std::unique_ptr<ResultStream>* p_ptr) {
+  return Status::NotImplemented("CreatePreparedStatement not implemented");
+}
+
+Status FlightSqlServerBase::ClosePreparedStatement(
+    const pb::sql::ActionClosePreparedStatementRequest& request,
+    const ServerCallContext& context, std::unique_ptr<ResultStream>* p_ptr) {
+  return Status::NotImplemented("ClosePreparedStatement not implemented");
 }
 
 Status FlightSqlServerBase::DoPutCommandStatementUpdate(

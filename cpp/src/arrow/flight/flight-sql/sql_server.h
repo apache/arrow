@@ -43,6 +43,26 @@ class FlightSqlServerBase : public FlightServerBase {
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override;
 
+  const ActionType FLIGHT_SQL_CREATE_PREPARED_STATEMENT =
+      ActionType{.type = "CreatePreparedStatement",
+                 .description =
+                     "Creates a reusable prepared statement resource on the server.\n"
+                     "Request Message: ActionCreatePreparedStatementRequest\n"
+                     "Response Message: ActionCreatePreparedStatementResult"};
+  const ActionType FLIGHT_SQL_CLOSE_PREPARED_STATEMENT = ActionType {
+    .type = "ClosePreparedStatement",
+    .description =
+        "Closes a reusable prepared statement resource on the server.\n"
+        "Request Message: ActionClosePreparedStatementRequest\n"
+        "Response Message: N/A"};
+
+  Status ListActions(const ServerCallContext &context,
+                     std::vector<ActionType> *actions) override;
+
+  Status DoAction(const ServerCallContext &context,
+                  const Action &action,
+                  std::unique_ptr<ResultStream> *result) override;
+
   /// \brief Gets a FlightInfo for executing a SQL query.
   /// \param[in] command      The CommandStatementQuery object containing the SQL
   ///                         statement.
@@ -272,6 +292,15 @@ class FlightSqlServerBase : public FlightServerBase {
       const pb::sql::CommandStatementUpdate& command, const ServerCallContext& context,
       std::unique_ptr<FlightMessageReader>& reader,
       std::unique_ptr<FlightMetadataWriter>& writer);
+
+  virtual Status CreatePreparedStatement(
+      const pb::sql::ActionCreatePreparedStatementRequest& request,
+      const ServerCallContext& context, std::unique_ptr<ResultStream>* p_ptr);
+
+  virtual Status ClosePreparedStatement(
+      const pb::sql::ActionClosePreparedStatementRequest& request,
+      const ServerCallContext& context, std::unique_ptr<ResultStream>* p_ptr);
+
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.
