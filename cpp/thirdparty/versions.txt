@@ -104,17 +104,17 @@ DEPENDENCIES=(
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
   "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
-  "ARROW_CRC32C_URL crc32c-${ARROW_CRC32C_BUILD_VERSION}.tar.gz https://github.com/google/crc32c/archive/refs/tags/${ARROW_CRC32C_BUILD_VERSION}.tar.gz
+  "ARROW_CRC32C_URL crc32c-${ARROW_CRC32C_BUILD_VERSION}.tar.gz https://github.com/google/crc32c/archive/refs/tags/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
   "ARROW_GBENCHMARK_URL gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
   "ARROW_GFLAGS_URL gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
   "ARROW_GLOG_URL glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
-  "ARROW_GOOGLE_CLOUD_CPP_URL google-cloud-cpp-${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz
+  "ARROW_GOOGLE_CLOUD_CPP_URL google-cloud-cpp-${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
   "ARROW_GRPC_URL grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
   "ARROW_GTEST_URL gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
   "ARROW_JEMALLOC_URL jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
   "ARROW_LZ4_URL lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
   "ARROW_MIMALLOC_URL mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
-  "ARROW_NLOHMANN_JSON_URL nlohmann-json-${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz https://github.com/nlohmann/json/archive/refs/tags/${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz
+  "ARROW_NLOHMANN_JSON_URL nlohmann-json-${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz https://github.com/nlohmann/json/archive/refs/tags/${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz"
   "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   "ARROW_PROTOBUF_URL protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_BUILD_VERSION:1}.tar.gz"
   "ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
