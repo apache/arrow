@@ -25,7 +25,7 @@ public class VectorSchemaRootTransformerTest {
   private final BufferAllocator rootAllocator = rootAllocatorTestRule.getRootAllocator();
 
   @Test
-  public void testTransformerBuilderWorksCorrectly() {
+  public void testTransformerBuilderWorksCorrectly() throws Exception {
     final VarBinaryVector field1 = rootAllocatorTestRule.createVarBinaryVector("FIELD_1");
     final VarBinaryVector field2 = rootAllocatorTestRule.createVarBinaryVector("FIELD_2");
     final VarBinaryVector field3 = rootAllocatorTestRule.createVarBinaryVector("FIELD_3");
