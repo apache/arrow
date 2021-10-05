@@ -54,11 +54,11 @@ Field <- R6Class("Field",
     }
   )
 )
-Field$create <- function(name, type, metadata) {
+Field$create <- function(name, type, metadata = NA, nullable = TRUE) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  Field__initialize(enc2utf8(name), type, TRUE)
+  Field__initialize(enc2utf8(name), type, nullable)
 }
 #' @include arrowExports.R
 Field$import_from_c <- ImportField
