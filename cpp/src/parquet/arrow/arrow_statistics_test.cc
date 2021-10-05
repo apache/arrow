@@ -39,33 +39,6 @@ using arrow::io::BufferReader;
 namespace parquet {
 namespace arrow {
 
-// PARQUET-2067: Tests that nulls from parent fields are included in null statistics when
-// array is dictionary encoded.
-TEST(TestArrowWriteNestedDictionary, TestNullCount) {
-  auto type = list(dictionary(::arrow::int32(), ::arrow::utf8()));
-  auto values = ArrayFromJSON(type, R"([null, ["z", null, "z"], null, null, null])");
-  std::shared_ptr<::arrow::Schema> schema =
-      ::arrow::schema({::arrow::field("values", values->type())});
-  std::shared_ptr<::arrow::Table> table = ::arrow::Table::Make(schema, {values});
-
-  std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
-  auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
-  std::unique_ptr<FileWriter> writer;
-  ASSERT_OK(FileWriter::Open(*table->schema(), default_memory_pool(), out_stream,
-                             default_writer_properties(),
-                             default_arrow_writer_properties(), &writer));
-  ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
-  ASSERT_OK(writer->Close());
-  ASSERT_OK(out_stream->Close());
-
-  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
-  auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
-  std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
-  std::shared_ptr<Statistics> stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
-  EXPECT_EQ(stats->num_values(), 2);
-  EXPECT_EQ(stats->null_count(), 5);
-}
-
 struct StatisticsTestParam {
   std::shared_ptr<::arrow::Table> table;
   int expected_null_count;
@@ -123,8 +96,8 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_max=*/"3"},
         StatisticsTestParam{
             /*table=*/Table::Make(
-                ::arrow::schema({::arrow::field("a", ::arrow::list(::arrow::utf8()))}),
-                {ArrayFromJSON(::arrow::list(::arrow::utf8()),
+                ::arrow::schema({::arrow::field("a", list(::arrow::utf8()))}),
+                {ArrayFromJSON(list(::arrow::utf8()),
                                R"([["1"], [], null, ["1", null, "3"]])")}),
             /*expected_null_count=*/3, /* empty list counts as null as well */
             /*expected_value_count=*/3,
@@ -140,32 +113,39 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_max=*/std::string("\x3\0\0\0\0\0\0\0", 8)},
         StatisticsTestParam{
             /*table=*/Table::Make(
-                ::arrow::schema({::arrow::field("a", ::arrow::list(::arrow::utf8()))}),
-                {ArrayFromJSON(::arrow::list(::arrow::utf8()),
-                               R"([["1"], [], ["1", "3"]])")}),
+                ::arrow::schema({::arrow::field("a", list(::arrow::utf8()))}),
+                {ArrayFromJSON(list(::arrow::utf8()), R"([["1"], [], ["1", "3"]])")}),
             /*expected_null_count=*/1, /* empty list counts as null as well */
             /*expected_value_count=*/3,
             /*expected_min=*/"1",
             /*expected_max=*/"3"},
         StatisticsTestParam{
             /*table=*/Table::Make(
-                ::arrow::schema({::arrow::field("a", ::arrow::list(::arrow::int64()))}),
-                {ArrayFromJSON(::arrow::list(::arrow::int64()),
+                ::arrow::schema({::arrow::field("a", list(::arrow::int64()))}),
+                {ArrayFromJSON(list(::arrow::int64()),
                                R"([[1], [], null, [1, null, 3]])")}),
             /*expected_null_count=*/3, /* empty list counts as null as well */
             /*expected_value_count=*/3,
             /*expected_min=*/std::string("\x1\0\0\0\0\0\0\0", 8),
             /*expected_max=*/std::string("\x3\0\0\0\0\0\0\0", 8)},
-
         StatisticsTestParam{
             /*table=*/Table::Make(
-                ::arrow::schema({::arrow::field("a", ::arrow::list(::arrow::int64()),
-                                                false)}),
-                {ArrayFromJSON(::arrow::list(::arrow::int64()), GetManyEmptyLists())}),
+                ::arrow::schema({::arrow::field("a", list(::arrow::int64()), false)}),
+                {ArrayFromJSON(list(::arrow::int64()), GetManyEmptyLists())}),
             /*expected_null_count=*/2001, /* empty list counts as null as well */
             /*expected_value_count=*/8,
             /*expected_min=*/std::string("\x1\0\0\0\0\0\0\0", 8),
-            /*expected_max=*/std::string("\x8\0\0\0\0\0\0\0", 8)}));
+            /*expected_max=*/std::string("\x8\0\0\0\0\0\0\0", 8)},
+        StatisticsTestParam{
+            /*table=*/Table::Make(
+                ::arrow::schema({::arrow::field("a", list(dictionary(::arrow::int32(),
+                                                                     ::arrow::utf8())))}),
+                {ArrayFromJSON(list(dictionary(::arrow::int32(), ::arrow::utf8())),
+                               R"([null, ["z", null, "z"], null, null, null])")}),
+            /*expected_null_count=*/5,
+            /*expected_value_count=*/2,
+            /*expected_min=*/"z",
+            /*expected_max=*/"z"}));
 
 }  // namespace arrow
 }  // namespace parquet
