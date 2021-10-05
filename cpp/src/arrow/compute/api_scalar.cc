@@ -174,6 +174,30 @@ struct EnumTraits<compute::RoundMode>
     return "<INVALID>";
   }
 };
+
+template <>
+struct EnumTraits<compute::NormalizationFormOptions::Method>
+    : BasicEnumTraits<compute::NormalizationFormOptions::Method,
+                      compute::NormalizationFormOptions::Method::NFC,
+                      compute::NormalizationFormOptions::Method::NFKC,
+                      compute::NormalizationFormOptions::Method::NFD,
+                      compute::NormalizationFormOptions::Method::NFKD> {
+  static std::string name() { return "compute::NormalizationFormOptions::Method"; }
+  static std::string value_name(compute::NormalizationFormOptions::Method value) {
+    switch (value) {
+      case compute::NormalizationFormOptions::Method::NFC:
+        return "NFC";
+      case compute::NormalizationFormOptions::Method::NFKC:
+        return "NFKC";
+      case compute::NormalizationFormOptions::Method::NFD:
+        return "NFD";
+      case compute::NormalizationFormOptions::Method::NFKD:
+        return "NFKD";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -247,6 +271,8 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
     DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kNormalizationFormOptionsType = GetFunctionOptionsType<NormalizationFormOptions>(
+    DataMember("method", &NormalizationFormOptions::method));
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
@@ -412,6 +438,13 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
+NormalizationFormOptions::NormalizationFormOptions()
+    : FunctionOptions(internal::kNormalizationFormOptionsType), 
+      method(method) {}
+NormalizationFormOptions::NormalizationFormOptions() 
+    : NormalizationFormOptions(NormalizationFormOptions::Method::NFC) {}
+constexpr char NormalizationFormOptions::kTypeName[];
+
 NullOptions::NullOptions(bool nan_is_null)
     : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
 constexpr char NullOptions::kTypeName[];
@@ -438,6 +471,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kNormalizationFormOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
 }
 }  // namespace internal

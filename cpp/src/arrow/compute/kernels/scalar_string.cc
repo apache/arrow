@@ -553,6 +553,54 @@ struct Utf8TitleTransform : public FunctionalCaseMappingTransform {
 template <typename Type>
 using Utf8Title = StringTransformExec<Type, Utf8TitleTransform>;
 
+struct Utf8NormalizationFormTransform : public FunctionalCaseMappingTransform {
+  using State = OptionsWrapper<NormalizationFormOptions>;
+
+  const NormalizationFormOptions* options;
+
+  explicit Utf8NormalizationFormTransform(const NormalizationFormOptions& options)
+      : options{&options} {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    options = &State::Get(ctx);
+    if (options->method) {
+      return Status::Invalid("Normalization form method not found.");
+    }
+    return Status::OK();
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    utf8proc_uint8_t* transformed = nullptr;
+    utf8proc_option_t option = GenerateNormalizationFormOption(options->method);
+    auto output_string_ncodeunits =
+        utf8proc_map(input, input_string_ncodeunits, &transformed, option);
+    std::memcpy(output, transformed, output_string_ncodeunits);
+    free(transformed);
+
+    return output_string_ncodeunits;  
+  }
+
+  private:
+    utf8proc_option_t GenerateNormalizationFormOption(NormalizationFormOptions::Method method) {
+      switch (method) {
+        case NormalizationFormOptions::Method::NFC:
+          return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
+        case NormalizationFormOptions::Method::NFKC:
+          return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE | UTF8PROC_COMPAT);
+        case NormalizationFormOptions::Method::NFD:
+          return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE);
+        case NormalizationFormOptions::Method::NFKD:
+          return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE | UTF8PROC_COMPAT);
+        default:
+          return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
+      }
+    }
+};
+
+template <typename Type>
+using Utf8NormalizationForm = StringTransformExecWithState<Type, Utf8NormalizationFormTransform>;
+
 #endif  // ARROW_WITH_UTF8PROC
 
 struct AsciiReverseTransform : public StringTransformBase {
@@ -591,70 +639,6 @@ struct Utf8ReverseTransform : public StringTransformBase {
 
 template <typename Type>
 using Utf8Reverse = StringTransformExec<Type, Utf8ReverseTransform>;
-
-struct Utf8NfTransformBase : public StringTransformBase {
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
-    // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
-    // However, since we don't support all casings (SpecialCasing.txt) the growth
-    // in bytes is actually only at max 3/2 (as covered by the unittest).
-    // Note that rounding down the 3/2 is ok, since only codepoints encoded by
-    // two code units (even) can grow to 3 code units.
-    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
-  }
-
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
-    utf8proc_uint8_t* transformed = nullptr;
-    utf8proc_option_t options = NormalizationFormOptions();
-    auto output_string_ncodeunits =
-        utf8proc_map(input, input_string_ncodeunits, &transformed, options);
-    std::memcpy(output, transformed, output_string_ncodeunits);
-    free(transformed);
-
-    return output_string_ncodeunits;
-  }
-
-  virtual utf8proc_option_t NormalizationFormOptions() { return UTF8PROC_STABLE; }
-};
-
-struct Utf8NfdTransform : public Utf8NfTransformBase {
-  utf8proc_option_t NormalizationFormOptions() override {
-    return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE);
-  }
-};
-
-template <typename Type>
-using Utf8Nfd = StringTransformExec<Type, Utf8NfdTransform>;
-
-struct Utf8NfkdTransform : public Utf8NfTransformBase {
-  utf8proc_option_t NormalizationFormOptions() override {
-    return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE |
-                                          UTF8PROC_COMPAT);
-  }
-};
-
-template <typename Type>
-using Utf8Nfkd = StringTransformExec<Type, Utf8NfkdTransform>;
-
-struct Utf8NfcTransform : public Utf8NfTransformBase {
-  utf8proc_option_t NormalizationFormOptions() override {
-    return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
-  }
-};
-
-template <typename Type>
-using Utf8Nfc = StringTransformExec<Type, Utf8NfcTransform>;
-
-struct Utf8NfkcTransform : public Utf8NfTransformBase {
-  utf8proc_option_t NormalizationFormOptions() override {
-    return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE |
-                                          UTF8PROC_COMPAT);
-  }
-};
-
-template <typename Type>
-using Utf8Nfkc = StringTransformExec<Type, Utf8NfkcTransform>;
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
@@ -4294,32 +4278,12 @@ const FunctionDoc utf8_reverse_doc(
      "composed of multiple codepoints."),
     {"strings"});
 
-const FunctionDoc utf8_nfd_doc(
+const FunctionDoc utf8_normalization_form_doc(
     "Normalization Form Canonical Decomposition",
     ("For each string in `strings`, return an unicode normalized version.\n\n"
      "Characters are decomposed by canonical equivalence,\n"
      "and multiple combining characters are arranged in a specific order.\n"),
-    {"strings"});
-
-const FunctionDoc utf8_nfkd_doc(
-    "Normalization Form Compatibility Decomposition",
-    ("For each string in `strings`, return an unicode normalized version.\n\n"
-     "Characters are decomposed by compatibility,\n"
-     "and multiple combining characters are arranged in a specific order.\n"),
-    {"strings"});
-
-const FunctionDoc utf8_nfc_doc(
-    "Normalization Form Canonical Composition",
-    ("For each string in `strings`, return an unicode normalized version.\n\n"
-     "Characters are decomposed and then recomposed by canonical equivalence.\n"),
-    {"strings"});
-
-const FunctionDoc utf8_nfkc_doc(
-    "Normalization Form Compatibility Composition",
-    ("For each string in `strings`, return an unicode normalized version.\n\n"
-     "Characters are decomposed by compatibility,\n"
-     "then recomposed by canonical equivalence.\n"),
-    {"strings"});
+    {"strings"}, "NormalizationFormOptions");
 
 }  // namespace
 
@@ -4390,10 +4354,6 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                   &utf8_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8RTrimWhitespace>("utf8_rtrim_whitespace", registry,
                                                   &utf8_rtrim_whitespace_doc);
-  MakeUnaryStringBatchKernel<Utf8Nfd>("utf8_nfd", registry, &utf8_nfd_doc);
-  MakeUnaryStringBatchKernel<Utf8Nfkd>("utf8_nfkd", registry, &utf8_nfkd_doc);
-  MakeUnaryStringBatchKernel<Utf8Nfc>("utf8_nfc", registry, &utf8_nfc_doc);
-  MakeUnaryStringBatchKernel<Utf8Nfkc>("utf8_nfkc", registry, &utf8_nfkc_doc);
   MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, &utf8_trim_doc);
   MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, &utf8_ltrim_doc);
   MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, &utf8_rtrim_doc);
@@ -4412,6 +4372,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry, &utf8_is_space_doc);
   AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry, &utf8_is_title_doc);
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8NormalizationForm>("utf8_normalization_form", registry, &utf8_normalization_form_doc);
 #endif
 
   AddBinaryLength(registry);

@@ -31,6 +31,10 @@
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
 
+#ifdef ARROW_WITH_UTF8PROC
+#include <utf8proc.h>
+#endif
+
 namespace arrow {
 namespace compute {
 
@@ -359,6 +363,16 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
   Ambiguous ambiguous;
   /// How to interpret non-existent local times (due to DST shifts)
   Nonexistent nonexistent;
+};
+
+struct ARROW_EXPORT NormalizationFormOptions : public FunctionOptions {
+ public:
+  enum Method { NFC, NFKC, NFD, NFKD };
+
+  explicit NormalizationFormOptions();
+  constexpr static char const kTypeName[] = "NormalizationFormOptions";
+
+  Method method;
 };
 
 /// @}
