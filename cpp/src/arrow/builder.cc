@@ -35,8 +35,6 @@ class MemoryPool;
 // ----------------------------------------------------------------------
 // Helper functions
 
-namespace {
-
 using arrow::internal::checked_cast;
 
 // Generic int builder that delegates to the builder for a specific
@@ -284,7 +282,6 @@ struct MakeBuilderImpl {
   bool exact_index_type;
   std::unique_ptr<ArrayBuilder> out;
 };
-}  // namespace
 
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out) {
