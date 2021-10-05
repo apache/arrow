@@ -73,14 +73,21 @@ bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
 
 static PyTypeObject MonthDayNanoTupleType = {0, 0};
 
+constexpr char* NonConst(const char* st) {
+  // Hack for python versions < 3.7 where members of PyStruct members
+  // where non-const (C++ doesn't like assigning string literals to these types)
+  return const_cast<char*>(st);
+}
+
 static PyStructSequence_Field MonthDayNanoField[] = {
-    {"months", "The number of months in the interval"},
-    {"days", "The number days in the interval"},
-    {"nanoseconds", "The number of nanoseconds in the interval"},
+    {NonConst("months"), NonConst("The number of months in the interval")},
+    {NonConst("days"), NonConst("The number days in the interval")},
+    {NonConst("nanoseconds"), NonConst("The number of nanoseconds in the interval")},
     {nullptr, nullptr}};
 
 static PyStructSequence_Desc MonthDayNanoTupleDesc = {
-    "MonthDayNano", "A calendar interval consisting of months, days and nanoseconds.",
+    NonConst("MonthDayNano"),
+    NonConst("A calendar interval consisting of months, days and nanoseconds."),
     MonthDayNanoField,
     /*n_in_sequence=*/3};
 
