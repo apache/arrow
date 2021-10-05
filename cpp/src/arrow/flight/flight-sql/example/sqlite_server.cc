@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sqlite3.h>
+#include <sstream>
 
 #include <sstream>
 
@@ -186,6 +187,33 @@ Status SQLiteFlightSqlServer::DoGetCatalogs(const ServerCallContext& context,
 
   const std::shared_ptr<RecordBatch>& batch =
       RecordBatch::Make(schema, 0, {catalog_name});
+
+  ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
+  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  return Status::OK();
+}
+
+Status SQLiteFlightSqlServer::GetFlightInfoSchemas(
+    const pb::sql::CommandGetSchemas& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+  return GetFlightInfoForCommand(descriptor, info, command,
+                                 SqlSchema::GetSchemasSchema());
+}
+
+Status SQLiteFlightSqlServer::DoGetSchemas(const pb::sql::CommandGetSchemas& command,
+                                           const ServerCallContext& context,
+                                           std::unique_ptr<FlightDataStream>* result) {
+  // As SQLite doesn't support schemas, this will return an empty record batch.
+
+  const std::shared_ptr<Schema>& schema = SqlSchema::GetSchemasSchema();
+
+  StringBuilder catalog_name_builder;
+  ARROW_ASSIGN_OR_RAISE(auto catalog_name, catalog_name_builder.Finish());
+  StringBuilder schema_name_builder;
+  ARROW_ASSIGN_OR_RAISE(auto schema_name, schema_name_builder.Finish());
+
+  const std::shared_ptr<RecordBatch>& batch =
+      RecordBatch::Make(schema, 0, {catalog_name, schema_name});
 
   ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
