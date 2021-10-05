@@ -161,8 +161,6 @@ struct PopulateMonthDayNano {
   }
 };
 
-}  // namespace
-
 // Utility for converting single python objects to their intermediate C representations
 // which can be fed to the typed builders
 class PyValue {
@@ -1120,6 +1118,8 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
   }
   return Status::OK();
 }
+
+}  // namespace
 
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject* mask,
                                                         PyConversionOptions options,
