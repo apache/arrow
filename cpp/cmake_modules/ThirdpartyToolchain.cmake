@@ -807,7 +807,6 @@ macro(build_boost)
                         INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
     add_dependencies(boost_system_static boost_ep)
     add_dependencies(boost_filesystem_static boost_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static)
   else()
     externalproject_add(boost_ep
                         ${EP_LOG_OPTIONS}
