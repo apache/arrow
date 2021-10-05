@@ -69,6 +69,7 @@ using internal::MakeConverter;
 
 namespace py {
 
+namespace {
 enum class MonthDayNanoField { kMonths, kWeeksAndDays, kDaysOnly, kNanoseconds };
 
 template <MonthDayNanoField field>
@@ -129,36 +130,38 @@ template <MonthDayNanoField field>
 struct PopulateMonthDayNano {
   using Traits = MonthDayNanoTraits<field>;
   using field_c_type = typename Traits::c_type;
-  inline static Status Field(PyObject* obj,
-                             field_c_type* out,
-                             bool* found_attrs) {
+  inline static Status Field(PyObject* obj, field_c_type* out, bool* found_attrs) {
     *out = 0;
     for (const MonthDayNanoAttrData* attr = &Traits::attrs[0]; attr->multiplier != 0;
          ++attr) {
       if (attr->multiplier != 1 &&
           ::arrow::internal::MultiplyWithOverflow(
               static_cast<field_c_type>(attr->multiplier), *out, out)) {
-        return Status::Invalid("Overflow on: ", (attr - 1)->name, " for: ", internal::PyObject_StdStringRepr(obj));
+        return Status::Invalid("Overflow on: ", (attr - 1)->name,
+                               " for: ", internal::PyObject_StdStringRepr(obj));
       }
 
-        OwnedRef field_value(PyObject_GetAttrString(obj, attr->name));
-        if (field_value.obj() == nullptr) {
-         // No attribute present, skip  to the next one. 
-         PyErr_Clear();
-         continue;
-        }
-        RETURN_IF_PYERROR();
-        *found_attrs = true;
-        field_c_type value;
-        RETURN_NOT_OK(internal::CIntFromPython(field_value.obj(), &value, attr->name));
-        if (::arrow::internal::AddWithOverflow(*out, value, out)) {
-          return Status::Invalid("Overflow on: ", attr->name, " for: ", internal::PyObject_StdStringRepr(obj));
-        }
+      OwnedRef field_value(PyObject_GetAttrString(obj, attr->name));
+      if (field_value.obj() == nullptr) {
+        // No attribute present, skip  to the next one.
+        PyErr_Clear();
+        continue;
+      }
+      RETURN_IF_PYERROR();
+      *found_attrs = true;
+      field_c_type value;
+      RETURN_NOT_OK(internal::CIntFromPython(field_value.obj(), &value, attr->name));
+      if (::arrow::internal::AddWithOverflow(*out, value, out)) {
+        return Status::Invalid("Overflow on: ", attr->name,
+                               " for: ", internal::PyObject_StdStringRepr(obj));
+      }
     }
 
     return Status::OK();
   }
 };
+
+}  // namespace
 
 // Utility for converting single python objects to their intermediate C representations
 // which can be fed to the typed builders

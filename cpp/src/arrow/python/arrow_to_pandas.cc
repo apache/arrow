@@ -1111,8 +1111,8 @@ struct ObjectWriterVisitor {
       RETURN_IF_PYERROR();
       return Status::OK();
     };
-    return ConvertAsPyObjects<MonthDayNanoIntervalType>(
-        options, data, to_date_offset, out_values);
+    return ConvertAsPyObjects<MonthDayNanoIntervalType>(options, data, to_date_offset,
+                                                        out_values);
   }
 
   Status Visit(const Decimal128Type& type) {
