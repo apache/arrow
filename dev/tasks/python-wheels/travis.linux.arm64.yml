@@ -42,7 +42,7 @@ env:
     - TRAVIS_TAG={{ task.tag }}
     # archery uses these environment variables
     - ARCH=arm64v8
-    - PYTHON={{ python_version }}
+    - PYTHON="{{ python_version }}"
 
 before_script:
   - set -e
