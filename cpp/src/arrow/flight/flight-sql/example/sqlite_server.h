@@ -19,6 +19,9 @@
 
 #include <sqlite3.h>
 
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+
 #include "arrow/api.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
@@ -65,6 +68,19 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
       const pb::sql::CommandStatementUpdate& update, const ServerCallContext& context,
       std::unique_ptr<FlightMessageReader>& reader,
       std::unique_ptr<FlightMetadataWriter>& writer) override;
+  Status CreatePreparedStatement(
+      const pb::sql::ActionCreatePreparedStatementRequest& request,
+      const ServerCallContext& context, std::unique_ptr<ResultStream>* result) override;
+  Status ClosePreparedStatement(
+      const pb::sql::ActionClosePreparedStatementRequest& request,
+      const ServerCallContext& context, std::unique_ptr<ResultStream>* result) override;
+  Status GetFlightInfoPreparedStatement(
+      const pb::sql::CommandPreparedStatementQuery& command,
+      const ServerCallContext& context, const FlightDescriptor& descriptor,
+      std::unique_ptr<FlightInfo>* info) override;
+  Status DoGetPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
+                                const ServerCallContext& context,
+                                std::unique_ptr<FlightDataStream>* result) override;
 
   Status GetFlightInfoTables(const pb::sql::CommandGetTables& command,
                              const ServerCallContext& context,
@@ -105,6 +121,8 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
 
 private:
   sqlite3* db_;
+  boost::uuids::random_generator uuid_generator_;
+  std::map<boost::uuids::uuid, std::shared_ptr<SqliteStatement>> prepared_statements_;
 };
 
 }  // namespace example

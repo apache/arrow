@@ -16,6 +16,10 @@
 // under the License.
 
 #include <sqlite3.h>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <sstream>
 
 #include "arrow/api.h"
@@ -298,6 +302,90 @@ Status SQLiteFlightSqlServer::DoPutCommandStatementUpdate(
 
   const std::shared_ptr<Buffer>& buffer = Buffer::FromString(result.SerializeAsString());
   ARROW_RETURN_NOT_OK(writer->WriteMetadata(*buffer));
+
+  return Status::OK();
+}
+
+Status SQLiteFlightSqlServer::CreatePreparedStatement(
+    const pb::sql::ActionCreatePreparedStatementRequest& request,
+    const ServerCallContext& context, std::unique_ptr<ResultStream>* result) {
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, request.query(), &statement));
+
+  boost::uuids::uuid uuid = uuid_generator_();
+  prepared_statements_[uuid] = statement;
+
+  std::shared_ptr<Schema> schema;
+  ARROW_RETURN_NOT_OK(statement->GetSchema(&schema));
+  ARROW_ASSIGN_OR_RAISE(auto serialized_schema, ipc::SerializeSchema(*schema));
+
+  pb::sql::ActionCreatePreparedStatementResult result2;
+  result2.set_dataset_schema(serialized_schema->ToString());
+  result2.set_parameter_schema("");
+  result2.set_prepared_statement_handle(boost::uuids::to_string(uuid));
+
+  google::protobuf::Any any;
+  any.PackFrom(result2);
+
+  auto buf = Buffer::FromString(any.SerializeAsString());
+  *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+
+  return Status::OK();
+}
+
+Status SQLiteFlightSqlServer::ClosePreparedStatement(
+    const pb::sql::ActionClosePreparedStatementRequest& request,
+    const ServerCallContext& context, std::unique_ptr<ResultStream>* result) {
+  const std::string& prepared_statement_handle = request.prepared_statement_handle();
+  const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(prepared_statement_handle);
+
+  auto search = prepared_statements_.find(uuid);
+  if (search != prepared_statements_.end()) {
+    prepared_statements_.erase(uuid);
+  } else {
+    return Status::Invalid("Prepared statement not found");
+  }
+
+  return Status::OK();
+}
+
+Status SQLiteFlightSqlServer::GetFlightInfoPreparedStatement(
+    const pb::sql::CommandPreparedStatementQuery& command,
+    const ServerCallContext& context, const FlightDescriptor& descriptor,
+    std::unique_ptr<FlightInfo>* info) {
+  const std::string& prepared_statement_handle = command.prepared_statement_handle();
+  const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(prepared_statement_handle);
+
+  auto search = prepared_statements_.find(uuid);
+  if (search == prepared_statements_.end()) {
+    return Status::Invalid("Prepared statement not found");
+  }
+
+  std::shared_ptr<SqliteStatement> statement = search->second;
+
+  std::shared_ptr<Schema> schema;
+  ARROW_RETURN_NOT_OK(statement->GetSchema(&schema));
+
+  return GetFlightInfoForCommand(descriptor, info, command, schema);
+}
+
+Status SQLiteFlightSqlServer::DoGetPreparedStatement(
+    const pb::sql::CommandPreparedStatementQuery& command,
+    const ServerCallContext& context, std::unique_ptr<FlightDataStream>* result) {
+  const std::string& prepared_statement_handle = command.prepared_statement_handle();
+  const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(prepared_statement_handle);
+
+  auto search = prepared_statements_.find(uuid);
+  if (search == prepared_statements_.end()) {
+    return Status::Invalid("Prepared statement not found");
+  }
+
+  std::shared_ptr<SqliteStatement> statement = search->second;
+
+  std::shared_ptr<SqliteStatementBatchReader> reader;
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
+
+  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
 
   return Status::OK();
 }

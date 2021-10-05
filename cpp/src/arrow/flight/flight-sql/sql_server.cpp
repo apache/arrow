@@ -18,8 +18,9 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
-#include "arrow/buffer.h"
 #include "arrow/flight/flight-sql/sql_server.h"
+
+#include "arrow/buffer.h"
 
 namespace arrow {
 namespace flight {
@@ -129,16 +130,14 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
 
 Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
                                         std::vector<ActionType>* actions) {
-  *actions = {
-      FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT,
-      FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT
-  };
+  *actions = {FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT,
+              FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT};
   return Status::OK();
 }
 
-Status FlightSqlServerBase::DoAction(const ServerCallContext &context,
-                                     const Action &action,
-                                     std::unique_ptr<ResultStream> *result) {
+Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
+                                     const Action& action,
+                                     std::unique_ptr<ResultStream>* result) {
   if (action.type == FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT.type) {
     google::protobuf::Any anyCommand;
     anyCommand.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
@@ -147,7 +146,8 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext &context,
     anyCommand.UnpackTo(&command);
 
     return CreatePreparedStatement(command, context, result);
-  } else if (action.type == FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.type) {
+  } else if (action.type ==
+             FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.type) {
     google::protobuf::Any anyCommand;
     anyCommand.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
 

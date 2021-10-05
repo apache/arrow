@@ -19,6 +19,8 @@
 
 #include <sqlite3.h>
 
+#include <boost/algorithm/string.hpp>
+
 #include "arrow/api.h"
 
 namespace arrow {
@@ -57,14 +59,52 @@ Status SqliteStatement::Create(sqlite3* db, const std::string& sql,
   return Status::OK();
 }
 
+std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
+  if (sqlite_type == NULLPTR) {
+    // SQLite may not know the column type yet.
+    return null();
+  }
+
+  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+    return int64();
+  } else if (boost::iequals(sqlite_type, "REAL")) {
+    return float64();
+  } else if (boost::iequals(sqlite_type, "BLOB")) {
+    return binary();
+  } else if (boost::iequals(sqlite_type, "TEXT") ||
+             boost::istarts_with(sqlite_type, "char") ||
+             boost::istarts_with(sqlite_type, "varchar")) {
+    return utf8();
+  } else {
+    return null();
+  }
+}
+
 Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
   std::vector<std::shared_ptr<Field>> fields;
   int column_count = sqlite3_column_count(stmt_);
   for (int i = 0; i < column_count; i++) {
     const char* column_name = sqlite3_column_name(stmt_, i);
-    const int column_type = sqlite3_column_type(stmt_, i);
 
+    // SQLite not always provide column types, specially when the statement has not been
+    // executed yet. Because of this behaviour this method tries to get the column types
+    // in two attempts:
+    // 1. Use sqlite3_column_type(), which return SQLITE_NULL if the statement has not
+    //    been executed yet
+    // 2. Use sqlite3_column_decltype(), which returns correctly if given column is
+    //    declared in the table.
+    // Because of this limitation, it is not possible to know the column types for some
+    // prepared statements.
+    const int column_type = sqlite3_column_type(stmt_, i);
     std::shared_ptr<DataType> data_type = GetDataTypeFromSqliteType(column_type);
+    if (data_type->id() == Type::NA) {
+      // Try to retrieve column type from sqlite3_column_decltype
+      const char* column_decltype = sqlite3_column_decltype(stmt_, i);
+      if (column_decltype != NULLPTR) {
+        data_type = GetArrowType(column_decltype);
+      }
+    }
+
     fields.push_back(arrow::field(column_name, data_type));
   }
 
