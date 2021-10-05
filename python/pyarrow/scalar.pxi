@@ -522,7 +522,7 @@ cdef class MonthDayNanoIntervalScalar(Scalar):
     @property
     def value(self):
         """
-        Returns this value pyarrow.MonthDayNanoTuple.
+        Returns this value as a pyarrow.MonthDayNanoTuple.
         """
         cdef PyObject* val
         val = GetResultValue(ARROW_TO_PYTHON.ToPrimitive(
