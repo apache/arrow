@@ -31,10 +31,6 @@
 namespace arrow {
 namespace compute {
 
-// Identifiers for all different row schemas that are used in a join
-//
-enum class HashJoinProjection : int { INPUT = 0, KEY = 1, PAYLOAD = 2, OUTPUT = 3 };
-
 class ARROW_EXPORT HashJoinSchema {
  public:
   Status Init(JoinType join_type, const Schema& left_schema,

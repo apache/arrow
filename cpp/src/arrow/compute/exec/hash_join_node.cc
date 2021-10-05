@@ -19,6 +19,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/hash_join.h"
+#include "arrow/compute/exec/hash_join_dict.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"
@@ -163,13 +164,6 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     const FieldPath& match = result.ValueUnsafe();
     const std::shared_ptr<DataType>& type =
         (left_side ? left_schema.fields() : right_schema.fields())[match[0]]->type();
-    if (type->id() == Type::DICTIONARY) {
-      return Status::Invalid(
-          "Dictionary type support for join key is not yet implemented, key field "
-          "reference: ",
-          field_ref.ToString(), left_side ? " on left " : " on right ",
-          "side of the join");
-    }
     if ((type->id() != Type::BOOL && !is_fixed_width(type->id()) &&
          !is_binary_like(type->id())) ||
         is_large_binary_like(type->id())) {
@@ -184,11 +178,11 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     int right_id = right_ref.FindOne(right_schema).ValueUnsafe()[0];
     const std::shared_ptr<DataType>& left_type = left_schema.fields()[left_id]->type();
     const std::shared_ptr<DataType>& right_type = right_schema.fields()[right_id]->type();
-    if (!left_type->Equals(right_type)) {
-      return Status::Invalid("Mismatched data types for corresponding join field keys: ",
-                             left_ref.ToString(), " of type ", left_type->ToString(),
-                             " and ", right_ref.ToString(), " of type ",
-                             right_type->ToString());
+    if (!HashJoinDictUtil::KeyDataTypesValid(left_type, right_type)) {
+      return Status::Invalid(
+          "Incompatible data types for corresponding join field keys: ",
+          left_ref.ToString(), " of type ", left_type->ToString(), " and ",
+          right_ref.ToString(), " of type ", right_type->ToString());
     }
   }
 
@@ -227,16 +221,6 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
       return Status::Invalid("No match or multiple matches for output field reference ",
                              field_ref.ToString(), left_side ? " on left " : " on right ",
                              "side of the join");
-    }
-    const FieldPath& match = result.ValueUnsafe();
-    const std::shared_ptr<DataType>& type =
-        (left_side ? left_schema.fields() : right_schema.fields())[match[0]]->type();
-    if (type->id() == Type::DICTIONARY) {
-      return Status::Invalid(
-          "Dictionary type support for join output field is not yet implemented, output "
-          "field reference: ",
-          field_ref.ToString(), left_side ? " on left " : " on right ",
-          "side of the join");
     }
   }
   return Status::OK();
