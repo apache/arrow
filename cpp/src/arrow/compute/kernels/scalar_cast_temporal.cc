@@ -505,6 +505,13 @@ std::shared_ptr<CastFunction> GetDurationCast() {
   return func;
 }
 
+std::shared_ptr<CastFunction> GetIntervalCast() {
+  auto func = std::make_shared<CastFunction>("cast_month_day_nano_interval",
+                                             Type::INTERVAL_MONTH_DAY_NANO);
+  AddCommonCasts(Type::INTERVAL_MONTH_DAY_NANO, kOutputTargetType, func.get());
+  return func;
+}
+
 std::shared_ptr<CastFunction> GetTime32Cast() {
   auto func = std::make_shared<CastFunction>("cast_time32", Type::TIME32);
   AddCommonCasts(Type::TIME32, kOutputTargetType, func.get());
@@ -579,6 +586,7 @@ std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts() {
   functions.push_back(GetDate32Cast());
   functions.push_back(GetDate64Cast());
   functions.push_back(GetDurationCast());
+  functions.push_back(GetIntervalCast());
   functions.push_back(GetTime32Cast());
   functions.push_back(GetTime64Cast());
   functions.push_back(GetTimestampCast());
