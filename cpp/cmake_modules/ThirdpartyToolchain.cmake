@@ -58,6 +58,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     c-ares
     gflags
     GLOG
+    google_cloud_cpp_storage
     gRPC
     GTest
     LLVM
