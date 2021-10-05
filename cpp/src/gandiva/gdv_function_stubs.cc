@@ -792,6 +792,34 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   *out_len = out_idx;
   return out;
 }
+
+
+GANDIVA_EXPORT
+int32_t gdv_fn_locate_with_pos_utf8(int64_t context, const char* substring, int32_t substring_len,
+                          const char* string, int32_t string_len, int32_t pos) {
+  if (string_len <= 0 || substring_len <= 0) {
+    return 0;
+  }
+
+  std::string substr(substring, substring_len);
+  std::string str(string, string_len);
+
+  auto found = str.find(substr, pos);
+
+  if (found == std::string::npos) {
+    return 0;
+  }
+
+  auto position = static_cast<int32_t>(found);
+
+  return position;
+}
+
+GANDIVA_EXPORT
+int32_t gdv_fn_locate_utf8(int64_t context, const char* substring, int32_t substring_len,
+                                   const char* string, int32_t string_len) {
+  return gdv_fn_locate_with_pos_utf8(context, substring, substring_len, string, string_len, 0);
+}
 }
 
 namespace gandiva {
@@ -1597,5 +1625,32 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_initcap_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
+
+  // gdv_fn_locate_with_pos_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // substring
+      types->i32_type(),     // substring_length
+      types->i8_ptr_type(),  // string
+      types->i32_type(),     // string_length
+      types->i32_type(),     // pos
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_locate_with_pos_utf8",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_locate_with_pos_utf8));
+
+  // gdv_fn_locate_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // substring
+      types->i32_type(),     // substring_length
+      types->i8_ptr_type(),  // string
+      types->i32_type(),     // string_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_locate_utf8",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_locate_utf8));
 }
 }  // namespace gandiva

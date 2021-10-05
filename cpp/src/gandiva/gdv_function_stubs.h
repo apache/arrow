@@ -170,4 +170,12 @@ float gdv_fn_castFLOAT4_varbinary(gdv_int64 context, const char* in, int32_t in_
 
 GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in_len);
+
+GANDIVA_EXPORT
+int32_t gdv_fn_locate_with_pos_utf8(int64_t context, const char* substring, int32_t substring_len,
+                                   const char* string, int32_t string_len, int32_t pos);
+
+GANDIVA_EXPORT
+int32_t gdv_fn_locate_utf8(int64_t context, const char* substring, int32_t substring_len,
+                          const char* string, int32_t string_len);
 }
