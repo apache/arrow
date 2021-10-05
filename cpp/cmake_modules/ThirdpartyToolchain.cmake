@@ -151,6 +151,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
     build_glog()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "google_cloud_cpp_storage")
+    build_google_cloud_cpp_storage()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gRPC")
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
@@ -285,6 +287,10 @@ if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
   # gRPC requires zlib
   set(ARROW_WITH_ZLIB ON)
+endif()
+
+if(ARROW_GCS)
+  set(ARROW_WITH_GOOGLE_CLOUD_CPP ON)
 endif()
 
 if(ARROW_JSON)
@@ -433,6 +439,14 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_CRC32C_URL})
+  set(CRC32C_URL "$ENV{ARROW_CRC32C_URL}")
+else()
+  set_urls(CRC32C_SOURCE_URL
+           "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
@@ -457,6 +471,14 @@ else()
   set_urls(GLOG_SOURCE_URL
            "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
            "https://github.com/ursa-labs/thirdparty/releases/download/latest/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_GOOGLE_CLOUD_CPP_URL})
+  set(google_cloud_cpp_storage_SOURCE_URL "$ENV{ARROW_GOOGLE_CLOUD_CPP_URL}")
+else()
+  set_urls(google_cloud_cpp_storage_SOURCE_URL
+           "https://github.com/googleapis/google-cloud-cpp/archive/${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -494,6 +516,14 @@ else()
   set_urls(MIMALLOC_SOURCE_URL
            "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
            "https://github.com/ursa-labs/thirdparty/releases/download/latest/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_NLOHMANN_JSON_URL})
+  set(NLOHMANN_JSON_SOURCE_URL "$ENV{ARROW_NLOHMANN_JSON_URL}")
+else()
+  set_urls(NLOHMANN_JSON_SOURCE_URL
+           "https://github.com/nlohmann/json/archive/${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -3473,6 +3503,197 @@ if(ARROW_WITH_GRPC)
       message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
     endif()
   endif()
+endif()
+
+# ----------------------------------------------------------------------
+# GCS and dependencies
+
+macro(build_crc32c_once)
+  if(NOT TARGET crc32c_ep)
+    message(STATUS "Building crc32c from source")
+    # Build crc32c
+    set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
+    set(CRC32C_CMAKE_ARGS
+        ${EP_COMMON_CMAKE_ARGS}
+        -DCMAKE_INSTALL_LIBDIR=lib
+        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+        -DCMAKE_CXX_STANDARD=11
+        -DCRC32C_BUILD_TESTS=OFF
+        -DCRC32C_BUILD_BENCHMARKS=OFF
+        -DCRC32C_USE_GLOG=OFF)
+
+    set(_CRC32C_STATIC_LIBRARY
+        "${CRC32C_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crc32c${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+    set(CRC32C_BUILD_BYPRODUCTS ${_CRC32C_STATIC_LIBRARY})
+    set(CRC32C_LIBRARIES crc32c)
+
+    externalproject_add(crc32c_ep
+                        ${EP_LOG_OPTIONS}
+                        INSTALL_DIR ${CRC32C_PREFIX}
+                        URL ${CRC32C_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
+                        CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
+    add_library(Crc32c::crc32c STATIC IMPORTED)
+    set_target_properties(Crc32c::crc32c
+                          PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${CRC32C_INCLUDE}/include")
+    add_dependencies(Crc32c::crc32c crc32c_ep)
+  endif()
+endmacro()
+
+macro(build_nlohmann_json_once)
+  if(NOT TARGET nlohmann_json_ep)
+    message(STATUS "Building nlohmann-json from source")
+    # "Build" nlohmann-json
+    set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
+    set(NLOHMANN_JSON_CMAKE_ARGS
+        ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
+        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
+
+    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/json.hpp)
+
+    externalproject_add(nlohmann_json_ep
+                        ${EP_LOG_OPTIONS}
+                        INSTALL_DIR ${NLOHMANN_JSON_PREFIX}
+                        URL ${NLOHMANN_JSON_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
+                        CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+    add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+    set_target_properties(nlohmann_json::nlohmann_json
+                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                     "${NLOHMANN_JSON_PREFIX}/include")
+    add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
+  endif()
+endmacro()
+
+macro(build_google_cloud_cpp_storage)
+  message(STATUS "Building google-cloud-cpp from source")
+  message(STATUS "Only building the google-cloud-cpp::storage component")
+
+  # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/master/doc/packaging.md
+  build_absl_once()
+  build_crc32c_once()
+  build_nlohmann_json_once()
+
+  # Curl is required on all platforms, but building it internally might also trip over S3's copy.
+  # For now, force its inclusion from the underlying system or fail.
+  find_package(CURL REQUIRED 7.47.0)
+
+  # Build google-cloud-cpp, with only storage_client
+
+  # Inject vendored packages via CMAKE_PREFIX_PATH
+  list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${ABSL_PREFIX})
+  list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${CRC32C_PREFIX})
+  list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+
+  set(GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST_SEP_CHAR "|")
+  list(JOIN GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST
+       ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST_SEP_CHAR} GOOGLE_CLOUD_CPP_PREFIX_PATH)
+
+  set(GOOGLE_CLOUD_CPP_INSTALL_PREFIX
+      "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_ep-install")
+  set(GOOGLE_CLOUD_CPP_INCLUDE_DIR "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/include")
+  set(GOOGLE_CLOUD_CPP_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DBUILD_TESTING=OFF
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+      -DCMAKE_INSTALL_RPATH=$ORIGIN
+      -DCMAKE_PREFIX_PATH=${GOOGLE_CLOUD_CPP_PREFIX_PATH}
+      # Compile only the storage library and its dependencies. To enable
+      # other services (Spanner, Bigtable, etc.) add them (as a list) to this
+      # parameter. Each has its own `google-cloud-cpp::*` library.
+      -DGOOGLE_CLOUD_CPP_ENABLE=storage)
+  if(OPENSSL_ROOT_DIR)
+    list(APPEND GOOGLE_CLOUD_CPP_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
+  endif()
+
+  add_custom_target(google_cloud_cpp_dependencies)
+
+  add_dependencies(google_cloud_cpp_dependencies absl_ep)
+  add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
+  add_dependencies(google_cloud_cpp_dependencies nlohmann_json_ep)
+  # Typically the steps to build the AWKSSDK provide `CURL::libcurl`, but if that is
+  # disabled we need to provide our own.
+  if(NOT TARGET CURL::libcurl)
+    find_package(CURL REQUIRED)
+    if(NOT TARGET CURL::libcurl)
+      # For CMake 3.11 or older
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                                              "${CURL_LIBRARIES}")
+    endif()
+  endif()
+
+  set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
+      "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+
+  set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON
+      "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_common${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+
+  externalproject_add(google_cloud_cpp_ep
+                      ${EP_LOG_OPTIONS}
+                      LIST_SEPARATOR ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST_SEP_CHAR}
+                      INSTALL_DIR ${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}
+                      URL ${google_cloud_cpp_storage_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
+                                       ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
+                      DEPENDS google_cloud_cpp_dependencies)
+  add_dependencies(toolchain google_cloud_cpp_ep)
+
+  add_library(google-cloud-cpp::common STATIC IMPORTED)
+  set_target_properties(google-cloud-cpp::common
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+  set_property(TARGET google-cloud-cpp::common
+               PROPERTY INTERFACE_LINK_LIBRARIES
+                        absl::any
+                        absl::flat_hash_map
+                        absl::memory
+                        absl::optional
+                        absl::time
+                        Threads::Threads)
+
+  add_library(google-cloud-cpp::storage STATIC IMPORTED)
+  set_target_properties(google-cloud-cpp::storage
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+  set_property(TARGET google-cloud-cpp::storage
+               PROPERTY INTERFACE_LINK_LIBRARIES
+                        google-cloud-cpp::common
+                        absl::memory
+                        absl::strings
+                        absl::str_format
+                        absl::time
+                        absl::variant
+                        nlohmann_json::nlohmann_json
+                        Crc32c::crc32c
+                        CURL::libcurl
+                        Threads::Threads
+                        OpenSSL::SSL
+                        OpenSSL::Crypto)
+  add_dependencies(google-cloud-cpp::storage google_cloud_cpp_ep)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS google-cloud-cpp::storage
+       google-cloud-cpp::common)
+endmacro()
+
+if(ARROW_WITH_GOOGLE_CLOUD_CPP)
+  resolve_dependency(google_cloud_cpp_storage)
 endif()
 
 #
