@@ -1090,8 +1090,10 @@ struct ObjectWriterVisitor {
     auto to_date_offset = [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
                               PyObject** out) {
       DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
-      // TimeDelta objects do not add nanoseconds component to timestamp.
-      // so convert microseconds and remainder to preserve data
+      // DateOffset objects do not add nanoseconds component to pd.Timestamp.
+      // as of  Pandas 1.3.3
+      // (https://github.com/pandas-dev/pandas/issues/43892).
+      // So convert microseconds and remainder to preserve data
       // but give users more expected results.
       int64_t microseconds = interval.nanoseconds / 1000;
       int64_t nanoseconds;

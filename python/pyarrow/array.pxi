@@ -163,10 +163,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     representation). Timezone-naive data will be implicitly interpreted as
     UTC.
 
-    Pandas's DateOffsets and dateutil.relativedelta.relativedetla are by
+    Pandas's DateOffsets and dateutil.relativedelta.relativedelta are by
     default converted as MonthDayNanoIntervalArray. relativedelta leapday's
     are ignored as are all absolute fields on both objects. datetime.timedelta
-    also be converted to MonthDayNanoIntervalArray but require passing
+    can also be converted to MonthDayNanoIntervalArray but require passing
     MonthDayIntervalType explicitly.
 
     Converting to dictionary array will promote to a wider integer type for

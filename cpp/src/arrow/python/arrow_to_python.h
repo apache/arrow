@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Functions for converting between pandas's NumPy-based data representation
-// and Arrow data structures
-
+// Utilities for converting arrow to python (non-pandas) objects.
 #pragma once
 
 #include "arrow/python/common.h"
@@ -30,16 +28,16 @@ struct Scalar;
 
 namespace py {
 
-/// \brief Utility class for converting Arrow to Python obects.  A class instead
+/// \brief Utility class for converting Arrow to Python obects.
 ///
 /// A class is chosen because in the future some amount of state will be
-/// (e.g. imported python classes), doing this one lazily will be helpful
-/// and having members present avoids static C++ variables.
+/// (e.g. imported python classes), doing this once lazily is helpful.
+/// A class allows for keeping the state as member variables instead of
+/// static variables. It is expected cython code will instantiate this
+/// class as a singleton on module class.
 class ARROW_PYTHON_EXPORT ArrowToPython {
  public:
-  /// \brief Converts the given Array to a PyList object. Returns NULL if there
-  /// is an error converting the Array. The list elements are the same ones
-  /// generated via ToLogical()
+  /// \brief Converts the given Array to a PyList object.
   ///
   /// N.B. This has limited type support.  ARROW-12976 tracks extending the
   /// implementation.
@@ -49,7 +47,7 @@ class ARROW_PYTHON_EXPORT ArrowToPython {
   /// representation.
   ///
   /// For instance timestamp would be translated to a integer representing an
-  // offset from the unix epoch.
+  /// offset from the unix epoch.
   ///
   /// N.B. This has limited type support.  ARROW-12976 tracks full implementation.
   Result<PyObject*> ToPrimitive(const Scalar& scalar);

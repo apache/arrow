@@ -368,7 +368,7 @@ def test_duration_nanos_nopandas():
 
 
 def test_month_day_nano_interval():
-    triple = pa.MonthDayNano([3600, 3600, 3600])
+    triple = pa.MonthDayNano([-3600, 1800, -50])
     arr = pa.array([triple])
     assert isinstance(arr[0].as_py(), pa.MonthDayNano)
     assert arr[0].as_py() == triple
