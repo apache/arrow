@@ -145,7 +145,8 @@ test_that("to_duckdb passing a connection", {
   # create a table to join to that we know is in our con_separate
   new_df <- data.frame(
     int = 1:10,
-    char = letters[26:17]
+    char = letters[26:17],
+    stringsAsFactors = FALSE
   )
   DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
 
