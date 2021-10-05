@@ -25,6 +25,7 @@
 #include <arrow/compute/exec/options.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
+#include <arrow/util/optional.h>
 #include <arrow/util/future.h>
 #include <arrow/util/thread_pool.h>
 
@@ -252,4 +253,22 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
                                    std::move(left_out_refs), std::move(right_out_refs)});
 }
 
+// [[arrow::export]]
+std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  arrow::compute::SourceNodeOptions options{
+    /*output_schema=*/reader->schema(),
+      /*generator=*/ValueOrStop(compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))
+  };
+
+  return MakeExecNodeOrStop("source", plan.get(), {}, options);
+}
+
 #endif
+
+
+
+
+
+

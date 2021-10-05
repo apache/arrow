@@ -320,6 +320,10 @@ ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_o
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
 }
 
+ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
+  .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
+}
+
 RecordBatch__cast <- function(batch, schema, options) {
   .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }

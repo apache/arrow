@@ -507,5 +507,31 @@ ExecFactoryRegistry* default_exec_factory_registry() {
   return &instance;
 }
 
+Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+    std::shared_ptr<RecordBatchReader> reader, ::arrow::internal::Executor* io_executor,
+    int max_q, int q_restart) {
+  auto batch_it = MakeMapIterator(
+      [](std::shared_ptr<RecordBatch> batch) {
+        return util::make_optional(ExecBatch(*batch));
+      },
+      MakeIteratorFromReader(reader));
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch_gen,
+      MakeBackgroundGenerator(std::move(batch_it), io_executor, max_q, q_restart));
+
+  return std::function<Future<util::optional<ExecBatch>>()>([batch_gen] {
+    // TODO(ARROW-14070) Awful workaround for MSVC 19.0 (Visual Studio 2015) bug.
+    struct ConvertibleToFuture {
+      operator Future<util::optional<ExecBatch>>() && {  // NOLINT runtime/explicit
+        return std::move(ret);
+      }
+      Future<util::optional<ExecBatch>> ret;
+    };
+
+    return ConvertibleToFuture{batch_gen()};
+  });
+}
+
 }  // namespace compute
 }  // namespace arrow

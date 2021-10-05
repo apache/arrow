@@ -118,3 +118,9 @@ duckdb_disconnector <- function(con, tbl_name) {
   })
   environment()
 }
+
+to_arrow <- function(.data) {
+  res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
+
+  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
+}
