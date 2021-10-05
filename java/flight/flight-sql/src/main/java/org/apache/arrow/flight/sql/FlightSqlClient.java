@@ -31,6 +31,9 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 
+import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,7 +43,6 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallStatus;
@@ -60,6 +62,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -452,9 +455,7 @@ public class FlightSqlClient implements AutoCloseable {
     public Schema getResultSetSchema() {
       if (resultSetSchema == null) {
         final ByteString bytes = preparedStatementResult.getDatasetSchema();
-        resultSetSchema = bytes.isEmpty() ?
-            new Schema(Collections.emptyList()) :
-            MessageSerializer.deserializeSchema(Message.getRootAsMessage(bytes.asReadOnlyByteBuffer()));
+        resultSetSchema = deserializeSchema(bytes);
       }
       return resultSetSchema;
     }
@@ -467,11 +468,21 @@ public class FlightSqlClient implements AutoCloseable {
     public Schema getParameterSchema() {
       if (parameterSchema == null) {
         final ByteString bytes = preparedStatementResult.getParameterSchema();
-        parameterSchema = bytes.isEmpty() ?
-            new Schema(Collections.emptyList()) :
-            MessageSerializer.deserializeSchema(Message.getRootAsMessage(bytes.asReadOnlyByteBuffer()));
+        parameterSchema = deserializeSchema(bytes);
       }
       return parameterSchema;
+    }
+
+    private Schema deserializeSchema(final ByteString bytes) {
+      try {
+        return bytes.isEmpty() ?
+            new Schema(Collections.emptyList()) :
+            MessageSerializer.deserializeSchema(
+                new ReadChannel(Channels.newChannel(
+                    new ByteBufferBackedInputStream(bytes.asReadOnlyByteBuffer()))));
+      } catch (final IOException e) {
+        throw new RuntimeException("Failed to deserialize schema", e);
+      }
     }
 
     /**

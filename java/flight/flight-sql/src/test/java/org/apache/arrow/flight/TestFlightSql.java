@@ -27,7 +27,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 
-import java.nio.ByteBuffer;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -36,7 +38,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
 
-import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
@@ -53,6 +54,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -606,10 +608,15 @@ public class TestFlightSql {
               final VarBinaryVector varbinaryVector = (VarBinaryVector) fieldVector;
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
                 final byte[] data = varbinaryVector.getObject(rowIndex);
-                final String output =
-                    isNull(data) ?
-                        null :
-                        MessageSerializer.deserializeSchema(Message.getRootAsMessage(ByteBuffer.wrap(data))).toJson();
+                final String output;
+                try {
+                  output = isNull(data) ?
+                      null :
+                      MessageSerializer.deserializeSchema(
+                          new ReadChannel(Channels.newChannel(new ByteArrayInputStream(data)))).toJson();
+                } catch (final IOException e) {
+                  throw new RuntimeException("Failed to deserialize schema", e);
+                }
                 results.get(rowIndex).add(output);
               }
             } else if (fieldVector instanceof DenseUnionVector) {

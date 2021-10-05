@@ -30,9 +30,12 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
 import static org.apache.arrow.util.Preconditions.checkState;
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -137,6 +140,7 @@ import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
+import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -541,7 +545,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             final String tableName = tableNameVector.getObject(index).toString();
             final Schema schema = new Schema(tableToFields.get(tableName));
             saveToVector(
-                copyFrom(MessageSerializer.serializeMetadata(schema, DEFAULT_OPTION)).toByteArray(),
+                copyFrom(serializeMetadata(schema)).toByteArray(),
                 tableSchemaVector, index);
           }
         }
@@ -552,6 +556,17 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
 
     return new VectorSchemaRoot(vectors);
+  }
+
+  private static ByteBuffer serializeMetadata(final Schema schema) {
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try {
+      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(outputStream)), schema);
+
+      return ByteBuffer.wrap(outputStream.toByteArray());
+    } catch (final IOException e) {
+      throw new RuntimeException("Failed to serialize schema", e);
+    }
   }
 
   private static VectorSchemaRoot getSqlInfoRoot(final DatabaseMetaData metaData, final BufferAllocator allocator,
@@ -777,12 +792,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final ByteString bytes = isNull(metaData) ?
           ByteString.EMPTY :
           ByteString.copyFrom(
-              MessageSerializer.serializeMetadata(
-                  jdbcToArrowSchema(metaData, DEFAULT_CALENDAR),
-                  DEFAULT_OPTION));
+              serializeMetadata(jdbcToArrowSchema(metaData, DEFAULT_CALENDAR)));
       final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
           .setDatasetSchema(bytes)
-          .setParameterSchema(copyFrom(MessageSerializer.serializeMetadata(parameterSchema, DEFAULT_OPTION)))
+          .setParameterSchema(copyFrom(serializeMetadata(parameterSchema)))
           .setPreparedStatementHandle(preparedStatementHandle)
           .build();
       listener.onNext(new Result(pack(result).toByteArray()));
