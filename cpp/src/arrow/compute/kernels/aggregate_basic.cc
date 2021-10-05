@@ -26,6 +26,7 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 
 namespace {
 
@@ -62,7 +63,7 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
   DCHECK_OK(func->AddKernel(std::move(kernel)));
 }
 
-namespace aggregate {
+namespace {
 
 // ----------------------------------------------------------------------
 // Count implementation
@@ -192,65 +193,46 @@ Result<std::unique_ptr<KernelState>> CountDistinctInit(KernelContext* ctx,
       ctx->memory_pool(), static_cast<const CountOptions&>(*args.options));
 }
 
-template <typename Type, typename VisitorArgType>
+template <typename Type, typename VisitorArgType = typename Type::c_type>
 void AddCountDistinctKernel(InputType type, ScalarAggregateFunction* func) {
   AddAggKernel(KernelSignature::Make({type}, ValueDescr::Scalar(int64())),
-               aggregate::CountDistinctInit<Type, VisitorArgType>, func);
+               CountDistinctInit<Type, VisitorArgType>, func);
 }
-
-template <typename Type, typename VisitorArgType = typename Type::c_type>
-struct CountDistinctKernel {
-  static void Add(InputType type, ScalarAggregateFunction* func) {
-    using PhysicalType = typename Type::PhysicalType;
-    AddCountDistinctKernel<PhysicalType, VisitorArgType>(type, func);
-  }
-};
-
-template <>
-struct CountDistinctKernel<FixedSizeBinaryType, util::string_view> {
-  static void Add(InputType type, ScalarAggregateFunction* func) {
-    AddCountDistinctKernel<FixedSizeBinaryType, util::string_view>(type, func);
-  }
-};
 
 void AddCountDistinctKernels(ScalarAggregateFunction* func) {
   // Boolean
-  aggregate::CountDistinctKernel<BooleanType>::Add(boolean(), func);
+  AddCountDistinctKernel<BooleanType>(boolean(), func);
   // Number
-  aggregate::CountDistinctKernel<Int8Type>::Add(int8(), func);
-  aggregate::CountDistinctKernel<Int16Type>::Add(int16(), func);
-  aggregate::CountDistinctKernel<Int32Type>::Add(int32(), func);
-  aggregate::CountDistinctKernel<Int64Type>::Add(int64(), func);
-  aggregate::CountDistinctKernel<UInt8Type>::Add(uint8(), func);
-  aggregate::CountDistinctKernel<UInt16Type>::Add(uint16(), func);
-  aggregate::CountDistinctKernel<UInt32Type>::Add(uint32(), func);
-  aggregate::CountDistinctKernel<UInt64Type>::Add(uint64(), func);
-  aggregate::CountDistinctKernel<HalfFloatType>::Add(float16(), func);
-  aggregate::CountDistinctKernel<FloatType>::Add(float32(), func);
-  aggregate::CountDistinctKernel<DoubleType>::Add(float64(), func);
+  AddCountDistinctKernel<Int8Type>(int8(), func);
+  AddCountDistinctKernel<Int16Type>(int16(), func);
+  AddCountDistinctKernel<Int32Type>(int32(), func);
+  AddCountDistinctKernel<Int64Type>(int64(), func);
+  AddCountDistinctKernel<UInt8Type>(uint8(), func);
+  AddCountDistinctKernel<UInt16Type>(uint16(), func);
+  AddCountDistinctKernel<UInt32Type>(uint32(), func);
+  AddCountDistinctKernel<UInt64Type>(uint64(), func);
+  AddCountDistinctKernel<HalfFloatType>(float16(), func);
+  AddCountDistinctKernel<FloatType>(float32(), func);
+  AddCountDistinctKernel<DoubleType>(float64(), func);
   // Date
-  aggregate::CountDistinctKernel<Date32Type>::Add(date32(), func);
-  aggregate::CountDistinctKernel<Date64Type>::Add(date64(), func);
+  AddCountDistinctKernel<Date32Type>(date32(), func);
+  AddCountDistinctKernel<Date64Type>(date64(), func);
   // Time
-  aggregate::CountDistinctKernel<Time32Type>::Add(match::SameTypeId(Type::TIME32), func);
-  aggregate::CountDistinctKernel<Time64Type>::Add(match::SameTypeId(Type::TIME64), func);
+  AddCountDistinctKernel<Time32Type>(match::SameTypeId(Type::TIME32), func);
+  AddCountDistinctKernel<Time64Type>(match::SameTypeId(Type::TIME64), func);
   // Timestamp & Duration
-  aggregate::CountDistinctKernel<TimestampType>::Add(match::SameTypeId(Type::TIMESTAMP),
-                                                     func);
-  aggregate::CountDistinctKernel<DurationType>::Add(match::SameTypeId(Type::DURATION),
-                                                    func);
+  AddCountDistinctKernel<TimestampType>(match::SameTypeId(Type::TIMESTAMP), func);
+  AddCountDistinctKernel<DurationType>(match::SameTypeId(Type::DURATION), func);
   // Interval
-  aggregate::CountDistinctKernel<MonthIntervalType>::Add(month_interval(), func);
-  aggregate::CountDistinctKernel<DayTimeIntervalType>::Add(day_time_interval(), func);
-  aggregate::CountDistinctKernel<MonthDayNanoIntervalType>::Add(month_day_nano_interval(),
-                                                                func);
+  AddCountDistinctKernel<MonthIntervalType>(month_interval(), func);
+  AddCountDistinctKernel<DayTimeIntervalType>(day_time_interval(), func);
+  AddCountDistinctKernel<MonthDayNanoIntervalType>(month_day_nano_interval(), func);
   // Binary & String
-  aggregate::CountDistinctKernel<BinaryType, util::string_view>::Add(match::BinaryLike(),
-                                                                     func);
-  aggregate::CountDistinctKernel<LargeBinaryType, util::string_view>::Add(
-      match::LargeBinaryLike(), func);
+  AddCountDistinctKernel<BinaryType, util::string_view>(match::BinaryLike(), func);
+  AddCountDistinctKernel<LargeBinaryType, util::string_view>(match::LargeBinaryLike(),
+                                                             func);
   // Fixed binary & Decimal
-  aggregate::CountDistinctKernel<FixedSizeBinaryType, util::string_view>::Add(
+  AddCountDistinctKernel<FixedSizeBinaryType, util::string_view>(
       match::FixedSizeBinaryLike(), func);
 }
 
@@ -736,6 +718,8 @@ struct IndexInit {
   }
 };
 
+}  // namespace
+
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -769,11 +753,15 @@ void AddArrayScalarAggKernels(KernelInit init,
   AddScalarAggKernels(init, types, out_ty, func);
 }
 
+namespace {
+
 Result<ValueDescr> MinMaxType(KernelContext*, const std::vector<ValueDescr>& descrs) {
   // any[T] -> scalar[struct<min: T, max: T>]
   auto ty = descrs.front().type;
   return ValueDescr::Scalar(struct_({field("min", ty), field("max", ty)}));
 }
+
+}  // namespace
 
 void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
                      ScalarAggregateFunction* func, SimdLevel::type simd_level) {
@@ -789,17 +777,14 @@ void AddMinMaxKernels(KernelInit init,
   }
 }
 
+namespace {
+
 Result<ValueDescr> ScalarFirstType(KernelContext*,
                                    const std::vector<ValueDescr>& descrs) {
   ValueDescr result = descrs.front();
   result.shape = ValueDescr::SCALAR;
   return result;
 }
-
-}  // namespace aggregate
-
-namespace internal {
-namespace {
 
 const FunctionDoc count_doc{"Count the number of null / non-null values",
                             ("By default, only non-null values are counted.\n"
@@ -889,92 +874,86 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   // Takes any input, outputs int64 scalar
   InputType any_input;
-  AddAggKernel(KernelSignature::Make({any_input}, ValueDescr::Scalar(int64())),
-               aggregate::CountInit, func.get());
+  AddAggKernel(KernelSignature::Make({any_input}, ValueDescr::Scalar(int64())), CountInit,
+               func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>(
       "count_distinct", Arity::Unary(), &count_distinct_doc, &default_count_options);
   // Takes any input, outputs int64 scalar
-  aggregate::AddCountDistinctKernels(func.get());
+  AddCountDistinctKernels(func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc,
                                                    &default_scalar_aggregate_options);
-  aggregate::AddArrayScalarAggKernels(aggregate::SumInit, {boolean()}, uint64(),
-                                      func.get());
-  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL128)},
-                                     OutputType(aggregate::ScalarFirstType)),
-               aggregate::SumInit, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL256)},
-                                     OutputType(aggregate::ScalarFirstType)),
-               aggregate::SumInit, func.get(), SimdLevel::NONE);
-  aggregate::AddArrayScalarAggKernels(aggregate::SumInit, SignedIntTypes(), int64(),
-                                      func.get());
-  aggregate::AddArrayScalarAggKernels(aggregate::SumInit, UnsignedIntTypes(), uint64(),
-                                      func.get());
-  aggregate::AddArrayScalarAggKernels(aggregate::SumInit, FloatingPointTypes(), float64(),
-                                      func.get());
+  AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
+  AddAggKernel(
+      KernelSignature::Make({InputType(Type::DECIMAL128)}, OutputType(ScalarFirstType)),
+      SumInit, func.get(), SimdLevel::NONE);
+  AddAggKernel(
+      KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
+      SumInit, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
+  AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
+  AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
   // Add the SIMD variants for sum
 #if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
-    aggregate::AddSumAvx2AggKernels(func.get());
+    AddSumAvx2AggKernels(func.get());
   }
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
-    aggregate::AddSumAvx512AggKernels(func.get());
+    AddSumAvx512AggKernels(func.get());
   }
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary(), &mean_doc,
                                                    &default_scalar_aggregate_options);
-  aggregate::AddArrayScalarAggKernels(aggregate::MeanInit, {boolean()}, float64(),
-                                      func.get());
-  aggregate::AddArrayScalarAggKernels(aggregate::MeanInit, NumericTypes(), float64(),
-                                      func.get());
-  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL128)},
-                                     OutputType(aggregate::ScalarFirstType)),
-               aggregate::MeanInit, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL256)},
-                                     OutputType(aggregate::ScalarFirstType)),
-               aggregate::MeanInit, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(MeanInit, {boolean()}, float64(), func.get());
+  AddArrayScalarAggKernels(MeanInit, NumericTypes(), float64(), func.get());
+  AddAggKernel(
+      KernelSignature::Make({InputType(Type::DECIMAL128)}, OutputType(ScalarFirstType)),
+      MeanInit, func.get(), SimdLevel::NONE);
+  AddAggKernel(
+      KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
+      MeanInit, func.get(), SimdLevel::NONE);
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
-    aggregate::AddMeanAvx2AggKernels(func.get());
+    AddMeanAvx2AggKernels(func.get());
   }
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
-    aggregate::AddMeanAvx512AggKernels(func.get());
+    AddMeanAvx512AggKernels(func.get());
   }
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>(
       "min_max", Arity::Unary(), &min_max_doc, &default_scalar_aggregate_options);
-  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {null(), boolean()}, func.get());
-  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
-  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, TemporalTypes(), func.get());
-  aggregate::AddMinMaxKernels(aggregate::MinMaxInit, BaseBinaryTypes(), func.get());
-  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::FIXED_SIZE_BINARY, func.get());
-  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::INTERVAL_MONTHS, func.get());
-  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::DECIMAL128, func.get());
-  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::DECIMAL256, func.get());
+  AddMinMaxKernels(MinMaxInit, {null(), boolean()}, func.get());
+  AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
+  AddMinMaxKernels(MinMaxInit, TemporalTypes(), func.get());
+  AddMinMaxKernels(MinMaxInit, BaseBinaryTypes(), func.get());
+  AddMinMaxKernel(MinMaxInit, Type::FIXED_SIZE_BINARY, func.get());
+  AddMinMaxKernel(MinMaxInit, Type::INTERVAL_MONTHS, func.get());
+  AddMinMaxKernel(MinMaxInit, Type::DECIMAL128, func.get());
+  AddMinMaxKernel(MinMaxInit, Type::DECIMAL256, func.get());
   // Add the SIMD variants for min max
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
-    aggregate::AddMinMaxAvx2AggKernels(func.get());
+    AddMinMaxAvx2AggKernels(func.get());
   }
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
-    aggregate::AddMinMaxAvx512AggKernels(func.get());
+    AddMinMaxAvx512AggKernels(func.get());
   }
 #endif
 
@@ -984,54 +963,46 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   // Add min/max as convenience functions
   func = std::make_shared<ScalarAggregateFunction>("min", Arity::Unary(), &min_or_max_doc,
                                                    &default_scalar_aggregate_options);
-  aggregate::AddMinOrMaxAggKernel<MinOrMax::Min>(func.get(), min_max_func);
+  AddMinOrMaxAggKernel<MinOrMax::Min>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("max", Arity::Unary(), &min_or_max_doc,
                                                    &default_scalar_aggregate_options);
-  aggregate::AddMinOrMaxAggKernel<MinOrMax::Max>(func.get(), min_max_func);
+  AddMinOrMaxAggKernel<MinOrMax::Max>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>(
       "product", Arity::Unary(), &product_doc, &default_scalar_aggregate_options);
-  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, {boolean()}, uint64(),
-                                      func.get());
-  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, SignedIntTypes(),
-                                      int64(), func.get());
-  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, UnsignedIntTypes(),
-                                      uint64(), func.get());
-  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, FloatingPointTypes(),
-                                      float64(), func.get());
-  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL128)},
-                                     OutputType(aggregate::ScalarFirstType)),
-               aggregate::ProductInit::Init, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({InputType(Type::DECIMAL256)},
-                                     OutputType(aggregate::ScalarFirstType)),
-               aggregate::ProductInit::Init, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(ProductInit::Init, {boolean()}, uint64(), func.get());
+  AddArrayScalarAggKernels(ProductInit::Init, SignedIntTypes(), int64(), func.get());
+  AddArrayScalarAggKernels(ProductInit::Init, UnsignedIntTypes(), uint64(), func.get());
+  AddArrayScalarAggKernels(ProductInit::Init, FloatingPointTypes(), float64(),
+                           func.get());
+  AddAggKernel(
+      KernelSignature::Make({InputType(Type::DECIMAL128)}, OutputType(ScalarFirstType)),
+      ProductInit::Init, func.get(), SimdLevel::NONE);
+  AddAggKernel(
+      KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
+      ProductInit::Init, func.get(), SimdLevel::NONE);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // any
   func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(), &any_doc,
                                                    &default_scalar_aggregate_options);
-  aggregate::AddArrayScalarAggKernels(aggregate::AnyInit, {boolean()}, boolean(),
-                                      func.get());
+  AddArrayScalarAggKernels(AnyInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // all
   func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc,
                                                    &default_scalar_aggregate_options);
-  aggregate::AddArrayScalarAggKernels(aggregate::AllInit, {boolean()}, boolean(),
-                                      func.get());
+  AddArrayScalarAggKernels(AllInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // index
   func = std::make_shared<ScalarAggregateFunction>("index", Arity::Unary(), &index_doc);
-  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, BaseBinaryTypes(), int64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, PrimitiveTypes(), int64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, TemporalTypes(), int64(),
-                                func.get());
+  AddBasicAggKernels(IndexInit::Init, BaseBinaryTypes(), int64(), func.get());
+  AddBasicAggKernels(IndexInit::Init, PrimitiveTypes(), int64(), func.get());
+  AddBasicAggKernels(IndexInit::Init, TemporalTypes(), int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

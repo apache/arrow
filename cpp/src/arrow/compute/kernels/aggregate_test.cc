@@ -54,6 +54,8 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
+using internal::FindAccumulatorType;
+
 //
 // Sum
 //
