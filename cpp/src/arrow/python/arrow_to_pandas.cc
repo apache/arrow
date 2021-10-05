@@ -48,7 +48,7 @@
 
 #include "arrow/compute/api.h"
 
-#include "arrow/python/arrow_to_python.h"
+#include "arrow/python/arrow_to_python_internal.h"
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
@@ -575,6 +575,65 @@ inline void ConvertIntegerNoNullsCast(const PandasOptions& options,
   }
 }
 
+template <typename T, typename Enable = void>
+struct MemoizationTraits {
+  using Scalar = typename T::c_type;
+};
+
+template <typename T>
+struct MemoizationTraits<T, enable_if_has_string_view<T>> {
+  // For binary, we memoize string_view as a scalar value to avoid having to
+  // unnecessarily copy the memory into the memo table data structure
+  using Scalar = util::string_view;
+};
+
+// Generic Array -> PyObject** converter that handles object deduplication, if
+// requested
+template <typename Type, typename WrapFunction>
+inline Status ConvertAsPyObjects(const PandasOptions& options,
+                                 const ChunkedArray& data, WrapFunction&& wrap_func,
+                                 PyObject** out_values) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using Scalar = typename MemoizationTraits<Type>::Scalar;
+
+  ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
+  std::vector<PyObject*> unique_values;
+  int32_t memo_size = 0;
+
+  auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
+    int32_t memo_index;
+    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
+    if (memo_index == memo_size) {
+      // New entry
+      RETURN_NOT_OK(wrap_func(value, out_values));
+      unique_values.push_back(*out_values);
+      ++memo_size;
+    } else {
+      // Duplicate entry
+      Py_INCREF(unique_values[memo_index]);
+      *out_values = unique_values[memo_index];
+    }
+    return Status::OK();
+  };
+
+  auto WrapUnmemoized = [&](const Scalar& value, PyObject** out_values) {
+    return wrap_func(value, out_values);
+  };
+
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
+    if (options.deduplicate_objects) {
+      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapMemoized, out_values));
+    } else {
+      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapUnmemoized, out_values));
+    }
+    out_values += arr.length();
+  }
+  return Status::OK();
+}
+
+
+
 Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
                      PyObject** out_values) {
   if (data.num_chunks() == 0) {
@@ -898,17 +957,6 @@ class TypedPandasWriter : public PandasWriter {
   Status Allocate() override { return AllocateNDArray(NPY_TYPE); }
 };
 
-template <typename Type, typename WrapFunction>
-inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArray& data,
-                                 WrapFunction&& wrap_func, PyObject** out_values) {
-  ArrowToPythonObjectOptions to_object_options;
-  to_object_options.pool = options.pool;
-  to_object_options.deduplicate_objects = options.deduplicate_objects;
-
-  return internal::ConvertAsPyObjects<Type>(to_object_options, data, wrap_func,
-                                            out_values);
-}
-
 struct ObjectWriterVisitor {
   const PandasOptions& options;
   const ChunkedArray& data;
@@ -1039,11 +1087,35 @@ struct ObjectWriterVisitor {
   template <typename Type>
   enable_if_t<std::is_same<Type, MonthDayNanoIntervalType>::value, Status> Visit(
       const Type& type) {
-    ArrowToPython arrow_to_python;
-    ArrowToPythonObjectOptions to_py_options;
-    to_py_options.pool = options.pool;
-    to_py_options.deduplicate_objects = options.deduplicate_objects;
-    return arrow_to_python.ToNumpyObjectArray(to_py_options, data, out_values);
+  OwnedRef args(PyTuple_New(0));
+  OwnedRef kwargs(PyDict_New());
+  RETURN_IF_PYERROR();
+  auto to_date_offset = [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
+                            PyObject** out) {
+  DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
+  // TimeDelta objects do not add nanoseconds component to timestamp.
+  // so convert microseconds and remainder to preserve data
+  // but give users more expected results.
+  int64_t microseconds = interval.nanoseconds / 1000;
+  int64_t nanoseconds;
+  if (interval.nanoseconds >= 0) {
+    nanoseconds = interval.nanoseconds % 1000;
+  } else {
+    nanoseconds = -((-interval.nanoseconds) % 1000);
+  }
+
+  PyDict_SetItemString(kwargs.obj(), "months", PyLong_FromLong(interval.months));
+  PyDict_SetItemString(kwargs.obj(), "days", PyLong_FromLong(interval.days));
+  PyDict_SetItemString(kwargs.obj(), "microseconds", PyLong_FromLongLong(microseconds));
+  PyDict_SetItemString(kwargs.obj(), "nanoseconds", PyLong_FromLongLong(nanoseconds));
+  *out = PyObject_Call(internal::BorrowPandasDataOffsetType(), args.obj(), kwargs.obj());
+  RETURN_IF_PYERROR();
+  return Status::OK();
+
+  }
+  return internal::ConvertAsPyObjects<MonthDayNanoIntervalType>(
+      options, array, to_date_offset, out_objects);
+
   }
 
   Status Visit(const Decimal128Type& type) {

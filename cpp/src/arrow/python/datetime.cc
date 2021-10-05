@@ -293,8 +293,6 @@ PyObject* NewMonthDayNanoTupleType() {
   return (PyObject*)&MonthDayNanoTupleType;
 }
 
-PyTypeObject* BorrowMonthDayNanoTupleType() { return &MonthDayNanoTupleType; }
-
 Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
   int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
@@ -475,7 +473,7 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   return PyTZInfo_utcoffset_hhmm(tzinfo);
 }
 
-Result<PyObject*> MonthDayNanoIntervalToNamedTuple(
+PyObject* MonthDayNanoIntervalToNamedTuple(
     const MonthDayNanoIntervalType::MonthDayNanos& interval) {
   OwnedRef tuple(PyStructSequence_New(&MonthDayNanoTupleType));
   if (ARROW_PREDICT_FALSE(tuple.obj() == nullptr)) {

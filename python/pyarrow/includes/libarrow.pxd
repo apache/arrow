@@ -2217,7 +2217,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py":
     cdef cppclass ArrowToPython:
         CResult[PyObject*] ToPyList(const CArray& array)
         CResult[PyObject*] ToPrimitive(const CScalar& scalar)
-        CResult[PyObject*] ToLogical(const CScalar& scalar)
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
     cdef object NewMonthDayNanoTupleType()
