@@ -46,7 +46,7 @@ Status SqliteStatement::Create(sqlite3* db, const std::string& sql,
                                std::shared_ptr<SqliteStatement>* result) {
   sqlite3_stmt* stmt;
   int rc =
-      sqlite3_prepare_v2(db, sql.c_str(), static_cast<int>(sql.length()), &stmt, NULLPTR);
+      sqlite3_prepare_v2(db, sql.c_str(), static_cast<int>(sql.size()), &stmt, NULLPTR);
 
   if (rc != SQLITE_OK) {
     sqlite3_finalize(stmt);

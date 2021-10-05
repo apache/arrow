@@ -39,7 +39,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
   std::stringstream schema_query;
 
   schema_query << "SELECT table_name, name, type, [notnull] FROM pragma_table_info(table_name)" <<
-  "JOIN(" << main_query << ") order by table_name";
+  "JOIN(" << main_query_ << ") order by table_name";
 
   std::shared_ptr<example::SqliteStatement> schema_statement;
   ARROW_RETURN_NOT_OK(
@@ -61,19 +61,18 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
 
   auto* string_array = reinterpret_cast<StringArray*>(table_name_array.get());
 
+  std::vector<std::shared_ptr<Field>> column_fields;
   for (int i = 0; i < table_name_array->length(); i++) {
     const std::string& table_name = string_array->GetString(i);
-    std::vector<std::shared_ptr<Field>> column_fields;
 
     while (sqlite3_step(schema_statement->GetSqlite3Stmt()) == SQLITE_ROW) {
-      const char* string1 = reinterpret_cast<const char*>(
-          sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 0));
-      std::string string = std::string(string1);
-      if (string == table_name) {
+      std::string sqlite_table_name = std::string(reinterpret_cast<const char*>(
+          sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 0)));
+      if (sqlite_table_name == table_name) {
         const char* column_name =
-            (char*)sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 1);
+            reinterpret_cast<const char*>(sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 1));
         const char* column_type =
-            (char*)sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 2);
+            reinterpret_cast<const char*>(sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 2));
         int nullable = sqlite3_column_int(schema_statement->GetSqlite3Stmt(), 3);
 
         column_fields.push_back(
@@ -82,6 +81,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
     }
     const arrow::Result<std::shared_ptr<Buffer>>& value =
         ipc::SerializeSchema(*arrow::schema(column_fields));
+    column_fields.clear();
     ARROW_RETURN_NOT_OK(
         schema_builder.Append(value.ValueOrDie()->data(), value.ValueOrDie()->size()));
   }
@@ -105,8 +105,8 @@ std::shared_ptr<DataType> SqliteTablesWithSchemaBatchReader::GetArrowType(
   } else if (boost::iequals(sqlite_type, "BLOB")) {
     return binary();
   } else if (boost::iequals(sqlite_type, "TEXT") ||
-             boost::icontains(sqlite_type, "char") ||
-             boost::icontains(sqlite_type, "varchar")) {
+             boost::istarts_with(sqlite_type, "char") ||
+             boost::istarts_with(sqlite_type, "varchar")) {
     return utf8();
   } else {
     return null();
