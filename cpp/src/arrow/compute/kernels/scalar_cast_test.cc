@@ -1596,18 +1596,10 @@ TEST(Cast, TimestampWithZoneToString) {
 // TODO(ARROW-13168): we lack tzdb on Windows
 TEST(Cast, TimestampWithZoneToString) {
   for (auto string_type : {utf8(), large_utf8()}) {
-    CheckCastFails(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
-                                 "[-34226955, 1456767743]"),
-                   CastOptions::Safe(string_type));
-    CheckCastFails(ArrayFromJSON(timestamp(TimeUnit::MILLI, "America/Phoenix"),
-                                 "[-34226955877, 1456767743456]"),
-                   CastOptions::Safe(string_type));
-    CheckCastFails(ArrayFromJSON(timestamp(TimeUnit::MICRO, "America/Phoenix"),
-                                 "[-34226955877000, 1456767743456789]"),
-                   CastOptions::Safe(string_type));
-    CheckCastFails(ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"),
-                                 "[-34226955876543211, 1456767743456789246]"),
-                   CastOptions::Safe(string_type));
+    ASSERT_RAISES(NotImplemented,
+                  Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                     "[-34226955, 1456767743]"),
+                       CastOptions::Safe(string_type)));
   }
 }
 #endif
