@@ -32,7 +32,7 @@ TEST(SinkNode, Backpressure) {
   PushGenerator<util::optional<ExecBatch>> batch_producer;
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
   util::BackpressureOptions backpressure_options =
-      util::MakeBackpressureOptions(kResumeIfBelow, kPauseIfAbove);
+      util::BackpressureOptions::Make(kResumeIfBelow, kPauseIfAbove);
   std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
   ARROW_EXPECT_OK(compute::Declaration::Sequence(
                       {

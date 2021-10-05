@@ -599,7 +599,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
   util::BackpressureOptions backpressure =
-      util::MakeBackpressureOptions(kDefaultBackpressureLow, kDefaultBackpressureHigh);
+      util::BackpressureOptions::Make(kDefaultBackpressureLow, kDefaultBackpressureHigh);
   auto exprs = scan_options_->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scan_options_->projection.call()->options.get())

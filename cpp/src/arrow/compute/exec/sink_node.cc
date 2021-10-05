@@ -237,8 +237,10 @@ class ConsumingSinkNode : public ExecNode {
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                   std::unique_ptr<OrderByImpl> impl,
-                  AsyncGenerator<util::optional<ExecBatch>>* generator)
-      : SinkNode(plan, std::move(inputs), generator, {}), impl_{std::move(impl)} {}
+                  AsyncGenerator<util::optional<ExecBatch>>* generator,
+                  util::BackpressureOptions backpressure)
+      : SinkNode(plan, std::move(inputs), generator, std::move(backpressure)),
+        impl_{std::move(impl)} {}
 
   const char* kind_name() const override { return "OrderBySinkNode"; }
 
@@ -253,7 +255,8 @@ struct OrderBySinkNode final : public SinkNode {
         OrderByImpl::MakeSort(plan->exec_context(), inputs[0]->output_schema(),
                               sink_options.sort_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
-                                              sink_options.generator);
+                                              sink_options.generator,
+                                              sink_options.backpressure);
   }
 
   // A sink node that receives inputs and then compute top_k/bottom_k.
@@ -267,7 +270,8 @@ struct OrderBySinkNode final : public SinkNode {
         OrderByImpl::MakeSelectK(plan->exec_context(), inputs[0]->output_schema(),
                                  sink_options.select_k_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
-                                              sink_options.generator);
+                                              sink_options.generator,
+                                              sink_options.backpressure);
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {

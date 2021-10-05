@@ -244,13 +244,15 @@ struct ARROW_EXPORT BackpressureOptions {
         resume_if_below(resume_if_below),
         pause_if_above(pause_if_above) {}
 
+  static BackpressureOptions Make(uint32_t resume_if_below = 32,
+                                  uint32_t pause_if_above = 64);
+
+  static BackpressureOptions NoBackpressure();
+
   std::shared_ptr<util::AsyncToggle> toggle;
   uint32_t resume_if_below;
   uint32_t pause_if_above;
 };
-
-ARROW_EXPORT BackpressureOptions MakeBackpressureOptions(uint32_t resume_if_below = 32,
-                                                         uint32_t pause_if_above = 64);
 
 }  // namespace util
 }  // namespace arrow
