@@ -1611,6 +1611,24 @@ c0: [[1,2,3,4]]
 ..."""
 
 
+def test_table_repr_to_string_ellipsis():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    tab = pa.table([pa.array([1, 2, 3, 4]*10, type='int16'),
+                    pa.array([10, 20, 30, 40]*10, type='int32')],
+                   schema=schema)
+    assert str(tab) == """pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4,1,2,3,4,1,2,...3,4,1,2,3,4,1,2,3,4]]
+c1: [[10,20,30,40,10,20,30,40,10,20,...30,40,10,20,30,40,10,20,30,40]]"""
+
+
 def test_table_function_unicode_schema():
     col_a = "äääh"
     col_b = "öööf"
