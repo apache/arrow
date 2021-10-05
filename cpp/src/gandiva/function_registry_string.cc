@@ -406,6 +406,14 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("locate", {}, DataTypeVector{utf8(), utf8(), int32()},  int32(),
+                     kResultNullIfNull, "gdv_fn_locate_with_pos_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("locate", {}, DataTypeVector{utf8(), utf8()},  int32(),
+                     kResultNullIfNull, "gdv_fn_locate_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
 
   return string_fn_registry_;
