@@ -33,5 +33,5 @@ go_parquet_tag="go/parquet/v${version}"
 git tag "${go_arrow_tag}"
 git tag "${go_parquet_tag}"
 
-git push origin "${go_arrow_tag}"
-git push origin "${go_parquet_tag}"
+git push apache "${go_arrow_tag}"
+git push apache "${go_parquet_tag}"
