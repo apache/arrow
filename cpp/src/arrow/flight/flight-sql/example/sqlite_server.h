@@ -73,11 +73,6 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
 
  private:
   sqlite3* db_;
-
-  /// \brief Prepare query for execute a CommandGetTables.
-  /// \param command  a CommandGetTables request.
-  /// \return a string stream with the mounted query.
-  static std::stringstream PrepareQuery(const pb::sql::CommandGetTables &command) ;
 };
 
 }  // namespace example

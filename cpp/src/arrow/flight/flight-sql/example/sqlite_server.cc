@@ -204,13 +204,54 @@ Status SQLiteFlightSqlServer::GetFlightInfoTables(
   return Status::OK();
 }
 
+
+std::string PrepareQueryForGetTables(const pb::sql::CommandGetTables &command) {
+  std::stringstream table_query;
+
+  table_query << "SELECT null as catalog_name, null as schema_name, name as "
+                 "table_name, type as table_type FROM sqlite_master where 1=1";
+
+  std::shared_ptr<RecordBatchReader> batch_reader;
+
+  if (command.has_catalog()) {
+    table_query << " and catalog_name='" << command.catalog() << "'";
+  }
+
+  if (command.has_schema_filter_pattern()) {
+    table_query << " and schema_name LIKE '" << command.schema_filter_pattern() << "'";
+  }
+
+  if (command.has_table_name_filter_pattern()) {
+    table_query << " and table_name LIKE '" <<
+    command.table_name_filter_pattern() << "'";
+  }
+
+  if (!command.table_types().empty()) {
+    google::protobuf::RepeatedPtrField<std::string> types = command.table_types();
+
+    table_query << " and table_type IN (";
+    int size = types.size();
+    for (int i = 0; i < size; i++) {
+      table_query << "'" << types.at(i) << "'";
+      if (size - 1 != i) {
+        table_query << ",";
+      }
+    }
+
+    table_query << ")";
+  }
+
+  table_query << " order by table_name";
+  return table_query.str();
+}
+
 Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& command,
                                           const ServerCallContext& context,
                                           std::unique_ptr<FlightDataStream>* result) {
-  std::stringstream table_query = PrepareQuery(command);
+  std::string query = PrepareQueryForGetTables(command);
 
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, table_query.str(), &statement));
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, query, &statement));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
   ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
@@ -218,7 +259,7 @@ Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& comma
 
   if (command.include_schema()) {
     std::shared_ptr<SqliteTablesWithSchemaBatchReader> table_schema_reader =
-        std::make_shared<SqliteTablesWithSchemaBatchReader>(reader, table_query.str(), db_);
+        std::make_shared<SqliteTablesWithSchemaBatchReader>(reader, query, db_);
     *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(table_schema_reader));
   } else {
     *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
@@ -227,45 +268,6 @@ Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& comma
   return Status::OK();
 }
 
-  std::stringstream SQLiteFlightSqlServer::PrepareQuery(const pb::sql::CommandGetTables &command) {
-    std::stringstream table_query;
-
-    table_query << "SELECT null as catalog_name, null as schema_name, name as "
-                   "table_name, type as table_type FROM sqlite_master where 1=1";
-
-    std::shared_ptr<RecordBatchReader> batch_reader;
-
-    if (command.has_catalog()) {
-      table_query << " and catalog_name='" << command.catalog() << "'";
-    }
-
-    if (command.has_schema_filter_pattern()) {
-      table_query << " and schema_name LIKE '" << command.schema_filter_pattern() << "'";
-    }
-
-    if (command.has_table_name_filter_pattern()) {
-      table_query << " and table_name LIKE '" <<
-                    command.table_name_filter_pattern() << "'";
-    }
-
-    if (command.table_types_size() > 0) {
-      google::protobuf::RepeatedPtrField<std::string> types = command.table_types();
-
-      table_query << " and table_type IN (";
-      int size = types.size();
-      for (int i = 0; i < size; i++) {
-        table_query << "'" << types.at(i) << "'";
-        if (size - 1 != i) {
-          table_query << ",";
-        }
-      }
-
-      table_query << ")";
-    }
-
-    table_query << " order by table_name";
-    return table_query;
-  }
 }  // namespace example
 }  // namespace sql
 }  // namespace flight
