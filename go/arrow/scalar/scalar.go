@@ -777,6 +777,8 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 		out ^= Hash(seed, s.Value)
 	case *DayTimeInterval:
 		return valueHash(s.Value.Days) & valueHash(s.Value.Milliseconds)
+	case *MonthDayNanoInterval:
+		return valueHash(s.Value.Months) & valueHash(s.Value.Days) & valueHash(s.Value.Nanoseconds)
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()
