@@ -260,9 +260,11 @@ Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& comma
   if (command.include_schema()) {
     std::shared_ptr<SqliteTablesWithSchemaBatchReader> table_schema_reader =
         std::make_shared<SqliteTablesWithSchemaBatchReader>(reader, query, db_);
-    *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(table_schema_reader));
+    *result = std::unique_ptr<FlightDataStream>(
+        new RecordBatchStream(table_schema_reader));
   } else {
-    *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    *result = std::unique_ptr<FlightDataStream>(
+        new RecordBatchStream(reader));
   }
 
   return Status::OK();

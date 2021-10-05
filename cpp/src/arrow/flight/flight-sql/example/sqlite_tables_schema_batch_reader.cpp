@@ -21,9 +21,9 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/record_batch.h>
 #include <sqlite3.h>
-#include <sstream>
 
 #include <boost/algorithm/string.hpp>
+#include <sstream>
 
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
@@ -38,8 +38,9 @@ std::shared_ptr<Schema> SqliteTablesWithSchemaBatchReader::schema() const {
 Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
   std::stringstream schema_query;
 
-  schema_query << "SELECT table_name, name, type, [notnull] FROM pragma_table_info(table_name)" <<
-  "JOIN(" << main_query_ << ") order by table_name";
+  schema_query
+      << "SELECT table_name, name, type, [notnull] FROM pragma_table_info(table_name)"
+      << "JOIN(" << main_query_ << ") order by table_name";
 
   std::shared_ptr<example::SqliteStatement> schema_statement;
   ARROW_RETURN_NOT_OK(
@@ -69,14 +70,16 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
       std::string sqlite_table_name = std::string(reinterpret_cast<const char*>(
           sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 0)));
       if (sqlite_table_name == table_name) {
-        const char* column_name =
-            reinterpret_cast<const char*>(sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 1));
-        const char* column_type =
-            reinterpret_cast<const char*>(sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 2));
+        const char* column_name = reinterpret_cast<const char*>(
+            sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 1));
+        const char* column_type = reinterpret_cast<const char*>(
+            sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 2));
         int nullable = sqlite3_column_int(schema_statement->GetSqlite3Stmt(), 3);
 
         column_fields.push_back(
-            arrow::field(column_name, GetArrowType(column_type), nullable == 0, NULL));
+            arrow::field(column_name,
+                         GetArrowType(column_type),
+                         nullable == 0, NULL));
       }
     }
     const arrow::Result<std::shared_ptr<Buffer>>& value =
