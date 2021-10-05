@@ -21,9 +21,9 @@
 
 #include "arrow/api.h"
 #include "arrow/flight/flight-sql/sql_server.h"
+#include "arrow/flight/flight-sql/example/sqlite_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
-#include "arrow/flight/flight-sql/example/sqlite_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_tables_schema_batch_reader.h"
 
 namespace arrow {
