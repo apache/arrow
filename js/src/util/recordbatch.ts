@@ -47,14 +47,12 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
 
         if (isFinite(batchLength)) {
             children = distributeChildren(fields, batchLength, children, cols, memo);
-            if (batchLength > 0) {
-                batches[numBatches++] = makeData({
-                    type: new Struct(fields),
-                    length: batchLength,
-                    nullCount: 0,
-                    children: children.slice()
-                });
-            }
+            batches[numBatches++] = makeData({
+                type: new Struct(fields),
+                length: batchLength,
+                nullCount: 0,
+                children: children.slice()
+            });
         }
     }
     return [

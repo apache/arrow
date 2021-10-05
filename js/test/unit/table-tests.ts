@@ -119,9 +119,7 @@ describe(`Table`, () => {
 
             const i32s = new Int32Array(arange(new Array<number>(10)));
             const i32 = makeVector([i32s]);
-            // expect(i32.name).toBe('i32');
             expect(i32).toHaveLength(i32s.length);
-            // expect(i32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
             const table = new Table({ i32 });
@@ -129,7 +127,7 @@ describe(`Table`, () => {
 
             expect(i32Field.name).toBe('i32');
             expect(i32).toHaveLength(i32s.length);
-            expect(i32Field.nullable).toBe(true);
+            expect(i32Field.nullable).toBe(false);
             expect(i32.nullCount).toBe(0);
 
             expect(i32).toEqualVector(makeVector(i32s));
@@ -142,12 +140,8 @@ describe(`Table`, () => {
 
             const i32 = makeVector(i32s);
             const f32 = makeVector(f32s);
-            // expect(i32.name).toBe('i32');
-            // expect(f32.name).toBe('f32');
             expect(i32).toHaveLength(i32s.length);
             expect(f32).toHaveLength(f32s.length);
-            // expect(i32.nullable).toBe(true);
-            // expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -159,8 +153,8 @@ describe(`Table`, () => {
             expect(f32Field.name).toBe('f32');
             expect(i32).toHaveLength(i32s.length);
             expect(f32).toHaveLength(f32s.length);
-            expect(i32Field.nullable).toBe(true);
-            expect(f32Field.nullable).toBe(true);
+            expect(i32Field.nullable).toBe(false);
+            expect(f32Field.nullable).toBe(false);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
