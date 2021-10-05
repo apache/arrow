@@ -77,19 +77,18 @@ Result<PyObject*> ArrowToPython::ToPyList(const Array& array) {
   PyListAssigner out_objects(out_list.obj());
   auto& interval_array =
       arrow::internal::checked_cast<const MonthDayNanoIntervalArray&>(array);
-    RETURN_NOT_OK(internal::WriteArrayObjects(
-        interval_array,
-        [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
-            PyListAssigner& out) {
-          PyObject* tuple = internal::MonthDayNanoIntervalToNamedTuple(interval);
-          if (ARROW_PREDICT_FALSE(tuple == nullptr)) {
-            RETURN_IF_PYERROR();
-          }
+  RETURN_NOT_OK(internal::WriteArrayObjects(
+      interval_array,
+      [&](const MonthDayNanoIntervalType::MonthDayNanos& interval, PyListAssigner& out) {
+        PyObject* tuple = internal::MonthDayNanoIntervalToNamedTuple(interval);
+        if (ARROW_PREDICT_FALSE(tuple == nullptr)) {
+          RETURN_IF_PYERROR();
+        }
 
-          *out = tuple;
-          return Status::OK();
-        },
-        out_objects));
+        *out = tuple;
+        return Status::OK();
+      },
+      out_objects));
   return out_list.detach();
 }
 

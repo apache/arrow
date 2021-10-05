@@ -41,7 +41,8 @@ class ARROW_PYTHON_EXPORT ArrowToPython {
   /// is an error converting the Array. The list elements are the same ones
   /// generated via ToLogical()
   ///
-  /// N.B. This has limited type support.  ARROW-12976 tracks extending the implementation.
+  /// N.B. This has limited type support.  ARROW-12976 tracks extending the
+  /// implementation.
   Result<PyObject*> ToPyList(const Array& array);
 
   /// \brief Converts the given Scalar the type that is closest to its arrow

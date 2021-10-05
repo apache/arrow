@@ -590,9 +590,8 @@ struct MemoizationTraits<T, enable_if_has_string_view<T>> {
 // Generic Array -> PyObject** converter that handles object deduplication, if
 // requested
 template <typename Type, typename WrapFunction>
-inline Status ConvertAsPyObjects(const PandasOptions& options,
-                                 const ChunkedArray& data, WrapFunction&& wrap_func,
-                                 PyObject** out_values) {
+inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArray& data,
+                                 WrapFunction&& wrap_func, PyObject** out_values) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using Scalar = typename MemoizationTraits<Type>::Scalar;
 
@@ -631,8 +630,6 @@ inline Status ConvertAsPyObjects(const PandasOptions& options,
   }
   return Status::OK();
 }
-
-
 
 Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
                      PyObject** out_values) {
@@ -1087,35 +1084,35 @@ struct ObjectWriterVisitor {
   template <typename Type>
   enable_if_t<std::is_same<Type, MonthDayNanoIntervalType>::value, Status> Visit(
       const Type& type) {
-  OwnedRef args(PyTuple_New(0));
-  OwnedRef kwargs(PyDict_New());
-  RETURN_IF_PYERROR();
-  auto to_date_offset = [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
-                            PyObject** out) {
-  DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
-  // TimeDelta objects do not add nanoseconds component to timestamp.
-  // so convert microseconds and remainder to preserve data
-  // but give users more expected results.
-  int64_t microseconds = interval.nanoseconds / 1000;
-  int64_t nanoseconds;
-  if (interval.nanoseconds >= 0) {
-    nanoseconds = interval.nanoseconds % 1000;
-  } else {
-    nanoseconds = -((-interval.nanoseconds) % 1000);
-  }
+    OwnedRef args(PyTuple_New(0));
+    OwnedRef kwargs(PyDict_New());
+    RETURN_IF_PYERROR();
+    auto to_date_offset = [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
+                              PyObject** out) {
+      DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
+      // TimeDelta objects do not add nanoseconds component to timestamp.
+      // so convert microseconds and remainder to preserve data
+      // but give users more expected results.
+      int64_t microseconds = interval.nanoseconds / 1000;
+      int64_t nanoseconds;
+      if (interval.nanoseconds >= 0) {
+        nanoseconds = interval.nanoseconds % 1000;
+      } else {
+        nanoseconds = -((-interval.nanoseconds) % 1000);
+      }
 
-  PyDict_SetItemString(kwargs.obj(), "months", PyLong_FromLong(interval.months));
-  PyDict_SetItemString(kwargs.obj(), "days", PyLong_FromLong(interval.days));
-  PyDict_SetItemString(kwargs.obj(), "microseconds", PyLong_FromLongLong(microseconds));
-  PyDict_SetItemString(kwargs.obj(), "nanoseconds", PyLong_FromLongLong(nanoseconds));
-  *out = PyObject_Call(internal::BorrowPandasDataOffsetType(), args.obj(), kwargs.obj());
-  RETURN_IF_PYERROR();
-  return Status::OK();
-
-  }
-  return internal::ConvertAsPyObjects<MonthDayNanoIntervalType>(
-      options, array, to_date_offset, out_objects);
-
+      PyDict_SetItemString(kwargs.obj(), "months", PyLong_FromLong(interval.months));
+      PyDict_SetItemString(kwargs.obj(), "days", PyLong_FromLong(interval.days));
+      PyDict_SetItemString(kwargs.obj(), "microseconds",
+                           PyLong_FromLongLong(microseconds));
+      PyDict_SetItemString(kwargs.obj(), "nanoseconds", PyLong_FromLongLong(nanoseconds));
+      *out =
+          PyObject_Call(internal::BorrowPandasDataOffsetType(), args.obj(), kwargs.obj());
+      RETURN_IF_PYERROR();
+      return Status::OK();
+    };
+    return ConvertAsPyObjects<MonthDayNanoIntervalType>(
+        options, data, to_date_offset, out_values);
   }
 
   Status Visit(const Decimal128Type& type) {

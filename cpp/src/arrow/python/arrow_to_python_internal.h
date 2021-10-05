@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "arrow/python/platform.h"
 #include "arrow/array.h"
+#include "arrow/python/platform.h"
 
 namespace arrow {
 namespace py {

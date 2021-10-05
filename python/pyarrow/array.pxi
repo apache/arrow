@@ -163,6 +163,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     representation). Timezone-naive data will be implicitly interpreted as
     UTC.
 
+    Pandas's DateOffsets and dateutil.relativedelta.relativedetla are by
+    default converted as MonthDayNanoIntervalArray. relativedelta leapday's
+    are ignored as are all absolute fields on both objects. datetime.timedelta
+    also be converted to MonthDayNanoIntervalArray but require passing
+    MonthDayIntervalType explicitly.
+
     Converting to dictionary array will promote to a wider integer type for
     indices if the number of distinct values cannot be represented, even if
     the index type was explicitly set. This means that if there are more than
@@ -1508,6 +1514,7 @@ cdef class DurationArray(NumericArray):
     Concrete class for Arrow arrays of duration data type.
     """
 
+
 cdef class MonthDayNanoIntervalArray(Array):
     """
     Concrete class for Arrow arrays of interval[MonthDayNano] type.
@@ -1517,9 +1524,7 @@ cdef class MonthDayNanoIntervalArray(Array):
         """
         Convert to a list of native Python objects.
 
-        is installed the objects will be
-        pd.tseries.offsets.DateOffset objects.  Otherwise they are
-        pyarrow.MonthDayNanoTuple objects.
+        pyarrow.MonthDayNano is used as the native representation.
 
         Returns
         -------
@@ -1531,6 +1536,7 @@ cdef class MonthDayNanoIntervalArray(Array):
         maybe_py_list = ARROW_TO_PYTHON.ToPyList(deref(self.sp_array))
         py_list = GetResultValue(maybe_py_list)
         return PyObject_to_object(py_list)
+
 
 cdef class HalfFloatArray(FloatingPointArray):
     """

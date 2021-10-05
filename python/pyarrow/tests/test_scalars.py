@@ -64,7 +64,7 @@ import pyarrow as pa
      pa.Time32Scalar, pa.Time32Value),
     (datetime.datetime.now().time(), None, pa.Time64Scalar, pa.Time64Value),
     (datetime.timedelta(days=1), None, pa.DurationScalar, pa.DurationValue),
-    (pa.MonthDayNanoTuple([1, -1, -10100]), None,
+    (pa.MonthDayNano([1, -1, -10100]), None,
      pa.MonthDayNanoIntervalScalar, None),
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar,
@@ -367,24 +367,10 @@ def test_duration_nanos_nopandas():
         arr[0].as_py()
 
 
-@pytest.mark.pandas
-def test_month_day_nano_interval_pandas():
-    from pandas.tseries.offsets import DateOffset
-
-    triple = pa.MonthDayNanoTuple([3600, 3600, 3600])
+def test_month_day_nano_interval():
+    triple = pa.MonthDayNano([3600, 3600, 3600])
     arr = pa.array([triple])
-    expected = DateOffset(days=3600, months=3600, microseconds=3,
-                          nanoseconds=600)
-    assert isinstance(arr[0].as_py(), DateOffset)
-    assert arr[0].as_py() == expected
-    assert arr[0].value == triple
-
-
-@pytest.mark.nopandas
-def test_month_day_nano_interval_nopandas():
-    triple = pa.MonthDayNanoTuple([3600, 3600, 3600])
-    arr = pa.array([triple])
-    assert isinstance(arr[0].as_py(), pa.MonthDayNanoTuple)
+    assert isinstance(arr[0].as_py(), pa.MonthDayNano)
     assert arr[0].as_py() == triple
     assert arr[0].value == triple
 

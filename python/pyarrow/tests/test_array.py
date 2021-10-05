@@ -2163,7 +2163,6 @@ def test_array_from_numpy_ascii():
     assert arrow_arr.equals(expected)
 
 
-@pytest.mark.nopandas
 def test_interval_array_from_timedelta():
     data = [
         None,
@@ -2176,20 +2175,19 @@ def test_interval_array_from_timedelta():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNanoTuple([0, 8,
-                              (datetime.timedelta(seconds=1, microseconds=1,
-                                                  milliseconds=1, minutes=1,
-                                                  hours=1) //
-                               datetime.timedelta(microseconds=1)) * 1000])]
+        pa.MonthDayNano([0, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             milliseconds=1, minutes=1,
+                                             hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
     assert arr.to_pylist() == expected_list
 
-# dateutil is dependency of pandas
-
 
 @pytest.mark.pandas
 def test_interval_array_from_relativedelta():
+    # dateutil is dependency of pandas
     from dateutil.relativedelta import relativedelta
     from pandas.tseries.offsets import DateOffset
     data = [
@@ -2205,13 +2203,13 @@ def test_interval_array_from_relativedelta():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNanoTuple([13, 8,
-                              (datetime.timedelta(seconds=1, microseconds=1,
-                                                  minutes=1, hours=1) //
-                               datetime.timedelta(microseconds=1)) * 1000])]
+        pa.MonthDayNano([13, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             minutes=1, hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
-    assert arr.to_pylist() == [
+    assert arr.to_pandas().tolist() == [
         None, DateOffset(months=13, days=8,
                          microseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
@@ -2244,11 +2242,11 @@ def test_interval_array_from_dateoffset():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNanoTuple([13, 8, 3661000001001]),
-        pa.MonthDayNanoTuple([0, 0, 0])]
+        pa.MonthDayNano([13, 8, 3661000001001]),
+        pa.MonthDayNano([0, 0, 0])]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
-    assert arr.to_pylist() == [
+    assert arr.to_pandas().tolist() == [
         None, DateOffset(months=13, days=8,
                          microseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,

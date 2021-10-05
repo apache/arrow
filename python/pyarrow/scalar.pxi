@@ -516,26 +516,22 @@ cdef class DurationScalar(Scalar):
 
 cdef class MonthDayNanoIntervalScalar(Scalar):
     """
-    Concrete class for month, day, nanosecond scalars.
+    Concrete class for month, day, nanosecond interval scalars.
     """
 
     @property
     def value(self):
         """
-        Returns this value as a pyarrow.MonthDayNanoTuple.
+        Same as self.as_py()
         """
-        cdef PyObject* val
-        val = GetResultValue(ARROW_TO_PYTHON.ToPrimitive(
-            (deref(self.wrapped.get()))))
-        return PyObject_to_object(val)
+        return self.as_py()
 
     def as_py(self):
         """
-        Return this value as a Pandas DateOffset instance if Pandas is present
-        otherwise as a named tuple containing months days and nanoseconds.
+        Returns this value as a pyarrow.MonthDayNano.
         """
         cdef PyObject* val
-        val = GetResultValue(ARROW_TO_PYTHON.ToLogical(
+        val = GetResultValue(ARROW_TO_PYTHON.ToPrimitive(
             (deref(self.wrapped.get()))))
         return PyObject_to_object(val)
 
