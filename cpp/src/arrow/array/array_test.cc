@@ -1586,7 +1586,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
   ASSERT_OK(this->builder_->Advance(900));
 
   int64_t too_many = this->builder_->capacity() - 1000 + 1;
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
@@ -1604,7 +1606,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(100));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_OK(this->builder_->Advance(100));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_EQ(100, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
 
