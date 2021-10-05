@@ -882,12 +882,6 @@ TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
 
 class TestCountDistinctKernel : public ::testing::Test {
  protected:
-  void SetUp() override {
-    only_valid = CountOptions(CountOptions::ONLY_VALID);
-    only_null = CountOptions(CountOptions::ONLY_NULL);
-    all = CountOptions(CountOptions::ALL);
-  }
-
   Datum Expected(int64_t value) { return MakeScalar(static_cast<int64_t>(value)); }
 
   void Check(Datum input, int64_t expected_all, bool has_nulls = true) {
@@ -918,18 +912,19 @@ class TestCountDistinctKernel : public ::testing::Test {
     EXPECT_THAT(CallFunction("count_distinct", {input}, &all), one);
   }
 
-  CountOptions only_valid;
-  CountOptions only_null;
-  CountOptions all;
+  CountOptions only_valid{CountOptions::ONLY_VALID};
+  CountOptions only_null{CountOptions::ONLY_NULL};
+  CountOptions all{CountOptions::ALL};
 };
 
 TEST_F(TestCountDistinctKernel, AllArrayTypesWithNulls) {
   // Boolean
+  Check(boolean(), "[]", 0, /*has_nulls=*/false);
   Check(boolean(), "[true, null, false, null, false, true]", 3);
   // Number
   for (auto ty : NumericTypes()) {
     Check(ty, "[1, 1, null, 2, 5, 8, 9, 9, null, 10, 6, 6]", 8);
-    Check(ty, "[1, 1, 8, 2, 5, 8, 9, 9, 10, 10, 6, 6]", 7, false);
+    Check(ty, "[1, 1, 8, 2, 5, 8, 9, 9, 10, 10, 6, 6]", 7, /*has_nulls=*/false);
   }
   // Date
   Check(date32(), "[0, 11016, 0, null, 14241, 14241, null]", 4);
@@ -942,7 +937,8 @@ TEST_F(TestCountDistinctKernel, AllArrayTypesWithNulls) {
   // Timestamp & Duration
   for (auto u : TimeUnit::values()) {
     Check(duration(u), "[123456789, null, 987654321, 123456789, null]", 3);
-    Check(duration(u), "[123456789, 987654321, 123456789, 123456789]", 2, false);
+    Check(duration(u), "[123456789, 987654321, 123456789, 123456789]", 2,
+          /*has_nulls=*/false);
     auto ts = R"(["2009-12-31T04:20:20", "2020-01-01", null, "2009-12-31T04:20:20"])";
     Check(timestamp(u), ts, 3);
     Check(timestamp(u, "Pacific/Marquesas"), ts, 3);
@@ -1004,7 +1000,7 @@ TEST_F(TestCountDistinctKernel, AllScalarTypesWithNulls) {
   Check(decimal256(13, 3), sample);
 }
 
-TEST_F(TestCountDistinctKernel, RandomValidsStdMap) {
+TEST_F(TestCountDistinctKernel, Random) {
   UInt32Builder builder;
   std::unordered_set<uint32_t> memo;
   auto visit_null = []() { return Status::OK(); };
