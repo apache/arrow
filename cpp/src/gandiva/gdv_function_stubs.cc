@@ -795,8 +795,9 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 
 
 GANDIVA_EXPORT
-int32_t gdv_fn_locate_with_pos_utf8(int64_t context, const char* substring, int32_t substring_len,
-                          const char* string, int32_t string_len, int32_t pos) {
+int32_t gdv_fn_locate_with_pos_utf8(int64_t context, const char* substring,
+                                    int32_t substring_len,
+                                    const char* string, int32_t string_len, int32_t pos) {
   if (string_len <= 0 || substring_len <= 0) {
     return 0;
   }
@@ -818,7 +819,8 @@ int32_t gdv_fn_locate_with_pos_utf8(int64_t context, const char* substring, int3
 GANDIVA_EXPORT
 int32_t gdv_fn_locate_utf8(int64_t context, const char* substring, int32_t substring_len,
                                    const char* string, int32_t string_len) {
-  return gdv_fn_locate_with_pos_utf8(context, substring, substring_len, string, string_len, 0);
+  return gdv_fn_locate_with_pos_utf8(context, substring, substring_len, string,
+                                     string_len, 0);
 }
 }
 

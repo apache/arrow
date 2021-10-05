@@ -785,7 +785,8 @@ TEST(TestGdvFnStubs, TestLocate) {
   s2 = "mango";
   s2_len = static_cast<int32_t>(s2.size());
 
-  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len, s1.c_str(), s1_len, 6);
+  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len,
+                                       s1.c_str(), s1_len, 6);
   EXPECT_EQ(result, 22);
 
   s1 = "";
@@ -793,7 +794,8 @@ TEST(TestGdvFnStubs, TestLocate) {
   s2 = "mango";
   s2_len = static_cast<int32_t>(s2.size());
 
-  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len, s1.c_str(), s1_len, 2);
+  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len,
+                                       s1.c_str(), s1_len, 2);
   EXPECT_EQ(result, 0);
 
   s1 = "open the door";
@@ -801,7 +803,8 @@ TEST(TestGdvFnStubs, TestLocate) {
   s2 = "";
   s2_len = static_cast<int32_t>(s2.size());
 
-  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(), s2_len, s1.c_str(), s1_len, 1);
+  result = gdv_fn_locate_with_pos_utf8(ctx_ptr, s2.c_str(),
+                                       s2_len, s1.c_str(), s1_len, 1);
   EXPECT_EQ(result, 0);
 }
 
