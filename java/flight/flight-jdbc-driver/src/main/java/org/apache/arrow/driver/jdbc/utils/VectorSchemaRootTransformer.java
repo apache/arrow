@@ -37,7 +37,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
  */
 @FunctionalInterface
 public interface VectorSchemaRootTransformer {
-  VectorSchemaRoot transform(VectorSchemaRoot originalRoot, VectorSchemaRoot transformedRoot);
+  VectorSchemaRoot transform(VectorSchemaRoot originalRoot, VectorSchemaRoot transformedRoot)
+      throws Exception;
 
   /**
    * Transformer's helper class; builds a new {@link VectorSchemaRoot}.

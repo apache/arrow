@@ -17,7 +17,9 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import java.nio.ByteBuffer;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.sql.DatabaseMetaData;
@@ -32,7 +34,6 @@ import java.util.regex.Pattern;
 
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
-import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
@@ -41,6 +42,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -306,14 +308,18 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           final VarBinaryVector schemaVector = (VarBinaryVector) originalRoot.getVector("table_schema");
 
           for (int i = 0; i < originalRootRowCount; i++) {
-            final Schema currentSchema = MessageSerializer.deserializeSchema(
-                Message.getRootAsMessage(
-                    ByteBuffer.wrap(schemaVector.get(i))));
-
             final Text catalogName = catalogNameVector.getObject(i);
             final Text tableName = tableNameVector.getObject(i);
             final Text schemaName = schemaNameVector.getObject(i);
 
+            final Schema currentSchema;
+            try {
+              currentSchema = MessageSerializer.deserializeSchema(
+                  new ReadChannel(Channels.newChannel(
+                      new ByteArrayInputStream(schemaVector.get(i)))));
+            } catch (final IOException e) {
+              throw new IOException(String.format("Failed to deserialize schema for table %s", tableName), e);
+            }
             final List<Field> tableColumns = currentSchema.getFields();
 
             columnCounter = setGetColumnsVectorSchemaRootFromFields(transformedRoot, columnCounter, tableColumns,

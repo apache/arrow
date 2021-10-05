@@ -138,11 +138,15 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
     return this;
   }
 
-  private void executeForCurrentFlightStream() {
+  private void executeForCurrentFlightStream() throws SQLException {
     final VectorSchemaRoot originalRoot = currentFlightStream.getRoot();
 
     if (transformer != null) {
-      currentVectorSchemaRoot = transformer.transform(originalRoot, currentVectorSchemaRoot);
+      try {
+        currentVectorSchemaRoot = transformer.transform(originalRoot, currentVectorSchemaRoot);
+      } catch (final Exception e) {
+        throw new SQLException("Failed to transform VectorSchemaRoot.", e);
+      }
     } else {
       currentVectorSchemaRoot = originalRoot;
     }
