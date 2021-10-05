@@ -21,6 +21,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
@@ -102,6 +103,84 @@ struct TemporalToStringCastFunctor {
     RETURN_NOT_OK(builder.Finish(&output_array));
     *output = std::move(*output_array->data());
     return Status::OK();
+  }
+};
+
+template <typename O>
+struct TemporalToStringCastFunctor<O, TimestampType> {
+  using value_type = typename TypeTraits<TimestampType>::CType;
+  using BuilderType = typename TypeTraits<O>::BuilderType;
+  using FormatterType = StringFormatter<TimestampType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK(out->is_array());
+    const ArrayData& input = *batch[0].array();
+    ArrayData* output = out->mutable_array();
+    return Convert(ctx, input, output);
+  }
+
+  static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
+    const auto& timezone = GetInputTimezone(*input.type);
+    BuilderType builder(input.type, ctx->memory_pool());
+
+    if (timezone.empty() || timezone == "UTC") {
+      FormatterType formatter(input.type);
+      RETURN_NOT_OK(VisitArrayDataInline<TimestampType>(
+          input,
+          [&](value_type v) {
+            return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+          },
+          [&]() { return builder.AppendNull(); }));
+    } else {
+#ifdef _WIN32
+      // TODO(ARROW-13168):
+      return Status::NotImplemented(
+          "Casting a timestamp with time zone to string is not yet supported on "
+          "Windows.");
+#else
+      switch (checked_cast<const TimestampType&>(*input.type).unit()) {
+        case TimeUnit::SECOND:
+          RETURN_NOT_OK(ConvertZoned<std::chrono::seconds>(input, timezone, &builder));
+          break;
+        case TimeUnit::MILLI:
+          RETURN_NOT_OK(
+              ConvertZoned<std::chrono::milliseconds>(input, timezone, &builder));
+          break;
+        case TimeUnit::MICRO:
+          RETURN_NOT_OK(
+              ConvertZoned<std::chrono::microseconds>(input, timezone, &builder));
+          break;
+        case TimeUnit::NANO:
+          RETURN_NOT_OK(
+              ConvertZoned<std::chrono::nanoseconds>(input, timezone, &builder));
+          break;
+        default:
+          DCHECK(false);
+          return Status::NotImplemented("Unimplemented time unit");
+      }
+#endif
+    }
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(builder.Finish(&output_array));
+    *output = std::move(*output_array->data());
+    return Status::OK();
+  }
+
+  template <typename Duration>
+  static Status ConvertZoned(const ArrayData& input, const std::string& timezone,
+                             BuilderType* builder) {
+    static std::string kFormatString = "%Y-%m-%d %H:%M:%S%z";
+    ARROW_ASSIGN_OR_RAISE(const time_zone* tz,
+                          LocateZone(timezone.empty() ? "UTC" : timezone));
+    ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale("C"));
+    TimestampFormatter<Duration> formatter{kFormatString, tz, locale};
+    return VisitArrayDataInline<TimestampType>(
+        input,
+        [&](value_type v) {
+          ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(v));
+          return builder->Append(std::move(formatted));
+        },
+        [&]() { return builder->AppendNull(); });
   }
 };
 
@@ -304,7 +383,7 @@ void AddTemporalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
   for (const std::shared_ptr<DataType>& in_ty : TemporalTypes()) {
     DCHECK_OK(func->AddKernel(
-        in_ty->id(), {in_ty}, out_ty,
+        in_ty->id(), {InputType(in_ty->id())}, out_ty,
         TrivialScalarUnaryAsArraysExec(
             GenerateTemporal<TemporalToStringCastFunctor, OutType>(*in_ty)),
         NullHandling::COMPUTED_NO_PREALLOCATE));
