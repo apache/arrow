@@ -265,6 +265,9 @@ class SqlSchema {
 
   /// \brief Gets the Schema used on CommandGetCatalogs response.
   static std::shared_ptr<Schema> GetCatalogsSchema();
+
+  /// \brief Gets the Schema used on CommandGetSchemas response.
+  static std::shared_ptr<Schema> GetSchemasSchema();
 };
 }  // namespace sql
 }  // namespace flight

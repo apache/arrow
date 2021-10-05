@@ -104,8 +104,8 @@ Status FlightSqlClientT<T>::GetCatalogs(const FlightCallOptions& options,
 
 template <class T>
 Status FlightSqlClientT<T>::GetSchemas(const FlightCallOptions& options,
-                                       std::string* catalog,
-                                       std::string* schema_filter_pattern,
+                                       const std::string* catalog,
+                                       const std::string* schema_filter_pattern,
                                        std::unique_ptr<FlightInfo>* flight_info) const {
   pb::sql::CommandGetSchemas command;
   if (catalog != NULLPTR) {

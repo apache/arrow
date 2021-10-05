@@ -66,8 +66,9 @@ class FlightSqlClientT {
   /// \param[out] flight_info           The FlightInfo describing where to access the
   ///                                   dataset.
   /// \return Status.
-  Status GetSchemas(const FlightCallOptions& options, std::string* catalog,
-                    std::string* schema_filter_pattern,
+  Status GetSchemas(const FlightCallOptions& options,
+                    const std::string* catalog,
+                    const std::string* schema_filter_pattern,
                     std::unique_ptr<FlightInfo>* flight_info) const;
 
   /// \brief Given a flight ticket and schema, request to be sent the

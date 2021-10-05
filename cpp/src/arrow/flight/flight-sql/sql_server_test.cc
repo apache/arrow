@@ -19,6 +19,7 @@
 #include <arrow/flight/api.h>
 #include <arrow/flight/flight-sql/FlightSql.pb.h>
 #include <arrow/flight/flight-sql/api.h>
+#include <arrow/flight/flight-sql/sql_server.h>
 #include <arrow/flight/test_util.h>
 #include <arrow/flight/types.h>
 #include <gmock/gmock.h>
@@ -135,8 +136,23 @@ TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  const std::shared_ptr<Schema>& expected_schema =
-      arrow::schema({arrow::field("catalog_name", utf8())});
+  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetCatalogsSchema();
+
+  ASSERT_TRUE(table->schema()->Equals(*expected_schema));
+  ASSERT_EQ(0, table->num_rows());
+}
+
+TEST(TestFlightSqlServer, TestCommandGetSchemas) {
+  std::unique_ptr<FlightInfo> flight_info;
+  ASSERT_OK(sql_client->GetSchemas({}, NULLPTR, NULLPTR, &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetSchemasSchema();
 
   ASSERT_TRUE(table->schema()->Equals(*expected_schema));
   ASSERT_EQ(0, table->num_rows());

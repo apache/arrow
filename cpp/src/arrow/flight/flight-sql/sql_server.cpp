@@ -250,6 +250,13 @@ std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
   return arrow::schema({field("catalog_name", utf8())});
 }
 
+std::shared_ptr<Schema> SqlSchema::GetSchemasSchema() {
+  return arrow::schema({
+    field("catalog_name", utf8()),
+    field("schema_name", utf8(), false)
+  });
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
