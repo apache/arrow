@@ -213,7 +213,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
      * @param replacements the replacements to make.
      * @return a copy of the provided {@link Properties}, with the provided {@code replacements}.
      */
-    public static Properties copyReplace(final Properties target, final Map<ConnectionProperty, Object> replacements) {
+    public static Properties copyReplace(final Properties target,
+                                         final Map<? extends ConnectionProperty, ?> replacements) {
       final Properties properties = new Properties();
       properties.putAll(target);
       replacements.forEach(
