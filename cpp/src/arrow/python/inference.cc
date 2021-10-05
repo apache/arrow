@@ -399,7 +399,9 @@ class TypeInferrer {
       RETURN_NOT_OK(VisitNdarray(obj, keep_going));
     } else if (PyDict_Check(obj)) {
       RETURN_NOT_OK(VisitDict(obj));
-    } else if (PyList_Check(obj) || PyTuple_Check(obj)) {
+    } else if (PyList_Check(obj) ||
+               (PyTuple_Check(obj) &&
+                !PyObject_IsInstance(obj, PyTuple_GetItem(interval_types_.obj(), 0)))) {
       RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));

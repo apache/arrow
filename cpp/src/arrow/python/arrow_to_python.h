@@ -26,7 +26,7 @@
 namespace arrow {
 
 class Array;
-class Scalar;
+struct Scalar;
 
 namespace py {
 
