@@ -42,7 +42,7 @@ google::cloud::Options AsGoogleCloudOptions(GCSOptions const& o) {
 
 class GCSFileSystem::Impl {
  public:
-  Impl(GCSOptions const& o) : client_(AsGoogleCloudOptions(o)) {}
+  explicit Impl(GCSOptions const& o) : client_(AsGoogleCloudOptions(o)) {}
 
  private:
   gcs::Client client_;

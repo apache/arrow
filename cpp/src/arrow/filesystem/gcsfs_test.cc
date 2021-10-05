@@ -23,8 +23,8 @@
 
 #include <string>
 
-#include "arrow/testing/util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 namespace arrow {
 namespace fs {
