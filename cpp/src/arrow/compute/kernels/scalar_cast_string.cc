@@ -121,16 +121,34 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
 
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     const auto& timezone = GetInputTimezone(*input.type);
+    const auto& ty = checked_cast<const TimestampType&>(*input.type);
     BuilderType builder(input.type, ctx->memory_pool());
 
-    if (timezone.empty() || timezone == "UTC") {
+    // Preallocate
+    int64_t string_length = 19;  // YYYY-MM-DD HH:MM:SS
+    if (ty.unit() == TimeUnit::MILLI) {
+      string_length += 4;  // .SSS
+    } else if (ty.unit() == TimeUnit::MICRO) {
+      string_length += 7;  // .SSSSSS
+    } else if (ty.unit() == TimeUnit::NANO) {
+      string_length += 10;  // .SSSSSSSSS
+    }
+    if (!timezone.empty()) string_length += 5;  // +0000
+    RETURN_NOT_OK(builder.Reserve(input.length));
+    RETURN_NOT_OK(
+        builder.ReserveData((input.length - input.GetNullCount()) * string_length));
+
+    if (timezone.empty()) {
       FormatterType formatter(input.type);
       RETURN_NOT_OK(VisitArrayDataInline<TimestampType>(
           input,
           [&](value_type v) {
             return formatter(v, [&](util::string_view v) { return builder.Append(v); });
           },
-          [&]() { return builder.AppendNull(); }));
+          [&]() {
+            builder.UnsafeAppendNull();
+            return Status::OK();
+          }));
     } else {
 #ifdef _WIN32
       // TODO(ARROW-13168):
@@ -138,7 +156,7 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
           "Casting a timestamp with time zone to string is not yet supported on "
           "Windows.");
 #else
-      switch (checked_cast<const TimestampType&>(*input.type).unit()) {
+      switch (ty.unit()) {
         case TimeUnit::SECOND:
           RETURN_NOT_OK(ConvertZoned<std::chrono::seconds>(input, timezone, &builder));
           break;
@@ -180,7 +198,10 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
           ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(v));
           return builder->Append(std::move(formatted));
         },
-        [&]() { return builder->AppendNull(); });
+        [&]() {
+          builder->UnsafeAppendNull();
+          return Status::OK();
+        });
   }
 };
 
