@@ -93,16 +93,8 @@ class FilterNode : public MapNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
-    auto task = [this, batch]() {
-      auto maybe_filtered = DoFilter(std::move(batch));
-      if (ErrorIfNotOk(maybe_filtered.status())) {
-        return maybe_filtered.status();
-      }
-      maybe_filtered->guarantee = batch.guarantee;
-      outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
-      return Status::OK();
-    };
-    this->SubmitTask(task);
+    auto func = [this](ExecBatch batch) { return DoFilter(std::move(batch)); };
+    this->SubmitTask(func, std::move(batch));
   }
 
  protected:

@@ -248,6 +248,14 @@ class ARROW_EXPORT ExecNode {
   NodeVector outputs_;
 };
 
+/// \brief MapNode is an ExecNode type class which process a task like filter/project
+/// (See SubmitTask method) to each given ExecBatch object, which have one input, one
+/// output, and are pure functions on the input
+///
+/// A simple parallel runner is created with a "map_fn" which is just a function that
+/// takes a batch in and returns a batch.  This simple parallel runner also needs an
+/// executor (use simple synchronous runner if there is no executor)
+
 class MapNode : public ExecNode {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -256,47 +264,6 @@ class MapNode : public ExecNode {
                  std::move(output_schema),
                  /*num_outputs=*/1) {
     executor_ = plan_->exec_context()->executor();
-  }
-
-  void SubmitTask(std::function<Status()> task) {
-    if (finished_.is_finished()) {
-      return;
-    }
-    Status status;
-    if (executor_) {
-      status = task_group_.AddTask([this, task]() -> Result<Future<>> {
-        return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
-          auto status = task();
-          if (this->input_counter_.Increment()) {
-            this->Finish(status);
-          }
-          return status;
-        });
-      });
-    } else {
-      status = task();
-      if (input_counter_.Increment()) {
-        this->Finish(status);
-      }
-    }
-    if (!status.ok()) {
-      if (input_counter_.Cancel()) {
-        this->Finish(status);
-      }
-      inputs_[0]->StopProducing(this);
-      return;
-    }
-  }
-
-  void Finish(Status finish_st = Status::OK()) {
-    if (executor_) {
-      task_group_.End().AddCallback([this, finish_st](const Status& st) {
-        Status final_status = finish_st & st;
-        this->finished_.MarkFinished(final_status);
-      });
-    } else {
-      this->finished_.MarkFinished(finish_st);
-    }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -334,6 +301,57 @@ class MapNode : public ExecNode {
   }
 
   Future<> finished() override { return finished_; }
+
+ protected:
+  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch) {
+    Status status;
+    if (finished_.is_finished()) {
+      return;
+    }
+    auto task = [this, map_fn, batch]() {
+      auto output_batch = map_fn(std::move(batch));
+      if (ErrorIfNotOk(output_batch.status())) {
+        return output_batch.status();
+      }
+      output_batch->guarantee = batch.guarantee;
+      outputs_[0]->InputReceived(this, output_batch.MoveValueUnsafe());
+      return Status::OK();
+    };
+    if (executor_) {
+      status = task_group_.AddTask([this, task]() -> Result<Future<>> {
+        return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
+          auto status = task();
+          if (this->input_counter_.Increment()) {
+            this->Finish(status);
+          }
+          return status;
+        });
+      });
+    } else {
+      status = task();
+      if (input_counter_.Increment()) {
+        this->Finish(status);
+      }
+    }
+    if (!status.ok()) {
+      if (input_counter_.Cancel()) {
+        this->Finish(status);
+      }
+      inputs_[0]->StopProducing(this);
+      return;
+    }
+  }
+
+  void Finish(Status finish_st = Status::OK()) {
+    if (executor_) {
+      task_group_.End().AddCallback([this, finish_st](const Status& st) {
+        Status final_status = finish_st & st;
+        this->finished_.MarkFinished(final_status);
+      });
+    } else {
+      this->finished_.MarkFinished(finish_st);
+    }
+  }
 
  protected:
   // Counter for the number of batches received

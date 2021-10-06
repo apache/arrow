@@ -88,15 +88,8 @@ class ProjectNode : public MapNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
-    auto task = [this, batch]() {
-      auto maybe_projected = DoProject(std::move(batch));
-      if (ErrorIfNotOk(maybe_projected.status())) return maybe_projected.status();
-
-      maybe_projected->guarantee = batch.guarantee;
-      outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
-      return Status::OK();
-    };
-    this->SubmitTask(task);
+    auto func = [this](ExecBatch batch) { return DoProject(std::move(batch)); };
+    this->SubmitTask(func, std::move(batch));
   }
 
  protected:
