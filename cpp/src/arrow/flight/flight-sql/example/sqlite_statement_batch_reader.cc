@@ -71,9 +71,10 @@ namespace example {
 
 std::shared_ptr<Schema> SqliteStatementBatchReader::schema() const { return schema_; }
 
-SqliteStatementBatchReader::SqliteStatementBatchReader(std::shared_ptr<SqliteStatement> statement,
-                                                       std::shared_ptr<Schema> schema)
-    : statement_(std::move(statement)), schema_(std::move(schema)) {}
+SqliteStatementBatchReader::SqliteStatementBatchReader(
+    std::shared_ptr<SqliteStatement> statement,
+    std::shared_ptr<Schema> schema)
+      : statement_(std::move(statement)), schema_(std::move(schema)) {}
 
 Status SqliteStatementBatchReader::Create(
     const std::shared_ptr<SqliteStatement>& statement_,
