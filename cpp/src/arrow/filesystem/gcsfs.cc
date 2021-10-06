@@ -30,7 +30,7 @@ namespace fs {
 
 namespace gcs = google::cloud::storage;
 
-google::cloud::Options AsGoogleCloudOptions(GCSOptions const& o) {
+google::cloud::Options AsGoogleCloudOptions(GcsOptions const& o) {
   auto options = google::cloud::Options{};
   if (!o.endpoint_override.empty()) {
     auto scheme = o.scheme;
@@ -40,101 +40,101 @@ google::cloud::Options AsGoogleCloudOptions(GCSOptions const& o) {
   return options;
 }
 
-class GCSFileSystem::Impl {
+class GcsFileSystem::Impl {
  public:
-  explicit Impl(GCSOptions const& o) : client_(AsGoogleCloudOptions(o)) {}
+  explicit Impl(GcsOptions const& o) : client_(AsGoogleCloudOptions(o)) {}
 
  private:
   gcs::Client client_;
 };
 
-std::string GCSFileSystem::type_name() const { return "gcs"; }
+std::string GcsFileSystem::type_name() const { return "gcs"; }
 
-bool GCSFileSystem::Equals(const FileSystem& other) const {
+bool GcsFileSystem::Equals(const FileSystem& other) const {
   if (this == &other) {
     return true;
   }
   if (other.type_name() != type_name()) {
     return false;
   }
-  const auto& fs = ::arrow::internal::checked_cast<const GCSFileSystem&>(other);
+  const auto& fs = ::arrow::internal::checked_cast<const GcsFileSystem&>(other);
   return impl_ == fs.impl_;
 }
 
-Result<FileInfo> GCSFileSystem::GetFileInfo(const std::string& path) {
+Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Result<FileInfoVector> GCSFileSystem::GetFileInfo(const FileSelector& select) {
+Result<FileInfoVector> GcsFileSystem::GetFileInfo(const FileSelector& select) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Status GCSFileSystem::CreateDir(const std::string& path, bool recursive) {
+Status GcsFileSystem::CreateDir(const std::string& path, bool recursive) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Status GCSFileSystem::DeleteDir(const std::string& path) {
+Status GcsFileSystem::DeleteDir(const std::string& path) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Status GCSFileSystem::DeleteDirContents(const std::string& path) {
+Status GcsFileSystem::DeleteDirContents(const std::string& path) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Status GCSFileSystem::DeleteRootDirContents() {
+Status GcsFileSystem::DeleteRootDirContents() {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Status GCSFileSystem::DeleteFile(const std::string& path) {
+Status GcsFileSystem::DeleteFile(const std::string& path) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Status GCSFileSystem::Move(const std::string& src, const std::string& dest) {
+Status GcsFileSystem::Move(const std::string& src, const std::string& dest) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Status GCSFileSystem::CopyFile(const std::string& src, const std::string& dest) {
+Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Result<std::shared_ptr<io::InputStream>> GCSFileSystem::OpenInputStream(
+Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const std::string& path) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Result<std::shared_ptr<io::InputStream>> GCSFileSystem::OpenInputStream(
+Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const FileInfo& info) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Result<std::shared_ptr<io::RandomAccessFile>> GCSFileSystem::OpenInputFile(
+Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     const std::string& path) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Result<std::shared_ptr<io::RandomAccessFile>> GCSFileSystem::OpenInputFile(
+Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     const FileInfo& info) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Result<std::shared_ptr<io::OutputStream>> GCSFileSystem::OpenOutputStream(
+Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return Status::NotImplemented("The GCS FileSystem is not fully implemented");
 }
 
-Result<std::shared_ptr<io::OutputStream>> GCSFileSystem::OpenAppendStream(
+Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(
     const std::string&, const std::shared_ptr<const KeyValueMetadata>&) {
   return Status::NotImplemented("Append is not supported in GCS");
 }
 
-GCSFileSystem::GCSFileSystem(const GCSOptions& options, const io::IOContext& context)
+GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)
     : FileSystem(context), impl_(std::make_shared<Impl>(options)) {}
 
 namespace internal {
 
-std::shared_ptr<GCSFileSystem> MakeGCSFileSystemForTest(const GCSOptions& options) {
-  return std::shared_ptr<GCSFileSystem>(
-      new GCSFileSystem(options, io::default_io_context()));
+std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options) {
+  return std::shared_ptr<GcsFileSystem>(
+      new GcsFileSystem(options, io::default_io_context()));
 }
 
 }  // namespace internal

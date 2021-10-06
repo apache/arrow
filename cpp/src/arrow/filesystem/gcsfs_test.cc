@@ -35,11 +35,11 @@ using ::testing::Not;
 using ::testing::NotNull;
 
 TEST(GCSFileSystem, Compare) {
-  auto a = internal::MakeGCSFileSystemForTest(GCSOptions{});
+  auto a = internal::MakeGcsFileSystemForTest(GcsOptions{});
   EXPECT_THAT(a.get(), NotNull());
   EXPECT_EQ(a, a);
 
-  auto b = internal::MakeGCSFileSystemForTest(GCSOptions{});
+  auto b = internal::MakeGcsFileSystemForTest(GcsOptions{});
   EXPECT_THAT(b.get(), NotNull());
   EXPECT_EQ(b, b);
 

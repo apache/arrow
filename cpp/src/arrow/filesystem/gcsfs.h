@@ -25,35 +25,54 @@
 
 namespace arrow {
 namespace fs {
-class GCSFileSystem;
-struct GCSOptions;
+class GcsFileSystem;
+struct GcsOptions;
 namespace internal {
-// TODO(ARROW-1231) - during development only tests should create a GCSFileSystem.
-//     Remove before declaring the feature complete.
-std::shared_ptr<GCSFileSystem> MakeGCSFileSystemForTest(const GCSOptions& options);
+// TODO(ARROW-1231) - during development only tests should create a GcsFileSystem.
+//     Remove, and provide a public API, before declaring the feature complete.
+std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options);
 }  // namespace internal
 
-struct ARROW_EXPORT GCSOptions {
+/// Options for the GcsFileSystem implementation.
+struct ARROW_EXPORT GcsOptions {
   std::string endpoint_override;
   std::string scheme;
 
-  bool Equals(const GCSOptions& other) const;
+  bool Equals(const GcsOptions& other) const;
 
   /// \brief Initialize with default credentials provider chain
   ///
   /// This is recommended if you use the standard AWS environment variables
   /// and/or configuration file.
-  static GCSOptions Defaults();
+  static GcsOptions Defaults();
 
   /// \brief Initialize with anonymous credentials.
   ///
   /// This will only let you access public buckets.
-  static GCSOptions Anonymous();
+  static GcsOptions Anonymous();
 };
 
-class ARROW_EXPORT GCSFileSystem : public FileSystem {
+/// \brief GCS-backed FileSystem implementation.
+///
+/// Some implementation notes:
+/// - TODO(ARROW-1231) - review all the notes once completed.
+/// - buckets are treated as top-level directories on a "root".
+/// - GCS buckets are in a global namespace, only one bucket
+///   named `foo` exists in Google Cloud.
+/// - Creating new top-level directories is implemented by creating
+///   a bucket, this may be a slower operation than usual.
+/// - A principal (service account, user, etc) can only list the
+///   buckets for a single project, but can access the buckets
+///   for many projects. It is possible that listing "all"
+///   the buckets returns fewer buckets than you have access to.
+/// - GCS does not have directories, they are emulated in this
+///   library by listing objects with a common prefix.
+/// - In general, GCS has much higher latency than local filesystems.
+///   The throughput of GCS is comparable to the throughput of
+///   a local file system.
+class ARROW_EXPORT GcsFileSystem : public FileSystem {
  public:
-  ~GCSFileSystem() override = default;
+  ~GcsFileSystem() override = default;
 
   std::string type_name() const override;
 
@@ -97,11 +116,11 @@ class ARROW_EXPORT GCSFileSystem : public FileSystem {
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
  private:
-  /// Create a GCSFileSystem instance from the given options.
-  friend std::shared_ptr<GCSFileSystem> internal::MakeGCSFileSystemForTest(
-      const GCSOptions& options);
+  /// Create a GcsFileSystem instance from the given options.
+  friend std::shared_ptr<GcsFileSystem> internal::MakeGcsFileSystemForTest(
+      const GcsOptions& options);
 
-  explicit GCSFileSystem(const GCSOptions& options, const io::IOContext& io_context);
+  explicit GcsFileSystem(const GcsOptions& options, const io::IOContext& io_context);
 
   class Impl;
   std::shared_ptr<Impl> impl_;
