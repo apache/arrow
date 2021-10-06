@@ -23,7 +23,8 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public readonly metadata: Map<string, string>;
     public readonly dictionaries: Map<number, DataType>;
 
-    constructor(fields: Field<T[keyof T]>[] = [],
+    constructor(
+        fields: Field<T[keyof T]>[] = [],
         metadata?: Map<string, string> | null,
         dictionaries?: Map<number, DataType> | null) {
         this.fields = (fields || []) as Field<T[keyof T]>[];

@@ -43,7 +43,7 @@ export class ChunkedIterator<T extends DataType> implements IterableIterator<T['
             }
         }
 
-        return {done: true, value: null};
+        return { done: true, value: null };
     }
 
     getChunkIterator() {
@@ -76,7 +76,7 @@ export function sliceChunks<T extends DataType>(chunks: ReadonlyArray<Data<T>>, 
     for (let i = -1, n = chunks.length; ++i < n;) {
         const chunk = chunks[i];
         const offset = offsets[i];
-        const {length} = chunk;
+        const { length } = chunk;
         // Stop if the child is to the right of the slice boundary
         if (offset >= end) { break; }
         // Exclude children to the left of of the slice boundary
@@ -90,6 +90,9 @@ export function sliceChunks<T extends DataType>(chunks: ReadonlyArray<Data<T>>, 
         const from = Math.max(0, begin - offset);
         const to = Math.min(end - offset, length);
         slices.push(chunk.slice(from, to - from));
+    }
+    if (slices.length === 0) {
+        slices.push(chunks[0].slice(0, 0));
     }
     return slices;
 }
@@ -117,7 +120,7 @@ export function isChunkedValid<T extends DataType>(data: Data<T>, index: number)
 /** @ignore */
 export function wrapChunkedCall1<T extends DataType>(fn: (c: Data<T>, _1: number) => any) {
     function chunkedFn(chunks: ReadonlyArray<Data<T>>, i: number, j: number) { return fn(chunks[i], j); }
-    return function(this: any, index: number) {
+    return function (this: any, index: number) {
         const data = this.data as ReadonlyArray<Data<T>>;
         switch (data.length) {
             case 0: return undefined;
@@ -131,12 +134,12 @@ export function wrapChunkedCall1<T extends DataType>(fn: (c: Data<T>, _1: number
 export function wrapChunkedCall2<T extends DataType>(fn: (c: Data<T>, _1: number, _2: any) => any) {
     let _2: any;
     function chunkedFn(chunks: ReadonlyArray<Data<T>>, i: number, j: number) { return fn(chunks[i], j, _2); }
-    return function(this: any, index: number, value: any) {
+    return function (this: any, index: number, value: any) {
         const data = this.data as ReadonlyArray<Data<T>>;
         switch (data.length) {
             case 0: return undefined;
             case 1: return fn(data[0], index, value);
-            default:{
+            default: {
                 _2 = value;
                 const result = binarySearch(data, this._offsets, index, chunkedFn);
                 _2 = undefined;
@@ -161,7 +164,7 @@ export function wrapChunkedIndexOf<T extends DataType>(indexOf: (c: Data<T>, e: 
         }
         return -1;
     }
-    return function(this: any, element: T['TValue'], offset?: number) {
+    return function (this: any, element: T['TValue'], offset?: number) {
         _1 = element;
         const data = this.data as ReadonlyArray<Data<T>>;
         const result = typeof offset !== 'number'

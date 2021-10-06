@@ -75,13 +75,13 @@ export class Table<T extends { [key: string]: DataType } = any> {
     constructor(...args: any[]) {
 
         if (args.length === 0) {
-            this.data = [];
+            this.batches = [];
             this.schema = new Schema([]);
             this._offsets = new Uint32Array([0]);
             return this;
         }
 
-        let data: RecordBatch<T>[] = [];
+        let batches: RecordBatch<T>[] = [];
         let schema: Schema<T> | undefined = undefined;
         let offsets: Uint32Array | undefined = undefined;
 
@@ -92,28 +92,28 @@ export class Table<T extends { [key: string]: DataType } = any> {
             offsets = args.pop() as Uint32Array;
         }
 
-        args.flatMap((x) => Array.isArray(x) ? x : [x]).forEach((x) => {
+        args.flat(Infinity).forEach((x) => {
             if (x instanceof RecordBatch) {
-                data.push(x);
+                batches.push(x);
             } else if (x instanceof Data) {
                 if (x.type instanceof Struct) {
-                    data.push(new RecordBatch(new Schema(x.type.children), x));
+                    batches.push(new RecordBatch(new Schema(x.type.children), x));
                 }
             } else if (x && typeof x === 'object') {
                 const keys = Object.keys(x) as (keyof T)[];
                 const vecs = keys.map((k) => new Vector(x[k]));
                 const s = new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type)));
-                [schema, data] = distributeVectorsIntoRecordBatches(s, vecs);
+                [schema, batches] = distributeVectorsIntoRecordBatches(s, vecs);
             }
         });
 
-        schema ??= data[0]?.schema ?? new Schema([]);
+        schema ??= batches[0]?.schema ?? new Schema([]);
 
         if (!(schema instanceof Schema)) {
             throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
         }
 
-        for (const batch of data) {
+        for (const batch of batches) {
             if (!(batch instanceof RecordBatch)) {
                 throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
             }
@@ -122,48 +122,9 @@ export class Table<T extends { [key: string]: DataType } = any> {
             }
         }
 
-        this.data = data;
         this.schema = schema;
-        this._offsets = offsets ?? computeChunkOffsets(this.data.map((b) => b.data));
-
-        // if (args.length === 1 && !(args[0] instanceof Schema)) {
-        //     const [obj] = args as [{ [P in keyof T]: Vector<T[P]> }];
-        //     const batches = Object.keys(obj).reduce((batches, name: keyof T) => {
-        //         obj[name].data.forEach((data, batchIndex) => {
-        //             if (!batches[batchIndex]) {
-        //                 batches[batchIndex] = {} as { [P in keyof T]: Data<T[P]> };
-        //             }
-        //             batches[batchIndex][name] = new Vector(data).data[0];
-        //         });
-        //         return batches;
-        //     }, new Array<{ [P in keyof T]: Data<T[P]> }>());
-
-        //     args = [batches[0].schema, batches.map((data) => new RecordBatch<T>(data))];
-        // }
-
-        // let [schema, data, offsets] = args;
-
-        // if (!(schema instanceof Schema)) {
-        //     throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
-        // }
-
-        // this.schema = schema;
-
-        // [, data = [new _InternalEmptyPlaceholderRecordBatch(schema)]] = args;
-
-        // const batches: RecordBatch<T>[] = Array.isArray(data) ? data : [data];
-
-        // batches.forEach((batch: RecordBatch<T>) => {
-        //     if (!(batch instanceof RecordBatch)) {
-        //         throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
-        //     }
-        //     if (!compareSchemas(this.schema, batch.schema)) {
-        //         throw new TypeError('Table and all RecordBatch schemas must be equivalent.');
-        //     }
-        // });
-
-        // this.data = batches;
-        // this._offsets = offsets ?? computeChunkOffsets(this.data.map((b) => b.data));
+        this.batches = batches;
+        this._offsets = offsets ?? computeChunkOffsets(this.data);
     }
 
     declare protected _offsets: Uint32Array;
@@ -179,7 +140,12 @@ export class Table<T extends { [key: string]: DataType } = any> {
     /**
      * @summary The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
      */
-    public readonly data: ReadonlyArray<RecordBatch<T>>;
+    public readonly batches: ReadonlyArray<RecordBatch<T>>;
+
+    /**
+     * @summary The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
+     */
+    public get data() { return this.batches.map(({ data }) => data); }
 
     /**
      * @summary The number of columns in this Table.
@@ -190,7 +156,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @summary The number of rows in this Table.
      */
     public get numRows() {
-        return this.data.reduce((numRows, data) => numRows + data.numRows, 0);
+        return this.data.reduce((numRows, data) => numRows + data.length, 0);
     }
 
     /**
@@ -198,7 +164,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      */
     public get nullCount() {
         if (this._nullCount === -1) {
-            this._nullCount = computeChunkNullCounts(this.data.map((b) => b.data));
+            this._nullCount = computeChunkNullCounts(this.data);
         }
         return this._nullCount;
     }
@@ -244,7 +210,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @summary Iterator for rows in this Table.
      */
     public [Symbol.iterator]() {
-        return new ChunkedIterator(this.data.map((b) => b.data));
+        return new ChunkedIterator(this.data);
     }
 
     /**
@@ -252,7 +218,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @returns An Array of Table rows.
      */
     public toArray() {
-        return this.data.reduce((ary, { data }) =>
+        return this.data.reduce((ary, data) =>
             ary.concat(toArrayVisitor.visit(data)),
             new Array<Struct<T>['TValue']>()
         );
@@ -265,7 +231,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
     public concat(...others: Table<T>[]) {
         const schema = this.schema;
         const data = this.data.concat(others.flatMap(({ data }) => data));
-        return new Table(schema, data.map(({ data }) => new RecordBatch(schema, data)));
+        return new Table(schema, data.map((data) => new RecordBatch(schema, data)));
     }
 
     /**
@@ -276,7 +242,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
     public slice(begin?: number, end?: number): Table<T> {
         const schema = this.schema;
         [begin, end] = clampRange({ length: this.numRows }, begin, end);
-        const data = sliceChunks(this.data.map((b) => b.data), this._offsets, begin, end);
+        const data = sliceChunks(this.data, this._offsets, begin, end);
         return new Table(schema, data.map((chunk) => new RecordBatch(schema, chunk)));
     }
 
@@ -294,7 +260,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
-            return new Vector(this.data.map(({ data }) => data.children[index] as Data<R>));
+            return new Vector(this.data.map((data) => data.children[index] as Data<R>));
         }
         return null;
     }
@@ -317,7 +283,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
     public setChildAt<R extends DataType = any>(index: number, child: Vector<R>): Table;
     public setChildAt(index: number, child: any) {
         let schema: Schema = this.schema;
-        let data: RecordBatch[] = [...this.data];
+        let batches: RecordBatch[] = [...this.batches];
         if (index > -1 && index < this.numCols) {
             if (!child) {
                 child = new Vector([makeData({ type: new Null, length: this.numRows })]);
@@ -326,9 +292,9 @@ export class Table<T extends { [key: string]: DataType } = any> {
             const field = fields[index].clone({ type: child.type });
             const children = this.schema.fields.map((_, i) => this.getChildAt(i)!);
             [fields[index], children[index]] = [field, child];
-            [schema, data] = distributeVectorsIntoRecordBatches(schema, children);
+            [schema, batches] = distributeVectorsIntoRecordBatches(schema, children);
         }
-        return new Table(schema, data);
+        return new Table(schema, batches);
     }
 
     /**
@@ -350,13 +316,16 @@ export class Table<T extends { [key: string]: DataType } = any> {
      */
     public selectAt<K extends T[keyof T] = any>(columnIndices: number[]) {
         const schema = this.schema.selectAt(columnIndices);
-        const data = this.data.map((batch) => batch.selectAt(columnIndices));
+        const data = this.batches.map((batch) => batch.selectAt(columnIndices));
         return new Table<{ [key: string]: K }>(schema, data);
     }
 
     // Initialize this static property via an IIFE so bundlers don't tree-shake
     // out this logic, but also so we're still compliant with `"sideEffects": false`
     protected static [Symbol.toStringTag] = ((proto: Table) => {
+        (proto as any).schema = null;
+        (proto as any).batches = [];
+        (proto as any)._offsets = new Uint32Array([0]);
         (proto as any)._nullCount = -1;
         (proto as any)[Symbol.isConcatSpreadable] = true;
         (proto as any)['isValid'] = wrapChunkedCall1(isChunkedValid);

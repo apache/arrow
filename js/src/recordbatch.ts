@@ -18,9 +18,8 @@
 import { Data, makeData } from './data';
 import { Table } from './table';
 import { Vector } from './vector';
-import { Visitor } from './visitor';
 import { Schema, Field } from './schema';
-import { DataType, Struct, Dictionary, Null } from './type';
+import { DataType, Struct, Null } from './type';
 import { NumericIndexingProxyHandlerMixin } from './util/proxy';
 
 import { instance as getVisitor } from './visitor/get';
@@ -104,8 +103,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
     public readonly data: Data<Struct<T>>;
 
     public get dictionaries() {
-        return this._dictionaries || (
-            this._dictionaries = new DictionaryCollector().visit(this.data).dictionaries);
+        return this._dictionaries || (this._dictionaries = collectDictionaries(this.schema.fields, this.data.children));
     }
 
     /**
@@ -338,25 +336,24 @@ function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
     ] as [Schema<T>, Data<Struct<T>>];
 }
 
-
 /** @ignore */
-class DictionaryCollector extends Visitor {
-    public dictionaries = new Map<number, Vector>();
-    public visit<T extends DataType>(data: Data<T>): this {
-        if (DataType.isDictionary(data.type)) {
-            return super.visit(data);
-        } else {
-            data.children.forEach((child) => this.visit(child));
+function collectDictionaries(fields: Field[], children: Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
+    for (let i = -1, n = fields.length; ++i < n;) {
+        const field = fields[i];
+        const type = field.type;
+        const data = children[i];
+        if (DataType.isDictionary(type)) {
+            if (!dictionaries.has(type.id)) {
+                dictionaries.set(type.id, data.dictionary!);
+            } else if (dictionaries.get(type.id) !== data.dictionary) {
+                throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
+            }
         }
-        return this;
-    }
-    public visitDictionary<T extends Dictionary>(data: Data<T>) {
-        const dictionary = data.dictionary;
-        if (dictionary && dictionary.length > 0) {
-            this.dictionaries.set(data.type.id, dictionary);
+        if (type.children && type.children.length > 0) {
+            collectDictionaries(type.children, data.children, dictionaries);
         }
-        return this;
     }
+    return dictionaries;
 }
 
 /**

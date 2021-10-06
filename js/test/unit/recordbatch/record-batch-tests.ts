@@ -115,16 +115,16 @@ describe(`RecordBatch`, () => {
         test(`can select recordbatch children by name`, () => {
             const batch = numsRecordBatch(32, 27);
             const i32sBatch = batch.select('i32');
-            expect(i32sBatch.numCols).toBe(1);
-            expect(i32sBatch).toHaveLength(32);
+            expect(i32sBatch.numCols).toEqual(1);
+            expect(i32sBatch.numRows).toEqual(32);
         });
     });
     describe(`selectAt()`, () => {
         test(`can select recordbatch children by index`, () => {
             const batch = numsRecordBatch(32, 45);
             const f32sBatch = batch.selectAt(1);
-            expect(f32sBatch.numCols).toBe(1);
-            expect(f32sBatch).toHaveLength(45);
+            expect(f32sBatch.numCols).toEqual(1);
+            expect(f32sBatch.numRows).toEqual(45);
         });
     });
 });

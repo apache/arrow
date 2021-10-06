@@ -229,7 +229,7 @@ describe(`DataFrame`, () => {
                 expect(selected.schema.fields[0]).toEqual(df.schema.fields[0]);
                 expect(selected.schema.fields[1]).toEqual(df.schema.fields[2]);
 
-                expect(selected).toHaveLength(values.length);
+                expect(selected.numRows).toEqual(values.length);
                 let idx = 0, expected_row;
                 for (let row of selected) {
                     expected_row = values[idx++];

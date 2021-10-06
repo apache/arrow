@@ -434,7 +434,7 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
 function writeAll<T extends { [key: string]: DataType } = any>(writer: RecordBatchWriter<T>, input: Table<T> | Iterable<RecordBatch<T>>) {
     let chunks = input as Iterable<RecordBatch<T>>;
     if (input instanceof Table) {
-        chunks = input.data;
+        chunks = input.batches;
         writer.reset(undefined, input.schema);
     }
     for (const batch of chunks) {

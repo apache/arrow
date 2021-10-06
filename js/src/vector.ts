@@ -62,11 +62,7 @@ export class Vector<T extends DataType = any> {
     constructor(...args: Vector<T>[]);
     constructor(...args: (readonly (Data<T> | Vector<T>)[])[]);
     constructor(...args: any[]) {
-        const data = args.flat().flatMap((x) => {
-            return x instanceof Data ? [x]
-                : x instanceof Vector ? x.data
-                    : makeVector(x as Vector<T>).data;
-        });
+        const data = args.flat(1).flatMap(unwrapInputs);
         if (data.some((x) => !(x instanceof Data))) {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
@@ -204,7 +200,7 @@ export class Vector<T extends DataType = any> {
      * @param others Additional Vectors to add to the end of this Vector.
      */
     public concat(...others: Vector<T>[]): Vector<T> {
-        return new Vector(this.data.concat(others.map((x) => x.data).flat()));
+        return new Vector(this.data.concat(others.flatMap((x) => x.data).flat(Infinity)));
     }
 
     /**
@@ -318,7 +314,7 @@ export function makeVector(init: any) {
         if (init instanceof Vector) { return new Vector(init.data); }
         if (init.type instanceof DataType) { return new Vector([makeData(init)]); }
         if (Array.isArray(init)) {
-            return new Vector(init.flat().flatMap((x) => x instanceof Vector ? x.data : makeVector(x).data));
+            return new Vector(init.flatMap(unwrapInputs));
         }
         if (ArrayBuffer.isView(init)) {
             if (init instanceof DataView) {
@@ -339,4 +335,8 @@ export function makeVector(init: any) {
         }
     }
     throw new Error('Unrecognized input');
+}
+
+function unwrapInputs(x: any) {
+    return x instanceof Data ? [x] : x instanceof Vector ? x.data : makeVector(x).data;
 }

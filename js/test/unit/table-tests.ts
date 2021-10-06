@@ -18,7 +18,7 @@
 import '../jest-extensions';
 import {
     makeData, makeVector,
-    Schema, Table, RecordBatch,
+    Schema, Field, Table, RecordBatch,
     Vector, Builder,
     Float32, Int32, Dictionary, Utf8, Int8,
     RecordBatchStreamReader,
@@ -46,21 +46,20 @@ export const test_data = [
             [Math.fround(0.2), 1, 'c'],
             [Math.fround(0.3), -1, 'a']
         ]
-        // Todo: need to fix dictionaries to pass schema comparison checks
-        // }, {
-        //     name: `multiple record batches`,
-        //     table: getMultipleRecordBatchesTable,
-        //     values: () => [
-        //         [Math.fround(-0.3), -1, 'a'],
-        //         [Math.fround(-0.2), 1, 'b'],
-        //         [Math.fround(-0.1), -1, 'c'],
-        //         [Math.fround(0), 1, 'a'],
-        //         [Math.fround(0.1), -1, 'b'],
-        //         [Math.fround(0.2), 1, 'c'],
-        //         [Math.fround(0.3), -1, 'a'],
-        //         [Math.fround(0.2), 1, 'b'],
-        //         [Math.fround(0.1), -1, 'c'],
-        //     ]
+    }, {
+        name: `multiple record batches`,
+        table: getMultipleRecordBatchesTable,
+        values: () => [
+            [Math.fround(-0.3), -1, 'a'],
+            [Math.fround(-0.2), 1, 'b'],
+            [Math.fround(-0.1), -1, 'c'],
+            [Math.fround(0), 1, 'a'],
+            [Math.fround(0.1), -1, 'b'],
+            [Math.fround(0.2), 1, 'c'],
+            [Math.fround(0.3), -1, 'a'],
+            [Math.fround(0.2), 1, 'b'],
+            [Math.fround(0.1), -1, 'c'],
+        ]
     }, {
         name: `struct`,
         table: () => {
@@ -269,7 +268,7 @@ describe(`Table`, () => {
     test(`Table.serialize() serializes sliced RecordBatches`, () => {
 
         const table = getSingleRecordBatchTable();
-        const batch = table.data[0];
+        const batch = table.batches[0];
         const n = batch.numRows;
         const m = n / 2 | 0;
 
@@ -391,31 +390,46 @@ function getSingleRecordBatchTable() {
     });
 }
 
-// function getMultipleRecordBatchesTable() {
+function getMultipleRecordBatchesTable() {
 
-//     const b1 = getTestData(
-//         [-0.3, -0.2, -0.1],
-//         [-1, 1, -1],
-//         [0, 1, 2]
-//     );
+    const {
+        f32: { type: f32Type },
+        i32: { type: i32Type },
+        dictionary: { type: dictionaryType },
+    } = getTestData([], [], []);
 
-//     const b2 = getTestData(
-//         [0, 0.1, 0.2],
-//         [1, -1, 1],
-//         [0, 1, 2]
-//     );
+    const schema = new Schema<TestDataSchema>([
+        Field.new({ name: 'f32', type: f32Type }),
+        Field.new({ name: 'i32', type: i32Type }),
+        Field.new({ name: 'dictionary', type: dictionaryType })
+    ]);
 
-//     const b3 = getTestData(
-//         [0.3, 0.2, 0.1],
-//         [-1, 1, -1],
-//         [0, 1, 2]
-//     );
+    const b1 = new RecordBatch(getTestData(
+        [-0.3, -0.2, -0.1],
+        [-1, 1, -1],
+        [0, 1, 2]
+    ));
 
-//     return new Table<TestDataSchema>(b1, b2, b3);
-// }
+    const b2 = new RecordBatch(getTestData(
+        [0, 0.1, 0.2],
+        [1, -1, 1],
+        [0, 1, 2]
+    ));
+
+    const b3 = new RecordBatch(getTestData(
+        [0.3, 0.2, 0.1],
+        [-1, 1, -1],
+        [0, 1, 2]
+    ));
+
+    return new Table<TestDataSchema>(schema, [
+        new RecordBatch(schema, b1.data),
+        new RecordBatch(schema, b2.data),
+        new RecordBatch(schema, b3.data),
+    ]);
+}
 
 function getStructTable() {
     const table = getSingleRecordBatchTable();
-    const data = table.data.map((b) => b.data);
-    return new Table({ struct: new Vector(data) });
+    return new Table({ struct: new Vector(table.data) });
 }

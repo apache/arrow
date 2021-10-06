@@ -28,8 +28,8 @@ const { createElementComparator: compare } = util;
 
 export function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBatches, table }: GeneratedTable) {
     describe(`Table: ${table.schema}`, () => {
-        validateVector({ values: rows, vector: new Vector(table.data.map((b) => b.data)) });
-        table.data.forEach(({ data }, i) => {
+        validateVector({ values: rows, vector: new Vector(table.data) });
+        table.data.forEach((data, i) => {
             describe(`recordBatch ${i}`, () => {
                 validateRecordBatch({
                     keys: keyBatches[i], rows: rowBatches[i], cols: colBatches[i],

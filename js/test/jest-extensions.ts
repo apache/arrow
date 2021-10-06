@@ -36,12 +36,10 @@ expect.extend({
     toEqualRecordBatch
 });
 
-function format(jest: jest.MatcherUtils, actual: any, expected: any, msg= ' ') {
-    return `${
-        jest.utils.printReceived(actual)
-        }${msg}${
-        jest.utils.printExpected(expected)
-    }`;
+function format(jest: jest.MatcherUtils, actual: any, expected: any, msg = ' ') {
+    return `${jest.utils.printReceived(actual)
+        }${msg}${jest.utils.printExpected(expected)
+        }`;
 }
 
 function toArrowCompare(this: jest.MatcherUtils, actual: any, expected: any) {
@@ -53,7 +51,7 @@ function toArrowCompare(this: jest.MatcherUtils, actual: any, expected: any) {
 
 function toEqualTable(this: jest.MatcherUtils, actual: Table, expected: Table) {
     const failures = [] as string[];
-    try { expect(actual).toHaveLength(expected.numRows); } catch (e) { failures.push(`${e}`); }
+    try { expect(actual.numRows).toEqual(expected.numRows); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.schema.metadata).toEqual(expected.schema.metadata); } catch (e) { failures.push(`${e}`); }
     (() => {
@@ -74,7 +72,7 @@ function toEqualTable(this: jest.MatcherUtils, actual: Table, expected: Table) {
 
 function toEqualRecordBatch(this: jest.MatcherUtils, actual: RecordBatch, expected: RecordBatch) {
     const failures = [] as string[];
-    try { expect(actual).toHaveLength(expected.numRows); } catch (e) { failures.push(`${e}`); }
+    try { expect(actual.numRows).toEqual(expected.numRows); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
     (() => {
         for (let i = -1, n = actual.numCols; ++i < n;) {
