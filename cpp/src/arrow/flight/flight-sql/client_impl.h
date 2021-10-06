@@ -240,7 +240,7 @@ Status FlightSqlClientT<T>::Prepare(
 
   std::unique_ptr<ResultStream> results;
 
-  ARROW_RETURN_NOT_OK(client->DoAction({}, action, &results));
+  ARROW_RETURN_NOT_OK(client->DoAction(options, action, &results));
 
   std::unique_ptr<Result> result;
   ARROW_RETURN_NOT_OK(results->Next(&result));
@@ -283,9 +283,7 @@ Status PreparedStatementT<T>::Execute(const FlightCallOptions& call_options,
   const std::string& string = any.SerializeAsString();
   const FlightDescriptor& descriptor = FlightDescriptor::Command(string);
 
-  ARROW_RETURN_NOT_OK(client->GetFlightInfo({}, descriptor, info));
-
-  return Status::OK();
+  return client->GetFlightInfo(call_options, descriptor, info);
 }
 
 template <class T>
@@ -311,7 +309,7 @@ Status PreparedStatementT<T>::Close(const FlightCallOptions& options) {
 
   std::unique_ptr<ResultStream> results;
 
-  ARROW_RETURN_NOT_OK(client->DoAction({}, action, &results));
+  ARROW_RETURN_NOT_OK(client->DoAction(options, action, &results));
 
   is_closed = true;
 
