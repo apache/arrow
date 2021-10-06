@@ -268,9 +268,8 @@ PreparedStatementT<T>::PreparedStatementT(T* client_, const std::string& query,
 template <class T>
 Status PreparedStatementT<T>::Execute(const FlightCallOptions& call_options,
                                       std::unique_ptr<FlightInfo>* info) {
-  //TODO Treat this error better
   if (is_closed) {
-    std::cout << "Statement is closed" << std::endl;
+    return Status::Invalid("Statement already closed.");
   }
 
   pb::sql::CommandPreparedStatementQuery prepared_statement_query;
@@ -297,17 +296,8 @@ bool PreparedStatementT<T>::IsClosed() const {
 template <class T>
 Status PreparedStatementT<T>::Close(const FlightCallOptions& options) {
   if (is_closed) {
-    return Status::OK();
+    return Status::Invalid("Statement already closed.");
   }
-
-  ActionType actionType;
-  actionType.type = "ClosePreparedStatement";
-  actionType.description =
-      "Closes a reusable prepared statement resource on the server. "
-      "Request Message: ActionClosePreparedStatementRequest Response Message: N/A;";
-
-  Action action;
-  action.type = actionType.type;
   google::protobuf::Any command;
   pb::sql::ActionClosePreparedStatementRequest request;
   request.set_prepared_statement_handle(
@@ -315,6 +305,8 @@ Status PreparedStatementT<T>::Close(const FlightCallOptions& options) {
 
   command.PackFrom(request);
 
+  Action action;
+  action.type = "ClosePreparedStatement";
   action.body = Buffer::FromString(command.SerializeAsString());
 
   std::unique_ptr<ResultStream> results;
