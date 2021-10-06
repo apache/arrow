@@ -44,9 +44,9 @@ tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
   name <- check_name(name, group_vars(x))
 
   if (quo_is_null(wt)) {
-    out <- dplyr::summarize(x, {{name}} := n())
+    out <- dplyr::summarize(x, !!name := n())
   } else {
-    out <- dplyr::summarize(x, {{name}} := sum(!!wt, na.rm = TRUE))
+    out <- dplyr::summarize(x, !!name := sum(!!wt, na.rm = TRUE))
   }
 
   if (sort) {
