@@ -843,31 +843,36 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       return Status::OK();
     }
 
-    const DataType& child_type = *(child_reader->field()->type());
+    // These two types might not be equal if there column pruning occurred.
+    // further down the stack.
+    const std::shared_ptr<DataType> reader_child_type = child_reader->field()->type();
+    const DataType& schema_child_type = *(list_field->type()->field(0)->type());
     if (type_id == ::arrow::Type::LIST ||
         type_id == ::arrow::Type::MAP) {  // Map can be reconstructed as list of structs.
-      if (type_id == ::arrow::Type::MAP &&
-          child_reader->field()->type()->num_fields() != 2) 
-         {
+      if (type_id == ::arrow::Type::MAP && reader_child_type->num_fields() != 2) {
         // This case applies if either key or value is filtered.
         list_field = list_field->WithType(::arrow::list(child_reader->field()));
-      } else  if (type_id == ::arrow::Type::LIST && !child_type.Equals(*(list_field->type()->field(0)->type()))) {
-        list_field = list_field->WithType(::arrow::list(child_reader->field()->type()));
+      } else if (type_id == ::arrow::Type::LIST &&
+                 !reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::list(reader_child_type));
       }
       out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
     } else if (type_id == ::arrow::Type::LARGE_LIST) {
-      if (!child_type.Equals(*(list_field->type()->field(0)->type()))) {
-        list_field = list_field->WithType(::arrow::large_list(child_reader->field()->type()));
+      if (!reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::large_list(reader_child_type));
       }
 
       out->reset(new ListReader<int64_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
 
     } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
-      if (!child_type.Equals(*(list_field->type()->field(0)->type()))) {
-        int32_t list_size = checked_cast<const ::arrow::FixedSizeListType&>(*list_field->type()).list_size();
-        list_field = list_field->WithType(::arrow::fixed_size_list(child_reader->field()->type(), list_size));
+      if (!reader_child_type->Equals(schema_child_type)) {
+        auto& fixed_list_type =
+            checked_cast<const ::arrow::FixedSizeListType&>(*list_field->type());
+        int32_t list_size = fixed_list_type.list_size();
+        list_field =
+            list_field->WithType(::arrow::fixed_size_list(reader_child_type, list_size));
       }
 
       out->reset(new FixedSizeListReader(ctx, list_field, field.level_info,
@@ -887,8 +892,12 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
         // If all children were pruned, then we do not try to read this field
         continue;
       }
-      auto child_field = child.field;
-      if (!arrow_field->type()->field(arrow_field_idx++)->type()->Equals(*child_reader->field()->type())) {
+      std::shared_ptr<::arrow::Field> child_field = child.field;
+      const DataType& reader_child_type = *child_reader->field()->type();
+      const DataType& schema_child_type =
+          *arrow_field->type()->field(arrow_field_idx++)->type();
+      // These might not be equal if column pruning occurred.
+      if (!schema_child_type.Equals(reader_child_type)) {
         child_field = child_field->WithType(child_reader->field()->type());
       }
       child_fields.push_back(child_field);
