@@ -842,20 +842,34 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       *out = nullptr;
       return Status::OK();
     }
+
+    const DataType& child_type = *(child_reader->field()->type());
     if (type_id == ::arrow::Type::LIST ||
         type_id == ::arrow::Type::MAP) {  // Map can be reconstructed as list of structs.
       if (type_id == ::arrow::Type::MAP &&
-          child_reader->field()->type()->num_fields() != 2) {
+          child_reader->field()->type()->num_fields() != 2) 
+         {
         // This case applies if either key or value is filtered.
         list_field = list_field->WithType(::arrow::list(child_reader->field()));
+      } else  if (type_id == ::arrow::Type::LIST && !child_type.Equals(*(list_field->type()->field(0)->type()))) {
+        list_field = list_field->WithType(::arrow::list(child_reader->field()->type()));
       }
       out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
     } else if (type_id == ::arrow::Type::LARGE_LIST) {
+      if (!child_type.Equals(*(list_field->type()->field(0)->type()))) {
+        list_field = list_field->WithType(::arrow::large_list(child_reader->field()->type()));
+      }
+
       out->reset(new ListReader<int64_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
 
     } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
+      if (!child_type.Equals(*(list_field->type()->field(0)->type()))) {
+        int32_t list_size = checked_cast<const ::arrow::FixedSizeListType&>(*list_field->type()).list_size();
+        list_field = list_field->WithType(::arrow::fixed_size_list(child_reader->field()->type(), list_size));
+      }
+
       out->reset(new FixedSizeListReader(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
     } else {
@@ -863,15 +877,21 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     }
   } else if (type_id == ::arrow::Type::STRUCT) {
     std::vector<std::shared_ptr<Field>> child_fields;
+    int arrow_field_idx = 0;
     std::vector<std::unique_ptr<ColumnReaderImpl>> child_readers;
     for (const auto& child : field.children) {
       std::unique_ptr<ColumnReaderImpl> child_reader;
       RETURN_NOT_OK(GetReader(child, ctx, &child_reader));
       if (!child_reader) {
+        arrow_field_idx++;
         // If all children were pruned, then we do not try to read this field
         continue;
       }
-      child_fields.push_back(child.field);
+      auto child_field = child.field;
+      if (!arrow_field->type()->field(arrow_field_idx++)->type()->Equals(*child_reader->field()->type())) {
+        child_field = child_field->WithType(child_reader->field()->type());
+      }
+      child_fields.push_back(child_field);
       child_readers.emplace_back(std::move(child_reader));
     }
     if (child_fields.size() == 0) {
