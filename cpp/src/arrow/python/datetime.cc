@@ -71,7 +71,7 @@ bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
   return iter == (tz.data() + tz.size());
 }
 
-static PyTypeObject MonthDayNanoTupleType = {0, 0, 0, 0, 0, 0};
+static PyTypeObject MonthDayNanoTupleType = {};
 
 constexpr char* NonConst(const char* st) {
   // Hack for python versions < 3.7 where members of PyStruct members
