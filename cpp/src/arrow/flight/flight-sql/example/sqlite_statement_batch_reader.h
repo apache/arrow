@@ -36,6 +36,15 @@ class SqliteStatementBatchReader : public RecordBatchReader {
   static Status Create(const std::shared_ptr<SqliteStatement>& statement,
                        std::shared_ptr<SqliteStatementBatchReader>* result);
 
+  /// \brief Creates a RecordBatchReader backed by a SQLite statement.
+  /// \param[in] statement    SQLite statement to be read.
+  /// \param[in] schema       Schema to be used on results.
+  /// \param[out] result      The resulting RecordBatchReader.
+  /// \return                 Status.
+  static Status Create(const std::shared_ptr<SqliteStatement> &statement,
+                       const std::shared_ptr<Schema> &schema,
+                       std::shared_ptr<SqliteStatementBatchReader> *result);
+
   std::shared_ptr<Schema> schema() const override;
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;

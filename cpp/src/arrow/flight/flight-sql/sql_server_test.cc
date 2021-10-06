@@ -25,7 +25,6 @@
 #include <gmock/gmock.h>
 #include <google/protobuf/any.pb.h>
 #include <gtest/gtest.h>
-#include <arrow/flight/flight-sql/sql_server.h>
 #include <arrow/testing/gtest_util.h>
 
 #define unparen(...) __VA_ARGS__
