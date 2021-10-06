@@ -92,7 +92,7 @@ Result<PyObject*> ArrowToPython::ToPyList(const Array& array) {
   return out_list.detach();
 }
 
-Result<PyObject*> ArrowToPython::ToPrimitive(const Scalar& scalar) {
+Result<PyObject*> ArrowToPython::ToPyObject(const Scalar& scalar) {
   RETURN_NOT_OK(CheckInterval(*scalar.type));
   if (scalar.is_valid) {
     return internal::MonthDayNanoIntervalToNamedTuple(

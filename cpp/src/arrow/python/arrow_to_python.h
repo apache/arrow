@@ -39,18 +39,21 @@ class ARROW_PYTHON_EXPORT ArrowToPython {
  public:
   /// \brief Converts the given Array to a PyList object.
   ///
+  /// The list consists of the same as calling ToPyObject on each scalar
+  /// in the array..
+  ///
   /// N.B. This has limited type support.  ARROW-12976 tracks extending the
   /// implementation.
   Result<PyObject*> ToPyList(const Array& array);
 
-  /// \brief Converts the given Scalar the type that is closest to its arrow
-  /// representation.
+  /// \brief Converts the given Scalar the type to its logical equivalent type
+  /// in python.
   ///
-  /// For instance timestamp would be translated to a integer representing an
-  /// offset from the unix epoch.
+  /// For instance Decimal128 and Decimal256 would be converted to
+  /// decimal.Decimal.
   ///
   /// N.B. This has limited type support.  ARROW-12976 tracks full implementation.
-  Result<PyObject*> ToPrimitive(const Scalar& scalar);
+  Result<PyObject*> ToPyObject(const Scalar& scalar);
 };
 
 }  // namespace py

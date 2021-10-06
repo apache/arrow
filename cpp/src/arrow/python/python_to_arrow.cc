@@ -83,7 +83,6 @@ struct MonthDayNanoAttrData {
 template <>
 struct MonthDayNanoTraits<MonthDayNanoField::kMonths> {
   using c_type = int32_t;
-  static constexpr char name[] = "months";
   static const MonthDayNanoAttrData attrs[];
 };
 
@@ -93,7 +92,6 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kMonths>::attrs
 template <>
 struct MonthDayNanoTraits<MonthDayNanoField::kWeeksAndDays> {
   using c_type = int32_t;
-  static constexpr char name[] = "days";
   static const MonthDayNanoAttrData attrs[];
 };
 
@@ -103,7 +101,6 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kWeeksAndDays>:
 template <>
 struct MonthDayNanoTraits<MonthDayNanoField::kDaysOnly> {
   using c_type = int32_t;
-  static constexpr char name[] = "days";
   static const MonthDayNanoAttrData attrs[];
 };
 
@@ -113,7 +110,6 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kDaysOnly>::att
 template <>
 struct MonthDayNanoTraits<MonthDayNanoField::kNanoseconds> {
   using c_type = int64_t;
-  static constexpr char name[] = "nanoseconds";
   static const MonthDayNanoAttrData attrs[];
 };
 

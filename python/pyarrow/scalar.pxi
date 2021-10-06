@@ -531,7 +531,7 @@ cdef class MonthDayNanoIntervalScalar(Scalar):
         Returns this value as a pyarrow.MonthDayNano.
         """
         cdef PyObject* val
-        val = GetResultValue(ARROW_TO_PYTHON.ToPrimitive(
+        val = GetResultValue(ARROW_TO_PYTHON.ToPyObject(
             (deref(self.wrapped.get()))))
         return PyObject_to_object(val)
 
