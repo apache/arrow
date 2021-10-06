@@ -57,13 +57,14 @@ class ARROW_EXPORT PlatformFilename {
   PlatformFilename(PlatformFilename&&);
   PlatformFilename& operator=(const PlatformFilename&);
   PlatformFilename& operator=(PlatformFilename&&);
-  explicit PlatformFilename(const NativePathString& path);
+  explicit PlatformFilename(NativePathString path);
   explicit PlatformFilename(const NativePathString::value_type* path);
 
   const NativePathString& ToNative() const;
   std::string ToString() const;
 
   PlatformFilename Parent() const;
+  Result<PlatformFilename> Real() const;
 
   // These functions can fail for character encoding reasons.
   static Result<PlatformFilename> FromString(const std::string& file_name);
@@ -112,6 +113,10 @@ Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_not_foun
 // The returned names are the children's base names, not including dir_path.
 ARROW_EXPORT
 Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
+
+/// Set the process' current working directory.
+ARROW_EXPORT
+Status SetWorkingDir(const PlatformFilename& dir_path);
 
 /// Delete a file if it exists.
 ///

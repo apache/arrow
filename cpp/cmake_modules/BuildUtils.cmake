@@ -652,6 +652,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       EXTRA_DEPENDENCIES
       LABELS
       EXTRA_LABELS
+      TEST_ARGUMENTS
       PREFIX)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -723,6 +724,10 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
   endif()
 
+  if(ARG_ENVIRONMENT)
+    message(STATUS "WTF ${ARG_ENVIRONMENT}")
+  endif()
+
   if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
     add_test(${TEST_NAME}
              bash
@@ -730,15 +735,18 @@ function(ADD_TEST_CASE REL_TEST_NAME)
              "cd '${CMAKE_SOURCE_DIR}'; \
                valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
                  --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
-                 --error-exitcode=1 ${TEST_PATH}")
+                 --error-exitcode=1 ${TEST_PATH} ${ARG_TEST_ARGUMENTS}")
   elseif(WIN32)
-    add_test(${TEST_NAME} ${TEST_PATH})
+    add_test(${TEST_NAME}
+             ${TEST_PATH}
+             ${ARG_TEST_ARGUMENTS})
   else()
     add_test(${TEST_NAME}
              ${BUILD_SUPPORT_DIR}/run-test.sh
              ${CMAKE_BINARY_DIR}
              test
-             ${TEST_PATH})
+             ${TEST_PATH}
+             ${ARG_TEST_ARGUMENTS})
   endif()
 
   # Add test as dependency of relevant targets
