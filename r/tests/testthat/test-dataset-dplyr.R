@@ -191,7 +191,9 @@ test_that("count()", {
   expect_equal(
     ds %>%
       filter(int > 6, int < 108) %>%
-      count(chr),
+      count(chr) %>%
+      arrange(chr) %>%
+      collect(),
     df %>%
       filter(int > 6, int < 108) %>%
       count(chr)
