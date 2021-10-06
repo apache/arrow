@@ -704,7 +704,8 @@ def test_file_format_pickling():
     ]
     try:
         formats.append(ds.OrcFileFormat())
-    except ImportError:
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
         pass
 
     for file_format in formats:
@@ -2692,7 +2693,8 @@ def test_orc_scan_options(tempdir, dataset_reader):
 def test_orc_format_not_supported():
     try:
         from pyarrow.dataset import OrcFileFormat  # noqa
-    except ImportError:
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
         # ORC is not available, test error message
         with pytest.raises(
             ValueError, match="not built with support for the ORC file"
