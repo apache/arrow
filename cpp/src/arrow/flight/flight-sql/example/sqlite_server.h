@@ -20,9 +20,9 @@
 #include <sqlite3.h>
 
 #include "arrow/api.h"
-#include "arrow/flight/flight-sql/sql_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
+#include "arrow/flight/flight-sql/sql_server.h"
 
 namespace arrow {
 namespace flight {
@@ -39,31 +39,31 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
 
   /// \brief Auxiliary method used to execute an arbitrary SQL statement on the underlying
   ///        SQLite database.
-  void ExecuteSql(const std::string &sql);
+  void ExecuteSql(const std::string& sql);
 
-  Status GetFlightInfoStatement(const pb::sql::CommandStatementQuery &command,
-                                const ServerCallContext &context,
-                                const FlightDescriptor &descriptor,
-                                std::unique_ptr<FlightInfo> *info) override;
+  Status GetFlightInfoStatement(const pb::sql::CommandStatementQuery& command,
+                                const ServerCallContext& context,
+                                const FlightDescriptor& descriptor,
+                                std::unique_ptr<FlightInfo>* info) override;
 
-  Status DoGetStatement(const pb::sql::TicketStatementQuery &command,
-                        const ServerCallContext &context,
-                        std::unique_ptr<FlightDataStream> *result) override;
-  Status GetFlightInfoCatalogs(const ServerCallContext &context,
-                               const FlightDescriptor &descriptor,
-                               std::unique_ptr<FlightInfo> *info) override;
-  Status DoGetCatalogs(const ServerCallContext &context,
-                       std::unique_ptr<FlightDataStream> *result) override;
-  Status GetFlightInfoSchemas(const pb::sql::CommandGetSchemas &command,
-                              const ServerCallContext &context,
-                              const FlightDescriptor &descriptor,
-                              std::unique_ptr<FlightInfo> *info) override;
-  Status DoGetSchemas(const pb::sql::CommandGetSchemas &command,
-                      const ServerCallContext &context,
-                      std::unique_ptr<FlightDataStream> *result) override;
+  Status DoGetStatement(const pb::sql::TicketStatementQuery& command,
+                        const ServerCallContext& context,
+                        std::unique_ptr<FlightDataStream>* result) override;
+  Status GetFlightInfoCatalogs(const ServerCallContext& context,
+                               const FlightDescriptor& descriptor,
+                               std::unique_ptr<FlightInfo>* info) override;
+  Status DoGetCatalogs(const ServerCallContext& context,
+                       std::unique_ptr<FlightDataStream>* result) override;
+  Status GetFlightInfoSchemas(const pb::sql::CommandGetSchemas& command,
+                              const ServerCallContext& context,
+                              const FlightDescriptor& descriptor,
+                              std::unique_ptr<FlightInfo>* info) override;
+  Status DoGetSchemas(const pb::sql::CommandGetSchemas& command,
+                      const ServerCallContext& context,
+                      std::unique_ptr<FlightDataStream>* result) override;
 
  private:
-  sqlite3 *db_;
+  sqlite3* db_;
 };
 
 }  // namespace example

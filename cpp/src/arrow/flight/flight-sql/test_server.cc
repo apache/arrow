@@ -21,13 +21,13 @@
 #include <memory>
 #include <string>
 
+#include "arrow/flight/flight-sql/example/sqlite_server.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/test_integration.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/io/test_common.h"
 #include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
-#include "arrow/flight/flight-sql/example/sqlite_server.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 
@@ -35,7 +35,7 @@ namespace pb = arrow::flight::protocol;
 
 std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing server for Flight SQL.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 

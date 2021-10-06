@@ -32,43 +32,43 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   if (any.Is<pb::sql::CommandStatementQuery>()) {
     pb::sql::CommandStatementQuery command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoStatement(command, context, request, info));
+    return GetFlightInfoStatement(command, context, request, info);
   } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
     pb::sql::CommandPreparedStatementQuery command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoPreparedStatement(command, context, request, info));
+    return GetFlightInfoPreparedStatement(command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
     pb::sql::CommandGetCatalogs command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoCatalogs(context, request, info));
+    return GetFlightInfoCatalogs(context, request, info);
   } else if (any.Is<pb::sql::CommandGetSchemas>()) {
     pb::sql::CommandGetSchemas command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoSchemas(command, context, request, info));
+    return GetFlightInfoSchemas(command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetTables>()) {
     pb::sql::CommandGetTables command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoTables(command, context, request, info));
+    return GetFlightInfoTables(command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     pb::sql::CommandGetTableTypes command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoTableTypes(context, request, info));
+    return GetFlightInfoTableTypes(context, request, info);
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     pb::sql::CommandGetSqlInfo command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoSqlInfo(command, context, request, info));
+    return GetFlightInfoSqlInfo(command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
     pb::sql::CommandGetPrimaryKeys command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoPrimaryKeys(command, context, request, info));
+    return GetFlightInfoPrimaryKeys(command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetExportedKeys>()) {
     pb::sql::CommandGetExportedKeys command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoExportedKeys(command, context, request, info));
+    return GetFlightInfoExportedKeys(command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetImportedKeys>()) {
     pb::sql::CommandGetImportedKeys command;
     any.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(GetFlightInfoImportedKeys(command, context, request, info));
+    return GetFlightInfoImportedKeys(command, context, request, info);
   }
 
   return Status::Invalid("The defined request is invalid.");
@@ -84,43 +84,43 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
   if (anyCommand.Is<pb::sql::TicketStatementQuery>()) {
     pb::sql::TicketStatementQuery command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetStatement(command, context, stream));
+    return DoGetStatement(command, context, stream);
   } else if (anyCommand.Is<pb::sql::CommandPreparedStatementQuery>()) {
     pb::sql::CommandPreparedStatementQuery command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetPreparedStatement(command, context, stream));
+    return DoGetPreparedStatement(command, context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetCatalogs>()) {
     pb::sql::CommandGetCatalogs command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetCatalogs(context, stream));
+    return DoGetCatalogs(context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetSchemas>()) {
     pb::sql::CommandGetSchemas command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetSchemas(command, context, stream));
+    return DoGetSchemas(command, context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetTables>()) {
     pb::sql::CommandGetTables command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetTables(command, context, stream));
+    return DoGetTables(command, context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetTableTypes>()) {
     pb::sql::CommandGetTableTypes command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetTableTypes(context, stream));
+    return DoGetTableTypes(context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetSqlInfo>()) {
     pb::sql::CommandGetSqlInfo command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetSqlInfo(command, context, stream));
+    return DoGetSqlInfo(command, context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetPrimaryKeys>()) {
     pb::sql::CommandGetPrimaryKeys command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetPrimaryKeys(command, context, stream));
+    return DoGetPrimaryKeys(command, context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetExportedKeys>()) {
     pb::sql::CommandGetExportedKeys command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetExportedKeys(command, context, stream));
+    return DoGetExportedKeys(command, context, stream);
   } else if (anyCommand.Is<pb::sql::CommandGetImportedKeys>()) {
     pb::sql::CommandGetImportedKeys command;
     anyCommand.UnpackTo(&command);
-    ARROW_RETURN_NOT_OK(DoGetImportedKeys(command, context, stream));
+    return DoGetImportedKeys(command, context, stream);
   }
 
   return Status::Invalid("The defined request is invalid.");
@@ -251,10 +251,8 @@ std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
 }
 
 std::shared_ptr<Schema> SqlSchema::GetSchemasSchema() {
-  return arrow::schema({
-    field("catalog_name", utf8()),
-    field("schema_name", utf8(), false)
-  });
+  return arrow::schema(
+      {field("catalog_name", utf8()), field("schema_name", utf8(), false)});
 }
 
 }  // namespace sql

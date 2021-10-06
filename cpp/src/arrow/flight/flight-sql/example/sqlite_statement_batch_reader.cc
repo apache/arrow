@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
 
 #include <sqlite3.h>
 
 #include "arrow/api.h"
+#include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
 #define STRING_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                         \
   case TYPE_CLASS##Type::type_id: {                                           \
@@ -68,9 +68,8 @@ SqliteStatementBatchReader::SqliteStatementBatchReader(
     : statement_(std::move(statement)), schema_(std::move(schema)), rc_(rc) {}
 
 Status SqliteStatementBatchReader::Create(
-    const std::shared_ptr<SqliteStatement> &statement_,
-    std::shared_ptr<SqliteStatementBatchReader> *result) {
-
+    const std::shared_ptr<SqliteStatement>& statement_,
+    std::shared_ptr<SqliteStatementBatchReader>* result) {
   int rc;
   ARROW_RETURN_NOT_OK(statement_->Step(&rc));
 
@@ -82,15 +81,15 @@ Status SqliteStatementBatchReader::Create(
   return Status::OK();
 }
 
-Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch> *out) {
-  sqlite3_stmt *stmt_ = statement_->GetSqlite3Stmt();
+Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
+  sqlite3_stmt* stmt_ = statement_->GetSqlite3Stmt();
 
   const int num_fields = schema_->num_fields();
   std::vector<std::unique_ptr<arrow::ArrayBuilder>> builders(num_fields);
 
   for (int i = 0; i < num_fields; i++) {
-    const std::shared_ptr<Field> &field = schema_->field(i);
-    const std::shared_ptr<DataType> &field_type = field->type();
+    const std::shared_ptr<Field>& field = schema_->field(i);
+    const std::shared_ptr<DataType>& field_type = field->type();
 
     ARROW_RETURN_NOT_OK(MakeBuilder(default_memory_pool(), field_type, &builders[i]));
   }
@@ -99,9 +98,9 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch> *out) {
   while (rows < MAX_BATCH_SIZE && rc_ == SQLITE_ROW) {
     rows++;
     for (int i = 0; i < num_fields; i++) {
-      const std::shared_ptr<Field> &field = schema_->field(i);
-      const std::shared_ptr<DataType> &field_type = field->type();
-      ArrayBuilder &builder = *builders[i];
+      const std::shared_ptr<Field>& field = schema_->field(i);
+      const std::shared_ptr<DataType>& field_type = field->type();
+      ArrayBuilder& builder = *builders[i];
 
       switch (field_type->id()) {
         INT_BUILDER_CASE(Int64, stmt_, i)

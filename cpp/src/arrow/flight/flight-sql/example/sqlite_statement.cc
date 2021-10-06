@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/flight-sql/example/sqlite_statement.h"
+
 #include <sqlite3.h>
 
 #include "arrow/api.h"
-#include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
 namespace arrow {
 namespace flight {
@@ -27,18 +28,23 @@ namespace example {
 
 std::shared_ptr<DataType> GetDataTypeFromSqliteType(const int column_type) {
   switch (column_type) {
-    case SQLITE_INTEGER:return int64();
-    case SQLITE_FLOAT:return float64();
-    case SQLITE_BLOB:return binary();
-    case SQLITE_TEXT:return utf8();
+    case SQLITE_INTEGER:
+      return int64();
+    case SQLITE_FLOAT:
+      return float64();
+    case SQLITE_BLOB:
+      return binary();
+    case SQLITE_TEXT:
+      return utf8();
     case SQLITE_NULL:
-    default:return null();
+    default:
+      return null();
   }
 }
 
-Status SqliteStatement::Create(sqlite3 *db, const std::string &sql,
-                               std::shared_ptr<SqliteStatement> *result) {
-  sqlite3_stmt *stmt;
+Status SqliteStatement::Create(sqlite3* db, const std::string& sql,
+                               std::shared_ptr<SqliteStatement>* result) {
+  sqlite3_stmt* stmt;
   int rc =
       sqlite3_prepare_v2(db, sql.c_str(), static_cast<int>(sql.length()), &stmt, NULLPTR);
 
@@ -51,11 +57,11 @@ Status SqliteStatement::Create(sqlite3 *db, const std::string &sql,
   return Status::OK();
 }
 
-Status SqliteStatement::GetSchema(std::shared_ptr<Schema> *schema) const {
+Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
   std::vector<std::shared_ptr<Field>> fields;
   int column_count = sqlite3_column_count(stmt_);
   for (int i = 0; i < column_count; i++) {
-    const char *column_name = sqlite3_column_name(stmt_, i);
+    const char* column_name = sqlite3_column_name(stmt_, i);
     const int column_type = sqlite3_column_type(stmt_, i);
 
     std::shared_ptr<DataType> data_type = GetDataTypeFromSqliteType(column_type);
@@ -66,11 +72,9 @@ Status SqliteStatement::GetSchema(std::shared_ptr<Schema> *schema) const {
   return Status::OK();
 }
 
-SqliteStatement::~SqliteStatement() {
-  sqlite3_finalize(stmt_);
-}
+SqliteStatement::~SqliteStatement() { sqlite3_finalize(stmt_); }
 
-Status SqliteStatement::Step(int *rc) {
+Status SqliteStatement::Step(int* rc) {
   *rc = sqlite3_step(stmt_);
   if (*rc == SQLITE_ERROR) {
     return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db_));
@@ -79,9 +83,7 @@ Status SqliteStatement::Step(int *rc) {
   return Status::OK();
 }
 
-sqlite3_stmt *SqliteStatement::GetSqlite3Stmt() {
-  return stmt_;
-}
+sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() { return stmt_; }
 
 }  // namespace example
 }  // namespace sql

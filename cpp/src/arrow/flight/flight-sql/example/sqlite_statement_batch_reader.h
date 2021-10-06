@@ -20,6 +20,7 @@
 #include <sqlite3.h>
 
 #include "arrow/api.h"
+#include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
 namespace arrow {
 namespace flight {
@@ -32,12 +33,12 @@ class SqliteStatementBatchReader : public RecordBatchReader {
   /// \param[in] statement    SQLite statement to be read.
   /// \param[out] result      The resulting RecordBatchReader.
   /// \return                 Status.
-  static Status Create(const std::shared_ptr<SqliteStatement> &statement,
-                       std::shared_ptr<SqliteStatementBatchReader> *result);
+  static Status Create(const std::shared_ptr<SqliteStatement>& statement,
+                       std::shared_ptr<SqliteStatementBatchReader>* result);
 
   std::shared_ptr<Schema> schema() const override;
 
-  Status ReadNext(std::shared_ptr<RecordBatch> *out) override;
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
  private:
   std::shared_ptr<SqliteStatement> statement_;
@@ -45,8 +46,7 @@ class SqliteStatementBatchReader : public RecordBatchReader {
   int rc_;
 
   SqliteStatementBatchReader(std::shared_ptr<SqliteStatement> statement,
-                             std::shared_ptr<Schema> schema,
-                             int rc);
+                             std::shared_ptr<Schema> schema, int rc);
 };
 
 }  // namespace example

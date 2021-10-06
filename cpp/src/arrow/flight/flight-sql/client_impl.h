@@ -67,8 +67,7 @@ Status FlightSqlClientT<T>::Execute(const FlightCallOptions& options,
 
 template <class T>
 Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
-                                          const std::string& query,
-                                          int64_t* rows) const {
+                                          const std::string& query, int64_t* rows) const {
   pb::sql::CommandStatementUpdate command;
   command.set_query(query);
 
