@@ -353,9 +353,5 @@ test_that("time mapping work as expected (ARROW-13624)", {
     )
   )
 
-  expect_equal(
-    df,
-    tbl,
-    ignore_attr = TRUE
-  )
+  expect_equal(df, tbl, ignore_attr = "tzone")
 })
