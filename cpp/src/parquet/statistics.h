@@ -281,9 +281,19 @@ class TypedStatistics : public Statistics {
   virtual void Update(const T* values, int64_t num_not_null, int64_t num_null) = 0;
 
   /// \brief Batch statistics update with supplied validity bitmap
+  /// \param[in] values pointer to column values
+  /// \param[in] valid_bits Pointer to bitmap representing if values are non-null.
+  /// \param[in] valid_bits_offset Offset offset into valid_bits where the slice of
+  ///                              data begins.
+  /// \param[in] num_spaced_values The length of values in values/valid_bits to inspect
+  ///                              when calculating statistics. This can be smaller than
+  ///                              num_not_null+num_null as num_null can include nulls
+  ///                              from parents while num_spaced_values does not.
+  /// \param[in] num_not_null Number of values that are not null.
+  /// \param[in] num_null Number of values that are null.
   virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
-                            int64_t valid_bits_offset, int64_t num_not_null,
-                            int64_t num_null) = 0;
+                            int64_t valid_bits_offset, int64_t num_spaced_values,
+                            int64_t num_not_null, int64_t num_null) = 0;
 
   /// \brief EXPERIMENTAL: Update statistics with an Arrow array without
   /// conversion to a primitive Parquet C type. Only implemented for certain
