@@ -38,15 +38,13 @@ count.Dataset <- count.ArrowTabular <- count.arrow_dplyr_query
 
 tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
 
-  wt <- enquo(wt)
-
   check_name <- getFromNamespace("check_name", "dplyr")
   name <- check_name(name, dplyr::group_vars(x))
 
-  if (quo_is_null(wt)) {
+  if (quo_is_null(enquo(wt))) {
     out <- dplyr::summarize(x, !!name := n())
   } else {
-    out <- dplyr::summarize(x, !!name := sum(!!wt, na.rm = TRUE))
+    out <- dplyr::summarize(x, !!name := sum({{ wt }}, na.rm = TRUE))
   }
 
   if (sort) {
