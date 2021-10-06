@@ -34,6 +34,10 @@
 #define PyDateTimeAPI ::arrow::py::internal::datetime_api
 
 namespace arrow {
+
+class MonthDayNanoIntervalArray;
+class MonthDayNanoIntervalScalar;
+
 namespace py {
 namespace internal {
 
@@ -192,6 +196,18 @@ Result<std::string> TzinfoToString(PyObject* pytzinfo);
 ARROW_PYTHON_EXPORT
 PyObject* MonthDayNanoIntervalToNamedTuple(
     const MonthDayNanoIntervalType::MonthDayNanos& interval);
+
+/// \brief Converts the given Array to a PyList object contain
+/// pyarrow.MonthDayNano objects.
+ARROW_PYTHON_EXPORT
+Result<PyObject*> MonthDayNanoIntervalArrayToPyList(
+    const MonthDayNanoIntervalArray& array);
+
+/// \brief Converts the Scalar obect to a pyarrow.MonthDayNano (or None if
+/// is isn't valid.
+ARROW_PYTHON_EXPORT
+Result<PyObject*> MonthDayNanoIntervalScalarToPyObject(
+    const MonthDayNanoIntervalScalar& scalar);
 
 }  // namespace internal
 }  // namespace py

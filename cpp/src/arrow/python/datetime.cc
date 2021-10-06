@@ -20,9 +20,12 @@
 #include <chrono>
 #include <iomanip>
 
+#include "arrow/array.h"
+#include "arrow/python/arrow_to_python_internal.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/platform.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
@@ -491,6 +494,71 @@ PyObject* MonthDayNanoIntervalToNamedTuple(
   PyStructSequence_SetItem(tuple.obj(), /*pos=*/2,
                            PyLong_FromLongLong(interval.nanoseconds));
   return tuple.detach();
+}
+
+namespace {
+
+// Wrapper around a Python list object that mimics dereference and assignment
+// operations.
+struct PyListAssigner {
+ public:
+  explicit PyListAssigner(PyObject* list) : list_(list) { DCHECK(PyList_Check(list_)); }
+
+  PyListAssigner& operator*() { return *this; }
+
+  void operator=(PyObject* obj) {
+    if (ARROW_PREDICT_FALSE(PyList_SetItem(list_, current_index_, obj) == -1)) {
+      Py_FatalError("list did not have the correct preallocated size.");
+    }
+  }
+
+  PyListAssigner& operator++() {
+    current_index_++;
+    return *this;
+  }
+
+  PyListAssigner& operator+=(int64_t offset) {
+    current_index_ += offset;
+    return *this;
+  }
+
+ private:
+  PyObject* list_;
+  int64_t current_index_ = 0;
+};
+
+}  // namespace
+
+Result<PyObject*> MonthDayNanoIntervalArrayToPyList(
+    const MonthDayNanoIntervalArray& array) {
+  OwnedRef out_list(PyList_New(array.length()));
+  RETURN_IF_PYERROR();
+  PyListAssigner out_objects(out_list.obj());
+  auto& interval_array =
+      arrow::internal::checked_cast<const MonthDayNanoIntervalArray&>(array);
+  RETURN_NOT_OK(internal::WriteArrayObjects(
+      interval_array,
+      [&](const MonthDayNanoIntervalType::MonthDayNanos& interval, PyListAssigner& out) {
+        PyObject* tuple = internal::MonthDayNanoIntervalToNamedTuple(interval);
+        if (ARROW_PREDICT_FALSE(tuple == nullptr)) {
+          RETURN_IF_PYERROR();
+        }
+
+        *out = tuple;
+        return Status::OK();
+      },
+      out_objects));
+  return out_list.detach();
+}
+
+Result<PyObject*> MonthDayNanoIntervalScalarToPyObject(
+    const MonthDayNanoIntervalScalar& scalar) {
+  if (scalar.is_valid) {
+    return internal::MonthDayNanoIntervalToNamedTuple(scalar.value);
+  } else {
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 }
 
 }  // namespace internal

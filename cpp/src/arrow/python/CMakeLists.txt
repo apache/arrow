@@ -28,7 +28,6 @@ add_dependencies(arrow_python-all arrow_python arrow_python-tests)
 
 set(ARROW_PYTHON_SRCS
     arrow_to_pandas.cc
-    arrow_to_python.cc
     benchmark.cc
     common.cc
     datetime.cc

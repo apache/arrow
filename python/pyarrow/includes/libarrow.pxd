@@ -558,6 +558,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
         int64_t Value(int i)
 
+    cdef cppclass CMonthDayNanoIntervalArray \
+            "arrow::MonthDayNanoIntervalArray"(CArray):
+        pass
+
     cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
         uint16_t Value(int i)
 
@@ -999,6 +1003,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDurationScalar" arrow::DurationScalar"(CScalar):
         int64_t value
+
+    cdef cppclass CMonthDayNanoIntervalScalar \
+            "arrow::MonthDayNanoIntervalScalar"(CScalar):
+        pass
 
     cdef cppclass CBaseBinaryScalar" arrow::BaseBinaryScalar"(CScalar):
         shared_ptr[CBuffer] value
@@ -2214,12 +2222,13 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py":
     CResult[shared_ptr[CDataType]] InferArrowType(
         object obj, object mask, c_bool pandas_null_sentinels)
 
-    cdef cppclass ArrowToPython:
-        CResult[PyObject*] ToPyList(const CArray& array)
-        CResult[PyObject*] ToPyObject(const CScalar& scalar)
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
-    cdef object NewMonthDayNanoTupleType()
+    object NewMonthDayNanoTupleType()
+    CResult[PyObject*] MonthDayNanoIntervalArrayToPyList(
+        const CMonthDayNanoIntervalArray& array)
+    CResult[PyObject*] MonthDayNanoIntervalScalarToPyObject(
+        const CMonthDayNanoIntervalScalar& scalar)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

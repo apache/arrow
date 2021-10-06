@@ -1533,7 +1533,9 @@ cdef class MonthDayNanoIntervalArray(Array):
         cdef:
             CResult[PyObject*] maybe_py_list
             PyObject* py_list
-        maybe_py_list = ARROW_TO_PYTHON.ToPyList(deref(self.sp_array))
+            CMonthDayNanoIntervalArray* array
+        array = <CMonthDayNanoIntervalArray*>self.sp_array.get()
+        maybe_py_list = MonthDayNanoIntervalArrayToPyList(deref(array))
         py_list = GetResultValue(maybe_py_list)
         return PyObject_to_object(py_list)
 
