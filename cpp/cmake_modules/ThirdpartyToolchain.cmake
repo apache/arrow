@@ -2250,6 +2250,14 @@ macro(build_bzip2)
     list(APPEND BZIP2_EXTRA_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
 
+  if(CMAKE_AR)
+    list(APPEND BZIP2_EXTRA_ARGS AR=${CMAKE_AR})
+  endif()
+
+  if(CMAKE_RANLIB)
+    list(APPEND BZIP2_EXTRA_ARGS RANLIB=${CMAKE_RANLIB})
+  endif()
+
   externalproject_add(bzip2_ep
                       ${EP_LOG_OPTIONS}
                       CONFIGURE_COMMAND ""
