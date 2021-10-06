@@ -688,28 +688,3 @@ test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
   # must clean up the pointer or we leak
   delete_arrow_array_stream(stream_ptr)
 })
-
-test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
-  skip_if_not_available("dataset")
-
-  ds <- InMemoryDataset$create(example_data)
-
-  # export the RecordBatchReader via the C-interface
-  stream_ptr <- allocate_arrow_array_stream()
-  scan <- Scanner$create(ds)
-  reader <- scan$ToRecordBatchReader()
-  reader$export_to_c(stream_ptr)
-
-  # then import it and check that the roundtripped value is the same
-  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
-
-  # create an arrow_dplyr_query() from the recordbatch reader
-  reader_adq <- arrow_dplyr_query(circle)
-
-  tab_from_c_new <- reader_adq %>%
-    dplyr::collect()
-  expect_equal(tab_from_c_new, dplyr::collect(ds))
-
-  # must clean up the pointer or we leak
-  delete_arrow_array_stream(stream_ptr)
-})
