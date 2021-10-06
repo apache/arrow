@@ -35,7 +35,7 @@ namespace dataset {
 
 namespace {
 
-inline Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenReader(
+Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenORCReader(
     const FileSource& source,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr) {
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
@@ -69,7 +69,8 @@ class OrcScanTask : public ScanTask {
                                               const FileFormat& format,
                                               const ScanOptions& scan_options) {
         ARROW_ASSIGN_OR_RAISE(
-            auto reader, OpenReader(source, std::make_shared<ScanOptions>(scan_options)));
+            auto reader,
+            OpenORCReader(source, std::make_shared<ScanOptions>(scan_options)));
         int num_stripes = reader->NumberOfStripes();
         return RecordBatchIterator(Impl{std::move(reader), 0, num_stripes});
       }
@@ -133,11 +134,11 @@ class OrcScanTaskIterator {
 
 Result<bool> OrcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
-  return OpenReader(source).ok();
+  return OpenORCReader(source).ok();
 }
 
 Result<std::shared_ptr<Schema>> OrcFileFormat::Inspect(const FileSource& source) const {
-  ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
+  ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(source));
   return reader->ReadSchema();
 }
 
@@ -156,7 +157,7 @@ Future<util::optional<int64_t>> OrcFileFormat::CountRows(
   auto self = checked_pointer_cast<OrcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
       [self, file]() -> Result<util::optional<int64_t>> {
-        ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
+        ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(file->source()));
         return reader->NumberOfRows();
       }));
 }
