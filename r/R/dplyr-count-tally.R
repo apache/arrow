@@ -23,7 +23,6 @@ count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL
   } else {
     out <- x
   }
-
   out <- tally(out, wt = {{ wt }}, sort = sort, name = name)
 
   # Restore original group vars
@@ -38,14 +37,16 @@ count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL
 count.Dataset <- count.ArrowTabular <- count.arrow_dplyr_query
 
 tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
-  n <- tally_n(x, {{ wt }})
+
+  wt <- enquo(wt)
+
   name <- check_name(name, group_vars(x))
 
-  out <- local({
-    old.options <- options(dplyr.summarise.inform = FALSE)
-    on.exit(options(old.options))
-    summarise(x, !!name := !!n)
-  })
+  if (quo_is_null(wt)) {
+    out <- dplyr::summarize(x, {{name}} := n())
+  } else {
+    out <- dplyr::summarize(x, {{name}} := sum(!!wt, na.rm = TRUE))
+  }
 
   if (sort) {
     arrange(out, desc(!!sym(name)))
@@ -55,15 +56,5 @@ tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
 }
 
 tally.Dataset <- tally.ArrowTabular <- tally.arrow_dplyr_query
-
-tally_n <- function(x, wt) {
-  wt <- enquo(wt)
-
-  if (quo_is_null(wt)) {
-    expr(n())
-  } else {
-    expr(sum(!!wt, na.rm = TRUE))
-  }
-}
 
 check_name <- getFromNamespace("check_name", "dplyr")
