@@ -789,13 +789,15 @@ class PushGenerator {
     explicit State(util::BackpressureOptions backpressure)
         : backpressure(std::move(backpressure)) {}
 
-    void OpenBackpressureIfFree() {
+    void OpenBackpressureIfFreeUnlocked(util::Mutex::Guard&& guard) {
       if (backpressure.toggle && result_q.size() < backpressure.resume_if_below) {
+        // Open might trigger callbacks so release the lock first
+        guard.Unlock();
         backpressure.toggle->Open();
       }
     }
 
-    void CloseBackpressureIfFull() {
+    void CloseBackpressureIfFullUnlocked() {
       if (backpressure.toggle && result_q.size() > backpressure.pause_if_above) {
         backpressure.toggle->Close();
       }
@@ -837,7 +839,7 @@ class PushGenerator {
         fut.MarkFinished(std::move(result));
       } else {
         state->result_q.push_back(std::move(result));
-        state->CloseBackpressureIfFull();
+        state->CloseBackpressureIfFullUnlocked();
       }
       return true;
     }
@@ -896,9 +898,7 @@ class PushGenerator {
     if (!state_->result_q.empty()) {
       auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
       state_->result_q.pop_front();
-      // OpenBackpressureIfFree might trigger callbacks so release the lock first
-      lock.Unlock();
-      state_->OpenBackpressureIfFree();
+      state_->OpenBackpressureIfFreeUnlocked(std::move(lock));
       return fut;
     }
     if (state_->finished) {

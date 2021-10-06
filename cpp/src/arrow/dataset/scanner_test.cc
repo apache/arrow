@@ -39,6 +39,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
 using testing::ElementsAre;
@@ -972,10 +973,10 @@ TEST_F(TestReordering, ScanBatchesUnordered) {
 class TestBackpressure : public ::testing::Test {
  protected:
   static constexpr int NFRAGMENTS = 10;
-  static constexpr int NBATCHES = 1000;
+  static constexpr int NBATCHES = 10;
   static constexpr int NROWS = 10;
 
-  FragmentVector MakeFragments() {
+  FragmentVector MakeFragmentsAndDeliverInitialBatches() {
     FragmentVector fragments;
     for (int i = 0; i < NFRAGMENTS; i++) {
       controlled_fragments_.emplace_back(std::make_shared<ControlledFragment>(schema_));
@@ -993,8 +994,17 @@ class TestBackpressure : public ::testing::Test {
     return fragments;
   }
 
+  void DeliverAdditionalBatches() {
+    // Deliver a bunch of batches that should not be read in
+    for (int i = 1; i < NFRAGMENTS; i++) {
+      for (int j = 0; j < NBATCHES; j++) {
+        controlled_fragments_[i]->DeliverBatch(NROWS);
+      }
+    }
+  }
+
   std::shared_ptr<Dataset> MakeDataset() {
-    FragmentVector fragments = MakeFragments();
+    FragmentVector fragments = MakeFragmentsAndDeliverInitialBatches();
     return std::make_shared<FragmentDataset>(schema_, std::move(fragments));
   }
 
@@ -1026,13 +1036,20 @@ TEST_F(TestBackpressure, ScanBatchesUnordered) {
   EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
                        scanner->ScanBatchesUnorderedAsync());
   ASSERT_FINISHES_OK(gen());
+  // Wait for the thread pool to idle.  By this point the scanner should have paused itself
+  // This helps with timing on slower CI systems where there is only one core and the scanner
+  // might keep that core until it has scanned all the batches which never gives the sink a
+  // chance to report it is falling behind.
+  GetCpuThreadPool()->WaitForIdle();
+  DeliverAdditionalBatches();
 
   // The exact numbers may be imprecise due to threading but we should pretty quickly read
   // up to our backpressure limit and a little above.  We should not be able to go too far
   // above.
-  BusyWait(10, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
+  ASSERT_TRUE(TotalBatchesRead() >= kDefaultBackpressureHigh);
   SleepABit();
-  ASSERT_LT(TotalBatchesRead(), 2 * kDefaultBackpressureHigh);
+  // Worst case we read in the entire set of initial batches
+  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
 }
 
 TEST_F(TestBackpressure, DISABLED_ScanBatchesOrdered) {
@@ -1044,16 +1061,19 @@ TEST_F(TestBackpressure, DISABLED_ScanBatchesOrdered) {
   // we don't need it to finish.
   Future<TaggedRecordBatch> fut = gen();
 
+  // See note on other test
+  GetCpuThreadPool()->WaitForIdle();
+
   // The exact numbers may be imprecise due to threading but we should pretty quickly read
   // up to our backpressure limit and a little above.  We should not be able to go too far
   // above.
-  BusyWait(10, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
+  ASSERT_TRUE(TotalBatchesRead() >= kDefaultBackpressureHigh);
   // This can yield some false passes but it is tricky to test that a counter doesn't
   // increase over time.
   for (int i = 0; i < 20; i++) {
     SleepABit();
   }
-  ASSERT_LT(TotalBatchesRead(), 2 * kDefaultBackpressureHigh);
+  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
 }
 
 struct BatchConsumer {

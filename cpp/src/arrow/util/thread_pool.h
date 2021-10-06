@@ -341,6 +341,9 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
+
+  void WaitForIdle();
+
   struct State;
 
  protected:

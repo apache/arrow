@@ -123,6 +123,12 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
 
+  /// Callback which will be run whenever the scanner pauses due to backpressure
+  ///
+  /// This is mostly for debugging & tracing so that the consumer can be notified if
+  /// they are not consuming data quickly enough.
+  std::function<void()> on_paused_callback;
+
   // Return a vector of fields that requires materialization.
   //
   // This is usually the union of the fields referenced in the projection and the
