@@ -109,3 +109,15 @@ arrow_mask <- function(.data, aggregation = FALSE) {
   out$.data <- .data$selected_columns
   out
 }
+
+format_expr <- function(x) {
+  if (is_quosure(x)) {
+    x <- quo_get_expr(x)
+  }
+  out <- deparse(x)
+  if (length(out) > 1) {
+    # Add ellipses because we are going to truncate
+    out[1] <- paste0(out[1], "...")
+  }
+  head(out, 1)
+}
