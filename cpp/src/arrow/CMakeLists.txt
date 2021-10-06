@@ -375,7 +375,6 @@ if(ARROW_COMPUTE)
        compute/exec/aggregate_node.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
-       compute/exec/exec_node_runner_impl.cc
        compute/exec/filter_node.cc
        compute/exec/project_node.cc
        compute/exec/source_node.cc

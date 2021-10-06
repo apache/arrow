@@ -23,10 +23,14 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_util.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -242,6 +246,109 @@ class ARROW_EXPORT ExecNode {
   std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
+};
+
+class MapNode : public ExecNode {
+ public:
+  MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+          std::shared_ptr<Schema> output_schema)
+      : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
+                 std::move(output_schema),
+                 /*num_outputs=*/1) {
+    executor_ = plan_->exec_context()->executor();
+  }
+
+  void SubmitTask(std::function<Status()> task) {
+    if (finished_.is_finished()) {
+      return;
+    }
+    Status status;
+    if (executor_) {
+      status = task_group_.AddTask([this, task]() -> Result<Future<>> {
+        return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
+          auto status = task();
+          if (this->input_counter_.Increment()) {
+            this->MarkFinished(status);
+          }
+          return status;
+        });
+      });
+    } else {
+      status = task();
+      if (input_counter_.Increment()) {
+        this->MarkFinished();
+      }
+    }
+    if (!status.ok()) {
+      StopProducing();
+      return;
+    }
+  }
+
+  void MarkFinished(Status status = Status::OK()) {
+    if (executor_) {
+      if (!status.ok()) {
+        this->StopProducing();
+      } else {
+        task_group_.End().AddCallback(
+            [this](const Status& status) { this->finished_.MarkFinished(status); });
+      }
+    } else {
+      this->finished_.MarkFinished(status);
+    }
+  }
+
+  void ErrorReceived(ExecNode* input, Status error) override {
+    DCHECK_EQ(input, inputs_[0]);
+    outputs_[0]->ErrorReceived(this, std::move(error));
+  }
+
+  void InputFinished(ExecNode* input, int total_batches) override {
+    DCHECK_EQ(input, inputs_[0]);
+    outputs_[0]->InputFinished(this, total_batches);
+    if (input_counter_.SetTotal(total_batches)) {
+      this->MarkFinished();
+    }
+  }
+
+  Status StartProducing() override { return Status::OK(); }
+
+  void PauseProducing(ExecNode* output) override {}
+
+  void ResumeProducing(ExecNode* output) override {}
+
+  void StopProducing(ExecNode* output) override {
+    DCHECK_EQ(output, outputs_[0]);
+    StopProducing();
+  }
+
+  void StopProducing() override {
+    if (executor_) {
+      this->stop_source_.RequestStop();
+    }
+    if (input_counter_.Cancel()) {
+      this->MarkFinished();
+    }
+    inputs_[0]->StopProducing(this);
+  }
+
+  Future<> finished() override { return finished_; }
+
+ protected:
+  // Counter for the number of batches received
+  AtomicCounter input_counter_;
+
+  // Future to sync finished
+  Future<> finished_ = Future<>::Make();
+
+  // The task group for the corresponding batches
+  util::AsyncTaskGroup task_group_;
+
+  // Executor
+  ::arrow::internal::Executor* executor_;
+
+  // Variable used to cancel remaining tasks in the executor
+  StopSource stop_source_;
 };
 
 /// \brief An extensible registry for factories of ExecNodes

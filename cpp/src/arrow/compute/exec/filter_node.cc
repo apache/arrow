@@ -19,7 +19,6 @@
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/exec_node_runner_impl.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
@@ -34,16 +33,12 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class FilterNode : public ExecNode {
+class FilterNode : public MapNode {
  public:
   FilterNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-             std::shared_ptr<Schema> output_schema, Expression filter,
-             std::unique_ptr<ExecNodeRunnerImpl> impl)
-      : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-                 std::move(output_schema),
-                 /*num_outputs=*/1),
-        filter_(std::move(filter)),
-        impl_(std::move(impl)) {}
+             std::shared_ptr<Schema> output_schema, Expression filter)
+      : MapNode(plan, std::move(inputs), std::move(output_schema)),
+        filter_(std::move(filter)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -62,16 +57,8 @@ class FilterNode : public ExecNode {
                                filter_expression.ToString(), " evaluates to ",
                                filter_expression.type()->ToString());
     }
-    std::unique_ptr<ExecNodeRunnerImpl> impl;
-    if (plan->exec_context()->executor() == nullptr) {
-      ARROW_ASSIGN_OR_RAISE(
-          impl, ExecNodeRunnerImpl::MakeSimpleSyncRunner(plan->exec_context()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(
-          impl, ExecNodeRunnerImpl::MakeSimpleParallelRunner(plan->exec_context()));
-    }
     return plan->EmplaceNode<FilterNode>(plan, std::move(inputs), std::move(schema),
-                                         std::move(filter_expression), std::move(impl));
+                                         std::move(filter_expression));
   }
 
   const char* kind_name() const override { return "FilterNode"; }
@@ -115,51 +102,14 @@ class FilterNode : public ExecNode {
       outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
       return Status::OK();
     };
-    auto status = impl_->SubmitTask(task);
-    if (!status.ok()) {
-      StopProducing();
-      if (impl_->Cancel()) {
-        impl_->MarkFinished(status);
-      }
-      return;
-    }
+    this->SubmitTask(task);
   }
-
-  void ErrorReceived(ExecNode* input, Status error) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->ErrorReceived(this, std::move(error));
-  }
-
-  void InputFinished(ExecNode* input, int total_batches) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, total_batches);
-    impl_->InputFinished(total_batches);
-  }
-
-  Status StartProducing() override { return Status::OK(); }
-
-  void PauseProducing(ExecNode* output) override {}
-
-  void ResumeProducing(ExecNode* output) override {}
-
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override {
-    impl_->StopProducing();
-    inputs_[0]->StopProducing(this);
-  }
-
-  Future<> finished() override { return impl_->finished(); }
 
  protected:
   std::string ToStringExtra() const override { return "filter=" + filter_.ToString(); }
 
  private:
   Expression filter_;
-  std::unique_ptr<ExecNodeRunnerImpl> impl_;
 };
 }  // namespace
 
