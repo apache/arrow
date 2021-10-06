@@ -43,7 +43,7 @@ class ARROW_EXPORT PreparedStatementT {
   /// \param[in] client   A raw pointer to FlightClient.
   /// \param[in] query      The query that will be executed.
   PreparedStatementT(T* client, const std::string& query,
-                     std::shared_ptr<Buffer> result_buffer);
+                     pb::sql::ActionCreatePreparedStatementResult  prepared_statement_result);
 
   /// \brief Executes the prepared statement query on the server.
   /// \param[in] call_options RPC-layer hints for this call.

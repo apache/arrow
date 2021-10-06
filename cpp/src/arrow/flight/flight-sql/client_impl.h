@@ -245,23 +245,25 @@ Status FlightSqlClientT<T>::Prepare(
   std::unique_ptr<Result> result;
   ARROW_RETURN_NOT_OK(results->Next(&result));
 
-  prepared_statement->reset(new PreparedStatementT<T>(client.get(), query, result->body));
+  google::protobuf::Any prepared_result;
+
+  std::shared_ptr<Buffer> message = std::move(result->body);
+
+  prepared_result.ParseFromArray(message->data(), static_cast<int>(message->size()));
+
+  pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+
+  prepared_result.UnpackTo(&prepared_statement_result);
+
+  prepared_statement->reset(new PreparedStatementT<T>(client.get(), query, prepared_statement_result));
 
   return Status::OK();
 }
 
 template <class T>
 PreparedStatementT<T>::PreparedStatementT(T* client_, const std::string& query,
-                                          std::shared_ptr<Buffer> result_buffer)
-    : client(client_) {
-  google::protobuf::Any prepared_result;
-
-  std::shared_ptr<Buffer> message = std::move(result_buffer);
-
-  prepared_result.ParseFromArray(message->data(), static_cast<int>(message->size()));
-
-  prepared_result.UnpackTo(&prepared_statement_result);
-
+                                          pb::sql::ActionCreatePreparedStatementResult  prepared_statement_result_)
+    : client(client_), prepared_statement_result(std::move(prepared_statement_result_)) {
   is_closed = false;
 }
 
