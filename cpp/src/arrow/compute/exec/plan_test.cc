@@ -381,10 +381,10 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      uint32_t batches_seen = 0;
+      std::atomic<uint32_t> batches_seen{0};
       Future<> finish = Future<>::Make();
       struct TestConsumer : public SinkNodeConsumer {
-        TestConsumer(uint32_t* batches_seen, Future<> finish)
+        TestConsumer(std::atomic<uint32_t>* batches_seen, Future<> finish)
             : batches_seen(batches_seen), finish(std::move(finish)) {}
 
         Status Consume(ExecBatch batch) override {
@@ -394,7 +394,7 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
 
         Future<> Finish() override { return finish; }
 
-        uint32_t* batches_seen;
+        std::atomic<uint32_t>* batches_seen;
         Future<> finish;
       };
       std::shared_ptr<TestConsumer> consumer =
