@@ -43,7 +43,7 @@ public:
   /// \brief Constructor for the PreparedStatement class.
   /// \param[in] client   A raw pointer to FlightClient.
   /// \param[in] query      The query that will be executed.
-  PreparedStatementT(T* client, const std::string& query);
+  PreparedStatementT(T* client, const std::string& query, std::shared_ptr<Buffer> result_buffer);
 
   /// \brief Executes the prepared statement query on the server.
   /// \param[in] call_options RPC-layer hints for this call.

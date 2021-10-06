@@ -21,6 +21,8 @@
 #include <google/protobuf/any.pb.h>
 #include <google/protobuf/message_lite.h>
 
+#include <utility>
+
 
 namespace pb = arrow::flight::protocol;
 
@@ -227,14 +229,6 @@ template <class T>
 Status FlightSqlClientT<T>::Prepare(
     const FlightCallOptions& options, const std::string& query,
     std::shared_ptr<PreparedStatementT<T>>* prepared_statement) {
-  *prepared_statement = std::make_shared<PreparedStatementT<T>>(client.get(), query);
-
-  return Status::OK();
-}
-
-template <class T>
-PreparedStatementT<T>::PreparedStatementT(T* client_, const std::string& query)
-    : client(client_) {
   google::protobuf::Any command;
   pb::sql::ActionCreatePreparedStatementRequest request;
   request.set_query(query);
@@ -246,14 +240,23 @@ PreparedStatementT<T>::PreparedStatementT(T* client_, const std::string& query)
 
   std::unique_ptr<ResultStream> results;
 
-  client->DoAction({}, action, &results);
+  ARROW_RETURN_NOT_OK(client->DoAction({}, action, &results));
 
   std::unique_ptr<Result> result;
-  results->Next(&result);
+  ARROW_RETURN_NOT_OK(results->Next(&result));
 
+  prepared_statement->reset(new PreparedStatementT<T>(client.get(), query, result->body));
+
+  return Status::OK();
+}
+
+template <class T>
+PreparedStatementT<T>::PreparedStatementT(T* client_, const std::string& query,
+                                          std::shared_ptr<Buffer> result_buffer)
+    : client(client_) {
   google::protobuf::Any prepared_result;
 
-  std::shared_ptr<Buffer> message = result->body;
+  std::shared_ptr<Buffer> message = std::move(result_buffer);
 
   prepared_result.ParseFromArray(message->data(), static_cast<int>(message->size()));
 

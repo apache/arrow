@@ -265,12 +265,12 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
               DoAction(_, _, _));
 
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> preparedStatement;
-  sqlClient.Prepare(query, &preparedStatement);
+  sqlClient.Prepare({}, query, &preparedStatement);
 
   EXPECT_CALL(*client_mock,
               GetFlightInfo(_, _, &flight_info));
 
-  (void) preparedStatement->Execute(<#initializer#>, &flight_info);
+  (void) preparedStatement->Execute({}, &flight_info);
 }
 
 TEST(TestFlightSqlClient, TestExecuteUpdate) {
