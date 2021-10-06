@@ -30,6 +30,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 
