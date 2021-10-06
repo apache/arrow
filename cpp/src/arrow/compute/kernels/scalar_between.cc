@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
 
@@ -29,9 +31,13 @@ namespace internal {
 namespace {
 
 struct Between {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& value, const T& left,
-                             const T& right) {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static constexpr T Call(KernelContext*, const Arg0& value, const Arg1& left,
+                             const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && 
+		  std::is_same<Arg0, Arg1>::value &&
+		  std::is_same<Arg1, Arg2>::value, 
+		  "");
     return (left < value) && (value < right);
   }
 };
@@ -42,26 +48,33 @@ void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func
       GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
   DCHECK_OK(func->AddKernel(
       {InputType::Array(ty), InputType::Scalar(ty), InputType::Scalar(ty)}, boolean(),
-      exec));
-  DCHECK_OK(
-      func->AddKernel({InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)},
-                      boolean(), std::move(exec)));
+      std::move(exec)));
+  DCHECK_OK(func->AddKernel(
+       {InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)}, boolean(), 
+       std::move(exec)));
+
 }
 
 template <typename InType, typename Op>
 void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  auto exec = applicator::ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec;
-  DCHECK_OK(func->AddKernel(
+  DCHECK_OK(
+      func->AddKernel({ty, ty, ty}, boolean(),
+	       applicator::ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
+
+/*  DCHECK_OK(func->AddKernel(
       {InputType::Array(ty), InputType::Scalar(ty), InputType::Scalar(ty)}, boolean(),
-      exec));
+      applicator::ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
   DCHECK_OK(
       func->AddKernel({InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)},
-                      boolean(), std::move(exec)));
+                      boolean(),
+		      applicator::ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
+*/
 }
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Ternary());
+std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, 
+		const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Ternary(), doc);
 
   for (const std::shared_ptr<DataType>& ty : IntTypes()) {
     AddIntegerBetween<Op>(ty, func.get());
@@ -71,7 +84,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name) {
 
   AddGenericBetween<FloatType, Op>(float32(), func.get());
   AddGenericBetween<DoubleType, Op>(float64(), func.get());
-  
+/*  
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
@@ -105,7 +118,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name) {
             int64());
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
   }
-
+*/
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
@@ -120,10 +133,16 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name) {
   return func;
 }
 
+const FunctionDoc between_doc{"Check if values are in a range x <= y <= z",
+                             ("A null on either side emits a null comparison result."),
+                             {"x", "y", "z"}};
+
 }  // namespace
 
 void RegisterScalarBetween(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(MakeBetweenFunction<Between>("between")));
+  auto between =
+	  MakeBetweenFunction<Between>("between", &between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between)));
 }
 
 }  // namespace internal
