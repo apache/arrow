@@ -42,7 +42,7 @@ struct ARROW_EXPORT GcsOptions {
 
   /// \brief Initialize with default credentials provider chain
   ///
-  /// This is recommended if you use the standard AWS environment variables
+  /// This is recommended if you use the standard GCP environment variables
   /// and/or configuration file.
   static GcsOptions Defaults();
 
