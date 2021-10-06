@@ -973,7 +973,7 @@ TEST_F(TestReordering, ScanBatchesUnordered) {
 class TestBackpressure : public ::testing::Test {
  protected:
   static constexpr int NFRAGMENTS = 10;
-  static constexpr int NBATCHES = 10;
+  static constexpr int NBATCHES = 50;
   static constexpr int NROWS = 10;
 
   FragmentVector MakeFragmentsAndDeliverInitialBatches() {
@@ -1036,43 +1036,20 @@ TEST_F(TestBackpressure, ScanBatchesUnordered) {
   EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
                        scanner->ScanBatchesUnorderedAsync());
   ASSERT_FINISHES_OK(gen());
-  // Wait for the thread pool to idle.  By this point the scanner should have paused itself
-  // This helps with timing on slower CI systems where there is only one core and the scanner
-  // might keep that core until it has scanned all the batches which never gives the sink a
-  // chance to report it is falling behind.
+  // The exact numbers may be imprecise due to threading but we should pretty quickly read
+  // up to our backpressure limit and a little above.  We should not be able to go too far
+  // above.
+  BusyWait(30, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
+  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
+  // Wait for the thread pool to idle.  By this point the scanner should have paused
+  // itself This helps with timing on slower CI systems where there is only one core and
+  // the scanner might keep that core until it has scanned all the batches which never
+  // gives the sink a chance to report it is falling behind.
   GetCpuThreadPool()->WaitForIdle();
   DeliverAdditionalBatches();
 
-  // The exact numbers may be imprecise due to threading but we should pretty quickly read
-  // up to our backpressure limit and a little above.  We should not be able to go too far
-  // above.
-  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
   SleepABit();
   // Worst case we read in the entire set of initial batches
-  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
-}
-
-TEST_F(TestBackpressure, DISABLED_ScanBatchesOrdered) {
-  std::shared_ptr<Scanner> scanner = MakeScanner();
-  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen,
-                       scanner->ScanBatchesAsync());
-  // This future never actually finishes because we only emit the first batch so far and
-  // the scanner delays by one batch.  It is enough to start the system pumping though so
-  // we don't need it to finish.
-  Future<TaggedRecordBatch> fut = gen();
-
-  // See note on other test
-  GetCpuThreadPool()->WaitForIdle();
-
-  // The exact numbers may be imprecise due to threading but we should pretty quickly read
-  // up to our backpressure limit and a little above.  We should not be able to go too far
-  // above.
-  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
-  // This can yield some false passes but it is tricky to test that a counter doesn't
-  // increase over time.
-  for (int i = 0; i < 20; i++) {
-    SleepABit();
-  }
   ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
 }
 
