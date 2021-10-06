@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/double_conversion.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
@@ -280,9 +281,9 @@ class StringFormatter<DoubleType> : public FloatToStringFormatterMixin<DoubleTyp
 
 namespace detail {
 
-template <typename V>
 constexpr size_t BufferSizeYYYY_MM_DD() {
-  return detail::Digits10(9999) + 1 + detail::Digits10(12) + 1 + detail::Digits10(31);
+  return 1 + detail::Digits10(99999) + 1 + detail::Digits10(12) + 1 +
+         detail::Digits10(31);
 }
 
 inline void FormatYYYY_MM_DD(arrow_vendored::date::year_month_day ymd, char** cursor) {
@@ -291,9 +292,18 @@ inline void FormatYYYY_MM_DD(arrow_vendored::date::year_month_day ymd, char** cu
   FormatTwoDigits(static_cast<unsigned>(ymd.month()), cursor);
   FormatOneChar('-', cursor);
   auto year = static_cast<int>(ymd.year());
-  assert(year <= 9999);
+  const auto is_neg_year = year < 0;
+  year = std::abs(year);
+  assert(year <= 99999);
   FormatTwoDigits(year % 100, cursor);
-  FormatTwoDigits(year / 100, cursor);
+  year /= 100;
+  FormatTwoDigits(year % 100, cursor);
+  if (year >= 100) {
+    FormatOneDigit(year / 100, cursor);
+  }
+  if (is_neg_year) {
+    FormatOneChar('-', cursor);
+  }
 }
 
 template <typename Duration>
@@ -316,6 +326,38 @@ void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms, char** cursor)
   FormatTwoDigits(hms.hours().count(), cursor);
 }
 
+// Some out-of-bound datetime values would result in erroneous printing
+// because of silent integer wraparound in the `arrow_vendored::date` library.
+//
+// To avoid such misprinting, we must therefore check the bounds explicitly.
+// The bounds correspond to start of year -32767 and end of year 32767,
+// respectively (-32768 is an invalid year value in `arrow_vendored::date`).
+//
+// Note these values are the same as documented for C++20:
+// https://en.cppreference.com/w/cpp/chrono/year_month_day/operator_days
+template <typename Unit>
+bool IsDateTimeInRange(Unit duration) {
+  constexpr Unit kMinIncl =
+      std::chrono::duration_cast<Unit>(arrow_vendored::date::days{-12687428});
+  constexpr Unit kMaxExcl =
+      std::chrono::duration_cast<Unit>(arrow_vendored::date::days{11248738});
+  return duration >= kMinIncl && duration < kMaxExcl;
+}
+
+// IsDateTimeInRange() specialization for nanoseconds: a 64-bit number of
+// nanoseconds cannot represent years outside of the [-32767, 32767]
+// range, and the {kMinIncl, kMaxExcl} constants above would overflow.
+constexpr bool IsDateTimeInRange(std::chrono::nanoseconds duration) { return true; }
+
+template <typename RawValue, typename Appender>
+Return<Appender> FormatOutOfRange(RawValue&& raw_value, Appender&& append) {
+  // XXX locale-sensitive but good enough for now
+  std::string formatted = "<value out of range: " + std::to_string(raw_value) + ">";
+  return append(std::move(formatted));
+}
+
+const auto kEpoch = arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
+
 }  // namespace detail
 
 template <>
@@ -323,26 +365,16 @@ class StringFormatter<DurationType> : public IntToStringFormatterMixin<DurationT
   using IntToStringFormatterMixin::IntToStringFormatterMixin;
 };
 
-template <typename T>
-class StringFormatter<T, enable_if_date<T>> {
+class DateToStringFormatterMixin {
  public:
-  using value_type = typename T::c_type;
+  explicit DateToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
 
-  explicit StringFormatter(const std::shared_ptr<DataType>& = NULLPTR) {}
-
+ protected:
   template <typename Appender>
-  Return<Appender> operator()(value_type value, Appender&& append) {
-    arrow_vendored::date::days since_epoch;
-    if (T::type_id == Type::DATE32) {
-      since_epoch = arrow_vendored::date::days{value};
-    } else {
-      since_epoch = std::chrono::duration_cast<arrow_vendored::date::days>(
-          std::chrono::milliseconds{value});
-    }
-
+  Return<Appender> FormatDays(arrow_vendored::date::days since_epoch, Appender&& append) {
     arrow_vendored::date::sys_days timepoint_days{since_epoch};
 
-    constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD<value_type>();
+    constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD();
 
     std::array<char, buffer_size> buffer;
     char* cursor = buffer.data() + buffer_size;
@@ -351,6 +383,95 @@ class StringFormatter<T, enable_if_date<T>> {
                              &cursor);
     return append(detail::ViewDigitBuffer(buffer, cursor));
   }
+};
+
+template <>
+class StringFormatter<Date32Type> : public DateToStringFormatterMixin {
+ public:
+  using value_type = typename Date32Type::c_type;
+
+  using DateToStringFormatterMixin::DateToStringFormatterMixin;
+
+  template <typename Appender>
+  Return<Appender> operator()(value_type value, Appender&& append) {
+    const auto since_epoch = arrow_vendored::date::days{value};
+    if (!ARROW_PREDICT_TRUE(detail::IsDateTimeInRange(since_epoch))) {
+      return detail::FormatOutOfRange(value, append);
+    }
+    return FormatDays(since_epoch, std::forward<Appender>(append));
+  }
+};
+
+template <>
+class StringFormatter<Date64Type> : public DateToStringFormatterMixin {
+ public:
+  using value_type = typename Date64Type::c_type;
+
+  using DateToStringFormatterMixin::DateToStringFormatterMixin;
+
+  template <typename Appender>
+  Return<Appender> operator()(value_type value, Appender&& append) {
+    const auto since_epoch = std::chrono::milliseconds{value};
+    if (!ARROW_PREDICT_TRUE(detail::IsDateTimeInRange(since_epoch))) {
+      return detail::FormatOutOfRange(value, append);
+    }
+    return FormatDays(std::chrono::duration_cast<arrow_vendored::date::days>(since_epoch),
+                      std::forward<Appender>(append));
+  }
+};
+
+template <>
+class StringFormatter<TimestampType> {
+ public:
+  using value_type = int64_t;
+
+  explicit StringFormatter(const std::shared_ptr<DataType>& type)
+      : unit_(checked_cast<const TimestampType&>(*type).unit()) {}
+
+  template <typename Duration, typename Appender>
+  Return<Appender> operator()(Duration, value_type value, Appender&& append) {
+    using arrow_vendored::date::days;
+
+    const Duration since_epoch{value};
+    if (!ARROW_PREDICT_TRUE(detail::IsDateTimeInRange(since_epoch))) {
+      return detail::FormatOutOfRange(value, append);
+    }
+
+    const auto timepoint = detail::kEpoch + since_epoch;
+    // Round days towards zero
+    // (the naive approach of using arrow_vendored::date::floor() would
+    //  result in UB for very large negative timestamps, similarly as
+    //  https://github.com/HowardHinnant/date/issues/696)
+    auto timepoint_days = std::chrono::time_point_cast<days>(timepoint);
+    Duration since_midnight;
+    if (timepoint_days <= timepoint) {
+      // Year >= 1970
+      since_midnight = timepoint - timepoint_days;
+    } else {
+      // Year < 1970
+      since_midnight = days(1) - (timepoint_days - timepoint);
+      timepoint_days -= days(1);
+    }
+
+    constexpr size_t buffer_size =
+        detail::BufferSizeYYYY_MM_DD() + 1 + detail::BufferSizeHH_MM_SS<Duration>();
+
+    std::array<char, buffer_size> buffer;
+    char* cursor = buffer.data() + buffer_size;
+
+    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
+    detail::FormatOneChar(' ', &cursor);
+    detail::FormatYYYY_MM_DD(timepoint_days, &cursor);
+    return append(detail::ViewDigitBuffer(buffer, cursor));
+  }
+
+  template <typename Appender>
+  Return<Appender> operator()(value_type value, Appender&& append) {
+    return util::VisitDuration(unit_, *this, value, std::forward<Appender>(append));
+  }
+
+ private:
+  TimeUnit::type unit_;
 };
 
 template <typename T>
@@ -371,45 +492,6 @@ class StringFormatter<T, enable_if_time<T>> {
     char* cursor = buffer.data() + buffer_size;
 
     detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
-    return append(detail::ViewDigitBuffer(buffer, cursor));
-  }
-
-  template <typename Appender>
-  Return<Appender> operator()(value_type value, Appender&& append) {
-    return util::VisitDuration(unit_, *this, value, std::forward<Appender>(append));
-  }
-
- private:
-  TimeUnit::type unit_;
-};
-
-template <>
-class StringFormatter<TimestampType> {
- public:
-  using value_type = int64_t;
-
-  explicit StringFormatter(const std::shared_ptr<DataType>& type)
-      : unit_(checked_cast<const TimestampType&>(*type).unit()) {}
-
-  template <typename Duration, typename Appender>
-  Return<Appender> operator()(Duration, value_type count, Appender&& append) {
-    Duration since_epoch{count};
-
-    arrow_vendored::date::sys_days timepoint_days{
-        arrow_vendored::date::floor<arrow_vendored::date::days>(since_epoch)};
-
-    Duration since_midnight = since_epoch - timepoint_days.time_since_epoch();
-
-    constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD<value_type>() + 1 +
-                                   detail::BufferSizeHH_MM_SS<Duration>();
-
-    std::array<char, buffer_size> buffer;
-    char* cursor = buffer.data() + buffer_size;
-
-    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
-    detail::FormatOneChar(' ', &cursor);
-    detail::FormatYYYY_MM_DD(arrow_vendored::date::year_month_day{timepoint_days},
-                             &cursor);
     return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 

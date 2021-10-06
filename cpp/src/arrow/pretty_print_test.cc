@@ -170,6 +170,27 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   CheckPrimitive<LargeStringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
 }
 
+TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+  std::vector<int32_t> values = {0, 1, 2, 3, 4};
+
+  PrettyPrintOptions options{};
+  options.skip_new_lines = true;
+  options.window = 4;
+
+  const char* expected = "[0,1,null,3,null]";
+  CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+
+  // With ellipsis
+  is_valid.insert(is_valid.end(), 20, true);
+  is_valid.insert(is_valid.end(), {true, false, true});
+  values.insert(values.end(), 20, 99);
+  values.insert(values.end(), {44, 43, 42});
+
+  expected = "[0,1,null,3,...,99,44,null,42]";
+  CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+}
+
 TEST_F(TestPrettyPrint, Int8) {
   static const char* expected = R"expected([
   0,
@@ -300,10 +321,10 @@ TEST_F(TestPrettyPrint, TestIntervalTypes) {
     std::vector<MonthDayNanoIntervalType::MonthDayNanos> values = {
         {1, 2, 3}, {-3, 4, -5}, {}, {}, {}};
     static const char* expected = R"expected([
-  1m2d3ns,
-  -3m4d-5ns,
+  1M2d3ns,
+  -3M4d-5ns,
   null,
-  0m0d0ns,
+  0M0d0ns,
   null
 ])expected";
     CheckPrimitive<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
@@ -535,6 +556,22 @@ TEST_F(TestPrettyPrint, BinaryType) {
   CheckPrimitive<LargeBinaryType, std::string>({2}, is_valid, values, ex_in2);
 }
 
+TEST_F(TestPrettyPrint, BinaryNoNewlines) {
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+  std::vector<std::string> values = {"foo", "bar", "", "baz", "", "\xff"};
+
+  PrettyPrintOptions options{};
+  options.skip_new_lines = true;
+
+  const char* expected = "[666F6F,626172,null,62617A,,FF]";
+  CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
+
+  // With ellipsis
+  options.window = 2;
+  expected = "[666F6F,626172,...,,FF]";
+  CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
+}
+
 TEST_F(TestPrettyPrint, ListType) {
   auto list_type = list(int64());
 
@@ -591,6 +628,22 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckArray(*array, {0, 10}, ex);
   CheckArray(*array, {2, 10}, ex_2);
   CheckStream(*array, {0, 1}, ex_3);
+}
+
+TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
+  auto list_type = list(int64());
+  auto empty_array = ArrayFromJSON(list_type, "[]");
+  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 5, 6, 7, 8], [2, 3]]");
+
+  PrettyPrintOptions options{};
+  options.skip_new_lines = true;
+  options.null_rep = "NA";
+  CheckArray(*empty_array, options, "[]", false);
+  CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
+
+  options.window = 2;
+  CheckArray(*empty_array, options, "[]", false);
+  CheckArray(*array, options, "[[NA],[],...,[4,5,...,7,8],[2,3]]", false);
 }
 
 TEST_F(TestPrettyPrint, MapType) {
