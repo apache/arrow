@@ -5195,10 +5195,10 @@ istanbul-reports@^3.0.2:
     html-escaper "^2.0.0"
     istanbul-lib-report "^3.0.0"
 
-ix@4.4.1:
-  version "4.4.1"
-  resolved "https://registry.npmjs.org/ix/-/ix-4.4.1.tgz#8ec5f4f420c504a9906ffc2e2234f50147b9488a"
-  integrity sha512-Jsl7cUf7CA1MkznzAuVy4K6V1Zsfx+EAh0ZgiGhGAADaEGKiMV+sJx8Qe4hx0CsyI475Yt3ppoRS8M8oOueqlA==
+ix@4.5.1:
+  version "4.5.1"
+  resolved "https://registry.npmjs.org/ix/-/ix-4.5.1.tgz#c5de023a74fa37cb5b2d490acb17e91489d92046"
+  integrity sha512-Yh3vjA87kT3FSQ8IRZnnUGK8mnJQJflIjE5WOGQQOTG/xtI0QMPmVWg64M0zEHONaXEyvJ3v/I8XRYP8dkZRyQ==
   dependencies:
     "@types/node" "^13.7.4"
     tslib "^2.3.0"

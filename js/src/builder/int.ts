@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { bignumToBigInt } from '../util/bn';
-import { BigInt64Array } from '../util/compat';
-import { FixedWidthBuilder, BuilderOptions } from '../builder';
+import { FixedWidthBuilder } from '../builder';
 import { Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64 } from '../type';
 
 /** @ignore */
@@ -28,56 +26,19 @@ export class IntBuilder<T extends Int = Int, TNull = any> extends FixedWidthBuil
 }
 
 /** @ignore */
-export class Int8Builder<TNull = any> extends IntBuilder<Int8, TNull> {}
+export class Int8Builder<TNull = any> extends IntBuilder<Int8, TNull> { }
 /** @ignore */
-export class Int16Builder<TNull = any> extends IntBuilder<Int16, TNull> {}
+export class Int16Builder<TNull = any> extends IntBuilder<Int16, TNull> { }
 /** @ignore */
-export class Int32Builder<TNull = any> extends IntBuilder<Int32, TNull> {}
+export class Int32Builder<TNull = any> extends IntBuilder<Int32, TNull> { }
 /** @ignore */
-export class Int64Builder<TNull = any> extends IntBuilder<Int64, TNull> {
-    constructor(options: BuilderOptions<Int64, TNull>) {
-        if (options['nullValues']) {
-            options['nullValues'] = (options['nullValues'] as TNull[]).map(toBigInt);
-        }
-        super(options);
-    }
-    public get values64() {
-        const { BYTES_PER_ELEMENT, buffer: data } = this._values;
-        const length = data.byteLength / (BYTES_PER_ELEMENT * this.stride);
-        return new BigInt64Array(data.buffer, data.byteOffset, length);
-    }
-    public isValid(value: Int32Array | bigint | TNull) { return super.isValid(toBigInt(value)); }
-}
+export class Int64Builder<TNull = any> extends IntBuilder<Int64, TNull> { }
 
 /** @ignore */
-export class Uint8Builder<TNull = any> extends IntBuilder<Uint8, TNull> {}
+export class Uint8Builder<TNull = any> extends IntBuilder<Uint8, TNull> { }
 /** @ignore */
-export class Uint16Builder<TNull = any> extends IntBuilder<Uint16, TNull> {}
+export class Uint16Builder<TNull = any> extends IntBuilder<Uint16, TNull> { }
 /** @ignore */
-export class Uint32Builder<TNull = any> extends IntBuilder<Uint32, TNull> {}
+export class Uint32Builder<TNull = any> extends IntBuilder<Uint32, TNull> { }
 /** @ignore */
-export class Uint64Builder<TNull = any> extends IntBuilder<Uint64, TNull> {
-    constructor(options: BuilderOptions<Uint64, TNull>) {
-        if (options['nullValues']) {
-            options['nullValues'] = (options['nullValues'] as TNull[]).map(toBigInt);
-        }
-        super(options);
-    }
-    public get values64() {
-        const { BYTES_PER_ELEMENT, buffer: data } = this._values;
-        const length = data.byteLength / (BYTES_PER_ELEMENT * this.stride);
-        return new BigUint64Array(data.buffer, data.byteOffset, length);
-    }
-    public isValid(value: Uint32Array | bigint | TNull) { return super.isValid(toBigInt(value)); }
-}
-
-const toBigInt = ((memo: any) => (value: any) => {
-    if (ArrayBuffer.isView(value)) {
-        memo.buffer = value.buffer;
-        memo.byteOffset = value.byteOffset;
-        memo.byteLength = value.byteLength;
-        value = bignumToBigInt(memo);
-        memo.buffer = null;
-    }
-    return value;
-})({ 'BigIntArray': BigInt64Array });
+export class Uint64Builder<TNull = any> extends IntBuilder<Uint64, TNull> { }

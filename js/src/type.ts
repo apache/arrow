@@ -185,11 +185,11 @@ export class Uint64 extends Int_<Type.Uint64> {
 Object.defineProperty(Int8.prototype, 'ArrayType', { value: Int8Array });
 Object.defineProperty(Int16.prototype, 'ArrayType', { value: Int16Array });
 Object.defineProperty(Int32.prototype, 'ArrayType', { value: Int32Array });
-Object.defineProperty(Int64.prototype, 'ArrayType', { value: Int32Array });
+Object.defineProperty(Int64.prototype, 'ArrayType', { value: BigInt64Array });
 Object.defineProperty(Uint8.prototype, 'ArrayType', { value: Uint8Array });
 Object.defineProperty(Uint16.prototype, 'ArrayType', { value: Uint16Array });
 Object.defineProperty(Uint32.prototype, 'ArrayType', { value: Uint32Array });
-Object.defineProperty(Uint64.prototype, 'ArrayType', { value: Uint32Array });
+Object.defineProperty(Uint64.prototype, 'ArrayType', { value: BigUint64Array });
 
 /** @ignore */
 type Floats = Type.Float | Type.Float16 | Type.Float32 | Type.Float64;

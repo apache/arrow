@@ -17,6 +17,9 @@
 
 import { Decimal } from '../type';
 import { FixedWidthBuilder } from '../builder';
+import { setDecimal } from '../visitor/set';
 
 /** @ignore */
-export class DecimalBuilder<TNull = any> extends FixedWidthBuilder<Decimal, TNull> {}
+export class DecimalBuilder<TNull = any> extends FixedWidthBuilder<Decimal, TNull> { }
+
+(DecimalBuilder.prototype as any)._setValue = setDecimal;

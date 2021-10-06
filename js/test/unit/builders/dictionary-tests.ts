@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import 'web-streams-polyfill';
+
 import { validateVector } from './utils';
 import { Dictionary, Utf8, Int32, Vector } from 'apache-arrow';
 import {

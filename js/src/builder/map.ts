@@ -21,7 +21,7 @@ import { Builder, VariableWidthBuilder } from '../builder';
 
 /** @ignore */ type MapValue<K extends DataType = any, V extends DataType = any> = Map_<K, V>['TValue'];
 /** @ignore */ type MapValues<K extends DataType = any, V extends DataType = any> = Map<number, MapValue<K, V> | undefined>;
-/** @ignore */ type MapValueExt<K extends DataType = any, V extends DataType = any> = MapValue<K, V> | { [key: string]: V } | { [key: number]: V } ;
+/** @ignore */ type MapValueExt<K extends DataType = any, V extends DataType = any> = MapValue<K, V> | { [key: string]: V } | { [key: number]: V };
 
 /** @ignore */
 export class MapBuilder<K extends DataType = any, V extends DataType = any, TNull = any> extends VariableWidthBuilder<Map_<K, V>, TNull> {
@@ -51,14 +51,20 @@ export class MapBuilder<K extends DataType = any, V extends DataType = any, TNul
 
     protected _flushPending(pending: MapValues<K, V>) {
         const offsets = this._offsets;
-        const setValue = this._setValue;
-        pending.forEach((value, index) => {
+        const [child] = this.children;
+        for (const [index, value] of pending) {
             if (value === undefined) {
                 offsets.set(index, 0);
             } else {
-                offsets.set(index, value.size);
-                setValue(this, index, value);
+                let {
+                    [index]: idx,
+                    [index + 1]: end
+                } = offsets.set(index, value.size).buffer;
+                for (const val of value.entries()) {
+                    child.set(idx, val);
+                    if (++idx >= end) break;
+                }
             }
-        });
+        }
     }
 }

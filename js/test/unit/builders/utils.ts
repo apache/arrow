@@ -15,17 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import 'web-streams-polyfill';
+
 import '../../jest-extensions';
+
+import 'ix/Ix.node';
+
 import { from, fromDOMStream, toArray } from 'ix/asynciterable';
 import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
-import 'ix/Ix.node';
 import { util } from 'apache-arrow';
 import { Builder } from 'apache-arrow';
-import { DataType, Vector, Chunked } from 'apache-arrow';
+import { DataType, Vector } from 'apache-arrow';
 import randstr from 'randomatic';
 
 const rand = Math.random.bind(Math);
-const randnulls = <T, TNull = null>(values: T[], n: TNull = <any> null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
+const randnulls = <T, TNull = null>(values: T[], n: TNull = <any>null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
 
 export const randomBytes = (length: number) => fillRandom(Uint8Array, length);
 export const randomString = ((opts) => (length: number) =>
@@ -44,7 +48,7 @@ export const timestamp64sNoNulls = (length = 20, now = Date.now()) => Array.from
 export const timestamp32sWithNulls = (length = 20) => randnulls(timestamp32sNoNulls(length), null);
 export const timestamp64sWithNulls = (length = 20) => randnulls(timestamp64sNoNulls(length), null);
 export const timestamp32sWithMaxInts = (length = 20) => randnulls(timestamp32sNoNulls(length), 0x7fffffff);
-export const timestamp64sWithMaxInts = (length = 20) => randnulls(timestamp64sNoNulls(length), new Int32Array([0x7fffffff, 0x7fffffff]));
+export const timestamp64sWithMaxInts = (length = 20) => randnulls(timestamp64sNoNulls(length), 9223372034707292159n);
 
 export const boolsNoNulls = (length = 20) => Array.from({ length }, () => rand() > 0.5);
 export const date32sNoNulls = (length = 20) => timestamp32sNoNulls(length).map((x) => new Date(x));
@@ -52,38 +56,12 @@ export const date64sNoNulls = (length = 20) => timestamp64sNoNulls(length).map((
 export const int8sNoNulls = (length = 20) => Array.from(new Int8Array(randomBytes(length * Int8Array.BYTES_PER_ELEMENT).buffer));
 export const int16sNoNulls = (length = 20) => Array.from(new Int16Array(randomBytes(length * Int16Array.BYTES_PER_ELEMENT).buffer));
 export const int32sNoNulls = (length = 20) => Array.from(new Int32Array(randomBytes(length * Int32Array.BYTES_PER_ELEMENT).buffer));
-export const int64sNoNulls = (length = 20) => Array.from({ length }, (_, i) => {
-    const bn = util.BN.new(new Int32Array(randomBytes(2 * 4).buffer));
-    // Evenly distribute the three types of arguments we support in the Int64
-    // builder
-    switch (i % 3) {
-        // Int32Array (util.BN is-a Int32Array)
-        case 0: return bn;
-        // BigInt
-        case 1: return bn[Symbol.toPrimitive]();
-        // number
-        case 2:
-        default: return bn[0];
-    }
-});
+export const int64sNoNulls = (length = 20) => Array.from(new BigInt64Array(randomBytes(length * BigInt64Array.BYTES_PER_ELEMENT).buffer));
 
 export const uint8sNoNulls = (length = 20) => Array.from(new Uint8Array(randomBytes(length * Uint8Array.BYTES_PER_ELEMENT).buffer));
 export const uint16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer));
 export const uint32sNoNulls = (length = 20) => Array.from(new Uint32Array(randomBytes(length * Uint32Array.BYTES_PER_ELEMENT).buffer));
-export const uint64sNoNulls = (length = 20) => Array.from({ length }, (_, i) => {
-    const bn = util.BN.new(new Uint32Array(randomBytes(2 * 4).buffer));
-    // Evenly distribute the three types of arguments we support in the Uint64
-    // builder
-    switch (i % 3) {
-        // UInt32Array (util.BN is-a Uint32Array)
-        case 0: return bn;
-        // BigInt
-        case 1: return bn[Symbol.toPrimitive]();
-        // number
-        case 2:
-        default: return bn[0];
-    }
-});
+export const uint64sNoNulls = (length = 20) => Array.from(new BigUint64Array(randomBytes(length * BigUint64Array.BYTES_PER_ELEMENT).buffer));
 export const float16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer)).map(util.uint16ToFloat64);
 export const float32sNoNulls = (length = 20) => Array.from(new Float32Array(randomBytes(length * Float32Array.BYTES_PER_ELEMENT).buffer));
 export const float64sNoNulls = (length = 20) => Array.from(new Float64Array(randomBytes(length * Float64Array.BYTES_PER_ELEMENT).buffer));
@@ -110,11 +88,11 @@ export const float64sWithNulls = (length = 20) => randnulls(float64sNoNulls(leng
 export const int8sWithMaxInts = (length = 20) => randnulls(int8sNoNulls(length), 0x7fffffff);
 export const int16sWithMaxInts = (length = 20) => randnulls(int16sNoNulls(length), 0x7fffffff);
 export const int32sWithMaxInts = (length = 20) => randnulls(int32sNoNulls(length), 0x7fffffff);
-export const int64sWithMaxInts = (length = 20) => randnulls(int64sNoNulls(length), new Int32Array([0x7fffffff, 0x7fffffff]));
+export const int64sWithMaxInts = (length = 20) => randnulls(int64sNoNulls(length), 9223372034707292159n);
 export const uint8sWithMaxInts = (length = 20) => randnulls(uint8sNoNulls(length), 0x7fffffff);
 export const uint16sWithMaxInts = (length = 20) => randnulls(uint16sNoNulls(length), 0x7fffffff);
 export const uint32sWithMaxInts = (length = 20) => randnulls(uint32sNoNulls(length), 0x7fffffff);
-export const uint64sWithMaxInts = (length = 20) => randnulls(uint64sNoNulls(length), new Uint32Array([0x7fffffff, 0x7fffffff]));
+export const uint64sWithMaxInts = (length = 20) => randnulls(uint64sNoNulls(length), 9223372034707292159n);
 export const float16sWithNaNs = (length = 20) => randnulls(float16sNoNulls(length), NaN);
 export const float32sWithNaNs = (length = 20) => randnulls(float32sNoNulls(length), NaN);
 export const float64sWithNaNs = (length = 20) => randnulls(float64sNoNulls(length), NaN);
@@ -141,7 +119,7 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
         const type = typeFactory();
         const opts = { type, nullValues, highWaterMark: chunkLen };
         const chunks = [...Builder.throughIterable(opts)(vals)];
-        return Chunked.concat(...chunks) as Chunked<T>;
+        return chunks.reduce((a, b) => a.concat(b)) as Vector<T>;
     };
 }
 
@@ -152,7 +130,7 @@ export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen
         const source = from(vals).toDOMStream();
         const builder = Builder.throughDOM({ type, nullValues, readableStrategy: strategy, writableStrategy: strategy });
         const chunks = await fromDOMStream(source.pipeThrough(builder)).pipe(toArray);
-        return Chunked.concat(...chunks) as Chunked<T>;
+        return chunks.reduce((a, b) => a.concat(b)) as Vector<T>;
     };
 }
 
@@ -164,14 +142,14 @@ export function encodeEachNode<T extends DataType>(typeFactory: () => T, chunkLe
         const nulls_ = nullValues ? nullValues.map((x) => x === null ? undefined : x) : nullValues;
         const builder = Builder.throughNode({ type, nullValues: nulls_, highWaterMark: chunkLen });
         const chunks: any[] = await fromNodeStream(source.pipe(builder), chunkLen).pipe(toArray);
-        return Chunked.concat(...chunks) as Chunked<T>;
+        return chunks.reduce((a, b) => a.concat(b)) as Vector<T>;
     };
 }
 
 const isInt64Null = (nulls: Map<any, any>, x: any) => {
     if (ArrayBuffer.isView(x)) {
         const bn = util.BN.new<Int32Array>(x as Int32Array);
-        return nulls.has((<any> bn)[Symbol.toPrimitive]('default'));
+        return nulls.has((<any>bn)[Symbol.toPrimitive]('default'));
     }
     return false;
 };
@@ -190,7 +168,7 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
             }
             i++;
         }
-    } catch (e) {
+    } catch (e: any) {
         // Uncomment these two lines to catch and debug the value retrieval that failed
         // debugger;
         // vec.get(i);

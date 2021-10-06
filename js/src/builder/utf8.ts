@@ -38,7 +38,7 @@ export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> 
         return super.setValue(index, encodeUtf8(value) as any);
     }
     // @ts-ignore
-    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void {}
+    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void { }
 }
 
 (Utf8Builder.prototype as any)._flushPending = (BinaryBuilder.prototype as any)._flushPending;

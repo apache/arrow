@@ -17,10 +17,19 @@
 
 import { FixedWidthBuilder } from '../builder';
 import { Interval, IntervalDayTime, IntervalYearMonth } from '../type';
+import { setIntervalValue, setIntervalDayTime, setIntervalYearMonth } from '../visitor/set';
 
 /** @ignore */
-export class IntervalBuilder<T extends Interval = Interval, TNull = any> extends FixedWidthBuilder<T, TNull> {}
+export class IntervalBuilder<T extends Interval = Interval, TNull = any> extends FixedWidthBuilder<T, TNull> { }
+
+(IntervalBuilder.prototype as any)._setValue = setIntervalValue;
+
 /** @ignore */
-export class IntervalDayTimeBuilder<TNull = any> extends IntervalBuilder<IntervalDayTime, TNull> {}
+export class IntervalDayTimeBuilder<TNull = any> extends IntervalBuilder<IntervalDayTime, TNull> { }
+
+(IntervalDayTimeBuilder.prototype as any)._setValue = setIntervalDayTime;
+
 /** @ignore */
-export class IntervalYearMonthBuilder<TNull = any> extends IntervalBuilder<IntervalYearMonth, TNull> {}
+export class IntervalYearMonthBuilder<TNull = any> extends IntervalBuilder<IntervalYearMonth, TNull> { }
+
+(IntervalYearMonthBuilder.prototype as any)._setValue = setIntervalYearMonth;

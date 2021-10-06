@@ -17,6 +17,9 @@
 
 import { FixedSizeBinary } from '../type';
 import { FixedWidthBuilder } from '../builder';
+import { setFixedSizeBinary } from '../visitor/set';
 
 /** @ignore */
-export class FixedSizeBinaryBuilder<TNull = any> extends FixedWidthBuilder<FixedSizeBinary, TNull> {}
+export class FixedSizeBinaryBuilder<TNull = any> extends FixedWidthBuilder<FixedSizeBinary, TNull> { }
+
+(FixedSizeBinaryBuilder.prototype as any)._setValue = setFixedSizeBinary;

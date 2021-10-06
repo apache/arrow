@@ -19,7 +19,6 @@ import { Vector } from './vector';
 import { BufferType, Type } from './enum';
 import { DataType, strideForType } from './type';
 import { popcnt_bit_range, truncateBitmap } from './util/bit';
-import { toBigInt64Array, toBigUint64Array } from './util/buffer';
 
 // When slicing, we do not know the null count of the sliced range without
 // doing some computation. To avoid doing this eagerly, we set the null count
@@ -67,14 +66,6 @@ export class Data<T extends DataType = DataType> {
     declare public readonly typeIds: Buffers<T>[BufferType.TYPE];
     declare public readonly nullBitmap: Buffers<T>[BufferType.VALIDITY];
     declare public readonly valueOffsets: Buffers<T>[BufferType.OFFSET];
-
-    public get values64() {
-        switch (this.type.typeId) {
-            case Type.Int64: return toBigInt64Array(this.values);
-            case Type.Uint64: return toBigUint64Array(this.values);
-        }
-        return null;
-    }
 
     public get typeId(): T['TType'] { return this.type.typeId; }
     public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }

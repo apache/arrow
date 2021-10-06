@@ -36,13 +36,10 @@ export { MapBuilder } from './map';
 export { StructBuilder } from './struct';
 export { UnionBuilder, SparseUnionBuilder, DenseUnionBuilder } from './union';
 
-import { Type } from '../enum';
 import { Field } from '../schema';
 import { DataType } from '../type';
-import { Utf8Builder } from './utf8';
 import { BuilderType as B } from '../interfaces';
 import { Builder, BuilderOptions } from '../builder';
-import { instance as setVisitor } from '../visitor/set';
 import { instance as getBuilderConstructor } from '../visitor/builderctor';
 
 /** @nocollapse */
@@ -70,13 +67,3 @@ function newBuilder<T extends DataType = any, TNull = any>(options: BuilderOptio
 
     return builder as B<T, TNull>;
 }
-
-(Object.keys(Type) as any[])
-    .map((T: any) => Type[T] as any)
-    .filter((T: any): T is Type => typeof T === 'number' && T !== Type.NONE)
-    .forEach((typeId) => {
-        const BuilderCtor = getBuilderConstructor.visit(typeId);
-        BuilderCtor.prototype._setValue = setVisitor.getVisitFn(typeId);
-    });
-
-(Utf8Builder.prototype as any)._setValue = setVisitor.visitBinary;

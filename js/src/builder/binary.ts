@@ -39,12 +39,12 @@ export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNu
     protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number) {
         const offsets = this._offsets;
         const data = this._values.reserve(pendingLength).buffer;
-        let index = 0, length = 0, offset = 0, value: Uint8Array | undefined;
-        for ([index, value] of pending) {
+        let offset = 0;
+        for (const [index, value] of pending) {
             if (value === undefined) {
                 offsets.set(index, 0);
             } else {
-                length = value.length;
+                const length = value.length;
                 data.set(value, offset);
                 offsets.set(index, length);
                 offset += length;

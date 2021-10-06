@@ -81,7 +81,7 @@
     "gulp-rename": "2.0.0",
     "gulp-sourcemaps": "3.0.0",
     "gulp-typescript": "5.0.1",
-    "ix": "4.4.1",
+    "ix": "4.5.1",
     "jest": "27.0.6",
     "jest-silent-reporter": "0.5.0",
     "lerna": "4.0.0",

@@ -91,27 +91,27 @@ export class Vector<T extends DataType = any> {
     /**
      * @summary The {@link DataType `DataType`} of this Vector.
      */
-    public readonly type: T;
+    public declare readonly type: T;
 
     /**
      * @summary The primitive {@link Data `Data`} instances for this Vector's elements.
      */
-    public readonly data: ReadonlyArray<Data<T>>;
+    public declare readonly data: ReadonlyArray<Data<T>>;
 
     /**
      * @summary The number of elements in this Vector.
      */
-    public readonly length: number;
+    public declare readonly length: number;
 
     /**
      * @summary The number of primitive values per Vector element.
      */
-    public readonly stride: number;
+    public declare readonly stride: number;
 
     /**
      * @summary The number of child Vectors if this Vector is a nested dtype.
      */
-    public readonly numChildren: number;
+    public declare readonly numChildren: number;
 
     /**
      * @summary The aggregate size (in bytes) of this Vector's buffers and/or child Vectors.
@@ -266,8 +266,14 @@ export class Vector<T extends DataType = any> {
     // Initialize this static property via an IIFE so bundlers don't tree-shake
     // out this logic, but also so we're still compliant with `"sideEffects": false`
     protected static [Symbol.toStringTag] = ((proto: Vector) => {
+        (proto as any).type = DataType.prototype;
+        (proto as any).data = [];
+        (proto as any).length = 0;
+        (proto as any).stride = 1;
+        (proto as any).numChildren = 0;
         (proto as any)._nullCount = -1;
         (proto as any)._byteLength = -1;
+        (proto as any)._offsets = new Uint32Array([0]);
         (proto as any)[Symbol.isConcatSpreadable] = true;
         Object.setPrototypeOf(proto, new Proxy({}, new NumericIndexingProxyHandlerMixin(
             (inst, key) => inst.get(key),

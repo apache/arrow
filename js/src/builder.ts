@@ -16,7 +16,6 @@
 // under the License.
 
 import { Vector } from './vector';
-import { BufferType } from './enum';
 import { Data, makeData } from './data';
 import { MapRow, kKeys } from './row/map';
 import { createIsValidFunction } from './builder/valid';
@@ -358,41 +357,42 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * the internal `Builder` state.
      * @returns A `Data<T>` of the buffers and children representing the values written.
      */
-    public flush() {
+    public flush(): Data<T> {
 
-        const buffers: any = [];
-        const values = this._values;
-        const offsets = this._offsets;
-        const typeIds = this._typeIds;
-        const { length, nullCount } = this;
+        let data = undefined;
+        let typeIds = undefined;
+        let nullBitmap = undefined;
+        let valueOffsets = undefined;
+        const { type, length, nullCount } = this;
 
-        if (typeIds) { /* Unions */
-            buffers[BufferType.TYPE] = typeIds.flush(length);
+        // Unions
+        if (typeIds = this._typeIds?.flush(length)) {
             // DenseUnions
-            offsets && (buffers[BufferType.OFFSET] = offsets.flush(length));
-        } else if (offsets) { /* Variable-width primitives (Binary, Utf8) and Lists */
+            valueOffsets = this._offsets?.flush(length);
+        }
+        // Variable-width primitives (Binary, Utf8) and Lists
+        else if (valueOffsets = this._offsets?.flush(length)) {
             // Binary, Utf8
-            values && (buffers[BufferType.DATA] = values.flush(offsets.last()));
-            buffers[BufferType.OFFSET] = offsets.flush(length);
-        } else if (values) { /* Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval) */
-            buffers[BufferType.DATA] = values.flush(length);
+            data = this._values?.flush(this._offsets.last());
+        }
+        // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
+        else {
+            data = this._values?.flush(length);
         }
 
-        nullCount > 0 && (buffers[BufferType.VALIDITY] = this._nulls.flush(length));
+        if (nullCount > 0) {
+            nullBitmap = this._nulls?.flush(length);
+        }
 
-        const data = makeData(<any>{
-            type: this.type,
-            offset: 0, length, nullCount,
-            data: buffers[BufferType.DATA],
-            typeIds: buffers[BufferType.TYPE],
-            nullBitmap: buffers[BufferType.VALIDITY],
-            valueOffsets: buffers[BufferType.OFFSET],
-            children: this.children.map((child) => child.flush()),
-        }) as Data<T>;
+        const children = this.children.map((child) => child.flush());
 
         this.clear();
 
-        return data;
+        return makeData(<any>{
+            type, length, nullCount,
+            children, child: children[0],
+            data, typeIds, nullBitmap, valueOffsets,
+        }) as Data<T>;
     }
 
     /**
@@ -411,10 +411,10 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      */
     public clear() {
         this.length = 0;
-        this._offsets && (this._offsets.clear());
-        this._values && (this._values.clear());
-        this._nulls && (this._nulls.clear());
-        this._typeIds && (this._typeIds.clear());
+        this._nulls?.clear();
+        this._values?.clear();
+        this._offsets?.clear();
+        this._typeIds?.clear();
         this.children.forEach((child) => child.clear());
         return this;
     }
