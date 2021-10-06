@@ -158,7 +158,10 @@ open_dataset <- function(sources,
     return(dataset___UnionDataset__create(sources, schema))
   }
 
-  if ((class(format) == "CsvFileFormat" || format == "csv") && !is.null(schema)) {
+  csv_format <- class(format) == "CsvFileFormat" ||
+    (is.character(format) && format == "csv")
+
+  if (csv_format && !is.null(schema)) {
     factory <- DatasetFactory$create(
       sources,
       partitioning = partitioning,
