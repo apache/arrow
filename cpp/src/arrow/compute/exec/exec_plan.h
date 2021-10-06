@@ -268,7 +268,7 @@ class MapNode : public ExecNode {
         return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
           auto status = task();
           if (this->input_counter_.Increment()) {
-            this->MarkFinished(status);
+            this->Finish(status);
           }
           return status;
         });
@@ -276,25 +276,26 @@ class MapNode : public ExecNode {
     } else {
       status = task();
       if (input_counter_.Increment()) {
-        this->MarkFinished();
+        this->Finish(status);
       }
     }
     if (!status.ok()) {
-      StopProducing();
+      if (input_counter_.Cancel()) {
+        this->Finish(status);
+      }
+      inputs_[0]->StopProducing(this);
       return;
     }
   }
 
-  void MarkFinished(Status status = Status::OK()) {
+  void Finish(Status finish_st = Status::OK()) {
     if (executor_) {
-      if (!status.ok()) {
-        this->StopProducing();
-      } else {
-        task_group_.End().AddCallback(
-            [this](const Status& status) { this->finished_.MarkFinished(status); });
-      }
+      task_group_.End().AddCallback([this, finish_st](const Status& st) {
+        Status final_status = finish_st & st;
+        this->finished_.MarkFinished(final_status);
+      });
     } else {
-      this->finished_.MarkFinished(status);
+      this->finished_.MarkFinished(finish_st);
     }
   }
 
@@ -307,7 +308,7 @@ class MapNode : public ExecNode {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->InputFinished(this, total_batches);
     if (input_counter_.SetTotal(total_batches)) {
-      this->MarkFinished();
+      this->Finish();
     }
   }
 
@@ -327,7 +328,7 @@ class MapNode : public ExecNode {
       this->stop_source_.RequestStop();
     }
     if (input_counter_.Cancel()) {
-      this->MarkFinished();
+      this->Finish();
     }
     inputs_[0]->StopProducing(this);
   }
