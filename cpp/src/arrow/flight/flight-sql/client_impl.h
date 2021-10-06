@@ -21,6 +21,7 @@
 #include <google/protobuf/any.pb.h>
 #include <google/protobuf/message_lite.h>
 
+
 namespace pb = arrow::flight::protocol;
 
 namespace arrow {
@@ -220,6 +221,106 @@ template <class T>
 Status FlightSqlClientT<T>::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                                   std::unique_ptr<FlightStreamReader>* stream) const {
   return client->DoGet(options, ticket, stream);
+}
+
+template <class T>
+Status FlightSqlClientT<T>::Prepare(
+    const FlightCallOptions& options, const std::string& query,
+    std::shared_ptr<PreparedStatementT<T>>* prepared_statement) {
+  *prepared_statement = std::make_shared<PreparedStatementT<T>>(client.get(), query);
+
+  return Status::OK();
+}
+
+template <class T>
+PreparedStatementT<T>::PreparedStatementT(T* client_, const std::string& query)
+    : client(client_) {
+  google::protobuf::Any command;
+  pb::sql::ActionCreatePreparedStatementRequest request;
+  request.set_query(query);
+  command.PackFrom(request);
+
+  Action action;
+  action.type = "CreatePreparedStatement";
+  action.body = Buffer::FromString(command.SerializeAsString());
+
+  std::unique_ptr<ResultStream> results;
+
+  client->DoAction({}, action, &results);
+
+  std::unique_ptr<Result> result;
+  results->Next(&result);
+
+  google::protobuf::Any prepared_result;
+
+  std::shared_ptr<Buffer> message = result->body;
+
+  prepared_result.ParseFromArray(message->data(), static_cast<int>(message->size()));
+
+  prepared_result.UnpackTo(&prepared_statement_result);
+
+  is_closed = false;
+}
+
+template <class T>
+Status PreparedStatementT<T>::Execute(const FlightCallOptions& call_options,
+                                      std::unique_ptr<FlightInfo>* info) {
+  //TODO Treat this error better
+  if (is_closed) {
+    std::cout << "Statement is closed" << std::endl;
+  }
+
+  pb::sql::CommandPreparedStatementQuery prepared_statement_query;
+
+  prepared_statement_query.set_prepared_statement_handle(
+      prepared_statement_result.prepared_statement_handle());
+
+  google::protobuf::Any any;
+  any.PackFrom(prepared_statement_query);
+
+  const std::string& string = any.SerializeAsString();
+  const FlightDescriptor& descriptor = FlightDescriptor::Command(string);
+
+  ARROW_RETURN_NOT_OK(client->GetFlightInfo({}, descriptor, info));
+
+  return Status::OK();
+}
+
+template <class T>
+bool PreparedStatementT<T>::IsClosed() const {
+  return is_closed;
+}
+
+template <class T>
+Status PreparedStatementT<T>::Close(const FlightCallOptions& options) {
+  if (is_closed) {
+    return Status::OK();
+  }
+
+  ActionType actionType;
+  actionType.type = "ClosePreparedStatement";
+  actionType.description =
+      "Closes a reusable prepared statement resource on the server. "
+      "Request Message: ActionClosePreparedStatementRequest Response Message: N/A;";
+
+  Action action;
+  action.type = actionType.type;
+  google::protobuf::Any command;
+  pb::sql::ActionClosePreparedStatementRequest request;
+  request.set_prepared_statement_handle(
+      prepared_statement_result.prepared_statement_handle());
+
+  command.PackFrom(request);
+
+  action.body = Buffer::FromString(command.SerializeAsString());
+
+  std::unique_ptr<ResultStream> results;
+
+  ARROW_RETURN_NOT_OK(client->DoAction({}, action, &results));
+
+  is_closed = true;
+
+  return Status::OK();
 }
 
 }  // namespace internal
