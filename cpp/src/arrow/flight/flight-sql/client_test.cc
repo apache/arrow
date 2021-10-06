@@ -43,6 +43,9 @@ class FlightClientMock {
                const std::shared_ptr<Schema>& schema,
                std::unique_ptr<FlightStreamWriter>*,
                std::unique_ptr<FlightMetadataReader>*));
+  MOCK_METHOD(Status, DoAction,
+              (const FlightCallOptions& options, const Action& action,
+                  std::unique_ptr<ResultStream>* results));
 };
 
 class FlightMetadataReaderMock : public FlightMetadataReader {
@@ -232,6 +235,44 @@ TEST(TestFlightSqlClient, TestExecute) {
   (void)sqlClient.Execute(call_options, query, &flight_info);
 }
 
+TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
+  auto *client_mock = new FlightClientMock();
+  std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
+  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightCallOptions call_options;
+
+  const std::string query = "query";
+
+  ON_CALL(*client_mock, DoAction)
+  .WillByDefault([](const FlightCallOptions& options, const Action& action,
+      std::unique_ptr<ResultStream>* results) {
+      google::protobuf::Any command;
+
+      pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+
+      prepared_statement_result.set_prepared_statement_handle("query");
+
+      command.PackFrom(prepared_statement_result);
+
+      *results = std::unique_ptr<ResultStream>(
+          new SimpleResultStream({Result{Buffer::FromString(command.SerializeAsString())}}));
+
+      return Status::OK();
+  });
+
+  std::unique_ptr<FlightInfo> flight_info;
+  EXPECT_CALL(*client_mock,
+              DoAction(_, _, _));
+
+  std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> preparedStatement;
+  sqlClient.Prepare(query, &preparedStatement);
+
+  EXPECT_CALL(*client_mock,
+              GetFlightInfo(_, _, &flight_info));
+
+  (void) preparedStatement->Execute(<#initializer#>, &flight_info);
+}
+
 TEST(TestFlightSqlClient, TestExecuteUpdate) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
@@ -278,7 +319,6 @@ TEST(TestFlightSqlClient, TestExecuteUpdate) {
 
   ASSERT_EQ(num_rows, 100);
 }
-
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
