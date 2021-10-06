@@ -43,8 +43,8 @@ DEFINE_string(computeir_dir, "",
               "This is currently $ARROW_REPO/experimental/computeir/");
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
   ::testing::InitGoogleTest(&argc, argv);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
   int ret = RUN_ALL_TESTS();
   gflags::ShutDownCommandLineFlags();
   return ret;
@@ -83,17 +83,76 @@ std::shared_ptr<Buffer> FlatbufferFromJSON(std::string root_type,
   return *bin->Read(*bin->GetSize());
 }
 
-TEST(FromJSON, Basic) {
-  auto buf = FlatbufferFromJSON("Literal", R"({
+template <typename Ir>
+auto ConvertJSON(util::string_view json) -> decltype(Convert(std::declval<Ir>())) {
+  std::string root_type;
+  if (std::is_same<Ir, ir::Literal>::value) {
+    root_type = "Literal";
+  } else if (std::is_same<Ir, ir::Expression>::value) {
+    root_type = "Expression";
+  } else if (std::is_same<Ir, ir::Relation>::value) {
+    root_type = "Relation";
+  } else if (std::is_same<Ir, ir::Plan>::value) {
+    root_type = "Plan";
+  } else {
+    std::cout << "Unknown Ir class in.";
+    std::abort();
+  }
+
+  auto buf = FlatbufferFromJSON(root_type, json);
+  return ConvertRoot<Ir>(*buf);
+}
+
+TEST(FromJSON, Int64Literal) {
+  ASSERT_THAT(ConvertJSON<ir::Literal>(R"({
+    type: {
+      type_type: "Int",
+      type: { bitWidth: 64, is_signed: true }
+    }
+  })"),
+              ResultWith(DataEq(std::make_shared<Int64Scalar>())));
+
+  ASSERT_THAT(ConvertJSON<ir::Literal>(R"({
     type: {
       type_type: "Int",
       type: { bitWidth: 64, is_signed: true }
     },
     impl_type: "Int64Literal",
     impl: { value: 42 }
-  })");
+  })"),
+              ResultWith(DataEq<int64_t>(42)));
+}
 
-  ASSERT_THAT(ConvertRoot<ir::Literal>(*buf), ResultWith(DataEq<int64_t>(42)));
+TEST(FromJSON, ComparisonExpression) {
+  ASSERT_THAT(ConvertJSON<ir::Expression>(R"({
+    impl_type: "Call",
+    impl: {
+      name: "equal",
+      arguments: [
+        {
+          impl_type: "FieldRef",
+          impl: {
+            ref_type: "FieldIndex",
+            ref: {
+              position: 3
+            }
+          }
+        },
+        {
+          impl_type: "Literal",
+          impl: {
+            type: {
+              type_type: "Int",
+              type: { bitWidth: 64, is_signed: true }
+            },
+            impl_type: "Int64Literal",
+            impl: { value: 42 }
+          }
+        }
+      ]
+    }
+  })"),
+              ResultWith(Eq(equal(field_ref(3), literal<int64_t>(42)))));
 }
 
 }  // namespace compute
