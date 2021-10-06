@@ -101,6 +101,18 @@ TEST(ExecPlanConstruction, MultipleNode) {
   ASSERT_THAT(plan->sinks(), ElementsAre(sink));
 }
 
+TEST(ExecPlanConstruction, AutoLabel) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  auto source1 = MakeDummyNode(plan.get(), "", /*inputs=*/{}, /*num_outputs=*/2);
+  auto source2 =
+      MakeDummyNode(plan.get(), "some_label", /*inputs=*/{}, /*num_outputs=*/1);
+  auto source3 = MakeDummyNode(plan.get(), "", /*inputs=*/{}, /*num_outputs=*/2);
+
+  ASSERT_EQ("0", source1->label());
+  ASSERT_EQ("some_label", source2->label());
+  ASSERT_EQ("2", source3->label());
+}
+
 struct StartStopTracker {
   std::vector<std::string> started, stopped;
 

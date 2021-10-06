@@ -125,22 +125,31 @@ In the tables, entries with a `-` are not currently implemented.
 |--------------------------|------------|
 | logical                  | boolean    |
 | integer                  | int32      |
-| double ("numeric")       | float64    |
-| character                | utf8^1^    |
+| double ("numeric")       | float64^1^ |
+| character                | utf8^2^    |
 | factor                   | dictionary |
 | raw                      | uint8      |
 | Date                     | date32     |
 | POSIXct                  | timestamp  |
 | POSIXlt                  | struct     |
 | data.frame               | struct     |
-| list^2^                  | list       |
+| list^3^                  | list       |
 | bit64::integer64         | int64      |
 | difftime                 | time32     |
 | vctrs::vctrs_unspecified | null       |
 
-^1^: If the character vector exceeds 2GB of strings, it will be converted to a `large_utf8` Arrow type
 
-^2^: Only lists where all elements are the same type are able to be translated to Arrow list type (which is a "list of" some type).
+
+^1^: `float64` and `double` are the same concept and data type in Arrow C++; 
+however, only `float64()` is used in arrow as the function `double()` already 
+exists in base R
+
+^2^: If the character vector exceeds 2GB of strings, it will be converted to a 
+`large_utf8` Arrow type
+
+^3^: Only lists where all elements are the same type are able to be translated 
+to Arrow list type (which is a "list of" some type).
+
 
 ### Arrow to R
 
@@ -150,42 +159,52 @@ In the tables, entries with a `-` are not currently implemented.
 | int8              | integer                      |
 | int16             | integer                      |
 | int32             | integer                      |
-| int64             | integer^3^                   |
+| int64             | integer^1^                   |
 | uint8             | integer                      |
 | uint16            | integer                      |
-| uint32            | integer^3^                   |
-| uint64            | integer^3^                   |
-| float16           | -                            |
+| uint32            | integer^1^                   |
+| uint64            | integer^1^                   |
+| float16           | -^2^                         |
 | float32           | double                       |
 | float64           | double                       |
 | utf8              | character                    |
-| binary            | arrow_binary ^5^             |
-| fixed_size_binary | arrow_fixed_size_binary ^5^  |
+| large_utf8        | character                    |
+| binary            | arrow_binary ^3^             |
+| large_binary      | arrow_large_binary ^3^       |
+| fixed_size_binary | arrow_fixed_size_binary ^3^  |
 | date32            | Date                         |
 | date64            | POSIXct                      |
 | time32            | hms::difftime                |
 | time64            | hms::difftime                |
 | timestamp         | POSIXct                      |
-| duration          | -                            |
+| duration          | -^2^                         |
 | decimal           | double                       |
 | dictionary        | factor^4^                    |
-| list              | arrow_list ^6^               |
-| fixed_size_list   | arrow_fixed_size_list ^6^    |
+| list              | arrow_list ^5^               |
+| large_list        | arrow_large_list ^5^         |
+| fixed_size_list   | arrow_fixed_size_list ^5^    |
 | struct            | data.frame                   |
 | null              | vctrs::vctrs_unspecified     |
-| map               | -                            |
-| union             | -                            |
-| large_utf8        | character                    |
-| large_binary      | arrow_large_binary ^5^       |
-| large_list        | arrow_large_list ^6^         |
+| map               | -^2^                         |
+| union             | -^2^                         |
 
-^3^: These integer types may contain values that exceed the range of R's `integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are converted to `double` ("numeric") and `int64` is converted to `bit64::integer64`. This conversion can be disabled (so that `int64` always yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
+^1^: These integer types may contain values that exceed the range of R's 
+`integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are 
+converted to `double` ("numeric") and `int64` is converted to 
+`bit64::integer64`. This conversion can be disabled (so that `int64` always
+yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
 
-^4^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
+^2^: Some Arrow data types do not currently have an R equivalent and will raise an error
+if cast to or mapped to via a schema.
 
-^5^: `arrow*_binary` classes are implemented as lists of raw vectors. 
+^3^: `arrow*_binary` classes are implemented as lists of raw vectors. 
 
-^6^: `arrow*_list` classes are implemented as subclasses of `vctrs_list_of` with a `ptype` attribute set to what an empty Array of the value type converts to. 
+^4^: Due to the limitation of R factors, Arrow `dictionary` values are coerced
+to string when translated to R if they are not already strings.
+
+^5^: `arrow*_list` classes are implemented as subclasses of `vctrs_list_of` 
+with a `ptype` attribute set to what an empty Array of the value type converts to. 
+
 
 ### R object attributes
 
