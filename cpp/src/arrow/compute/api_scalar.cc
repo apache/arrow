@@ -438,11 +438,9 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
-NormalizationFormOptions::NormalizationFormOptions()
+NormalizationFormOptions::NormalizationFormOptions(Method method)
     : FunctionOptions(internal::kNormalizationFormOptionsType), 
       method(method) {}
-NormalizationFormOptions::NormalizationFormOptions() 
-    : NormalizationFormOptions(NormalizationFormOptions::Method::NFC) {}
 constexpr char NormalizationFormOptions::kTypeName[];
 
 NullOptions::NullOptions(bool nan_is_null)

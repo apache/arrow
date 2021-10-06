@@ -560,15 +560,7 @@ struct Utf8NormalizationFormTransform : public FunctionalCaseMappingTransform {
 
   explicit Utf8NormalizationFormTransform(const NormalizationFormOptions& options)
       : options{&options} {}
-
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
-    options = &State::Get(ctx);
-    if (options->method) {
-      return Status::Invalid("Normalization form method not found.");
-    }
-    return Status::OK();
-  }
-
+  
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     utf8proc_uint8_t* transformed = nullptr;

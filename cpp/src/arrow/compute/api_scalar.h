@@ -369,7 +369,8 @@ struct ARROW_EXPORT NormalizationFormOptions : public FunctionOptions {
  public:
   enum Method { NFC, NFKC, NFD, NFKD };
 
-  explicit NormalizationFormOptions();
+  explicit NormalizationFormOptions(Method method = NFC);
+  static NormalizationFormOptions Defaults() { return NormalizationFormOptions(); }
   constexpr static char const kTypeName[] = "NormalizationFormOptions";
 
   Method method;
