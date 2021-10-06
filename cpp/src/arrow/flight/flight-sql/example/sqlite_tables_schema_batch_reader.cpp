@@ -100,7 +100,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
 }
 
 std::shared_ptr<DataType> SqliteTablesWithSchemaBatchReader::GetArrowType(
-    const std::string& sqlite_type) {
+    const char* sqlite_type) {
   if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
     return int64();
   } else if (boost::iequals(sqlite_type, "REAL")) {

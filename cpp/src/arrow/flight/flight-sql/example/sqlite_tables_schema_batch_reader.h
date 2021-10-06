@@ -53,7 +53,7 @@ class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
   /// Convert a column type to a ArrowType.
   /// \param sqlite_type the sqlite type.
   /// \return            The equivalent ArrowType.
-  static std::shared_ptr<DataType> GetArrowType(const std::string& sqlite_type);
+  static std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
 };
 }  // namespace sql
 }  // namespace flight
