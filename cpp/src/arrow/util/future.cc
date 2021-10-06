@@ -423,7 +423,7 @@ Future<> AllComplete(const std::vector<Future<>>& futures) {
   return out;
 }
 
-Future<> AllCompleteOrFailed(const std::vector<Future<>>& futures) {
+Future<> AllFinished(const std::vector<Future<>>& futures) {
   return All(futures).Then([](const std::vector<Result<internal::Empty>>& results) {
     for (const auto& res : results) {
       if (!res.ok()) {

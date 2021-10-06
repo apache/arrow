@@ -101,7 +101,7 @@ struct ExecPlanImpl : public ExecPlan {
       futures.push_back(node->finished());
     }
 
-    finished_ = AllCompleteOrFailed(futures);
+    finished_ = AllFinished(futures);
     return st;
   }
 

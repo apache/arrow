@@ -842,14 +842,14 @@ Future<> AllComplete(const std::vector<Future<>>& futures);
 
 /// \brief Create a Future which completes when all of `futures` complete.
 ///
-/// The future will be marked complete if all `futures` complete
-/// successfully. Otherwise, it will be marked failed with the status of
-/// the first failing future.
+/// The future will finish with an ok status if all `futures` finish with
+/// an ok status. Otherwise, it will be marked failed with the status of
+/// one of the failing futures.
 ///
 /// Unlike AllComplete this Future will not complete immediately when a
 /// failure occurs.  It will wait until all futures have finished.
 ARROW_EXPORT
-Future<> AllCompleteOrFailed(const std::vector<Future<>>& futures);
+Future<> AllFinished(const std::vector<Future<>>& futures);
 
 /// \brief Wait for one of the futures to end, or for the given timeout to expire.
 ///
