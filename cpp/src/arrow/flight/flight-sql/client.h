@@ -22,11 +22,45 @@
 #include <arrow/flight/types.h>
 #include <arrow/status.h>
 #include <google/protobuf/message.h>
+#include <arrow/flight/Flight.pb.h>
+#include <arrow/flight/flight-sql/FlightSql.pb.h>
+
+
+namespace pb = arrow::flight::protocol;
 
 namespace arrow {
 namespace flight {
 namespace sql {
 namespace internal {
+
+template <class T = arrow::flight::FlightClient>
+class ARROW_EXPORT PreparedStatementT {
+  pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+  bool is_closed;
+  T* client;
+
+public:
+  /// \brief Constructor for the PreparedStatement class.
+  /// \param[in] client   A raw pointer to FlightClient.
+  /// \param[in] query      The query that will be executed.
+  PreparedStatementT(T* client, const std::string& query);
+
+  /// \brief Executes the prepared statement query on the server.
+  /// \param[in] call_options RPC-layer hints for this call.
+  /// \param[out] info        A FlightInfo object representing the stream(s) to fetch.
+  /// \return Status.
+  Status Execute(const FlightCallOptions& call_options,
+                 std::unique_ptr<FlightInfo> *info);
+
+  /// \brief Closes the prepared statement.
+  /// \param[in] options  RPC-layer hints for this call.
+  /// \return Status.
+  Status Close(const FlightCallOptions& options);
+
+  /// \brief Checks if the prepared statement is closed.
+  /// \return The state of the prepared statement.
+  bool IsClosed() const;
+};
 
 /// \brief Flight client with Flight SQL semantics.
 template <class T = arrow::flight::FlightClient>
@@ -137,13 +171,23 @@ class FlightSqlClientT {
   Status GetTableTypes(const FlightCallOptions& options,
                        std::unique_ptr<FlightInfo>* flight_info) const;
 
- private:
+  /// \brief Create a prepared statement object.
+  /// \param[in] options              RPC-layer hints for this call.
+  /// \param[in] query                The query that will be executed.
+  /// \param[out] prepared_statement  The created prepared statement.
+  /// \return Status.
+  Status Prepare(const FlightCallOptions& options, const std::string& query,
+                 std::shared_ptr<PreparedStatementT<T>>* prepared_statement);
+
+private:
   std::unique_ptr<T> client;
 };
 
 }  // namespace internal
 
-typedef internal::FlightSqlClientT<FlightClient> FlightSqlClient;
+using FlightSqlClient = internal::FlightSqlClientT<>;
+using PreparedStatement = internal::PreparedStatementT<>;
+
 
 }  // namespace sql
 }  // namespace flight
