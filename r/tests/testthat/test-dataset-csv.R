@@ -279,3 +279,12 @@ test_that("Error if no format specified and files are not parquet", {
     "Parquet magic bytes not found"
   )
 })
+
+test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)", {
+  headerless_csv_dir <- make_temp_dir()
+  tbl <- df1[, c("int", "dbl")]
+  write.table(tbl, file.path(headerless_csv_dir, "file1.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
+
+  ds <- open_dataset(headerless_csv_dir, format = "csv", schema = schema(int = int32(), dbl = float64()))
+  expect_equal(ds %>% collect(), tbl)
+})

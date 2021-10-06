@@ -138,6 +138,7 @@ open_dataset <- function(sources,
   if (!arrow_with_dataset()) {
     stop("This build of the arrow package does not support Datasets", call. = FALSE)
   }
+
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
@@ -157,7 +158,23 @@ open_dataset <- function(sources,
     return(dataset___UnionDataset__create(sources, schema))
   }
 
-  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, ...)
+  if ((class(format) == "CsvFileFormat" || format == "csv") && !is.null(schema)) {
+    factory <- DatasetFactory$create(
+      sources,
+      partitioning = partitioning,
+      format = format,
+      ...,
+      read_options = CsvReadOptions$create(column_names = names(schema))
+    )
+  } else {
+    factory <- DatasetFactory$create(
+      sources,
+      partitioning = partitioning,
+      format = format,
+      ...
+    )
+  }
+
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
