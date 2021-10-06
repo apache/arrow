@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Functions for converting between pandas's NumPy-based data representation
-// and Arrow data structures
 
 #pragma once
 

@@ -2189,7 +2189,7 @@ def test_interval_array_from_timedelta():
 def test_interval_array_from_relativedelta():
     # dateutil is dependency of pandas
     from dateutil.relativedelta import relativedelta
-    from pandas.tseries.offsets import DateOffset
+    from pandas import DateOffset
     data = [
         None,
         relativedelta(years=1, months=1,
