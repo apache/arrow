@@ -48,6 +48,11 @@ class SqliteStatement {
   /// \return          Status.
   Status Step(int* rc);
 
+  /// \brief Reset the state of the sqlite3_stmt.
+  /// \param[out] rc   The resulting return code from SQLite.
+  /// \return          Status.
+  Status Reset(int* rc);
+
   /// \brief Returns the underlying sqlite3_stmt.
   sqlite3_stmt* GetSqlite3Stmt();
 

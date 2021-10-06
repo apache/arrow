@@ -83,6 +83,15 @@ Status SqliteStatement::Step(int* rc) {
   return Status::OK();
 }
 
+Status SqliteStatement::Reset(int *rc) {
+  *rc = sqlite3_reset(stmt_);
+  if (*rc == SQLITE_ERROR) {
+    return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db_));
+  }
+
+  return Status::OK();
+}
+
 sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() { return stmt_; }
 
 }  // namespace example
