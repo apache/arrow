@@ -45,7 +45,7 @@ class FlightClientMock {
                std::unique_ptr<FlightMetadataReader>*));
   MOCK_METHOD(Status, DoAction,
               (const FlightCallOptions& options, const Action& action,
-                  std::unique_ptr<ResultStream>* results));
+               std::unique_ptr<ResultStream>* results));
 };
 
 class FlightMetadataReaderMock : public FlightMetadataReader {
@@ -236,7 +236,7 @@ TEST(TestFlightSqlClient, TestExecute) {
 }
 
 TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
-  auto *client_mock = new FlightClientMock();
+  auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
   FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
   FlightCallOptions call_options;
@@ -244,33 +244,31 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
   const std::string query = "query";
 
   ON_CALL(*client_mock, DoAction)
-  .WillByDefault([](const FlightCallOptions& options, const Action& action,
-      std::unique_ptr<ResultStream>* results) {
-      google::protobuf::Any command;
+      .WillByDefault([](const FlightCallOptions& options, const Action& action,
+                        std::unique_ptr<ResultStream>* results) {
+        google::protobuf::Any command;
 
-      pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+        pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
 
-      prepared_statement_result.set_prepared_statement_handle("query");
+        prepared_statement_result.set_prepared_statement_handle("query");
 
-      command.PackFrom(prepared_statement_result);
+        command.PackFrom(prepared_statement_result);
 
-      *results = std::unique_ptr<ResultStream>(
-          new SimpleResultStream({Result{Buffer::FromString(command.SerializeAsString())}}));
+        *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
+            {Result{Buffer::FromString(command.SerializeAsString())}}));
 
-      return Status::OK();
-  });
+        return Status::OK();
+      });
 
   std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock,
-              DoAction(_, _, _));
+  EXPECT_CALL(*client_mock, DoAction(_, _, _));
 
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> preparedStatement;
-  sqlClient.Prepare({}, query, &preparedStatement);
+  (void)sqlClient.Prepare({}, query, &preparedStatement);
 
-  EXPECT_CALL(*client_mock,
-              GetFlightInfo(_, _, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(_, _, &flight_info));
 
-  (void) preparedStatement->Execute({}, &flight_info);
+  (void)preparedStatement->Execute({}, &flight_info);
 }
 
 TEST(TestFlightSqlClient, TestExecuteUpdate) {

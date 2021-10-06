@@ -18,13 +18,12 @@
 #ifndef ARROW_FLIGHT_SQL_CLIENT_H
 #define ARROW_FLIGHT_SQL_CLIENT_H
 
+#include <arrow/flight/Flight.pb.h>
 #include <arrow/flight/client.h>
+#include <arrow/flight/flight-sql/FlightSql.pb.h>
 #include <arrow/flight/types.h>
 #include <arrow/status.h>
 #include <google/protobuf/message.h>
-#include <arrow/flight/Flight.pb.h>
-#include <arrow/flight/flight-sql/FlightSql.pb.h>
-
 
 namespace pb = arrow::flight::protocol;
 
@@ -39,18 +38,19 @@ class ARROW_EXPORT PreparedStatementT {
   bool is_closed;
   T* client;
 
-public:
+ public:
   /// \brief Constructor for the PreparedStatement class.
   /// \param[in] client   A raw pointer to FlightClient.
   /// \param[in] query      The query that will be executed.
-  PreparedStatementT(T* client, const std::string& query, std::shared_ptr<Buffer> result_buffer);
+  PreparedStatementT(T* client, const std::string& query,
+                     std::shared_ptr<Buffer> result_buffer);
 
   /// \brief Executes the prepared statement query on the server.
   /// \param[in] call_options RPC-layer hints for this call.
   /// \param[out] info        A FlightInfo object representing the stream(s) to fetch.
   /// \return Status.
   Status Execute(const FlightCallOptions& call_options,
-                 std::unique_ptr<FlightInfo> *info);
+                 std::unique_ptr<FlightInfo>* info);
 
   /// \brief Closes the prepared statement.
   /// \param[in] options  RPC-layer hints for this call.
@@ -179,7 +179,7 @@ class FlightSqlClientT {
   Status Prepare(const FlightCallOptions& options, const std::string& query,
                  std::shared_ptr<PreparedStatementT<T>>* prepared_statement);
 
-private:
+ private:
   std::unique_ptr<T> client;
 };
 
@@ -187,7 +187,6 @@ private:
 
 using FlightSqlClient = internal::FlightSqlClientT<>;
 using PreparedStatement = internal::PreparedStatementT<>;
-
 
 }  // namespace sql
 }  // namespace flight
