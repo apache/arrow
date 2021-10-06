@@ -129,7 +129,7 @@ Status RunMain() {
     ARROW_RETURN_NOT_OK(sqlClient.Execute(call_options, fLS::FLAGS_query, &info));
   } else if (fLS::FLAGS_command == "GetCatalogs") {
     ARROW_RETURN_NOT_OK(sqlClient.GetCatalogs(call_options, &info));
-  } else if (fLS::FLAGS_command == "Prepared") {
+  } else if (fLS::FLAGS_command == "PreparedStatementExecute") {
     std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement;
 
     ARROW_RETURN_NOT_OK(sqlClient.Prepare({}, fLS::FLAGS_query, &prepared_statement));
@@ -159,8 +159,7 @@ Status RunMain() {
         call_options, &fLS::FLAGS_catalog, &fLS::FLAGS_schema, fLS::FLAGS_table, &info));
   }
 
-  if (info != NULLPTR) {
-    // TODO Since we are closing the preparedStament above, this wont work.
+  if (info != NULLPTR && fLS::FLAGS_command != "PreparedStatementExecute") {
     return PrintResults(sqlClient, call_options, info);
   }
 
