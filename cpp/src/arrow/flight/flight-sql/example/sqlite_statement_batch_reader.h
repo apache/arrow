@@ -43,10 +43,9 @@ class SqliteStatementBatchReader : public RecordBatchReader {
  private:
   std::shared_ptr<SqliteStatement> statement_;
   std::shared_ptr<Schema> schema_;
-  int rc_;
 
   SqliteStatementBatchReader(std::shared_ptr<SqliteStatement> statement,
-                             std::shared_ptr<Schema> schema, int rc);
+                             std::shared_ptr<Schema> schema);
 };
 
 }  // namespace example

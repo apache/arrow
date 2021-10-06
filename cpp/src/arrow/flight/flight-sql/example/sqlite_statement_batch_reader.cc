@@ -71,9 +71,9 @@ namespace example {
 
 std::shared_ptr<Schema> SqliteStatementBatchReader::schema() const { return schema_; }
 
-SqliteStatementBatchReader::SqliteStatementBatchReader(
-    std::shared_ptr<SqliteStatement> statement, std::shared_ptr<Schema> schema, int rc)
-    : statement_(std::move(statement)), schema_(std::move(schema)), rc_(rc) {}
+SqliteStatementBatchReader::SqliteStatementBatchReader(std::shared_ptr<SqliteStatement> statement,
+                                                       std::shared_ptr<Schema> schema)
+    : statement_(std::move(statement)), schema_(std::move(schema)) {}
 
 Status SqliteStatementBatchReader::Create(
     const std::shared_ptr<SqliteStatement>& statement_,
@@ -84,7 +84,16 @@ Status SqliteStatementBatchReader::Create(
   std::shared_ptr<Schema> schema;
   ARROW_RETURN_NOT_OK(statement_->GetSchema(&schema));
 
-  result->reset(new SqliteStatementBatchReader(statement_, schema, rc));
+  result->reset(new SqliteStatementBatchReader(statement_, schema));
+
+  return Status::OK();
+}
+
+Status SqliteStatementBatchReader::Create(
+    const std::shared_ptr<SqliteStatement> &statement_,
+    const std::shared_ptr<Schema> &schema,
+    std::shared_ptr<SqliteStatementBatchReader> *result) {
+  result->reset(new SqliteStatementBatchReader(statement_, schema));
 
   return Status::OK();
 }
@@ -102,8 +111,13 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
     ARROW_RETURN_NOT_OK(MakeBuilder(default_memory_pool(), field_type, &builders[i]));
   }
 
+  sqlite3_reset(stmt_);
+
+  int rc;
+  ARROW_RETURN_NOT_OK(statement_->Step(&rc));
+
   int rows = 0;
-  while (rows < MAX_BATCH_SIZE && rc_ == SQLITE_ROW) {
+  while (rows < MAX_BATCH_SIZE && rc == SQLITE_ROW) {
     rows++;
     for (int i = 0; i < num_fields; i++) {
       const std::shared_ptr<Field>& field = schema_->field(i);
@@ -132,7 +146,7 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
       }
     }
 
-    ARROW_RETURN_NOT_OK(statement_->Step(&rc_));
+    ARROW_RETURN_NOT_OK(statement_->Step(&rc));
   }
 
   if (rows > 0) {
