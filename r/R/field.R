@@ -54,7 +54,7 @@ Field <- R6Class("Field",
     }
   )
 )
-Field$create <- function(name, type, metadata = NA, nullable = TRUE) {
+Field$create <- function(name, type, metadata, nullable = TRUE) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
