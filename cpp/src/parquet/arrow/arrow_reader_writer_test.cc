@@ -4195,20 +4195,21 @@ struct NestedFilterTestCase {
   std::shared_ptr<::arrow::DataType> write_schema;
   std::vector<int> indices_to_read;
   std::shared_ptr<::arrow::DataType> expected_schema;
+  std::string write_data;
+  std::string read_data;
 };
-class TestNestedSchemaFilteredRead : public ::testing::TestWithParam<NestedFilterTestCase> {
-  const kWriteData = R"([[ {t1: { "a":1, "b":1}, t2: {"c":1, "d":1} ]])"
-};
+class TestNestedSchemaFilteredReader
+    : public ::testing::TestWithParam<NestedFilterTestCase> {};
 
-TEST_P(TestedNestedSchemaFilteredReader, ReadWrite) {
-  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-                                row_group_size, write_props, arrow_properties));
-  std::shared_ptr<::arrow::io::BufferOutputStream >sink = CreateOutputStream();
-  auto write_props = WriterProperties::Builder().write_batch_size(100)->build();
-  std::shared_ptr<::arrow::Array> array = ArrayFromJSON(GetParam().write_schema, kWriteData)
+TEST_P(TestNestedSchemaFilteredReader, ReadWrite) {
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink = CreateOutputStream();
+  auto write_props = WriterProperties::Builder()->build();
+  std::shared_ptr<::arrow::Array> array =
+      ArrayFromJSON(GetParam().write_schema, GetParam().write_data);
 
-  ASSERT_OK_NO_THROW(WriteTable(Table::FromArrays({array}, "col"), ::arrow::default_memory_pool(), sink,
-                                row_group_size, write_props, arrow_properties));
+  ASSERT_OK_NO_THROW(WriteTable(::arrow::Table::FromRecordBatches({::arrow::RecordBatch::FromArrays({array}, "col")}),
+                                ::arrow::default_memory_pool(), sink, row_group_size,
+                                write_props, arrow_properties));
   std::shared_ptr<::arrow::Buffer> buffer;
   ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
 
@@ -4219,29 +4220,56 @@ TEST_P(TestedNestedSchemaFilteredReader, ReadWrite) {
   std::shared_ptr<::arrow::Table> read_table;
   ASSERT_OK_NO_THROW(reader->ReadTable(GetParam().indices_to_read, &read_table));
 
-  AssertSchemaEqual(GetParam().expected_schema, read_table.schema().field(0));
+  std::shared_ptr<::arrow : Array> expected =
+      ArrayFromJSON(GetParam().expected_schema, GetParam().read_data());
+  AssertArraysEqual(*array, *expected, /*verbose=*/true);
 }
 
-std::vector<NestedFilteredTestCase> GenerateNestedFilteredCases() {
-  auto struct_type = arrow::struct_({arrow::field("t1", 
-                                                  arrow::struct_({::arrow::field("a",arrow::int64()),
-::arrow::field("b",arrow::int64())})),
-arrow::field("t2", 
-                                                  arrow::struct_({::arrow::field("c",arrow::int64()),
-::arrow::field("d",arrow::int64())}))});
+std::vector<NestedFilteredTestCase> GenerateListFilteredTestCases() {
+  auto struct_type = ::arrow::struct_(
+      {::arrow::field("a", ::arrow::int64()), ::arrow::field("b", ::arrow::int64())});
+
+  constexpr auto kWriteData = R"([[{"a": 1, "b": 2}]])";
+  constexpr auto kReadData = R"([[{"a": 1}]])";
 
   std::vector<NestedFilterTestCase> cases;
-  auto first_selected_type = ::arrow::struct_({::arrow::field("t1",
-                                                                   ::arrow::struct_({::arrow::field("a", ::arrow::int64)}))})
-  cases.emplace_back({::arrow::list(struct_type(first_selected_type),
-    /*indices=*/{0},
-                    ::arrow::list(first_selected_type)});
+  auto first_selected_type = ::arrow::struct_(struct_type.field(0));
+  cases.emplace_back({::arrow::list(struct_type),
+                      /*indices=*/{0}, ::arrow::list(first_selected_type), kWriteData,
+                      kReadData});
+  cases.emplace_back({::arrow::large_list(struct_type),
+                      /*indices=*/{0}, ::arrow::large_list(first_selected_type),
+                      kWriteData, kReadData});
+  cases.emplace_back({::arrow::fixed_size_list(struct_type, /*list_size=*/1),
+                      /*indices=*/{0},
+                      ::arrow::fixed_size_list(first_selected_type, /*list_size=*/1),
+                      kWriteData, kReadData});
   return cases;
 }
 
-INSTANTIATE_TEST_SUITE_P(NestedFilteredReads, TestNestedSchemaFilteredReader,
-                         ::testing::ValuesIn(GenerateNestedFilteredCases()));
+INSTANTIATE_TEST_SUITE_P(ListFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateListFilteredCases()));
 
+std::vector<NestedFilteredTestCase> GenerateNestedStructFilteredTestCases() {
+  auto struct_type = ::arrow::struct_(
+      {arrow::field("t1", ::arrow::struct_({::arrow::field("a", ::arrow::int64()),
+                                            ::arrow::field("b", ::arrow::int64())})),
+       arrow::field("t2", ::arrow::int64())});
+
+  constexpr auto kWriteData = R"([{"t1": {"a": 1, "b":2}, "t2": 3}])";
+  constexpr auto kReadData = R"([{"t1": {"a": 1}, "t2": 3}])";
+
+  std::vector<NestedFilterTestCase> cases;
+  auto selected_type = ::arrow::struct_({
+    ::arrow::field("t1", ::arrow::struct_({::arrow::field("a", ::arrow::int64()})),
+                   struct_type.field(1)});
+  cases.emplace_back({struct_type,
+                      /*indices=*/{0, 2}, selected_type, kWriteData, kReadData});
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(ListFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateNestedStructFilteredTestCases()));
 
 }  // namespace arrow
 }  // namespace parquet
