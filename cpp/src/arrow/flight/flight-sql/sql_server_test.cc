@@ -26,6 +26,7 @@
 #include <gmock/gmock.h>
 #include <google/protobuf/any.pb.h>
 #include <gtest/gtest.h>
+#include <arrow/testing/gtest_util.h>
 
 #define unparen(...) __VA_ARGS__
 #define DECLARE_ARRAY(ARRAY_NAME, TYPE_CLASS, DATA)     \
