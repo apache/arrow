@@ -18,6 +18,7 @@
 #pragma once
 
 #include <sqlite3.h>
+#include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
 #include "arrow/api.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
