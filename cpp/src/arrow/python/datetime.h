@@ -186,9 +186,9 @@ Result<PyObject*> StringToTzinfo(const std::string& tz);
 ARROW_PYTHON_EXPORT
 Result<std::string> TzinfoToString(PyObject* pytzinfo);
 
-/// Converts MonthDayNano to a python dictionary.
+/// Converts MonthDayNano to a python namedtuple.
 ///
-/// Returns a named tuple (pyarrow.MonthDayNanoTuple) containing attributes
+/// Returns a named tuple (pyarrow.MonthDayNano) containing attributes
 /// "months", "days", "nanoseconds" in the given order
 /// with values extracted from the fields on interval.
 ///

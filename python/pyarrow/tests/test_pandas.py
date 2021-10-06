@@ -1502,8 +1502,7 @@ class TestConvertDateTimeLikeTypes:
                             DateOffset(days=3600, months=3600, microseconds=3,
                                        nanoseconds=600)]
         })
-        field = pa.field('date_offset', pa.month_day_nano_interval())
-        schema = pa.schema([field])
+        schema = pa.schema([('date_offset', pa.month_day_nano_interval()])
         _check_pandas_roundtrip(
             df,
             expected_schema=schema)

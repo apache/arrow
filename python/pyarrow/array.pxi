@@ -167,7 +167,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     default converted as MonthDayNanoIntervalArray. relativedelta leapday's
     are ignored as are all absolute fields on both objects. datetime.timedelta
     can also be converted to MonthDayNanoIntervalArray but require passing
-    MonthDayIntervalType explicitly.
+    MonthDayNanoIntervalType explicitly.
 
     Converting to dictionary array will promote to a wider integer type for
     indices if the number of distinct values cannot be represented, even if
