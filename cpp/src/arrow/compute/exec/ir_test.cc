@@ -21,6 +21,7 @@
 
 #include <gflags/gflags.h>
 
+#include "arrow/compute/exec/options.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/io_util.h"
@@ -103,7 +104,7 @@ auto ConvertJSON(util::string_view json) -> decltype(Convert(std::declval<Ir>())
   return ConvertRoot<Ir>(*buf);
 }
 
-TEST(FromJSON, Int64Literal) {
+TEST(Literal, Int64) {
   ASSERT_THAT(ConvertJSON<ir::Literal>(R"({
     type: {
       type_type: "Int",
@@ -123,7 +124,7 @@ TEST(FromJSON, Int64Literal) {
               ResultWith(DataEq<int64_t>(42)));
 }
 
-TEST(FromJSON, ComparisonExpression) {
+TEST(Expression, Comparison) {
   ASSERT_THAT(ConvertJSON<ir::Expression>(R"({
     impl_type: "Call",
     impl: {
@@ -134,7 +135,7 @@ TEST(FromJSON, ComparisonExpression) {
           impl: {
             ref_type: "FieldIndex",
             ref: {
-              position: 3
+              position: 2
             }
           }
         },
@@ -152,7 +153,95 @@ TEST(FromJSON, ComparisonExpression) {
       ]
     }
   })"),
-              ResultWith(Eq(equal(field_ref(3), literal<int64_t>(42)))));
+              ResultWith(Eq(equal(field_ref(2), literal<int64_t>(42)))));
+}
+
+TEST(Relation, Filter) {
+  ASSERT_THAT(
+      ConvertJSON<ir::Relation>(R"({
+    impl_type: "Filter",
+    impl: {
+      base: {
+        output_mapping_type: "PassThrough",
+        output_mapping: {}
+      },
+      rel: {
+        impl_type: "Source",
+        impl: {
+          base: {
+            output_mapping_type: "PassThrough",
+            output_mapping: {}
+          },
+          name: "test source",
+          schema: {
+            endianness: "Little",
+            fields: [
+              {
+                name: "i32",
+                type_type: "Int",
+                type: {
+                  bitWidth: 32,
+                  is_signed: true
+                }
+              },
+              {
+                name: "f64",
+                type_type: "FloatingPoint",
+                type: {
+                  precision: "DOUBLE"
+                }
+              },
+              {
+                name: "i64",
+                type_type: "Int",
+                type: {
+                  bitWidth: 64,
+                  is_signed: true
+                }
+              }
+            ]
+          }
+        }
+      },
+      predicate: {
+        impl_type: "Call",
+        impl: {
+          name: "equal",
+          arguments: [
+            {
+              impl_type: "FieldRef",
+              impl: {
+                ref_type: "FieldIndex",
+                ref: {
+                  position: 2
+                }
+              }
+            },
+            {
+              impl_type: "Literal",
+              impl: {
+                type: {
+                  type_type: "Int",
+                  type: { bitWidth: 64, is_signed: true }
+                },
+                impl_type: "Int64Literal",
+                impl: { value: 42 }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })"),
+      ResultWith(Eq(Declaration::Sequence({
+          {"catalog_source",
+           CatalogSourceNodeOptions{"test source", schema({
+                                                       field("i32", int32()),
+                                                       field("f64", float64()),
+                                                       field("i64", int64()),
+                                                   })}},
+          {"filter", FilterNodeOptions{equal(field_ref(2), literal<int64_t>(42))}},
+      }))));
 }
 
 }  // namespace compute

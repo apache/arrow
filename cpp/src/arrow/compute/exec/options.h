@@ -36,6 +36,8 @@ namespace compute {
 class ARROW_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
+
+  virtual bool Equals(const ExecNodeOptions& other) const { return false; }
 };
 
 /// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
@@ -61,6 +63,8 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
  public:
   explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
       : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
+
+  bool Equals(const ExecNodeOptions& other) const override;
 
   Expression filter_expression;
   bool async_mode;

@@ -19,7 +19,9 @@
 
 #include <flatbuffers/flatbuffers.h>
 
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
@@ -34,11 +36,25 @@ namespace compute {
 
 namespace ir = org::apache::arrow::computeir::flatbuf;
 
+class ARROW_EXPORT CatalogSourceNodeOptions : public ExecNodeOptions {
+ public:
+  CatalogSourceNodeOptions(std::string name, std::shared_ptr<Schema> schema)
+      : name(std::move(name)), schema(std::move(schema)) {}
+
+  bool Equals(const ExecNodeOptions& other) const override;
+
+  std::string name;
+  std::shared_ptr<Schema> schema;
+};
+
 ARROW_EXPORT
 Result<Datum> Convert(const ir::Literal& lit);
 
 ARROW_EXPORT
 Result<Expression> Convert(const ir::Expression& lit);
+
+ARROW_EXPORT
+Result<Declaration> Convert(const ir::Relation& rel);
 
 template <typename Ir>
 auto ConvertRoot(const Buffer& buf) -> decltype(Convert(std::declval<Ir>())) {

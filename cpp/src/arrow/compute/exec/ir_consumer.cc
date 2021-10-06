@@ -22,6 +22,9 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/compute/function_internal.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/visitor_inline.h"
@@ -333,7 +336,7 @@ Result<FieldRef> Convert(const ir::FieldRef& ref) {
     case ir::Deref::MapKey:
     case ir::Deref::ArraySubscript:
     case ir::Deref::ArraySlice:
-    case ir::Deref::NONE:
+    default:
       break;
   }
   return Status::NotImplemented("Deref::", EnumNameDeref(ref.ref_type()));
@@ -419,12 +422,50 @@ Result<Expression> Convert(const ir::Expression& expr) {
     }
 
     case ir::ExpressionImpl::WindowCall:
-    case ir::ExpressionImpl::NONE:
+    default:
       break;
   }
 
   return Status::NotImplemented("ExpressionImpl::",
                                 EnumNameExpressionImpl(expr.impl_type()));
+}
+
+Result<Declaration> Convert(const ir::Relation& rel) {
+  switch (rel.impl_type()) {
+    case ir::RelationImpl::Source: {
+      auto source = rel.impl_as<ir::Source>();
+      auto name = ipc::internal::StringFromFlatbuffers(source->name());
+      ipc::DictionaryMemo ignore;
+      std::shared_ptr<Schema> schema;
+      RETURN_NOT_OK(ipc::internal::GetSchema(source->schema(), &ignore, &schema));
+      return Declaration{"catalog_source",
+                         {},
+                         CatalogSourceNodeOptions{std::move(name), std::move(schema)}};
+    }
+
+    case ir::RelationImpl::Filter: {
+      auto filter = rel.impl_as<ir::Filter>();
+      ARROW_ASSIGN_OR_RAISE(auto arg, Convert(*filter->rel()).As<Declaration::Input>());
+      ARROW_ASSIGN_OR_RAISE(auto predicate, Convert(*filter->predicate()));
+      return Declaration{
+          "filter", {std::move(arg)}, FilterNodeOptions{std::move(predicate)}};
+    }
+    default:
+      break;
+  }
+
+  return Status::NotImplemented("RelationImpl::", EnumNameRelationImpl(rel.impl_type()));
+}
+
+using ::arrow::internal::DataMember;
+auto kCatalogSourceNodeOptions = ::arrow::internal::MakeProperties(
+    DataMember("name", &CatalogSourceNodeOptions::name));
+
+bool CatalogSourceNodeOptions::Equals(const ExecNodeOptions& other) const {
+  using Options = CatalogSourceNodeOptions;
+  const auto& lhs = checked_cast<const Options&>(*this);
+  const auto& rhs = checked_cast<const Options&>(other);
+  return internal::CompareImpl<Options>(lhs, rhs, kCatalogSourceNodeOptions).equal_;
 }
 
 }  // namespace compute
