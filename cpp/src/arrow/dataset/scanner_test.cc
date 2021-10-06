@@ -1046,7 +1046,7 @@ TEST_F(TestBackpressure, ScanBatchesUnordered) {
   // The exact numbers may be imprecise due to threading but we should pretty quickly read
   // up to our backpressure limit and a little above.  We should not be able to go too far
   // above.
-  ASSERT_TRUE(TotalBatchesRead() >= kDefaultBackpressureHigh);
+  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
   SleepABit();
   // Worst case we read in the entire set of initial batches
   ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
@@ -1067,7 +1067,7 @@ TEST_F(TestBackpressure, DISABLED_ScanBatchesOrdered) {
   // The exact numbers may be imprecise due to threading but we should pretty quickly read
   // up to our backpressure limit and a little above.  We should not be able to go too far
   // above.
-  ASSERT_TRUE(TotalBatchesRead() >= kDefaultBackpressureHigh);
+  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
   // This can yield some false passes but it is tricky to test that a counter doesn't
   // increase over time.
   for (int i = 0; i < 20; i++) {
