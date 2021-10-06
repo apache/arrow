@@ -388,7 +388,7 @@ def repeat(value, size, MemoryPool memory_pool=None):
 
     Parameters
     ----------
-    value: Scalar-like object
+    value : Scalar-like object
         Either a pyarrow.Scalar or any python object coercible to a Scalar.
     size : int
         Number of times to repeat the scalar in the output Array.
@@ -878,7 +878,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        sequence : ndarray, pandas.Series, array-like
+        obj : ndarray, pandas.Series, array-like
         mask : array (boolean), optional
             Indicate which values are null (True) or not null (False).
         type : pyarrow.DataType
@@ -996,15 +996,35 @@ cdef class Array(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, int indent=0, int window=10):
+    def to_string(self, *, int indent=0, int window=10,
+                  c_bool skip_new_lines=False):
+        """
+        Render a "pretty-printed" string representation of the Array.
+
+        Parameters
+        ----------
+        indent : int
+            How much to indent right the content of the array,
+            by default ``0``.
+        window : int
+            How many items to preview at the begin and end
+            of the array when the arrays is bigger than the window.
+            The other elements will be ellipsed.
+        skip_new_lines : bool
+            If the array should be rendered as a single line of text
+            or if each element should be on its own line.
+        """
         cdef:
             c_string result
+            PrettyPrintOptions options
 
         with nogil:
+            options = PrettyPrintOptions(indent, window)
+            options.skip_new_lines = skip_new_lines
             check_status(
                 PrettyPrint(
                     deref(self.ap),
-                    PrettyPrintOptions(indent, window),
+                    options,
                     &result
                 )
             )
@@ -1618,6 +1638,7 @@ cdef class ListArray(BaseListArray):
         ----------
         offsets : Array (int32 type)
         values : Array (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -1699,6 +1720,7 @@ cdef class LargeListArray(BaseListArray):
         ----------
         offsets : Array (int64 type)
         values : Array (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -1748,6 +1770,7 @@ cdef class MapArray(Array):
         offsets : array-like or sequence (int32 type)
         keys : array-like or sequence (any type)
         items : array-like or sequence (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -2322,9 +2345,9 @@ cdef class ExtensionArray(Array):
 
         Parameters
         ----------
-        typ: DataType
+        typ : DataType
             The extension type for the result array.
-        storage: Array
+        storage : Array
             The underlying storage for the result array.
 
         Returns

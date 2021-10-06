@@ -37,6 +37,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/util/bit_run_reader.h"
@@ -59,271 +60,6 @@ using internal::FirstTimeBitmapWriter;
 namespace compute {
 namespace internal {
 namespace {
-
-struct KeyEncoder {
-  // the first byte of an encoded key is used to indicate nullity
-  static constexpr bool kExtraByteForNull = true;
-
-  static constexpr uint8_t kNullByte = 1;
-  static constexpr uint8_t kValidByte = 0;
-
-  virtual ~KeyEncoder() = default;
-
-  virtual void AddLength(const ArrayData&, int32_t* lengths) = 0;
-
-  virtual Status Encode(const ArrayData&, uint8_t** encoded_bytes) = 0;
-
-  virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
-                                                    int32_t length, MemoryPool*) = 0;
-
-  // extract the null bitmap from the leading nullity bytes of encoded keys
-  static Status DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
-                            std::shared_ptr<Buffer>* null_bitmap, int32_t* null_count) {
-    // first count nulls to determine if a null bitmap is necessary
-    *null_count = 0;
-    for (int32_t i = 0; i < length; ++i) {
-      *null_count += (encoded_bytes[i][0] == kNullByte);
-    }
-
-    if (*null_count > 0) {
-      ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(length, pool));
-      uint8_t* validity = (*null_bitmap)->mutable_data();
-
-      FirstTimeBitmapWriter writer(validity, 0, length);
-      for (int32_t i = 0; i < length; ++i) {
-        if (encoded_bytes[i][0] == kValidByte) {
-          writer.Set();
-        } else {
-          writer.Clear();
-        }
-        writer.Next();
-        encoded_bytes[i] += 1;
-      }
-      writer.Finish();
-    } else {
-      for (int32_t i = 0; i < length; ++i) {
-        encoded_bytes[i] += 1;
-      }
-    }
-    return Status ::OK();
-  }
-};
-
-struct BooleanKeyEncoder : KeyEncoder {
-  static constexpr int kByteWidth = 1;
-
-  void AddLength(const ArrayData& data, int32_t* lengths) override {
-    for (int64_t i = 0; i < data.length; ++i) {
-      lengths[i] += kByteWidth + kExtraByteForNull;
-    }
-  }
-
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    VisitArrayDataInline<BooleanType>(
-        data,
-        [&](bool value) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kValidByte;
-          *encoded_ptr++ = value;
-        },
-        [&] {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kNullByte;
-          *encoded_ptr++ = 0;
-        });
-    return Status::OK();
-  }
-
-  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
-                                            MemoryPool* pool) override {
-    std::shared_ptr<Buffer> null_buf;
-    int32_t null_count;
-    RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
-
-    ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBitmap(length, pool));
-
-    uint8_t* raw_output = key_buf->mutable_data();
-    for (int32_t i = 0; i < length; ++i) {
-      auto& encoded_ptr = encoded_bytes[i];
-      BitUtil::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
-      encoded_ptr += 1;
-    }
-
-    return ArrayData::Make(boolean(), length, {std::move(null_buf), std::move(key_buf)},
-                           null_count);
-  }
-};
-
-struct FixedWidthKeyEncoder : KeyEncoder {
-  explicit FixedWidthKeyEncoder(std::shared_ptr<DataType> type)
-      : type_(std::move(type)),
-        byte_width_(checked_cast<const FixedWidthType&>(*type_).bit_width() / 8) {}
-
-  void AddLength(const ArrayData& data, int32_t* lengths) override {
-    for (int64_t i = 0; i < data.length; ++i) {
-      lengths[i] += byte_width_ + kExtraByteForNull;
-    }
-  }
-
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    ArrayData viewed(fixed_size_binary(byte_width_), data.length, data.buffers,
-                     data.null_count, data.offset);
-
-    VisitArrayDataInline<FixedSizeBinaryType>(
-        viewed,
-        [&](util::string_view bytes) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kValidByte;
-          memcpy(encoded_ptr, bytes.data(), byte_width_);
-          encoded_ptr += byte_width_;
-        },
-        [&] {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kNullByte;
-          memset(encoded_ptr, 0, byte_width_);
-          encoded_ptr += byte_width_;
-        });
-    return Status::OK();
-  }
-
-  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
-                                            MemoryPool* pool) override {
-    std::shared_ptr<Buffer> null_buf;
-    int32_t null_count;
-    RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
-
-    ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBuffer(length * byte_width_, pool));
-
-    uint8_t* raw_output = key_buf->mutable_data();
-    for (int32_t i = 0; i < length; ++i) {
-      auto& encoded_ptr = encoded_bytes[i];
-      std::memcpy(raw_output, encoded_ptr, byte_width_);
-      encoded_ptr += byte_width_;
-      raw_output += byte_width_;
-    }
-
-    return ArrayData::Make(type_, length, {std::move(null_buf), std::move(key_buf)},
-                           null_count);
-  }
-
-  std::shared_ptr<DataType> type_;
-  int byte_width_;
-};
-
-struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
-  DictionaryKeyEncoder(std::shared_ptr<DataType> type, MemoryPool* pool)
-      : FixedWidthKeyEncoder(std::move(type)), pool_(pool) {}
-
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    auto dict = MakeArray(data.dictionary);
-    if (dictionary_) {
-      if (!dictionary_->Equals(dict)) {
-        // TODO(bkietz) unify if necessary. For now, just error if any batch's dictionary
-        // differs from the first we saw for this key
-        return Status::NotImplemented("Unifying differing dictionaries");
-      }
-    } else {
-      dictionary_ = std::move(dict);
-    }
-    return FixedWidthKeyEncoder::Encode(data, encoded_bytes);
-  }
-
-  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
-                                            MemoryPool* pool) override {
-    ARROW_ASSIGN_OR_RAISE(auto data,
-                          FixedWidthKeyEncoder::Decode(encoded_bytes, length, pool));
-
-    if (dictionary_) {
-      data->dictionary = dictionary_->data();
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(type_, 0));
-      data->dictionary = dict->data();
-    }
-
-    data->type = type_;
-    return data;
-  }
-
-  MemoryPool* pool_;
-  std::shared_ptr<Array> dictionary_;
-};
-
-template <typename T>
-struct VarLengthKeyEncoder : KeyEncoder {
-  using Offset = typename T::offset_type;
-
-  void AddLength(const ArrayData& data, int32_t* lengths) override {
-    int64_t i = 0;
-    VisitArrayDataInline<T>(
-        data,
-        [&](util::string_view bytes) {
-          lengths[i++] +=
-              kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
-        },
-        [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
-  }
-
-  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    VisitArrayDataInline<T>(
-        data,
-        [&](util::string_view bytes) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kValidByte;
-          util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
-          encoded_ptr += sizeof(Offset);
-          memcpy(encoded_ptr, bytes.data(), bytes.size());
-          encoded_ptr += bytes.size();
-        },
-        [&] {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kNullByte;
-          util::SafeStore(encoded_ptr, static_cast<Offset>(0));
-          encoded_ptr += sizeof(Offset);
-        });
-    return Status::OK();
-  }
-
-  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
-                                            MemoryPool* pool) override {
-    std::shared_ptr<Buffer> null_buf;
-    int32_t null_count;
-    RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
-
-    Offset length_sum = 0;
-    for (int32_t i = 0; i < length; ++i) {
-      length_sum += util::SafeLoadAs<Offset>(encoded_bytes[i]);
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto offset_buf,
-                          AllocateBuffer(sizeof(Offset) * (1 + length), pool));
-    ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBuffer(length_sum));
-
-    auto raw_offsets = reinterpret_cast<Offset*>(offset_buf->mutable_data());
-    auto raw_keys = key_buf->mutable_data();
-
-    Offset current_offset = 0;
-    for (int32_t i = 0; i < length; ++i) {
-      raw_offsets[i] = current_offset;
-
-      auto key_length = util::SafeLoadAs<Offset>(encoded_bytes[i]);
-      encoded_bytes[i] += sizeof(Offset);
-
-      memcpy(raw_keys + current_offset, encoded_bytes[i], key_length);
-      encoded_bytes[i] += key_length;
-
-      current_offset += key_length;
-    }
-    raw_offsets[length] = current_offset;
-
-    return ArrayData::Make(
-        type_, length, {std::move(null_buf), std::move(offset_buf), std::move(key_buf)},
-        null_count);
-  }
-
-  explicit VarLengthKeyEncoder(std::shared_ptr<DataType> type) : type_(std::move(type)) {}
-
-  std::shared_ptr<DataType> type_;
-};
 
 struct GrouperImpl : Grouper {
   static Result<std::unique_ptr<GrouperImpl>> Make(const std::vector<ValueDescr>& keys,
@@ -373,7 +109,7 @@ struct GrouperImpl : Grouper {
   Result<Datum> Consume(const ExecBatch& batch) override {
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
-      encoders_[i]->AddLength(*batch[i].array(), offsets_batch.data());
+      encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
     }
 
     int32_t total_length = 0;
@@ -391,7 +127,7 @@ struct GrouperImpl : Grouper {
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {
-      RETURN_NOT_OK(encoders_[i]->Encode(*batch[i].array(), key_buf_ptrs.data()));
+      RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
     }
 
     TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
@@ -541,9 +277,27 @@ struct GrouperFastImpl : Grouper {
   ~GrouperFastImpl() { map_.cleanup(); }
 
   Result<Datum> Consume(const ExecBatch& batch) override {
+    // ARROW-14027: broadcast scalar arguments for now
+    for (int i = 0; i < batch.num_values(); i++) {
+      if (batch.values[i].is_scalar()) {
+        ExecBatch expanded = batch;
+        for (int j = i; j < expanded.num_values(); j++) {
+          if (expanded.values[j].is_scalar()) {
+            ARROW_ASSIGN_OR_RAISE(
+                expanded.values[j],
+                MakeArrayFromScalar(*expanded.values[j].scalar(), expanded.length,
+                                    ctx_->memory_pool()));
+          }
+        }
+        return ConsumeImpl(expanded);
+      }
+    }
+    return ConsumeImpl(batch);
+  }
+
+  Result<Datum> ConsumeImpl(const ExecBatch& batch) {
     int64_t num_rows = batch.length;
     int num_columns = batch.num_values();
-
     // Process dictionaries
     for (int icol = 0; icol < num_columns; ++icol) {
       if (key_types_[icol]->id() == Type::DICTIONARY) {

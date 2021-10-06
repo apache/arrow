@@ -53,6 +53,9 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
+    if (node->label().empty()) {
+      node->SetLabel(std::to_string(auto_label_counter_++));
+    }
     if (node->num_inputs() == 0) {
       sources_.push_back(node.get());
     }
@@ -167,6 +170,7 @@ struct ExecPlanImpl : public ExecPlan {
   std::vector<std::unique_ptr<ExecNode>> nodes_;
   NodeVector sources_, sinks_;
   NodeVector sorted_nodes_;
+  uint32_t auto_label_counter_ = 0;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -356,6 +360,7 @@ void RegisterProjectNode(ExecFactoryRegistry*);
 void RegisterUnionNode(ExecFactoryRegistry*);
 void RegisterAggregateNode(ExecFactoryRegistry*);
 void RegisterSinkNode(ExecFactoryRegistry*);
+void RegisterHashJoinNode(ExecFactoryRegistry*);
 
 }  // namespace internal
 
@@ -369,6 +374,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterUnionNode(this);
       internal::RegisterAggregateNode(this);
       internal::RegisterSinkNode(this);
+      internal::RegisterHashJoinNode(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {

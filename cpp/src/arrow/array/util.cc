@@ -502,6 +502,11 @@ class NullArrayFactory {
     return Status::OK();
   }
 
+  Status Visit(const ExtensionType& type) {
+    RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::NotImplemented("construction of all-null ", type);
   }
@@ -770,7 +775,8 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
-  if (!scalar.is_valid) {
+  // Null union scalars still have a type code associated
+  if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
   }
   return RepeatedArrayFactory(pool, scalar, length).Create();

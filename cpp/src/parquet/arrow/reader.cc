@@ -328,7 +328,8 @@ class FileReaderImpl : public FileReader {
   GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
-                          ::arrow::internal::Executor* cpu_executor) override;
+                          ::arrow::internal::Executor* cpu_executor,
+                          int row_group_readahead) override;
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
 
@@ -1036,10 +1037,12 @@ class RowGroupGenerator {
       ::arrow::internal::Executor* cpu_executor, std::shared_ptr<FileReaderImpl> self,
       const int row_group, const std::vector<int>& column_indices) {
     // Skips bound checks/pre-buffering, since we've done that already
+    const int64_t batch_size = self->properties().batch_size();
     return self->DecodeRowGroups(self, {row_group}, column_indices, cpu_executor)
-        .Then([](const std::shared_ptr<Table>& table)
+        .Then([batch_size](const std::shared_ptr<Table>& table)
                   -> ::arrow::Result<RecordBatchGenerator> {
           ::arrow::TableBatchReader table_reader(*table);
+          table_reader.set_chunksize(batch_size);
           ::arrow::RecordBatchVector batches;
           RETURN_NOT_OK(table_reader.ReadAll(&batches));
           return ::arrow::MakeVectorGenerator(std::move(batches));
@@ -1057,7 +1060,8 @@ class RowGroupGenerator {
 FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         const std::vector<int> row_group_indices,
                                         const std::vector<int> column_indices,
-                                        ::arrow::internal::Executor* cpu_executor) {
+                                        ::arrow::internal::Executor* cpu_executor,
+                                        int row_group_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -1068,6 +1072,10 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
   ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
       RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
                         cpu_executor, row_group_indices, column_indices);
+  if (row_group_readahead > 0) {
+    row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
+                                                          row_group_readahead);
+  }
   return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
 }
 

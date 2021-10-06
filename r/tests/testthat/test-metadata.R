@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# local_edition(3)
-
 test_that("Schema metadata", {
   s <- schema(b = double())
   expect_equal(s$metadata, empty_named_list())
@@ -63,6 +61,22 @@ test_that("R metadata is not stored for types that map to Arrow types (factor, D
   expect_null(tab$metadata$r)
 
   expect_null(Table$create(example_with_times[1:3])$metadata$r)
+})
+
+test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixed_size_binary (ARROW-14140)", {
+  raws <- charToRaw("bonjour")
+
+  binary <- Array$create(list(raws), binary())
+  large_binary <- Array$create(list(raws), large_binary())
+  fixed_size_binary <- Array$create(list(raws), fixed_size_binary(7L))
+
+  expect_null(RecordBatch$create(b = binary)$metadata$r)
+  expect_null(RecordBatch$create(b = large_binary)$metadata$r)
+  expect_null(RecordBatch$create(b = fixed_size_binary)$metadata$r)
+
+  expect_null(Table$create(b = binary)$metadata$r)
+  expect_null(Table$create(b = large_binary)$metadata$r)
+  expect_null(Table$create(b = fixed_size_binary)$metadata$r)
 })
 
 test_that("Garbage R metadata doesn't break things", {
@@ -200,15 +214,27 @@ test_that("metadata drops readr's problems attribute", {
   expect_null(attr(as.data.frame(tab), "problems"))
 })
 
-test_that("metadata of list elements (ARROW-10386)", {
+test_that("Row-level metadata (does not by default) roundtrip", {
+  # First tracked at ARROW-10386, though it was later determined that row-level
+  # metadata should be handled separately ARROW-14020, ARROW-12542
   df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
+  tab <- Table$create(df)
+  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
+  expect_null(r_metadata$columns$x$columns)
+
+  # But we can re-enable this / read data that has already been written with
+  # row-level metadata
+  withr::local_options(list("arrow.preserve_row_level_metadata" = TRUE))
+
   tab <- Table$create(df)
   expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
   expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
 })
 
 
-test_that("metadata of list elements (ARROW-10386)", {
+test_that("Row-level metadata (does not) roundtrip in datasets", {
+  # First tracked at ARROW-10386, though it was later determined that row-level
+  # metadata should be handled separately ARROW-14020, ARROW-12542
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
@@ -227,11 +253,16 @@ test_that("metadata of list elements (ARROW-10386)", {
   )
 
   dst_dir <- make_temp_dir()
+
+  withr::local_options(list("arrow.preserve_row_level_metadata" = TRUE))
   expect_warning(
     write_dataset(df, dst_dir, partitioning = "part"),
     "Row-level metadata is not compatible with datasets and will be discarded"
   )
 
+  # Reset directory as previous write will have created some files and the default
+  # behavior is to error on existing
+  dst_dir <- make_temp_dir()
   # but we need to write a dataset with row-level metadata to make sure when
   # reading ones that have been written with them we warn appropriately
   fake_func_name <- write_dataset

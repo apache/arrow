@@ -19,7 +19,7 @@ skip_if_not_available("dataset")
 
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
@@ -212,7 +212,8 @@ test_that("Group by any/all", {
   )
 })
 
-test_that("Group by n_distinct() on dataset", {
+test_that("n_distinct() on dataset", {
+  # With groupby
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
@@ -223,6 +224,19 @@ test_that("Group by n_distinct() on dataset", {
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
+      summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+  # Without groupby
+  expect_dplyr_equal(
+    input %>%
+      summarize(distinct = n_distinct(lgl, na.rm = FALSE)) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
       summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
       collect(),
     tbl
@@ -368,7 +382,7 @@ test_that("quantile()", {
   # with a vector of 2+ probs
   expect_warning(
     Table$create(tbl) %>%
-      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = FALSE)),
+      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
     "quantile() with length(probs) != 1 not supported by Arrow",
     fixed = TRUE
   )

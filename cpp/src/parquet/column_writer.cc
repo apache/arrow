@@ -1099,11 +1099,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         AddIfNotNull(rep_levels, offset));
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
-                          batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0);
+                          batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0,
+                          /*num_levels=*/batch_size);
       } else {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
-                          valid_bits_offset + value_offset);
+                          valid_bits_offset + value_offset, /*num_levels=*/batch_size);
       }
       CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values);
       value_offset += batch_num_spaced_values;
@@ -1399,7 +1400,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   void WriteValuesSpaced(const T* values, int64_t num_values, int64_t num_spaced_values,
-                         const uint8_t* valid_bits, int64_t valid_bits_offset) {
+                         const uint8_t* valid_bits, int64_t valid_bits_offset,
+                         int64_t num_levels) {
     if (num_values != num_spaced_values) {
       current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
                                         valid_bits, valid_bits_offset);
@@ -1407,9 +1409,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       current_value_encoder_->Put(values, static_cast<int>(num_values));
     }
     if (page_statistics_ != nullptr) {
-      const int64_t num_nulls = num_spaced_values - num_values;
-      page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_values,
-                                     num_nulls);
+      const int64_t num_nulls = num_levels - num_values;
+      page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
+                                     num_spaced_values, num_values, num_nulls);
     }
   }
 };
@@ -1514,8 +1516,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                                    &exec_ctx));
         referenced_dictionary = referenced_dictionary_datum.make_array();
       }
-      page_statistics_->IncrementNullCount(indices->null_count());
-      page_statistics_->IncrementNumValues(indices->length() - indices->null_count());
+      int64_t non_null_count = indices->length() - indices->null_count();
+      page_statistics_->IncrementNullCount(num_levels - non_null_count);
+      page_statistics_->IncrementNumValues(non_null_count);
       page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
     }
     preserved_dictionary_ = dictionary;
@@ -1928,7 +1931,11 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
 
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
-      page_statistics_->Update(*data_slice);
+      page_statistics_->Update(*data_slice, /*update_counts=*/false);
+      // Null values in ancestors count as nulls.
+      int64_t non_null = data_slice->length() - data_slice->null_count();
+      page_statistics_->IncrementNullCount(batch_size - non_null);
+      page_statistics_->IncrementNumValues(non_null);
     }
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
     CheckDictionarySizeLimit();

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("S3 integration tests")
 
 run_these <- tryCatch(
   expr = {

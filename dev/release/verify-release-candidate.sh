@@ -135,10 +135,12 @@ test_binary() {
 }
 
 test_apt() {
-  for target in "debian:bullseye" \
-                "arm64v8/debian:bullseye" \
-                "debian:buster" \
+  for target in "debian:buster" \
                 "arm64v8/debian:buster" \
+                "debian:bullseye" \
+                "arm64v8/debian:bullseye" \
+                "debian:bookworm" \
+                "arm64v8/debian:bookworm" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
@@ -171,7 +173,9 @@ test_apt() {
 }
 
 test_yum() {
-  for target in "amazonlinux:2" \
+  for target in "almalinux:8" \
+                "arm64v8/almalinux:8" \
+                "amazonlinux:2" \
                 "centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do

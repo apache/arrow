@@ -220,7 +220,7 @@ def deserialize_pandas(buf, *, use_threads=True):
     ----------
     buf : buffer
         An object compatible with the buffer protocol.
-    use_threads: bool, default True
+    use_threads : bool, default True
         Whether to parallelize the conversion using multiple threads.
 
     Returns

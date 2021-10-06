@@ -63,8 +63,8 @@ struct CastPrimitive {
       // the output
       const auto& in_scalar = input.scalar_as<PrimitiveScalarBase>();
       auto out_scalar = checked_cast<PrimitiveScalarBase*>(out->scalar().get());
-      caster(in_scalar.data(), /*in_offset=*/0, /*length=*/1, /*out_offset=*/0,
-             out_scalar->mutable_data());
+      caster(reinterpret_cast<const void*>(in_scalar.view().data()), /*in_offset=*/0,
+             /*length=*/1, /*out_offset=*/0, out_scalar->mutable_data());
     }
   }
 };
@@ -88,7 +88,7 @@ struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>:
       const auto& in_scalar = input.scalar_as<PrimitiveScalarBase>();
       auto out_scalar = checked_cast<PrimitiveScalarBase*>(out->scalar().get());
       *reinterpret_cast<T*>(out_scalar->mutable_data()) =
-          *reinterpret_cast<const T*>(in_scalar.data());
+          *reinterpret_cast<const T*>(in_scalar.view().data());
     }
   }
 };

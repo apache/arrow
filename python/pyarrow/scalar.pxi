@@ -873,9 +873,9 @@ cdef class ExtensionScalar(Scalar):
 
         Parameters
         ----------
-        typ: DataType
+        typ : DataType
             The extension type for the result scalar.
-        value: object
+        value : object
             The storage value for the result scalar.
 
         Returns

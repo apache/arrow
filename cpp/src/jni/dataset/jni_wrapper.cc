@@ -145,7 +145,7 @@ class DisposableScannerAdaptor {
 
   static arrow::Result<std::shared_ptr<DisposableScannerAdaptor>> Create(
       std::shared_ptr<arrow::dataset::Scanner> scanner) {
-    ARROW_ASSIGN_OR_RAISE(auto batch_itr, scanner->ScanBatches())
+    ARROW_ASSIGN_OR_RAISE(auto batch_itr, scanner->ScanBatches());
     return std::make_shared<DisposableScannerAdaptor>(scanner, std::move(batch_itr));
   }
 

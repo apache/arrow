@@ -163,7 +163,7 @@ def enable_signal_handlers(c_bool enable):
 
     Parameters
     ----------
-    enable: bool
+    enable : bool
         Whether to enable user interruption by setting a temporary
         signal handler.
     """

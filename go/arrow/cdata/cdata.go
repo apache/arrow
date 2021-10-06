@@ -22,15 +22,12 @@ package cdata
 
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
-// typedef struct ArrowSchema ArrowSchema;
-// typedef struct ArrowArray ArrowArray;
-// typedef struct ArrowArrayStream ArrowArrayStream;
-//
+// #include <stdlib.h>
 // int stream_get_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) { return st->get_schema(st, out); }
 // int stream_get_next(struct ArrowArrayStream* st, struct ArrowArray* out) { return st->get_next(st, out); }
 // const char* stream_get_last_error(struct ArrowArrayStream* st) { return st->get_last_error(st); }
-// struct ArrowArray get_arr() { struct ArrowArray arr; return arr; }
-// struct ArrowArrayStream get_stream() { struct ArrowArrayStream stream; return stream; }
+// struct ArrowArray* get_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
+// struct ArrowArrayStream* get_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
 //
 import "C"
 
@@ -52,12 +49,12 @@ import (
 
 type (
 	// CArrowSchema is the C Data Interface for ArrowSchemas defined in abi.h
-	CArrowSchema = C.ArrowSchema
+	CArrowSchema = C.struct_ArrowSchema
 	// CArrowArray is the C Data Interface object for Arrow Arrays as defined in abi.h
-	CArrowArray = C.ArrowArray
+	CArrowArray = C.struct_ArrowArray
 	// CArrowArrayStream is the Experimental API for handling streams of record batches
 	// through the C Data interface.
-	CArrowArrayStream = C.ArrowArrayStream
+	CArrowArrayStream = C.struct_ArrowArrayStream
 )
 
 // Map from the defined strings to their corresponding arrow.DataType interface
@@ -146,7 +143,7 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 	var childFields []arrow.Field
 	if schema.n_children > 0 {
 		// call ourselves recursively if there are children.
-		var schemaChildren []*C.ArrowSchema
+		var schemaChildren []*CArrowSchema
 		// set up a slice to reference safely
 		s := (*reflect.SliceHeader)(unsafe.Pointer(&schemaChildren))
 		s.Data = uintptr(unsafe.Pointer(schema.children))
@@ -255,21 +252,21 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 // importer to keep track when importing C ArrowArray objects.
 type cimporter struct {
 	dt       arrow.DataType
-	arr      *C.ArrowArray
+	arr      *CArrowArray
 	data     *array.Data
 	parent   *cimporter
 	children []cimporter
 	cbuffers []*C.void
 }
 
-func (imp *cimporter) importChild(parent *cimporter, src *C.ArrowArray) error {
+func (imp *cimporter) importChild(parent *cimporter, src *CArrowArray) error {
 	imp.parent = parent
 	return imp.doImport(src)
 }
 
 // import any child arrays for lists, structs, and so on.
 func (imp *cimporter) doImportChildren() error {
-	var children []*C.ArrowArray
+	var children []*CArrowArray
 	// create a proper slice for our children
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&children))
 	s.Data = uintptr(unsafe.Pointer(imp.arr.children))
@@ -309,26 +306,28 @@ func (imp *cimporter) doImportChildren() error {
 }
 
 func (imp *cimporter) initarr() {
-	arr := C.get_arr()
-	imp.arr = &arr
+	imp.arr = C.get_arr()
 }
 
 // import is called recursively as needed for importing an array and its children
 // in order to generate array.Data objects
-func (imp *cimporter) doImport(src *C.ArrowArray) error {
+func (imp *cimporter) doImport(src *CArrowArray) error {
 	imp.initarr()
 	// move the array from the src object passed in to the one referenced by
 	// this importer. That way we can set up a finalizer on the created
 	// *array.Data object so we clean up our Array's memory when garbage collected.
 	C.ArrowArrayMove(src, imp.arr)
-	defer func(arr *C.ArrowArray) {
+	defer func(arr *CArrowArray) {
 		if imp.data != nil {
 			runtime.SetFinalizer(imp.data, func(*array.Data) {
+				defer C.free(unsafe.Pointer(arr))
 				C.ArrowArrayRelease(arr)
 				if C.ArrowArrayIsReleased(arr) != 1 {
 					panic("did not release C mem")
 				}
 			})
+		} else {
+			C.free(unsafe.Pointer(arr))
 		}
 	}(imp.arr)
 
@@ -337,9 +336,11 @@ func (imp *cimporter) doImport(src *C.ArrowArray) error {
 		return err
 	}
 
-	// get a view of the buffers, zero-copy. we're just looking at the pointers
-	const maxlen = 0x7fffffff
-	imp.cbuffers = (*[maxlen]*C.void)(unsafe.Pointer(imp.arr.buffers))[:imp.arr.n_buffers:imp.arr.n_buffers]
+	if imp.arr.n_buffers > 0 {
+		// get a view of the buffers, zero-copy. we're just looking at the pointers
+		const maxlen = 0x7fffffff
+		imp.cbuffers = (*[maxlen]*C.void)(unsafe.Pointer(imp.arr.buffers))[:imp.arr.n_buffers:imp.arr.n_buffers]
+	}
 
 	// handle each of our type cases
 	switch dt := imp.dt.(type) {
@@ -521,22 +522,24 @@ func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth int, of
 	return imp.importBuffer(bufferID, int64(bufsize))
 }
 
-func importCArrayAsType(arr *C.ArrowArray, dt arrow.DataType) (imp *cimporter, err error) {
+func importCArrayAsType(arr *CArrowArray, dt arrow.DataType) (imp *cimporter, err error) {
 	imp = &cimporter{dt: dt}
 	err = imp.doImport(arr)
 	return
 }
 
-func initReader(rdr *nativeCRecordBatchReader, stream *C.ArrowArrayStream) {
-	st := C.get_stream()
-	rdr.stream = &st
+func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
+	rdr.stream = C.get_stream()
 	C.ArrowArrayStreamMove(stream, rdr.stream)
-	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) { C.ArrowArrayStreamRelease(r.stream) })
+	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) {
+		C.ArrowArrayStreamRelease(r.stream)
+		C.free(unsafe.Pointer(r.stream))
+	})
 }
 
 // Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
 type nativeCRecordBatchReader struct {
-	stream *C.ArrowArrayStream
+	stream *CArrowArrayStream
 	schema *arrow.Schema
 }
 
@@ -546,7 +549,7 @@ func (n *nativeCRecordBatchReader) getError(errno int) error {
 
 func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
 	if n.schema == nil {
-		var sc C.ArrowSchema
+		var sc CArrowSchema
 		errno := C.stream_get_schema(n.stream, &sc)
 		if errno != 0 {
 			return nil, n.getError(int(errno))
@@ -561,14 +564,15 @@ func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
 	}
 
 	arr := C.get_arr()
-	errno := C.stream_get_next(n.stream, &arr)
+	defer C.free(unsafe.Pointer(arr))
+	errno := C.stream_get_next(n.stream, arr)
 	if errno != 0 {
 		return nil, n.getError(int(errno))
 	}
 
-	if C.ArrowArrayIsReleased(&arr) == 1 {
+	if C.ArrowArrayIsReleased(arr) == 1 {
 		return nil, io.EOF
 	}
 
-	return ImportCRecordBatchWithSchema(&arr, n.schema)
+	return ImportCRecordBatchWithSchema(arr, n.schema)
 }

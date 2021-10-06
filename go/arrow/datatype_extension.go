@@ -155,6 +155,8 @@ func (e *ExtensionBase) String() string { return fmt.Sprintf("extension_type<sto
 // written against the ExtensionType interface can access the storage type.
 func (e *ExtensionBase) StorageType() DataType { return e.Storage }
 
+func (e *ExtensionBase) Fingerprint() string { return typeFingerprint(e) + e.Storage.Fingerprint() }
+
 // this no-op exists to ensure that this type must be embedded in any user-defined extension type.
 func (ExtensionBase) mustEmbedExtensionBase() {}
 

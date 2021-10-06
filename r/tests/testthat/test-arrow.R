@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("General checks")
-
 if (!identical(tolower(Sys.getenv("TEST_R_WITHOUT_LIBARROW")), "true")) {
   testthat::test_that("Arrow C++ is available", {
     skip_on_cran()
@@ -69,10 +67,10 @@ test_that("MemoryPool calls gc() to free memory when allocation fails (ARROW-100
   skip_on_valgrind()
 
   env <- new.env()
-  trace(gc, print = FALSE, tracer = function() {
+  suppressMessages(trace(gc, print = FALSE, tracer = function() {
     env$gc_was_called <- TRUE
-  })
-  on.exit(untrace(gc))
+  }))
+  on.exit(suppressMessages(untrace(gc)))
   # We expect this should fail because we don't have this much memory,
   # but it should gc() and retry (and fail again)
   expect_error(BufferOutputStream$create(2**60))

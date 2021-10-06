@@ -46,6 +46,9 @@ type MemoTable interface {
 	// CopyValuesSubset is like CopyValues but only copies a subset of values starting
 	// at the indicated index.
 	CopyValuesSubset(start int, out interface{})
+
+	WriteOut(out []byte)
+	WriteOutSubset(start int, out []byte)
 	// Get returns the index of the table the specified value is, and a boolean indicating
 	// whether or not the value was found in the table. Will panic if val is not the appropriate
 	// type for the underlying table.
@@ -231,6 +234,14 @@ func (m *binaryMemoTableImpl) CopyValuesSubset(start int, out interface{}) {
 	copy(outval, m.builder.Value(start)[0:length])
 }
 
+func (m *binaryMemoTableImpl) WriteOut(out []byte) {
+	m.CopyValues(out)
+}
+
+func (m *binaryMemoTableImpl) WriteOutSubset(start int, out []byte) {
+	m.CopyValuesSubset(start, out)
+}
+
 func (m *binaryMemoTableImpl) CopyFixedWidthValues(start, width int, out []byte) {
 
 }
@@ -377,4 +388,12 @@ func (m *float64MemoTableImpl) CopyValuesSubset(start int, out interface{}) {
 	if m.nanIndex != keyNotFound {
 		outval[m.nanIndex] = math.NaN()
 	}
+}
+
+func (m *float64MemoTableImpl) WriteOut(out []byte) {
+	m.CopyValuesSubset(0, arrow.Float64Traits.CastFromBytes(out))
+}
+
+func (m *float64MemoTableImpl) WriteOutSubset(start int, out []byte) {
+	m.CopyValuesSubset(start, arrow.Float64Traits.CastFromBytes(out))
 }

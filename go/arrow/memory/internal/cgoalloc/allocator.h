@@ -17,16 +17,23 @@
 
 #pragma once
 
-#include "arrow/buffer.h"
+#include <stdint.h>
+#include <stdbool.h>
 
-namespace arrow {
-namespace compute {
-namespace internal {
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-static inline void ZeroMemory(Buffer* buffer) {
-  std::memset(buffer->mutable_data(), 0, buffer->size());
+typedef uintptr_t ArrowMemoryPool;
+
+ArrowMemoryPool arrow_create_memory_pool(bool enable_logging);
+int arrow_pool_allocate(ArrowMemoryPool pool, int64_t size, uint8_t** out);
+int arrow_pool_reallocate(ArrowMemoryPool pool, int64_t old_size, int64_t new_size, uint8_t** ptr);
+void arrow_pool_free(ArrowMemoryPool pool, uint8_t* buffer, int64_t size);
+int64_t arrow_pool_bytes_allocated(ArrowMemoryPool pool);
+void arrow_release_pool(ArrowMemoryPool pool);
+
+
+#ifdef __cplusplus
 }
-
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+#endif

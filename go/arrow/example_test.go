@@ -133,8 +133,6 @@ func Example_listArray() {
 	defer lb.Release()
 
 	vb := lb.ValueBuilder().(*array.Int64Builder)
-	defer vb.Release()
-
 	vb.Reserve(10)
 
 	lb.Append(true)
@@ -214,8 +212,6 @@ func Example_fixedSizeListArray() {
 	defer lb.Release()
 
 	vb := lb.ValueBuilder().(*array.Int64Builder)
-	defer vb.Release()
-
 	vb.Reserve(10)
 
 	lb.Append(true)
@@ -268,12 +264,8 @@ func Example_structArray() {
 	defer sb.Release()
 
 	f1b := sb.FieldBuilder(0).(*array.ListBuilder)
-	defer f1b.Release()
 	f1vb := f1b.ValueBuilder().(*array.Uint8Builder)
-	defer f1vb.Release()
-
 	f2b := sb.FieldBuilder(1).(*array.Int32Builder)
-	defer f2b.Release()
 
 	sb.Reserve(4)
 	f1vb.Reserve(7)
@@ -302,15 +294,10 @@ func Example_structArray() {
 	fmt.Printf("Len()   = %d\n", arr.Len())
 
 	list := arr.Field(0).(*array.List)
-	defer list.Release()
-
 	offsets := list.Offsets()
 
 	varr := list.ListValues().(*array.Uint8)
-	defer varr.Release()
-
 	ints := arr.Field(1).(*array.Int32)
-	defer ints.Release()
 
 	for i := 0; i < arr.Len(); i++ {
 		if !arr.IsValid(i) {
@@ -392,16 +379,16 @@ func Example_float64Tensor2x5() {
 	defer f64.Release()
 
 	for _, i := range [][]int64{
-		[]int64{0, 0},
-		[]int64{0, 1},
-		[]int64{0, 2},
-		[]int64{0, 3},
-		[]int64{0, 4},
-		[]int64{1, 0},
-		[]int64{1, 1},
-		[]int64{1, 2},
-		[]int64{1, 3},
-		[]int64{1, 4},
+		{0, 0},
+		{0, 1},
+		{0, 2},
+		{0, 3},
+		{0, 4},
+		{1, 0},
+		{1, 1},
+		{1, 2},
+		{1, 3},
+		{1, 4},
 	} {
 		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
 	}
@@ -435,16 +422,16 @@ func Example_float64Tensor2x5ColMajor() {
 	defer f64.Release()
 
 	for _, i := range [][]int64{
-		[]int64{0, 0},
-		[]int64{0, 1},
-		[]int64{0, 2},
-		[]int64{0, 3},
-		[]int64{0, 4},
-		[]int64{1, 0},
-		[]int64{1, 1},
-		[]int64{1, 2},
-		[]int64{1, 3},
-		[]int64{1, 4},
+		{0, 0},
+		{0, 1},
+		{0, 2},
+		{0, 3},
+		{0, 4},
+		{1, 0},
+		{1, 1},
+		{1, 2},
+		{1, 3},
+		{1, 4},
 	} {
 		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
 	}
@@ -467,8 +454,8 @@ func Example_record() {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -497,8 +484,8 @@ func Example_recordReader() {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -546,8 +533,8 @@ func Example_table() {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)

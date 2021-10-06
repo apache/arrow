@@ -131,9 +131,13 @@ distro <- function() {
   }
 
   out$id <- tolower(out$id)
-  if (grepl("bullseye", out$codename)) {
-    # debian unstable doesn't include a number but we can map from pretty name
-    out$short_version <- "11"
+  # debian unstable & testing lsb_release `version` don't include numbers but we can map from pretty name
+  if (is.null(out$version) || out$version %in% c("testing", "unstable")) {
+    if (grepl("bullseye", out$codename)) {
+      out$short_version <- "11"
+    } else if (grepl("bookworm", out$codename)) {
+      out$short_version <- "12"
+    }
   } else if (out$id == "ubuntu") {
     # Keep major.minor version
     out$short_version <- sub('^"?([0-9]+\\.[0-9]+).*"?.*$', "\\1", out$version)
@@ -201,7 +205,11 @@ system_release <- function() {
   }
 }
 
-read_system_release <- function() utils::head(readLines("/etc/system-release"), 1)
+read_system_release <- function() {
+  if (file.exists("/etc/system-release")) {
+    readLines("/etc/system-release")[1]
+  }
+}
 
 #### end distro ####
 

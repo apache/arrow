@@ -351,7 +351,7 @@ TEST_F(TestSchemaExport, Temporal) {
   TestPrimitive(duration(TimeUnit::MICRO), "tDu");
   TestPrimitive(duration(TimeUnit::NANO), "tDn");
   TestPrimitive(month_interval(), "tiM");
-
+  TestPrimitive(month_day_nano_interval(), "tin");
   TestPrimitive(day_time_interval(), "tiD");
 
   TestPrimitive(timestamp(TimeUnit::SECOND), "tss:");
@@ -503,13 +503,16 @@ struct ArrayExportChecker {
     ASSERT_EQ(c_export->null_count, expected_data.null_count);
     ASSERT_EQ(c_export->offset, expected_data.offset);
 
-    ASSERT_EQ(c_export->n_buffers, static_cast<int64_t>(expected_data.buffers.size()));
-    ASSERT_EQ(c_export->n_children,
-              static_cast<int64_t>(expected_data.child_data.size()));
+    auto expected_n_buffers = static_cast<int64_t>(expected_data.buffers.size());
+    auto expected_buffers = expected_data.buffers.data();
+    if (!internal::HasValidityBitmap(expected_data.type->id())) {
+      --expected_n_buffers;
+      ++expected_buffers;
+    }
+    ASSERT_EQ(c_export->n_buffers, expected_n_buffers);
     ASSERT_NE(c_export->buffers, nullptr);
     for (int64_t i = 0; i < c_export->n_buffers; ++i) {
-      auto expected_ptr =
-          expected_data.buffers[i] ? expected_data.buffers[i]->data() : nullptr;
+      auto expected_ptr = expected_buffers[i] ? expected_buffers[i]->data() : nullptr;
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
     }
 
@@ -521,6 +524,8 @@ struct ArrayExportChecker {
       ASSERT_EQ(c_export->dictionary, nullptr);
     }
 
+    ASSERT_EQ(c_export->n_children,
+              static_cast<int64_t>(expected_data.child_data.size()));
     if (c_export->n_children > 0) {
       ASSERT_NE(c_export->children, nullptr);
       // Recurse into children
@@ -576,6 +581,8 @@ class TestArrayExport : public ::testing::Test {
 
     std::shared_ptr<Array> arr;
     ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
+    ARROW_SCOPED_TRACE("type = ", arr->type()->ToString(),
+                       ", array data = ", arr->ToString());
     const ArrayData& data = *arr->data();  // non-owning reference
     struct ArrowArray c_export;
     ASSERT_OK(ExportArray(*arr, &c_export));
@@ -805,6 +812,8 @@ TEST_F(TestArrayExport, Primitive) {
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
+
+  TestPrimitive(month_day_nano_interval(), R"([[-1, 5, 20], null])");
 }
 
 TEST_F(TestArrayExport, PrimitiveSliced) {
@@ -1303,6 +1312,8 @@ TEST_F(TestSchemaImport, Temporal) {
   CheckImport(month_interval());
   FillPrimitive("tiD");
   CheckImport(day_time_interval());
+  FillPrimitive("tin");
+  CheckImport(month_day_nano_interval());
 
   FillPrimitive("tss:");
   CheckImport(timestamp(TimeUnit::SECOND));
@@ -1719,10 +1730,11 @@ static const void* large_list_buffers_no_nulls1[2] = {nullptr,
 
 static const int8_t type_codes_buffer1[] = {42, 42, 43, 43, 42};
 static const int32_t union_offsets_buffer1[] = {0, 1, 0, 1, 2};
-static const void* sparse_union_buffers_no_nulls1[3] = {nullptr, type_codes_buffer1,
-                                                        nullptr};
-static const void* dense_union_buffers_no_nulls1[3] = {nullptr, type_codes_buffer1,
-                                                       union_offsets_buffer1};
+static const void* sparse_union_buffers1_legacy[2] = {nullptr, type_codes_buffer1};
+static const void* dense_union_buffers1_legacy[3] = {nullptr, type_codes_buffer1,
+                                                     union_offsets_buffer1};
+static const void* sparse_union_buffers1[1] = {type_codes_buffer1};
+static const void* dense_union_buffers1[2] = {type_codes_buffer1, union_offsets_buffer1};
 
 void NoOpArrayRelease(struct ArrowArray* schema) { ArrowArrayMarkReleased(schema); }
 
@@ -1820,13 +1832,18 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(c->n_children, c);
   }
 
+  // `legacy` selects pre-ARROW-14179 behaviour
   void FillUnionLike(struct ArrowArray* c, UnionMode::type mode, int64_t length,
                      int64_t null_count, int64_t offset, int64_t n_children,
-                     const void** buffers) {
+                     const void** buffers, bool legacy) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
-    c->n_buffers = mode == UnionMode::SPARSE ? 2 : 3;
+    if (mode == UnionMode::SPARSE) {
+      c->n_buffers = legacy ? 2 : 1;
+    } else {
+      c->n_buffers = legacy ? 3 : 2;
+    }
     c->buffers = buffers;
     c->n_children = n_children;
     c->children = NLastChildren(c->n_children, c);
@@ -1860,8 +1877,10 @@ class TestArrayImport : public ::testing::Test {
   }
 
   void FillUnionLike(UnionMode::type mode, int64_t length, int64_t null_count,
-                     int64_t offset, int64_t n_children, const void** buffers) {
-    FillUnionLike(&c_struct_, mode, length, null_count, offset, n_children, buffers);
+                     int64_t offset, int64_t n_children, const void** buffers,
+                     bool legacy) {
+    FillUnionLike(&c_struct_, mode, length, null_count, offset, n_children, buffers,
+                  legacy);
   }
 
   void CheckImport(const std::shared_ptr<Array>& expected) {
@@ -2022,13 +2041,16 @@ TEST_F(TestArrayImport, Temporal) {
 }
 
 TEST_F(TestArrayImport, Null) {
-  const void* buffers[] = {nullptr};
-  c_struct_.length = 3;
-  c_struct_.null_count = 3;
-  c_struct_.offset = 0;
-  c_struct_.n_buffers = 1;
-  c_struct_.buffers = buffers;
-  CheckImport(ArrayFromJSON(null(), "[null, null, null]"));
+  // Arrow C++ used to export null arrays with a null bitmap buffer
+  for (const int64_t n_buffers : {0, 1}) {
+    const void* buffers[] = {nullptr};
+    c_struct_.length = 3;
+    c_struct_.null_count = 3;
+    c_struct_.offset = 0;
+    c_struct_.buffers = buffers;
+    c_struct_.n_buffers = n_buffers;
+    CheckImport(ArrayFromJSON(null(), "[null, null, null]"));
+  }
 }
 
 TEST_F(TestArrayImport, PrimitiveWithOffset) {
@@ -2158,23 +2180,39 @@ TEST_F(TestArrayImport, Struct) {
   CheckImport(expected);
 }
 
-TEST_F(TestArrayImport, Union) {
-  // Sparse
-  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
-  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers_no_nulls1);
+TEST_F(TestArrayImport, SparseUnion) {
   auto type = sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   auto expected =
       ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "bar"], [43, "quux"]])");
+
+  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers1, /*legacy=*/false);
   CheckImport(expected);
 
-  // Dense
+  // Legacy format with null bitmap (ARROW-14179)
+  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers1_legacy,
+                /*legacy=*/true);
+  CheckImport(expected);
+}
+
+TEST_F(TestArrayImport, DenseUnion) {
+  auto type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
+  auto expected =
+      ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
+
   FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
-  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers_no_nulls1);
-  type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
-  expected =
-      ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
+  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers1, /*legacy=*/false);
+  CheckImport(expected);
+
+  // Legacy format with null bitmap (ARROW-14179)
+  FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers1_legacy,
+                /*legacy=*/true);
   CheckImport(expected);
 }
 
@@ -2328,6 +2366,21 @@ TEST_F(TestArrayImport, MapError) {
   FillStructLike(AddChild(), 5, 0, 0, 1, buffers_no_nulls_no_data);
   FillListLike(3, 1, 0, list_buffers_nulls1);
   CheckImportError(map(utf8(), uint8()));
+}
+
+TEST_F(TestArrayImport, UnionError) {
+  // Non-zero null count
+  auto type = sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
+  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::SPARSE, 4, -1, 0, 2, sparse_union_buffers1, /*legacy=*/false);
+  CheckImportError(type);
+
+  type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
+  FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::DENSE, 5, -1, 0, 2, dense_union_buffers1, /*legacy=*/false);
+  CheckImportError(type);
 }
 
 TEST_F(TestArrayImport, DictionaryError) {
@@ -2547,6 +2600,7 @@ TEST_F(TestSchemaRoundtrip, Temporal) {
   TestWithTypeFactory(date32);
   TestWithTypeFactory(day_time_interval);
   TestWithTypeFactory(month_interval);
+  TestWithTypeFactory(month_day_nano_interval);
   TestWithTypeFactory(std::bind(time64, TimeUnit::NANO));
   TestWithTypeFactory(std::bind(duration, TimeUnit::MICRO));
   TestWithTypeFactory([]() { return arrow::timestamp(TimeUnit::MICRO, "Europe/Paris"); });
@@ -2765,10 +2819,14 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSON(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
 
+  TestWithJSON(month_day_nano_interval(), R"([[1, -600, 5000], null])");
+
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
   TestWithJSONSliced(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSONSliced(month_day_nano_interval(),
+                     R"([[4, 5, 6], [1, -600, 5000], null, null])");
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {
@@ -2784,12 +2842,14 @@ TEST_F(TestArrayRoundtrip, UnknownNullCount) {
   });
 }
 
-TEST_F(TestArrayRoundtrip, Nested) {
+TEST_F(TestArrayRoundtrip, List) {
   TestWithJSON(list(int32()), "[]");
   TestWithJSON(list(int32()), "[[4, 5], [6, null], null]");
 
   TestWithJSONSliced(list(int32()), "[[4, 5], [6, null], null]");
+}
 
+TEST_F(TestArrayRoundtrip, Struct) {
   auto type = struct_({field("ints", int16()), field("bools", boolean())});
   TestWithJSON(type, "[]");
   TestWithJSON(type, "[[4, true], [5, false]]");
@@ -2806,9 +2866,11 @@ TEST_F(TestArrayRoundtrip, Nested) {
   TestWithJSON(type, "[[4, true], [5, null]]");
 
   TestWithJSONSliced(type, "[[4, true], [5, null], [6, false]]");
+}
 
+TEST_F(TestArrayRoundtrip, Map) {
   // Map type
-  type = map(utf8(), int32());
+  auto type = map(utf8(), int32());
   const char* json = R"([[["foo", 123], ["bar", -456]], null,
                         [["foo", null]], []])";
   TestWithJSON(type, json);
@@ -2817,6 +2879,20 @@ TEST_F(TestArrayRoundtrip, Nested) {
   type = map(utf8(), int32(), /*keys_sorted=*/true);
   TestWithJSON(type, json);
   TestWithJSONSliced(type, json);
+}
+
+TEST_F(TestArrayRoundtrip, Union) {
+  FieldVector fields = {field("strs", utf8()), field("ints", int8())};
+  std::vector<int8_t> type_codes = {43, 42};
+  DataTypeVector union_types = {sparse_union(fields, type_codes),
+                                dense_union(fields, type_codes)};
+  const char* json = R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])";
+
+  for (const auto& type : union_types) {
+    TestWithJSON(type, "[]");
+    TestWithJSON(type, json);
+    TestWithJSONSliced(type, json);
+  }
 }
 
 TEST_F(TestArrayRoundtrip, Dictionary) {

@@ -114,7 +114,7 @@ def test_option_class_equality():
         pc.AssumeTimezoneOptions("UTC"),
         pc.CastOptions.safe(pa.int8()),
         pc.CountOptions(),
-        pc.DayOfWeekOptions(one_based_numbering=False, week_start=0),
+        pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
         pc.DictionaryEncodeOptions(),
         pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
@@ -148,6 +148,8 @@ def test_option_class_equality():
         pc.TDigestOptions(),
         pc.TrimOptions(" "),
         pc.VarianceOptions(),
+        pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
+                       first_week_is_fully_in_year=False),
     ]
     # TODO: We should test on windows once ARROW-13168 is resolved.
     # Timezone database is not available on Windows yet
@@ -650,10 +652,13 @@ def test_generated_docstrings():
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         options : pyarrow.compute.ScalarAggregateOptions, optional
-            Parameters altering compute function semantics
-        **kwargs : optional
-            Parameters for ScalarAggregateOptions constructor. Either `options`
-            or `**kwargs` can be passed, but not both at the same time.
+            Parameters altering compute function semantics.
+        skip_nulls : optional
+            Parameter for ScalarAggregateOptions constructor. Either `options`
+            or `skip_nulls` can be passed, but not both at the same time.
+        min_count : optional
+            Parameter for ScalarAggregateOptions constructor. Either `options`
+            or `min_count` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
         Add the arguments element-wise.
@@ -1689,9 +1694,14 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
 
     day_of_week_options = pc.DayOfWeekOptions(
-        one_based_numbering=True, week_start=1)
+        count_from_zero=False, week_start=1)
     assert pc.day_of_week(tsa, options=day_of_week_options).equals(
         pa.array(ts.dt.dayofweek + 1))
+
+    week_options = pc.WeekOptions(
+        week_starts_monday=True, count_from_zero=False,
+        first_week_is_fully_in_year=False)
+    assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
 
 @pytest.mark.pandas
@@ -2210,3 +2220,20 @@ def test_list_element():
     result = pa.compute.list_element(lists, index)
     expected = pa.array([{'a': 5.6, 'b': 6}, {'a': .6, 'b': 8}], element_type)
     assert result.equals(expected)
+
+
+def test_count_distinct():
+    seed = datetime.now()
+    samples = [seed.replace(year=y) for y in range(1992, 2092)]
+    arr = pa.array(samples, pa.timestamp("ns"))
+    result = pa.compute.count_distinct(arr)
+    expected = pa.scalar(len(samples), type=pa.int64())
+    assert result.equals(expected)
+
+
+def test_count_distinct_options():
+    arr = pa.array([1, 2, 3, None, None])
+    assert pc.count_distinct(arr).as_py() == 3
+    assert pc.count_distinct(arr, mode='only_valid').as_py() == 3
+    assert pc.count_distinct(arr, mode='only_null').as_py() == 1
+    assert pc.count_distinct(arr, mode='all').as_py() == 4

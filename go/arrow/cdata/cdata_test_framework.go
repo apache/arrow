@@ -92,9 +92,9 @@ func getMetadataValues() ([]string, []string) {
 	return []string{"", "bar"}, []string{"abcde"}
 }
 
-func exportInt32Array() CArrowArray {
-	var arr CArrowArray
-	C.export_int32_array(C.get_data(), C.int64_t(10), &arr)
+func exportInt32Array() *CArrowArray {
+	arr := C.get_test_arr()
+	C.export_int32_array(C.get_data(), C.int64_t(10), arr)
 	return arr
 }
 

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("RecordBatch.*(Reader|Writer)")
 
 test_that("RecordBatchStreamReader / Writer", {
   tbl <- tibble::tibble(
