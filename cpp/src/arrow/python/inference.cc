@@ -360,7 +360,7 @@ class TypeInferrer {
       RETURN_NOT_OK(VisitNdarray(obj, keep_going));
     } else if (PyDict_Check(obj)) {
       RETURN_NOT_OK(VisitDict(obj));
-    } else if ((Py_TYPE(obj) == &PyDictValues_Type)) {
+    } else if (PySet_Check(obj)) {
       RETURN_NOT_OK(VisitSet(obj, keep_going));
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
