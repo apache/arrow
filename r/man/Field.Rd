@@ -6,7 +6,7 @@
 \alias{field}
 \title{Field class}
 \usage{
-field(name, type, metadata)
+field(name, type, metadata = NA, nullable = TRUE)
 }
 \arguments{
 \item{name}{field name}
@@ -28,8 +28,3 @@ field(name, type, metadata)
 }
 }
 
-\examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-field("x", int32())
-\dontshow{\}) # examplesIf}
-}
