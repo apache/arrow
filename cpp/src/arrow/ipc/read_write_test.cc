@@ -28,6 +28,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -1654,12 +1655,13 @@ TEST(TestIpcFileFormat, FooterMetaData) {
 TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
 
-  BooleanBuilder builder(default_memory_pool());
-  ASSERT_OK(builder.Reserve(length));
-  ASSERT_OK(builder.Advance(length));
+  TypedBufferBuilder<bool> data_builder;
+  ASSERT_OK(data_builder.Reserve(length));
+  ASSERT_OK(data_builder.Advance(length));
+  ASSERT_EQ(data_builder.length(), length);
+  ASSERT_OK_AND_ASSIGN(auto data, data_builder.Finish());
 
-  std::shared_ptr<Array> array;
-  ASSERT_OK(builder.Finish(&array));
+  auto array = std::make_shared<BooleanArray>(length, data, nullptr, /*null_count=*/0);
 
   auto f0 = arrow::field("f0", array->type());
   std::vector<std::shared_ptr<Field>> fields = {f0};

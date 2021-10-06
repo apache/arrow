@@ -336,9 +336,9 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		return err
 	}
 
-	// get a view of the buffers, zero-copy. we're just looking at the pointers
-	const maxlen = 0x7fffffff
 	if imp.arr.n_buffers > 0 {
+		// get a view of the buffers, zero-copy. we're just looking at the pointers
+		const maxlen = 0x7fffffff
 		imp.cbuffers = (*[maxlen]*C.void)(unsafe.Pointer(imp.arr.buffers))[:imp.arr.n_buffers:imp.arr.n_buffers]
 	}
 

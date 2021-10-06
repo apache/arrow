@@ -24,24 +24,6 @@ import (
 	"github.com/apache/arrow/go/arrow/internal/debug"
 )
 
-// helper function to handle big-endian architectures properly
-var toFromLEFunc func(uint64) uint64
-var byteZero int
-
-func init() {
-	if endian.IsBigEndian {
-		// if we're on a big endian architecture, then use the reverse bytes
-		// function so we can perform byte-swaps when necessary
-		toFromLEFunc = bits.ReverseBytes64
-
-		byteZero = 7
-	} else {
-		// identity function if we're on a little endian architecture
-		toFromLEFunc = func(in uint64) uint64 { return in }
-		byteZero = 0
-	}
-}
-
 // BitmapReader is a simple bitmap reader for a byte slice.
 type BitmapReader struct {
 	bitmap []byte
@@ -221,7 +203,7 @@ func NewBitmapWordReader(bitmap []byte, offset, length int) *BitmapWordReader {
 	if bm.nwords > 0 {
 		bm.curword = toFromLEFunc(endian.Native.Uint64(bm.bitmap))
 	} else {
-		(*[8]byte)(unsafe.Pointer(&bm.curword))[byteZero] = bm.bitmap[0]
+		setLSB(&bm.curword, bm.bitmap[0])
 	}
 	return bm
 }
@@ -280,12 +262,12 @@ func (bm *BitmapWordReader) NextTrailingByte() (val byte, validBits int) {
 
 	bm.bitmap = bm.bitmap[1:]
 	nextByte := bm.bitmap[0]
-	val = (*[8]byte)(unsafe.Pointer(&bm.curword))[byteZero]
+	val = getLSB(bm.curword)
 	if bm.offset != 0 {
 		val >>= byte(bm.offset)
 		val |= nextByte << (8 - bm.offset)
 	}
-	(*[8]byte)(unsafe.Pointer(&bm.curword))[byteZero] = nextByte
+	setLSB(&bm.curword, nextByte)
 	bm.trailingBits -= 8
 	bm.trailingBytes--
 	validBits = 8
@@ -321,7 +303,7 @@ func NewBitmapWordWriter(bitmap []byte, start, len int) *BitmapWordWriter {
 		if ret.len >= int(unsafe.Sizeof(uint64(0))*8) {
 			ret.currentWord = toFromLEFunc(endian.Native.Uint64(ret.bitmap))
 		} else if ret.len > 0 {
-			(*[8]byte)(unsafe.Pointer(&ret.currentWord))[byteZero] = ret.bitmap[0]
+			setLSB(&ret.currentWord, ret.bitmap[0])
 		}
 	}
 	return ret
@@ -359,7 +341,7 @@ func (bm *BitmapWordWriter) PutNextWord(word uint64) {
 // PutNextTrailingByte writes the number of bits indicated by validBits from b to
 // the bitmap.
 func (bm *BitmapWordWriter) PutNextTrailingByte(b byte, validBits int) {
-	curbyte := (*[8]byte)(unsafe.Pointer(&bm.currentWord))[byteZero]
+	curbyte := getLSB(bm.currentWord)
 	if validBits == 8 {
 		if bm.offset != 0 {
 			b = (b << bm.offset) | (b >> (8 - bm.offset))

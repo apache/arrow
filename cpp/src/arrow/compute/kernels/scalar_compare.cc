@@ -171,9 +171,9 @@ struct CompareFunction : ScalarFunction {
 
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonTemporal(*values)) {
+    } else if (auto type = CommonTemporal(values->data(), values->size())) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonBinary(*values)) {
+    } else if (auto type = CommonBinary(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
 
@@ -195,7 +195,7 @@ struct VarArgsCompareFunction : ScalarFunction {
 
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonTemporal(*values)) {
+    } else if (auto type = CommonTemporal(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
 
@@ -266,6 +266,13 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
     DCHECK_OK(
         func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+  }
+
+  {
+    auto exec =
+        applicator::ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
+    auto ty = InputType(Type::FIXED_SIZE_BINARY);
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
   return func;

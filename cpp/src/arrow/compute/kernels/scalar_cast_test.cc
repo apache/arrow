@@ -68,6 +68,23 @@ static std::shared_ptr<Array> InvalidUtf8(std::shared_ptr<DataType> type) {
                        "]");
 }
 
+static std::shared_ptr<Array> FixedSizeInvalidUtf8(std::shared_ptr<DataType> type) {
+  if (type->id() == Type::FIXED_SIZE_BINARY) {
+    // Assume a particular width for testing
+    EXPECT_EQ(3, checked_cast<const FixedSizeBinaryType&>(*type).byte_width());
+  }
+  return ArrayFromJSON(type,
+                       "["
+                       R"(
+                       "Hi!",
+                       "lá",
+                       "你",
+                       "   ",
+                       )"
+                       "\"\xa0\xa1\xa2\""
+                       "]");
+}
+
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
@@ -199,8 +216,10 @@ TEST(Cast, CanCast) {
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
                    {binary(), large_binary()});  // no formatting supported
 
-  ExpectCannotCast(fixed_size_binary(3),
-                   {fixed_size_binary(3)});  // FIXME missing identity cast
+  ExpectCanCast(fixed_size_binary(3),
+                {binary(), utf8(), large_binary(), large_utf8(), fixed_size_binary(3)});
+  // Doesn't fail since a kernel exists (but it will return an error when executed)
+  // ExpectCannotCast(fixed_size_binary(3), {fixed_size_binary(5)});
 
   ExtensionTypeGuard smallint_guard(smallint());
   ExpectCanCast(smallint(), {int16()});  // cast storage
@@ -1901,6 +1920,29 @@ TEST(Cast, BinaryToString) {
       AssertBinaryZeroCopy(invalid_utf8, strings);
     }
   }
+
+  auto from_type = fixed_size_binary(3);
+  auto invalid_utf8 = FixedSizeInvalidUtf8(from_type);
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(string_type, "[]"));
+
+    // invalid utf-8 masked by a null bit is not an error
+    CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),
+              MaskArrayWithNullsAt(FixedSizeInvalidUtf8(string_type), {4}));
+
+    // error: invalid utf-8
+    auto options = CastOptions::Safe(string_type);
+    CheckCastFails(invalid_utf8, options);
+
+    // override utf-8 check
+    options.allow_invalid_utf8 = true;
+    ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, string_type, options));
+    ASSERT_RAISES(Invalid, strings->ValidateFull());
+
+    // N.B. null buffer is not always the same if input sliced
+    AssertBufferSame(*invalid_utf8, *strings, 0);
+    ASSERT_EQ(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+  }
 }
 
 TEST(Cast, BinaryOrStringToBinary) {
@@ -1920,6 +1962,24 @@ TEST(Cast, BinaryOrStringToBinary) {
       CheckCast(MaskArrayWithNullsAt(InvalidUtf8(from_type), {4}),
                 MaskArrayWithNullsAt(InvalidUtf8(to_type), {4}));
     }
+  }
+
+  auto from_type = fixed_size_binary(3);
+  auto invalid_utf8 = FixedSizeInvalidUtf8(from_type);
+  CheckCast(invalid_utf8, invalid_utf8);
+  CheckCastFails(invalid_utf8, CastOptions::Safe(fixed_size_binary(5)));
+  for (auto to_type : {binary(), large_binary()}) {
+    CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
+    ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type));
+    ValidateOutput(*strings);
+
+    // N.B. null buffer is not always the same if input sliced
+    AssertBufferSame(*invalid_utf8, *strings, 0);
+    ASSERT_EQ(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+
+    // invalid utf-8 masked by a null bit is not an error
+    CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),
+              MaskArrayWithNullsAt(FixedSizeInvalidUtf8(to_type), {4}));
   }
 }
 

@@ -20,6 +20,8 @@
 #include "arrow/util/windows_compatibility.h"
 
 #include <cstdint>
+#include <limits>
+
 // Check if thrift version < 0.11.0
 // or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
 #if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
@@ -27,7 +29,10 @@
 #else
 #include <memory>
 #endif
+#include <sstream>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 // TCompactProtocol requires some #defines to work right.
@@ -35,11 +40,7 @@
 #define ARITHMETIC_RIGHT_SHIFT 1
 #include <thrift/TApplicationException.h>
 #include <thrift/protocol/TCompactProtocol.h>
-#include <thrift/protocol/TDebugProtocol.h>
-
-#include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
-#include <sstream>
 
 #include "arrow/util/logging.h"
 
@@ -363,12 +364,26 @@ static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryptio
 
 using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 
+// On Thrift 0.14.0+, we want to use TConfiguration to raise the max message size
+// limit (ARROW-13655).  If we wanted to protect against huge messages, we could
+// do it ourselves since we know the message size up front.
+
+inline std::shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf,
+                                                                uint32_t len) {
+#if PARQUET_THRIFT_VERSION_MAJOR > 0 || PARQUET_THRIFT_VERSION_MINOR >= 14
+  auto conf = std::make_shared<apache::thrift::TConfiguration>();
+  conf->setMaxMessageSize(std::numeric_limits<int>::max());
+  return std::make_shared<ThriftBuffer>(buf, len, ThriftBuffer::OBSERVE, conf);
+#else
+  return std::make_shared<ThriftBuffer>(buf, len);
+#endif
+}
+
 template <class T>
 inline void DeserializeThriftUnencryptedMsg(const uint8_t* buf, uint32_t* len,
                                             T* deserialized_msg) {
   // Deserialize msg bytes into c++ thrift msg using memory transport.
-  shared_ptr<ThriftBuffer> tmem_transport(
-      new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
+  auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), *len);
   apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
   // Protect against CPU and memory bombs
   tproto_factory.setStringSizeLimit(100 * 1000 * 1000);

@@ -104,6 +104,7 @@ module Arrow
       require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
       require "arrow/table"
+      require "arrow/table-concatenate-options"
       require "arrow/table-formatter"
       require "arrow/table-list-formatter"
       require "arrow/table-table-formatter"

@@ -150,6 +150,8 @@ func MakeScalar(val interface{}) Scalar {
 		return NewMonthIntervalScalar(v)
 	case arrow.DayTimeInterval:
 		return NewDayTimeIntervalScalar(v)
+	case arrow.DataType:
+		return MakeNullScalar(v)
 	}
 
 	panic(xerrors.Errorf("makescalar not implemented for type value %#v", val))

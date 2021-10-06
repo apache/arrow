@@ -126,7 +126,9 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   // require that no batch be grouped into more than 2 written batches:
   write_options_.max_partitions = 2;
 
-  EXPECT_OK_AND_ASSIGN(auto scanner, ScannerBuilder(dataset_, scan_options_).Finish());
+  auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
+  ASSERT_OK(scanner_builder.UseAsync(true));
+  EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
                                   FileSystemDataset::Write(write_options_, scanner));
 }

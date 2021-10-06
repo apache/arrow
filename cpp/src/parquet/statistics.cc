@@ -560,8 +560,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
-  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-                    int64_t num_not_null, int64_t num_null) override;
+  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_offset,
+                    int64_t num_spaced_values, int64_t num_not_null,
+                    int64_t num_null) override;
 
   void Update(const ::arrow::Array& values, bool update_counts) override {
     if (update_counts) {
@@ -709,6 +710,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
 template <typename DType>
 void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* valid_bits,
                                               int64_t valid_bits_offset,
+                                              int64_t num_spaced_values,
                                               int64_t num_not_null, int64_t num_null) {
   DCHECK_GE(num_not_null, 0);
   DCHECK_GE(num_null, 0);
@@ -717,10 +719,8 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNumValues(num_not_null);
 
   if (num_not_null == 0) return;
-
-  int64_t length = num_null + num_not_null;
-  SetMinMaxPair(
-      comparator_->GetMinMaxSpaced(values, length, valid_bits, valid_bits_offset));
+  SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                             valid_bits_offset));
 }
 
 template <typename DType>

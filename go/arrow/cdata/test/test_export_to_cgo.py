@@ -34,18 +34,22 @@ def load_cgotest():
 
     ffi.cdef(
         """
+        long long totalAllocated();
         void importSchema(uintptr_t ptr);
         void importRecordBatch(uintptr_t scptr, uintptr_t rbptr);
         void runGC();
+        void exportSchema(uintptr_t ptr);
+        void exportRecordBatch(uintptr_t schema, uintptr_t record);
+        void importThenExportSchema(uintptr_t input, uintptr_t output);
+        void importThenExportRecord(uintptr_t schemaIn, uintptr_t arrIn, 
+                                    uintptr_t schemaOut, uintptr_t arrOut);
         """)
     return ffi.dlopen(f'./cgotest.{libext}')
 
 
 cgotest = load_cgotest()
 
-
-class TestPythonToGo(unittest.TestCase):
-
+class BaseTestGoPython(unittest.TestCase):
     def setUp(self):
         self.c_schema = ffi.new("struct ArrowSchema*")
         self.ptr_schema = int(ffi.cast("uintptr_t", self.c_schema))
@@ -70,13 +74,21 @@ class TestPythonToGo(unittest.TestCase):
     def assert_pyarrow_memory_released(self):
         self.run_gc()
         old_allocated = pa.total_allocated_bytes()
+        old_go_allocated = cgotest.totalAllocated()
         yield
         self.run_gc()
         diff = pa.total_allocated_bytes() - old_allocated
+        godiff = cgotest.totalAllocated() - old_go_allocated
         self.assertEqual(
             pa.total_allocated_bytes(), old_allocated,
             f"PyArrow memory was not adequately released: {diff} bytes lost")
+        self.assertEqual(
+            cgotest.totalAllocated(), old_go_allocated,
+            f"Go memory was not properly released: {godiff} bytes lost")
+        
 
+class TestPythonToGo(BaseTestGoPython):
+    
     def test_schema(self):
         with self.assert_pyarrow_memory_released():
             self.make_schema()._export_to_c(self.ptr_schema)
@@ -89,6 +101,65 @@ class TestPythonToGo(unittest.TestCase):
             self.make_batch()._export_to_c(self.ptr_array)
             # Will panic if expectations are not met
             cgotest.importRecordBatch(self.ptr_schema, self.ptr_array)
+
+
+class TestGoToPython(BaseTestGoPython):
+
+    def test_get_schema(self):
+        with self.assert_pyarrow_memory_released():
+            cgotest.exportSchema(self.ptr_schema)
+
+            sc = pa.Schema._import_from_c(self.ptr_schema)
+            assert sc == self.make_schema()
+    
+    def test_get_batch(self):
+        with self.assert_pyarrow_memory_released():
+            cgotest.exportRecordBatch(self.ptr_schema, self.ptr_array)
+            arrnew = pa.RecordBatch._import_from_c(self.ptr_array, self.ptr_schema)
+            assert arrnew == self.make_batch()
+            del arrnew
+    
+class TestRoundTrip(BaseTestGoPython):
+
+    def test_schema_roundtrip(self):
+        with self.assert_pyarrow_memory_released():
+            # make sure that Python -> Go -> Python ends up with
+            # the same exact schema
+            schema = self.make_schema()
+            schema._export_to_c(self.ptr_schema)
+            del schema
+            
+            c_schema = ffi.new("struct ArrowSchema*")
+            ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+
+            cgotest.importThenExportSchema(self.ptr_schema, ptr_schema)
+            schema_new = pa.Schema._import_from_c(ptr_schema)
+            assert schema_new == self.make_schema()
+            del c_schema
+
+    def test_batch_roundtrip(self):
+        with self.assert_pyarrow_memory_released():
+            # make sure that Python -> Go -> Python for record
+            # batches works correctly and gets the same data in the end
+            schema = self.make_schema()
+            batch = self.make_batch()
+            schema._export_to_c(self.ptr_schema)
+            batch._export_to_c(self.ptr_array)
+            del schema
+            del batch
+
+            c_schema = ffi.new("struct ArrowSchema*")
+            c_batch = ffi.new("struct ArrowArray*")
+            ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+            ptr_batch = int(ffi.cast("uintptr_t", c_batch))
+
+            cgotest.importThenExportRecord(self.ptr_schema, self.ptr_array, 
+                                           ptr_schema, ptr_batch)
+            batch_new = pa.RecordBatch._import_from_c(ptr_batch, ptr_schema)
+            assert batch_new == self.make_batch()
+            del batch_new
+            del c_schema
+            del c_batch
 
 
 if __name__ == '__main__':

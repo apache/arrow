@@ -996,15 +996,35 @@ cdef class Array(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, int indent=0, int window=10):
+    def to_string(self, *, int indent=0, int window=10,
+                  c_bool skip_new_lines=False):
+        """
+        Render a "pretty-printed" string representation of the Array.
+
+        Parameters
+        ----------
+        indent : int
+            How much to indent right the content of the array,
+            by default ``0``.
+        window : int
+            How many items to preview at the begin and end
+            of the array when the arrays is bigger than the window.
+            The other elements will be ellipsed.
+        skip_new_lines : bool
+            If the array should be rendered as a single line of text
+            or if each element should be on its own line.
+        """
         cdef:
             c_string result
+            PrettyPrintOptions options
 
         with nogil:
+            options = PrettyPrintOptions(indent, window)
+            options.skip_new_lines = skip_new_lines
             check_status(
                 PrettyPrint(
                     deref(self.ap),
-                    PrettyPrintOptions(indent, window),
+                    options,
                     &result
                 )
             )

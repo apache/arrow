@@ -21,7 +21,9 @@ package hashing
 import (
 	"math"
 
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/bitutil"
+	"github.com/apache/arrow/go/parquet/internal/utils"
 )
 
 type payloadInt32 struct {
@@ -79,6 +81,20 @@ func (h *Int32HashTable) CopyValuesSubset(start int, out []int32) {
 		idx := e.payload.memoIdx - int32(start)
 		if idx >= 0 {
 			out[idx] = e.payload.val
+		}
+	})
+}
+
+func (h *Int32HashTable) WriteOut(out []byte) {
+	h.WriteOutSubset(0, out)
+}
+
+func (h *Int32HashTable) WriteOutSubset(start int, out []byte) {
+	data := arrow.Int32Traits.CastFromBytes(out)
+	h.VisitEntries(func(e *entryInt32) {
+		idx := e.payload.memoIdx - int32(start)
+		if idx >= 0 {
+			data[idx] = utils.ToLEInt32(e.payload.val)
 		}
 	})
 }
@@ -231,6 +247,14 @@ func (s *Int32MemoTable) CopyValuesSubset(start int, out interface{}) {
 	s.tbl.CopyValuesSubset(start, out.([]int32))
 }
 
+func (s *Int32MemoTable) WriteOut(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Int32MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.WriteOutSubset(start, out)
+}
+
 // Get returns the index of the requested value in the hash table or KeyNotFound
 // along with a boolean indicating if it was found or not.
 func (s *Int32MemoTable) Get(val interface{}) (int, bool) {
@@ -317,6 +341,20 @@ func (h *Int64HashTable) CopyValuesSubset(start int, out []int64) {
 		idx := e.payload.memoIdx - int32(start)
 		if idx >= 0 {
 			out[idx] = e.payload.val
+		}
+	})
+}
+
+func (h *Int64HashTable) WriteOut(out []byte) {
+	h.WriteOutSubset(0, out)
+}
+
+func (h *Int64HashTable) WriteOutSubset(start int, out []byte) {
+	data := arrow.Int64Traits.CastFromBytes(out)
+	h.VisitEntries(func(e *entryInt64) {
+		idx := e.payload.memoIdx - int32(start)
+		if idx >= 0 {
+			data[idx] = utils.ToLEInt64(e.payload.val)
 		}
 	})
 }
@@ -469,6 +507,14 @@ func (s *Int64MemoTable) CopyValuesSubset(start int, out interface{}) {
 	s.tbl.CopyValuesSubset(start, out.([]int64))
 }
 
+func (s *Int64MemoTable) WriteOut(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Int64MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.WriteOutSubset(start, out)
+}
+
 // Get returns the index of the requested value in the hash table or KeyNotFound
 // along with a boolean indicating if it was found or not.
 func (s *Int64MemoTable) Get(val interface{}) (int, bool) {
@@ -555,6 +601,20 @@ func (h *Float32HashTable) CopyValuesSubset(start int, out []float32) {
 		idx := e.payload.memoIdx - int32(start)
 		if idx >= 0 {
 			out[idx] = e.payload.val
+		}
+	})
+}
+
+func (h *Float32HashTable) WriteOut(out []byte) {
+	h.WriteOutSubset(0, out)
+}
+
+func (h *Float32HashTable) WriteOutSubset(start int, out []byte) {
+	data := arrow.Float32Traits.CastFromBytes(out)
+	h.VisitEntries(func(e *entryFloat32) {
+		idx := e.payload.memoIdx - int32(start)
+		if idx >= 0 {
+			data[idx] = utils.ToLEFloat32(e.payload.val)
 		}
 	})
 }
@@ -707,6 +767,14 @@ func (s *Float32MemoTable) CopyValuesSubset(start int, out interface{}) {
 	s.tbl.CopyValuesSubset(start, out.([]float32))
 }
 
+func (s *Float32MemoTable) WriteOut(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Float32MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.WriteOutSubset(start, out)
+}
+
 // Get returns the index of the requested value in the hash table or KeyNotFound
 // along with a boolean indicating if it was found or not.
 func (s *Float32MemoTable) Get(val interface{}) (int, bool) {
@@ -812,6 +880,20 @@ func (h *Float64HashTable) CopyValuesSubset(start int, out []float64) {
 		idx := e.payload.memoIdx - int32(start)
 		if idx >= 0 {
 			out[idx] = e.payload.val
+		}
+	})
+}
+
+func (h *Float64HashTable) WriteOut(out []byte) {
+	h.WriteOutSubset(0, out)
+}
+
+func (h *Float64HashTable) WriteOutSubset(start int, out []byte) {
+	data := arrow.Float64Traits.CastFromBytes(out)
+	h.VisitEntries(func(e *entryFloat64) {
+		idx := e.payload.memoIdx - int32(start)
+		if idx >= 0 {
+			data[idx] = utils.ToLEFloat64(e.payload.val)
 		}
 	})
 }
@@ -962,6 +1044,14 @@ func (s *Float64MemoTable) CopyValues(out interface{}) {
 // at the provided start index
 func (s *Float64MemoTable) CopyValuesSubset(start int, out interface{}) {
 	s.tbl.CopyValuesSubset(start, out.([]float64))
+}
+
+func (s *Float64MemoTable) WriteOut(out []byte) {
+	s.tbl.WriteOut(out)
+}
+
+func (s *Float64MemoTable) WriteOutSubset(start int, out []byte) {
+	s.tbl.WriteOutSubset(start, out)
 }
 
 // Get returns the index of the requested value in the hash table or KeyNotFound

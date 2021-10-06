@@ -61,8 +61,8 @@
 #' * "l": `bool()`
 #' * "f": `dictionary()`
 #' * "D": `date32()`
-#' * "T": `time32()`
-#' * "t": `timestamp()`
+#' * "T": `timestamp()`
+#' * "t": `time32()`
 #' * "_": `null()`
 #' * "-": `null()`
 #' * "?": infer the type from the data
@@ -569,8 +569,8 @@ readr_to_csv_convert_options <- function(na,
         "l" = bool(),
         "f" = dictionary(),
         "D" = date32(),
-        "T" = time32(),
-        "t" = timestamp(),
+        "T" = timestamp(),
+        "t" = time32(),
         "_" = null(),
         "-" = null(),
         "?" = NULL,

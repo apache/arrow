@@ -3895,7 +3895,6 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
 INSTANTIATE_TEST_SUITE_P(WriteDictionary, TestArrowWriteDictionary,
                          ::testing::Values(ParquetDataPageVersion::V1,
                                            ParquetDataPageVersion::V2));
-
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
 

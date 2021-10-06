@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/debug"
 	"github.com/apache/arrow/go/parquet/internal/encoding"
+	"github.com/apache/arrow/go/parquet/internal/utils"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/parquet/schema"
 )
@@ -431,16 +432,20 @@ func (Float64Statistics) less(a, b float64) bool { return a < b }
 func (s *Int96Statistics) less(a, b parquet.Int96) bool {
 	i96a := arrow.Uint32Traits.CastFromBytes(a[:])
 	i96b := arrow.Uint32Traits.CastFromBytes(b[:])
-	if i96a[2] != i96b[2] {
+	
+	a0, a1, a2 := utils.ToLEUint32(i96a[0]), utils.ToLEUint32(i96a[1]), utils.ToLEUint32(i96a[2])
+	b0, b1, b2 := utils.ToLEUint32(i96b[0]), utils.ToLEUint32(i96b[1]), utils.ToLEUint32(i96b[2])
+	
+	if a2 != b2 {
 		// only the msb bit is by signed comparison
 		if s.order == schema.SortSIGNED {
-			return int32(i96a[2]) < int32(i96b[2])
+			return int32(a2) < int32(b2)
 		}
-		return i96a[2] < i96b[2]
-	} else if i96a[1] != i96b[1] {
-		return i96a[1] < i96b[1]
+		return a2 < b2
+	} else if a1 != b1 {
+		return a1 < b1
 	}
-	return i96a[0] < i96b[0]
+	return a0 < b0
 }
 
 func (s *ByteArrayStatistics) less(a, b parquet.ByteArray) bool {

@@ -736,7 +736,7 @@ def _ensure_write_partitioning(part, schema, flavor):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  use_async=False, max_partitions=None, file_visitor=None):
+                  max_partitions=None, file_visitor=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -777,10 +777,6 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
-    use_async : bool, default False
-        If enabled, an async scanner will be used that should offer
-        better performance with high-latency/highly-parallel filesystems
-        (e.g. S3)
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     file_visitor : Function
@@ -812,7 +808,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
     elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
-        data = Scanner.from_batches(data, schema=schema)
+        data = Scanner.from_batches(data, schema=schema, use_async=True)
         schema = None
     elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
@@ -854,7 +850,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     if isinstance(data, Dataset):
-        scanner = data.scanner(use_threads=use_threads, use_async=use_async)
+        scanner = data.scanner(use_threads=use_threads, use_async=True)
     else:
         # scanner was passed directly by the user, in which case a schema
         # cannot be passed

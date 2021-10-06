@@ -85,7 +85,9 @@ void PrettyPrinter::OpenArray(const Array& array) {
 void PrettyPrinter::CloseArray(const Array& array) {
   if (array.length() > 0) {
     indent_ -= options_.indent_size;
-    Indent();
+    if (!options_.skip_new_lines) {
+      Indent();
+    }
   }
   (*sink_) << "]";
 }

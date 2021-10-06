@@ -134,6 +134,10 @@ class ARROW_EXPORT ArrayBuilder {
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
   /// this function responsibly.
+  ARROW_DEPRECATED(
+      "Deprecated in 6.0.0. ArrayBuilder::Advance is poorly supported and mostly "
+      "untested.\nFor low-level control over buffer construction, use BufferBuilder "
+      "or TypedBufferBuilder directly.")
   Status Advance(int64_t elements);
 
   /// \brief Return result of builder as an internal generic ArrayData

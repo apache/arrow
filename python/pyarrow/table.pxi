@@ -63,18 +63,35 @@ cdef class ChunkedArray(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, int indent=0, int window=10):
+    def to_string(self, *, int indent=0, int window=10,
+                  c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
+
+        Parameters
+        ----------
+        indent : int
+            How much to indent right the content of the array,
+            by default ``0``.
+        window : int
+            How many items to preview at the begin and end
+            of the array when the arrays is bigger than the window.
+            The other elements will be ellipsed.
+        skip_new_lines : bool
+            If the array should be rendered as a single line of text
+            or if each element should be on its own line.
         """
         cdef:
             c_string result
+            PrettyPrintOptions options
 
         with nogil:
+            options = PrettyPrintOptions(indent, window)
+            options.skip_new_lines = skip_new_lines
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),
-                    PrettyPrintOptions(indent, window),
+                    options,
                     &result
                 )
             )
@@ -1226,7 +1243,7 @@ cdef class Table(_PandasConvertible):
         raise TypeError("Do not call Table's constructor directly, use one of "
                         "the `Table.from_*` functions instead.")
 
-    def to_string(self, show_metadata=False):
+    def to_string(self, *, show_metadata=False, preview_cols=0):
         """
         Return human-readable string representation of Table.
 
@@ -1234,6 +1251,8 @@ cdef class Table(_PandasConvertible):
         ----------
         show_metadata : bool, default True
             Display Field-level and Schema-level KeyValueMetadata.
+        preview_cols : int, default 0
+            Display values of the columns for the first N columns.
 
         Returns
         -------
@@ -1244,13 +1263,24 @@ cdef class Table(_PandasConvertible):
             show_field_metadata=show_metadata,
             show_schema_metadata=show_metadata
         )
-        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        pieces = [title]
+        if preview_cols:
+            pieces.append('----')
+            for i in range(min(self.num_columns, preview_cols)):
+                pieces.append('{}: {}'.format(
+                    self.field(i).name,
+                    self.column(i).to_string(indent=0, skip_new_lines=True)
+                ))
+            if preview_cols < self.num_columns:
+                pieces.append('...')
+        return '\n'.join(pieces)
 
     def __repr__(self):
         if self.table == NULL:
             raise ValueError("Table's internal pointer is NULL, do not use "
                              "any methods or attributes on this object")
-        return self.to_string()
+        return self.to_string(preview_cols=10)
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
