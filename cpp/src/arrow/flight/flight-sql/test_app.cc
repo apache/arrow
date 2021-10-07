@@ -25,6 +25,7 @@
 
 #include <iostream>
 #include <memory>
+#include <arrow/array/builder_binary.h>
 
 using arrow::Result;
 using arrow::Schema;
@@ -135,7 +136,39 @@ Status RunMain() {
     ARROW_RETURN_NOT_OK(sqlClient.Prepare(call_options, fLS::FLAGS_query, &prepared_statement));
     ARROW_RETURN_NOT_OK(prepared_statement->Execute(&info));
     ARROW_RETURN_NOT_OK(PrintResults(sqlClient, call_options, info));
-  } else if (fLS::FLAGS_command == "GetSchemas") {
+  } else if (fLS::FLAGS_command == "PreparedStatementExecuteUpdate") {
+    std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement;
+    ARROW_RETURN_NOT_OK(sqlClient.Prepare({}, fLS::FLAGS_query, &prepared_statement));
+    std::shared_ptr<Schema> schema;
+    ARROW_RETURN_NOT_OK(prepared_statement->GetParameterSchema(&schema));
+
+//    arrow::StringBuilder string_builder;
+    arrow::Int64Builder  int_builder;
+
+//    ARROW_RETURN_NOT_OK(string_builder.Append("jose"));
+    ARROW_RETURN_NOT_OK(int_builder.Append(1));
+
+//    std::shared_ptr<arrow::Array> string_array;
+    std::shared_ptr<arrow::Array> int_array;
+
+//    ARROW_RETURN_NOT_OK(string_builder.Finish(&string_array));
+    ARROW_RETURN_NOT_OK(int_builder.Finish(&int_array));
+
+    std::shared_ptr<arrow::RecordBatch> result;
+
+//    std::vector<std::shared_ptr<Array>> arrays(builders.size());
+//    for (int i = 0; i < num_fields; i++) {
+//      ARROW_RETURN_NOT_OK(builders[i]->Finish(&arrays[i]));
+//    }
+//
+    result = arrow::RecordBatch::Make(schema, 1, {int_array});
+
+    ARROW_RETURN_NOT_OK(prepared_statement->SetParameters(result));
+    ARROW_RETURN_NOT_OK(prepared_statement->Execute(call_options, &info));
+    ARROW_RETURN_NOT_OK(PrintResults(sqlClient, call_options, info));
+
+    std::cout << 1 << std::endl;
+  }else if (fLS::FLAGS_command == "GetSchemas") {
     ARROW_RETURN_NOT_OK(sqlClient.GetSchemas(call_options, &fLS::FLAGS_catalog,
                                              &fLS::FLAGS_schema, &info));
   } else if (fLS::FLAGS_command == "GetTableTypes") {
