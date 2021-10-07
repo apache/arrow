@@ -39,6 +39,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry);
 void RegisterScalarOptions(FunctionRegistry* registry);
 
 // Vector functions
+void RegisterVectorArraySort(FunctionRegistry* registry);
 void RegisterVectorHash(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
