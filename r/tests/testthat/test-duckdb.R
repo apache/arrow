@@ -96,38 +96,19 @@ test_that("to_duckdb then to_arrow", {
       filter(int > 5) %>%
       collect()
   )
-})
 
-test_that("to_duckdb then to_arrow, streaming", {
-  ds <- InMemoryDataset$create(example_data)
-
+  # Now check errors
   ds_rt <- ds %>%
     to_duckdb() %>%
     # factors don't roundtrip
-    select(-fct) %>%
-    to_arrow(as_table = FALSE)
+    select(-fct)
 
-  expect_identical(
-    collect(ds_rt),
-    ds %>%
-      select(-fct) %>%
-      collect()
-  )
+  # alter the class of ds_rt's connection to simulate some other database
+  class(ds_rt$src$con) <- "some_other_connection"
 
-  # And we can continue the pipeline
-  ds_rt <- ds %>%
-    to_duckdb() %>%
-    # factors don't roundtrip
-    select(-fct) %>%
-    to_arrow(as_table = FALSE) %>%
-    filter(int > 5)
-
-  expect_identical(
-    collect(ds_rt),
-    ds %>%
-      select(-fct) %>%
-      filter(int > 5) %>%
-      collect()
+  expect_error(
+    to_arrow(ds_rt),
+    "to_arrow\\(\\) currently only supports Arrow tables, Arrow datasets,"
   )
 })
 

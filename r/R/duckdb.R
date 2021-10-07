@@ -143,13 +143,26 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'   to_arrow() %>%
 #'   collect()
 to_arrow <- function(.data, as_table = TRUE) {
-  # TODO: figure out WTAF .data is before just doing stuff
+  # If this is an Arrow object already, return quickly since we're already Arrow
+  is_adq <- inherits(.data, "arrow_dplyr_query")
+  is_arrow_tabular <- inherits(.data, "ArrowObject") & inherits(.data, c("Dataset", "ArrowTabular"))
+  if (is_adq | is_arrow_tabular) {
+    return(.data)
+  }
+
+  # For now, we only handle .data from duckdb, so check that it is that if we've
+  # gotten this far
+  if (!inherits(dbplyr::remote_con(.data), "duckdb_connection")) {
+    stop(
+      "to_arrow() currently only supports Arrow tables, Arrow datasets, ",
+      "Arrow queries, or dbplyr tbls from duckdb connections",
+      call. = FALSE
+    )
+  }
+
+  # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  if (as_table) {
-    # This could be simply a table, but then the rerturn type varies
-    arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res)$read_table())
-  } else {
-    arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
-  }
+  # TODO: we shouldn't need $read_table(), but we get segfaults when we do.
+  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res)$read_table())
 }
