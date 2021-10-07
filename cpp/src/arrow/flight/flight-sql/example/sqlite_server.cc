@@ -315,17 +315,41 @@ Status SQLiteFlightSqlServer::CreatePreparedStatement(
   boost::uuids::uuid uuid = uuid_generator_();
   prepared_statements_[uuid] = statement;
 
-  std::shared_ptr<Schema> schema;
-  ARROW_RETURN_NOT_OK(statement->GetSchema(&schema));
-  ARROW_ASSIGN_OR_RAISE(auto serialized_schema, ipc::SerializeSchema(*schema));
+  std::shared_ptr<Schema> dataset_schema;
+  ARROW_RETURN_NOT_OK(statement->GetSchema(&dataset_schema));
+  ARROW_ASSIGN_OR_RAISE(auto serialized_dataset_schema,
+                        ipc::SerializeSchema(*dataset_schema));
 
-  pb::sql::ActionCreatePreparedStatementResult result2;
-  result2.set_dataset_schema(serialized_schema->ToString());
-  result2.set_parameter_schema("");
-  result2.set_prepared_statement_handle(boost::uuids::to_string(uuid));
+  sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
+  const int parameter_count = sqlite3_bind_parameter_count(stmt);
+  std::vector<std::shared_ptr<arrow::Field>> parameter_fields;
+  for (int i = 0; i < parameter_count; i++) {
+    const char* parameter_name_chars = sqlite3_bind_parameter_name(stmt, i + 1);
+    std::string parameter_name;
+    if (parameter_name_chars == NULLPTR) {
+      parameter_name = std::string("parameter_") + std::to_string(i + 1);
+    } else {
+      parameter_name = parameter_name_chars;
+    }
+    parameter_fields.push_back(field(parameter_name, dense_union({
+                                                         field("string", utf8()),
+                                                         field("bytes", binary()),
+                                                         field("bigint", int64()),
+                                                         field("double", float64()),
+                                                     })));
+  }
+
+  const std::shared_ptr<Schema>& parameter_schema = arrow::schema(parameter_fields);
+  ARROW_ASSIGN_OR_RAISE(auto serialized_parameter_schema,
+                        ipc::SerializeSchema(*parameter_schema));
+
+  pb::sql::ActionCreatePreparedStatementResult action_result;
+  action_result.set_dataset_schema(serialized_dataset_schema->ToString());
+  action_result.set_parameter_schema(serialized_parameter_schema->ToString());
+  action_result.set_prepared_statement_handle(boost::uuids::to_string(uuid));
 
   google::protobuf::Any any;
-  any.PackFrom(result2);
+  any.PackFrom(action_result);
 
   auto buf = Buffer::FromString(any.SerializeAsString());
   *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
@@ -346,6 +370,7 @@ Status SQLiteFlightSqlServer::ClosePreparedStatement(
     return Status::Invalid("Prepared statement not found");
   }
 
+  *result = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
   return Status::OK();
 }
 
@@ -386,6 +411,73 @@ Status SQLiteFlightSqlServer::DoGetPreparedStatement(
   ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
 
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+
+  return Status::OK();
+}
+
+Status SQLiteFlightSqlServer::DoPutPreparedStatement(
+    const pb::sql::CommandPreparedStatementQuery& command,
+    const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+    std::unique_ptr<FlightMetadataWriter>& writer) {
+  const std::string& prepared_statement_handle = command.prepared_statement_handle();
+  const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(prepared_statement_handle);
+
+  auto search = prepared_statements_.find(uuid);
+  if (search == prepared_statements_.end()) {
+    return Status::Invalid("Prepared statement not found");
+  }
+
+  std::shared_ptr<SqliteStatement> statement = search->second;
+
+  sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
+
+  FlightStreamChunk chunk;
+  while (true) {
+    RETURN_NOT_OK(reader->Next(&chunk));
+    std::shared_ptr<RecordBatch>& record_batch = chunk.data;
+    if (record_batch == nullptr) break;
+
+    const int64_t num_rows = record_batch->num_rows();
+    const int& num_columns = record_batch->num_columns();
+
+    for (int i = 0; i < num_rows; ++i) {
+      for (int c = 0; c < num_columns; ++c) {
+        const std::shared_ptr<Array>& column = record_batch->column(c);
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(i));
+
+        auto& holder = dynamic_cast<DenseUnionScalar&>(*scalar).value;
+
+        switch (holder->type->id()) {
+          case Type::INT64: {
+            int64_t value = dynamic_cast<Int64Scalar&>(*holder).value;
+            sqlite3_bind_int64(stmt, c + 1, value);
+            break;
+          }
+          case Type::FLOAT: {
+            double value = dynamic_cast<FloatScalar&>(*holder).value;
+            sqlite3_bind_double(stmt, c + 1, value);
+            break;
+          }
+          case Type::STRING: {
+            std::shared_ptr<Buffer> buffer = dynamic_cast<StringScalar&>(*holder).value;
+            const std::string string = buffer->ToString();
+            const char* value = string.c_str();
+            sqlite3_bind_text(stmt, c + 1, value, static_cast<int>(strlen(value)),
+                              SQLITE_TRANSIENT);
+            break;
+          }
+          case Type::BINARY: {
+            std::shared_ptr<Buffer> buffer = dynamic_cast<BinaryScalar&>(*holder).value;
+            sqlite3_bind_blob(stmt, c + 1, buffer->data(),
+                              static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+  }
 
   return Status::OK();
 }

@@ -299,6 +299,11 @@ class FlightSqlServerBase : public FlightServerBase {
   virtual Status ClosePreparedStatement(
       const pb::sql::ActionClosePreparedStatementRequest& request,
       const ServerCallContext& context, std::unique_ptr<ResultStream>* result);
+
+  virtual Status DoPutPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
+                                const ServerCallContext &context,
+                                std::unique_ptr<FlightMessageReader>& reader,
+                                std::unique_ptr<FlightMetadataWriter>& writer);
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.

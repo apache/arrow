@@ -128,6 +128,28 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
   return Status::Invalid("The defined request is invalid.");
 }
 
+Status FlightSqlServerBase::DoPut(const ServerCallContext &context,
+                                  std::unique_ptr<FlightMessageReader> reader,
+                                  std::unique_ptr<FlightMetadataWriter> writer) {
+
+  const FlightDescriptor &request = reader->descriptor();
+
+  google::protobuf::Any any;
+  any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()));
+
+  if (any.Is<pb::sql::CommandStatementUpdate>()) {
+    pb::sql::CommandStatementUpdate command;
+    any.UnpackTo(&command);
+    return DoPutCommandStatementUpdate(command, context, reader, writer);
+  } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
+    pb::sql::CommandPreparedStatementQuery command;
+    any.UnpackTo(&command);
+    return DoPutPreparedStatement(command, context, reader, writer);
+  }
+
+  return Status::Invalid("The defined request is invalid.");
+}
+
 Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
                                         std::vector<ActionType>* actions) {
   *actions = {FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT,
@@ -156,23 +178,6 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
 
     return ClosePreparedStatement(command, context, result);
   }
-  return Status::Invalid("The defined request is invalid.");
-}
-
-Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
-                                  std::unique_ptr<FlightMessageReader> reader,
-                                  std::unique_ptr<FlightMetadataWriter> writer) {
-  const FlightDescriptor& request = reader->descriptor();
-
-  google::protobuf::Any any;
-  any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()));
-
-  if (any.Is<pb::sql::CommandStatementUpdate>()) {
-    pb::sql::CommandStatementUpdate command;
-    any.UnpackTo(&command);
-    return DoPutCommandStatementUpdate(command, context, reader, writer);
-  }
-
   return Status::Invalid("The defined request is invalid.");
 }
 
@@ -306,6 +311,12 @@ Status FlightSqlServerBase::ClosePreparedStatement(
     const pb::sql::ActionClosePreparedStatementRequest& request,
     const ServerCallContext& context, std::unique_ptr<ResultStream>* p_ptr) {
   return Status::NotImplemented("ClosePreparedStatement not implemented");
+}
+Status FlightSqlServerBase::DoPutPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
+                                                   const ServerCallContext &context,
+                                                   std::unique_ptr<FlightMessageReader> &reader,
+                                                   std::unique_ptr<FlightMetadataWriter> &writer) {
+  return Status::NotImplemented("DoPutPreparedStatement not implemented");
 }
 
 Status FlightSqlServerBase::DoPutCommandStatementUpdate(
