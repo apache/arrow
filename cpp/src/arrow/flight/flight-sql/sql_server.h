@@ -262,6 +262,12 @@ class FlightSqlServerBase : public FlightServerBase {
                                    const ServerCallContext& context,
                                    std::unique_ptr<FlightDataStream>* result);
 
+  /// \brief Executes an update SQL statement.
+  /// \param[in] command  The CommandStatementUpdate object containing the SQL statement.
+  /// \param[in] context  The call context.
+  /// \param[in] reader   a sequence of uploaded record batches.
+  /// \param[in] writer   send metadata back to the client.
+  /// \return             Status.
   virtual Status DoPutCommandStatementUpdate(
       const pb::sql::CommandStatementUpdate& command, const ServerCallContext& context,
       std::unique_ptr<FlightMessageReader>& reader,
