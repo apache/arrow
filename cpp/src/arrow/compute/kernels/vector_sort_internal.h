@@ -74,7 +74,7 @@ struct NullTraits {
 };
 
 template <typename TypeClass>
-struct NullTraits<TypeClass, enable_if_floating_point<TypeClass>> {
+struct NullTraits<TypeClass, enable_if_physical_floating_point<TypeClass>> {
   using has_null_like_values = std::true_type;
 };
 
