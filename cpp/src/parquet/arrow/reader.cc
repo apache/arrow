@@ -848,14 +848,12 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     const std::shared_ptr<DataType> reader_child_type = child_reader->field()->type();
     const DataType& schema_child_type = *(list_field->type()->field(0)->type());
     if (type_id == ::arrow::Type::MAP) {
-      if (reader_child_type->num_fields() != 2) {
+      if (reader_child_type->num_fields() != 2 ||
+          !reader_child_type->field(0)->type()->Equals(
+              *schema_child_type.field(0)->type())) {
         // This case applies if either key or value are completed filtered
-        // out.
-        list_field = list_field->WithType(::arrow::list(child_reader->field()));
-      } else if (!reader_child_type->field(0)->type()->Equals(
-                     *schema_child_type.field(0)->type())) {
-        // The Key has changed automatically make this a list instead of a
-        // map, since uniqueness likely no longer guarantees.
+        // out so we can take the type as is or the key was partially
+        // so keeping it as a map no longer makes sence.
         list_field = list_field->WithType(::arrow::list(child_reader->field()));
       } else if (!reader_child_type->field(1)->type()->Equals(
                      *schema_child_type.field(1)->type())) {
