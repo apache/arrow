@@ -120,7 +120,6 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
     already_executed = true;
   }
 
-
   int rows = 0;
   while (rows < MAX_BATCH_SIZE && rc == SQLITE_ROW) {
     rows++;
