@@ -36,6 +36,14 @@ FlightSqlClientT<T>::FlightSqlClientT(std::unique_ptr<T>& client) {
 }
 
 template <class T>
+PreparedStatementT<T>::PreparedStatementT(
+    T* client_, const std::string& query,
+    pb::sql::ActionCreatePreparedStatementResult prepared_statement_result_)
+    : client(client_), prepared_statement_result(std::move(prepared_statement_result_)) {
+  is_closed = false;
+}
+
+template <class T>
 FlightSqlClientT<T>::~FlightSqlClientT() = default;
 
 inline FlightDescriptor GetFlightDescriptorForCommand(
@@ -257,13 +265,6 @@ Status FlightSqlClientT<T>::Prepare(
   prepared_statement->reset(new PreparedStatementT<T>(client.get(), query, prepared_statement_result));
 
   return Status::OK();
-}
-
-template <class T>
-PreparedStatementT<T>::PreparedStatementT(T* client_, const std::string& query,
-                                          pb::sql::ActionCreatePreparedStatementResult  prepared_statement_result_)
-    : client(client_), prepared_statement_result(std::move(prepared_statement_result_)) {
-  is_closed = false;
 }
 
 template <class T>
