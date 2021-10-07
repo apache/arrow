@@ -17,12 +17,16 @@
 package array
 
 import (
+	"encoding/base64"
+	"fmt"
 	"math"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -210,6 +214,42 @@ func (b *BinaryBuilder) appendNextOffset() {
 	numBytes := b.values.Len()
 	// TODO(sgc): check binaryArrayMaximumCapacity?
 	b.offsets.AppendValue(int32(numBytes))
+}
+
+func (b *BinaryBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case string:
+		data, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			return err
+		}
+		b.Append(data)
+	case []byte:
+		b.Append(v)
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *BinaryBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var (

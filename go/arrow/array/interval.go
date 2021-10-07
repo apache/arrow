@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 	"golang.org/x/xerrors"
 )
 
@@ -84,6 +85,29 @@ func (a *MonthInterval) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *MonthInterval) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i]
+	}
+	return nil
+}
+
+func (a *MonthInterval) MarshalJSON() ([]byte, error) {
+	if a.NullN() == 0 {
+		return json.Marshal(a.values)
+	}
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = a.values[i]
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualMonthInterval(left, right *MonthInterval) bool {
@@ -234,6 +258,29 @@ func (b *MonthIntervalBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *MonthIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+	var v *arrow.MonthInterval
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+
+	if v == nil {
+		b.AppendNull()
+	} else {
+		b.Append(*v)
+	}
+	return nil
+}
+
+func (b *MonthIntervalBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
 type DayTimeInterval struct {
 	array
@@ -277,6 +324,28 @@ func (a *DayTimeInterval) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *DayTimeInterval) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i]
+	}
+	return nil
+}
+
+func (a *DayTimeInterval) MarshalJSON() ([]byte, error) {
+	if a.NullN() == 0 {
+		return json.Marshal(a.values)
+	}
+	vals := make([]interface{}, a.Len())
+	for i, v := range a.values {
+		if a.IsValid(i) {
+			vals[i] = v
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualDayTimeInterval(left, right *DayTimeInterval) bool {
@@ -425,6 +494,29 @@ func (b *DayTimeIntervalBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *DayTimeIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+	var v *arrow.DayTimeInterval
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+
+	if v == nil {
+		b.AppendNull()
+	} else {
+		b.Append(*v)
+	}
+	return nil
+}
+
+func (b *DayTimeIntervalBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.

@@ -18,6 +18,9 @@ package array
 
 import (
 	"fmt"
+	"math"
+	"math/big"
+	"reflect"
 	"strings"
 	"sync/atomic"
 
@@ -26,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/decimal128"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of 128-bit decimal values.
@@ -73,6 +77,25 @@ func (a *Decimal128) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Decimal128) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	typ := a.DataType().(*arrow.Decimal128Type)
+	f := (&big.Float{}).SetInt(a.Value(i).BigInt())
+	f.Quo(f, big.NewFloat(math.Pow10(int(typ.Scale))))
+	return f.Text('g', int(f.MinPrec()))
+}
+
+func (a *Decimal128) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.getOneForMarshal(i)
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualDecimal128(left, right *Decimal128) bool {
@@ -227,6 +250,53 @@ func (b *Decimal128Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	var out *big.Float
+
+	switch v := t.(type) {
+	case float64:
+		out = big.NewFloat(v)
+	case string:
+		out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestAway)
+		if err != nil {
+			return err
+		}
+	case json.Number:
+		val, err := v.Float64()
+		if err != nil {
+			return err
+		}
+		out = big.NewFloat(val)
+	case nil:
+		b.AppendNull()
+		return nil
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(decimal128.Num{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(nil)
+	b.Append(decimal128.FromBigInt(val))
+	return nil
+}
+
+func (b *Decimal128Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var (

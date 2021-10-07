@@ -16,9 +16,159 @@
 
 package array
 
+import (
+	"errors"
+	"fmt"
+	"io"
+
+	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/goccy/go-json"
+)
+
 func min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
+}
+
+type fromJSONCfg struct {
+	multiDocument bool
+	startOffset   int64
+}
+
+type FromJSONOption func(*fromJSONCfg)
+
+func WithMultipleDocs() FromJSONOption {
+	return func(c *fromJSONCfg) {
+		c.multiDocument = true
+	}
+}
+
+// WithStartOffset attempts to start decoding from the reader at the offset
+// passed in. If using this option the reader must fulfill the io.ReadSeeker
+// interface, or else an error will be returned.
+//
+// It will call Seek(off, io.SeekStart) on the reader
+func WithStartOffset(off int64) FromJSONOption {
+	return func(c *fromJSONCfg) {
+		c.startOffset = off
+	}
+}
+
+// FromJSON creates an array.Interface from a corresponding JSON stream and defined data type. If the types in the
+// json do not match the type provided, it will return errors. This is *not* the integration test format
+// and should not be used as such. This intended to be used by consumers more similarly to the current exposing of
+// the csv reader/writer. It also returns the input offset in the reader where it finished decoding since buffering
+// by the decoder could leave the reader's cursor past where the parsing finished if attempting to parse multiple json
+// arrays from one stream.
+//
+// All the Array types implement json.Marshaller and thus can be written to json
+// using the json.Marshal function
+//
+// The JSON provided must be formatted in one of two ways:
+//		Default: the top level of the json must be a list which matches the type specified exactly
+//		Example: `[1, 2, 3, 4, 5]` for any integer type or `[[...], null, [], .....]` for a List type
+//					Struct arrays are represented a list of objects: `[{"foo": 1, "bar": "moo"}, {"foo": 5, "bar": "baz"}]`
+//
+//		Using WithMultipleDocs:
+//			If the JSON provided is multiple newline separated json documents, then use this option
+// 			and each json document will be treated as a single row of the array. This is most useful for record batches
+// 			and interacting with other processes that use json. For example:
+//				`{"col1": 1, "col2": "row1", "col3": ...}\n{"col1": 2, "col2": "row2", "col3": ...}\n.....`
+//
+//
+// When processing structs as objects order of keys does not matter, but keys cannot be repeated.
+func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...FromJSONOption) (arr Interface, offset int64, err error) {
+	var cfg fromJSONCfg
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	if cfg.startOffset != 0 {
+		seeker, ok := r.(io.ReadSeeker)
+		if !ok {
+			return nil, 0, errors.New("using StartOffset option requires reader to be a ReadSeeker, cannot seek")
+		}
+
+		seeker.Seek(cfg.startOffset, io.SeekStart)
+	}
+
+	bldr := NewBuilder(mem, dt)
+	defer bldr.Release()
+
+	dec := json.NewDecoder(r)
+	defer func() {
+		if errors.Is(err, io.EOF) {
+			err = fmt.Errorf("failed parsing json: %w", io.ErrUnexpectedEOF)
+		}
+	}()
+
+	if !cfg.multiDocument {
+		t, err := dec.Token()
+		if err != nil {
+			return nil, dec.InputOffset(), err
+		}
+
+		if delim, ok := t.(json.Delim); !ok || delim != '[' {
+			return nil, dec.InputOffset(), fmt.Errorf("json doc must be an array, found %s", delim)
+		}
+	}
+
+	if err = bldr.unmarshal(dec); err != nil {
+		return nil, dec.InputOffset(), err
+	}
+
+	if !cfg.multiDocument {
+		// consume the last ']'
+		if _, err = dec.Token(); err != nil {
+			return nil, dec.InputOffset(), err
+		}
+	}
+
+	return bldr.NewArray(), dec.InputOffset(), nil
+}
+
+// RecordToStructArray constructs a struct array from the columns of the record batch
+// by referencing them, zero-copy.
+func RecordToStructArray(rec Record) *Struct {
+	cols := make([]*Data, rec.NumCols())
+	for i, c := range rec.Columns() {
+		cols[i] = c.Data()
+	}
+
+	data := NewData(arrow.StructOf(rec.Schema().Fields()...), int(rec.NumRows()), []*memory.Buffer{nil}, cols, 0, 0)
+	defer data.Release()
+
+	return NewStructData(data)
+}
+
+// RecordFromStructArray is a convenience function for converting a struct array into
+// a record batch without copying the data. If the passed in schema is nil, the fields
+// of the struct will be used to define the record batch. Otherwise the passed in
+// schema will be used to create the record batch. If passed in, the schema must match
+// the fields of the struct column.
+func RecordFromStructArray(in *Struct, schema *arrow.Schema) Record {
+	if schema == nil {
+		schema = arrow.NewSchema(in.DataType().(*arrow.StructType).Fields(), nil)
+	}
+
+	return NewRecord(schema, in.fields, int64(in.Len()))
+}
+
+// RecordFromJSON creates a record batch from JSON data. See array.FromJSON for the details
+// of formatting and logic.
+//
+// A record batch from JSON is equivalent to reading a struct array in from json and then
+// converting it to a record batch.
+func RecordFromJSON(mem memory.Allocator, schema *arrow.Schema, r io.Reader, opts ...FromJSONOption) (Record, int64, error) {
+	st := arrow.StructOf(schema.Fields()...)
+	arr, off, err := FromJSON(mem, st, r, opts...)
+	if err != nil {
+		return nil, off, err
+	}
+	defer arr.Release()
+
+	return RecordFromStructArray(arr.(*Struct), schema), off, nil
 }

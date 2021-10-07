@@ -19,6 +19,7 @@ package array
 import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // Map represents an immutable sequence of Key/Value structs. It is a
@@ -264,6 +265,14 @@ func (b *MapBuilder) ItemBuilder() Builder { return b.itemBuilder }
 // separately.
 func (b *MapBuilder) ValueBuilder() *StructBuilder {
 	return b.listBuilder.ValueBuilder().(*StructBuilder)
+}
+
+func (b *MapBuilder) unmarshalOne(dec *json.Decoder) error {
+	return b.listBuilder.unmarshalOne(dec)
+}
+
+func (b *MapBuilder) unmarshal(dec *json.Decoder) error {
+	return b.listBuilder.unmarshal(dec)
 }
 
 var (

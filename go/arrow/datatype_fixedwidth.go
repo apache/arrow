@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 type BooleanType struct{}
@@ -53,6 +55,137 @@ type (
 	Date64    int64
 	Duration  int64
 )
+
+// Date32FromTime returns a Date32 value from a time object
+func Date32FromTime(t time.Time) Date32 {
+	return Date32(t.Unix() / int64((time.Hour * 24).Seconds()))
+}
+
+func (d Date32) ToTime() time.Time {
+	return time.Unix(0, 0).UTC().AddDate(0, 0, int(d))
+}
+
+// Date64FromTime returns a Date64 value from a time object
+func Date64FromTime(t time.Time) Date64 {
+	return Date64(t.Unix()*1e3 + int64(t.Nanosecond())/1e6)
+}
+
+func (d Date64) ToTime() time.Time {
+	days := int(int64(d) / (time.Hour * 24).Milliseconds())
+	return time.Unix(0, 0).UTC().AddDate(0, 0, days)
+}
+
+// TimestampFromString parses a string and returns a timestamp for the given unit
+// level.
+//
+// The timestamp should be in one of the following forms, [T] can be either T
+// or a space, and [.zzzzzzzzz] can be either left out or up to 9 digits of
+// fractions of a second.
+//
+//	 YYYY-MM-DD
+//	 YYYY-MM-DD[T]HH
+//   YYYY-MM-DD[T]HH:MM
+//   YYYY-MM-DD[T]HH:MM:SS[.zzzzzzzz]
+func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
+	format := "2006-01-02"
+	if val[len(val)-1] == 'Z' {
+		val = val[:len(val)-1]
+	}
+
+	switch {
+	case len(val) == 13:
+		format += string(val[10]) + "15"
+	case len(val) == 16:
+		format += string(val[10]) + "15:04"
+	case len(val) >= 19:
+		format += string(val[10]) + "15:04:05.999999999"
+	}
+
+	out, err := time.ParseInLocation(format, val, time.UTC)
+	if err != nil {
+		return 0, err
+	}
+
+	switch unit {
+	case Second:
+		return Timestamp(out.Unix()), nil
+	case Millisecond:
+		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), nil
+	case Microsecond:
+		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), nil
+	case Nanosecond:
+		return Timestamp(out.UnixNano()), nil
+	}
+	return 0, fmt.Errorf("unexpected timestamp unit: %s", unit)
+}
+
+func (t Timestamp) ToTime(unit TimeUnit) time.Time {
+	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
+}
+
+// Time32FromString parses a string to return a Time32 value in the given unit,
+// unit needs to be only seconds or milliseconds and the string should be in the
+// form of HH:MM or HH:MM:SS[.zzz] where the fractions of a second are optional.
+func Time32FromString(val string, unit TimeUnit) (Time32, error) {
+	if unit == Microsecond || unit == Nanosecond {
+		return 0, xerrors.New("time32 can only be seconds or milliseconds")
+	}
+
+	var (
+		out time.Time
+		err error
+	)
+	switch {
+	case len(val) == 5:
+		out, err = time.ParseInLocation("15:04", val, time.UTC)
+	default:
+		out, err = time.ParseInLocation("15:04:05.999", val, time.UTC)
+	}
+	if err != nil {
+		return 0, err
+	}
+	t := out.Sub(time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC))
+	if unit == Second {
+		return Time32(t.Seconds()), nil
+	}
+	return Time32(t.Milliseconds()), nil
+}
+
+func (t Time32) ToTime(unit TimeUnit) time.Time {
+	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
+}
+
+// Time64FromString parses a string to return a Time64 value in the given unit,
+// unit needs to be only microseconds or nanoseconds and the string should be in the
+// form of HH:MM or HH:MM:SS[.zzzzzzzzz] where the fractions of a second are optional.
+func Time64FromString(val string, unit TimeUnit) (Time64, error) {
+	if unit == Second || unit == Millisecond {
+		return 0, xerrors.New("time64 should only be microseconds or nanoseconds")
+	}
+
+	var (
+		out time.Time
+		err error
+	)
+	switch {
+	case len(val) == 5:
+		out, err = time.ParseInLocation("15:04", val, time.UTC)
+	default:
+		out, err = time.ParseInLocation("15:04:05.999999999", val, time.UTC)
+	}
+	if err != nil {
+		return 0, err
+	}
+	t := out.Sub(time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC))
+	if unit == Microsecond {
+		return Time64(t.Microseconds()), nil
+	}
+	return Time64(t.Nanoseconds()), nil
+}
+
+func (t Time64) ToTime(unit TimeUnit) time.Time {
+	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
+}
 
 const (
 	Nanosecond TimeUnit = iota
@@ -214,6 +347,55 @@ func (*MonthDayNanoIntervalType) Fingerprint() string {
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*MonthDayNanoIntervalType) BitWidth() int { return 128 }
+
+type op int8
+
+const (
+	convDIVIDE = iota
+	convMULTIPLY
+)
+
+var timestampConversion = [...][4]struct {
+	op     op
+	factor int64
+}{
+	Nanosecond: {
+		Nanosecond:  {convMULTIPLY, int64(time.Nanosecond)},
+		Microsecond: {convDIVIDE, int64(time.Microsecond)},
+		Millisecond: {convDIVIDE, int64(time.Millisecond)},
+		Second:      {convDIVIDE, int64(time.Second)},
+	},
+	Microsecond: {
+		Nanosecond:  {convMULTIPLY, int64(time.Microsecond)},
+		Microsecond: {convMULTIPLY, 1},
+		Millisecond: {convDIVIDE, int64(time.Millisecond / time.Microsecond)},
+		Second:      {convDIVIDE, int64(time.Second / time.Microsecond)},
+	},
+	Millisecond: {
+		Nanosecond:  {convMULTIPLY, int64(time.Millisecond)},
+		Microsecond: {convMULTIPLY, int64(time.Millisecond / time.Microsecond)},
+		Millisecond: {convMULTIPLY, 1},
+		Second:      {convDIVIDE, int64(time.Second / time.Millisecond)},
+	},
+	Second: {
+		Nanosecond:  {convMULTIPLY, int64(time.Second)},
+		Microsecond: {convMULTIPLY, int64(time.Second / time.Microsecond)},
+		Millisecond: {convMULTIPLY, int64(time.Second / time.Millisecond)},
+		Second:      {convMULTIPLY, 1},
+	},
+}
+
+func ConvertTimestampValue(in, out TimeUnit, value int64) int64 {
+	conv := timestampConversion[int(in)][int(out)]
+	switch conv.op {
+	case convMULTIPLY:
+		return value * conv.factor
+	case convDIVIDE:
+		return value / conv.factor
+	}
+
+	return 0
+}
 
 var (
 	FixedWidthTypes = struct {

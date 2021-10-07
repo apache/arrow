@@ -25,6 +25,7 @@ import (
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -116,6 +117,25 @@ func (a *String) setData(data *Data) {
 	if offsets := data.buffers[1]; offsets != nil {
 		a.offsets = arrow.Int32Traits.CastFromBytes(offsets.Bytes())
 	}
+}
+
+func (a *String) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.Value(i)
+	}
+	return nil
+}
+
+func (a *String) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = a.Value(i)
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualString(left, right *String) bool {
@@ -221,6 +241,36 @@ func (b *StringBuilder) NewStringArray() (a *String) {
 	a = NewStringData(data)
 	data.Release()
 	return
+}
+
+func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		b.Append(v)
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(v),
+			Type:   reflect.TypeOf(string("")),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *StringBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var (

@@ -19,12 +19,17 @@
 package array
 
 import (
+	"fmt"
+	"reflect"
+	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 type Int64Builder struct {
@@ -163,6 +168,59 @@ func (b *Int64Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Int64Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseInt(v, 10, 8*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(int64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int64(f))
+	case float64:
+		b.Append(int64(v))
+	case json.Number:
+		f, err := strconv.ParseInt(v.String(), 10, 8*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(int64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int64(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(int64(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Int64Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Uint64Builder struct {
 	builder
 
@@ -297,6 +355,59 @@ func (b *Uint64Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Uint64Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseUint(v, 10, 8*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(uint64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint64(f))
+	case float64:
+		b.Append(uint64(v))
+	case json.Number:
+		f, err := strconv.ParseUint(v.String(), 10, 8*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(uint64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint64(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(uint64(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Uint64Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Float64Builder struct {
@@ -435,6 +546,59 @@ func (b *Float64Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Float64Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseFloat(v, 8*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(float64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(float64(f))
+	case float64:
+		b.Append(float64(v))
+	case json.Number:
+		f, err := strconv.ParseFloat(v.String(), 8*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(float64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(float64(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(float64(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Float64Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Int32Builder struct {
 	builder
 
@@ -569,6 +733,59 @@ func (b *Int32Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Int32Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseInt(v, 10, 4*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(int32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int32(f))
+	case float64:
+		b.Append(int32(v))
+	case json.Number:
+		f, err := strconv.ParseInt(v.String(), 10, 4*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(int32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int32(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(int32(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Int32Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Uint32Builder struct {
@@ -707,6 +924,59 @@ func (b *Uint32Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Uint32Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseUint(v, 10, 4*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(uint32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint32(f))
+	case float64:
+		b.Append(uint32(v))
+	case json.Number:
+		f, err := strconv.ParseUint(v.String(), 10, 4*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(uint32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint32(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(uint32(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Uint32Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Float32Builder struct {
 	builder
 
@@ -841,6 +1111,59 @@ func (b *Float32Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Float32Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseFloat(v, 4*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(float32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(float32(f))
+	case float64:
+		b.Append(float32(v))
+	case json.Number:
+		f, err := strconv.ParseFloat(v.String(), 4*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(float32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(float32(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(float32(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Float32Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Int16Builder struct {
@@ -979,6 +1302,59 @@ func (b *Int16Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Int16Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseInt(v, 10, 2*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(int16(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int16(f))
+	case float64:
+		b.Append(int16(v))
+	case json.Number:
+		f, err := strconv.ParseInt(v.String(), 10, 2*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(int16(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int16(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(int16(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Int16Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Uint16Builder struct {
 	builder
 
@@ -1113,6 +1489,59 @@ func (b *Uint16Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Uint16Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseUint(v, 10, 2*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(uint16(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint16(f))
+	case float64:
+		b.Append(uint16(v))
+	case json.Number:
+		f, err := strconv.ParseUint(v.String(), 10, 2*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(uint16(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint16(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(uint16(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Uint16Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Int8Builder struct {
@@ -1251,6 +1680,59 @@ func (b *Int8Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Int8Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseInt(v, 10, 1*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(int8(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int8(f))
+	case float64:
+		b.Append(int8(v))
+	case json.Number:
+		f, err := strconv.ParseInt(v.String(), 10, 1*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(int8(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(int8(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(int8(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Int8Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Uint8Builder struct {
 	builder
 
@@ -1385,6 +1867,59 @@ func (b *Uint8Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Uint8Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+
+	case string:
+		f, err := strconv.ParseUint(v, 10, 1*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(uint8(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint8(f))
+	case float64:
+		b.Append(uint8(v))
+	case json.Number:
+		f, err := strconv.ParseUint(v.String(), 10, 1*8)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(uint8(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(uint8(f))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(uint8(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Uint8Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type TimestampBuilder struct {
@@ -1524,6 +2059,47 @@ func (b *TimestampBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *TimestampBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		tm, err := arrow.TimestampFromString(v, b.dtype.Unit)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(arrow.Timestamp(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		b.Append(tm)
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(arrow.Timestamp(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *TimestampBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Time32Builder struct {
 	builder
 
@@ -1659,6 +2235,47 @@ func (b *Time32Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Time32Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		tm, err := arrow.Time32FromString(v, b.dtype.Unit)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(arrow.Time32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		b.Append(tm)
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(arrow.Time32(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Time32Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Time64Builder struct {
@@ -1798,6 +2415,47 @@ func (b *Time64Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Time64Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		tm, err := arrow.Time64FromString(v, b.dtype.Unit)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(arrow.Time64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		b.Append(tm)
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(arrow.Time64(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Time64Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Date32Builder struct {
 	builder
 
@@ -1932,6 +2590,47 @@ func (b *Date32Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Date32Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		tm, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(arrow.Date32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		b.Append(arrow.Date32FromTime(tm))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(arrow.Date32(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Date32Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type Date64Builder struct {
@@ -2070,6 +2769,47 @@ func (b *Date64Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Date64Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		tm, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(arrow.Date64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		b.Append(arrow.Date64FromTime(tm))
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(arrow.Date64(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *Date64Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type DurationBuilder struct {
 	builder
 
@@ -2205,6 +2945,56 @@ func (b *DurationBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *DurationBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v,
+				Type:   reflect.TypeOf(arrow.Duration(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		switch b.dtype.Unit {
+		case arrow.Nanosecond:
+			b.Append(arrow.Duration(val.Nanoseconds()))
+		case arrow.Microsecond:
+			b.Append(arrow.Duration(val.Microseconds()))
+		case arrow.Millisecond:
+			b.Append(arrow.Duration(val.Milliseconds()))
+		case arrow.Second:
+			b.Append(arrow.Duration(val.Seconds()))
+		}
+
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(arrow.Duration(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *DurationBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var (

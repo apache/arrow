@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // RecordReader reads a stream of records.
@@ -109,6 +110,8 @@ func (rs *simpleRecords) Next() bool {
 // Record is a collection of equal-length arrays
 // matching a particular Schema.
 type Record interface {
+	json.Marshaler
+
 	Release()
 	Retain()
 
@@ -252,6 +255,12 @@ func (rec *simpleRecord) String() string {
 	}
 
 	return o.String()
+}
+
+func (rec *simpleRecord) MarshalJSON() ([]byte, error) {
+	st := RecordToStructArray(rec)
+	defer st.Release()
+	return json.Marshal(st)
 }
 
 // RecordBuilder eases the process of building a Record, iteratively, from
