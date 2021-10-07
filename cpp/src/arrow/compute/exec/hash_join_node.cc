@@ -253,9 +253,9 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
   for (int i = 0; i < left_size + right_size; ++i) {
     bool is_left = (i < left_size);
     int side = (is_left ? 0 : 1);
-    int input_field_id =
-        proj_maps[side].map(HashJoinProjection::OUTPUT,
-                            HashJoinProjection::INPUT)[is_left ? i : i - left_size];
+    int input_field_id = proj_maps[side]
+                             .map(HashJoinProjection::OUTPUT, HashJoinProjection::INPUT)
+                             .get(is_left ? i : i - left_size);
     const std::string& input_field_name =
         proj_maps[side].field_name(HashJoinProjection::INPUT, input_field_id);
     const std::shared_ptr<DataType>& input_data_type =
