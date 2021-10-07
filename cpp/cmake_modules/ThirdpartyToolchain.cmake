@@ -3563,7 +3563,7 @@ macro(build_nlohmann_json_once)
         ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
 
-    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/json.hpp)
+    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
     externalproject_add(nlohmann_json_ep
                         ${EP_LOG_OPTIONS}
