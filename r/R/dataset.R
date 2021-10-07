@@ -162,7 +162,7 @@ open_dataset <- function(sources,
     class(format) == "CsvFileFormat" || is_string(format, string = "csv")
   }
 
-  if (is_csv_format(format) && !is.null(schema)) {
+  if (length(format) == 1 && is_csv_format(format) && !is.null(schema)) {
     factory <- DatasetFactory$create(
       sources,
       partitioning = partitioning,
