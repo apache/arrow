@@ -20,8 +20,12 @@
 #include <arrow/flight/types.h>
 #include <google/protobuf/any.pb.h>
 #include <google/protobuf/message_lite.h>
+#include "arrow/ipc/reader.h"
+#include <arrow/io/memory.h>
+
 
 #include <utility>
+#include <arrow/testing/gtest_util.h>
 
 namespace pb = arrow::flight::protocol;
 
@@ -291,14 +295,47 @@ Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
   any.PackFrom(execute_query_command);
 
   const std::string& string = any.SerializeAsString();
-  const FlightDescriptor& descriptor = FlightDescriptor::Command(string);
+  const FlightDescriptor descriptor = FlightDescriptor::Command(string);
+
+  if (parameter_binding && parameter_binding->num_rows() > 0) {
+    std::unique_ptr<FlightStreamWriter> writer;
+    std::unique_ptr<FlightMetadataReader> reader;
+    client->DoPut(descriptor, parameter_binding->schema(), &writer, &reader);
+
+    std::shared_ptr<Buffer> buffer;
+    writer->WriteRecordBatch(*parameter_binding);
+    writer->DoneWriting();
+    reader->ReadMetadata(&buffer);
+  }
 
   return client->GetFlightInfo(options, descriptor, info);
 }
 
 template <class T>
+Status PreparedStatementT<T>::SetParameters(const std::shared_ptr<RecordBatch>& parameter_binding_) {
+  parameter_binding = parameter_binding_;
+
+  return Status::OK();
+}
+
+template <class T>
 bool PreparedStatementT<T>::IsClosed() const {
   return is_closed;
+}
+
+template <class T>
+Status PreparedStatementT<T>::GetParameterSchema(std::shared_ptr<Schema>* schema) {
+  //TODO improve this function
+  ipc::DictionaryMemo in_memo;
+
+  auto &args = prepared_statement_result.parameter_schema();
+  std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
+
+  io::BufferReader reader(schema_buffer);
+
+  ARROW_ASSIGN_OR_RAISE(*schema, ReadSchema(&reader, &in_memo))
+
+  return Status::OK();
 }
 
 template <class T>

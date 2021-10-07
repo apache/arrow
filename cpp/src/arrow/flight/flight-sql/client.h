@@ -35,6 +35,7 @@ namespace internal {
 template <class T = arrow::flight::FlightClient>
 class ARROW_EXPORT PreparedStatementT {
   pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+  std::shared_ptr<RecordBatch> parameter_binding;
   FlightCallOptions options;
   bool is_closed;
   T* client;
@@ -58,6 +59,10 @@ class ARROW_EXPORT PreparedStatementT {
   /// \param[out] info        A FlightInfo object representing the stream(s) to fetch.
   /// \return Status.
   Status Execute(std::unique_ptr<FlightInfo>* info);
+
+  //TODO Add doc to these methods
+  Status GetParameterSchema(std::shared_ptr<Schema>* schema);
+  Status SetParameters(const std::shared_ptr<RecordBatch>& parameter_binding_);
 
   /// \brief Closes the prepared statement.
   /// \param[in] options  RPC-layer hints for this call.
