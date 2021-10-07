@@ -46,7 +46,7 @@ inline uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
 }
 
 // These templates are here to help with unit tests
-
+// Two Arguments
 template <typename T>
 struct BitBlockAnd {
   static T Call(T left, T right) { return left & right; }
@@ -86,6 +86,149 @@ template <>
 struct BitBlockOrNot<bool> {
   static bool Call(bool left, bool right) { return left || !right; }
 };
+
+// Three Arguments
+template <typename T>
+struct BitBlockAndAnd {
+  static T Call(T left, T mid, T right) { return left & mid & right; }
+};
+
+template <>
+struct BitBlockAndAnd<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left && mid && right; }
+};
+
+template <typename T>
+struct BitBlockAndAndNot {
+  static T Call(T left, T mid, T right) { return left & mid & ~right; }
+};
+
+template <>
+struct BitBlockAndAndNot<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left && mid && !right; }
+};
+
+template <typename T>
+struct BitBlockAndNotAnd {
+  static T Call(T left, T mid, T right) { return left & ~mid & right; }
+};
+
+template <>
+struct BitBlockAndNotAnd<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left && !mid && right; }
+};
+
+template <typename T>
+struct BitBlockNotAndAnd {
+  static T Call(T left, T mid, T right) { return ~left & mid & right; }
+};
+
+template <>
+struct BitBlockNotAndAnd<bool> {
+  static bool Call(bool left, bool mid, bool right) { return !left && mid && right; }
+};
+
+template <typename T>
+struct BitBlockAndNotAndNot {
+  static T Call(T left, T mid, T right) { return left & ~mid & ~right; }
+};
+
+template <>
+struct BitBlockAndNotAndNot<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left && !mid && !right; }
+};
+
+template <typename T>
+struct BitBlockNotAndNotAnd {
+  static T Call(T left, T mid, T right) { return ~left & ~mid & right; }
+};
+
+template <>
+struct BitBlockNotAndNotAnd<bool> {
+  static bool Call(bool left, bool mid, bool right) { return !left && !mid && right; }
+};
+
+template <typename T>
+struct BitBlockNotAndAndNot {
+  static T Call(T left, T mid, T right) { return ~left & mid & ~right; }
+};
+
+template <>
+struct BitBlockNotAndAndNot<bool> {
+  static bool Call(bool left, bool mid, bool right) { return !left && mid && !right; }
+};
+
+
+template <typename T>
+struct BitBlockOrOr {
+  static T Call(T left, T mid, T right) { return left | mid | right; }
+};
+
+template <>
+struct BitBlockOrOr<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left || mid || right; }
+};
+
+template <typename T>
+struct BitBlockOrOrNot {
+  static T Call(T left, T mid, T right) { return left | mid | ~right; }
+};
+
+template <>
+struct BitBlockOrOrNot<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left || mid || !right; }
+};
+
+template <typename T>
+struct BitBlockOrNotOr {
+  static T Call(T left, T mid, T right) { return left | ~mid | right; }
+};
+
+template <>
+struct BitBlockOrNotOr<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left || !mid || right; }
+};
+
+template <typename T>
+struct BitBlockNotOrOr {
+  static T Call(T left, T mid, T right) { return ~left | mid | right; }
+};
+
+template <>
+struct BitBlockNotOrOr<bool> {
+  static bool Call(bool left, bool mid, bool right) { return !left || mid || right; }
+};
+
+template <typename T>
+struct BitBlockNotOrNotOr {
+  static T Call(T left, T mid, T right) { return ~left | ~mid | right; }
+};
+
+template <>
+struct BitBlockNotOrNotOr<bool> {
+  static bool Call(bool left, bool mid, bool right) { return !left || !mid || right; }
+};
+
+template <typename T>
+struct BitBlockNotOrOrNot {
+  static T Call(T left, T mid, T right) { return ~left | mid | ~right; }
+};
+
+template <>
+struct BitBlockNotOrOrNot<bool> {
+  static bool Call(bool left, bool mid, bool right) { return !left || mid || !right; }
+};
+
+template <typename T>
+struct BitBlockOrNotOrNot {
+  static T Call(T left, T mid, T right) { return left | ~mid | ~right; }
+};
+
+template <>
+struct BitBlockOrNotOrNot<bool> {
+  static bool Call(bool left, bool mid, bool right) { return left || !mid || !right; }
+};
+
 
 }  // namespace detail
 
@@ -424,6 +567,238 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
   }
 };
 
+
+/// \brief A class that computes popcounts on the result of bitwise operations
+/// between three bitmaps, 64 bits at a time. A 64-bit word is loaded from each
+/// bitmap, then the popcount is computed on e.g. the bitwise-and of the three
+/// words.
+class ARROW_EXPORT TernaryBitBlockCounter {
+ public:
+  TernaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
+		         const uint8_t* mid_bitmap,  int64_t mid_offset,
+                         const uint8_t* right_bitmap, int64_t right_offset, int64_t length)
+      : left_bitmap_(util::MakeNonNull(left_bitmap) + left_offset / 8),
+        left_offset_(left_offset % 8),
+	mid_bitmap_(util::MakeNonNull(mid_bitmap) + mid_offset / 8),
+	mid_offset_(mid_offset % 8),
+        right_bitmap_(util::MakeNonNull(right_bitmap) + right_offset / 8),
+        right_offset_(right_offset % 8),
+        bits_remaining_(length) {}
+
+  /// \brief Return the popcount of the bitwise-and of the next run of
+  /// available bits, up to 64. The returned pair contains the size of run and
+  /// the number of true values. The last block will have a length less than 64
+  /// if the bitmap length is not a multiple of 64, and will return 0-length
+  /// blocks in subsequent invocations.
+  BitBlockCount NextAndAndWord() { return NextWord<detail::BitBlockAndAnd>(); }
+
+  /// \brief Computes "x & ~y & ~z" block for each available run of bits.
+  BitBlockCount NextAndNotAndNotWord() { return NextWord<detail::BitBlockAndNotAndNot>(); }
+
+  /// \brief Computes "~x & y & ~z" block for each available run of bits.
+  BitBlockCount NextNotAndAndNotWord() { return NextWord<detail::BitBlockNotAndAndNot>(); }
+
+  /// \brief Computes "~x & ~y & z" block for each available run of bits.
+  BitBlockCount NextNotAndNotAndWord() { return NextWord<detail::BitBlockNotAndNotAnd>(); }
+
+  /// \brief Computes "~x & y & z" block for each available run of bits.
+  BitBlockCount NextiNotAndAndWord() { return NextWord<detail::BitBlockNotAndAnd>(); }
+
+  /// \brief Computes "x & ~y & z" block for each available run of bits.
+  BitBlockCount NextAndNotAndWord() { return NextWord<detail::BitBlockAndNotAnd>(); }
+
+  /// \brief Computes "x & y & ~z" block for each available run of bits.
+  BitBlockCount NextAndAndNotWord() { return NextWord<detail::BitBlockNotAndNotAnd>(); }
+
+  /// \brief Computes "x | y | z" block for each available run of bits.
+  BitBlockCount NextOrOrWord() { return NextWord<detail::BitBlockOrOr>(); }
+
+  /// \brief Computes "x | ~y | z" block for each available run of bits.
+  BitBlockCount NextOrNotOrWord() { return NextWord<detail::BitBlockOrNotOr>(); }
+
+  /// \brief Computes "~x | y | z" block for each available run of bits.
+  BitBlockCount NextNotOrOrWord() { return NextWord<detail::BitBlockNotOrOr>(); }
+
+  /// \brief Computes "x | y | ~z" block for each available run of bits.
+  BitBlockCount NextOrOrNotWord() { return NextWord<detail::BitBlockOrOrNot>(); }
+
+  /// \brief Computes "~x | y | ~z" block for each available run of bits.
+  BitBlockCount NextNotOrOrNotWord() { return NextWord<detail::BitBlockNotOrOrNot>(); }
+
+  /// \brief Computes "x | ~y | ~z" block for each available run of bits.
+  BitBlockCount NextOrNotOrNotWord() { return NextWord<detail::BitBlockOrNotOrNot>(); }
+
+  /// \brief Computes "~x | ~y | z" block for each available run of bits.
+  BitBlockCount NextNotOrNotOrWord() { return NextWord<detail::BitBlockNotOrNotOr>(); }
+
+ private:
+  template <template <typename T> class Op>
+  BitBlockCount NextWord() {
+    using detail::LoadWord;
+    using detail::ShiftWord;
+
+    if (!bits_remaining_) {
+      return {0, 0};
+    }
+    // When the offset is > 0, we need there to be a word beyond the last aligned
+    // word in the bitmap for the bit shifting logic.
+    constexpr int64_t kWordBits = BitBlockCounter::kWordBits;
+    const int64_t bits_required_to_use_words =
+        std::max({ left_offset_  == 0 ? 64 : 64 + (64 - left_offset_),
+		   mid_offset_   == 0 ? 64 : 64 + (64 - mid_offset_),
+                   right_offset_ == 0 ? 64 : 64 + (64 - right_offset_) });
+    if (bits_remaining_ < bits_required_to_use_words) {
+      const int16_t run_length =
+          static_cast<int16_t>(std::min(bits_remaining_, kWordBits));
+      int16_t popcount = 0;
+      for (int64_t i = 0; i < run_length; ++i) {
+        if (Op<bool>::Call(BitUtil::GetBit(left_bitmap_, left_offset_ + i),
+			   BitUtil::GetBit(mid_bitmap_, mid_offset_ + i),
+                           BitUtil::GetBit(right_bitmap_, right_offset_ + i))) {
+          ++popcount;
+        }
+      }
+      // This code path should trigger _at most_ 2 times. In the "two times"
+      // case, the first time the run length will be a multiple of 8.
+      left_bitmap_ += run_length / 8;
+      mid_bitmap_ += run_length / 8;
+      right_bitmap_ += run_length / 8;
+      bits_remaining_ -= run_length;
+      return {run_length, popcount};
+    }
+
+    int64_t popcount = 0;
+    if (left_offset_ == 0 && right_offset_ == 0 && mid_offset_ == 0) {
+      popcount = BitUtil::PopCount(
+          Op<uint64_t>::Call(LoadWord(left_bitmap_), 
+		             LoadWord(mid_bitmap_),
+		             LoadWord(right_bitmap_)));
+    } else {
+      auto left_word =
+          ShiftWord(LoadWord(left_bitmap_), LoadWord(left_bitmap_ + 8), left_offset_);
+      auto mid_word =
+	  ShiftWord(LoadWord(mid_bitmap_), LoadWord(mid_bitmap_ + 8), mid_offset_);
+      auto right_word =
+          ShiftWord(LoadWord(right_bitmap_), LoadWord(right_bitmap_ + 8), right_offset_);
+      popcount = BitUtil::PopCount(Op<uint64_t>::Call(left_word, mid_word, right_word));
+    }
+    left_bitmap_ += kWordBits / 8;
+    mid_bitmap_ += kWordBits / 8;
+    right_bitmap_ += kWordBits / 8;
+    bits_remaining_ -= kWordBits;
+    return {64, static_cast<int16_t>(popcount)};
+  }
+
+  const uint8_t* left_bitmap_;
+  int64_t left_offset_;
+  const uint8_t* mid_bitmap_;
+  int64_t mid_offset_;
+  const uint8_t* right_bitmap_;
+  int64_t right_offset_;
+  int64_t bits_remaining_;
+};
+
+class ARROW_EXPORT OptionalTernaryBitBlockCounter {
+ public:
+  // Any bitmap may be NULLPTR
+  OptionalTernaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
+		                 const uint8_t* mid_bitmap, int64_t mid_offset,
+                                 const uint8_t* right_bitmap, int64_t right_offset,
+                                 int64_t length);
+
+  // Any bitmap may be null
+  OptionalTernaryBitBlockCounter(const std::shared_ptr<Buffer>& left_bitmap,
+                                int64_t left_offset,
+				const std::shared_ptr<Buffer>& mid_bitmap,
+				int64_t mid_offset,
+                                const std::shared_ptr<Buffer>& right_bitmap,
+                                int64_t right_offset, int64_t length);
+
+  BitBlockCount NextAndBlock() {
+    static constexpr int64_t kMaxBlockSize = std::numeric_limits<int16_t>::max();
+    switch (has_bitmap_) {
+     case HasBitmap::THREE: {
+        BitBlockCount block = ternary_counter_.NextAndAndWord();
+        position_ += block.length;
+        return block;
+      }
+     case HasBitmap::TWO: {
+        BitBlockCount block = binary_counter_.NextAndWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::ONE: {
+        BitBlockCount block = unary_counter_.NextWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::NONE:
+      default: {
+        const int16_t block_size =
+            static_cast<int16_t>(std::min(kMaxBlockSize, length_ - position_));
+        position_ += block_size;
+        // All values are non-null
+        return {block_size, block_size};
+      }
+    }
+  }
+
+  BitBlockCount NextNotOrNotBlock() {
+    static constexpr int64_t kMaxBlockSize = std::numeric_limits<int16_t>::max();
+    switch (has_bitmap_) {
+      case HasBitmap::THREE: {
+        BitBlockCount block = ternary_counter_.NextNotOrOrNotWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::TWO: {
+        BitBlockCount block = binary_counter_.NextOrNotWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::ONE: {
+        BitBlockCount block = unary_counter_.NextWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::NONE:
+      default: {
+        const int16_t block_size =
+            static_cast<int16_t>(std::min(kMaxBlockSize, length_ - position_));
+        position_ += block_size;
+        // All values are non-null
+        return {block_size, block_size};
+      }
+    }
+  }
+
+ private:
+  enum class HasBitmap : int { THREE, TWO, ONE, NONE };
+
+  const HasBitmap has_bitmap_;
+  int64_t position_;
+  int64_t length_;
+  BitBlockCounter unary_counter_;
+  BinaryBitBlockCounter binary_counter_;
+  TernaryBitBlockCounter ternary_counter_;
+
+  static HasBitmap HasBitmapFromBitmaps(bool has_left,bool has_mid, bool has_right) {
+    switch (static_cast<int>(has_left) + 
+	    static_cast<int>(has_mid) +
+	    static_cast<int>(has_right)) {
+      case 0:
+        return HasBitmap::NONE;
+      case 1:
+        return HasBitmap::ONE;
+      case 2:
+	return HasBitmap::TWO;
+      default:  // 3
+        return HasBitmap::THREE;
+    }
+  }
+};
+
+
 // Functional-style bit block visitors.
 
 template <typename VisitNotNull, typename VisitNull>
@@ -585,6 +960,152 @@ static void VisitTwoBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf
     }
   }
 }
+
+template <typename VisitNotNull, typename VisitNull>
+static void VisitThreeBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf,
+                                  int64_t left_offset,
+				  const std::shared_ptr<Buffer>& mid_bitmap_buf,
+				  int64_t mid_offset,
+                                  const std::shared_ptr<Buffer>& right_bitmap_buf,
+                                  int64_t right_offset, int64_t length,
+                                  VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+  if ( ((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf   == NULLPTR) ) ||
+       ((mid_bitmap_buf  == NULLPTR) && (right_bitmap_buf == NULLPTR) ) ||
+       ((left_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR) ) ) {
+    // At most one bitmap is present
+    if ((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf == NULLPTR)) {
+      return VisitBitBlocksVoid(right_bitmap_buf, right_offset, length,
+                                std::forward<VisitNotNull>(visit_not_null),
+                                std::forward<VisitNull>(visit_null));
+    } else if ((mid_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR)) {
+      return VisitBitBlocksVoid(left_bitmap_buf, left_offset, length,
+                                std::forward<VisitNotNull>(visit_not_null),
+                                std::forward<VisitNull>(visit_null));
+    } else {
+      return VisitBitBlocksVoid(mid_bitmap_buf, mid_offset, length,
+                                std::forward<VisitNotNull>(visit_not_null),
+                                std::forward<VisitNull>(visit_null));
+    }
+  }
+  // Two bitmaps are present
+  if ( left_bitmap_buf == NULLPTR ) { 
+  const uint8_t* mid_bitmap = mid_bitmap_buf->data();
+  const uint8_t* right_bitmap = right_bitmap_buf->data();
+  BinaryBitBlockCounter bit_counter(mid_bitmap, mid_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_not_null(position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_null();
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(mid_bitmap, mid_offset + position) &&
+            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+          visit_not_null(position);
+        } else {
+          visit_null();
+        }
+      }
+    }
+  }
+  } else if (mid_bitmap_buf == NULLPTR) {
+  const uint8_t* left_bitmap = left_bitmap_buf->data();
+  const uint8_t* right_bitmap = right_bitmap_buf->data();
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_not_null(position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_null();
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
+            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+          visit_not_null(position);
+        } else {
+          visit_null();
+        }
+      }
+    }
+  }
+  } else {
+  const uint8_t* left_bitmap = left_bitmap_buf->data();
+  const uint8_t* mid_bitmap = mid_bitmap_buf->data();
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, mid_bitmap, mid_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_not_null(position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_null();
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
+            BitUtil::GetBit(mid_bitmap, mid_offset + position)) {
+          visit_not_null(position);
+        } else {
+          visit_null();
+        }
+      }
+    }
+  }
+ 
+  }
+  // All three bitmaps are present
+
+  const uint8_t* left_bitmap = left_bitmap_buf->data();
+  const uint8_t* mid_bitmap  = mid_bitmap_buf->data();
+  const uint8_t* right_bitmap = right_bitmap_buf->data();
+  TernaryBitBlockCounter bit_counter(left_bitmap, left_offset, 
+		                     mid_bitmap, mid_offset,
+		                     right_bitmap, right_offset,
+                                     length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_not_null(position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_null();
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
+	    BitUtil::GetBit(mid_bitmap, mid_offset + position) &&
+            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+          visit_not_null(position);
+        } else {
+          visit_null();
+        }
+      }
+    }
+  }
+
+}
+
 
 }  // namespace internal
 }  // namespace arrow

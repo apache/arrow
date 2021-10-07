@@ -444,6 +444,30 @@ static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& ar
                         arr0.length, std::move(visit_valid), std::move(visit_null));
 }
 
+template <typename Arg0Type, typename Arg1Type, typename Arg2Type,
+	 typename VisitFunc, typename NullFunc>
+static void VisitThreeArrayValuesInline(const ArrayData& arr0, const ArrayData& arr1,
+                                      const ArrayData& arr2,
+				      VisitFunc&& valid_func, NullFunc&& null_func) {
+  ArrayIterator<Arg0Type> arr0_it(arr0);
+  ArrayIterator<Arg1Type> arr1_it(arr1);
+  ArrayIterator<Arg2Type> arr2_it(arr2);
+  auto visit_valid = [&](int64_t i) {
+    valid_func(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
+               GetViewType<Arg1Type>::LogicalValue(arr1_it()),
+	       GetViewType<Arg2Type>::LogicalValue(arr2_it()));
+  };
+  auto visit_null = [&]() {
+    arr0_it();
+    arr1_it();
+    arr2_it();
+    null_func();
+  };
+  VisitThreeBitBlocksVoid(arr0.buffers[0], arr0.offset, 
+	                arr1.buffers[0], arr1.offset,
+	                arr2.buffers[0], arr2.offset,
+                        arr0.length, std::move(visit_valid), std::move(visit_null));
+}
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
@@ -582,7 +606,23 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
     return Status::NotImplemented("NYI");
   }
 };
+/*
+template <typename Type>
+struct OutputAdapter<Type, enable_if_base_binary<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType::ValueType;
 
+  template <typename Generator>
+  static Status Write(KernelContext*, Datum* out, Generator&& generator) {
+    ArrayData* out_arr = out->mutable_array();
+    auto out_data = out_arr->GetMutableValues<T>(1);
+    // TODO: Is this as fast as a more explicitly inlined function?
+    for (int64_t i = 0; i < out_arr->length; ++i) {
+      *out_data++ = generator();
+    }
+    return Status::OK();
+  }
+};
+*/
 // A kernel exec generator for unary functions that addresses both array and
 // scalar inputs and dispatches input iteration and output writing to other
 // templates
@@ -597,7 +637,7 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
 //   template <typename OutValue, typename Arg0Value>
 //   static OutValue Call(KernelContext* ctx, Arg0Value val, Status* st) {
 //     // implementation
-//     // NOTE: "status" should only populated with errors,
+//     // NOTE: "status" should only be populated with errors,
 //     //        leave it unmodified to indicate Status::OK()
 //   }
 // };
@@ -779,7 +819,7 @@ struct ScalarUnaryNotNull {
 //   static OutValue Call(KernelContext* ctx, Arg0Value arg0, Arg1Value arg1, Status* st)
 //   {
 //     // implementation
-//     // NOTE: "status" should only populated with errors,
+//     // NOTE: "status" should only be populated with errors,
 //     //       leave it unmodified to indicate Status::OK()
 //   }
 // };
@@ -994,7 +1034,7 @@ using ScalarBinaryNotNullStatefulEqualTypes =
 //   Arg2Value> static OutValue Call(KernelContext* ctx, Arg0Value arg0, Arg1Value arg1,
 //   Arg2Value arg2, Status *st) {
 //     // implementation
-//     // NOTE: "status" should only populated with errors,
+//     // NOTE: "status" should only be populated with errors,
 //     //       leave it unmodified to indicate Status::OK()
 //   }
 // };
@@ -1171,8 +1211,16 @@ struct ScalarTernaryNotNullStateful {
 
   Status ArrayArrayArray(KernelContext* ctx, const ArrayData& arg0,
                               const ArrayData& arg1, const ArrayData& arg2, Datum* out) {
-    // not implemented (moving three binary blocks at same time required)
-    Status st = Status::NotImplemented("NYI");
+    // recently added, needs checking
+    Status st = Status::OK();
+    OutputArrayWriter<OutType> writer(out->mutable_array());
+    VisitThreeArrayValuesInline<Arg0Type, Arg1Type, Arg2Type>(
+       arg0, arg1, arg2,
+       [&](Arg0Value u, Arg1Value v, Arg2Value w) {
+          writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
+	    (ctx, u, v, w, &st));
+	  },
+	  [&]()  { writer.WriteNull(); });
     return st;
   }
 
