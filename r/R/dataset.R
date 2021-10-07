@@ -159,7 +159,7 @@ open_dataset <- function(sources,
   }
 
   csv_format <- class(format) == "CsvFileFormat" ||
-    (is.character(format) && format == "csv")
+    (is_string(format) && format == "csv")
 
   if (csv_format && !is.null(schema)) {
     factory <- DatasetFactory$create(
