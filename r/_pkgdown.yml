@@ -166,6 +166,7 @@ reference:
       - list_compute_functions
   - title: Connections to other systems
     contents:
+      - to_arrow
       - to_duckdb
   - title: Configuration
     contents:
