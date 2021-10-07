@@ -159,7 +159,7 @@ open_dataset <- function(sources,
   }
 
   is_csv_format <- function(format){
-    class(format) == "CsvFileFormat" | (is_string(format) && format == "csv")
+    class(format) == "CsvFileFormat" || (is_string(format) && format == "csv")
   }
 
   if (is_csv_format(format) && !is.null(schema)) {
