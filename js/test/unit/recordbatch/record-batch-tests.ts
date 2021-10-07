@@ -74,7 +74,7 @@ describe(`RecordBatch`, () => {
             expect(f32).toEqualVector(makeVector(f32s));
         });
 
-        test.only(`creates a new RecordBatch from Vectors with different lengths`, () => {
+        test(`creates a new RecordBatch from Vectors with different lengths`, () => {
 
             const i32s = new Int32Array(arange(new Array<number>(20)));
             const f32s = new Float32Array(arange(new Array<number>(8)));

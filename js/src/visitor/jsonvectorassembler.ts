@@ -61,9 +61,10 @@ export class JSONVectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends RecordBatch>(...batches: T[]) {
-        const nodes = batches.flatMap(({ data }) => data.children);
-        const fields = batches.flatMap(({ schema }) => schema.fields);
-        return new JSONVectorAssembler().visitMany(fields, nodes);
+        const assemlber = new JSONVectorAssembler();
+        return batches.map(({ schema, data }) => {
+            return assemlber.visitMany(schema.fields, data.children);
+        });
     }
 
     public visit<T extends DataType>({ name }: Field, data: Data<T>) {

@@ -322,17 +322,17 @@ MakeDataVisitor.prototype.visitList = function visitList<T extends List>(props: 
 };
 
 MakeDataVisitor.prototype.visitStruct = function visitStruct<T extends Struct>(props: StructDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['children']: children } = props;
+    const { ['type']: type, ['offset']: offset = 0, ['children']: children = [] } = props;
     const nullBitmap = toUint8Array(props['nullBitmap']);
     const {
-        length = children.reduce((len, { length }) => Math.max(len, length), Number.MIN_SAFE_INTEGER),
+        length = children.reduce((len, { length }) => Math.max(len, length), 0),
         nullCount = props['nullBitmap'] ? -1 : 0
     } = props;
     return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap], children);
 };
 
 MakeDataVisitor.prototype.visitUnion = function visitUnion<T extends Union>(props: UnionDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['children']: children } = props;
+    const { ['type']: type, ['offset']: offset = 0, ['children']: children = [] } = props;
     const nullBitmap = toUint8Array(props['nullBitmap']);
     const typeIds = toArrayBufferView(type.ArrayType, props['typeIds']);
     const { ['length']: length = typeIds.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
@@ -361,14 +361,14 @@ MakeDataVisitor.prototype.visitInterval = function visitInterval<T extends Inter
 };
 
 MakeDataVisitor.prototype.visitFixedSizeList = function visitFixedSizeList<T extends FixedSizeList>(props: FixedSizeListDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['child']: child } = props;
+    const { ['type']: type, ['offset']: offset = 0, ['child']: child = makeData({ type: type.valueType }) } = props;
     const nullBitmap = toUint8Array(props['nullBitmap']);
     const { ['length']: length = child.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
     return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap], [child]);
 };
 
 MakeDataVisitor.prototype.visitMap = function visitMap<T extends Map_>(props: Map_DataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['child']: child } = props;
+    const { ['type']: type, ['offset']: offset = 0, ['child']: child = makeData({ type: type.childType }) } = props;
     const nullBitmap = toUint8Array(props['nullBitmap']);
     const valueOffsets = toInt32Array(props['valueOffsets']);
     const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;

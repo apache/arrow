@@ -41,6 +41,7 @@ const testFiles = [
     `test/unit/builders/`,
     `test/unit/recordbatch/`,
     `test/unit/table/`,
+    `test/unit/ipc/`,
 ];
 
 if (argv.verbose) {

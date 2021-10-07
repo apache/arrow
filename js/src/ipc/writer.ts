@@ -183,7 +183,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
                 this._writeRecordBatch(payload);
             }
         } else if (payload instanceof Table) {
-            this.writeAll(payload);
+            this.writeAll(payload.batches);
         } else if (isIterable(payload)) {
             this.writeAll(payload);
         }
@@ -391,7 +391,7 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
     protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         this._write(this._dictionaryBlocks.length === 0 ? `    ` : `,\n    `);
-        this._write(`${dictionaryBatchToJSON(new Vector(dictionary), id, isDelta)}`);
+        this._write(`${dictionaryBatchToJSON(dictionary, id, isDelta)}`);
         this._dictionaryBlocks.push(new FileBlock(0, 0, 0));
         return this;
     }
@@ -467,10 +467,8 @@ function fieldToJSON({ name, type, nullable }: Field): Record<string, unknown> {
 }
 
 /** @ignore */
-function dictionaryBatchToJSON(dictionary: Vector, id: number, isDelta = false) {
-    const field = new Field(`${id}`, dictionary.type, dictionary.nullCount > 0);
-    const batches = dictionary.data.map((data) => new RecordBatch(new Schema([field]), data));
-    const columns = JSONVectorAssembler.assemble(...batches);
+function dictionaryBatchToJSON(dictionary: Data, id: number, isDelta = false) {
+    const [columns] = JSONVectorAssembler.assemble(new RecordBatch({ [id]: dictionary }));
     return JSON.stringify({
         'id': id,
         'isDelta': isDelta,
@@ -483,8 +481,9 @@ function dictionaryBatchToJSON(dictionary: Vector, id: number, isDelta = false) 
 
 /** @ignore */
 function recordBatchToJSON(records: RecordBatch) {
+    const [columns] = JSONVectorAssembler.assemble(records);
     return JSON.stringify({
         'count': records.numRows,
-        'columns': JSONVectorAssembler.assemble(records)
+        'columns': columns
     }, null, 2);
 }

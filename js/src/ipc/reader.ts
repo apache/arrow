@@ -170,8 +170,8 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
     public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg1): AsyncIterableIterator<RecordBatchStreamReader<T>>;
     public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg2): IterableIterator<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
     public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg3): AsyncIterableIterator<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg4): AsyncIterableIterator<RecordBatchFileReader<T> | AsyncRecordBatchReaders<T>>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg5): AsyncIterableIterator<AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>>;
+    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg4): AsyncIterableIterator<AsyncRecordBatchReaders<T>>;
+    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg5): AsyncIterableIterator<AsyncRecordBatchReaders<T>>;
     /** @nocollapse */
     public static readAll<T extends { [key: string]: DataType } = any>(source: any) {
         if (source instanceof RecordBatchReader) {
@@ -206,12 +206,18 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
 /** @ignore */
 export class RecordBatchStreamReader<T extends { [key: string]: DataType } = any> extends RecordBatchReader<T> {
     constructor(protected _impl: RecordBatchStreamReaderImpl<T>) { super(_impl); }
+    public readAll() { return [...this]; }
     public [Symbol.iterator]() { return (this._impl as IterableIterator<RecordBatch<T>>)[Symbol.iterator](); }
     public async *[Symbol.asyncIterator](): AsyncIterableIterator<RecordBatch<T>> { yield* this[Symbol.iterator](); }
 }
 /** @ignore */
 export class AsyncRecordBatchStreamReader<T extends { [key: string]: DataType } = any> extends RecordBatchReader<T> {
     constructor(protected _impl: AsyncRecordBatchStreamReaderImpl<T>) { super(_impl); }
+    public async readAll() {
+        const batches = new Array<RecordBatch<T>>();
+        for await (const batch of this) { batches.push(batch); }
+        return batches;
+    }
     public [Symbol.iterator](): IterableIterator<RecordBatch<T>> { throw new Error(`AsyncRecordBatchStreamReader is not Iterable`); }
     public [Symbol.asyncIterator]() { return (this._impl as AsyncIterableIterator<RecordBatch<T>>)[Symbol.asyncIterator](); }
 }

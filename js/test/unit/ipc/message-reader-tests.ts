@@ -28,7 +28,7 @@ for (const table of generateRandomTables([10, 20, 30])) {
 
     const io = ArrowIOTestHelper.stream(table);
     const name = `[\n ${table.schema.fields.join(',\n ')}\n]`;
-    const numMessages = table.chunks.reduce((numMessages, batch) => {
+    const numMessages = table.batches.reduce((numMessages, batch) => {
         return numMessages +
             /* recordBatch message */ 1 +
             /* dictionary messages */ batch.dictionaries.size;

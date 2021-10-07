@@ -21,7 +21,7 @@ import {
 } from '../../../data/tables';
 
 import { validateRecordBatchIterator } from '../validate';
-import { Table, RecordBatchFileWriter } from 'apache-arrow';
+import { Table, RecordBatchReader, RecordBatchFileWriter } from 'apache-arrow';
 
 describe('RecordBatchFileWriter', () => {
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -40,7 +40,7 @@ function testFileWriter(table: Table, name: string) {
 
 async function validateTable(source: Table) {
     const writer = RecordBatchFileWriter.writeAll(source);
-    const result = await Table.from(writer.toUint8Array());
-    validateRecordBatchIterator(3, source.chunks);
+    const result = new Table(RecordBatchReader.from(await writer.toUint8Array()));
+    validateRecordBatchIterator(3, source.batches);
     expect(result).toEqualTable(source);
 }

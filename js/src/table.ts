@@ -66,7 +66,8 @@ export interface Table<T extends { [key: string]: DataType } = any> {
 export class Table<T extends { [key: string]: DataType } = any> {
 
     constructor();
-    constructor(batches: readonly RecordBatch<T>[]);
+    constructor(batches: Iterable<RecordBatch<T>>);
+    constructor(...batches: readonly RecordBatch<T>[]);
     constructor(...columns: { [P in keyof T]: Vector<T[P]> }[]);
     constructor(...columns: { [P in keyof T]: TypedArray | BigIntArray }[]);
     constructor(...columns: { [P in keyof T]: Data<T[P]> | DataProps<T[P]> }[]);
@@ -104,6 +105,8 @@ export class Table<T extends { [key: string]: DataType } = any> {
                     }
                 } else if (Array.isArray(x)) {
                     return x.flatMap(unwrap);
+                } else if (typeof x[Symbol.iterator] === 'function') {
+                    return [...x].flatMap(unwrap);
                 } else if (typeof x === 'object') {
                     const keys = Object.keys(x) as (keyof T)[];
                     const vecs = keys.map((k) => new Vector(x[k]));
