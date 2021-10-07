@@ -261,14 +261,14 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
       });
 
   std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, DoAction(_, _, _));
+  EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
 
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> preparedStatement;
-  (void)sqlClient.Prepare({}, query, &preparedStatement);
+  (void)sqlClient.Prepare(call_options, query, &preparedStatement);
 
   EXPECT_CALL(*client_mock, GetFlightInfo(_, _, &flight_info));
 
-  (void)preparedStatement->Execute({}, &flight_info);
+  (void)preparedStatement->Execute(&flight_info);
 }
 
 TEST(TestFlightSqlClient, TestExecuteUpdate) {
