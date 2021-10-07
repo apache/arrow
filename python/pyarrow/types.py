@@ -36,7 +36,7 @@ _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
 _INTERVAL_TYPES = {lib.Type_INTERVAL_MONTH_DAY_NANO}
 _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
-                   lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
+                    lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
                    _INTERVAL_TYPES)
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
 _NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
@@ -530,7 +530,7 @@ def is_dictionary(t):
 
 def is_interval(t):
     """
-    Return Tre if the value is an instance of an interval type.
+    Return True if the value is an instance of an interval type.
 
     Parameters
     ----------

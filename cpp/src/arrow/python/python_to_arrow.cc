@@ -126,7 +126,8 @@ template <MonthDayNanoField field>
 struct PopulateMonthDayNano {
   using Traits = MonthDayNanoTraits<field>;
   using field_c_type = typename Traits::c_type;
-  inline static Status Field(PyObject* obj, field_c_type* out, bool* found_attrs) {
+
+  static Status Field(PyObject* obj, field_c_type* out, bool* found_attrs) {
     *out = 0;
     for (const MonthDayNanoAttrData* attr = &Traits::attrs[0]; attr->multiplier != 0;
          ++attr) {

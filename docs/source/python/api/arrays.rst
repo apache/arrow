@@ -65,7 +65,7 @@ may expose data type-specific methods or properties.
    Date32Array
    Date64Array
    TimestampArray
-   DuratoinArray
+   DurationArray
    MonthDayNanoIntervalArray
    Decimal128Array
    DictionaryArray

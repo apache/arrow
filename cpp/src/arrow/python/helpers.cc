@@ -324,7 +324,7 @@ void InitPandasStaticData() {
   }
 
   // Import DateOffset type
-  if (internal::ImportFromModule(pandas.obj(), "DateOffset", &ref).ok()) {
+  if (ImportFromModule(pandas.obj(), "DateOffset", &ref).ok()) {
     pandas_DateOffset = ref.obj();
   }
 

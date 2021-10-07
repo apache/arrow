@@ -528,7 +528,7 @@ cdef class MonthDayNanoIntervalScalar(Scalar):
 
     def as_py(self):
         """
-        Returns this value as a pyarrow.MonthDayNano.
+        Return this value as a pyarrow.MonthDayNano.
         """
         cdef:
             PyObject* val
