@@ -196,6 +196,95 @@ TEST(StructArray, Validate) {
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 }
 
+TEST(StructArray, Flatten) {
+  auto type =
+      struct_({field("a", int32()), field("b", utf8()), field("c", list(boolean()))});
+  {
+    auto struct_arr = std::static_pointer_cast<StructArray>(ArrayFromJSON(
+        type, R"([[1, "a", [null, false]], [null, "bc", []], [2, null, null]])"));
+    ASSERT_OK_AND_ASSIGN(auto flattened, struct_arr->Flatten(default_memory_pool()));
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[1, null, 2]"), *flattened[0],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["a", "bc", null])"), *flattened[1],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(list(boolean()), "[[null, false], [], null]"),
+                      *flattened[2], /*verbose=*/true);
+  }
+  {
+    ArrayVector children = {
+        ArrayFromJSON(int32(), "[1, 2, 3, 4]")->Slice(1, 3),
+        ArrayFromJSON(utf8(), R"([null, "ab", "cde", null])")->Slice(1, 3),
+        ArrayFromJSON(list(boolean()), "[[true], [], [true, false, null], [false]]")
+            ->Slice(1, 3),
+    };
+
+    // Without slice or top-level nulls
+    auto struct_arr = std::make_shared<StructArray>(type, 3, children);
+    ASSERT_OK_AND_ASSIGN(auto flattened, struct_arr->Flatten(default_memory_pool()));
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[2, 3, 4]"), *flattened[0],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["ab", "cde", null])"), *flattened[1],
+                      /*verbose=*/true);
+    AssertArraysEqual(
+        *ArrayFromJSON(list(boolean()), "[[], [true, false, null], [false]]"),
+        *flattened[2], /*verbose=*/true);
+
+    // With slice
+    struct_arr = std::make_shared<StructArray>(type, 2, children, /*null_bitmap=*/nullptr,
+                                               /*null_count=*/0, /*offset=*/1);
+    ASSERT_OK_AND_ASSIGN(flattened, struct_arr->Flatten(default_memory_pool()));
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[3, 4]"), *flattened[0],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["cde", null])"), *flattened[1],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(list(boolean()), "[[true, false, null], [false]]"),
+                      *flattened[2], /*verbose=*/true);
+
+    struct_arr = std::make_shared<StructArray>(type, 1, children, /*null_bitmap=*/nullptr,
+                                               /*null_count=*/0, /*offset=*/2);
+    ASSERT_OK_AND_ASSIGN(flattened, struct_arr->Flatten(default_memory_pool()));
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[4]"), *flattened[0],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"([null])"), *flattened[1],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(list(boolean()), "[[false]]"), *flattened[2],
+                      /*verbose=*/true);
+
+    // With top-level nulls
+    std::shared_ptr<Buffer> null_bitmap;
+    BitmapFromVector<bool>({true, false, true}, &null_bitmap);
+    struct_arr = std::make_shared<StructArray>(type, 3, children, null_bitmap);
+    ASSERT_OK_AND_ASSIGN(flattened, struct_arr->Flatten(default_memory_pool()));
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[2, null, 4]"), *flattened[0],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["ab", null, null])"), *flattened[1],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(list(boolean()), "[[], null, [false]]"),
+                      *flattened[2], /*verbose=*/true);
+
+    // With slice and top-level nulls
+    struct_arr = std::make_shared<StructArray>(type, 2, children, null_bitmap,
+                                               /*null_count=*/1, /*offset=*/1);
+    ASSERT_OK_AND_ASSIGN(flattened, struct_arr->Flatten(default_memory_pool()));
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[null, 4]"), *flattened[0],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"([null, null])"), *flattened[1],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(list(boolean()), "[null, [false]]"), *flattened[2],
+                      /*verbose=*/true);
+
+    struct_arr = std::make_shared<StructArray>(type, 1, children, null_bitmap,
+                                               /*null_count=*/0, /*offset=*/2);
+    ASSERT_OK_AND_ASSIGN(flattened, struct_arr->Flatten(default_memory_pool()));
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[4]"), *flattened[0],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"([null])"), *flattened[1],
+                      /*verbose=*/true);
+    AssertArraysEqual(*ArrayFromJSON(list(boolean()), "[[false]]"), *flattened[2],
+                      /*verbose=*/true);
+  }
+}
+
 /// ARROW-7740: Flattening a slice shouldn't affect the parent array.
 TEST(StructArray, FlattenOfSlice) {
   auto a = ArrayFromJSON(int32(), "[4, 5]");
