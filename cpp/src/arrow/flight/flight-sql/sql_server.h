@@ -263,17 +263,21 @@ class FlightSqlServerBase : public FlightServerBase {
 class SqlSchema {
  public:
   /// \brief Gets the Schema used on CommandGetCatalogs response.
+  /// \return The default schema template.
   static std::shared_ptr<Schema> GetCatalogsSchema();
 
   /// \brief Gets the Schema used on CommandGetSchemas response.
+  /// \return The default schema template.
   static std::shared_ptr<Schema> GetSchemasSchema();
 
   /// \brief Gets the Schema used on CommandGetTables response when included schema
   /// flags is set to false.
+  /// \return The default schema template.
   static std::shared_ptr<Schema> GetTablesSchema();
 
   /// \brief Gets the Schema used on CommandGetTables response when included schema
   /// flags is set to true.
+  /// \return The default schema template.
   static std::shared_ptr<Schema> GetTablesSchemaWithIncludedSchema();
 };
 }  // namespace sql
