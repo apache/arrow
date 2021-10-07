@@ -166,6 +166,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarOptions(registry.get());
 
   // Vector functions
+  RegisterVectorArraySort(registry.get());
   RegisterVectorHash(registry.get());
   RegisterVectorReplace(registry.get());
   RegisterVectorSelection(registry.get());
