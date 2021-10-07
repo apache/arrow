@@ -17,6 +17,9 @@
 package array
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/goccy/go-json"
@@ -273,6 +276,20 @@ func (b *MapBuilder) unmarshalOne(dec *json.Decoder) error {
 
 func (b *MapBuilder) unmarshal(dec *json.Decoder) error {
 	return b.listBuilder.unmarshal(dec)
+}
+
+func (b *MapBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

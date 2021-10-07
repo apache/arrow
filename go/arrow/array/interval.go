@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -281,6 +282,20 @@ func (b *MonthIntervalBuilder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *MonthIntervalBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
 type DayTimeInterval struct {
 	array
@@ -517,6 +532,20 @@ func (b *DayTimeIntervalBuilder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *DayTimeIntervalBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.

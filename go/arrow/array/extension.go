@@ -243,3 +243,8 @@ func (b *ExtensionBuilder) NewExtensionArray() ExtensionArray {
 	defer data.Release()
 	return NewExtensionData(data)
 }
+
+var (
+	_ Interface = (ExtensionArray)(nil)
+	_ Builder   = (*ExtensionBuilder)(nil)
+)

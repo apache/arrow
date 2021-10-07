@@ -313,6 +313,20 @@ func (b *FixedSizeListBuilder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *FixedSizeListBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 var (
 	_ Interface = (*FixedSizeList)(nil)
 	_ Builder   = (*FixedSizeListBuilder)(nil)

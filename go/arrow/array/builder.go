@@ -32,6 +32,9 @@ const (
 
 // Builder provides an interface to build arrow arrays.
 type Builder interface {
+	// you can unmarshal a json array to add the values to a builder
+	json.Unmarshaler
+
 	// Retain increases the reference count by 1.
 	// Retain may be called simultaneously from multiple goroutines.
 	Retain()

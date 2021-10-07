@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"math"
@@ -250,6 +251,20 @@ func (b *BinaryBuilder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *BinaryBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

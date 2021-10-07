@@ -19,6 +19,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -221,6 +222,20 @@ func (b *Int64Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Int64Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type Uint64Builder struct {
 	builder
 
@@ -408,6 +423,20 @@ func (b *Uint64Builder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *Uint64Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 type Float64Builder struct {
@@ -599,6 +628,20 @@ func (b *Float64Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Float64Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type Int32Builder struct {
 	builder
 
@@ -786,6 +829,20 @@ func (b *Int32Builder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *Int32Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 type Uint32Builder struct {
@@ -977,6 +1034,20 @@ func (b *Uint32Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Uint32Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type Float32Builder struct {
 	builder
 
@@ -1164,6 +1235,20 @@ func (b *Float32Builder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *Float32Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 type Int16Builder struct {
@@ -1355,6 +1440,20 @@ func (b *Int16Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Int16Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type Uint16Builder struct {
 	builder
 
@@ -1542,6 +1641,20 @@ func (b *Uint16Builder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *Uint16Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 type Int8Builder struct {
@@ -1733,6 +1846,20 @@ func (b *Int8Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Int8Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type Uint8Builder struct {
 	builder
 
@@ -1922,6 +2049,20 @@ func (b *Uint8Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Uint8Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type TimestampBuilder struct {
 	builder
 
@@ -2098,6 +2239,20 @@ func (b *TimestampBuilder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *TimestampBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 type Time32Builder struct {
@@ -2278,6 +2433,20 @@ func (b *Time32Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Time32Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type Time64Builder struct {
 	builder
 
@@ -2454,6 +2623,20 @@ func (b *Time64Builder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *Time64Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 type Date32Builder struct {
@@ -2633,6 +2816,20 @@ func (b *Date32Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+func (b *Date32Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 type Date64Builder struct {
 	builder
 
@@ -2808,6 +3005,20 @@ func (b *Date64Builder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *Date64Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 type DurationBuilder struct {
@@ -2995,6 +3206,20 @@ func (b *DurationBuilder) unmarshal(dec *json.Decoder) error {
 		}
 	}
 	return nil
+}
+
+func (b *DurationBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (
