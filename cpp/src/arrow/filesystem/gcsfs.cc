@@ -30,10 +30,10 @@ namespace fs {
 
 namespace gcs = google::cloud::storage;
 
-google::cloud::Options AsGoogleCloudOptions(GcsOptions const& o) {
+google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   auto options = google::cloud::Options{};
   if (!o.endpoint_override.empty()) {
-    auto scheme = o.scheme;
+    std::string scheme = o.scheme;
     if (scheme.empty()) scheme = "https";
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
@@ -42,11 +42,19 @@ google::cloud::Options AsGoogleCloudOptions(GcsOptions const& o) {
 
 class GcsFileSystem::Impl {
  public:
-  explicit Impl(GcsOptions const& o) : client_(AsGoogleCloudOptions(o)) {}
+  explicit Impl(GcsOptions o)
+      : options_(std::move(o)), client_(AsGoogleCloudOptions(options_)) {}
+
+  GcsOptions const& options() const { return options_; }
 
  private:
+  GcsOptions options_;
   gcs::Client client_;
 };
+
+bool GcsOptions::Equals(const GcsOptions& other) const {
+  return endpoint_override == other.endpoint_override && scheme == other.scheme;
+}
 
 std::string GcsFileSystem::type_name() const { return "gcs"; }
 
@@ -58,7 +66,7 @@ bool GcsFileSystem::Equals(const FileSystem& other) const {
     return false;
   }
   const auto& fs = ::arrow::internal::checked_cast<const GcsFileSystem&>(other);
-  return impl_ == fs.impl_;
+  return impl_->options().Equals(fs.impl_->options());
 }
 
 Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
@@ -133,6 +141,7 @@ GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& con
 namespace internal {
 
 std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options) {
+  // Cannot use `std::make_shared<>` as the constructor is private.
   return std::shared_ptr<GcsFileSystem>(
       new GcsFileSystem(options, io::default_io_context()));
 }

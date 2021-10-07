@@ -34,16 +34,29 @@ using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
 
-TEST(GCSFileSystem, Compare) {
+TEST(GcsFileSystem, OptionsCompare) {
+  GcsOptions a;
+  GcsOptions b;
+  b.endpoint_override = "localhost:1234";
+  EXPECT_TRUE(a.Equals(a));
+  EXPECT_TRUE(b.Equals(b));
+  auto c = b;
+  c.scheme = "http";
+  EXPECT_FALSE(b.Equals(c));
+}
+
+TEST(GcsFileSystem, FileSystemCompare) {
   auto a = internal::MakeGcsFileSystemForTest(GcsOptions{});
-  EXPECT_THAT(a.get(), NotNull());
-  EXPECT_EQ(a, a);
+  EXPECT_THAT(a, NotNull());
+  EXPECT_TRUE(a->Equals(*a));
 
-  auto b = internal::MakeGcsFileSystemForTest(GcsOptions{});
-  EXPECT_THAT(b.get(), NotNull());
-  EXPECT_EQ(b, b);
+  GcsOptions options;
+  options.endpoint_override = "localhost:1234";
+  auto b = internal::MakeGcsFileSystemForTest(options);
+  EXPECT_THAT(b, NotNull());
+  EXPECT_TRUE(b->Equals(*b));
 
-  EXPECT_NE(a, b);
+  EXPECT_FALSE(a->Equals(*b));
 }
 
 }  // namespace

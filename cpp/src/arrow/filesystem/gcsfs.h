@@ -28,8 +28,7 @@ namespace fs {
 class GcsFileSystem;
 struct GcsOptions;
 namespace internal {
-// TODO(ARROW-1231) - during development only tests should create a GcsFileSystem.
-//     Remove, and provide a public API, before declaring the feature complete.
+// TODO(ARROW-1231) - remove, and provide a public API (static GcsFileSystem::Make()).
 std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options);
 }  // namespace internal
 
@@ -39,17 +38,6 @@ struct ARROW_EXPORT GcsOptions {
   std::string scheme;
 
   bool Equals(const GcsOptions& other) const;
-
-  /// \brief Initialize with default credentials provider chain
-  ///
-  /// This is recommended if you use the standard GCP environment variables
-  /// and/or configuration file.
-  static GcsOptions Defaults();
-
-  /// \brief Initialize with anonymous credentials.
-  ///
-  /// This will only let you access public buckets.
-  static GcsOptions Anonymous();
 };
 
 /// \brief GCS-backed FileSystem implementation.
@@ -81,7 +69,7 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
   Status DeleteDir(const std::string& path) override;
 
