@@ -26,6 +26,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/goccy/go-json"
@@ -127,8 +128,13 @@ func TestStringsJSON(t *testing.T) {
 
 			arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.String, strings.NewReader(tt.jsonstring))
 			assert.NoError(t, err)
+			defer arr.Release()
 
 			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+			data, err := json.Marshal(arr)
+			assert.NoError(t, err)
+			assert.JSONEq(t, tt.jsonstring, string(data))
 		})
 	}
 
@@ -243,8 +249,13 @@ func TestTimestampsJSON(t *testing.T) {
 
 		arr, _, err := array.FromJSON(memory.DefaultAllocator, dtype, strings.NewReader(tt.jsonstr))
 		assert.NoError(t, err)
+		defer arr.Release()
 
 		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+		data, err := json.Marshal(arr)
+		assert.NoError(t, err)
+		assert.JSONEq(t, tt.jsonstr, string(data))
 	}
 }
 
@@ -253,28 +264,107 @@ func TestDateJSON(t *testing.T) {
 		bldr := array.NewDate32Builder(memory.DefaultAllocator)
 		defer bldr.Release()
 
+		jsonstr := `["1970-01-06", null, "1970-02-12"]`
+
 		bldr.AppendValues([]arrow.Date32{5, 0, 42}, []bool{true, false, true})
 		expected := bldr.NewArray()
 		defer expected.Release()
 
-		arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.FixedWidthTypes.Date32, strings.NewReader(`["1970-01-06", null, "1970-02-12"]`))
+		arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.FixedWidthTypes.Date32, strings.NewReader(jsonstr))
 		assert.NoError(t, err)
+		defer arr.Release()
 
 		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+		data, err := json.Marshal(arr)
+		assert.NoError(t, err)
+		assert.JSONEq(t, jsonstr, string(data))
 	})
 	t.Run("date64", func(t *testing.T) {
 		bldr := array.NewDate64Builder(memory.DefaultAllocator)
 		defer bldr.Release()
 
+		jsonstr := `["1970-01-02", null, "2286-11-20"]`
+
 		bldr.AppendValues([]arrow.Date64{86400000, 0, 9999936000000}, []bool{true, false, true})
 		expected := bldr.NewArray()
 		defer expected.Release()
 
-		arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.FixedWidthTypes.Date64, strings.NewReader(`["1970-01-02", null, "2286-11-20"]`))
+		arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.FixedWidthTypes.Date64, strings.NewReader(jsonstr))
 		assert.NoError(t, err)
+		defer arr.Release()
 
 		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+		data, err := json.Marshal(arr)
+		assert.NoError(t, err)
+		assert.JSONEq(t, jsonstr, string(data))
 	})
+}
+
+func TestTimeJSON(t *testing.T) {
+	tententen := 60*(60*(10)+10) + 10
+	tests := []struct {
+		dt       arrow.DataType
+		jsonstr  string
+		valueadd int
+	}{
+		{arrow.FixedWidthTypes.Time32s, `[null, "10:10:10"]`, 123},
+		{arrow.FixedWidthTypes.Time32ms, `[null, "10:10:10.123"]`, 456},
+		{arrow.FixedWidthTypes.Time64us, `[null, "10:10:10.123456"]`, 789},
+		{arrow.FixedWidthTypes.Time64ns, `[null, "10:10:10.123456789"]`, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.dt), func(t *testing.T) {
+			defer func() {
+				tententen = 1000*tententen + tt.valueadd
+			}()
+
+			bldr := array.NewBuilder(memory.DefaultAllocator, tt.dt)
+			defer bldr.Release()
+
+			switch tt.dt.ID() {
+			case arrow.TIME32:
+				bldr.(*array.Time32Builder).AppendValues([]arrow.Time32{0, arrow.Time32(tententen)}, []bool{false, true})
+			case arrow.TIME64:
+				bldr.(*array.Time64Builder).AppendValues([]arrow.Time64{0, arrow.Time64(tententen)}, []bool{false, true})
+			}
+
+			expected := bldr.NewArray()
+			defer expected.Release()
+
+			arr, _, err := array.FromJSON(memory.DefaultAllocator, tt.dt, strings.NewReader(tt.jsonstr))
+			assert.NoError(t, err)
+			defer arr.Release()
+
+			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+			data, err := json.Marshal(arr)
+			assert.NoError(t, err)
+			assert.JSONEq(t, tt.jsonstr, string(data))
+		})
+	}
+}
+
+func TestDecimal128JSON(t *testing.T) {
+	dt := &arrow.Decimal128Type{Precision: 10, Scale: 4}
+	bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dt)
+	defer bldr.Release()
+
+	bldr.AppendValues([]decimal128.Num{decimal128.FromU64(1234567), {}, decimal128.FromI64(-789000)}, []bool{true, false, true})
+	expected := bldr.NewArray()
+	defer expected.Release()
+
+	arr, _, err := array.FromJSON(memory.DefaultAllocator, dt, strings.NewReader(`["123.4567", null, "-78.9000"]`))
+	assert.NoError(t, err)
+	defer arr.Release()
+
+	assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+	data, err := json.Marshal(arr)
+	assert.NoError(t, err)
+	assert.JSONEq(t, `["123.4567", null, "-78.9"]`, string(data))
 }
 
 func TestArrRecordsJSONRoundTrip(t *testing.T) {

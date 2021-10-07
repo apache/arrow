@@ -87,7 +87,7 @@ func (a *Decimal128) getOneForMarshal(i int) interface{} {
 	typ := a.DataType().(*arrow.Decimal128Type)
 	f := (&big.Float{}).SetInt(a.Value(i).BigInt())
 	f.Quo(f, big.NewFloat(math.Pow10(int(typ.Scale))))
-	return f.Text('g', int(f.MinPrec()))
+	return f.Text('g', int(typ.Precision))
 }
 
 func (a *Decimal128) MarshalJSON() ([]byte, error) {
@@ -264,7 +264,7 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 	case float64:
 		out = big.NewFloat(v)
 	case string:
-		out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestAway)
+		out, _, err = big.ParseFloat(v, 10, 0, big.ToNearestAway)
 		if err != nil {
 			return err
 		}
