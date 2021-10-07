@@ -57,13 +57,12 @@ class ARROW_EXPORT PreparedStatementT {
   /// \param[in] call_options RPC-layer hints for this call.
   /// \param[out] info        A FlightInfo object representing the stream(s) to fetch.
   /// \return Status.
-  Status Execute(const FlightCallOptions& call_options,
-                 std::unique_ptr<FlightInfo>* info);
+  Status Execute(std::unique_ptr<FlightInfo>* info);
 
   /// \brief Closes the prepared statement.
   /// \param[in] options  RPC-layer hints for this call.
   /// \return Status.
-  Status Close(const FlightCallOptions& options);
+  Status Close();
 
   /// \brief Checks if the prepared statement is closed.
   /// \return The state of the prepared statement.

@@ -51,7 +51,7 @@ FlightSqlClientT<T>::~FlightSqlClientT() = default;
 
 template <class T>
 PreparedStatementT<T>::~PreparedStatementT<T>() {
-  Close(options);
+  Close();
 }
 
 inline FlightDescriptor GetFlightDescriptorForCommand(
@@ -276,8 +276,7 @@ Status FlightSqlClientT<T>::Prepare(
 }
 
 template <class T>
-Status PreparedStatementT<T>::Execute(const FlightCallOptions& call_options,
-                                      std::unique_ptr<FlightInfo>* info) {
+Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
   if (is_closed) {
     return Status::Invalid("Statement already closed.");
   }
@@ -293,7 +292,7 @@ Status PreparedStatementT<T>::Execute(const FlightCallOptions& call_options,
   const std::string& string = any.SerializeAsString();
   const FlightDescriptor& descriptor = FlightDescriptor::Command(string);
 
-  return client->GetFlightInfo(call_options, descriptor, info);
+  return client->GetFlightInfo(options, descriptor, info);
 }
 
 template <class T>
@@ -302,7 +301,7 @@ bool PreparedStatementT<T>::IsClosed() const {
 }
 
 template <class T>
-Status PreparedStatementT<T>::Close(const FlightCallOptions& options) {
+Status PreparedStatementT<T>::Close() {
   if (is_closed) {
     return Status::Invalid("Statement already closed.");
   }

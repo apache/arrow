@@ -133,7 +133,7 @@ Status RunMain() {
     std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement;
 
     ARROW_RETURN_NOT_OK(sqlClient.Prepare(call_options, fLS::FLAGS_query, &prepared_statement));
-    ARROW_RETURN_NOT_OK(prepared_statement->Execute(call_options, &info));
+    ARROW_RETURN_NOT_OK(prepared_statement->Execute(&info));
     ARROW_RETURN_NOT_OK(PrintResults(sqlClient, call_options, info));
   } else if (fLS::FLAGS_command == "GetSchemas") {
     ARROW_RETURN_NOT_OK(sqlClient.GetSchemas(call_options, &fLS::FLAGS_catalog,
