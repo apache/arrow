@@ -4,12 +4,10 @@
 \alias{to_arrow}
 \title{Create an Arrow object from others}
 \usage{
-to_arrow(.data, as_table = TRUE)
+to_arrow(.data)
 }
 \arguments{
 \item{.data}{the object to be converted}
-
-\item{as_table}{should the results be materialized as a table? (default: TRUE)}
 }
 \value{
 an \code{arrow_dplyr_query} object, to be used in dplyr pipelines.

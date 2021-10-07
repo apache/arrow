@@ -125,7 +125,6 @@ duckdb_disconnector <- function(con, tbl_name) {
 #' other processes (like DuckDB).
 #'
 #' @param .data the object to be converted
-#' @param as_table should the results be materialized as a table? (default: TRUE)
 #'
 #' @return an `arrow_dplyr_query` object, to be used in dplyr pipelines.
 #' @export
@@ -142,7 +141,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
 #'   to_arrow() %>%
 #'   collect()
-to_arrow <- function(.data, as_table = TRUE) {
+to_arrow <- function(.data) {
   # If this is an Arrow object already, return quickly since we're already Arrow
   is_adq <- inherits(.data, "arrow_dplyr_query")
   is_arrow_tabular <- inherits(.data, "ArrowObject") & inherits(.data, c("Dataset", "ArrowTabular"))

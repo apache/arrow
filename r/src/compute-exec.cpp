@@ -266,9 +266,3 @@ std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
 }
 
 #endif
-
-
-
-
-
-

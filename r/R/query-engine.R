@@ -63,7 +63,7 @@ ExecPlan <- R6Class("ExecPlan",
     Scan = function(dataset) {
       # Handle arrow_dplyr_query
       if (inherits(dataset, "arrow_dplyr_query")) {
-        if(inherits(dataset$.data, "RecordBatchReader")) {
+        if (inherits(dataset$.data, "RecordBatchReader")) {
           return(ExecNode_ReadFromRecordBatchReader(self, dataset$.data))
         }
 
@@ -92,10 +92,6 @@ ExecPlan <- R6Class("ExecPlan",
       ExecNode_Scan(self, dataset, filter, colnames %||% character(0))
     },
     Build = function(.data) {
-      if (inherits(.data, "ExecNode")) {
-        return(.data)
-      }
-
       # This method takes an arrow_dplyr_query and chains together the
       # ExecNodes that they produce. It does not evaluate them--that is Run().
       group_vars <- dplyr::group_vars(.data)
