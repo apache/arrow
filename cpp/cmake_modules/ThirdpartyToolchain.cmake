@@ -3591,7 +3591,7 @@ macro(build_google_cloud_cpp_storage)
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
-  find_package(CURL REQUIRED 7.47.0)
+  find_package(CURL 7.47.0 REQUIRED)
 
   # Build google-cloud-cpp, with only storage_client
 
