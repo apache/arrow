@@ -358,8 +358,6 @@ class TypeInferrer {
       RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PyArray_Check(obj)) {
       RETURN_NOT_OK(VisitNdarray(obj, keep_going));
-    } else if (PyDict_Check(obj)) {
-      RETURN_NOT_OK(VisitDict(obj));
     } else if (PySet_Check(obj)) {
       RETURN_NOT_OK(VisitSet(obj, keep_going));
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
