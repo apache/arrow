@@ -37,8 +37,6 @@ std::string PrepareQueryForGetTables(const pb::sql::CommandGetTables& command) {
   table_query << "SELECT null as catalog_name, null as schema_name, name as "
                  "table_name, type as table_type FROM sqlite_master where 1=1";
 
-  std::shared_ptr<RecordBatchReader> batch_reader;
-
   if (command.has_catalog()) {
     table_query << " and catalog_name='" << command.catalog() << "'";
   }
