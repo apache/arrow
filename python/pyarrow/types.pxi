@@ -2178,7 +2178,7 @@ def duration(unit):
 
 def month_day_nano_interval():
     """
-    Create instance of an interval representing months, days and nanoseconds
+    Create instance of an interval type representing months, days and nanoseconds
     between two dates.
     """
     return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
