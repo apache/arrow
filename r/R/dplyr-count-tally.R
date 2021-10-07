@@ -37,7 +37,6 @@ count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL
 count.Dataset <- count.ArrowTabular <- count.arrow_dplyr_query
 
 tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
-
   check_name <- getFromNamespace("check_name", "dplyr")
   name <- check_name(name, dplyr::group_vars(x))
 
