@@ -325,7 +325,6 @@ bool PreparedStatementT<T>::IsClosed() const {
 
 template <class T>
 Status PreparedStatementT<T>::GetParameterSchema(std::shared_ptr<Schema>* schema) {
-  //TODO improve this function
   ipc::DictionaryMemo in_memo;
 
   auto &args = prepared_statement_result.parameter_schema();
