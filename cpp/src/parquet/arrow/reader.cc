@@ -847,15 +847,32 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     // further down the stack.
     const std::shared_ptr<DataType> reader_child_type = child_reader->field()->type();
     const DataType& schema_child_type = *(list_field->type()->field(0)->type());
-    if (type_id == ::arrow::Type::LIST ||
-        type_id == ::arrow::Type::MAP) {  // Map can be reconstructed as list of structs.
-      if (type_id == ::arrow::Type::MAP && reader_child_type->num_fields() != 2) {
-        // This case applies if either key or value is filtered.
+    if (type_id == ::arrow::Type::MAP) {
+      if (reader_child_type->num_fields() != 2) {
+        // This case applies if either key or value are completed filtered
+        // out.
         list_field = list_field->WithType(::arrow::list(child_reader->field()));
-      } else if (type_id == ::arrow::Type::LIST &&
-                 !reader_child_type->Equals(schema_child_type)) {
+      } else if (!reader_child_type->field(0)->type()->Equals(
+                     *schema_child_type.field(0)->type())) {
+        // The Key has changed automatically make this a list instead of a
+        // map, since uniqueness likely no longer guarantees.
+        list_field = list_field->WithType(::arrow::list(child_reader->field()));
+      } else if (!reader_child_type->field(1)->type()->Equals(
+                     *schema_child_type.field(1)->type())) {
+        list_field = list_field->WithType(std::make_shared<::arrow::MapType>(
+            reader_child_type->field(
+                0),  // field 0 is unchanged baed on previous if statement
+            reader_child_type->field(1)));
+      }
+      // Map types are list<struct<key, value>> so use ListReader
+      // for reconstruction.
+      out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
+                                         std::move(child_reader)));
+    } else if (type_id == ::arrow::Type::LIST) {
+      if (!reader_child_type->Equals(schema_child_type)) {
         list_field = list_field->WithType(::arrow::list(reader_child_type));
       }
+
       out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
     } else if (type_id == ::arrow::Type::LARGE_LIST) {
@@ -865,7 +882,6 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
 
       out->reset(new ListReader<int64_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
-
     } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
       if (!reader_child_type->Equals(schema_child_type)) {
         auto& fixed_list_type =

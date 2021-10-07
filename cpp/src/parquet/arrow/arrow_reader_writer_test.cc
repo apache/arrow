@@ -4261,18 +4261,78 @@ std::vector<NestedFilterTestCase> GenerateNestedStructFilteredTestCases() {
        field("t2", ::arrow::int64())});
 
   constexpr auto kWriteData = R"([{"t1": {"a": 1, "b":2}, "t2": 3}])";
-  constexpr auto kReadData = R"([{"t1": {"a": 1}, "t2": 3}])";
 
   std::vector<NestedFilterTestCase> cases;
   auto selected_type = ::arrow::struct_(
       {field("t1", struct_({field("a", ::arrow::int64())})), struct_type->field(1)});
   cases.push_back({struct_type,
-                   /*indices=*/{0, 2}, selected_type, kWriteData, kReadData});
+                   /*indices=*/{0, 2}, selected_type, kWriteData,
+                   /*expected=*/R"([{"t1": {"a": 1}, "t2": 3}])"});
+  selected_type = ::arrow::struct_(
+      {field("t1", struct_({field("b", ::arrow::int64())})), struct_type->field(1)});
+
+  cases.push_back({struct_type,
+                   /*indices=*/{1, 2}, selected_type, kWriteData,
+                   /*expected=*/R"([{"t1": {"b": 2}, "t2": 3}])"});
+
   return cases;
 }
 
 INSTANTIATE_TEST_SUITE_P(StructFilteredReads, TestNestedSchemaFilteredReader,
                          ::testing::ValuesIn(GenerateNestedStructFilteredTestCases()));
+
+std::vector<NestedFilterTestCase> GenerateMapFilteredTestCases() {
+  using ::arrow::field;
+  using ::arrow::struct_;
+  auto map_type = std::static_pointer_cast<::arrow::MapType>(::arrow::map(
+      struct_({field("a", ::arrow::int64()), field("b", ::arrow::int64())}),
+      struct_({field("c", ::arrow::int64()), field("d", ::arrow::int64())})));
+
+  constexpr auto kWriteData = R"([[[{"a": 0, "b": 1}, {"c": 2, "d": 3}]]])";
+  std::vector<NestedFilterTestCase> cases;
+  // Remove the value element completely converts to a list of struct.
+  cases.push_back(
+      {map_type,
+       /*indices=*/{0, 1},
+       /*selected_type=*/
+       ::arrow::list(field("col", struct_({map_type->key_field()}), /*nullable=*/false)),
+       kWriteData, /*expected_data=*/R"([[{"key": {"a": 0, "b":1}}]])"});
+  // The "col" field name below comes from how naming is done when writing out the
+  // array (it is assigned the column name col.
+
+  // Removing the full key converts to a list of struct.
+  cases.push_back(
+      {map_type,
+       /*indices=*/{3},
+       /*selected_type=*/
+       ::arrow::list(field(
+           "col", struct_({field("value", struct_({field("d", ::arrow::int64())}))}),
+           /*nullable=*/false)),
+       kWriteData, /*expected_data=*/R"([[{"value": {"d": 3}}]])"});
+  // Selecting the full key and a value maintains the map
+  cases.push_back(
+      {map_type, /*indices=*/{0, 1, 2},
+       /*selected_type=*/
+       ::arrow::map(map_type->key_type(), struct_({field("c", ::arrow::int64())})),
+       kWriteData, /*expected=*/R"([[[{"a": 0, "b": 1}, {"c": 2}]]])"});
+
+  // Selecting the partial key (with some part of the value converts to
+  // list of structs (because the key might no longer be unique).
+  cases.push_back(
+      {map_type, /*indices=*/{1, 2, 3},
+       /*selected_type=*/
+       ::arrow::list(field("col",
+                           struct_({field("key", struct_({field("b", ::arrow::int64())}),
+                                          /*nullable=*/false),
+                                    map_type->item_field()}),
+                           /*nullable=*/false)),
+       kWriteData, /*expected=*/R"([[{"key":{"b": 1}, "value": {"c": 2, "d": 3}}]])"});
+
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(MapFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateMapFilteredTestCases()));
 
 }  // namespace arrow
 }  // namespace parquet
