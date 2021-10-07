@@ -256,7 +256,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "index") {
     using Options = arrow::compute::IndexOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<arrow::Datum>(options["value"]));
+    return std::make_shared<Options>(cpp11::as_cpp<arrow::Scalar>(options["value"]));
   }
 
   if (func_name == "is_null") {
