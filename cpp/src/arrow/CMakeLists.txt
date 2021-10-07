@@ -400,11 +400,13 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_cast_numeric.cc
        compute/kernels/scalar_cast_string.cc
        compute/kernels/scalar_cast_temporal.cc
+       compute/kernels/scalar_cast_temporal.cc
        compute/kernels/scalar_compare.cc
        compute/kernels/scalar_nested.cc
        compute/kernels/scalar_set_lookup.cc
        compute/kernels/scalar_string.cc
-       compute/kernels/scalar_temporal.cc
+       compute/kernels/scalar_temporal_binary.cc
+       compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
        compute/kernels/scalar_if_else.cc
        compute/kernels/util_internal.cc
