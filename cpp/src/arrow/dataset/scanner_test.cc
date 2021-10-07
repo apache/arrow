@@ -1027,6 +1027,14 @@ class TestBackpressure : public ::testing::Test {
     return sum;
   }
 
+  void Finish(AsyncGenerator<EnumeratedRecordBatch> gen) {
+    for (const auto& controlled_fragment : controlled_fragments_) {
+      controlled_fragment->Finish();
+    }
+    ASSERT_FINISHES_OK(VisitAsyncGenerator(
+        gen, [](EnumeratedRecordBatch batch) { return Status::OK(); }));
+  }
+
   std::shared_ptr<Schema> schema_ = schema({field("values", int32())});
   std::vector<std::shared_ptr<ControlledFragment>> controlled_fragments_;
 };
@@ -1051,6 +1059,8 @@ TEST_F(TestBackpressure, ScanBatchesUnordered) {
   SleepABit();
   // Worst case we read in the entire set of initial batches
   ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
+
+  Finish(std::move(gen));
 }
 
 struct BatchConsumer {
