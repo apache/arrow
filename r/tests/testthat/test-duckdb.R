@@ -18,6 +18,7 @@
 skip_if_not_installed("duckdb", minimum_version = "0.2.8")
 skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
+skip_on_cran()
 
 library(duckdb)
 library(dplyr)
@@ -75,13 +76,13 @@ on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 # write one table to the connection so it is kept open
 DBI::dbWriteTable(con, "mtcars", mtcars)
 
-test_that("Joining, auto-cleanup", {
+test_that("Joining, auto-cleanup enabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"
-  table_one <- to_duckdb(ds, con = con, table_name = table_one_name)
+  table_one <- to_duckdb(ds, con = con, table_name = table_one_name, auto_disconnect = TRUE)
   table_two_name <- "my_arrow_table_2"
-  table_two <- to_duckdb(ds, con = con, table_name = table_two_name)
+  table_two <- to_duckdb(ds, con = con, table_name = table_two_name, auto_disconnect = TRUE)
 
   res <- dbGetQuery(
     con,
@@ -100,11 +101,11 @@ test_that("Joining, auto-cleanup", {
   expect_false(any(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
 })
 
-test_that("Joining, auto-cleanup disabling", {
+test_that("Joining, auto-cleanup disabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_three_name <- "my_arrow_table_3"
-  table_three <- to_duckdb(ds, con = con, table_name = table_three_name, auto_disconnect = FALSE)
+  table_three <- to_duckdb(ds, con = con, table_name = table_three_name)
 
   # clean up does *not* clean these tables
   expect_true(table_three_name %in% DBI::dbListTables(con))
@@ -145,7 +146,8 @@ test_that("to_duckdb passing a connection", {
   # create a table to join to that we know is in our con_separate
   new_df <- data.frame(
     int = 1:10,
-    char = letters[26:17]
+    char = letters[26:17],
+    stringsAsFactors = FALSE
   )
   DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
 

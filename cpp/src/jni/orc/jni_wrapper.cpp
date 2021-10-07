@@ -168,14 +168,12 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_op
   if (!maybe_file.ok()) {
     return -static_cast<jlong>(maybe_file.status().code());
   }
-  std::unique_ptr<ORCFileReader> reader;
-  arrow::Status ret = ORCFileReader::Open(
-      std::static_pointer_cast<arrow::io::RandomAccessFile>(*maybe_file),
-      arrow::default_memory_pool(), &reader);
-  if (!ret.ok()) {
+  auto maybe_reader = ORCFileReader::Open(*maybe_file, arrow::default_memory_pool());
+  if (!maybe_reader.ok()) {
     env->ThrowNew(io_exception_class, std::string("Failed open file" + path).c_str());
   }
-  return orc_reader_holder_.Insert(std::shared_ptr<ORCFileReader>(reader.release()));
+  return orc_reader_holder_.Insert(
+      std::shared_ptr<ORCFileReader>(*std::move(maybe_reader)));
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_close(
@@ -204,18 +202,15 @@ Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_nextStripeReader(JNIEnv* e
                                                                        jlong batch_size) {
   auto reader = GetFileReader(env, id);
 
-  std::shared_ptr<RecordBatchReader> stripe_reader;
-  auto status = reader->NextStripeReader(batch_size, &stripe_reader);
-
-  if (!status.ok()) {
-    return static_cast<jlong>(status.code()) * -1;
+  auto maybe_stripe_reader = reader->NextStripeReader(batch_size);
+  if (!maybe_stripe_reader.ok()) {
+    return static_cast<jlong>(maybe_stripe_reader.status().code()) * -1;
   }
-
-  if (!stripe_reader) {
+  if (*maybe_stripe_reader == nullptr) {
     return static_cast<jlong>(arrow::StatusCode::Invalid) * -1;
   }
 
-  return orc_stripe_reader_holder_.Insert(stripe_reader);
+  return orc_stripe_reader_holder_.Insert(*maybe_stripe_reader);
 }
 
 JNIEXPORT jbyteArray JNICALL

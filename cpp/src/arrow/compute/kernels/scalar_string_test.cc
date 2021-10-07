@@ -378,6 +378,200 @@ TYPED_TEST(TestBinaryKernels, BinaryJoinElementWise) {
   ASSERT_RAISES(Invalid, CallFunction("binary_join_element_wise", {}, &options));
 }
 
+class TestFixedSizeBinaryKernels : public ::testing::Test {
+ protected:
+  void CheckUnary(std::string func_name, std::string json_input,
+                  std::shared_ptr<DataType> out_ty, std::string json_expected,
+                  const FunctionOptions* options = nullptr) {
+    CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
+    // Ensure the equivalent binary kernel does the same thing
+    CheckScalarUnary(func_name, binary(), json_input,
+                     out_ty->id() == Type::FIXED_SIZE_BINARY ? binary() : out_ty,
+                     json_expected, options);
+  }
+
+  std::shared_ptr<DataType> type() const { return fixed_size_binary(6); }
+  std::shared_ptr<DataType> offset_type() const { return int32(); }
+};
+
+TEST_F(TestFixedSizeBinaryKernels, BinaryLength) {
+  CheckUnary("binary_length", R"(["aaaaaa", null, "áéí"])", offset_type(),
+             "[6, null, 6]");
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
+  ReplaceSliceOptions options{0, 1, "XX"};
+  CheckUnary("binary_replace_slice", "[]", fixed_size_binary(7), "[]", &options);
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
+             R"([null, "XXbcdef"])", &options);
+
+  ReplaceSliceOptions options_shrink{0, 2, ""};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(4),
+             R"([null, "cdef"])", &options_shrink);
+
+  ReplaceSliceOptions options_whole{0, 6, "XX"};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(2),
+             R"([null, "XX"])", &options_whole);
+
+  ReplaceSliceOptions options_middle{2, 4, "XX"};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(6),
+             R"([null, "abXXef"])", &options_middle);
+
+  ReplaceSliceOptions options_neg_start{-3, -2, "XX"};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
+             R"([null, "abcXXef"])", &options_neg_start);
+
+  ReplaceSliceOptions options_neg_end{2, -2, "XX"};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(6),
+             R"([null, "abXXef"])", &options_neg_end);
+
+  ReplaceSliceOptions options_neg_pos{-1, 2, "XX"};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(8),
+             R"([null, "abcdeXXf"])", &options_neg_pos);
+
+  // Effectively the same as [2, 2)
+  ReplaceSliceOptions options_flip{2, 0, "XX"};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(8),
+             R"([null, "abXXcdef"])", &options_flip);
+
+  // Effectively the same as [-3, -3)
+  ReplaceSliceOptions options_neg_flip{-3, -5, "XX"};
+  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(8),
+             R"([null, "abcXXdef"])", &options_neg_flip);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, CountSubstring) {
+  MatchSubstringOptions options{"aba"};
+  CheckUnary("count_substring", "[]", offset_type(), "[]", &options);
+  CheckUnary(
+      "count_substring",
+      R"(["      ", null, "  ab  ", " aba  ", "baba  ", "ababa ", "abaaba", "ABAABA"])",
+      offset_type(), "[0, null, 0, 1, 1, 1, 2, 0]", &options);
+
+  MatchSubstringOptions options_empty{""};
+  CheckUnary("count_substring", R"(["      ", null, "abc   "])", offset_type(),
+             "[7, null, 7]", &options_empty);
+
+  MatchSubstringOptions options_repeated{"aaa"};
+  CheckUnary("count_substring", R"(["      ", "aaaa  ", "aaaaa ", "aaaaaa", "aaáaa"])",
+             offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
+}
+
+#ifdef ARROW_WITH_RE2
+TEST_F(TestFixedSizeBinaryKernels, CountSubstringRegex) {
+  MatchSubstringOptions options{"aba"};
+  CheckUnary("count_substring_regex", "[]", offset_type(), "[]", &options);
+  CheckUnary(
+      "count_substring_regex",
+      R"(["      ", null, "  ab  ", " aba  ", "baba  ", "ababa ", "abaaba", "ABAABA"])",
+      offset_type(), "[0, null, 0, 1, 1, 1, 2, 0]", &options);
+
+  MatchSubstringOptions options_empty{""};
+  CheckUnary("count_substring_regex", R"(["      ", null, "abc   "])", offset_type(),
+             "[7, null, 7]", &options_empty);
+
+  MatchSubstringOptions options_repeated{"aaa"};
+  CheckUnary("count_substring_regex",
+             R"(["      ", "aaaa  ", "aaaaa ", "aaaaaa", "aaáaa"])", offset_type(),
+             "[0, 1, 1, 2, 0]", &options_repeated);
+
+  MatchSubstringOptions options_as{"a+"};
+  CheckUnary("count_substring_regex", R"(["      ", "bacaaa", "c     ", "AAAAAA"])",
+             offset_type(), "[0, 2, 0, 0]", &options_as);
+
+  MatchSubstringOptions options_empty_match{"a*"};
+  CheckUnary("count_substring_regex", R"(["      ", "bacaaa", "c     ", "AAAAAA"])",
+             // 5 is because it matches at |b|a|c|aaa|
+             offset_type(), "[7, 5, 7, 7]", &options_empty_match);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, CountSubstringIgnoreCase) {
+  MatchSubstringOptions options{"aba", /*ignore_case=*/true};
+  CheckUnary("count_substring", "[]", offset_type(), "[]", &options);
+  CheckUnary(
+      "count_substring",
+      R"(["      ", null, "ab    ", "aBa   ", " bAbA ", " aBaBa", "abaAbA", "abaaba", "ABAabc"])",
+      offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 1]", &options);
+
+  MatchSubstringOptions options_empty{"", /*ignore_case=*/true};
+  CheckUnary("count_substring", R"(["      ", null, "abcABc"])", offset_type(),
+             "[7, null, 7]", &options_empty);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, CountSubstringRegexIgnoreCase) {
+  MatchSubstringOptions options_as{"a+", /*ignore_case=*/true};
+  CheckUnary("count_substring_regex", R"(["      ", "aAadaA", "c     ", "AAAbbb"])",
+             offset_type(), "[0, 2, 0, 1]", &options_as);
+
+  MatchSubstringOptions options_empty_match{"a*", /*ignore_case=*/true};
+  CheckUnary("count_substring_regex", R"(["      ", "aAadaA", "c     ", "AAAbbb"])",
+             offset_type(), "[7, 4, 7, 5]", &options_empty_match);
+}
+#else
+TEST_F(TestFixedSizeBinaryKernels, CountSubstringIgnoreCase) {
+  Datum input = ArrayFromJSON(type(), R"(["    a "])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("count_substring", {input}, &options));
+}
+#endif
+
+TEST_F(TestFixedSizeBinaryKernels, FindSubstring) {
+  MatchSubstringOptions options{"ab"};
+  CheckUnary("find_substring", "[]", offset_type(), "[]", &options);
+  CheckUnary("find_substring", R"(["abc   ", "   acb", " cab  ", null, "  bac "])",
+             offset_type(), "[0, -1, 2, null, -1]", &options);
+
+  MatchSubstringOptions options_repeated{"abab"};
+  CheckUnary("find_substring", R"([" abab ", "  ab  ", "cababc", null, "  bac "])",
+             offset_type(), "[1, -1, 1, null, -1]", &options_repeated);
+
+  MatchSubstringOptions options_double_char{"aab"};
+  CheckUnary("find_substring", R"(["  aacb", "aab   ", "  ab  ", "  aaab"])",
+             offset_type(), "[-1, 0, -1, 3]", &options_double_char);
+
+  MatchSubstringOptions options_double_char_2{"bbcaa"};
+  CheckUnary("find_substring", R"(["bbbcaa"])", offset_type(), "[1]",
+             &options_double_char_2);
+
+  MatchSubstringOptions options_empty{""};
+  CheckUnary("find_substring", R"(["      ", "aaaaaa", null])", offset_type(),
+             "[0, 0, null]", &options_empty);
+}
+
+#ifdef ARROW_WITH_RE2
+TEST_F(TestFixedSizeBinaryKernels, FindSubstringIgnoreCase) {
+  MatchSubstringOptions options{"?AB)", /*ignore_case=*/true};
+  CheckUnary("find_substring", "[]", offset_type(), "[]", &options);
+  CheckUnary("find_substring",
+             R"-(["?aB)c ", " acb  ", " c?Ab)", null, " ?aBc ", " AB)  "])-",
+             offset_type(), "[0, -1, 2, null, -1, -1]", &options);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, FindSubstringRegex) {
+  MatchSubstringOptions options{"a+", /*ignore_case=*/false};
+  CheckUnary("find_substring_regex", "[]", offset_type(), "[]", &options);
+  CheckUnary("find_substring_regex",
+             R"(["a     ", "  A   ", "  baaa", null, "      ", " AaaA "])", offset_type(),
+             "[0, -1, 3, null, -1, 2]", &options);
+
+  options.ignore_case = true;
+  CheckUnary("find_substring_regex", "[]", offset_type(), "[]", &options);
+  CheckUnary("find_substring_regex",
+             R"(["a     ", "  A   ", "  baaa", null, "      ", " AaaA "])", offset_type(),
+             "[0, 2, 3, null, -1, 1]", &options);
+}
+#else
+TEST_F(TestFixedSizeBinaryKernels, FindSubstringIgnoreCase) {
+  MatchSubstringOptions options{"a+", /*ignore_case=*/true};
+  Datum input = ArrayFromJSON(type(), R"(["aaaaaa"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("find_substring", {input}, &options));
+}
+#endif
+
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};
 

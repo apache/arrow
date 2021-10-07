@@ -18,6 +18,7 @@ package scalar_test
 
 import (
 	"bytes"
+	"hash/maphash"
 	"math/bits"
 	"testing"
 	"time"
@@ -33,6 +34,8 @@ import (
 
 func assertScalarsEqual(t *testing.T, expected, actual scalar.Scalar) {
 	assert.Truef(t, scalar.Equals(expected, actual), "Expected:\n%s\nActual:\n%s", expected, actual)
+	seed := maphash.MakeSeed()
+	assert.Equal(t, scalar.Hash(seed, expected), scalar.Hash(seed, actual))
 }
 
 func assertMakeScalarParam(t *testing.T, expected scalar.Scalar, dt arrow.DataType, val interface{}) {

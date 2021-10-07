@@ -343,6 +343,18 @@ class ARROW_DS_EXPORT FileWriter {
   fs::FileLocator destination_locator_;
 };
 
+/// \brief Controls what happens if files exist in an output directory during a dataset
+/// write
+enum ExistingDataBehavior : int8_t {
+  /// Deletes all files in a directory the first time that directory is encountered
+  kDeleteMatchingPartitions,
+  /// Ignores existing files, overwriting any that happen to have the same name as an
+  /// output file
+  kOverwriteOrIgnore,
+  /// Returns an error if there are any files or subdirectories in the output directory
+  kError,
+};
+
 /// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Options for individual fragment writing.
@@ -363,6 +375,20 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;
+
+  /// If greater than 0 then this will limit the maximum number of files that can be left
+  /// open. If an attempt is made to open too many files then the least recently used file
+  /// will be closed.  If this setting is set too low you may end up fragmenting your data
+  /// into many small files.
+  uint32_t max_open_files = 1024;
+
+  /// If greater than 0 then this will limit how many rows are placed in any single file.
+  /// Otherwise there will be no limit and one file will be created in each output
+  /// directory unless files need to be closed to respect max_open_files
+  uint64_t max_rows_per_file = 0;
+
+  /// Controls what happens if an output directory already exists.
+  ExistingDataBehavior existing_data_behavior = kError;
 
   /// Callback to be invoked against all FileWriters before
   /// they are finalized with FileWriter::Finish().

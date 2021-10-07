@@ -514,7 +514,7 @@ test_that("record_batch() with different length arrays", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(list(
+  raws <- Array$create(structure(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
@@ -522,17 +522,23 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x74, 0x76))
   ),
   class = c("arrow_binary", "vctrs_vctr", "list")
-  )
+  ))
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
+
+  df <- as.data.frame(batch_with_nul)
+
   expect_error(
-    as.data.frame(batch_with_nul),
+    df$b[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
       "set options(arrow.skip_nul = TRUE)"
     ),
     fixed = TRUE
   )
+
+  batch_with_nul <- record_batch(a = 1:5, b = raws)
+  batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
     expect_warning(

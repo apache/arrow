@@ -2220,3 +2220,20 @@ def test_list_element():
     result = pa.compute.list_element(lists, index)
     expected = pa.array([{'a': 5.6, 'b': 6}, {'a': .6, 'b': 8}], element_type)
     assert result.equals(expected)
+
+
+def test_count_distinct():
+    seed = datetime.now()
+    samples = [seed.replace(year=y) for y in range(1992, 2092)]
+    arr = pa.array(samples, pa.timestamp("ns"))
+    result = pa.compute.count_distinct(arr)
+    expected = pa.scalar(len(samples), type=pa.int64())
+    assert result.equals(expected)
+
+
+def test_count_distinct_options():
+    arr = pa.array([1, 2, 3, None, None])
+    assert pc.count_distinct(arr).as_py() == 3
+    assert pc.count_distinct(arr, mode='only_valid').as_py() == 3
+    assert pc.count_distinct(arr, mode='only_null').as_py() == 1
+    assert pc.count_distinct(arr, mode='all').as_py() == 4

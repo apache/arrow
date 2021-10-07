@@ -247,6 +247,26 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <>
+struct ArrayIterator<FixedSizeBinaryType> {
+  const ArrayData& arr;
+  const char* data;
+  const int32_t width;
+  int64_t position;
+
+  explicit ArrayIterator(const ArrayData& arr)
+      : arr(arr),
+        data(reinterpret_cast<const char*>(arr.buffers[1]->data())),
+        width(checked_cast<const FixedSizeBinaryType&>(*arr.type).byte_width()),
+        position(arr.offset) {}
+
+  util::string_view operator()() {
+    auto result = util::string_view(data + position * width, width);
+    position++;
+    return result;
+  }
+};
+
 // Iterator over various output array types, taking a GetOutputType<Type>
 
 template <typename Type, typename Enable = void>

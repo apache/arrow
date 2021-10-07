@@ -20,6 +20,7 @@
 #include <memory>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -52,6 +53,8 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
+
+using internal::FindAccumulatorType;
 
 //
 // Sum
@@ -871,6 +874,148 @@ TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
       }
     }
   }
+}
+
+//
+// Count Distinct
+//
+
+class TestCountDistinctKernel : public ::testing::Test {
+ protected:
+  Datum Expected(int64_t value) { return MakeScalar(static_cast<int64_t>(value)); }
+
+  void Check(Datum input, int64_t expected_all, bool has_nulls = true) {
+    int64_t expected_valid = has_nulls ? expected_all - 1 : expected_all;
+    int64_t expected_null = has_nulls ? 1 : 0;
+    CheckScalar("count_distinct", {input}, Expected(expected_valid), &only_valid);
+    CheckScalar("count_distinct", {input}, Expected(expected_null), &only_null);
+    CheckScalar("count_distinct", {input}, Expected(expected_all), &all);
+  }
+
+  void Check(const std::shared_ptr<DataType>& type, util::string_view json,
+             int64_t expected_all, bool has_nulls = true) {
+    Check(ArrayFromJSON(type, json), expected_all, has_nulls);
+  }
+
+  void Check(const std::shared_ptr<DataType>& type, util::string_view json) {
+    auto input = ScalarFromJSON(type, json);
+    auto zero = ResultWith(Expected(0));
+    auto one = ResultWith(Expected(1));
+    // non null scalar
+    EXPECT_THAT(CallFunction("count_distinct", {input}, &only_valid), one);
+    EXPECT_THAT(CallFunction("count_distinct", {input}, &only_null), zero);
+    EXPECT_THAT(CallFunction("count_distinct", {input}, &all), one);
+    // null scalar
+    input = MakeNullScalar(input->type);
+    EXPECT_THAT(CallFunction("count_distinct", {input}, &only_valid), zero);
+    EXPECT_THAT(CallFunction("count_distinct", {input}, &only_null), one);
+    EXPECT_THAT(CallFunction("count_distinct", {input}, &all), one);
+  }
+
+  CountOptions only_valid{CountOptions::ONLY_VALID};
+  CountOptions only_null{CountOptions::ONLY_NULL};
+  CountOptions all{CountOptions::ALL};
+};
+
+TEST_F(TestCountDistinctKernel, AllArrayTypesWithNulls) {
+  // Boolean
+  Check(boolean(), "[]", 0, /*has_nulls=*/false);
+  Check(boolean(), "[true, null, false, null, false, true]", 3);
+  // Number
+  for (auto ty : NumericTypes()) {
+    Check(ty, "[1, 1, null, 2, 5, 8, 9, 9, null, 10, 6, 6]", 8);
+    Check(ty, "[1, 1, 8, 2, 5, 8, 9, 9, 10, 10, 6, 6]", 7, /*has_nulls=*/false);
+  }
+  // Date
+  Check(date32(), "[0, 11016, 0, null, 14241, 14241, null]", 4);
+  Check(date64(), "[0, null, 0, null, 0, 0, 1262217600000]", 3);
+  // Time
+  Check(time32(TimeUnit::SECOND), "[0, 11, 0, null, 14, 14, null]", 4);
+  Check(time32(TimeUnit::MILLI), "[0, 11000, 0, null, 11000, 11000]", 3);
+  Check(time64(TimeUnit::MICRO), "[84203999999,  0, null, 84203999999, 0]", 3);
+  Check(time64(TimeUnit::NANO), "[11715003000000,  0, null, 0, 0]", 3);
+  // Timestamp & Duration
+  for (auto u : TimeUnit::values()) {
+    Check(duration(u), "[123456789, null, 987654321, 123456789, null]", 3);
+    Check(duration(u), "[123456789, 987654321, 123456789, 123456789]", 2,
+          /*has_nulls=*/false);
+    auto ts = R"(["2009-12-31T04:20:20", "2020-01-01", null, "2009-12-31T04:20:20"])";
+    Check(timestamp(u), ts, 3);
+    Check(timestamp(u, "Pacific/Marquesas"), ts, 3);
+  }
+  // Interval
+  Check(month_interval(), "[9012, 5678, null, 9012, 5678, null, 9012]", 3);
+  Check(day_time_interval(), "[[0, 1], [0, 1], null, [0, 1], [1234, 5678]]", 3);
+  Check(month_day_nano_interval(), "[[0, 1, 2], [0, 1, 2], null, [0, 1, 2]]", 2);
+  // Binary & String & Fixed binary
+  auto samples = R"([null, "abc", null, "abc", "abc", "cba", "bca", "cba", null])";
+  Check(binary(), samples, 4);
+  Check(large_binary(), samples, 4);
+  Check(utf8(), samples, 4);
+  Check(large_utf8(), samples, 4);
+  Check(fixed_size_binary(3), samples, 4);
+  // Decimal
+  samples = R"(["12345.679", "98765.421", null, "12345.679", "98765.421"])";
+  Check(decimal128(21, 3), samples, 3);
+  Check(decimal256(13, 3), samples, 3);
+}
+
+TEST_F(TestCountDistinctKernel, AllScalarTypesWithNulls) {
+  // Boolean
+  Check(boolean(), "true");
+  // Number
+  for (auto ty : NumericTypes()) {
+    Check(ty, "91");
+  }
+  // Date
+  Check(date32(), "11016");
+  Check(date64(), "1262217600000");
+  // Time
+  Check(time32(TimeUnit::SECOND), "14");
+  Check(time32(TimeUnit::MILLI), "11000");
+  Check(time64(TimeUnit::MICRO), "84203999999");
+  Check(time64(TimeUnit::NANO), "11715003000000");
+  // Timestamp & Duration
+  for (auto u : TimeUnit::values()) {
+    Check(duration(u), "987654321");
+    Check(duration(u), "123456789");
+    auto ts = R"("2009-12-31T04:20:20")";
+    Check(timestamp(u), ts);
+    Check(timestamp(u, "Pacific/Marquesas"), ts);
+  }
+  // Interval
+  Check(month_interval(), "5678");
+  Check(day_time_interval(), "[1234, 5678]");
+  Check(month_day_nano_interval(), "[0, 1, 2]");
+  // Binary & String & Fixed binary
+  auto sample = R"("cba")";
+  Check(binary(), sample);
+  Check(large_binary(), sample);
+  Check(utf8(), sample);
+  Check(large_utf8(), sample);
+  Check(fixed_size_binary(3), sample);
+  // Decimal
+  sample = R"("98765.421")";
+  Check(decimal128(21, 3), sample);
+  Check(decimal256(13, 3), sample);
+}
+
+TEST_F(TestCountDistinctKernel, Random) {
+  UInt32Builder builder;
+  std::unordered_set<uint32_t> memo;
+  auto visit_null = []() { return Status::OK(); };
+  auto visit_value = [&](uint32_t arg) {
+    const bool inserted = memo.insert(arg).second;
+    if (inserted) {
+      return builder.Append(arg);
+    }
+    return Status::OK();
+  };
+  auto rand = random::RandomArrayGenerator(0x1205643);
+  auto arr = rand.Numeric<UInt32Type>(1024, 0, 100, 0.0)->data();
+  auto r = VisitArrayDataInline<UInt32Type>(*arr, visit_value, visit_null);
+  auto input = builder.Finish().ValueOrDie();
+  Check(input, memo.size(), false);
 }
 
 //

@@ -757,9 +757,10 @@ test_that("strftime", {
 
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
-    date = c(as.Date("2021-09-09"), NA)
+    date = c(as.Date("2021-01-01"), NA)
   )
   formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
 
   expect_dplyr_equal(
     input %>%
@@ -770,7 +771,7 @@ test_that("strftime", {
 
   expect_dplyr_equal(
     input %>%
-      mutate(x = strftime(date, format = formats)) %>%
+      mutate(x = strftime(date, format = formats_date)) %>%
       collect(),
     times
   )
@@ -790,13 +791,27 @@ test_that("strftime", {
   )
 
   withr::with_timezone(
-    "Pacific/Marquesas",
-    expect_dplyr_equal(
-      input %>%
-        mutate(x = strftime(datetime, format = formats, tz = "EST")) %>%
-        collect(),
-      times
-    )
+    "Pacific/Marquesas", {
+      expect_dplyr_equal(
+        input %>%
+          mutate(
+            x = strftime(datetime, format = formats, tz = "EST"),
+            x_date = strftime(date, format = formats_date, tz = "EST")
+          ) %>%
+          collect(),
+        times
+      )
+
+      expect_dplyr_equal(
+        input %>%
+          mutate(
+            x = strftime(datetime, format = formats),
+            x_date = strftime(date, format = formats_date)
+          ) %>%
+          collect(),
+        times
+      )
+    }
   )
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.

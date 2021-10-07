@@ -75,6 +75,7 @@ add_arrow_test(utility-test
 add_arrow_test(threading-utility-test
                SOURCES
                cancel_test.cc
+               counting_semaphore_test.cc
                future_test.cc
                task_group_test.cc
                thread_pool_test.cc)

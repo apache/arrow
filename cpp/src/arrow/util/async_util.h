@@ -28,7 +28,11 @@ namespace util {
 /// Custom deleter for AsyncDestroyable objects
 template <typename T>
 struct DestroyingDeleter {
-  void operator()(T* p) { p->Destroy(); }
+  void operator()(T* p) {
+    if (p) {
+      p->Destroy();
+    }
+  }
 };
 
 /// An object which should be asynchronously closed before it is destroyed

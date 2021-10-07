@@ -19,7 +19,7 @@
 
 namespace arrow {
 namespace compute {
-namespace aggregate {
+namespace internal {
 
 // ----------------------------------------------------------------------
 // Sum implementation
@@ -83,6 +83,6 @@ void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func) {
   AddMinMaxKernel(MinMaxInitAvx2, Type::INTERVAL_MONTHS, func, SimdLevel::AVX2);
 }
 
-}  // namespace aggregate
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

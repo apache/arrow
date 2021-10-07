@@ -31,6 +31,7 @@ Aggregations
    any
    approximate_median
    count
+   count_distinct
    index
    max
    mean

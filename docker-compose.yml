@@ -1366,6 +1366,7 @@ services:
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/csharp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&

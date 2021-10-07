@@ -63,6 +63,33 @@ TEST(AsyncDestroyable, MakeShared) {
   });
 }
 
+// The next four tests are corner cases but can sometimes occur when using these types
+// in standard containers on certain versions of the compiler/cpplib.  Basically we
+// want to make sure our deleter is ok with null pointers.
+TEST(AsyncDestroyable, DefaultUnique) {
+  std::unique_ptr<GatingDestroyable, DestroyingDeleter<GatingDestroyable>> default_ptr;
+  default_ptr.reset();
+}
+
+TEST(AsyncDestroyable, NullUnique) {
+  std::unique_ptr<GatingDestroyable, DestroyingDeleter<GatingDestroyable>> null_ptr(
+      nullptr);
+  null_ptr.reset();
+}
+
+TEST(AsyncDestroyable, NullShared) {
+  std::shared_ptr<GatingDestroyable> null_ptr(nullptr,
+                                              DestroyingDeleter<GatingDestroyable>());
+  null_ptr.reset();
+}
+
+TEST(AsyncDestroyable, NullUniqueToShared) {
+  std::unique_ptr<GatingDestroyable, DestroyingDeleter<GatingDestroyable>> null_ptr(
+      nullptr);
+  std::shared_ptr<GatingDestroyable> null_shared = std::move(null_ptr);
+  null_shared.reset();
+}
+
 TEST(AsyncDestroyable, MakeUnique) {
   TestAsyncDestroyable([](Future<> gate, bool* destroyed) {
     return MakeUniqueAsync<GatingDestroyable>(gate, destroyed);

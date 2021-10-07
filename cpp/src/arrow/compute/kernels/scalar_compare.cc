@@ -268,6 +268,13 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
         func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
   }
 
+  {
+    auto exec =
+        applicator::ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
+    auto ty = InputType(Type::FIXED_SIZE_BINARY);
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+  }
+
   return func;
 }
 

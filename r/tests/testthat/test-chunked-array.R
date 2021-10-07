@@ -431,8 +431,10 @@ test_that("Handling string data with embedded nuls", {
   class = c("arrow_binary", "vctrs_vctr", "list")
   )
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
+  v <- expect_error(as.vector(chunked_array_with_nul), NA)
+
   expect_error(
-    as.vector(chunked_array_with_nul),
+    v[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
       "set options(arrow.skip_nul = TRUE)"
@@ -441,11 +443,9 @@ test_that("Handling string data with embedded nuls", {
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
+    v <- expect_warning(as.vector(chunked_array_with_nul), NA)
     expect_warning(
-      expect_identical(
-        as.vector(chunked_array_with_nul),
-        c("person", "woman", "man", "fan", "camera", "tv")
-      ),
+      expect_identical(v[3], "man"),
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
