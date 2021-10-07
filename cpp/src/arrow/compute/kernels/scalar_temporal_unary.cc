@@ -60,7 +60,6 @@ using arrow_vendored::date::literals::mon;
 using arrow_vendored::date::literals::sun;
 using arrow_vendored::date::literals::thu;
 using arrow_vendored::date::literals::wed;
-using internal::applicator::ScalarBinaryNotNullStatefulEqualTypes;
 using internal::applicator::SimpleUnary;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
@@ -82,18 +81,6 @@ Result<std::locale> GetLocale(const std::string& locale) {
   }
 }
 
-Status CheckTimezones(const ExecBatch& batch) {
-  const auto& timezone = GetInputTimezone(batch.values[0]);
-  for (int i = 1; i < batch.num_values(); i++) {
-    const auto& other_timezone = GetInputTimezone(batch.values[i]);
-    if (other_timezone != timezone) {
-      return Status::TypeError("Got differing time zone '", other_timezone,
-                               "' for argument ", i + 1, "; expected '", timezone, "'");
-    }
-  }
-  return Status::OK();
-}
-
 Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
   if (options.week_start < 1 || 7 < options.week_start) {
     return Status::Invalid(
@@ -103,71 +90,11 @@ Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
   return Status::OK();
 }
 
-int64_t GetQuarter(const year_month_day& ymd) {
-  return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
-}
-
-template <template <typename...> class Op, typename Duration, typename InType,
-          typename OutType>
-struct TemporalBinary {
-  template <typename OptionsType, typename T = InType>
-  static enable_if_timestamp<T, Status> ExecWithOptions(KernelContext* ctx,
-                                                        const OptionsType* options,
-                                                        const ExecBatch& batch,
-                                                        Datum* out) {
-    RETURN_NOT_OK(CheckTimezones(batch));
-
-    const auto& timezone = GetInputTimezone(batch.values[0]);
-    if (timezone.empty()) {
-      using ExecTemplate = Op<Duration, NonZonedLocalizer>;
-      auto op = ExecTemplate(options, NonZonedLocalizer());
-      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
-          op};
-      return kernel.Exec(ctx, batch, out);
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-      using ExecTemplate = Op<Duration, ZonedLocalizer>;
-      auto op = ExecTemplate(options, ZonedLocalizer{tz});
-      applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
-          op};
-      return kernel.Exec(ctx, batch, out);
-    }
-  }
-
-  template <typename OptionsType, typename T = InType>
-  static enable_if_t<!is_timestamp_type<T>::value, Status> ExecWithOptions(
-      KernelContext* ctx, const OptionsType* options, const ExecBatch& batch,
-      Datum* out) {
-    using ExecTemplate = Op<Duration, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
-        op};
-    return kernel.Exec(ctx, batch, out);
-  }
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const FunctionOptions* options = nullptr;
-    return ExecWithOptions(ctx, options, batch, out);
-  }
-};
-
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
 struct TemporalComponentExtractDayOfWeek
     : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
   using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
-    RETURN_NOT_OK(ValidateDayOfWeekOptions(options));
-    return Base::ExecWithOptions(ctx, &options, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename Duration, typename InType,
-          typename OutType>
-struct TemporalDayOfWeekBinary : public TemporalBinary<Op, Duration, InType, OutType> {
-  using Base = TemporalBinary<Op, Duration, InType, OutType>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
@@ -855,422 +782,61 @@ struct ISOCalendar {
 };
 
 // ----------------------------------------------------------------------
-// Compute boundary crossings between two timestamps
-
-template <typename Duration, typename Localizer>
-struct YearsBetween {
-  YearsBetween(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
-
-  template <typename T, typename Arg0, typename Arg1>
-  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
-    year_month_day from(
-        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
-    year_month_day to(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
-    return static_cast<T>((to.year() - from.year()).count());
-  }
-
-  Localizer localizer_;
-};
-
-template <typename Duration, typename Localizer>
-struct QuartersBetween {
-  QuartersBetween(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
-
-  static int64_t GetQuarters(const year_month_day& ymd) {
-    return static_cast<int64_t>(static_cast<int32_t>(ymd.year())) * 4 + GetQuarter(ymd);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
-    year_month_day from_ymd(
-        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
-    year_month_day to_ymd(
-        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
-    int64_t from_quarters = GetQuarters(from_ymd);
-    int64_t to_quarters = GetQuarters(to_ymd);
-    return static_cast<T>(to_quarters - from_quarters);
-  }
-
-  Localizer localizer_;
-};
-
-template <typename Duration, typename Localizer>
-struct MonthsBetween {
-  MonthsBetween(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
-
-  template <typename T, typename Arg0, typename Arg1>
-  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
-    year_month_day from(
-        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
-    year_month_day to(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
-    return static_cast<T>((to.year() / to.month() - from.year() / from.month()).count());
-  }
-
-  Localizer localizer_;
-};
-
-template <typename Duration, typename Localizer>
-struct WeeksBetween {
-  using days_t = typename Localizer::days_t;
-
-  WeeksBetween(const DayOfWeekOptions* options, Localizer&& localizer)
-      : week_start_(options->week_start), localizer_(std::move(localizer)) {}
-
-  /// Adjust the day backwards to land on the start of the week.
-  days_t ToWeekStart(days_t point) const {
-    const weekday dow(point);
-    const weekday start_of_week(week_start_);
-    if (dow == start_of_week) return point;
-    const days delta = start_of_week - dow;
-    // delta is always positive and in [0, 6]
-    return point - days(7 - delta.count());
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
-    auto from =
-        ToWeekStart(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg0)));
-    auto to =
-        ToWeekStart(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg1)));
-    return (to - from).count() / 7;
-  }
-
-  uint32_t week_start_;
-  Localizer localizer_;
-};
-
-template <typename Duration, typename Localizer>
-struct MonthDayNanoBetween {
-  MonthDayNanoBetween(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
-
-  template <typename T, typename Arg0, typename Arg1>
-  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
-    static_assert(std::is_same<T, MonthDayNanoIntervalType::MonthDayNanos>::value, "");
-    auto from = localizer_.template ConvertTimePoint<Duration>(arg0);
-    auto to = localizer_.template ConvertTimePoint<Duration>(arg1);
-    year_month_day from_ymd(floor<days>(from));
-    year_month_day to_ymd(floor<days>(to));
-    const int32_t num_months = static_cast<int32_t>(
-        (to_ymd.year() / to_ymd.month() - from_ymd.year() / from_ymd.month()).count());
-    const int32_t num_days = static_cast<int32_t>(static_cast<uint32_t>(to_ymd.day())) -
-                             static_cast<int32_t>(static_cast<uint32_t>(from_ymd.day()));
-    auto from_time = static_cast<int64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(from - floor<days>(from))
-            .count());
-    auto to_time = static_cast<int64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(to - floor<days>(to))
-            .count());
-    const int64_t num_nanos = to_time - from_time;
-    return T{num_months, num_days, num_nanos};
-  }
-
-  Localizer localizer_;
-};
-
-template <typename Duration, typename Localizer>
-struct DayTimeBetween {
-  DayTimeBetween(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
-
-  template <typename T, typename Arg0, typename Arg1>
-  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
-    static_assert(std::is_same<T, DayTimeIntervalType::DayMilliseconds>::value, "");
-    auto from = localizer_.template ConvertTimePoint<Duration>(arg0);
-    auto to = localizer_.template ConvertTimePoint<Duration>(arg1);
-    const int32_t num_days =
-        static_cast<int32_t>((floor<days>(to) - floor<days>(from)).count());
-    auto from_time = static_cast<int32_t>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(from - floor<days>(from))
-            .count());
-    auto to_time = static_cast<int32_t>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(to - floor<days>(to))
-            .count());
-    const int32_t num_millis = to_time - from_time;
-    return DayTimeIntervalType::DayMilliseconds{num_days, num_millis};
-  }
-
-  Localizer localizer_;
-};
-
-template <typename Unit, typename Duration, typename Localizer>
-struct UnitsBetween {
-  UnitsBetween(const FunctionOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)) {}
-
-  template <typename T, typename Arg0, typename Arg1>
-  T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) const {
-    auto from = floor<Unit>(localizer_.template ConvertTimePoint<Duration>(arg0));
-    auto to = floor<Unit>(localizer_.template ConvertTimePoint<Duration>(arg1));
-    return static_cast<T>((to - from).count());
-  }
-
-  Localizer localizer_;
-};
-
-template <typename Duration, typename Localizer>
-using DaysBetween = UnitsBetween<days, Duration, Localizer>;
-
-template <typename Duration, typename Localizer>
-using HoursBetween = UnitsBetween<std::chrono::hours, Duration, Localizer>;
-
-template <typename Duration, typename Localizer>
-using MinutesBetween = UnitsBetween<std::chrono::minutes, Duration, Localizer>;
-
-template <typename Duration, typename Localizer>
-using SecondsBetween = UnitsBetween<std::chrono::seconds, Duration, Localizer>;
-
-template <typename Duration, typename Localizer>
-using MillisecondsBetween = UnitsBetween<std::chrono::milliseconds, Duration, Localizer>;
-
-template <typename Duration, typename Localizer>
-using MicrosecondsBetween = UnitsBetween<std::chrono::microseconds, Duration, Localizer>;
-
-template <typename Duration, typename Localizer>
-using NanosecondsBetween = UnitsBetween<std::chrono::nanoseconds, Duration, Localizer>;
-
-// ----------------------------------------------------------------------
 // Registration helpers
-
-// Which types to generate a kernel for
-enum EnabledTypes : uint8_t { WithDates, WithTimes, WithTimestamps };
 
 template <template <typename...> class Op,
           template <template <typename...> class OpExec, typename Duration,
                     typename InType, typename OutType, typename... Args>
           class ExecTemplate,
           typename OutType>
-std::shared_ptr<ScalarFunction> MakeTemporal(
-    std::string name, std::initializer_list<EnabledTypes> in_types, OutputType out_type,
-    const FunctionDoc* doc, const FunctionOptions* default_options = NULLPTR,
-    KernelInit init = NULLPTR) {
-  DCHECK_NE(in_types.size(), 0);
-  auto func =
-      std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options);
+struct UnaryTemporalFactory {
+  OutputType out_type;
+  KernelInit init;
+  std::shared_ptr<ScalarFunction> func;
 
-  for (const auto in_type : in_types) {
-    switch (in_type) {
-      case WithDates: {
-        auto exec32 = ExecTemplate<Op, days, Date32Type, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({date32()}, out_type, std::move(exec32), init));
-        auto exec64 =
-            ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
-        break;
-      }
-
-      case WithTimes: {
-        auto exec32s = ExecTemplate<Op, std::chrono::seconds, Time32Type, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({time32(TimeUnit::SECOND)}, out_type,
-                                  std::move(exec32s), init));
-        auto exec32ms =
-            ExecTemplate<Op, std::chrono::milliseconds, Time32Type, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({time32(TimeUnit::MILLI)}, out_type,
-                                  std::move(exec32ms), init));
-        auto exec64us =
-            ExecTemplate<Op, std::chrono::microseconds, Time64Type, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({time64(TimeUnit::MICRO)}, out_type,
-                                  std::move(exec64us), init));
-        auto exec64ns =
-            ExecTemplate<Op, std::chrono::nanoseconds, Time64Type, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({time64(TimeUnit::NANO)}, out_type, std::move(exec64ns),
-                                  init));
-        break;
-      }
-
-      case WithTimestamps: {
-        for (auto unit : TimeUnit::values()) {
-          InputType in_type{match::TimestampTypeUnit(unit)};
-          switch (unit) {
-            case TimeUnit::SECOND: {
-              auto exec =
-                  ExecTemplate<Op, std::chrono::seconds, TimestampType, OutType>::Exec;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::MILLI: {
-              auto exec = ExecTemplate<Op, std::chrono::milliseconds, TimestampType,
-                                       OutType>::Exec;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::MICRO: {
-              auto exec = ExecTemplate<Op, std::chrono::microseconds, TimestampType,
-                                       OutType>::Exec;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::NANO: {
-              auto exec = ExecTemplate<Op, std::chrono::nanoseconds, TimestampType,
-                                       OutType>::Exec;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-          }
-        }
-        break;
-      }
-    }
+  template <typename... WithTypes>
+  static std::shared_ptr<ScalarFunction> Make(
+      std::string name, OutputType out_type, const FunctionDoc* doc,
+      const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
+    DCHECK_NE(sizeof...(WithTypes), 0);
+    UnaryTemporalFactory self{
+        out_type, init,
+        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+    AddTemporalKernels(&self, WithTypes{}...);
+    return self.func;
   }
 
-  return func;
-}
+  template <typename Duration, typename InType>
+  void AddKernel(InputType in_type) {
+    auto exec = ExecTemplate<Op, Duration, InType, OutType>::Exec;
+    DCHECK_OK(func->AddKernel({std::move(in_type)}, out_type, std::move(exec), init));
+  }
+};
 
 template <template <typename...> class Op>
-std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporal(
-    std::string name, std::initializer_list<EnabledTypes> in_types,
-    const std::shared_ptr<arrow::DataType> out_type, const FunctionDoc* doc,
-    const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
-  DCHECK_NE(in_types.size(), 0);
-  auto func =
-      std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options);
+struct SimpleUnaryTemporalFactory {
+  OutputType out_type;
+  KernelInit init;
+  std::shared_ptr<ScalarFunction> func;
 
-  for (const auto in_type : in_types) {
-    switch (in_type) {
-      case WithDates: {
-        auto exec32 = SimpleUnary<Op<days, Date32Type>>;
-        DCHECK_OK(func->AddKernel({date32()}, out_type, std::move(exec32), init));
-        auto exec64 = SimpleUnary<Op<std::chrono::milliseconds, Date64Type>>;
-        DCHECK_OK(func->AddKernel({date64()}, out_type, std::move(exec64), init));
-        break;
-      }
-
-      case WithTimes: {
-        auto exec32s = SimpleUnary<Op<std::chrono::seconds, Time32Type>>;
-        DCHECK_OK(func->AddKernel({time32(TimeUnit::SECOND)}, out_type,
-                                  std::move(exec32s), init));
-        auto exec32ms = SimpleUnary<Op<std::chrono::milliseconds, Time32Type>>;
-        DCHECK_OK(func->AddKernel({time32(TimeUnit::MILLI)}, out_type,
-                                  std::move(exec32ms), init));
-        auto exec64us = SimpleUnary<Op<std::chrono::microseconds, Time64Type>>;
-        DCHECK_OK(func->AddKernel({time64(TimeUnit::MICRO)}, out_type,
-                                  std::move(exec64us), init));
-        auto exec64ns = SimpleUnary<Op<std::chrono::nanoseconds, Time64Type>>;
-        DCHECK_OK(func->AddKernel({time64(TimeUnit::NANO)}, out_type, std::move(exec64ns),
-                                  init));
-        break;
-      }
-
-      case WithTimestamps: {
-        for (auto unit : TimeUnit::values()) {
-          InputType in_type{match::TimestampTypeUnit(unit)};
-          switch (unit) {
-            case TimeUnit::SECOND: {
-              auto exec = SimpleUnary<Op<std::chrono::seconds, TimestampType>>;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::MILLI: {
-              auto exec = SimpleUnary<Op<std::chrono::milliseconds, TimestampType>>;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::MICRO: {
-              auto exec = SimpleUnary<Op<std::chrono::microseconds, TimestampType>>;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::NANO: {
-              auto exec = SimpleUnary<Op<std::chrono::nanoseconds, TimestampType>>;
-              DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-              break;
-            }
-          }
-        }
-        break;
-      }
-    }
+  template <typename... WithTypes>
+  static std::shared_ptr<ScalarFunction> Make(
+      std::string name, OutputType out_type, const FunctionDoc* doc,
+      const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
+    DCHECK_NE(sizeof...(WithTypes), 0);
+    SimpleUnaryTemporalFactory self{
+        out_type, init,
+        std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options)};
+    AddTemporalKernels(&self, WithTypes{}...);
+    return self.func;
   }
 
-  return func;
-}
-
-template <template <typename...> class Op,
-          template <template <typename...> class OpExec, typename Duration,
-                    typename InType, typename OutType>
-          class ExecTemplate,
-          typename OutType>
-std::shared_ptr<ScalarFunction> MakeTemporalBinary(
-    std::string name, std::initializer_list<EnabledTypes> in_types,
-    const std::shared_ptr<arrow::DataType> out_type, const FunctionDoc* doc,
-    const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
-  DCHECK_GT(in_types.size(), 0);
-  auto func =
-      std::make_shared<ScalarFunction>(name, Arity::Binary(), doc, default_options);
-
-  for (const auto in_type : in_types) {
-    switch (in_type) {
-      case WithDates: {
-        auto exec32 = ExecTemplate<Op, days, Date32Type, OutType>::Exec;
-        DCHECK_OK(
-            func->AddKernel({date32(), date32()}, out_type, std::move(exec32), init));
-        auto exec64 =
-            ExecTemplate<Op, std::chrono::milliseconds, Date64Type, OutType>::Exec;
-        DCHECK_OK(
-            func->AddKernel({date64(), date64()}, out_type, std::move(exec64), init));
-        break;
-      }
-      case WithTimes: {
-        auto exec32s = ExecTemplate<Op, std::chrono::seconds, Time32Type, OutType>::Exec;
-        auto ty = time32(TimeUnit::SECOND);
-        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec32s), init));
-        auto exec32ms =
-            ExecTemplate<Op, std::chrono::milliseconds, Time32Type, OutType>::Exec;
-        ty = time32(TimeUnit::MILLI);
-        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec32ms), init));
-        auto exec64us =
-            ExecTemplate<Op, std::chrono::microseconds, Time64Type, OutType>::Exec;
-        ty = time64(TimeUnit::MICRO);
-        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec64us), init));
-        auto exec64ns =
-            ExecTemplate<Op, std::chrono::nanoseconds, Time64Type, OutType>::Exec;
-        ty = time64(TimeUnit::NANO);
-        DCHECK_OK(func->AddKernel({ty, ty}, out_type, std::move(exec64ns), init));
-        break;
-      }
-      case WithTimestamps: {
-        for (auto unit : TimeUnit::values()) {
-          InputType in_type{match::TimestampTypeUnit(unit)};
-          switch (unit) {
-            case TimeUnit::SECOND: {
-              auto exec =
-                  ExecTemplate<Op, std::chrono::seconds, TimestampType, OutType>::Exec;
-              DCHECK_OK(
-                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::MILLI: {
-              auto exec = ExecTemplate<Op, std::chrono::milliseconds, TimestampType,
-                                       OutType>::Exec;
-              DCHECK_OK(
-                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::MICRO: {
-              auto exec = ExecTemplate<Op, std::chrono::microseconds, TimestampType,
-                                       OutType>::Exec;
-              DCHECK_OK(
-                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
-              break;
-            }
-            case TimeUnit::NANO: {
-              auto exec = ExecTemplate<Op, std::chrono::nanoseconds, TimestampType,
-                                       OutType>::Exec;
-              DCHECK_OK(
-                  func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
-              break;
-            }
-          }
-        }
-        break;
-      }
-    }
+  template <typename Duration, typename InType>
+  void AddKernel(InputType in_type) {
+    auto exec = SimpleUnary<Op<Duration, InType>>;
+    DCHECK_OK(func->AddKernel({std::move(in_type)}, out_type, std::move(exec), init));
   }
-  return func;
-}
+};
 
 const FunctionDoc year_doc{
     "Extract year number",
@@ -1450,285 +1016,141 @@ const FunctionDoc assume_timezone_doc{
     {"timestamps"},
     "AssumeTimezoneOptions"};
 
-const FunctionDoc years_between_doc{
-    "Compute the number of years between two timestamps",
-    ("Returns the number of year boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the year.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc quarters_between_doc{
-    "Compute the number of quarters between two timestamps",
-    ("Returns the number of quarter start boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the quarter.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc months_between_doc{
-    "Compute the number of months between two timestamps",
-    ("Returns the number of month boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the month.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc month_day_nano_interval_between_doc{
-    "Compute the number of months, days and nanoseconds between two timestamps",
-    ("Returns the number of months, days, and nanoseconds from `start` to `end`.\n"
-     "That is, first the difference in months is computed as if both timestamps\n"
-     "were truncated to the months, then the difference between the days\n"
-     "is computed, and finally the difference between the times of the two\n"
-     "timestamps is computed as if both times were truncated to the nanosecond.\n"
-     "Null values return null."),
-    {"start", "end"}};
-
-const FunctionDoc weeks_between_doc{
-    "Compute the number of weeks between two timestamps",
-    ("Returns the number of week boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the week.\n"
-     "Null values emit null."),
-    {"start", "end"},
-    "DayOfWeekOptions"};
-
-const FunctionDoc day_time_interval_between_doc{
-    "Compute the number of days and milliseconds between two timestamps",
-    ("Returns the number of days and milliseconds from `start` to `end`.\n"
-     "That is, first the difference in days is computed as if both\n"
-     "timestamps were truncated to the day, then the difference between time times\n"
-     "of the two timestamps is computed as if both times were truncated to the\n"
-     "millisecond.\n"
-     "Null values return null."),
-    {"start", "end"}};
-
-const FunctionDoc days_between_doc{
-    "Compute the number of days between two timestamps",
-    ("Returns the number of day boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the day.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc hours_between_doc{
-    "Compute the number of hours between two timestamps",
-    ("Returns the number of hour boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the hour.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc minutes_between_doc{
-    "Compute the number of minute boundaries between two timestamps",
-    ("Returns the number of minute boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the minute.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc seconds_between_doc{
-    "Compute the number of seconds between two timestamps",
-    ("Returns the number of second boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the second.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc milliseconds_between_doc{
-    "Compute the number of millisecond boundaries between two timestamps",
-    ("Returns the number of millisecond boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the millisecond.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc microseconds_between_doc{
-    "Compute the number of microseconds between two timestamps",
-    ("Returns the number of microsecond boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the microsecond.\n"
-     "Null values emit null."),
-    {"start", "end"}};
-
-const FunctionDoc nanoseconds_between_doc{
-    "Compute the number of nanoseconds between two timestamps",
-    ("Returns the number of nanosecond boundaries crossed from `start` to `end`.\n"
-     "That is, the difference is calculated as if the timestamps were\n"
-     "truncated to the nanosecond.\n"
-     "Null values emit null."),
-    {"start", "end"}};
 }  // namespace
 
-void RegisterScalarTemporal(FunctionRegistry* registry) {
+void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   // Date extractors
-
-  auto year = MakeTemporal<Year, TemporalComponentExtract, Int64Type>(
-      "year", {WithDates, WithTimestamps}, int64(), &year_doc);
+  auto year =
+      UnaryTemporalFactory<Year, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("year", int64(),
+                                                                       &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
 
-  auto month = MakeTemporal<Month, TemporalComponentExtract, Int64Type>(
-      "month", {WithDates, WithTimestamps}, int64(), &month_doc);
+  auto month =
+      UnaryTemporalFactory<Month, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("month", int64(),
+                                                                       &month_doc);
   DCHECK_OK(registry->AddFunction(std::move(month)));
 
-  auto day = MakeTemporal<Day, TemporalComponentExtract, Int64Type>(
-      "day", {WithDates, WithTimestamps}, int64(), &day_doc);
+  auto day =
+      UnaryTemporalFactory<Day, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("day", int64(),
+                                                                       &day_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
   static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto day_of_week =
-      MakeTemporal<DayOfWeek, TemporalComponentExtractDayOfWeek, Int64Type>(
-          "day_of_week", {WithDates, WithTimestamps}, int64(), &day_of_week_doc,
-          &default_day_of_week_options, DayOfWeekState::Init);
+      UnaryTemporalFactory<DayOfWeek, TemporalComponentExtractDayOfWeek, Int64Type>::Make<
+          WithDates, WithTimestamps>("day_of_week", int64(), &day_of_week_doc,
+                                     &default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
-  auto day_of_year = MakeTemporal<DayOfYear, TemporalComponentExtract, Int64Type>(
-      "day_of_year", {WithDates, WithTimestamps}, int64(), &day_of_year_doc);
+  auto day_of_year =
+      UnaryTemporalFactory<DayOfYear, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("day_of_year",
+                                                                       int64(),
+                                                                       &day_of_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_of_year)));
 
-  auto iso_year = MakeTemporal<ISOYear, TemporalComponentExtract, Int64Type>(
-      "iso_year", {WithDates, WithTimestamps}, int64(), &iso_year_doc);
+  auto iso_year =
+      UnaryTemporalFactory<ISOYear, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("iso_year",
+                                                                       int64(),
+                                                                       &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
   static const auto default_iso_week_options = WeekOptions::ISODefaults();
-  auto iso_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
-      "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc,
-      &default_iso_week_options, WeekState::Init);
+  auto iso_week =
+      UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
+          WithDates, WithTimestamps>("iso_week", int64(), &iso_week_doc,
+                                     &default_iso_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
   static const auto default_us_week_options = WeekOptions::USDefaults();
-  auto us_week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
-      "us_week", {WithDates, WithTimestamps}, int64(), &us_week_doc,
-      &default_us_week_options, WeekState::Init);
+  auto us_week =
+      UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
+          WithDates, WithTimestamps>("us_week", int64(), &us_week_doc,
+                                     &default_us_week_options, WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(us_week)));
 
   static const auto default_week_options = WeekOptions();
-  auto week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
-      "week", {WithDates, WithTimestamps}, int64(), &week_doc, &default_week_options,
-      WeekState::Init);
+  auto week = UnaryTemporalFactory<Week, TemporalComponentExtractWeek, Int64Type>::Make<
+      WithDates, WithTimestamps>("week", int64(), &week_doc, &default_week_options,
+                                 WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(week)));
 
-  auto iso_calendar = MakeSimpleUnaryTemporal<ISOCalendar>(
-      "iso_calendar", {WithDates, WithTimestamps}, IsoCalendarType(), &iso_calendar_doc);
+  auto iso_calendar =
+      SimpleUnaryTemporalFactory<ISOCalendar>::Make<WithDates, WithTimestamps>(
+          "iso_calendar", IsoCalendarType(), &iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
-  auto quarter = MakeTemporal<Quarter, TemporalComponentExtract, Int64Type>(
-      "quarter", {WithDates, WithTimestamps}, int64(), &quarter_doc);
+  auto quarter =
+      UnaryTemporalFactory<Quarter, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("quarter", int64(),
+                                                                       &quarter_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarter)));
 
   // Date / time extractors
-
-  auto hour = MakeTemporal<Hour, TemporalComponentExtract, Int64Type>(
-      "hour", {WithTimes, WithTimestamps}, int64(), &hour_doc);
+  auto hour =
+      UnaryTemporalFactory<Hour, TemporalComponentExtract,
+                           Int64Type>::Make<WithTimes, WithTimestamps>("hour", int64(),
+                                                                       &hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
-  auto minute = MakeTemporal<Minute, TemporalComponentExtract, Int64Type>(
-      "minute", {WithTimes, WithTimestamps}, int64(), &minute_doc);
+  auto minute =
+      UnaryTemporalFactory<Minute, TemporalComponentExtract,
+                           Int64Type>::Make<WithTimes, WithTimestamps>("minute", int64(),
+                                                                       &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
-  auto second = MakeTemporal<Second, TemporalComponentExtract, Int64Type>(
-      "second", {WithTimes, WithTimestamps}, int64(), &second_doc);
+  auto second =
+      UnaryTemporalFactory<Second, TemporalComponentExtract,
+                           Int64Type>::Make<WithTimes, WithTimestamps>("second", int64(),
+                                                                       &second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
-  auto millisecond = MakeTemporal<Millisecond, TemporalComponentExtract, Int64Type>(
-      "millisecond", {WithTimes, WithTimestamps}, int64(), &millisecond_doc);
+  auto millisecond =
+      UnaryTemporalFactory<Millisecond, TemporalComponentExtract,
+                           Int64Type>::Make<WithTimes, WithTimestamps>("millisecond",
+                                                                       int64(),
+                                                                       &millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
-  auto microsecond = MakeTemporal<Microsecond, TemporalComponentExtract, Int64Type>(
-      "microsecond", {WithTimes, WithTimestamps}, int64(), &microsecond_doc);
+  auto microsecond =
+      UnaryTemporalFactory<Microsecond, TemporalComponentExtract,
+                           Int64Type>::Make<WithTimes, WithTimestamps>("microsecond",
+                                                                       int64(),
+                                                                       &microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
-  auto nanosecond = MakeTemporal<Nanosecond, TemporalComponentExtract, Int64Type>(
-      "nanosecond", {WithTimes, WithTimestamps}, int64(), &nanosecond_doc);
+  auto nanosecond =
+      UnaryTemporalFactory<Nanosecond, TemporalComponentExtract,
+                           Int64Type>::Make<WithTimes, WithTimestamps>("nanosecond",
+                                                                       int64(),
+                                                                       &nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
-  auto subsecond = MakeTemporal<Subsecond, TemporalComponentExtract, DoubleType>(
-      "subsecond", {WithTimes, WithTimestamps}, float64(), &subsecond_doc);
+  auto subsecond =
+      UnaryTemporalFactory<Subsecond, TemporalComponentExtract,
+                           DoubleType>::Make<WithTimes, WithTimestamps>("subsecond",
+                                                                        float64(),
+                                                                        &subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
   // Timezone-related functions
-
   static const auto default_strftime_options = StrftimeOptions();
-  auto strftime = MakeSimpleUnaryTemporal<Strftime>(
-      "strftime", {WithTimes, WithDates, WithTimestamps}, utf8(), &strftime_doc,
-      &default_strftime_options, StrftimeState::Init);
+  auto strftime =
+      SimpleUnaryTemporalFactory<Strftime>::Make<WithTimes, WithDates, WithTimestamps>(
+          "strftime", utf8(), &strftime_doc, &default_strftime_options,
+          StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
 
   auto assume_timezone =
-      MakeTemporal<AssumeTimezone, AssumeTimezoneExtractor, TimestampType>(
-          "assume_timezone", {WithTimestamps},
-          OutputType::Resolver(ResolveAssumeTimezoneOutput), &assume_timezone_doc,
-          nullptr, AssumeTimezoneState::Init);
+      UnaryTemporalFactory<AssumeTimezone, AssumeTimezoneExtractor, TimestampType>::Make<
+          WithTimestamps>("assume_timezone",
+                          OutputType::Resolver(ResolveAssumeTimezoneOutput),
+                          &assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
-
-  auto years_between = MakeTemporalBinary<YearsBetween, TemporalBinary, Int64Type>(
-      "years_between", {WithDates, WithTimestamps}, int64(), &years_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(years_between)));
-
-  auto quarters_between = MakeTemporalBinary<QuartersBetween, TemporalBinary, Int64Type>(
-      "quarters_between", {WithDates, WithTimestamps}, int64(), &quarters_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(quarters_between)));
-
-  auto month_interval_between =
-      MakeTemporalBinary<MonthsBetween, TemporalBinary, MonthIntervalType>(
-          "month_interval_between", {WithDates, WithTimestamps}, month_interval(),
-          &months_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(month_interval_between)));
-
-  auto month_day_nano_interval_between =
-      MakeTemporalBinary<MonthDayNanoBetween, TemporalBinary, MonthDayNanoIntervalType>(
-          "month_day_nano_interval_between", {WithDates, WithTimes, WithTimestamps},
-          month_day_nano_interval(), &month_day_nano_interval_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(month_day_nano_interval_between)));
-
-  auto weeks_between =
-      MakeTemporalBinary<WeeksBetween, TemporalDayOfWeekBinary, Int64Type>(
-          "weeks_between", {WithDates, WithTimestamps}, int64(), &weeks_between_doc,
-          &default_day_of_week_options, DayOfWeekState::Init);
-  DCHECK_OK(registry->AddFunction(std::move(weeks_between)));
-
-  auto day_time_interval_between =
-      MakeTemporalBinary<DayTimeBetween, TemporalBinary, DayTimeIntervalType>(
-          "day_time_interval_between", {WithDates, WithTimes, WithTimestamps},
-          day_time_interval(), &day_time_interval_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(day_time_interval_between)));
-
-  auto days_between = MakeTemporalBinary<DaysBetween, TemporalBinary, Int64Type>(
-      "days_between", {WithDates, WithTimestamps}, int64(), &days_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(days_between)));
-
-  auto hours_between = MakeTemporalBinary<HoursBetween, TemporalBinary, Int64Type>(
-      "hours_between", {WithDates, WithTimes, WithTimestamps}, int64(),
-      &hours_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(hours_between)));
-
-  auto minutes_between = MakeTemporalBinary<MinutesBetween, TemporalBinary, Int64Type>(
-      "minutes_between", {WithDates, WithTimes, WithTimestamps}, int64(),
-      &minutes_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(minutes_between)));
-
-  auto seconds_between = MakeTemporalBinary<SecondsBetween, TemporalBinary, Int64Type>(
-      "seconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
-      &seconds_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(seconds_between)));
-
-  auto milliseconds_between =
-      MakeTemporalBinary<MillisecondsBetween, TemporalBinary, Int64Type>(
-          "milliseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
-          &milliseconds_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(milliseconds_between)));
-
-  auto microseconds_between =
-      MakeTemporalBinary<MicrosecondsBetween, TemporalBinary, Int64Type>(
-          "microseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
-          &microseconds_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(microseconds_between)));
-
-  auto nanoseconds_between =
-      MakeTemporalBinary<NanosecondsBetween, TemporalBinary, Int64Type>(
-          "nanoseconds_between", {WithDates, WithTimes, WithTimestamps}, int64(),
-          &nanoseconds_between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(nanoseconds_between)));
 }
 
 }  // namespace internal
