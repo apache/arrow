@@ -38,6 +38,10 @@ using arrow_vendored::date::sys_time;
 using arrow_vendored::date::time_zone;
 using arrow_vendored::date::year_month_day;
 
+inline int64_t GetQuarter(const year_month_day& ymd) {
+  return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
+}
+
 static inline Result<const time_zone*> LocateZone(const std::string& timezone) {
   try {
     return locate_zone(timezone);

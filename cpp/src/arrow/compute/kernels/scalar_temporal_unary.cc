@@ -90,10 +90,6 @@ Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
   return Status::OK();
 }
 
-int64_t GetQuarter(const year_month_day& ymd) {
-  return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
-}
-
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
 struct TemporalComponentExtractDayOfWeek
