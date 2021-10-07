@@ -211,7 +211,11 @@ ReentrantCheckerGuard<T> ExpectNotAccessedReentrantly(AsyncGenerator<T>* generat
 }
 
 class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
+ public:
+  virtual ~GeneratorTestFixture() override = default;
+
  protected:
+
   AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items) {
     std::vector<TestInt> wrapped(items.begin(), items.end());
     auto gen = AsyncVectorIt(std::move(wrapped));
@@ -1242,6 +1246,11 @@ INSTANTIATE_TEST_SUITE_P(EnumeratedTests, EnumeratorTestFixture,
                          ::testing::Values(false, true));
 
 class PauseableTestFixture : public GeneratorTestFixture {
+ public:
+  ~PauseableTestFixture() override {
+    generator_.producer().Close();
+  }
+
  protected:
   PauseableTestFixture() : toggle_(std::make_shared<util::AsyncToggle>()) {
     sink_.clear();
