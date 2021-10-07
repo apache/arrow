@@ -303,9 +303,9 @@ Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
     client->DoPut(descriptor, parameter_binding->schema(), &writer, &reader);
 
     std::shared_ptr<Buffer> buffer;
-    writer->WriteRecordBatch(*parameter_binding);
-    writer->DoneWriting();
-    reader->ReadMetadata(&buffer);
+    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding));
+    ARROW_RETURN_NOT_OK(writer->DoneWriting());
+    ARROW_RETURN_NOT_OK(reader->ReadMetadata(&buffer));
   }
 
   return client->GetFlightInfo(options, descriptor, info);
