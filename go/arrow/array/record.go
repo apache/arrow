@@ -259,9 +259,19 @@ func (rec *simpleRecord) String() string {
 }
 
 func (rec *simpleRecord) MarshalJSON() ([]byte, error) {
-	st := RecordToStructArray(rec)
-	defer st.Release()
-	return json.Marshal(st)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	cols := make(map[string]interface{})
+	for i := 0; i < int(rec.rows); i++ {
+		for j, c := range rec.arrs {
+			cols[rec.schema.Field(j).Name] = c.getOneForMarshal(i)
+		}
+		if err := enc.Encode(cols); err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
 }
 
 // RecordBuilder eases the process of building a Record, iteratively, from
