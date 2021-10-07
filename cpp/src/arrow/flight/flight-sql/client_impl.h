@@ -274,13 +274,13 @@ Status PreparedStatementT<T>::Execute(const FlightCallOptions& call_options,
     return Status::Invalid("Statement already closed.");
   }
 
-  pb::sql::CommandPreparedStatementQuery prepared_statement_query;
+  pb::sql::CommandPreparedStatementQuery execute_query_command;
 
-  prepared_statement_query.set_prepared_statement_handle(
+  execute_query_command.set_prepared_statement_handle(
       prepared_statement_result.prepared_statement_handle());
 
   google::protobuf::Any any;
-  any.PackFrom(prepared_statement_query);
+  any.PackFrom(execute_query_command);
 
   const std::string& string = any.SerializeAsString();
   const FlightDescriptor& descriptor = FlightDescriptor::Command(string);
