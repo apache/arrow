@@ -284,7 +284,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     protected _writeDictionaries(batch: RecordBatch<T>) {
         for (let [id, dictionary] of batch.dictionaries) {
             let offset = this._dictionaryDeltaOffsets.get(id) || 0;
-            if (offset === 0 || (dictionary = dictionary.slice(offset)).length > 0) {
+            if (offset === 0 || (dictionary = dictionary?.slice(offset)).length > 0) {
                 for (const data of dictionary.data) {
                     this._writeDictionaryBatch(data, id, offset > 0);
                     offset += data.length;

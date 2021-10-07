@@ -100,7 +100,7 @@ describe(`Table`, () => {
         expect(new Table().numRows).toEqual(0);
     });
 
-    describe(`new()`, () => {
+    describe(`constructor`, () => {
         test(`creates an empty Table with Columns`, () => {
             let i32 = new Vector([makeData({ type: new Int32 })]);
             let f32 = new Vector([makeData({ type: new Float32 })]);

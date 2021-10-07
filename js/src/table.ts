@@ -81,31 +81,41 @@ export class Table<T extends { [key: string]: DataType } = any> {
             return this;
         }
 
-        let batches: RecordBatch<T>[] = [];
         let schema: Schema<T> | undefined = undefined;
         let offsets: Uint32Array | undefined = undefined;
 
         if (args[0] instanceof Schema) {
             schema = args.shift() as Schema<T>;
         }
+
         if (args[args.length - 1] instanceof Uint32Array) {
             offsets = args.pop() as Uint32Array;
         }
 
-        args.flat(Infinity).forEach((x) => {
-            if (x instanceof RecordBatch) {
-                batches.push(x);
-            } else if (x instanceof Data) {
-                if (x.type instanceof Struct) {
-                    batches.push(new RecordBatch(new Schema(x.type.children), x));
+        const unwrap = (x: any): RecordBatch<T>[] => {
+            if (x) {
+                if (x instanceof RecordBatch) {
+                    return [x];
+                } else if (x instanceof Table) {
+                    return x.batches;
+                } else if (x instanceof Data) {
+                    if (x.type instanceof Struct) {
+                        return [new RecordBatch(new Schema(x.type.children), x)];
+                    }
+                } else if (Array.isArray(x)) {
+                    return x.flatMap(unwrap);
+                } else if (typeof x === 'object') {
+                    const keys = Object.keys(x) as (keyof T)[];
+                    const vecs = keys.map((k) => new Vector(x[k]));
+                    const schema = new Schema(keys.map((k, i) => new Field('' + k, vecs[i].type)));
+                    const [, batches] = distributeVectorsIntoRecordBatches(schema, vecs);
+                    return batches.length === 0 ? [new RecordBatch(x)] : batches;
                 }
-            } else if (x && typeof x === 'object') {
-                const keys = Object.keys(x) as (keyof T)[];
-                const vecs = keys.map((k) => new Vector(x[k]));
-                const s = new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type)));
-                [schema, batches] = distributeVectorsIntoRecordBatches(s, vecs);
             }
-        });
+            return [];
+        };
+
+        const batches = args.flatMap(unwrap);
 
         schema ??= batches[0]?.schema ?? new Schema([]);
 
@@ -135,12 +145,12 @@ export class Table<T extends { [key: string]: DataType } = any> {
      */
     [index: number]: Struct<T>['TValue'] | null;
 
-    public readonly schema: Schema<T>;
+    declare public readonly schema: Schema<T>;
 
     /**
      * @summary The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
      */
-    public readonly batches: ReadonlyArray<RecordBatch<T>>;
+    declare public readonly batches: RecordBatch<T>[];
 
     /**
      * @summary The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
@@ -251,16 +261,22 @@ export class Table<T extends { [key: string]: DataType } = any> {
      * @param name The name of the child to retrieve.
      */
     public getChild<P extends keyof T>(name: P) {
-        return this.getChildAt<T[P]>(this.schema.fields?.findIndex((f) => f.name === name));
+        return this.getChildAt<T[P]>(this.schema.fields.findIndex((f) => f.name === name));
     }
 
     /**
      * @summary Returns a child Vector by index, or null if this Vector has no child at the supplied index.
      * @param index The index of the child to retrieve.
      */
-    public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
+    public getChildAt<R extends T[keyof T] = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
-            return new Vector(this.data.map((data) => data.children[index] as Data<R>));
+            const data = this.data.map((data) => data.children[index] as Data<R>);
+            if (data.length === 0) {
+                const { type } = this.schema.fields[index] as Field<R>;
+                const empty = makeData<R>({ type, length: 0, nullCount: 0 });
+                data.push(empty._changeLengthAndBackfillNullBitmap(this.numRows));
+            }
+            return new Vector(data);
         }
         return null;
     }
@@ -318,6 +334,26 @@ export class Table<T extends { [key: string]: DataType } = any> {
         const schema = this.schema.selectAt(columnIndices);
         const data = this.batches.map((batch) => batch.selectAt(columnIndices));
         return new Table<{ [key: string]: K }>(schema, data);
+    }
+
+    public assign<R extends { [key: string]: DataType } = any>(other: Table<R>) {
+
+        const fields = this.schema.fields;
+        const [indices, oldToNew] = other.schema.fields.reduce((memo, f2, newIdx) => {
+            const [indices, oldToNew] = memo;
+            const i = fields.findIndex((f) => f.name === f2.name);
+            ~i ? (oldToNew[i] = newIdx) : indices.push(newIdx);
+            return memo;
+        }, [[], []] as number[][]);
+
+        const schema = this.schema.assign(other.schema);
+        const columns = [
+            ...fields.map((_, i) => [i, oldToNew[i]]).map(([i, j]) =>
+                (j === undefined ? this.getChildAt(i) : other.getChildAt(j))!),
+            ...indices.map((i) => other.getChildAt(i)!)
+        ].filter(Boolean) as Vector<(T & R)[keyof T | keyof R]>[];
+
+        return new Table<T & R>(...distributeVectorsIntoRecordBatches<any>(schema, columns));
     }
 
     // Initialize this static property via an IIFE so bundlers don't tree-shake

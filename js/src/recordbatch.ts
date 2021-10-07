@@ -308,31 +308,29 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
 /** @ignore */
 function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
     schema: Schema<T>,
-    columns: Data<T[keyof T]>[],
-    maxLength = columns.reduce((max, col) => Math.max(max, col.length), 0)
+    chunks: Data<T[keyof T]>[],
+    maxLength = chunks.reduce((max, col) => Math.max(max, col.length), 0)
 ) {
     const fields = [...schema.fields];
-    const children = [...columns] as Data<T[keyof T]>[];
+    const children = [...chunks] as Data<T[keyof T]>[];
     const nullBitmapSize = ((maxLength + 63) & ~63) >> 3;
 
     schema.fields.forEach((field, idx) => {
-        const column = columns[idx];
-        if (!column || column.length !== maxLength) {
+        const chunk = chunks[idx];
+        if (!chunk || chunk.length !== maxLength) {
             fields[idx] = field.clone({ nullable: true });
-            children[idx] = column
-                ? column._changeLengthAndBackfillNullBitmap(maxLength)
-                : makeData({
-                    type: field.type,
-                    length: maxLength,
-                    nullCount: maxLength,
-                    nullBitmap: new Uint8Array(nullBitmapSize)
-                });
+            children[idx] = chunk?._changeLengthAndBackfillNullBitmap(maxLength) ?? makeData({
+                type: field.type,
+                length: maxLength,
+                nullCount: maxLength,
+                nullBitmap: new Uint8Array(nullBitmapSize)
+            });
         }
     });
 
     return [
-        new Schema<T>(fields),
-        makeData({ type: new Struct<T>(fields), length: maxLength, children, nullCount: 0 })
+        schema.assign(fields),
+        makeData({ type: new Struct<T>(fields), length: maxLength, children })
     ] as [Schema<T>, Data<Struct<T>>];
 }
 
@@ -344,7 +342,9 @@ function collectDictionaries(fields: Field[], children: Data[], dictionaries = n
         const data = children[i];
         if (DataType.isDictionary(type)) {
             if (!dictionaries.has(type.id)) {
-                dictionaries.set(type.id, data.dictionary!);
+                if (data.dictionary) {
+                    dictionaries.set(type.id, data.dictionary);
+                }
             } else if (dictionaries.get(type.id) !== data.dictionary) {
                 throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
             }

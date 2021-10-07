@@ -40,6 +40,7 @@ const testFiles = [
     `test/unit/generated-data-tests.ts`,
     `test/unit/builders/`,
     `test/unit/recordbatch/`,
+    `test/unit/table/`,
 ];
 
 if (argv.verbose) {

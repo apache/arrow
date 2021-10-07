@@ -67,7 +67,7 @@ export class Vector<T extends DataType = any> {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
         this.data = data;
-        this.type = data[0].type;
+        this.type = data[0]?.type;
         switch (data.length) {
             case 0: this._offsets = new Uint32Array([0]); break;
             case 1: this._offsets = new Uint32Array([0, data[0].length]); break;

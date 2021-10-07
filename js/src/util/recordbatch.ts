@@ -47,46 +47,53 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
 
         if (isFinite(batchLength)) {
             children = distributeChildren(fields, batchLength, children, cols, memo);
-            batches[numBatches++] = makeData({
-                type: new Struct(fields),
-                length: batchLength,
-                nullCount: 0,
-                children: children.slice()
-            });
+            if (batchLength > 0) {
+                batches[numBatches++] = makeData({
+                    type: new Struct(fields),
+                    length: batchLength,
+                    nullCount: 0,
+                    children: children.slice()
+                });
+            }
         }
     }
+
     return [
-        schema = new Schema<T>(fields, schema.metadata),
+        schema = schema.assign(fields),
         batches.map((data) => new RecordBatch(schema, data))
     ];
 }
 
 /** @ignore */
-function distributeChildren<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, children: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
-    let data: Data<T[keyof T]>;
-    let field: Field<T[keyof T]>;
-    let length = 0, i = -1;
-    const n = columns.length;
-    const bitmapLength = ((batchLength + 63) & ~63) >> 3;
-    while (++i < n) {
-        if ((data = children[i]) && ((length = data.length) >= batchLength)) {
+function distributeChildren<T extends { [key: string]: DataType } = any>(
+    fields: Field<T[keyof T]>[],
+    batchLength: number,
+    children: Data<T[keyof T]>[],
+    columns: Data<T[keyof T]>[][],
+    memo: { numBatches: number }
+) {
+    const nullBitmapSize = ((batchLength + 63) & ~63) >> 3;
+    for (let i = -1, n = columns.length; ++i < n;) {
+        const child = children[i];
+        const length = child?.length;
+        if (length >= batchLength) {
             if (length === batchLength) {
-                children[i] = data;
+                children[i] = child;
             } else {
-                children[i] = data.slice(0, batchLength);
-                data = data.slice(batchLength, length - batchLength);
-                memo.numBatches = Math.max(memo.numBatches, columns[i].unshift(data));
+                children[i] = child.slice(0, batchLength);
+                memo.numBatches = Math.max(memo.numBatches, columns[i].unshift(
+                    child.slice(batchLength, length - batchLength)
+                ));
             }
         } else {
-            (field = fields[i]).nullable || (fields[i] = field.clone({ nullable: true }) as Field<T[keyof T]>);
-            children[i] = data
-                ? data._changeLengthAndBackfillNullBitmap(batchLength)
-                : makeData({
-                    type: field.type,
-                    length: batchLength,
-                    nullCount: batchLength,
-                    nullBitmap: new Uint8Array(bitmapLength)
-                }) as Data<T[keyof T]>;
+            const field = fields[i];
+            fields[i] = field.clone({ nullable: true });
+            children[i] = child?._changeLengthAndBackfillNullBitmap(batchLength) ?? makeData({
+                type: field.type,
+                length: batchLength,
+                nullCount: batchLength,
+                nullBitmap: new Uint8Array(nullBitmapSize)
+            }) as Data<T[keyof T]>;
         }
     }
     return children;

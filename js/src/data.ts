@@ -347,7 +347,8 @@ MakeDataVisitor.prototype.visitDictionary = function visitDictionary<T extends D
     const { ['type']: type, ['offset']: offset = 0 } = props;
     const nullBitmap = toUint8Array(props['nullBitmap']);
     const data = toArrayBufferView(type.indices.ArrayType, props['data']);
-    const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, ['dictionary']: dictionary } = props;
+    const { ['dictionary']: dictionary = new Vector(makeData({ type: type.dictionary })) } = props;
+    const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
     return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap], [], dictionary);
 };
 
@@ -385,7 +386,7 @@ interface DataProps_<T extends DataType> {
 
 interface NullDataProps<T extends Null> { type: T; offset?: number; length?: number }
 interface IntDataProps<T extends Int> extends DataProps_<T> { data?: DataBuffer<T> }
-interface DictionaryDataProps<T extends Dictionary> extends DataProps_<T> { data?: DataBuffer<T>; dictionary: Vector<T['dictionary']> }
+interface DictionaryDataProps<T extends Dictionary> extends DataProps_<T> { data?: DataBuffer<T>; dictionary?: Vector<T['dictionary']> }
 interface FloatDataProps<T extends Float> extends DataProps_<T> { data?: DataBuffer<T> }
 interface BoolDataProps<T extends Bool> extends DataProps_<T> { data?: DataBuffer<T> }
 interface DecimalDataProps<T extends Decimal> extends DataProps_<T> { data?: DataBuffer<T> }
