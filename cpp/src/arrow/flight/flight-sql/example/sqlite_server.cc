@@ -18,8 +18,6 @@
 #include <sqlite3.h>
 #include <sstream>
 
-#include <sstream>
-
 #include "arrow/api.h"
 #include "arrow/flight/flight-sql/sql_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_server.h"

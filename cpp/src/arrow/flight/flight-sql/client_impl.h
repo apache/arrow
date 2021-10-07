@@ -23,7 +23,6 @@
 
 #include <utility>
 
-
 namespace pb = arrow::flight::protocol;
 
 namespace arrow {
