@@ -325,6 +325,22 @@ Status PreparedStatementT<T>::Close() {
   return Status::OK();
 }
 
+template <class T>
+Status FlightSqlClientT<T>::GetSqlInfo(
+    const FlightCallOptions& options, const std::vector<int>& sql_info,
+    std::unique_ptr<FlightInfo>* flight_info) const {
+  pb::sql::CommandGetSqlInfo command;
+  for (const int& info : sql_info) command.add_info(info);
+  return GetFlightInfoForCommand(client, options, flight_info, command);
+}
+
+template <class T>
+Status FlightSqlClientT<T>::GetSqlInfo(
+    const FlightCallOptions& options, const std::vector<pb::sql::SqlInfo>& sql_info,
+    std::unique_ptr<FlightInfo>* flight_info) const {
+  return GetSqlInfo(options, reinterpret_cast<const std::vector<int>&>(sql_info), flight_info);
+}
+
 }  // namespace internal
 }  // namespace sql
 }  // namespace flight

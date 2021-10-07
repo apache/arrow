@@ -317,6 +317,30 @@ TEST(TestFlightSqlClient, TestExecuteUpdate) {
 
   ASSERT_EQ(num_rows, 100);
 }
+
+TEST(TestFlightSqlClient, TestGetSqlInfo) {
+  auto* client_mock = new FlightClientMock();
+  std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
+
+  std::vector<pb::sql::SqlInfo> sql_info{
+      pb::sql::SqlInfo::FLIGHT_SQL_SERVER_NAME,
+      pb::sql::SqlInfo::FLIGHT_SQL_SERVER_VERSION,
+      pb::sql::SqlInfo::FLIGHT_SQL_SERVER_ARROW_VERSION};
+  std::unique_ptr<FlightInfo> flight_info;
+  pb::sql::CommandGetSqlInfo command;
+
+  for (const auto& info : sql_info) command.add_info(info);
+  google::protobuf::Any any;
+  any.PackFrom(command);
+  const FlightDescriptor& descriptor = FlightDescriptor::Command(any.SerializeAsString());
+
+  FlightCallOptions call_options;
+  EXPECT_CALL(*client_mock,
+              GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  (void) sql_client.GetSqlInfo(call_options, sql_info, &flight_info);
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

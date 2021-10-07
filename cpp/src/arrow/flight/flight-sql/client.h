@@ -178,6 +178,24 @@ class FlightSqlClientT {
   Status GetTableTypes(const FlightCallOptions& options,
                        std::unique_ptr<FlightInfo>* flight_info) const;
 
+  /// \brief Request a list of SQL information.
+  /// \param[in] options RPC-layer hints for this call.
+  /// \param[in] sql_info the SQL info required.
+  /// \param[out] flight_info The FlightInfo describing where to access the dataset.
+  /// \return Status.
+  Status GetSqlInfo(const FlightCallOptions& options,
+                    const std::vector<int>& sql_info,
+                    std::unique_ptr<FlightInfo>* flight_info) const;
+
+  /// \brief Request a list of SQL information.
+  /// \param[in] options RPC-layer hints for this call.
+  /// \param[in] sql_info the SQL info required.
+  /// \param[out] flight_info The FlightInfo describing where to access the dataset.
+  /// \return Status.
+  Status GetSqlInfo(const FlightCallOptions& options,
+                    const std::vector<pb::sql::SqlInfo>& sql_info,
+                    std::unique_ptr<FlightInfo>* flight_info) const;
+
   /// \brief Create a prepared statement object.
   /// \param[in] options              RPC-layer hints for this call.
   /// \param[in] query                The query that will be executed.
