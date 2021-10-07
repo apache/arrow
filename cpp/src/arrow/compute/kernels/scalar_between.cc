@@ -46,18 +46,20 @@ template <typename Op>
 void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
       GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
+  DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
+/*
   DCHECK_OK(func->AddKernel(
       {InputType::Array(ty), InputType::Scalar(ty), InputType::Scalar(ty)}, boolean(),
       std::move(exec)));
   DCHECK_OK(func->AddKernel(
        {InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)}, boolean(), 
        std::move(exec)));
-
+*/
 }
 
 template <typename InType, typename Op>
 void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(
+   DCHECK_OK(
       func->AddKernel({ty, ty, ty}, boolean(),
 	       applicator::ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
 
@@ -84,7 +86,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
 
   AddGenericBetween<FloatType, Op>(float32(), func.get());
   AddGenericBetween<DoubleType, Op>(float64(), func.get());
-/*  
+  
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
@@ -118,7 +120,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
             int64());
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
   }
-*/
+
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(*ty);

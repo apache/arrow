@@ -122,12 +122,18 @@ TEST(TestSimpleBetweenKernel, SimpleTimestampTest) {
 }
 
 TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-  ValidateBetween<TypeParam>(
+
+ ValidateBetween<TypeParam>(
       "[]", ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), "[]");
   ValidateBetween<TypeParam>(
       "[null]", ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), "[null]");
+  ValidateBetween<TypeParam>(
+      "[1,1,2,2,2]",
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
+      "[true,true,false,false,false]");
   ValidateBetween<TypeParam>(
       "[1,1,2,2,2,2]",
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
@@ -153,6 +159,12 @@ TEST(TestSimpleBetweenKernel, StringArrayArrayArrayTest) {
                     R"(["bit","nibble","ternary"])"),
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["word","d","xyz"])"),
       "[true, false, false]");
+  ValidateBetween<StringType>(
+      R"(["Ayumi","アユミ","王梦莹"])",
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                    R"(["たなか","あゆみ","歩美"])"),
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["李平之","田中","たなか"])"),
+      "[false, true, false]");
 }
 
 TEST(TestSimpleBetweenKernel, TimestampArrayArrayArrayTest) {
