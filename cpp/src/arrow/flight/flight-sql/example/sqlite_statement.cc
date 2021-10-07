@@ -83,9 +83,9 @@ Status SqliteStatement::Step(int* rc) {
   return Status::OK();
 }
 
-Status SqliteStatement::Reset(int *rc) {
-  *rc = sqlite3_reset(stmt_);
-  if (*rc == SQLITE_ERROR) {
+Status SqliteStatement::Reset(int& rc) {
+  rc = sqlite3_reset(stmt_);
+  if (rc == SQLITE_ERROR) {
     return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db_));
   }
 

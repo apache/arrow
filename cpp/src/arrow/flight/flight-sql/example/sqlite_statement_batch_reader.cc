@@ -115,7 +115,7 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   }
 
   if (!already_executed) {
-    ARROW_RETURN_NOT_OK(statement_->Reset(&rc));
+    ARROW_RETURN_NOT_OK(statement_->Reset(rc));
     ARROW_RETURN_NOT_OK(statement_->Step(&rc));
     already_executed = true;
   }
