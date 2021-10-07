@@ -14,14 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package json_test
+package array_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
-	arrjson "github.com/apache/arrow/go/arrow/json"
+
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,7 +52,7 @@ func TestJSONReader(t *testing.T) {
 		{Name: "sales", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
 	}, nil)
 
-	rdr := arrjson.NewReader(strings.NewReader(jsondata), schema)
+	rdr := array.NewJSONReader(strings.NewReader(jsondata), schema)
 	defer rdr.Release()
 
 	n := 0
@@ -77,7 +78,7 @@ func TestJSONReaderAll(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	rdr := arrjson.NewReader(strings.NewReader(jsondata), schema, arrjson.WithAllocator(mem), arrjson.WithChunk(-1))
+	rdr := array.NewJSONReader(strings.NewReader(jsondata), schema, array.WithAllocator(mem), array.WithChunk(-1))
 	defer rdr.Release()
 
 	assert.True(t, rdr.Next())
@@ -100,7 +101,7 @@ func TestJSONReaderChunked(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	rdr := arrjson.NewReader(strings.NewReader(jsondata), schema, arrjson.WithAllocator(mem), arrjson.WithChunk(4))
+	rdr := array.NewJSONReader(strings.NewReader(jsondata), schema, array.WithAllocator(mem), array.WithChunk(4))
 	defer rdr.Release()
 
 	n := 0

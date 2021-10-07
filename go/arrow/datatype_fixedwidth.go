@@ -120,6 +120,9 @@ func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
 }
 
 func (t Timestamp) ToTime(unit TimeUnit) time.Time {
+	if unit == Second {
+		return time.Unix(int64(t), 0).UTC()
+	}
 	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
 }
 

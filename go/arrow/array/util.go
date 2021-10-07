@@ -172,3 +172,22 @@ func RecordFromJSON(mem memory.Allocator, schema *arrow.Schema, r io.Reader, opt
 
 	return RecordFromStructArray(arr.(*Struct), schema), off, nil
 }
+
+// RecordToJSON writes out the given record following the format of each row is a single object
+// on a single line of the output.
+func RecordToJSON(rec Record, w io.Writer) error {
+	enc := json.NewEncoder(w)
+
+	fields := rec.Schema().Fields()
+
+	cols := make(map[string]interface{})
+	for i := 0; int64(i) < rec.NumRows(); i++ {
+		for j, c := range rec.Columns() {
+			cols[fields[j].Name] = c.getOneForMarshal(i)
+		}
+		if err := enc.Encode(cols); err != nil {
+			return err
+		}
+	}
+	return nil
+}

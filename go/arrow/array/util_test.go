@@ -252,10 +252,6 @@ func TestTimestampsJSON(t *testing.T) {
 		defer arr.Release()
 
 		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
-
-		data, err := json.Marshal(arr)
-		assert.NoError(t, err)
-		assert.JSONEq(t, tt.jsonstr, string(data))
 	}
 }
 
