@@ -38,13 +38,21 @@ FlightSqlClientT<T>::FlightSqlClientT(std::unique_ptr<T>& client) {
 template <class T>
 PreparedStatementT<T>::PreparedStatementT(
     T* client_, const std::string& query,
-    pb::sql::ActionCreatePreparedStatementResult prepared_statement_result_)
-    : client(client_), prepared_statement_result(std::move(prepared_statement_result_)) {
+    pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result_,
+    const FlightCallOptions& options_)
+    : client(client_),
+      prepared_statement_result(std::move(prepared_statement_result_)),
+      options(options_) {
   is_closed = false;
 }
 
 template <class T>
 FlightSqlClientT<T>::~FlightSqlClientT() = default;
+
+template <class T>
+PreparedStatementT<T>::~PreparedStatementT<T>() {
+  Close(options);
+}
 
 inline FlightDescriptor GetFlightDescriptorForCommand(
     const google::protobuf::Message& command) {
@@ -262,7 +270,7 @@ Status FlightSqlClientT<T>::Prepare(
 
   prepared_result.UnpackTo(&prepared_statement_result);
 
-  prepared_statement->reset(new PreparedStatementT<T>(client.get(), query, prepared_statement_result));
+  prepared_statement->reset(new PreparedStatementT<T>(client.get(), query, prepared_statement_result, options));
 
   return Status::OK();
 }

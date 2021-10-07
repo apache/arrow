@@ -35,6 +35,7 @@ namespace internal {
 template <class T = arrow::flight::FlightClient>
 class ARROW_EXPORT PreparedStatementT {
   pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+  FlightCallOptions options;
   bool is_closed;
   T* client;
 
@@ -42,8 +43,15 @@ class ARROW_EXPORT PreparedStatementT {
   /// \brief Constructor for the PreparedStatement class.
   /// \param[in] client   A raw pointer to FlightClient.
   /// \param[in] query      The query that will be executed.
-  PreparedStatementT(T* client, const std::string& query,
-                     pb::sql::ActionCreatePreparedStatementResult  prepared_statement_result);
+  PreparedStatementT(
+      T* client, const std::string& query,
+      pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result,
+      const FlightCallOptions& options);
+
+  /// \brief Default destructor for the PreparedStatement class.
+  /// The destructor will call the Close method from the class in order,
+  /// to send a request to close the PreparedStatement.
+  ~PreparedStatementT();
 
   /// \brief Executes the prepared statement query on the server.
   /// \param[in] call_options RPC-layer hints for this call.
