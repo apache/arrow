@@ -39,6 +39,10 @@ class FlightSqlServerBase : public FlightServerBase {
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* stream) override;
 
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override;
+
   /// \brief Gets a FlightInfo for executing a SQL query.
   /// \param[in] command      The CommandStatementQuery object containing the SQL
   ///                         statement.
@@ -257,6 +261,11 @@ class FlightSqlServerBase : public FlightServerBase {
   virtual Status DoGetImportedKeys(const pb::sql::CommandGetImportedKeys& command,
                                    const ServerCallContext& context,
                                    std::unique_ptr<FlightDataStream>* result);
+
+  virtual Status DoPutCommandStatementUpdate(
+      const pb::sql::CommandStatementUpdate& command, const ServerCallContext& context,
+      std::unique_ptr<FlightMessageReader>& reader,
+      std::unique_ptr<FlightMetadataWriter>& writer);
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.

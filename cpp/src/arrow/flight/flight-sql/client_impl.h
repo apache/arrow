@@ -91,9 +91,10 @@ Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
 
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
 
+  std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
 
-  ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, NULLPTR, NULL, &reader));
+  ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, NULLPTR, &writer, &reader));
 
   std::shared_ptr<Buffer> metadata;
 

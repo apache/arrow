@@ -265,6 +265,28 @@ Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& comma
   return Status::OK();
 }
 
+Status SQLiteFlightSqlServer::DoPutCommandStatementUpdate(
+    const pb::sql::CommandStatementUpdate& command, const ServerCallContext& context,
+    std::unique_ptr<FlightMessageReader>& reader,
+    std::unique_ptr<FlightMetadataWriter>& writer) {
+  const std::string& sql = command.query();
+
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, sql, &statement));
+
+  pb::sql::DoPutUpdateResult result;
+
+  int64_t record_count;
+  ARROW_RETURN_NOT_OK(statement->ExecuteUpdate(&record_count));
+
+  result.set_record_count(record_count);
+
+  const std::shared_ptr<Buffer>& buffer = Buffer::FromString(result.SerializeAsString());
+  ARROW_RETURN_NOT_OK(writer->WriteMetadata(*buffer));
+
+  return Status::OK();
+}
+
 }  // namespace example
 }  // namespace sql
 }  // namespace flight

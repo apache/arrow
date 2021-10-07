@@ -56,6 +56,11 @@ class SqliteStatement {
   /// \brief Returns the underlying sqlite3_stmt.
   sqlite3_stmt* GetSqlite3Stmt();
 
+  /// \brief Executes an UPDATE, INSERT or DELETE statement.
+  /// \param[out] result   The number of rows changed by execution.
+  /// \return              Status.
+  Status ExecuteUpdate(int64_t* result);
+
  private:
   sqlite3* db_;
   sqlite3_stmt* stmt_;

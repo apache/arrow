@@ -285,6 +285,27 @@ TEST(TestFlightSqlServer, TestCommandGetSchemas) {
   ASSERT_EQ(0, table->num_rows());
 }
 
+TEST(TestFlightSqlServer, TestCommandStatementUpdate) {
+  int64_t result;
+  ASSERT_OK(sql_client->ExecuteUpdate(
+      {},
+      "INSERT INTO intTable (keyName, value) VALUES "
+      "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)",
+      &result));
+  ASSERT_EQ(3, result);
+
+  ASSERT_OK(
+      sql_client->ExecuteUpdate({},
+                                "UPDATE intTable SET keyName = 'KEYNAME1' "
+                                "WHERE keyName = 'KEYNAME2' OR keyName = 'KEYNAME3'",
+                                &result));
+  ASSERT_EQ(2, result);
+
+  ASSERT_OK(sql_client->ExecuteUpdate(
+      {}, "DELETE FROM intTable WHERE keyName = 'KEYNAME1'", &result));
+  ASSERT_EQ(3, result);
+}
+
 auto env =
     ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);
 

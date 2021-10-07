@@ -61,6 +61,10 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   Status DoGetSchemas(const pb::sql::CommandGetSchemas& command,
                       const ServerCallContext& context,
                       std::unique_ptr<FlightDataStream>* result) override;
+  Status DoPutCommandStatementUpdate(
+      const pb::sql::CommandStatementUpdate& update, const ServerCallContext& context,
+      std::unique_ptr<FlightMessageReader>& reader,
+      std::unique_ptr<FlightMetadataWriter>& writer) override;
 
   Status GetFlightInfoTables(const pb::sql::CommandGetTables& command,
                              const ServerCallContext& context,

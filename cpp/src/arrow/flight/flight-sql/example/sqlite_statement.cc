@@ -94,6 +94,15 @@ Status SqliteStatement::Reset(int* rc) {
 
 sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() { return stmt_; }
 
+Status SqliteStatement::ExecuteUpdate(int64_t* result) {
+  int rc;
+  ARROW_RETURN_NOT_OK(Step(&rc));
+
+  *result = sqlite3_changes(db_);
+
+  return Status::OK();
+}
+
 }  // namespace example
 }  // namespace sql
 }  // namespace flight

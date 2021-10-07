@@ -126,6 +126,23 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
   return Status::Invalid("The defined request is invalid.");
 }
 
+Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
+                                  std::unique_ptr<FlightMessageReader> reader,
+                                  std::unique_ptr<FlightMetadataWriter> writer) {
+  const FlightDescriptor& request = reader->descriptor();
+
+  google::protobuf::Any any;
+  any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()));
+
+  if (any.Is<pb::sql::CommandStatementUpdate>()) {
+    pb::sql::CommandStatementUpdate command;
+    any.UnpackTo(&command);
+    return DoPutCommandStatementUpdate(command, context, reader, writer);
+  }
+
+  return Status::Invalid("The defined request is invalid.");
+}
+
 Status FlightSqlServerBase::GetFlightInfoCatalogs(const ServerCallContext& context,
                                                   const FlightDescriptor& descriptor,
                                                   std::unique_ptr<FlightInfo>* info) {
@@ -244,6 +261,13 @@ Status FlightSqlServerBase::GetFlightInfoImportedKeys(
     const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
   return Status::NotImplemented("DoGetExportedKeys not implemented");
+}
+
+Status FlightSqlServerBase::DoPutCommandStatementUpdate(
+    const pb::sql::CommandStatementUpdate& command, const ServerCallContext& context,
+    std::unique_ptr<FlightMessageReader>& reader,
+    std::unique_ptr<FlightMetadataWriter>& writer) {
+  return Status::NotImplemented("DoPutCommandStatementUpdate not implemented");
 }
 
 std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
