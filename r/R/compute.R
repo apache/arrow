@@ -49,6 +49,11 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 
   datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
   valid_args <- map_lgl(args, ~ inherits(., datum_classes))
+
+  if (function_name == "index") {
+    options$value <- Scalar$create(options$value)
+  }
+
   if (!all(valid_args)) {
     # Lame, just pick one to report
     first_bad <- min(which(!valid_args))
