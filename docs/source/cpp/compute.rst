@@ -203,7 +203,7 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary | Non-nested types | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| index              | Unary | Any              | Scalar Int64           | :struct:`IndexOptions`           |       |
+| index              | Unary | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(3)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
@@ -211,19 +211,19 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | min                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| min_max            | Unary | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
+| min_max            | Unary | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(4)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| mode               | Unary | Numeric          | Struct                 | :struct:`ModeOptions`            | \(4)  |
+| mode               | Unary | Numeric          | Struct                 | :struct:`ModeOptions`            | \(5)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| product            | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(5)  |
+| product            | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(6)  |
+| quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(7)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(5)  |
+| sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(7)  |
+| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(8)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
@@ -235,24 +235,27 @@ the input to a single output value.
 * \(2) CountMode controls whether only non-null values are counted (the
   default), only null values are counted, or all values are counted.
 
-* \(3) Output is a ``{"min": input type, "max": input type}`` Struct.
+* \(3) Returns -1 if the value is not found. The index of a null value
+  is always -1, regardless of whether there are nulls in the input.
+
+* \(4) Output is a ``{"min": input type, "max": input type}`` Struct.
 
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(4) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+* \(5) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
   It contains the *N* most common elements in the input, in descending
   order, where *N* is given in :member:`ModeOptions::n`.
   If two values have the same count, the smallest one comes first.
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(5) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(6) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(6) Output is Float64 or input type, depending on QuantileOptions.
+* \(7) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(7) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(8) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
