@@ -227,3 +227,17 @@ test_that("columns of struct types may be altrep", {
   expect_true(is_altrep(df$x))
   expect_true(is_altrep(df$y))
 })
+
+test_that("Conversion from altrep R vector to Array uses the existing Array", {
+  a_int <- Array$create(c(1L, 2L, 3L))
+  b_int <- Array$create(a_int$as_vector())
+  expect_true(test_same_Array(a_int$pointer(), b_int$pointer()))
+
+  a_dbl <- Array$create(c(1, 2, 3))
+  b_dbl <- Array$create(a_dbl$as_vector())
+  expect_true(test_same_Array(a_dbl$pointer(), b_dbl$pointer()))
+
+  a_str <- Array$create(c("un", "deux", "trois"))
+  b_str <- Array$create(a_str$as_vector())
+  expect_true(test_same_Array(a_str$pointer(), b_str$pointer()))
+})

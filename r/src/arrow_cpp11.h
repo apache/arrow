@@ -121,6 +121,7 @@ struct symbols {
   static SEXP arrow_attributes;
   static SEXP new_;
   static SEXP create;
+  static SEXP arrow;
 };
 
 struct data {

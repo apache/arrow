@@ -1157,12 +1157,22 @@ std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x) {
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
+namespace altrep {
+std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP);  // in altrep.cpp
+}
+
 std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
                                            const std::shared_ptr<arrow::DataType>& type,
                                            bool type_inferred) {
   // short circuit if `x` is already an Array
   if (Rf_inherits(x, "Array")) {
     return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
+  }
+
+  // short circuit if `x` is an altrep vector that shells an Array
+  auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
+  if (maybe.get()) {
+    return maybe;
   }
 
   RConversionOptions options;
