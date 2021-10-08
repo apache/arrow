@@ -324,7 +324,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
 
   Future<> DoDestroy() override {
     latest_open_file_.reset();
-    return task_group_.WaitForTasksToFinish();
+    return task_group_.End();
   }
 
  private:
@@ -482,7 +482,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
 
   Future<> DoDestroy() override {
     directory_queues_.clear();
-    return task_group_.WaitForTasksToFinish().Then([this] { return err_; });
+    return task_group_.End().Then([this] { return err_; });
   }
 
   util::AsyncTaskGroup task_group_;
