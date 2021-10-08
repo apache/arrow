@@ -1157,37 +1157,6 @@ std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x) {
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
-Status vector_to_Array(SEXP x, const std::shared_ptr<arrow::DataType>& type,
-                       bool type_inferred,
-                       std::shared_ptr<internal::TaskGroup>& task_group,
-                       std::shared_ptr<arrow::Array>& out) {
-  // short circuit if `x` is already an Array
-  if (Rf_inherits(x, "Array")) {
-    out = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
-    return Status::OK();
-  }
-
-  RConversionOptions options;
-  options.strict = !type_inferred;
-  options.type = type;
-  options.size = vctrs::vec_size(x);
-
-  // maybe short circuit when zero-copy is possible
-  if (can_reuse_memory(x, options.type)) {
-    out = vec_to_arrow__reuse_memory(x);
-    return Status::OK();
-  }
-
-  // otherwise go through the converter api
-  auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
-      options.type, options, gc_memory_pool()));
-
-  RETURN_NOT_OK(converter->Extend(x, options.size));
-  ARROW_ASSIGN_OR_RAISE(out, converter->ToArray());
-
-  return Status::OK();
-}
-
 std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
                                            const std::shared_ptr<arrow::DataType>& type,
                                            bool type_inferred) {
