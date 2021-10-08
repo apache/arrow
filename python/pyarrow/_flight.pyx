@@ -1954,6 +1954,9 @@ cdef CStatus _do_action(void* self, const CServerCallContext& context,
         return (<FlightError> flight_error).to_status()
     # Let the application return an iterator or anything convertible
     # into one
+    if responses is None:
+        # Server didn't return anything
+        responses = []
     result.reset(new CPyFlightResultStream(iter(responses), ptr))
     return CStatus_OK()
 
