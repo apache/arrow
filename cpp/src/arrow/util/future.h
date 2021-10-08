@@ -840,6 +840,17 @@ inline Future<>::Future(Status s) : Future(internal::Empty::ToResult(std::move(s
 ARROW_EXPORT
 Future<> AllComplete(const std::vector<Future<>>& futures);
 
+/// \brief Create a Future which completes when all of `futures` complete.
+///
+/// The future will finish with an ok status if all `futures` finish with
+/// an ok status. Otherwise, it will be marked failed with the status of
+/// one of the failing futures.
+///
+/// Unlike AllComplete this Future will not complete immediately when a
+/// failure occurs.  It will wait until all futures have finished.
+ARROW_EXPORT
+Future<> AllFinished(const std::vector<Future<>>& futures);
+
 /// \brief Wait for one of the futures to end, or for the given timeout to expire.
 ///
 /// The indices of all completed futures are returned.  Note that some futures

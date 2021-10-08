@@ -386,6 +386,108 @@ TEST(ExecPlanExecution, SourceSinkError) {
               Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
 }
 
+TEST(ExecPlanExecution, SourceConsumingSink) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      std::atomic<uint32_t> batches_seen{0};
+      Future<> finish = Future<>::Make();
+      struct TestConsumer : public SinkNodeConsumer {
+        TestConsumer(std::atomic<uint32_t>* batches_seen, Future<> finish)
+            : batches_seen(batches_seen), finish(std::move(finish)) {}
+
+        Status Consume(ExecBatch batch) override {
+          (*batches_seen)++;
+          return Status::OK();
+        }
+
+        Future<> Finish() override { return finish; }
+
+        std::atomic<uint32_t>* batches_seen;
+        Future<> finish;
+      };
+      std::shared_ptr<TestConsumer> consumer =
+          std::make_shared<TestConsumer>(&batches_seen, finish);
+
+      auto basic_data = MakeBasicBatches();
+      ASSERT_OK_AND_ASSIGN(
+          auto source, MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions(basic_data.schema,
+                                                      basic_data.gen(parallel, slow))));
+      ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
+                             ConsumingSinkNodeOptions(consumer)));
+      ASSERT_OK(plan->StartProducing());
+      // Source should finish fairly quickly
+      ASSERT_FINISHES_OK(source->finished());
+      SleepABit();
+      ASSERT_EQ(2, batches_seen);
+      // Consumer isn't finished and so plan shouldn't have finished
+      AssertNotFinished(plan->finished());
+      // Mark consumption complete, plan should finish
+      finish.MarkFinished();
+      ASSERT_FINISHES_OK(plan->finished());
+    }
+  }
+}
+
+TEST(ExecPlanExecution, ConsumingSinkError) {
+  struct ConsumeErrorConsumer : public SinkNodeConsumer {
+    Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
+    Future<> Finish() override { return Future<>::MakeFinished(); }
+  };
+  struct FinishErrorConsumer : public SinkNodeConsumer {
+    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
+  };
+  std::vector<std::shared_ptr<SinkNodeConsumer>> consumers{
+      std::make_shared<ConsumeErrorConsumer>(), std::make_shared<FinishErrorConsumer>()};
+
+  for (auto& consumer : consumers) {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    auto basic_data = MakeBasicBatches();
+    ASSERT_OK(Declaration::Sequence(
+                  {{"source",
+                    SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
+                   {"consuming_sink", ConsumingSinkNodeOptions(consumer)}})
+                  .AddToPlan(plan.get()));
+    ASSERT_OK_AND_ASSIGN(
+        auto source,
+        MakeExecNode("source", plan.get(), {},
+                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
+    ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
+                           ConsumingSinkNodeOptions(consumer)));
+    ASSERT_OK(plan->StartProducing());
+    ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
+  }
+}
+
+TEST(ExecPlanExecution, ConsumingSinkErrorFinish) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  struct FinishErrorConsumer : public SinkNodeConsumer {
+    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
+  };
+  std::shared_ptr<FinishErrorConsumer> consumer = std::make_shared<FinishErrorConsumer>();
+
+  auto basic_data = MakeBasicBatches();
+  ASSERT_OK(
+      Declaration::Sequence(
+          {{"source", SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
+           {"consuming_sink", ConsumingSinkNodeOptions(consumer)}})
+          .AddToPlan(plan.get()));
+  ASSERT_OK_AND_ASSIGN(
+      auto source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
+  ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
+                         ConsumingSinkNodeOptions(consumer)));
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
+}
+
 TEST(ExecPlanExecution, StressSourceSink) {
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");

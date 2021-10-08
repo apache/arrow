@@ -23,13 +23,12 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/exec.h"  // IWYU pragma: keep
 #include "arrow/compute/function.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
