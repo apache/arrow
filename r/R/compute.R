@@ -99,7 +99,7 @@ list_compute_functions <- function(pattern = NULL, ...) {
   }
   # TODO: Filtering of hash funcs will already happen in C++ with ARROW-13943
   funcs <- grep(
-    "^hash_|index_in_meta_binary|is_in_meta_binary",
+    "^hash_",
     funcs,
     value = TRUE,
     invert = TRUE
