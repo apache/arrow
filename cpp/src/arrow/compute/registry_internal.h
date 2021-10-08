@@ -29,33 +29,33 @@ void RegisterScalarArithmetic(FunctionRegistry* registry);
 void RegisterScalarBoolean(FunctionRegistry* registry);
 void RegisterScalarCast(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
+void RegisterScalarIfElse(FunctionRegistry* registry);
 void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
-void RegisterScalarValidity(FunctionRegistry* registry);
-void RegisterScalarIfElse(FunctionRegistry* registry);
 void RegisterScalarTemporalBinary(FunctionRegistry* registry);
 void RegisterScalarTemporalUnary(FunctionRegistry* registry);
+void RegisterScalarValidity(FunctionRegistry* registry);
 
 void RegisterScalarOptions(FunctionRegistry* registry);
 
 // Vector functions
 void RegisterVectorArraySort(FunctionRegistry* registry);
 void RegisterVectorHash(FunctionRegistry* registry);
+void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
-void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
 
 void RegisterVectorOptions(FunctionRegistry* registry);
 
 // Aggregate functions
+void RegisterHashAggregateBasic(FunctionRegistry* registry);
 void RegisterScalarAggregateBasic(FunctionRegistry* registry);
 void RegisterScalarAggregateMode(FunctionRegistry* registry);
 void RegisterScalarAggregateQuantile(FunctionRegistry* registry);
 void RegisterScalarAggregateTDigest(FunctionRegistry* registry);
 void RegisterScalarAggregateVariance(FunctionRegistry* registry);
-void RegisterHashAggregateBasic(FunctionRegistry* registry);
 
 void RegisterAggregateOptions(FunctionRegistry* registry);
 
