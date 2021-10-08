@@ -242,30 +242,35 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // array has nulls
     //
     // This only materialize the region, into buf. Not the entire vector.
-    auto slice = GetChunkedArray(alt)->chunk(0)->Slice(i, n);
-
+    auto slice = GetChunkedArray(alt)->Slice(i, n);
     R_xlen_t ncopy = slice->length();
 
-    // first copy the data buffer
-    memcpy(buf, slice->data()->template GetValues<c_type>(1), ncopy * sizeof(c_type));
+    c_type* out = buf;
+    for (const auto& array : slice->chunks()) {
+      auto n = array->length();
 
-    // then set the R NA sentinels if needed
-    if (slice->null_count() > 0) {
-      internal::BitmapReader bitmap_reader(slice->null_bitmap()->data(), slice->offset(),
-                                           ncopy);
+      // first copy the data buffer
+      memcpy(out, array->data()->template GetValues<c_type>(1), n * sizeof(c_type));
 
-      for (R_xlen_t j = 0; j < ncopy; j++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsNotSet()) {
-          buf[j] = cpp11::na<c_type>();
+      // then set the R NA sentinels if needed
+      if (array->null_count() > 0) {
+        internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
+                                             array->offset(), ncopy);
+
+        for (R_xlen_t j = 0; j < n; j++, bitmap_reader.Next()) {
+          if (bitmap_reader.IsNotSet()) {
+            out[j] = cpp11::na<c_type>();
+          }
         }
       }
+
+      out += n;
     }
 
     return ncopy;
   }
 
-  static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
-      const std::shared_ptr<Array>& array, bool na_rm) {
+  static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(bool na_rm) {
     auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
         arrow::compute::ScalarAggregateOptions::Defaults());
     options->min_count = 0;
@@ -279,10 +284,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     using scalar_type =
         typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
-    const auto& array = GetChunkedArray(alt)->chunk(0);
+    const auto& chunked_array = GetChunkedArray(alt);
     bool na_rm = narm == TRUE;
-    auto n = array->length();
-    auto null_count = array->null_count();
+    auto n = chunked_array->length();
+    auto null_count = chunked_array->null_count();
     if ((na_rm || n == 0) && null_count == n) {
       return Rf_ScalarReal(Min ? R_PosInf : R_NegInf);
     }
@@ -290,10 +295,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       return cpp11::as_sexp(cpp11::na<data_type>());
     }
 
-    auto options = NaRmOptions(array, na_rm);
+    auto options = NaRmOptions(na_rm);
 
-    const auto& minmax =
-        ValueOrStop(arrow::compute::CallFunction("min_max", {array}, options.get()));
+    const auto& minmax = ValueOrStop(
+        arrow::compute::CallFunction("min_max", {chunked_array}, options.get()));
     const auto& minmax_scalar =
         internal::checked_cast<const StructScalar&>(*minmax.scalar());
 
@@ -309,18 +314,17 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   static SEXP Sum(SEXP alt, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
-    const auto& array =
-      GetChunkedArray(alt)->chunk(0);
+    const auto& chunked_array = GetChunkedArray(alt);
     bool na_rm = narm == TRUE;
-    auto null_count = array->null_count();
+    auto null_count = chunked_array->null_count();
 
     if (!na_rm && null_count > 0) {
       return cpp11::as_sexp(cpp11::na<data_type>());
     }
-    auto options = NaRmOptions(array, na_rm);
+    auto options = NaRmOptions(na_rm);
 
     const auto& sum =
-        ValueOrStop(arrow::compute::CallFunction("sum", {array}, options.get()));
+        ValueOrStop(arrow::compute::CallFunction("sum", {chunked_array}, options.get()));
 
     if (sexp_type == INTSXP) {
       // When calling the "sum" function on an int32 array, we get an Int64 scalar
@@ -620,35 +624,25 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
   // using altrep if
   // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
   // - the chunked array has at least one element
-  if (!arrow::r::GetBoolOption("arrow.use_altrep", true) ||
-      chunked_array->length() == 0) {
-    return R_NilValue;
-  }
-
-  // special case when there is only one array
-  if (chunked_array->num_chunks() == 1) {
-    switch (chunked_array->type()->id()) {
-      case arrow::Type::DOUBLE:
-        return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
-
-      case arrow::Type::INT32:
-        return altrep::AltrepVectorPrimitive<INTSXP>::Make(chunked_array);
-
-      default:
-        break;
-    }
-  }
-
   if (arrow::r::GetBoolOption("arrow.use_altrep", true) && chunked_array->length() > 0) {
-    switch (chunked_array->type()->id()) {
-      case arrow::Type::STRING:
-        return altrep::AltrepVectorString<StringType>::Make(chunked_array);
+    if (arrow::r::GetBoolOption("arrow.use_altrep", true) &&
+        chunked_array->length() > 0) {
+      switch (chunked_array->type()->id()) {
+        case arrow::Type::DOUBLE:
+          return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
 
-      case arrow::Type::LARGE_STRING:
-        return altrep::AltrepVectorString<LargeStringType>::Make(chunked_array);
+        case arrow::Type::INT32:
+          return altrep::AltrepVectorPrimitive<INTSXP>::Make(chunked_array);
 
-      default:
-        break;
+        case arrow::Type::STRING:
+          return altrep::AltrepVectorString<StringType>::Make(chunked_array);
+
+        case arrow::Type::LARGE_STRING:
+          return altrep::AltrepVectorString<LargeStringType>::Make(chunked_array);
+
+        default:
+          break;
+      }
     }
   }
 
