@@ -312,6 +312,7 @@ Status FlightSqlServerBase::ClosePreparedStatement(
     const ServerCallContext& context, std::unique_ptr<ResultStream>* p_ptr) {
   return Status::NotImplemented("ClosePreparedStatement not implemented");
 }
+
 Status FlightSqlServerBase::DoPutPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
                                                    const ServerCallContext &context,
                                                    std::unique_ptr<FlightMessageReader> &reader,

@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <sqlite3.h>
-
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <sqlite3.h>
 #include <sstream>
 
 #include "arrow/api.h"
@@ -353,12 +352,17 @@ Status SQLiteFlightSqlServer::CreatePreparedStatement(
     } else {
       parameter_name = parameter_name_chars;
     }
-    parameter_fields.push_back(field(parameter_name, dense_union({
-                                                         field("string", utf8()),
-                                                         field("bytes", binary()),
-                                                         field("bigint", int64()),
-                                                         field("double", float64()),
-                                                     })));
+
+    // As SQLite doesn't know the parameter types before executing the query, the
+    // example server is accepting any SQLite supported type as input by using a dense
+    // union.
+    const std::shared_ptr<DataType>& dense_union_type = dense_union({
+        field("string", utf8()),
+        field("bytes", binary()),
+        field("bigint", int64()),
+        field("double", float64()),
+    });
+    parameter_fields.push_back(field(parameter_name, dense_union_type));
   }
 
   const std::shared_ptr<Schema>& parameter_schema = arrow::schema(parameter_fields);

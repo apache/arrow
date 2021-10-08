@@ -323,6 +323,101 @@ TEST(TestFlightSqlServer, TestCommandStatementUpdate) {
   ASSERT_EQ(3, result);
 }
 
+TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
+  std::shared_ptr<PreparedStatement> prepared_statement;
+  ASSERT_OK(sql_client->Prepare({}, "SELECT * FROM intTable", &prepared_statement));
+
+  std::unique_ptr<FlightInfo> flight_info;
+  ASSERT_OK(prepared_statement->Execute(&flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  const std::shared_ptr<Schema>& expected_schema =
+      arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
+                     arrow::field("value", int64()), arrow::field("foreignId", int64())});
+
+  DECLARE_ARRAY(id_array, Int64, ({1, 2, 3}));
+  DECLARE_ARRAY(keyname_array, String, ({"one", "zero", "negative one"}));
+  DECLARE_ARRAY(value_array, Int64, ({1, 0, -1}));
+  DECLARE_ARRAY(foreignId_array, Int64, ({1, 1, 1}));
+
+  const std::shared_ptr<Table>& expected_table = Table::Make(
+      expected_schema, {id_array, keyname_array, value_array, foreignId_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding) {
+  std::shared_ptr<PreparedStatement> prepared_statement;
+  ASSERT_OK(sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?",
+                                &prepared_statement));
+
+  std::shared_ptr<Schema> parameter_schema;
+  ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
+
+  const std::shared_ptr<Schema>& expected_parameter_schema =
+      arrow::schema({arrow::field("parameter_1", dense_union({
+                                                     field("string", utf8()),
+                                                     field("bytes", binary()),
+                                                     field("bigint", int64()),
+                                                     field("double", float64()),
+                                                 }))});
+
+  ASSERT_TRUE(expected_parameter_schema->Equals(*parameter_schema));
+
+  std::shared_ptr<Array> type_ids;
+  ArrayFromVector<Int8Type>({0}, &type_ids);
+  std::shared_ptr<Array> offsets;
+  ArrayFromVector<Int32Type>({0}, &offsets);
+
+  std::shared_ptr<Array> string_array;
+  ArrayFromVector<StringType, std::string>({"%one"}, &string_array);
+  std::shared_ptr<Array> bytes_array;
+  ArrayFromVector<BinaryType, std::string>({}, &bytes_array);
+  std::shared_ptr<Array> bigint_array;
+  ArrayFromVector<Int64Type>({}, &bigint_array);
+  std::shared_ptr<Array> double_array;
+  ArrayFromVector<FloatType>({}, &double_array);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto parameter_1_array,
+      DenseUnionArray::Make(*type_ids, *offsets,
+                            {string_array, bytes_array, bigint_array, double_array},
+                            {"string", "bytes", "bigint", "double"}, {0, 1, 2, 3}));
+
+  const std::shared_ptr<RecordBatch>& record_batch =
+      RecordBatch::Make(parameter_schema, 1, {parameter_1_array});
+
+  ASSERT_OK(prepared_statement->SetParameters(record_batch));
+
+  std::unique_ptr<FlightInfo> flight_info;
+  ASSERT_OK(prepared_statement->Execute(&flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  const std::shared_ptr<Schema>& expected_schema =
+      arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
+                     arrow::field("value", int64()), arrow::field("foreignId", int64())});
+
+  DECLARE_ARRAY(id_array, Int64, ({1, 3}));
+  DECLARE_ARRAY(keyname_array, String, ({"one", "negative one"}));
+  DECLARE_ARRAY(value_array, Int64, ({1, -1}));
+  DECLARE_ARRAY(foreignId_array, Int64, ({1, 1}));
+
+  const std::shared_ptr<Table>& expected_table = Table::Make(
+      expected_schema, {id_array, keyname_array, value_array, foreignId_array});
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
