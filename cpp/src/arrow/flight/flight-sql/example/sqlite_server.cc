@@ -344,6 +344,13 @@ Status SQLiteFlightSqlServer::CreatePreparedStatement(
   sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
   const int parameter_count = sqlite3_bind_parameter_count(stmt);
   std::vector<std::shared_ptr<arrow::Field>> parameter_fields;
+  parameter_fields.reserve(parameter_count);
+
+  // As SQLite doesn't know the parameter types before executing the query, the
+  // example server is accepting any SQLite supported type as input by using a dense
+  // union.
+  const std::shared_ptr<DataType>& dense_union_type = GetUnknownColumnDataType();
+
   for (int i = 0; i < parameter_count; i++) {
     const char* parameter_name_chars = sqlite3_bind_parameter_name(stmt, i + 1);
     std::string parameter_name;
@@ -352,16 +359,6 @@ Status SQLiteFlightSqlServer::CreatePreparedStatement(
     } else {
       parameter_name = parameter_name_chars;
     }
-
-    // As SQLite doesn't know the parameter types before executing the query, the
-    // example server is accepting any SQLite supported type as input by using a dense
-    // union.
-    const std::shared_ptr<DataType>& dense_union_type = dense_union({
-        field("string", utf8()),
-        field("bytes", binary()),
-        field("bigint", int64()),
-        field("double", float64()),
-    });
     parameter_fields.push_back(field(parameter_name, dense_union_type));
   }
 
@@ -396,6 +393,7 @@ Status SQLiteFlightSqlServer::ClosePreparedStatement(
     return Status::Invalid("Prepared statement not found");
   }
 
+  // Need to instantiate a ResultStream, otherwise clients can not wait for completion.
   *result = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
   return Status::OK();
 }
@@ -457,6 +455,7 @@ Status SQLiteFlightSqlServer::DoPutPreparedStatement(
 
   sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
 
+  // Loading parameters received from the RecordBatches on the underlying sqlite3_stmt.
   FlightStreamChunk chunk;
   while (true) {
     RETURN_NOT_OK(reader->Next(&chunk));
@@ -471,21 +470,21 @@ Status SQLiteFlightSqlServer::DoPutPreparedStatement(
         const std::shared_ptr<Array>& column = record_batch->column(c);
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(i));
 
-        auto& holder = dynamic_cast<DenseUnionScalar&>(*scalar).value;
+        auto& holder = reinterpret_cast<DenseUnionScalar&>(*scalar).value;
 
         switch (holder->type->id()) {
           case Type::INT64: {
-            int64_t value = dynamic_cast<Int64Scalar&>(*holder).value;
+            int64_t value = reinterpret_cast<Int64Scalar&>(*holder).value;
             sqlite3_bind_int64(stmt, c + 1, value);
             break;
           }
           case Type::FLOAT: {
-            double value = dynamic_cast<FloatScalar&>(*holder).value;
+            double value = reinterpret_cast<FloatScalar&>(*holder).value;
             sqlite3_bind_double(stmt, c + 1, value);
             break;
           }
           case Type::STRING: {
-            std::shared_ptr<Buffer> buffer = dynamic_cast<StringScalar&>(*holder).value;
+            std::shared_ptr<Buffer> buffer = reinterpret_cast<StringScalar&>(*holder).value;
             const std::string string = buffer->ToString();
             const char* value = string.c_str();
             sqlite3_bind_text(stmt, c + 1, value, static_cast<int>(strlen(value)),
@@ -493,13 +492,14 @@ Status SQLiteFlightSqlServer::DoPutPreparedStatement(
             break;
           }
           case Type::BINARY: {
-            std::shared_ptr<Buffer> buffer = dynamic_cast<BinaryScalar&>(*holder).value;
+            std::shared_ptr<Buffer> buffer = reinterpret_cast<BinaryScalar&>(*holder).value;
             sqlite3_bind_blob(stmt, c + 1, buffer->data(),
                               static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
             break;
           }
           default:
-            break;
+            return Status::Invalid("Received unsupported data type: ",
+                                   holder->type->ToString());
         }
       }
     }

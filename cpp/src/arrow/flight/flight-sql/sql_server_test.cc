@@ -19,6 +19,7 @@
 #include <arrow/flight/api.h>
 #include <arrow/flight/flight-sql/api.h>
 #include <arrow/flight/flight-sql/sql_server.h>
+#include <arrow/flight/flight-sql/example/sqlite_server.h>
 #include <arrow/flight/test_util.h>
 #include <arrow/flight/types.h>
 #include <arrow/testing/gtest_util.h>
@@ -359,13 +360,8 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
   std::shared_ptr<Schema> parameter_schema;
   ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
 
-  const std::shared_ptr<Schema>& expected_parameter_schema =
-      arrow::schema({arrow::field("parameter_1", dense_union({
-                                                     field("string", utf8()),
-                                                     field("bytes", binary()),
-                                                     field("bigint", int64()),
-                                                     field("double", float64()),
-                                                 }))});
+  const std::shared_ptr<Schema>& expected_parameter_schema = arrow::schema(
+      {arrow::field("parameter_1", example::GetUnknownColumnDataType())});
 
   ASSERT_TRUE(expected_parameter_schema->Equals(*parameter_schema));
 

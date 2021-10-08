@@ -66,7 +66,7 @@ Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
   for (int i = 0; i < column_count; i++) {
     const char* column_name = sqlite3_column_name(stmt_, i);
 
-    // SQLite not always provide column types, specially when the statement has not been
+    // SQLite does not always provide column types, especially when the statement has not been
     // executed yet. Because of this behaviour this method tries to get the column types
     // in two attempts:
     // 1. Use sqlite3_column_type(), which return SQLITE_NULL if the statement has not
@@ -74,7 +74,8 @@ Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
     // 2. Use sqlite3_column_decltype(), which returns correctly if given column is
     //    declared in the table.
     // Because of this limitation, it is not possible to know the column types for some
-    // prepared statements.
+    // prepared statements, in this case it returns a dense_union type covering any type
+    // SQLite supports.
     const int column_type = sqlite3_column_type(stmt_, i);
     std::shared_ptr<DataType> data_type = GetDataTypeFromSqliteType(column_type);
     if (data_type->id() == Type::NA) {
@@ -82,6 +83,10 @@ Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
       const char* column_decltype = sqlite3_column_decltype(stmt_, i);
       if (column_decltype != NULLPTR) {
         data_type = GetArrowType(column_decltype);
+      } else {
+        // If it can not determine the actual column type, return a dense_union type
+        // covering any type SQLite supports.
+        data_type = GetUnknownColumnDataType();
       }
     }
 

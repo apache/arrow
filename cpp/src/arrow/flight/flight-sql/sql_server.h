@@ -292,18 +292,34 @@ class FlightSqlServerBase : public FlightServerBase {
       std::unique_ptr<FlightMessageReader>& reader,
       std::unique_ptr<FlightMetadataWriter>& writer);
 
+  /// \brief Create a prepared statement from given SQL statement.
+  /// \param[in] request  The ActionCreatePreparedStatementRequest object containing the
+  ///                     SQL statement.
+  /// \param[in] context  The call context.
+  /// \param[out] result  ResultStream containing a ActionCreatePreparedStatementResult.
   virtual Status CreatePreparedStatement(
       const pb::sql::ActionCreatePreparedStatementRequest& request,
       const ServerCallContext& context, std::unique_ptr<ResultStream>* result);
 
+  /// \brief Closes a prepared statement.
+  /// \param[in] request  The ActionClosePreparedStatementRequest object containing the
+  ///                     prepared statement handle.
+  /// \param[in] context  The call context.
+  /// \param[out] result  Empty ResultStream.
   virtual Status ClosePreparedStatement(
       const pb::sql::ActionClosePreparedStatementRequest& request,
       const ServerCallContext& context, std::unique_ptr<ResultStream>* result);
 
-  virtual Status DoPutPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
-                                const ServerCallContext &context,
-                                std::unique_ptr<FlightMessageReader>& reader,
-                                std::unique_ptr<FlightMetadataWriter>& writer);
+  /// \brief Binds parameters to given prepared statement.
+  /// \param[in] command  The CommandPreparedStatementQuery object containing the
+  ///                     prepared statement handle.
+  /// \param[in] context  The call context.
+  /// \param[in] reader   A sequence of uploaded record batches.
+  /// \param[in] writer   Send metadata back to the client.
+  virtual Status DoPutPreparedStatement(
+      const pb::sql::CommandPreparedStatementQuery& command,
+      const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+      std::unique_ptr<FlightMetadataWriter>& writer);
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.

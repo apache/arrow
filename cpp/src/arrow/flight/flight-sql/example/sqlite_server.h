@@ -32,10 +32,21 @@ namespace flight {
 namespace sql {
 namespace example {
 
-/// Convert a column type to a ArrowType.
+/// \brief Convert a column type to a ArrowType.
 /// \param sqlite_type the sqlite type.
 /// \return            The equivalent ArrowType.
 std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
+
+/// \brief  Get the DataType used when parameter type is not known.
+/// \return DataType used when parameter type is not known.
+inline std::shared_ptr<DataType> GetUnknownColumnDataType() {
+  return dense_union({
+    field("string", utf8()),
+    field("bytes", binary()),
+    field("bigint", int64()),
+    field("double", float64()),
+  });
+}
 
 /// \brief Example implementation of FlightSqlServerBase backed by an in-memory SQLite3
 ///        database.
