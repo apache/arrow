@@ -25,6 +25,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   if (is_collapsed(x) && has_head_tail(x$.data)) {
     x$.data <- as_adq(dplyr::compute(x$.data))
   }
+  # TODO: if there are no aggregations or joins or sorting, (and there is
+  # head/tail?), use the Scanner methods?
+  # Those will at least (for now) have deterministic ordering and be faster
+  # than evaluating the whole ExecPlan
+  #
+  # out <- head.Dataset(ensure_group_vars(x), n, ...)
+  # restore_dplyr_features(out, x)
+
   # See query-engine.R for ExecPlan/Nodes
   tab <- do_exec_plan(x)
   if (as_data_frame) {
@@ -56,7 +64,6 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
 }
 pull.Dataset <- pull.ArrowTabular <- pull.arrow_dplyr_query
 
-# TODO: Correctly handle group_vars after summarize; also in collapse()
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
   # After calling collect(), make sure these features are carried over
