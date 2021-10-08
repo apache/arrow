@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, Bool, Vector, BoolVector } from 'apache-arrow';
+import { Bool, makeVector } from 'apache-arrow';
 
-const newBoolVector = (length: number, data: Uint8Array) => Vector.new(Data.Bool(new Bool(), 0, length, 0, null, data));
+const newBoolVector = (length: number, data: Uint8Array) => makeVector({ type: new Bool(), length, data });
+
 
 describe(`BoolVector`, () => {
     const values = [true, true, false, true, true, false, false, false];
@@ -49,7 +50,7 @@ describe(`BoolVector`, () => {
     test(`can set values to true and false`, () => {
         const v = newBoolVector(n, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
         const expected1 = [true, true, false, true, true, false, false, false];
-        const expected2 = [true, true,  true, true, true, false, false, false];
+        const expected2 = [true, true, true, true, true, false, false, false];
         const expected3 = [true, true, false, false, false, false, true, true];
         function validate(expected: boolean[]) {
             for (let i = -1; ++i < n;) {
