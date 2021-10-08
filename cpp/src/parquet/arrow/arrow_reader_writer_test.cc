@@ -4211,8 +4211,8 @@ TEST_P(TestNestedSchemaFilteredReader, ReadWrite) {
       WriteTable(**Table::FromRecordBatches({::arrow::RecordBatch::Make(
                      ::arrow::schema({::arrow::field("col", array->type())}),
                      array->length(), {array})}),
-                 ::arrow::default_memory_pool(), sink, /*chunk_size=*/100,
-                 write_props, ArrowWriterProperties::Builder().store_schema()->build()));
+                 ::arrow::default_memory_pool(), sink, /*chunk_size=*/100, write_props,
+                 ArrowWriterProperties::Builder().store_schema()->build()));
   std::shared_ptr<::arrow::Buffer> buffer;
   ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
 
