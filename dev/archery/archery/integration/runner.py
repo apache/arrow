@@ -32,6 +32,7 @@ from .tester_go import GoTester
 from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
+from .tester_csharp import CSharpTester
 from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
                    printer)
 from . import datagen
@@ -129,11 +130,13 @@ class IntegrationRunner(object):
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
+                skip.add("C#")
                 skip.add("Go")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
             if prefix == '2.0.0-compression':
+                skip.add("C#")
                 skip.add("JS")
                 skip.add("Rust")
 
@@ -141,6 +144,7 @@ class IntegrationRunner(object):
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
+                skip.add("C#")
                 skip.add("Go")
 
             yield datagen.File(name, None, None, skip=skip, path=out_path)
@@ -330,8 +334,8 @@ def get_static_json_files():
 
 
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
-                  with_go=True, with_rust=False, run_flight=False,
-                  tempdir=None, **kwargs):
+                  with_csharp=True, with_go=True, with_rust=False,
+                  run_flight=False, tempdir=None, **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     testers = []
@@ -344,6 +348,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
 
     if with_js:
         testers.append(JSTester(**kwargs))
+
+    if with_csharp:
+        testers.append(CSharpTester(**kwargs))
 
     if with_go:
         testers.append(GoTester(**kwargs))

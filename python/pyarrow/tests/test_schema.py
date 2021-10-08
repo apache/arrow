@@ -137,6 +137,7 @@ def test_type_for_alias():
         ('duration[ms]', pa.duration('ms')),
         ('duration[us]', pa.duration('us')),
         ('duration[ns]', pa.duration('ns')),
+        ('month_day_nano_interval', pa.month_day_nano_interval()),
     ]
 
     for val, expected in cases:

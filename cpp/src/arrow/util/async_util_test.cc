@@ -96,13 +96,20 @@ TEST(AsyncDestroyable, MakeUnique) {
   });
 }
 
-TEST(AsyncTaskGroup, Basic) {
-  AsyncTaskGroup task_group;
+template <typename T>
+class TypedTestAsyncTaskGroup : public ::testing::Test {};
+
+using AsyncTaskGroupTypes = ::testing::Types<AsyncTaskGroup, SerializedAsyncTaskGroup>;
+
+TYPED_TEST_SUITE(TypedTestAsyncTaskGroup, AsyncTaskGroupTypes);
+
+TYPED_TEST(TypedTestAsyncTaskGroup, Basic) {
+  TypeParam task_group;
   Future<> fut1 = Future<>::Make();
   Future<> fut2 = Future<>::Make();
-  ASSERT_OK(task_group.AddTask(fut1));
-  ASSERT_OK(task_group.AddTask(fut2));
-  Future<> all_done = task_group.WaitForTasksToFinish();
+  ASSERT_OK(task_group.AddTask([fut1]() { return fut1; }));
+  ASSERT_OK(task_group.AddTask([fut2]() { return fut2; }));
+  Future<> all_done = task_group.End();
   AssertNotFinished(all_done);
   fut1.MarkFinished();
   AssertNotFinished(all_done);
@@ -110,25 +117,33 @@ TEST(AsyncTaskGroup, Basic) {
   ASSERT_FINISHES_OK(all_done);
 }
 
-TEST(AsyncTaskGroup, NoTasks) {
-  AsyncTaskGroup task_group;
-  ASSERT_FINISHES_OK(task_group.WaitForTasksToFinish());
+TYPED_TEST(TypedTestAsyncTaskGroup, NoTasks) {
+  TypeParam task_group;
+  ASSERT_FINISHES_OK(task_group.End());
 }
 
-TEST(AsyncTaskGroup, AddAfterDone) {
-  AsyncTaskGroup task_group;
-  ASSERT_FINISHES_OK(task_group.WaitForTasksToFinish());
-  ASSERT_RAISES(Invalid, task_group.AddTask(Future<>::Make()));
+TYPED_TEST(TypedTestAsyncTaskGroup, OnFinishedDoesNotEnd) {
+  TypeParam task_group;
+  Future<> on_finished = task_group.OnFinished();
+  AssertNotFinished(on_finished);
+  ASSERT_FINISHES_OK(task_group.End());
+  ASSERT_FINISHES_OK(on_finished);
 }
 
-TEST(AsyncTaskGroup, AddAfterWaitButBeforeFinish) {
-  AsyncTaskGroup task_group;
+TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterDone) {
+  TypeParam task_group;
+  ASSERT_FINISHES_OK(task_group.End());
+  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
+}
+
+TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterWaitButBeforeFinish) {
+  TypeParam task_group;
   Future<> task_one = Future<>::Make();
-  ASSERT_OK(task_group.AddTask(task_one));
-  Future<> finish_fut = task_group.WaitForTasksToFinish();
+  ASSERT_OK(task_group.AddTask([task_one] { return task_one; }));
+  Future<> finish_fut = task_group.End();
   AssertNotFinished(finish_fut);
   Future<> task_two = Future<>::Make();
-  ASSERT_OK(task_group.AddTask(task_two));
+  ASSERT_OK(task_group.AddTask([task_two] { return task_two; }));
   AssertNotFinished(finish_fut);
   task_one.MarkFinished();
   AssertNotFinished(finish_fut);
@@ -137,44 +152,87 @@ TEST(AsyncTaskGroup, AddAfterWaitButBeforeFinish) {
   ASSERT_FINISHES_OK(finish_fut);
 }
 
-TEST(AsyncTaskGroup, Error) {
-  AsyncTaskGroup task_group;
+TYPED_TEST(TypedTestAsyncTaskGroup, Error) {
+  TypeParam task_group;
   Future<> failed_task = Future<>::MakeFinished(Status::Invalid("XYZ"));
-  ASSERT_OK(task_group.AddTask(failed_task));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.WaitForTasksToFinish());
+  ASSERT_RAISES(Invalid, task_group.AddTask([failed_task] { return failed_task; }));
+  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
 }
 
-TEST(AsyncTaskGroup, TaskFinishesAfterError) {
+TYPED_TEST(TypedTestAsyncTaskGroup, TaskFactoryFails) {
+  TypeParam task_group;
+  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Status::Invalid("XYZ"); }));
+  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
+  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
+}
+
+TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterFailed) {
+  TypeParam task_group;
+  ASSERT_RAISES(Invalid, task_group.AddTask([] {
+    return Future<>::MakeFinished(Status::Invalid("XYZ"));
+  }));
+  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
+  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
+}
+
+TEST(StandardAsyncTaskGroup, TaskFinishesAfterError) {
   AsyncTaskGroup task_group;
   Future<> fut1 = Future<>::Make();
-  ASSERT_OK(task_group.AddTask(fut1));
-  ASSERT_OK(task_group.AddTask(Future<>::MakeFinished(Status::Invalid("XYZ"))));
-  Future<> finished_fut = task_group.WaitForTasksToFinish();
+  ASSERT_OK(task_group.AddTask([fut1] { return fut1; }));
+  ASSERT_RAISES(Invalid, task_group.AddTask([] {
+    return Future<>::MakeFinished(Status::Invalid("XYZ"));
+  }));
+  Future<> finished_fut = task_group.End();
   AssertNotFinished(finished_fut);
   fut1.MarkFinished();
   ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
 }
 
-TEST(AsyncTaskGroup, AddAfterFailed) {
-  AsyncTaskGroup task_group;
-  ASSERT_OK(task_group.AddTask(Future<>::MakeFinished(Status::Invalid("XYZ"))));
-  ASSERT_RAISES(Invalid, task_group.AddTask(Future<>::Make()));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.WaitForTasksToFinish());
-}
-
-TEST(AsyncTaskGroup, FailAfterAdd) {
+TEST(StandardAsyncTaskGroup, FailAfterAdd) {
   AsyncTaskGroup task_group;
   Future<> will_fail = Future<>::Make();
-  ASSERT_OK(task_group.AddTask(will_fail));
+  ASSERT_OK(task_group.AddTask([will_fail] { return will_fail; }));
   Future<> added_later_and_passes = Future<>::Make();
-  ASSERT_OK(task_group.AddTask(added_later_and_passes));
+  ASSERT_OK(
+      task_group.AddTask([added_later_and_passes] { return added_later_and_passes; }));
   will_fail.MarkFinished(Status::Invalid("XYZ"));
-  ASSERT_RAISES(Invalid, task_group.AddTask(Future<>::Make()));
-  Future<> finished_fut = task_group.WaitForTasksToFinish();
+  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
+  Future<> finished_fut = task_group.End();
   AssertNotFinished(finished_fut);
   added_later_and_passes.MarkFinished();
   AssertFinished(finished_fut);
   ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
+}
+
+// The serialized task group can never really get into a "fail after add" scenario
+// because there is no parallelism.  So the behavior is a little unique in these scenarios
+
+TEST(SerializedAsyncTaskGroup, TaskFinishesAfterError) {
+  SerializedAsyncTaskGroup task_group;
+  Future<> fut1 = Future<>::Make();
+  ASSERT_OK(task_group.AddTask([fut1] { return fut1; }));
+  ASSERT_OK(
+      task_group.AddTask([] { return Future<>::MakeFinished(Status::Invalid("XYZ")); }));
+  Future<> finished_fut = task_group.End();
+  AssertNotFinished(finished_fut);
+  fut1.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
+}
+
+TEST(SerializedAsyncTaskGroup, FailAfterAdd) {
+  SerializedAsyncTaskGroup task_group;
+  Future<> will_fail = Future<>::Make();
+  ASSERT_OK(task_group.AddTask([will_fail] { return will_fail; }));
+  Future<> added_later_and_passes = Future<>::Make();
+  bool added_later_and_passes_created = false;
+  ASSERT_OK(task_group.AddTask([added_later_and_passes, &added_later_and_passes_created] {
+    added_later_and_passes_created = true;
+    return added_later_and_passes;
+  }));
+  will_fail.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
+  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
+  ASSERT_FALSE(added_later_and_passes_created);
 }
 
 }  // namespace util
