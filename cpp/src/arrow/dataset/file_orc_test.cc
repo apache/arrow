@@ -73,10 +73,10 @@ TEST_P(TestOrcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }
-// TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
-// TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-//   TestScanProjectedMissingCols();
-// }
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols();
+}
 INSTANTIATE_TEST_SUITE_P(TestScan, TestOrcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
