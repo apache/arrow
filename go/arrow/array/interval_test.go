@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -280,8 +281,12 @@ func TestMonthDayNanoArray(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	var (
-		want   = []arrow.MonthDayNanoInterval{{1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000}}
-		valids = []bool{true, true, false, true}
+		want = []arrow.MonthDayNanoInterval{
+			{1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000},
+			{0, 0, 0}, {-1, -2, -300}, {math.MaxInt32, math.MinInt32, math.MaxInt64},
+			{math.MinInt32, math.MaxInt32, math.MinInt64},
+		}
+		valids = []bool{true, true, false, true, true, true, false, true}
 	)
 
 	b := array.NewMonthDayNanoIntervalBuilder(mem)
@@ -293,12 +298,13 @@ func TestMonthDayNanoArray(t *testing.T) {
 	b.AppendValues(want[:2], nil)
 	b.AppendNull()
 	b.Append(want[3])
+	b.AppendValues(want[4:], valids[4:])
 
 	if got, want := b.Len(), len(want); got != want {
 		t.Fatalf("invalid len: got=%d, want=%d", got, want)
 	}
 
-	if got, want := b.NullN(), 1; got != want {
+	if got, want := b.NullN(), 2; got != want {
 		t.Fatalf("invalid nulls: got=%d, want=%d", got, want)
 	}
 
@@ -312,7 +318,7 @@ func TestMonthDayNanoArray(t *testing.T) {
 		t.Fatalf("invalid len: got=%d, want=%d", got, want)
 	}
 
-	if got, want := arr.NullN(), 1; got != want {
+	if got, want := arr.NullN(), 2; got != want {
 		t.Fatalf("invalid nulls: got=%d, want=%d", got, want)
 	}
 
@@ -341,7 +347,7 @@ func TestMonthDayNanoArray(t *testing.T) {
 		t.Fatalf("could not type-assert to array.MonthDayNanoInterval")
 	}
 
-	if got, want := arr.String(), `[{1 1 1000} {2 2 2000} (null) {4 4 4000}]`; got != want {
+	if got, want := arr.String(), `[{1 1 1000} {2 2 2000} (null) {4 4 4000} {0 0 0} {-1 -2 -300} (null) {-2147483648 2147483647 -9223372036854775808}]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
 	slice := array.NewSliceData(arr.Data(), 2, 4)

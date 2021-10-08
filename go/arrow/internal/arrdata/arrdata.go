@@ -565,14 +565,14 @@ func makeIntervalsRecords() []array.Record {
 			arrayOf(mem, []arrow.MonthDayNanoInterval{{1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000}, {5, 5, 5000}}, mask),
 		},
 		[]array.Interface{
-			arrayOf(mem, []arrow.MonthInterval{11, 12, 13, 14, 15}, mask),
-			arrayOf(mem, []arrow.DayTimeInterval{{11, 11}, {12, 12}, {13, 13}, {14, 14}, {15, 15}}, mask),
-			arrayOf(mem, []arrow.MonthDayNanoInterval{{11, 11, 11000}, {12, 12, 12000}, {13, 13, 13000}, {14, 14, 14000}, {15, 15, 15000}}, mask),
+			arrayOf(mem, []arrow.MonthInterval{-11, -12, -13, -14, -15}, mask),
+			arrayOf(mem, []arrow.DayTimeInterval{{-11, -11}, {-12, -12}, {-13, -13}, {-14, -14}, {-15, -15}}, mask),
+			arrayOf(mem, []arrow.MonthDayNanoInterval{{-11, -11, -11000}, {-12, -12, -12000}, {-13, -13, -13000}, {-14, -14, -14000}, {-15, -15, -15000}}, mask),
 		},
 		[]array.Interface{
-			arrayOf(mem, []arrow.MonthInterval{21, 22, 23, 24, 25}, mask),
-			arrayOf(mem, []arrow.DayTimeInterval{{21, 21}, {22, 22}, {23, 23}, {24, 24}, {25, 25}}, mask),
-			arrayOf(mem, []arrow.MonthDayNanoInterval{{21, 21, 21000}, {22, 22, 22000}, {23, 23, 23000}, {24, 24, 24000}, {25, 25, 25000}}, mask),
+			arrayOf(mem, []arrow.MonthInterval{21, 22, 23, 24, 25, 0}, append(mask, true)),
+			arrayOf(mem, []arrow.DayTimeInterval{{21, 21}, {22, 22}, {23, 23}, {24, 24}, {25, 25}, {0, 0}}, append(mask, true)),
+			arrayOf(mem, []arrow.MonthDayNanoInterval{{21, 21, 21000}, {22, 22, 22000}, {23, 23, 23000}, {24, 24, 24000}, {25, 25, 25000}, {0, 0, 0}}, append(mask, true)),
 		},
 	}
 
