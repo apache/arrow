@@ -23,6 +23,8 @@
 #include <google/protobuf/any.pb.h>
 #include <gtest/gtest.h>
 
+#include <utility>
+
 namespace pb = arrow::flight::protocol;
 using ::testing::_;
 using ::testing::Ref;
@@ -58,6 +60,45 @@ class FlightMetadataReaderMock : public FlightMetadataReader {
 
   Status ReadMetadata(std::shared_ptr<Buffer>* out) override {
     *out = *buffer;
+    return Status::OK();
+  }
+};
+
+class FlightStreamWriterMock : public FlightStreamWriter {
+public:
+  explicit FlightStreamWriterMock() = default;
+
+  Status DoneWriting() override {
+    return Status::OK();
+  }
+
+  Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
+    return Status::OK();
+  }
+
+  Status Begin(const std::shared_ptr<Schema> &schema,
+               const ipc::IpcWriteOptions &options) override {
+    return Status::OK();
+  }
+
+  Status Begin(const std::shared_ptr<Schema> &schema) override {
+    return MetadataRecordBatchWriter::Begin(schema);
+  }
+
+  ipc::WriteStats stats() const override {
+    return ipc::WriteStats();
+  }
+
+  Status WriteWithMetadata(const RecordBatch &batch,
+                           std::shared_ptr<Buffer> app_metadata) override {
+    return Status::OK();
+  }
+
+  Status Close() override {
+    return Status::OK();
+  }
+
+  Status WriteRecordBatch(const RecordBatch &batch) override {
     return Status::OK();
   }
 };
@@ -269,6 +310,79 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
   EXPECT_CALL(*client_mock, GetFlightInfo(_, _, &flight_info));
 
   (void)preparedStatement->Execute(&flight_info);
+}
+
+TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
+  auto* client_mock = new FlightClientMock();
+  std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
+  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightCallOptions call_options;
+
+  const std::string query = "query";
+
+  ON_CALL(*client_mock, DoAction)
+  .WillByDefault([](const FlightCallOptions& options, const Action& action,
+      std::unique_ptr<ResultStream>* results) {
+    google::protobuf::Any command;
+
+    pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+
+    prepared_statement_result.set_prepared_statement_handle("query");
+
+    auto schema = arrow::schema({arrow::field("id", int64())});
+
+    std::shared_ptr<Buffer> schema_buffer;
+    const arrow::Result<std::shared_ptr<Buffer>> &result = arrow::ipc::SerializeSchema(
+        *schema);
+
+    ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
+
+    prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
+
+    command.PackFrom(prepared_statement_result);
+
+    *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
+        {Result{Buffer::FromString(command.SerializeAsString())}}));
+
+    return Status::OK();
+  });
+
+  std::shared_ptr<Buffer> buffer_ptr;
+  ON_CALL(*client_mock, DoPut)
+  .WillByDefault([&buffer_ptr](const FlightCallOptions& options,
+      const FlightDescriptor& descriptor1,
+      const std::shared_ptr<Schema>& schema,
+      std::unique_ptr<FlightStreamWriter>* writer,
+      std::unique_ptr<FlightMetadataReader>* reader) {
+
+      writer->reset(new FlightStreamWriterMock());
+      reader->reset(new FlightMetadataReaderMock(&buffer_ptr));
+
+    return Status::OK();
+  });
+
+
+  std::unique_ptr<FlightInfo> flight_info;
+  EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
+  EXPECT_CALL(*client_mock, DoPut(_, _, _, _, _));
+
+  std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
+  (void)sqlClient.Prepare(call_options, query, &prepared_statement);
+
+  std::shared_ptr<Schema> schema;
+  (void)prepared_statement->GetParameterSchema(&schema);
+
+  arrow::Int64Builder  int_builder;
+  (void)int_builder.Append(1);
+  std::shared_ptr<arrow::Array> int_array;
+  (void)int_builder.Finish(&int_array);
+  std::shared_ptr<arrow::RecordBatch> result;
+  result = arrow::RecordBatch::Make(schema, 1, {int_array});
+  (void)prepared_statement->SetParameters(result);
+
+  EXPECT_CALL(*client_mock, GetFlightInfo(_, _, &flight_info));
+
+  (void)prepared_statement->Execute(&flight_info);
 }
 
 TEST(TestFlightSqlClient, TestExecuteUpdate) {
