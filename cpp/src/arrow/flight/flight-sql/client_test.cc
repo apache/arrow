@@ -367,22 +367,22 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
   EXPECT_CALL(*client_mock, DoPut(_, _, _, _, _));
 
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
-  (void)sqlClient.Prepare(call_options, query, &prepared_statement);
+  ASSERT_OK(sqlClient.Prepare(call_options, query, &prepared_statement));
 
-  std::shared_ptr<Schema> schema;
-  (void)prepared_statement->GetParameterSchema(&schema);
+  std::shared_ptr<Schema> parameter_schema;
+  ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
 
   arrow::Int64Builder  int_builder;
-  (void)int_builder.Append(1);
+  ASSERT_OK(int_builder.Append(1));
   std::shared_ptr<arrow::Array> int_array;
-  (void)int_builder.Finish(&int_array);
+  ASSERT_OK(int_builder.Finish(&int_array));
   std::shared_ptr<arrow::RecordBatch> result;
-  result = arrow::RecordBatch::Make(schema, 1, {int_array});
-  (void)prepared_statement->SetParameters(result);
+  result = arrow::RecordBatch::Make(parameter_schema, 1, {int_array});
+  ASSERT_OK(prepared_statement->SetParameters(result));
 
   EXPECT_CALL(*client_mock, GetFlightInfo(_, _, &flight_info));
 
-  (void)prepared_statement->Execute(&flight_info);
+  ASSERT_OK(prepared_statement->Execute(&flight_info));
 }
 
 TEST(TestFlightSqlClient, TestExecuteUpdate) {
