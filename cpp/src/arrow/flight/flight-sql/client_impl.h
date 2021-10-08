@@ -313,7 +313,40 @@ Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
 }
 
 template <class T>
-Status PreparedStatementT<T>::SetParameters(std::shared_ptr<RecordBatch> parameter_binding_) {
+Status PreparedStatementT<T>::ExecuteUpdate(int64_t* rows) {
+  if (is_closed) {
+    return Status::Invalid("Statement already closed.");
+  }
+  pb::sql::CommandPreparedStatementUpdate command;
+  command.set_prepared_statement_handle(
+      prepared_statement_result.prepared_statement_handle());
+  const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  if (parameter_binding && parameter_binding->num_rows() > 0) {
+    ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, parameter_binding->schema(),
+                                      &writer, &reader));
+    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding));
+  } else {
+    const std::shared_ptr<Schema> schema = arrow::schema({});
+    ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, schema, &writer, &reader));
+    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(
+        *arrow::RecordBatch::Make(schema, 0, (std::vector<std::shared_ptr<Array>>){})));
+  }
+  ARROW_RETURN_NOT_OK(writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
+  pb::sql::DoPutUpdateResult doPutUpdateResult;
+  const std::string& string = metadata->ToString();
+  doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(string);
+  *rows = doPutUpdateResult.record_count();
+  ARROW_RETURN_NOT_OK(writer->Close());
+  return Status::OK();
+}
+
+template <class T>
+Status PreparedStatementT<T>::SetParameters(
+    std::shared_ptr<RecordBatch> parameter_binding_) {
   parameter_binding = std::move(parameter_binding_);
 
   return Status::OK();

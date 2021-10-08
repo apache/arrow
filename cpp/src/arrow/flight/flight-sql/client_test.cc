@@ -455,6 +455,46 @@ TEST(TestFlightSqlClient, TestGetSqlInfo) {
   (void) sql_client.GetSqlInfo(call_options, sql_info, &flight_info);
 }
 
+TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
+  auto* client_mock = new FlightClientMock();
+  std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
+  const std::string query = "SELECT * FROM IRRELEVANT";
+  const FlightCallOptions call_options;
+  int64_t expected_rows = 100L;
+  pb::sql::DoPutUpdateResult result;
+  result.set_record_count(expected_rows);
+  auto buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(result.SerializeAsString().data()),
+      result.ByteSizeLong());
+  ON_CALL(*client_mock, DoAction)
+      .WillByDefault([&query](const FlightCallOptions& options, const Action& action,
+                              std::unique_ptr<ResultStream>* results) {
+        google::protobuf::Any command;
+        pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+        prepared_statement_result.set_prepared_statement_handle(query);
+        command.PackFrom(prepared_statement_result);
+        *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
+            {Result{Buffer::FromString(command.SerializeAsString())}}));
+        return Status::OK();
+      });
+  ON_CALL(*client_mock, DoPut)
+      .WillByDefault([&buffer](const FlightCallOptions& options,
+                               const FlightDescriptor& descriptor1,
+                               const std::shared_ptr<Schema>& schema,
+                               std::unique_ptr<FlightStreamWriter>* writer,
+                               std::unique_ptr<FlightMetadataReader>* reader) {
+        reader->reset(new FlightMetadataReaderMock(&buffer));
+        writer->reset(new FlightStreamWriterMock());
+        return Status::OK();
+      });
+  int64_t rows;
+  std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
+  ASSERT_OK(sql_client.Prepare(call_options, query, &prepared_statement));
+  ASSERT_OK(prepared_statement->ExecuteUpdate(&rows));
+  EXPECT_EQ(expected_rows, rows);
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
