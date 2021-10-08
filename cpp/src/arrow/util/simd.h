@@ -22,8 +22,6 @@
 
 #if defined(_M_AMD64) || defined(_M_X64)
 #include <intrin.h>
-#elif defined(_M_ARM64)
-#include <arm64_neon.h>
 #endif
 
 #else

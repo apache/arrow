@@ -286,6 +286,28 @@ file:
    make || exit /B
    popd
 
+Building on Windows/ARM64 using Ninja and Clang
+===============================================
+
+Ninja and LLVM toolchain (clang) can used for building library on windows/arm64 platform.
+
+.. code-block:: batch
+
+   cd cpp
+   mkdir build
+   cd build
+
+   set CC=clang-cl
+   set CXX=clang-cl
+
+   cmake -G "Ninja" ..
+
+   cmake --build . --config Release
+
+LLVM toolchain for Windows on ARM64 can be downloaded from LLVM release page `LLVM release page <https://releases.llvm.org>`_
+
+Visual Studio (MSVC) cannot be yet used for compiling win/arm64 build due to compatibility issues for dependencies like xsimd and boost library.
+
 Debug builds
 ============
 
