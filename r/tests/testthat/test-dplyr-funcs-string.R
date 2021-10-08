@@ -791,8 +791,7 @@ test_that("strftime", {
   )
 
   withr::with_timezone(
-    "Pacific/Marquesas",
-    {
+    "Pacific/Marquesas", {
       expect_dplyr_equal(
         input %>%
           mutate(
