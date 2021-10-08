@@ -196,6 +196,8 @@ class ARROW_EXPORT BasicDecimal128 {
 
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal128& GetScaleMultiplier(int32_t scale);
+  /// \brief Half-scale multiplier for given scale value.
+  static const BasicDecimal128& GetHalfScaleMultiplier(int32_t scale);
 
   /// \brief Convert BasicDecimal128 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
@@ -372,6 +374,8 @@ class ARROW_EXPORT BasicDecimal256 {
 
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
+  /// \brief Half-scale multiplier for given scale value.
+  static const BasicDecimal256& GetHalfScaleMultiplier(int32_t scale);
 
   /// \brief Convert BasicDecimal256 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,

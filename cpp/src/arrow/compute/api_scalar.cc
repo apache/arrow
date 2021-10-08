@@ -283,8 +283,11 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 constexpr char RoundOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
+    : RoundToMultipleOptions(std::make_shared<DoubleScalar>(multiple), round_mode) {}
+RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
+                                               RoundMode round_mode)
     : FunctionOptions(internal::kRoundToMultipleOptionsType),
-      multiple(multiple),
+      multiple(std::move(multiple)),
       round_mode(round_mode) {}
 constexpr char RoundToMultipleOptions::kTypeName[];
 

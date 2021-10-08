@@ -515,7 +515,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::RoundToMultipleOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["multiple"])) {
-      out->multiple = cpp11::as_cpp<double>(options["multiple"]);
+      out->multiple = std::make_shared<arrow::DoubleScalar>(
+          cpp11::as_cpp<double>(options["multiple"]));
     }
     SEXP round_mode = options["round_mode"];
     if (!Rf_isNull(round_mode)) {
