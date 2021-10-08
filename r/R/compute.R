@@ -97,6 +97,7 @@ list_compute_functions <- function(pattern = NULL, ...) {
   if (!is.null(pattern)) {
     funcs <- grep(pattern, funcs, value = TRUE, ...)
   }
+  funcs <- grep("hash_", funcs, value = TRUE, invert = TRUE)
   funcs
 }
 
