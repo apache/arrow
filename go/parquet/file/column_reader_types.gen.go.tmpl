@@ -28,7 +28,7 @@ type {{.Name}}ColumnChunkReader struct {
   columnChunkReader
 }
 
-// Skip skips the next nvalues so that the next call to ReadBatch/ReadBatchSpaced
+// Skip skips the next nvalues so that the next call to ReadBatch
 // will start reading *after* the skipped values.
 func (cr *{{.Name}}ColumnChunkReader) Skip(nvalues int64) (int64, error) {
   return cr.columnChunkReader.skipValues(nvalues,
@@ -57,22 +57,6 @@ func (cr *{{.Name}}ColumnChunkReader) Skip(nvalues int64) (int64, error) {
 func (cr *{{.Name}}ColumnChunkReader) ReadBatch(batchSize int64, values []{{.name}}, defLvls, repLvls []int16) (total int64, valuesRead int, err error) {
   return cr.readBatch(batchSize, defLvls, repLvls, func(start, len int64) (int, error) {
     return cr.curDecoder.(encoding.{{.Name}}Decoder).Decode(values[start:start+len])
-  })
-}
-
-// ReadBatchSpaced reads batchSize values from the column, expanded so that nulls are spaced out in the resulting slice.
-//
-// validBits must not be nil and should contain at least validBitsOffset + batchSize bits.
-//
-// Returns the total number of values read, the number of non-null values read, the number of nulls, and
-// the number of definition levels that were read.
-//
-// Like with ReadBatch, defLvls and repLvls can be nil if undesired, or must be long enough to hold the values read.
-func (cr *{{.Name}}ColumnChunkReader) ReadBatchSpaced(batchSize int64, values []{{.name}}, defLvls, repLvls []int16, validBits []byte, validBitsOffset int64) (totalVals, valsRead, nullCount, levelsRead int64, err error) {
-  return cr.readBatchSpaced(batchSize, defLvls, repLvls, validBits, validBitsOffset, func(start, len int64) (int, error) {
-    return cr.curDecoder.(encoding.{{.Name}}Decoder).Decode(values[start:start+len])
-  }, func(n int64, nullcount int, valid []byte, offset int64) (int, error) {
-    return cr.curDecoder.(encoding.{{.Name}}Decoder).DecodeSpaced(values[:n], nullcount, valid, offset)
   })
 }
 {{end}}

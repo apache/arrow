@@ -228,61 +228,6 @@ func (p *PrimitiveReaderSuite) checkResults() {
 	p.Zero(read)
 }
 
-func (p *PrimitiveReaderSuite) checkResultsSpaced() {
-	vresult := make([]int32, p.nlevels)
-	dresult := make([]int16, p.nlevels)
-	rresult := make([]int16, p.nlevels)
-	validBits := make([]byte, p.nlevels)
-	for idx := range validBits {
-		validBits[idx] = byte(255)
-	}
-
-	var (
-		totalVals    int   = 0
-		batchActual  int   = 0
-		levelsActual int   = 0
-		nullCount    int64 = -1
-		levelsRead   int64 = 0
-		// valsRead     int64 = 0
-		batchSize int32 = 8
-		batch     int64 = 0
-	)
-
-	rdr := p.reader.(*file.Int32ColumnChunkReader)
-	for {
-		batch, _, nullCount, levelsRead, _ = rdr.ReadBatchSpaced(
-			int64(batchSize), vresult[batchActual:],
-			dresult[levelsActual:],
-			rresult[levelsActual:],
-			validBits[batchActual:], 0)
-		totalVals += int(batch - nullCount)
-		batchActual += int(batch)
-		levelsActual += int(levelsRead)
-		batchSize = int32(utils.MinInt(1<<24, utils.MaxInt(int(batchSize*2), 4096)))
-		if batch <= 0 && levelsRead <= 0 {
-			break
-		}
-	}
-
-	p.Equal(p.nlevels, levelsActual)
-	p.Equal(p.nvalues, totalVals)
-	if p.maxDefLvl > 0 {
-		p.Equal(p.defLevels, dresult)
-		p.Condition(compareVectorWithDefLevels(p.values, reflect.ValueOf(vresult), dresult, p.maxDefLvl, p.maxRepLvl))
-	} else {
-		p.Equal(p.values.Interface(), vresult)
-	}
-
-	if p.maxRepLvl > 0 {
-		p.Equal(p.repLevels, rresult)
-	}
-
-	var actual int64
-	actual, _, nullCount, _, _ = rdr.ReadBatchSpaced(5, vresult, nil, nil, validBits, 0)
-	p.Zero(actual)
-	p.Zero(nullCount)
-}
-
 func (p *PrimitiveReaderSuite) clear() {
 	p.values = reflect.ValueOf(nil)
 	p.defLevels = nil
@@ -298,12 +243,6 @@ func (p *PrimitiveReaderSuite) testPlain(npages, levels int, d *schema.Column) {
 	p.initReader(d)
 	p.checkResults()
 	p.clear()
-
-	p.pages, p.nvalues, p.values, p.defLevels, p.repLevels = makePages(p.dataPageVersion, d, npages, levels, reflect.TypeOf(int32(0)), parquet.Encodings.Plain)
-	p.nlevels = npages * levels
-	p.initReader(d)
-	p.checkResultsSpaced()
-	p.clear()
 }
 
 func (p *PrimitiveReaderSuite) testDict(npages, levels int, d *schema.Column) {
@@ -311,12 +250,6 @@ func (p *PrimitiveReaderSuite) testDict(npages, levels int, d *schema.Column) {
 	p.nlevels = npages * levels
 	p.initReader(d)
 	p.checkResults()
-	p.clear()
-
-	p.pages, p.nvalues, p.values, p.defLevels, p.repLevels = makePages(p.dataPageVersion, d, npages, levels, reflect.TypeOf(int32(0)), parquet.Encodings.RLEDict)
-	p.nlevels = npages * levels
-	p.initReader(d)
-	p.checkResultsSpaced()
 	p.clear()
 }
 

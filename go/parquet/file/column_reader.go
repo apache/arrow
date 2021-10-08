@@ -17,7 +17,6 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/encoding"
@@ -39,24 +38,6 @@ const (
 
 func isDictIndexEncoding(e format.Encoding) bool {
 	return e == format.Encoding_RLE_DICTIONARY || e == format.Encoding_PLAIN_DICTIONARY
-}
-
-func colHasSpacedValues(c *schema.Column) bool {
-	if c.MaxRepetitionLevel() > 0 {
-		// repeated + flat case
-		return c.SchemaNode().RepetitionType() != parquet.Repetitions.Required
-	}
-
-	// non-repeated+nested case
-	// find if a node forces nulls in the lowest level along the hierarchy
-	n := c.SchemaNode()
-	for n != nil {
-		if n.RepetitionType() == parquet.Repetitions.Optional {
-			return true
-		}
-		n = n.Parent()
-	}
-	return false
 }
 
 // CryptoContext is a context for keeping track of the current methods for decrypting.
@@ -422,28 +403,6 @@ func (c *columnChunkReader) determineNumToRead(batchLen int64, defLvls, repLvls 
 	return
 }
 
-func (c *columnChunkReader) determineNumToReadSpaced(batchLen int64, defLvls, repLvls []int16) (ndefs int, toRead int64, err error) {
-	if !c.HasNext() {
-		return 0, 0, c.err
-	}
-
-	batchLen = utils.Min(batchLen, c.numBuffered-c.numDecoded)
-
-	if c.descr.MaxDefinitionLevel() > 0 {
-		ndefs, toRead = c.readDefinitionLevels(defLvls[:batchLen])
-
-		if c.descr.MaxRepetitionLevel() > 0 {
-			nreps := c.readRepetitionLevels(repLvls[:batchLen])
-			if ndefs != nreps {
-				err = xerrors.New("parquet: number of decoded rep/def levels did not match")
-			}
-		}
-	} else {
-		toRead = batchLen
-	}
-	return
-}
-
 // skipValues some number of rows using readFn as the function to read the data and throw it away.
 // If we can skipValues a whole page based on its metadata, then we do so, otherwise we read the
 // page until we have skipped the number of rows desired.
@@ -524,57 +483,3 @@ func (c *columnChunkReader) readBatch(batchSize int64, defLvls, repLvls []int16,
 }
 
 type readerFunc func(int64, int64) (int, error)
-type spacedReaderFunc func(int64, int, []byte, int64) (int, error)
-
-// base function for reading a batch of spaced values
-func (c *columnChunkReader) readBatchSpaced(batchSize int64, defLvls, repLvls []int16, validBits []byte, validBitsOffset int64, readFn readerFunc, readSpacedFn spacedReaderFunc) (totalVals, valsRead, nullCount, levelsRead int64, err error) {
-	// TODO(mtopol): keep reading data pages until batchSize is reached or the row group is finished
-	// implemented for reading non-spaced, but this is a bit more difficult to implement for spaced
-	// values, so it's not yet implemented. For now this needs to be called until it returns 0 read
-	ndefs, toRead, err := c.determineNumToReadSpaced(batchSize, defLvls, repLvls)
-	if err != nil {
-		return 0, 0, 0, 0, err
-	}
-
-	var vals int
-
-	if ndefs > 0 {
-		if !colHasSpacedValues(c.descr) {
-			vals, err = readFn(0, toRead)
-			totalVals = int64(vals)
-			bitutil.SetBitsTo(validBits, validBitsOffset, totalVals, true)
-			valsRead = totalVals
-		} else {
-			info := LevelInfo{
-				RepeatedAncestorDefLevel: c.descr.MaxDefinitionLevel() - 1,
-				DefLevel:                 c.descr.MaxDefinitionLevel(),
-				RepLevel:                 c.descr.MaxRepetitionLevel(),
-			}
-			validity := ValidityBitmapInputOutput{
-				ReadUpperBound:  int64(ndefs),
-				ValidBits:       validBits,
-				ValidBitsOffset: validBitsOffset,
-				NullCount:       nullCount,
-				Read:            valsRead,
-			}
-
-			DefLevelsToBitmap(defLvls[:ndefs], info, &validity)
-			nullCount = validity.NullCount
-			valsRead = validity.Read
-			vals, err = readSpacedFn(valsRead, int(nullCount), validBits, validBitsOffset)
-			totalVals = int64(vals)
-		}
-		levelsRead = int64(ndefs)
-	} else {
-		// required field read all values
-		vals, err = readFn(0, toRead)
-		totalVals = int64(vals)
-		bitutil.SetBitsTo(validBits, validBitsOffset, totalVals, true)
-		nullCount = 0
-		valsRead = totalVals
-		levelsRead = totalVals
-	}
-
-	c.consumeBufferedValues(levelsRead)
-	return
-}
