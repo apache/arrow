@@ -290,6 +290,10 @@ std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithIncludedSchema() {
                         field("table_schema", binary())});
 }
 
+std::shared_ptr<Schema> SqlSchema::GetTableTypesSchema() {
+  return arrow::schema({field("table_type", utf8())});
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

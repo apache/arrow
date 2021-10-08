@@ -285,6 +285,23 @@ TEST(TestFlightSqlServer, TestCommandGetSchemas) {
   ASSERT_EQ(0, table->num_rows());
 }
 
+TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
+  std::unique_ptr<FlightInfo> flight_info;
+  ASSERT_OK(sql_client->GetTableTypes({}, &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  DECLARE_ARRAY(table_type, String, ({"table"}));
+
+  const std::shared_ptr<Table>& expected_table =
+      Table::Make(SqlSchema::GetTableTypesSchema(), {table_type});
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
 TEST(TestFlightSqlServer, TestCommandStatementUpdate) {
   int64_t result;
   ASSERT_OK(sql_client->ExecuteUpdate(

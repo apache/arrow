@@ -287,6 +287,30 @@ Status SQLiteFlightSqlServer::DoPutCommandStatementUpdate(
   return Status::OK();
 }
 
+Status SQLiteFlightSqlServer::GetFlightInfoTableTypes(const ServerCallContext& context,
+                                                      const FlightDescriptor& descriptor,
+                                                      std::unique_ptr<FlightInfo>* info) {
+  pb::sql::CommandGetTableTypes command;
+  return GetFlightInfoForCommand(descriptor, info, command,
+                                 SqlSchema::GetTableTypesSchema());
+}
+
+Status SQLiteFlightSqlServer::DoGetTableTypes(const ServerCallContext& context,
+                                              std::unique_ptr<FlightDataStream>* result) {
+  std::string query = "SELECT DISTINCT type as table_type FROM sqlite_master";
+
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, query, &statement));
+
+  std::shared_ptr<SqliteStatementBatchReader> reader;
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
+      statement, SqlSchema::GetTableTypesSchema(), &reader));
+
+  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+
+  return Status::OK();
+}
+
 }  // namespace example
 }  // namespace sql
 }  // namespace flight

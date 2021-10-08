@@ -294,6 +294,10 @@ class SqlSchema {
   /// flags is set to true.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetTablesSchemaWithIncludedSchema();
+
+  /// \brief Gets the Schema used on CommandGetTableTypes response.
+  /// \return The default schema template.
+  static std::shared_ptr<Schema> GetTableTypesSchema();
 };
 }  // namespace sql
 }  // namespace flight
