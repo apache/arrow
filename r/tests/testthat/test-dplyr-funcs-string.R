@@ -791,7 +791,8 @@ test_that("strftime", {
   )
 
   withr::with_timezone(
-    "Pacific/Marquesas", {
+    "Pacific/Marquesas",
+    {
       expect_dplyr_equal(
         input %>%
           mutate(
@@ -1246,5 +1247,93 @@ test_that("str_sub", {
   expect_error(
     nse_funcs$str_sub("Apache Arrow", 1, c(2, 3)),
     "`end` must be length 1 - other lengths are not supported in Arrow"
+  )
+})
+
+test_that("str_starts, str_ends, startsWith, endsWith", {
+  df <- tibble(x = c("Foo", "bar", "baz", "qux"))
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, "b.*")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, "b.*", negate = TRUE)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, fixed("b.*"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, fixed("b"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, "r")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, "r", negate = TRUE)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, fixed("r$"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, fixed("r"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(startsWith(x, "b")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(endsWith(x, "r")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(startsWith(x, "b.*")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(endsWith(x, "r$")) %>%
+      collect(),
+    df
   )
 })
