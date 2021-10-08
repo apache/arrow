@@ -406,7 +406,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
                               ScalarFunction* func) {
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature = KernelSignature::Make({ty}, out_ty);
+      kernel.signature = KernelSignature::Make({InputType(ty->id())}, out_ty);
       DCHECK_OK(func->AddKernel(kernel));
     }
   };

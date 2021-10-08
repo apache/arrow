@@ -185,7 +185,8 @@ TEST_F(TestIsInKernel, NullType) {
 
 TEST_F(TestIsInKernel, TimeTimestamp) {
   for (const auto& type :
-       {time32(TimeUnit::SECOND), time64(TimeUnit::NANO), timestamp(TimeUnit::MICRO)}) {
+       {time32(TimeUnit::SECOND), time64(TimeUnit::NANO), timestamp(TimeUnit::MICRO),
+        timestamp(TimeUnit::NANO, "UTC")}) {
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
@@ -628,6 +629,9 @@ TEST_F(TestIndexInKernel, TimeTimestamp) {
   CheckIndexIn(time64(TimeUnit::NANO), "[2, null, 2, 1]", "[2, null, 1]", "[0, 1, 0, 2]");
 
   CheckIndexIn(timestamp(TimeUnit::NANO), "[2, null, 2, 1]", "[2, null, 1]",
+               "[0, 1, 0, 2]");
+
+  CheckIndexIn(timestamp(TimeUnit::SECOND, "UTC"), "[2, null, 2, 1]", "[2, null, 1]",
                "[0, 1, 0, 2]");
 
   // Empty input array
