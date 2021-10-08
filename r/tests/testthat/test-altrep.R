@@ -91,10 +91,27 @@ test_that("empty vectors are not altrep", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   v_int <- Array$create(integer())
   v_dbl <- Array$create(numeric())
+  v_str <- Array$create(character())
 
   expect_false(is_arrow_altrep(as.vector(v_int)))
   expect_false(is_arrow_altrep(as.vector(v_dbl)))
+  expect_false(is_arrow_altrep(as.vector(v_str)))
 })
+
+test_that("strings arrays and chunked array become altrep", {
+  s1 <- c("un", "deux", NA)
+  s2 <- c("quatre", "cinq")
+  a <- Array$create(s1)
+  v <- a$as_vector()
+  expect_equal(v, s1)
+  expect_true(is_altrep(v))
+
+  ca <- ChunkedArray$create(s1, s2)
+  cv <- ca$as_vector()
+  expect_equal(cv, c(s1, s2))
+  expect_true(is_altrep(cv))
+})
+
 
 test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   withr::local_options(list(arrow.use_altrep = TRUE))

@@ -350,10 +350,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
   // Helper class to convert to R strings
   struct RStringViewer {
-    explicit RStringViewer(const std::shared_ptr<Array>& array)
-        : array_(array),
-          string_array_(internal::checked_cast<const StringArrayType*>(array.get())),
-          strip_out_nuls_(GetBoolOption("arrow.skip_nul", false)),
+    RStringViewer()
+        : strip_out_nuls_(GetBoolOption("arrow.skip_nul", false)),
           nul_was_stripped_(false) {}
 
     // convert the i'th string of the Array to an R string (CHARSXP)
@@ -426,7 +424,12 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       Rf_error(stripped_string_.c_str());
     }
 
-    const std::shared_ptr<Array>& array_;
+    void SetArray(const std::shared_ptr<Array>& array) {
+      array_ = array;
+      string_array_ = internal::checked_cast<const StringArrayType*>(array.get());
+    }
+
+    std::shared_ptr<Array> array_;
     const StringArrayType* string_array_;
     std::string stripped_string_;
     const bool strip_out_nuls_;
@@ -443,15 +446,16 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    auto array = Base::GetChunkedArray(alt)->chunk(0);
-    RStringViewer r_string_viewer(array);
+    auto array = Base::GetChunkedArray(alt)->Slice(i, 1)->chunk(0);
+    RStringViewer r_string_viewer;
+    r_string_viewer.SetArray(array);
 
-    // r_string_viewer.Convert(i) might jump so it's wrapped
+    // r_string_viewer.Convert() might jump so it's wrapped
     // in cpp11::unwind_protect() so that string_viewer
     // can be properly destructed before the unwinding continues
     SEXP s = NA_STRING;
     cpp11::unwind_protect([&]() {
-      s = r_string_viewer.Convert(i);
+      s = r_string_viewer.Convert(0);
       if (r_string_viewer.nul_was_stripped()) {
         cpp11::warning("Stripping '\\0' (nul) from character vector");
       }
@@ -470,20 +474,25 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    const auto& array = GetChunkedArray(alt)->chunk(0);
-    R_xlen_t n = array->length();
-    SEXP data2 = PROTECT(Rf_allocVector(STRSXP, n));
+    const auto& chunked_array = GetChunkedArray(alt);
+    SEXP data2 = PROTECT(Rf_allocVector(STRSXP, chunked_array->length()));
     MARK_NOT_MUTABLE(data2);
 
-    RStringViewer r_string_viewer(array);
+    RStringViewer r_string_viewer;
 
-    // r_string_viewer.Convert(i) might jump so we have to
+    // r_string_viewer.Convert() might jump so we have to
     // wrap it in unwind_protect() to:
     // - correctly destruct the C++ objects
     // - resume the unwinding
     cpp11::unwind_protect([&]() {
-      for (R_xlen_t i = 0; i < n; i++) {
-        SET_STRING_ELT(data2, i, r_string_viewer.Convert(i));
+      R_xlen_t i = 0;
+      for (const auto& array : chunked_array->chunks()) {
+        r_string_viewer.SetArray(array);
+
+        auto ni = array->length();
+        for (R_xlen_t j = 0; j < ni; j++, i++) {
+          SET_STRING_ELT(data2, i, r_string_viewer.Convert(j));
+        }
       }
 
       if (r_string_viewer.nul_was_stripped()) {
@@ -608,29 +617,38 @@ void Init_Altrep_classes(DllInfo* dll) {
 
 // return an altrep R vector that shadows the array if possible
 SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
+  // using altrep if
+  // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
+  // - the chunked array has at least one element
+  if (!arrow::r::GetBoolOption("arrow.use_altrep", true) ||
+      chunked_array->length() == 0) {
+    return R_NilValue;
+  }
+
   // special case when there is only one array
   if (chunked_array->num_chunks() == 1) {
-    const auto& array = chunked_array->chunk(0);
-    // using altrep if
-    // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
-    // - the array has at least one element
-    if (arrow::r::GetBoolOption("arrow.use_altrep", true) && chunked_array->length() > 0) {
-      switch (chunked_array->type()->id()) {
-        case arrow::Type::DOUBLE:
-          return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
+    switch (chunked_array->type()->id()) {
+      case arrow::Type::DOUBLE:
+        return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
 
-        case arrow::Type::INT32:
-          return altrep::AltrepVectorPrimitive<INTSXP>::Make(chunked_array);
+      case arrow::Type::INT32:
+        return altrep::AltrepVectorPrimitive<INTSXP>::Make(chunked_array);
 
-        case arrow::Type::STRING:
-          return altrep::AltrepVectorString<StringType>::Make(chunked_array);
+      default:
+        break;
+    }
+  }
 
-        case arrow::Type::LARGE_STRING:
-          return altrep::AltrepVectorString<LargeStringType>::Make(chunked_array);
+  if (arrow::r::GetBoolOption("arrow.use_altrep", true) && chunked_array->length() > 0) {
+    switch (chunked_array->type()->id()) {
+      case arrow::Type::STRING:
+        return altrep::AltrepVectorString<StringType>::Make(chunked_array);
 
-        default:
-          break;
-      }
+      case arrow::Type::LARGE_STRING:
+        return altrep::AltrepVectorString<LargeStringType>::Make(chunked_array);
+
+      default:
+        break;
     }
   }
 
