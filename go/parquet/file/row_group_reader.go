@@ -54,7 +54,7 @@ func (r *RowGroupReader) ByteSize() int64 { return r.rgMetadata.TotalByteSize() 
 // Column returns a column reader for the requested (0-indexed) column
 //
 // panics if passed a column not in the range [0, NumColumns)
-func (r *RowGroupReader) Column(i int) ColumnReader {
+func (r *RowGroupReader) Column(i int) ColumnChunkReader {
 	if i >= r.NumColumns() || i < 0 {
 		panic(xerrors.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns()))
 	}

@@ -22,16 +22,16 @@ import (
 )
 
 {{range .In}}
-// {{.Name}}ColumnReader is the Typed Column reader instance for reading
+// {{.Name}}ColumnChunkReader is the Typed Column chunk reader instance for reading
 // {{.Name}} column data.
-type {{.Name}}ColumnReader struct {
-  columnReader
+type {{.Name}}ColumnChunkReader struct {
+  columnChunkReader
 }
 
-// Skip skips the next nrows so that the next call to ReadBatch/ReadBatchSpaced
-// will start reading *after* the skipped rows.
-func (cr *{{.Name}}ColumnReader) Skip(nrows int64) (int64, error) {
-  return cr.columnReader.skip(nrows,
+// Skip skips the next nvalues so that the next call to ReadBatch/ReadBatchSpaced
+// will start reading *after* the skipped values.
+func (cr *{{.Name}}ColumnChunkReader) Skip(nvalues int64) (int64, error) {
+  return cr.columnChunkReader.skipValues(nvalues,
     func(batch int64, buf []byte) (int64, error) {
       vals, _, err := cr.ReadBatch(batch,
         {{- if ne .Name "Boolean"}}
@@ -54,7 +54,7 @@ func (cr *{{.Name}}ColumnReader) Skip(nrows int64) (int64, error) {
 //
 // total is the number of rows that were read, valuesRead is the actual number of physical values
 // that were read excluding nulls
-func (cr *{{.Name}}ColumnReader) ReadBatch(batchSize int64, values []{{.name}}, defLvls, repLvls []int16) (total int64, valuesRead int, err error) {
+func (cr *{{.Name}}ColumnChunkReader) ReadBatch(batchSize int64, values []{{.name}}, defLvls, repLvls []int16) (total int64, valuesRead int, err error) {
   return cr.readBatch(batchSize, defLvls, repLvls, func(start, len int64) (int, error) {
     return cr.curDecoder.(encoding.{{.Name}}Decoder).Decode(values[start:start+len])
   })
@@ -68,7 +68,7 @@ func (cr *{{.Name}}ColumnReader) ReadBatch(batchSize int64, values []{{.name}}, 
 // the number of definition levels that were read.
 //
 // Like with ReadBatch, defLvls and repLvls can be nil if undesired, or must be long enough to hold the values read.
-func (cr *{{.Name}}ColumnReader) ReadBatchSpaced(batchSize int64, values []{{.name}}, defLvls, repLvls []int16, validBits []byte, validBitsOffset int64) (totalVals, valsRead, nullCount, levelsRead int64, err error) {
+func (cr *{{.Name}}ColumnChunkReader) ReadBatchSpaced(batchSize int64, values []{{.name}}, defLvls, repLvls []int16, validBits []byte, validBitsOffset int64) (totalVals, valsRead, nullCount, levelsRead int64, err error) {
   return cr.readBatchSpaced(batchSize, defLvls, repLvls, validBits, validBitsOffset, func(start, len int64) (int, error) {
     return cr.curDecoder.(encoding.{{.Name}}Decoder).Decode(values[start:start+len])
   }, func(n int64, nullcount int, valid []byte, offset int64) (int, error) {

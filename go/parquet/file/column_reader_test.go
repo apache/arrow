@@ -159,7 +159,7 @@ type PrimitiveReaderSuite struct {
 
 	dataPageVersion parquet.DataPageVersion
 	pager           file.PageReader
-	reader          file.ColumnReader
+	reader          file.ColumnChunkReader
 	pages           []file.Page
 	values          reflect.Value
 	defLevels       []int16
@@ -196,7 +196,7 @@ func (p *PrimitiveReaderSuite) checkResults() {
 		batch       int   = 0
 	)
 
-	rdr := p.reader.(*file.Int32ColumnReader)
+	rdr := p.reader.(*file.Int32ColumnChunkReader)
 	p.Require().NotNil(rdr)
 
 	// this will cover both cases:
@@ -248,7 +248,7 @@ func (p *PrimitiveReaderSuite) checkResultsSpaced() {
 		batch     int64 = 0
 	)
 
-	rdr := p.reader.(*file.Int32ColumnReader)
+	rdr := p.reader.(*file.Int32ColumnChunkReader)
 	for {
 		batch, _, nullCount, levelsRead, _ = rdr.ReadBatchSpaced(
 			int64(batchSize), vresult[batchActual:],
@@ -380,7 +380,7 @@ func (p *PrimitiveReaderSuite) TestReadBatchMultiPage() {
 	dresult := make([]int16, levelsPerPage*npages)
 	rresult := make([]int16, levelsPerPage*npages)
 
-	rdr := p.reader.(*file.Int32ColumnReader)
+	rdr := p.reader.(*file.Int32ColumnChunkReader)
 	total, read, err := rdr.ReadBatch(int64(levelsPerPage*npages), vresult, dresult, rresult)
 	p.NoError(err)
 	p.EqualValues(levelsPerPage*npages, total)
@@ -404,7 +404,7 @@ func (p *PrimitiveReaderSuite) TestInt32FlatRequiredSkip() {
 	dresult := make([]int16, levelsPerPage/2)
 	rresult := make([]int16, levelsPerPage/2)
 
-	rdr := p.reader.(*file.Int32ColumnReader)
+	rdr := p.reader.(*file.Int32ColumnChunkReader)
 
 	p.Run("skip_size > page_size", func() {
 		// Skip first 2 pages

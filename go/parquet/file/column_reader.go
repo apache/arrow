@@ -70,11 +70,27 @@ type CryptoContext struct {
 	DataDecryptor                  encryption.Decryptor
 }
 
-// ColumnReader is the basic interface for all column readers.
+// ColumnChunkReader is the basic interface for all column readers. It will use
+// a page reader to read all the pages in a column chunk from a row group.
 //
 // To actually Read out the column data, you need to convert to the properly
-// typed ColumnReader type such as *BooleanColumnReader etc.
-type ColumnReader interface {
+// typed ColumnChunkReader type such as *BooleanColumnReader etc.
+//
+// Some things to clarify when working with column readers:
+//
+// "Values" refers to the physical data values in a data page.
+//
+// This is separate from the number of "rows" in a column and the total number
+// of "elements" in a column because null values aren't stored physically in the
+// data page but are represented via definition levels, so the number of values
+// in a column can be less than the number of rows.
+//
+// The total number of "elements" in a column also differs because of potential
+// repeated fields, where you can have multiple values in the page which
+// together make up a single element (such as a list) or depending on the repetition
+// level and definition level, could represent an entire null list or just a null
+// element inside of a list.
+type ColumnChunkReader interface {
 	// HasNext returns whether there is more data to be read in this column
 	// and row group.
 	HasNext() bool
@@ -88,8 +104,9 @@ type ColumnReader interface {
 	Err() error
 	// Skip buffered values
 	consumeBufferedValues(int64)
-	// number of available values left
-	numAvail() int64
+	// number of available buffered values that have not been decoded yet
+	// when this returns 0, you're at the end of a page.
+	numAvailValues() int64
 	// read the definition levels and return the number of definitions,
 	// and the number of values to be read (number of def levels == maxdef level)
 	// it also populates the passed in slice which should be sized appropriately.
@@ -97,13 +114,20 @@ type ColumnReader interface {
 	// read the repetition levels and return the number of repetition levels read
 	// also populates the passed in slice, which should be sized appropriately.
 	readRepetitionLevels(levels []int16) int
-	// get the current page reader
+	// a column is made up of potentially multiple pages across potentially multiple
+	// row groups. A PageReader allows looping through the pages in a single row group.
+	// When moving to another row group for reading, use setPageReader to re-use the
+	// column reader for reading the pages of the new row group.
 	pager() PageReader
 	// set a page reader into the columnreader so it can be reused.
+	//
+	// This will clear any current error in the reader but does not
+	// automatically read the first page of the page reader passed in until
+	// HasNext which will read in the next page.
 	setPageReader(PageReader)
 }
 
-type columnReader struct {
+type columnChunkReader struct {
 	descr             *schema.Column
 	rdr               PageReader
 	repetitionDecoder encoding.LevelDecoder
@@ -117,9 +141,7 @@ type columnReader struct {
 	numBuffered int64
 	// the number of values we've decoded so far
 	numDecoded int64
-	// will be true if we have read in a new dictionary page
-	newDict bool
-	mem     memory.Allocator
+	mem        memory.Allocator
 
 	decoders      map[format.Encoding]encoding.TypedDecoder
 	decoderTraits encoding.DecoderTraits
@@ -131,50 +153,50 @@ type columnReader struct {
 
 // NewColumnReader returns a column reader for the provided column initialized with the given pagereader that will
 // provide the pages of data for this column. The type is determined from the column passed in.
-func NewColumnReader(descr *schema.Column, pageReader PageReader, mem memory.Allocator) ColumnReader {
-	base := columnReader{descr: descr, rdr: pageReader, mem: mem, decoders: make(map[format.Encoding]encoding.TypedDecoder)}
+func NewColumnReader(descr *schema.Column, pageReader PageReader, mem memory.Allocator) ColumnChunkReader {
+	base := columnChunkReader{descr: descr, rdr: pageReader, mem: mem, decoders: make(map[format.Encoding]encoding.TypedDecoder)}
 	switch descr.PhysicalType() {
 	case parquet.Types.FixedLenByteArray:
 		base.decoderTraits = &encoding.FixedLenByteArrayDecoderTraits
-		return &FixedLenByteArrayColumnReader{base}
+		return &FixedLenByteArrayColumnChunkReader{base}
 	case parquet.Types.Float:
 		base.decoderTraits = &encoding.Float32DecoderTraits
-		return &Float32ColumnReader{base}
+		return &Float32ColumnChunkReader{base}
 	case parquet.Types.Double:
 		base.decoderTraits = &encoding.Float64DecoderTraits
-		return &Float64ColumnReader{base}
+		return &Float64ColumnChunkReader{base}
 	case parquet.Types.ByteArray:
 		base.decoderTraits = &encoding.ByteArrayDecoderTraits
-		return &ByteArrayColumnReader{base}
+		return &ByteArrayColumnChunkReader{base}
 	case parquet.Types.Int32:
 		base.decoderTraits = &encoding.Int32DecoderTraits
-		return &Int32ColumnReader{base}
+		return &Int32ColumnChunkReader{base}
 	case parquet.Types.Int64:
 		base.decoderTraits = &encoding.Int64DecoderTraits
-		return &Int64ColumnReader{base}
+		return &Int64ColumnChunkReader{base}
 	case parquet.Types.Int96:
 		base.decoderTraits = &encoding.Int96DecoderTraits
-		return &Int96ColumnReader{base}
+		return &Int96ColumnChunkReader{base}
 	case parquet.Types.Boolean:
 		base.decoderTraits = &encoding.BooleanDecoderTraits
-		return &BooleanColumnReader{base}
+		return &BooleanColumnChunkReader{base}
 	}
 	return nil
 }
 
-func (c *columnReader) Err() error                    { return c.err }
-func (c *columnReader) Type() parquet.Type            { return c.descr.PhysicalType() }
-func (c *columnReader) Descriptor() *schema.Column    { return c.descr }
-func (c *columnReader) consumeBufferedValues(n int64) { c.numDecoded += n }
-func (c *columnReader) numAvail() int64               { return c.numBuffered - c.numDecoded }
-func (c *columnReader) pager() PageReader             { return c.rdr }
-func (c *columnReader) setPageReader(rdr PageReader) {
-	c.rdr = rdr
+func (c *columnChunkReader) Err() error                    { return c.err }
+func (c *columnChunkReader) Type() parquet.Type            { return c.descr.PhysicalType() }
+func (c *columnChunkReader) Descriptor() *schema.Column    { return c.descr }
+func (c *columnChunkReader) consumeBufferedValues(n int64) { c.numDecoded += n }
+func (c *columnChunkReader) numAvailValues() int64         { return c.numBuffered - c.numDecoded }
+func (c *columnChunkReader) pager() PageReader             { return c.rdr }
+func (c *columnChunkReader) setPageReader(rdr PageReader) {
+	c.rdr, c.err = rdr, nil
 	c.decoders = make(map[format.Encoding]encoding.TypedDecoder)
-	c.err = nil
+	c.numBuffered, c.numDecoded = 0, 0
 }
 
-func (c *columnReader) getDefLvlBuffer(sz int64) []int16 {
+func (c *columnChunkReader) getDefLvlBuffer(sz int64) []int16 {
 	if int64(len(c.defLvlBuffer)) < sz {
 		c.defLvlBuffer = make([]int16, sz)
 		return c.defLvlBuffer
@@ -185,21 +207,21 @@ func (c *columnReader) getDefLvlBuffer(sz int64) []int16 {
 
 // HasNext returns whether there is more data to be read in this column
 // and row group.
-func (c *columnReader) HasNext() bool {
+func (c *columnChunkReader) HasNext() bool {
 	if c.numBuffered == 0 || c.numDecoded == c.numBuffered {
 		return c.readNewPage() && c.numBuffered != 0
 	}
 	return true
 }
 
-func (c *columnReader) configureDict(page *DictionaryPage) error {
+func (c *columnChunkReader) configureDict(page *DictionaryPage) error {
 	enc := page.encoding
 	if enc == format.Encoding_PLAIN_DICTIONARY || enc == format.Encoding_PLAIN {
 		enc = format.Encoding_RLE_DICTIONARY
 	}
 
 	if _, ok := c.decoders[enc]; ok {
-		return xerrors.New("parquet: column cannot have more than one dictionary.")
+		return xerrors.New("parquet: column chunk cannot have more than one dictionary.")
 	}
 
 	switch page.Encoding() {
@@ -215,12 +237,11 @@ func (c *columnReader) configureDict(page *DictionaryPage) error {
 	}
 
 	c.curDecoder = c.decoders[enc]
-	c.newDict = true
 	return nil
 }
 
 // read a new page from the page reader
-func (c *columnReader) readNewPage() bool {
+func (c *columnChunkReader) readNewPage() bool {
 	for c.rdr.Next() { // keep going until we get a data page
 		c.curPage = c.rdr.Page()
 		if c.curPage == nil {
@@ -257,7 +278,7 @@ func (c *columnReader) readNewPage() bool {
 	return false
 }
 
-func (c *columnReader) initLevelDecodersV2(page *DataPageV2) (int64, error) {
+func (c *columnChunkReader) initLevelDecodersV2(page *DataPageV2) (int64, error) {
 	c.numBuffered = int64(page.nvals)
 	c.numDecoded = 0
 	buf := page.Data()
@@ -279,7 +300,7 @@ func (c *columnReader) initLevelDecodersV2(page *DataPageV2) (int64, error) {
 	return totalLvlLen, nil
 }
 
-func (c *columnReader) initLevelDecodersV1(page *DataPageV1, repLvlEncoding, defLvlEncoding format.Encoding) (int64, error) {
+func (c *columnChunkReader) initLevelDecodersV1(page *DataPageV1, repLvlEncoding, defLvlEncoding format.Encoding) (int64, error) {
 	c.numBuffered = int64(page.nvals)
 	c.numDecoded = 0
 
@@ -311,7 +332,7 @@ func (c *columnReader) initLevelDecodersV1(page *DataPageV1, repLvlEncoding, def
 	return levelsByteLen, nil
 }
 
-func (c *columnReader) initDataDecoder(page Page, lvlByteLen int64) error {
+func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 	buf := page.Data()
 	if int64(len(buf)) < lvlByteLen {
 		return xerrors.New("parquet: page smaller than size of encoded levels")
@@ -337,9 +358,9 @@ func (c *columnReader) initDataDecoder(page Page, lvlByteLen int64) error {
 		case format.Encoding_RLE_DICTIONARY:
 			return xerrors.New("parquet: dictionary page must be before data page")
 		case format.Encoding_BYTE_STREAM_SPLIT:
-			return xerrors.New("parquet: unsupported data encoding")
+			return xerrors.Errorf("parquet: unsupported data encoding %s", encoding)
 		default:
-			return xerrors.New("parquet: unknown encoding type")
+			return xerrors.Errorf("parquet: unknown encoding type %s", encoding)
 		}
 	}
 
@@ -348,7 +369,7 @@ func (c *columnReader) initDataDecoder(page Page, lvlByteLen int64) error {
 	return nil
 }
 
-func (c *columnReader) readDefinitionLevels(levels []int16) (int, int64) {
+func (c *columnChunkReader) readDefinitionLevels(levels []int16) (int, int64) {
 	if c.descr.MaxDefinitionLevel() == 0 {
 		return 0, 0
 	}
@@ -356,7 +377,7 @@ func (c *columnReader) readDefinitionLevels(levels []int16) (int, int64) {
 	return c.definitionDecoder.Decode(levels)
 }
 
-func (c *columnReader) readRepetitionLevels(levels []int16) int {
+func (c *columnChunkReader) readRepetitionLevels(levels []int16) int {
 	if c.descr.MaxRepetitionLevel() == 0 {
 		return 0
 	}
@@ -365,7 +386,18 @@ func (c *columnReader) readRepetitionLevels(levels []int16) int {
 	return nlevels
 }
 
-func (c *columnReader) determineNumToRead(batchLen int64, defLvls, repLvls []int16) (ndefs int, toRead int64, err error) {
+// determineNumToRead reads the definition levels (and optionally populates the repetition levels)
+// in order to determine how many values need to be read to fulfill this batch read.
+//
+// batchLen is the number of values it is desired to read. defLvls must be either nil (in which case
+// a buffer will be used) or must be at least batchLen in length to be safe. repLvls should be either nil
+// (in which case it is ignored) or should be at least batchLen in length to be safe.
+//
+// In the return values: ndef is the number of definition levels that were actually read in which will
+// typically be the minimum of batchLen and numAvailValues.
+// toRead is the number of physical values that should be read in based on the definition levels (the number
+// of definition levels that were equal to maxDefinitionLevel). and err being either nil or any error encountered
+func (c *columnChunkReader) determineNumToRead(batchLen int64, defLvls, repLvls []int16) (ndefs int, toRead int64, err error) {
 	if !c.HasNext() {
 		return 0, 0, c.err
 	}
@@ -390,7 +422,7 @@ func (c *columnReader) determineNumToRead(batchLen int64, defLvls, repLvls []int
 	return
 }
 
-func (c *columnReader) determineNumToReadSpaced(batchLen int64, defLvls, repLvls []int16) (ndefs int, toRead int64, err error) {
+func (c *columnChunkReader) determineNumToReadSpaced(batchLen int64, defLvls, repLvls []int16) (ndefs int, toRead int64, err error) {
 	if !c.HasNext() {
 		return 0, 0, c.err
 	}
@@ -412,12 +444,12 @@ func (c *columnReader) determineNumToReadSpaced(batchLen int64, defLvls, repLvls
 	return
 }
 
-// skip some number of rows using readFn as the function to read the data and throw it away.
-// If we can skip a whole page based on its metadata, then we do so, otherwise we read the
+// skipValues some number of rows using readFn as the function to read the data and throw it away.
+// If we can skipValues a whole page based on its metadata, then we do so, otherwise we read the
 // page until we have skipped the number of rows desired.
-func (c *columnReader) skip(nrows int64, readFn func(batch int64, buf []byte) (int64, error)) (int64, error) {
+func (c *columnChunkReader) skipValues(nvalues int64, readFn func(batch int64, buf []byte) (int64, error)) (int64, error) {
 	var err error
-	toskip := nrows
+	toskip := nvalues
 	for c.HasNext() && toskip > 0 {
 		// if number to skip is more than the number of undecoded values, skip the page
 		if toskip > (c.numBuffered - c.numDecoded) {
@@ -446,50 +478,56 @@ func (c *columnReader) skip(nrows int64, readFn func(batch int64, buf []byte) (i
 	if c.err != nil {
 		err = c.err
 	}
-	return nrows - toskip, err
+	return nvalues - toskip, err
 }
 
 // base function for reading a batch of values, this will read until it either reads in batchSize values or
-// it hits the end of the column, including reading multiple pages.
-func (c *columnReader) readBatch(batchSize int64, defLvls, repLvls []int16, readFn readerFunc) (int64, int, error) {
+// it hits the end of the column chunk, including reading multiple pages.
+//
+// totalValues is the total number of values which were read in, and thus would be the total number
+// of definition levels and repetition levels which were populated (if they were non-nil). totalRead
+// is the number of physical values that were read in (ie: the number of non-null values)
+func (c *columnChunkReader) readBatch(batchSize int64, defLvls, repLvls []int16, readFn readerFunc) (totalLvls int64, totalRead int, err error) {
 	var (
-		totalValues int64
-		totalRead   int
-		err         error
-		read        int
-		defs        []int16
-		reps        []int16
-		ndefs       int
-		toRead      int64
+		read   int
+		defs   []int16
+		reps   []int16
+		ndefs  int
+		toRead int64
 	)
 
-	for c.HasNext() && totalValues < batchSize && err == nil {
+	for c.HasNext() && totalLvls < batchSize && err == nil {
 		if defLvls != nil {
-			defs = defLvls[totalValues:]
+			defs = defLvls[totalLvls:]
 		}
 		if repLvls != nil {
-			reps = repLvls[totalValues:]
+			reps = repLvls[totalLvls:]
 		}
-		ndefs, toRead, err = c.determineNumToRead(batchSize-totalValues, defs, reps)
+		ndefs, toRead, err = c.determineNumToRead(batchSize-totalLvls, defs, reps)
 		if err != nil {
-			return totalValues, totalRead, err
+			return totalLvls, totalRead, err
 		}
 
 		read, err = readFn(int64(totalRead), toRead)
+		// the total number of values processed here is the maximum of
+		// the number of definition levels or the number of physical values read.
+		// if this is a required field, ndefs will be 0 since there is no definition
+		// levels stored with it and `read` will be the number of values, otherwise
+		// we use ndefs since it will be equal to or greater than read.
 		totalVals := int64(utils.MaxInt(ndefs, read))
 		c.consumeBufferedValues(totalVals)
 
-		totalValues += totalVals
+		totalLvls += totalVals
 		totalRead += read
 	}
-	return totalValues, totalRead, err
+	return totalLvls, totalRead, err
 }
 
 type readerFunc func(int64, int64) (int, error)
 type spacedReaderFunc func(int64, int, []byte, int64) (int, error)
 
 // base function for reading a batch of spaced values
-func (c *columnReader) readBatchSpaced(batchSize int64, defLvls, repLvls []int16, validBits []byte, validBitsOffset int64, readFn readerFunc, readSpacedFn spacedReaderFunc) (totalVals, valsRead, nullCount, levelsRead int64, err error) {
+func (c *columnChunkReader) readBatchSpaced(batchSize int64, defLvls, repLvls []int16, validBits []byte, validBitsOffset int64, readFn readerFunc, readSpacedFn spacedReaderFunc) (totalVals, valsRead, nullCount, levelsRead int64, err error) {
 	// TODO(mtopol): keep reading data pages until batchSize is reached or the row group is finished
 	// implemented for reading non-spaced, but this is a bit more difficult to implement for spaced
 	// values, so it's not yet implemented. For now this needs to be called until it returns 0 read
