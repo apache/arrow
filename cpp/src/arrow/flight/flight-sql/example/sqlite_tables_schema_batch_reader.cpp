@@ -22,14 +22,15 @@
 #include <arrow/record_batch.h>
 #include <sqlite3.h>
 
-#include <boost/algorithm/string.hpp>
 #include <sstream>
 
+#include "arrow/flight/flight-sql/example/sqlite_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 
 namespace arrow {
 namespace flight {
 namespace sql {
+namespace example {
 
 std::shared_ptr<Schema> SqliteTablesWithSchemaBatchReader::schema() const {
   return SqlSchema::GetTablesSchemaWithIncludedSchema();
@@ -99,22 +100,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
   return Status::OK();
 }
 
-std::shared_ptr<DataType> SqliteTablesWithSchemaBatchReader::GetArrowType(
-    const char* sqlite_type) {
-  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
-    return int64();
-  } else if (boost::iequals(sqlite_type, "REAL")) {
-    return float64();
-  } else if (boost::iequals(sqlite_type, "BLOB")) {
-    return binary();
-  } else if (boost::iequals(sqlite_type, "TEXT") ||
-             boost::istarts_with(sqlite_type, "char") ||
-             boost::istarts_with(sqlite_type, "varchar")) {
-    return utf8();
-  } else {
-    return null();
-  }
-}
+}  // namespace example
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

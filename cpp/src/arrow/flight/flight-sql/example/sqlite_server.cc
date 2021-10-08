@@ -17,6 +17,7 @@
 
 #include <sqlite3.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -33,6 +34,27 @@ namespace arrow {
 namespace flight {
 namespace sql {
 namespace example {
+
+std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
+  if (sqlite_type == NULLPTR) {
+    // SQLite may not know the column type yet.
+    return null();
+  }
+
+  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+    return int64();
+  } else if (boost::iequals(sqlite_type, "REAL")) {
+    return float64();
+  } else if (boost::iequals(sqlite_type, "BLOB")) {
+    return binary();
+  } else if (boost::iequals(sqlite_type, "TEXT") ||
+             boost::istarts_with(sqlite_type, "char") ||
+             boost::istarts_with(sqlite_type, "varchar")) {
+    return utf8();
+  } else {
+    return null();
+  }
+}
 
 std::string PrepareQueryForGetTables(const pb::sql::CommandGetTables& command) {
   std::stringstream table_query;

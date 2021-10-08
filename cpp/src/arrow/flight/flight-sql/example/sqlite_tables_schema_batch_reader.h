@@ -30,6 +30,7 @@
 namespace arrow {
 namespace flight {
 namespace sql {
+namespace example {
 
 class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
  private:
@@ -49,12 +50,9 @@ class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
   std::shared_ptr<Schema> schema() const override;
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override;
-
-  /// Convert a column type to a ArrowType.
-  /// \param sqlite_type the sqlite type.
-  /// \return            The equivalent ArrowType.
-  static std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
 };
+
+}  // namespace example
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

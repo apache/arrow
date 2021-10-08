@@ -32,6 +32,8 @@ namespace flight {
 namespace sql {
 namespace example {
 
+std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
+
 /// \brief Example implementation of FlightSqlServerBase backed by an in-memory SQLite3
 ///        database.
 class SQLiteFlightSqlServer : public FlightSqlServerBase {

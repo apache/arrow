@@ -22,6 +22,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include "arrow/api.h"
+#include "arrow/flight/flight-sql/example/sqlite_server.h"
 
 namespace arrow {
 namespace flight {
@@ -57,27 +58,6 @@ Status SqliteStatement::Create(sqlite3* db, const std::string& sql,
 
   result->reset(new SqliteStatement(db, stmt));
   return Status::OK();
-}
-
-std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
-  if (sqlite_type == NULLPTR) {
-    // SQLite may not know the column type yet.
-    return null();
-  }
-
-  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
-    return int64();
-  } else if (boost::iequals(sqlite_type, "REAL")) {
-    return float64();
-  } else if (boost::iequals(sqlite_type, "BLOB")) {
-    return binary();
-  } else if (boost::iequals(sqlite_type, "TEXT") ||
-             boost::istarts_with(sqlite_type, "char") ||
-             boost::istarts_with(sqlite_type, "varchar")) {
-    return utf8();
-  } else {
-    return null();
-  }
 }
 
 Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
