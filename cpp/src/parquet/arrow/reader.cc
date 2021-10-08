@@ -846,6 +846,12 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     // These two types might not be equal if there column pruning occurred.
     // further down the stack.
     const std::shared_ptr<DataType> reader_child_type = child_reader->field()->type();
+    // This should really never happen but was raised as a question on the code
+    // review, this should  be pretty cheap check so leave it in.
+    if (ARROW_PREDICT_FALSE(list_field->type()->num_fields() != 1)) {
+      return Status::Invalid("expected exactly one child field for: ",
+                             list_field->ToString());
+    }
     const DataType& schema_child_type = *(list_field->type()->field(0)->type());
     if (type_id == ::arrow::Type::MAP) {
       if (reader_child_type->num_fields() != 2 ||
