@@ -3706,12 +3706,12 @@ endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   resolve_dependency(google_cloud_cpp_storage)
-  include_directories(SYSTEM ${GOOGLE_CLOUD_CPP_INCLUDE_DIR})
+  get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${google_cloud_cpp_storage_INCLUDE_DIR})
   get_target_property(absl_base_INCLUDE_DIR absl::base INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${absl_base_INCLUDE_DIR})
-  message(STATUS "Found google-cloud-cpp::storage static library: ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}"
-  )
-  message(STATUS "Found google-cloud-cpp::storage headers: ${GOOGLE_CLOUD_CPP_INCLUDE_DIR}"
+  message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
   )
 endif()
 
