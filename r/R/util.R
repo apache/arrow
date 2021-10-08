@@ -66,8 +66,7 @@ r_symbolic_constants <- c(
 )
 
 is_function <- function(expr, name) {
-  # We could have a quosure here if we have an expression like
-  # `sum({{ var }})`
+  # We could have a quosure here if we have an expression like `sum({{ var }})`
   if (is_quosure(expr)) {
     expr <- quo_get_expr(expr)
   }
