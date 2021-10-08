@@ -86,7 +86,7 @@ class OrcScanTask : public ScanTask {
         }
 
         return RecordBatchIterator(
-          Impl{std::move(reader), 0, num_stripes, included_fields});
+            Impl{std::move(reader), 0, num_stripes, included_fields});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {

@@ -277,7 +277,8 @@ class ORCFileReader::Impl {
     return ReadTable(opts, schema, out);
   }
 
-  Status Read(const std::vector<std::string>& include_names, std::shared_ptr<Table>* out) {
+  Status Read(const std::vector<std::string>& include_names,
+              std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts;
     RETURN_NOT_OK(SelectNames(&opts, include_names));
     std::shared_ptr<Schema> schema;
@@ -357,7 +358,7 @@ class ORCFileReader::Impl {
   }
 
   Status SelectNames(liborc::RowReaderOptions* opts,
-                       const std::vector<std::string>& include_names) {
+                     const std::vector<std::string>& include_names) {
     std::list<std::string> include_names_list(include_names.begin(), include_names.end());
     opts->include(include_names_list);
     return Status::OK();
