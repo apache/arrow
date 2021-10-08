@@ -45,10 +45,10 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
 
         CResult[shared_ptr[CRecordBatch]] ReadStripe(int64_t stripe)
         CResult[shared_ptr[CRecordBatch]] ReadStripe(
-            int64_t stripe, std_vector[int])
+            int64_t stripe, std_vector[c_string])
 
         CResult[shared_ptr[CTable]] Read()
-        CResult[shared_ptr[CTable]] Read(std_vector[int])
+        CResult[shared_ptr[CTable]] Read(std_vector[c_string])
 
         int64_t NumberOfStripes()
 
