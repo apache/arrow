@@ -254,6 +254,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
   }
 
+  if (func_name == "index") {
+    using Options = arrow::compute::IndexOptions;
+    return std::make_shared<Options>(
+        cpp11::as_cpp<std::shared_ptr<arrow::Scalar>>(options["value"]));
+  }
+
   if (func_name == "is_null") {
     using Options = arrow::compute::NullOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
