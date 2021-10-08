@@ -615,6 +615,9 @@ Parquet files:
 
 .. ipython:: python
 
+    dataset_root = base / "sample_dataset2"
+    dataset_root.mkdir(exist_ok=True)
+
     parquet_format = ds.ParquetFileFormat()
     write_options = parquet_format.make_write_options(allow_truncated_timestamps=True)
     ds.write_dataset(table, dataset_root, format="parquet", partitioning=part,
