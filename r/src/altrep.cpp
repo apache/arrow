@@ -69,12 +69,12 @@ R_xlen_t Standard_Get_region<int>(SEXP data2, R_xlen_t i, R_xlen_t n, int* buf) 
   return INTEGER_GET_REGION(data2, i, n, buf);
 }
 
-void DeleteChunkedArray(std::shared_ptr<Array>* ptr) { delete ptr; }
-using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteChunkedArray>;
+void DeleteChunkedArray(std::shared_ptr<ChunkedArray>* ptr) { delete ptr; }
+using Pointer =
+    cpp11::external_pointer<std::shared_ptr<ChunkedArray>, DeleteChunkedArray>;
 
-
-// the Array that is being wrapped by the altrep object
-static const std::shared_ptr<Array>& GetArray(SEXP alt) {
+// the ChunkedArray that is being wrapped by the altrep object
+const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
   return *Pointer(R_altrep_data1(alt));
 }
 
@@ -88,7 +88,8 @@ template <typename Impl>
 struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
   static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
-    SEXP alt = R_new_altrep(Impl::class_t, Pointer(new std::shared_ptr<Array>(chunked_array->chunk(0))),
+    SEXP alt = R_new_altrep(Impl::class_t,
+                            Pointer(new std::shared_ptr<ChunkedArray>(chunked_array)),
                             R_NilValue);
     MARK_NOT_MUTABLE(alt);
 
@@ -99,19 +100,20 @@ struct AltrepVectorBase {
   // standard R vector with the same data as the array.
   static bool IsMaterialized(SEXP alt) { return !Rf_isNull(R_altrep_data2(alt)); }
 
-  static R_xlen_t Length(SEXP alt) { return GetArray(alt)->length(); }
+  static R_xlen_t Length(SEXP alt) { return GetChunkedArray(alt)->length(); }
 
-  static int No_NA(SEXP alt) { return GetArray(alt)->null_count() == 0; }
+  static int No_NA(SEXP alt) { return GetChunkedArray(alt)->null_count() == 0; }
 
   static int Is_sorted(SEXP alt) { return UNKNOWN_SORTEDNESS; }
 
   // What gets printed on .Internal(inspect(<the altrep object>))
   static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    const auto& array = GetArray(alt);
-    Rprintf("arrow::Array<%s, %d nulls> len=%d, Array=<%p>\n",
-            array->type()->ToString().c_str(), array->null_count(), array->length(),
-            array.get());
+    const auto& chunked_array = GetChunkedArray(alt);
+    Rprintf("arrow::ChunkedArray<%p, %s, %d chunks, %d nulls> len=%d\n",
+            chunked_array.get(), chunked_array->type()->ToString().c_str(),
+            chunked_array->num_chunks(), chunked_array->null_count(),
+            chunked_array->length());
     return TRUE;
   }
 
@@ -176,10 +178,11 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       return DATAPTR_RO(R_altrep_data2(alt));
     }
 
-    // the Array has no nulls, we can directly return the start of its data
-    const auto& array = GetArray(alt);
-    if (array->null_count() == 0) {
-      return reinterpret_cast<const void*>(array->data()->template GetValues<c_type>(1));
+    // there is only one chunk with no nulls, we can directly return the start of its data
+    auto chunked_array = GetChunkedArray(alt);
+    if (chunked_array->num_chunks() == 1 && chunked_array->null_count() == 0) {
+      return reinterpret_cast<const void*>(
+          chunked_array->chunk(0)->data()->template GetValues<c_type>(1));
     }
 
     // Otherwise: if the array has nulls and data2 has not been generated: give up
@@ -191,11 +194,11 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // If the object hasn't been materialized, and the array has no
     // nulls we can directly point to the array data.
     if (!Base::IsMaterialized(alt)) {
-      const auto& array = GetArray(alt);
+      const auto& chunked_array = GetChunkedArray(alt);
 
-      if (array->null_count() == 0) {
-        return reinterpret_cast<void*>(
-            const_cast<c_type*>(array->data()->template GetValues<c_type>(1)));
+      if (chunked_array->num_chunks() == 1 && chunked_array->null_count() == 0) {
+        return reinterpret_cast<void*>(const_cast<c_type*>(
+            chunked_array->chunk(0)->data()->template GetValues<c_type>(1)));
       }
     }
 
@@ -216,9 +219,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
-    const auto& array = GetArray(alt);
-    return array->IsNull(i) ? cpp11::na<c_type>()
-                            : array->data()->template GetValues<c_type>(1)[i];
+    auto array = GetChunkedArray(alt)->Slice(i, 1)->chunk(0);
+
+    return array->IsNull(0) ? cpp11::na<c_type>()
+                            : array->data()->template GetValues<c_type>(1)[0];
   }
 
   // R calls this when it wants data from position `i` to `i + n` copied into `buf`
@@ -238,7 +242,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // array has nulls
     //
     // This only materialize the region, into buf. Not the entire vector.
-    auto slice = GetArray(alt)->Slice(i, n);
+    auto slice = GetChunkedArray(alt)->chunk(0)->Slice(i, n);
+
     R_xlen_t ncopy = slice->length();
 
     // first copy the data buffer
@@ -274,7 +279,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     using scalar_type =
         typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
-    const auto& array = GetArray(alt);
+    const auto& array = GetChunkedArray(alt)->chunk(0);
     bool na_rm = narm == TRUE;
     auto n = array->length();
     auto null_count = array->null_count();
@@ -304,7 +309,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   static SEXP Sum(SEXP alt, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
-    const auto& array = GetArray(alt);
+    const auto& array =
+      GetChunkedArray(alt)->chunk(0);
     bool na_rm = narm == TRUE;
     auto null_count = array->null_count();
 
@@ -437,7 +443,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    const auto& array = GetArray(alt);
+    auto array = Base::GetChunkedArray(alt)->chunk(0);
     RStringViewer r_string_viewer(array);
 
     // r_string_viewer.Convert(i) might jump so it's wrapped
@@ -464,7 +470,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    const auto& array = GetArray(alt);
+    const auto& array = GetChunkedArray(alt)->chunk(0);
     R_xlen_t n = array->length();
     SEXP data2 = PROTECT(Rf_allocVector(STRSXP, n));
     MARK_NOT_MUTABLE(data2);
@@ -608,8 +614,8 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
     // using altrep if
     // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
     // - the array has at least one element
-    if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
-      switch (array->type()->id()) {
+    if (arrow::r::GetBoolOption("arrow.use_altrep", true) && chunked_array->length() > 0) {
+      switch (chunked_array->type()->id()) {
         case arrow::Type::DOUBLE:
           return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
 
@@ -627,6 +633,7 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
       }
     }
   }
+
   return R_NilValue;
 }
 
