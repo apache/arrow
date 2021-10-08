@@ -313,8 +313,8 @@ Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
 }
 
 template <class T>
-Status PreparedStatementT<T>::SetParameters(const std::shared_ptr<RecordBatch>& parameter_binding_) {
-  parameter_binding = parameter_binding_;
+Status PreparedStatementT<T>::SetParameters(std::shared_ptr<RecordBatch> parameter_binding_) {
+  parameter_binding = std::move(parameter_binding_);
 
   return Status::OK();
 }

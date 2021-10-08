@@ -73,7 +73,7 @@ class ARROW_EXPORT PreparedStatementT {
   /// \brief Set a RecordBatch that contains the parameters that will be bind.
   /// \param parameter_binding_   The parameters that will be bind.
   /// \return                     Status.
-  Status SetParameters(const std::shared_ptr<RecordBatch>& parameter_binding_);
+  Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
 
   /// \brief Closes the prepared statement.
   /// \param[in] options  RPC-layer hints for this call.
