@@ -33,9 +33,9 @@ Tabular Datasets
 The Arrow Datasets library provides functionality to efficiently work with
 tabular, potentially larger than memory, and multi-file datasets. This includes:
 
-* A unified interface that supports different sources and file formats (currently,
-  Parquet, Feather / Arrow IPC, and CSV files) and different file systems (local,
-  cloud).
+* A unified interface that supports different sources and file formats
+  (currently, Parquet, ORC, Feather / Arrow IPC, and CSV files) and different
+  file systems (local, cloud).
 * Discovery of sources (crawling directories, handling partitioned datasets with
   various partitioning schemes, basic schema normalization, ...)
 * Optimized reading with predicate pushdown (filtering rows), projection
@@ -122,8 +122,8 @@ Reading different file formats
 The above examples use Parquet files on local disk, but the Dataset API
 provides a consistent interface across multiple file formats and filesystems.
 (See :ref:`cpp-dataset-cloud-storage` for more information on the latter.)
-Currently, Parquet, Feather / Arrow IPC, and CSV file formats are supported;
-more formats are planned in the future.
+Currently, Parquet, ORC, Feather / Arrow IPC, and CSV file formats are
+supported; more formats are planned in the future.
 
 If we save the table as Feather files instead of Parquet files:
 

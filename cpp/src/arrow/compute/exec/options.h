@@ -112,6 +112,26 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()>* generator;
 };
 
+class ARROW_EXPORT SinkNodeConsumer {
+ public:
+  virtual ~SinkNodeConsumer() = default;
+  /// \brief Consume a batch of data
+  virtual Status Consume(ExecBatch batch) = 0;
+  /// \brief Signal to the consumer that the last batch has been delivered
+  ///
+  /// The returned future should only finish when all outstanding tasks have completed
+  virtual Future<> Finish() = 0;
+};
+
+/// \brief Add a sink node which consumes data within the exec plan run
+class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
+ public:
+  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer)
+      : consumer(std::move(consumer)) {}
+
+  std::shared_ptr<SinkNodeConsumer> consumer;
+};
+
 /// \brief Make a node which sorts rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then sorted, by the given
@@ -124,6 +144,114 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
       : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
 
   SortOptions sort_options;
+};
+
+enum class JoinType {
+  LEFT_SEMI,
+  RIGHT_SEMI,
+  LEFT_ANTI,
+  RIGHT_ANTI,
+  INNER,
+  LEFT_OUTER,
+  RIGHT_OUTER,
+  FULL_OUTER
+};
+
+enum class JoinKeyCmp { EQ, IS };
+
+/// \brief Make a node which implements join operation using hash join strategy.
+class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr const char* default_output_prefix_for_left = "";
+  static constexpr const char* default_output_prefix_for_right = "";
+  HashJoinNodeOptions(
+      JoinType in_join_type, std::vector<FieldRef> in_left_keys,
+      std::vector<FieldRef> in_right_keys,
+      std::string output_prefix_for_left = default_output_prefix_for_left,
+      std::string output_prefix_for_right = default_output_prefix_for_right)
+      : join_type(in_join_type),
+        left_keys(std::move(in_left_keys)),
+        right_keys(std::move(in_right_keys)),
+        output_all(true),
+        output_prefix_for_left(std::move(output_prefix_for_left)),
+        output_prefix_for_right(std::move(output_prefix_for_right)) {
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+  }
+  HashJoinNodeOptions(
+      JoinType join_type, std::vector<FieldRef> left_keys,
+      std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+      std::vector<FieldRef> right_output,
+      std::string output_prefix_for_left = default_output_prefix_for_left,
+      std::string output_prefix_for_right = default_output_prefix_for_right)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)),
+        output_all(false),
+        left_output(std::move(left_output)),
+        right_output(std::move(right_output)),
+        output_prefix_for_left(std::move(output_prefix_for_left)),
+        output_prefix_for_right(std::move(output_prefix_for_right)) {
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+  }
+  HashJoinNodeOptions(
+      JoinType join_type, std::vector<FieldRef> left_keys,
+      std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+      std::vector<FieldRef> right_output, std::vector<JoinKeyCmp> key_cmp,
+      std::string output_prefix_for_left = default_output_prefix_for_left,
+      std::string output_prefix_for_right = default_output_prefix_for_right)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)),
+        output_all(false),
+        left_output(std::move(left_output)),
+        right_output(std::move(right_output)),
+        key_cmp(std::move(key_cmp)),
+        output_prefix_for_left(std::move(output_prefix_for_left)),
+        output_prefix_for_right(std::move(output_prefix_for_right)) {}
+
+  // type of join (inner, left, semi...)
+  JoinType join_type;
+  // key fields from left input
+  std::vector<FieldRef> left_keys;
+  // key fields from right input
+  std::vector<FieldRef> right_keys;
+  // if set all valid fields from both left and right input will be output
+  // (and field ref vectors for output fields will be ignored)
+  bool output_all;
+  // output fields passed from left input
+  std::vector<FieldRef> left_output;
+  // output fields passed from right input
+  std::vector<FieldRef> right_output;
+  // key comparison function (determines whether a null key is equal another null key or
+  // not)
+  std::vector<JoinKeyCmp> key_cmp;
+  // prefix added to names of output fields coming from left input (used to distinguish,
+  // if necessary, between fields of the same name in left and right input and can be left
+  // empty if there are no name collisions)
+  std::string output_prefix_for_left;
+  // prefix added to names of output fields coming from right input
+  std::string output_prefix_for_right;
+};
+
+/// \brief Make a node which select top_k/bottom_k rows passed through it
+///
+/// All batches pushed to this node will be accumulated, then selected, by the given
+/// fields. Then sorted batches will be forwarded to the generator in sorted order.
+class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
+ public:
+  explicit SelectKSinkNodeOptions(
+      SelectKOptions select_k_options,
+      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      : SinkNodeOptions(generator), select_k_options(std::move(select_k_options)) {}
+
+  /// SelectK options
+  SelectKOptions select_k_options;
 };
 
 }  // namespace compute

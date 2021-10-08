@@ -22,6 +22,13 @@ if (!exists("deparse1")) {
   }
 }
 
+# for compatibility with R versions earlier than 3.6.0
+if (!exists("str2lang")) {
+  str2lang <- function(s) {
+    parse(text = s, keep.source = FALSE)[[1]]
+  }
+}
+
 oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
   if (quote && is.character(x)) {
     x <- paste0('"', x, '"')
@@ -106,14 +113,6 @@ read_compressed_error <- function(e) {
       sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
       "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
-  }
-  stop(e)
-}
-
-handle_embedded_nul_error <- function(e) {
-  msg <- conditionMessage(e)
-  if (grepl(" nul ", msg)) {
-    e$message <- paste0(msg, "; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)")
   }
   stop(e)
 }

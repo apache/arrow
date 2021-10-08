@@ -19,13 +19,15 @@ package arrow
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type BooleanType struct{}
 
-func (t *BooleanType) ID() Type       { return BOOL }
-func (t *BooleanType) Name() string   { return "bool" }
-func (t *BooleanType) String() string { return "bool" }
+func (t *BooleanType) ID() Type            { return BOOL }
+func (t *BooleanType) Name() string        { return "bool" }
+func (t *BooleanType) String() string      { return "bool" }
+func (t *BooleanType) Fingerprint() string { return typeFingerprint(t) }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *BooleanType) BitWidth() int { return 1 }
@@ -34,10 +36,10 @@ type FixedSizeBinaryType struct {
 	ByteWidth int
 }
 
-func (*FixedSizeBinaryType) ID() Type        { return FIXED_SIZE_BINARY }
-func (*FixedSizeBinaryType) Name() string    { return "fixed_size_binary" }
-func (t *FixedSizeBinaryType) BitWidth() int { return 8 * t.ByteWidth }
-
+func (*FixedSizeBinaryType) ID() Type              { return FIXED_SIZE_BINARY }
+func (*FixedSizeBinaryType) Name() string          { return "fixed_size_binary" }
+func (t *FixedSizeBinaryType) BitWidth() int       { return 8 * t.ByteWidth }
+func (t *FixedSizeBinaryType) Fingerprint() string { return typeFingerprint(t) }
 func (t *FixedSizeBinaryType) String() string {
 	return "fixed_size_binary[" + strconv.Itoa(t.ByteWidth) + "]"
 }
@@ -58,6 +60,10 @@ const (
 	Millisecond
 	Second
 )
+
+func (u TimeUnit) Multiplier() time.Duration {
+	return [...]time.Duration{time.Nanosecond, time.Microsecond, time.Millisecond, time.Second}[uint(u)&3]
+}
 
 func (u TimeUnit) String() string { return [...]string{"ns", "us", "ms", "s"}[uint(u)&3] }
 
@@ -80,6 +86,10 @@ func (t *TimestampType) String() string {
 	}
 }
 
+func (t *TimestampType) Fingerprint() string {
+	return fmt.Sprintf("%s%d:%s", typeFingerprint(t)+string(timeUnitFingerprint(t.Unit)), len(t.TimeZone), t.TimeZone)
+}
+
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
@@ -92,6 +102,9 @@ func (*Time32Type) ID() Type         { return TIME32 }
 func (*Time32Type) Name() string     { return "time32" }
 func (*Time32Type) BitWidth() int    { return 32 }
 func (t *Time32Type) String() string { return "time32[" + t.Unit.String() + "]" }
+func (t *Time32Type) Fingerprint() string {
+	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
+}
 
 // Time64Type is encoded as a 64-bit signed integer, representing either microseconds or nanoseconds since midnight.
 type Time64Type struct {
@@ -102,6 +115,9 @@ func (*Time64Type) ID() Type         { return TIME64 }
 func (*Time64Type) Name() string     { return "time64" }
 func (*Time64Type) BitWidth() int    { return 64 }
 func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" }
+func (t *Time64Type) Fingerprint() string {
+	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
+}
 
 // DurationType is encoded as a 64-bit signed integer, representing an amount
 // of elapsed time without any relation to a calendar artifact.
@@ -113,13 +129,17 @@ func (*DurationType) ID() Type         { return DURATION }
 func (*DurationType) Name() string     { return "duration" }
 func (*DurationType) BitWidth() int    { return 64 }
 func (t *DurationType) String() string { return "duration[" + t.Unit.String() + "]" }
+func (t *DurationType) Fingerprint() string {
+	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
+}
 
 // Float16Type represents a floating point value encoded with a 16-bit precision.
 type Float16Type struct{}
 
-func (t *Float16Type) ID() Type       { return FLOAT16 }
-func (t *Float16Type) Name() string   { return "float16" }
-func (t *Float16Type) String() string { return "float16" }
+func (t *Float16Type) ID() Type            { return FLOAT16 }
+func (t *Float16Type) Name() string        { return "float16" }
+func (t *Float16Type) String() string      { return "float16" }
+func (t *Float16Type) Fingerprint() string { return typeFingerprint(t) }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *Float16Type) BitWidth() int { return 16 }
@@ -136,6 +156,9 @@ func (*Decimal128Type) BitWidth() int { return 128 }
 func (t *Decimal128Type) String() string {
 	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
 }
+func (t *Decimal128Type) Fingerprint() string {
+	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
+}
 
 // MonthInterval represents a number of months.
 type MonthInterval int32
@@ -144,9 +167,10 @@ type MonthInterval int32
 // representing a number of months.
 type MonthIntervalType struct{}
 
-func (*MonthIntervalType) ID() Type       { return INTERVAL }
-func (*MonthIntervalType) Name() string   { return "month_interval" }
-func (*MonthIntervalType) String() string { return "month_interval" }
+func (*MonthIntervalType) ID() Type            { return INTERVAL }
+func (*MonthIntervalType) Name() string        { return "month_interval" }
+func (*MonthIntervalType) String() string      { return "month_interval" }
+func (*MonthIntervalType) Fingerprint() string { return typeIDFingerprint(INTERVAL) + "M" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *MonthIntervalType) BitWidth() int { return 32 }
@@ -161,9 +185,10 @@ type DayTimeInterval struct {
 // representing a number of days and milliseconds (fraction of day).
 type DayTimeIntervalType struct{}
 
-func (*DayTimeIntervalType) ID() Type       { return INTERVAL }
-func (*DayTimeIntervalType) Name() string   { return "day_time_interval" }
-func (*DayTimeIntervalType) String() string { return "day_time_interval" }
+func (*DayTimeIntervalType) ID() Type            { return INTERVAL }
+func (*DayTimeIntervalType) Name() string        { return "day_time_interval" }
+func (*DayTimeIntervalType) String() string      { return "day_time_interval" }
+func (*DayTimeIntervalType) Fingerprint() string { return typeIDFingerprint(INTERVAL) + "d" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *DayTimeIntervalType) BitWidth() int { return 64 }

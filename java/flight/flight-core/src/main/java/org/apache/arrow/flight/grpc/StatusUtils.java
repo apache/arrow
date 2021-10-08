@@ -26,6 +26,7 @@ import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 
+import io.grpc.InternalMetadata;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.Status.Code;
@@ -121,6 +122,17 @@ public class StatusUtils {
     }
   }
 
+  /** Create Metadata Key for binary metadata. */
+  static Metadata.Key<byte[]> keyOfBinary(String name) {
+    return Metadata.Key.of(name, Metadata.BINARY_BYTE_MARSHALLER);
+  }
+
+  /** Create Metadata Key for ascii metadata. */
+  static Metadata.Key<String> keyOfAscii(String name) {
+    // Use InternalMetadata for keys that start with ":", e.g. ":status". See ARROW-14014.
+    return InternalMetadata.keyOf(name, Metadata.ASCII_STRING_MARSHALLER);
+  }
+
   /** Convert from a gRPC Status & trailers to a Flight status. */
   public static CallStatus fromGrpcStatusAndTrailers(Status status, Metadata trailers) {
     // gRPC may not always have trailers - this happens when the server internally generates an error, which is rare,
@@ -152,17 +164,14 @@ public class StatusUtils {
     return fromGrpcStatusAndTrailers(sre.getStatus(), sre.getTrailers()).toRuntimeException();
   }
 
-  /** Convert gRPC trailers into Flight error metadata.  */
+  /** Convert gRPC trailers into Flight error metadata. */
   private static ErrorFlightMetadata parseTrailers(Metadata trailers) {
     ErrorFlightMetadata metadata = new ErrorFlightMetadata();
     for (String key : trailers.keys()) {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-        metadata.insert(key, trailers.get(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER)));
+        metadata.insert(key, trailers.get(keyOfBinary(key)));
       } else {
-        metadata.insert(key,
-                     Objects.requireNonNull(
-                     trailers.get(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))).getBytes()
-        );
+        metadata.insert(key, Objects.requireNonNull(trailers.get(keyOfAscii(key))).getBytes());
       }
     }
     return metadata;
@@ -207,9 +216,9 @@ public class StatusUtils {
     final Metadata trailers = new Metadata();
     for (final String key : metadata.keys()) {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-        trailers.put(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER), metadata.getByte(key));
+        trailers.put(keyOfBinary(key), metadata.getByte(key));
       } else {
-        trailers.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), metadata.get(key));
+        trailers.put(keyOfAscii(key), metadata.get(key));
       }
     }
     return trailers;

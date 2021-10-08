@@ -107,6 +107,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME32" arrow::Type::TIME32"
         _Type_TIME64" arrow::Type::TIME64"
         _Type_DURATION" arrow::Type::DURATION"
+        _Type_INTERVAL_MONTH_DAY_NANO" arrow::Type::INTERVAL_MONTH_DAY_NANO"
 
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
@@ -557,6 +558,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
         int64_t Value(int i)
 
+    cdef cppclass CMonthDayNanoIntervalArray \
+            "arrow::MonthDayNanoIntervalArray"(CArray):
+        pass
+
     cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
         uint16_t Value(int i)
 
@@ -998,6 +1003,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDurationScalar" arrow::DurationScalar"(CScalar):
         int64_t value
+
+    cdef cppclass CMonthDayNanoIntervalScalar \
+            "arrow::MonthDayNanoIntervalScalar"(CScalar):
+        pass
 
     cdef cppclass CBaseBinaryScalar" arrow::BaseBinaryScalar"(CScalar):
         shared_ptr[CBuffer] value
@@ -1998,8 +2007,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CDayOfWeekOptions \
             "arrow::compute::DayOfWeekOptions"(CFunctionOptions):
-        CDayOfWeekOptions(c_bool one_based_numbering, uint32_t week_start)
-        c_bool one_based_numbering
+        CDayOfWeekOptions(c_bool count_from_zero, uint32_t week_start)
+        c_bool count_from_zero
         uint32_t week_start
 
     cdef enum CAssumeTimezoneAmbiguous \
@@ -2028,6 +2037,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_string timezone
         CAssumeTimezoneAmbiguous ambiguous
         CAssumeTimezoneNonexistent nonexistent
+
+    cdef cppclass CWeekOptions \
+            "arrow::compute::WeekOptions"(CFunctionOptions):
+        CWeekOptions(c_bool week_starts_monday, c_bool count_from_zero,
+                     c_bool first_week_is_fully_in_year)
+        c_bool week_starts_monday
+        c_bool count_from_zero
+        c_bool first_week_is_fully_in_year
 
     cdef cppclass CNullOptions \
             "arrow::compute::NullOptions"(CFunctionOptions):
@@ -2069,11 +2086,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CIndexOptions(shared_ptr[CScalar] value)
         shared_ptr[CScalar] value
 
-    cdef cppclass CPartitionNthOptions \
-            "arrow::compute::PartitionNthOptions"(CFunctionOptions):
-        CPartitionNthOptions(int64_t pivot)
-        int64_t pivot
-
     cdef cppclass CMakeStructOptions \
             "arrow::compute::MakeStructOptions"(CFunctionOptions):
         CMakeStructOptions(vector[c_string] n,
@@ -2090,10 +2102,23 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSortOrder_Descending \
             "arrow::compute::SortOrder::Descending"
 
+    ctypedef enum CNullPlacement" arrow::compute::NullPlacement":
+        CNullPlacement_AtStart \
+            "arrow::compute::NullPlacement::AtStart"
+        CNullPlacement_AtEnd \
+            "arrow::compute::NullPlacement::AtEnd"
+
+    cdef cppclass CPartitionNthOptions \
+            "arrow::compute::PartitionNthOptions"(CFunctionOptions):
+        CPartitionNthOptions(int64_t pivot, CNullPlacement)
+        int64_t pivot
+        CNullPlacement null_placement
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
-        CArraySortOptions(CSortOrder order)
+        CArraySortOptions(CSortOrder, CNullPlacement)
         CSortOrder order
+        CNullPlacement null_placement
 
     cdef cppclass CSortKey" arrow::compute::SortKey":
         CSortKey(c_string name, CSortOrder order)
@@ -2102,8 +2127,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
-        CSortOptions(vector[CSortKey] sort_keys)
+        CSortOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
+        CNullPlacement null_placement
 
     cdef cppclass CSelectKOptions \
             "arrow::compute::SelectKOptions"(CFunctionOptions):
@@ -2195,6 +2221,14 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
     CResult[shared_ptr[CDataType]] InferArrowType(
         object obj, object mask, c_bool pandas_null_sentinels)
+
+
+cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
+    object NewMonthDayNanoTupleType()
+    CResult[PyObject*] MonthDayNanoIntervalArrayToPyList(
+        const CMonthDayNanoIntervalArray& array)
+    CResult[PyObject*] MonthDayNanoIntervalScalarToPyObject(
+        const CMonthDayNanoIntervalScalar& scalar)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

@@ -66,37 +66,59 @@ Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& desc
   return result;
 }
 
+Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs) {
+  ValueDescr result = descrs.back();
+  result.shape = GetBroadcastShape(descrs);
+  return result;
+}
+
 Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
   const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
   return ValueDescr(list_type.value_type(), GetBroadcastShape(args));
 }
 
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
-  for (ValueDescr& descr : *descrs) {
-    if (descr.type->id() == Type::DICTIONARY) {
-      descr.type = checked_cast<const DictionaryType&>(*descr.type).value_type();
+  EnsureDictionaryDecoded(descrs->data(), descrs->size());
+}
+
+void EnsureDictionaryDecoded(ValueDescr* begin, size_t count) {
+  auto* end = begin + count;
+  for (auto it = begin; it != end; it++) {
+    if (it->type->id() == Type::DICTIONARY) {
+      it->type = checked_cast<const DictionaryType&>(*it->type).value_type();
     }
   }
 }
 
 void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs) {
-  DCHECK_EQ(descrs->size(), 2);
+  ReplaceNullWithOtherType(descrs->data(), descrs->size());
+}
 
-  if (descrs->at(0).type->id() == Type::NA) {
-    descrs->at(0).type = descrs->at(1).type;
+void ReplaceNullWithOtherType(ValueDescr* first, size_t count) {
+  DCHECK_EQ(count, 2);
+
+  ValueDescr* second = first++;
+  if (first->type->id() == Type::NA) {
+    first->type = second->type;
     return;
   }
 
-  if (descrs->at(1).type->id() == Type::NA) {
-    descrs->at(1).type = descrs->at(0).type;
+  if (second->type->id() == Type::NA) {
+    second->type = first->type;
     return;
   }
 }
 
 void ReplaceTypes(const std::shared_ptr<DataType>& type,
                   std::vector<ValueDescr>* descrs) {
-  for (auto& descr : *descrs) {
-    descr.type = type;
+  ReplaceTypes(type, descrs->data(), descrs->size());
+}
+
+void ReplaceTypes(const std::shared_ptr<DataType>& type, ValueDescr* begin,
+                  size_t count) {
+  auto* end = begin + count;
+  for (auto* it = begin; it != end; it++) {
+    it->type = type;
   }
 }
 
@@ -158,50 +180,83 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   return int8();
 }
 
-std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs) {
+std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) {
   TimeUnit::type finest_unit = TimeUnit::SECOND;
+  const std::string* timezone = nullptr;
+  bool saw_date32 = false;
+  bool saw_date64 = false;
 
-  for (const auto& descr : descrs) {
-    auto id = descr.type->id();
+  const ValueDescr* end = begin + count;
+  for (auto it = begin; it != end; it++) {
+    auto id = it->type->id();
     // a common timestamp is only possible if all types are timestamp like
     switch (id) {
       case Type::DATE32:
-      case Type::DATE64:
+        // Date32's unit is days, but the coarsest we have is seconds
+        saw_date32 = true;
         continue;
-      case Type::TIMESTAMP:
-        finest_unit =
-            std::max(finest_unit, checked_cast<const TimestampType&>(*descr.type).unit());
+      case Type::DATE64:
+        finest_unit = std::max(finest_unit, TimeUnit::MILLI);
+        saw_date64 = true;
+        continue;
+      case Type::TIMESTAMP: {
+        const auto& ty = checked_cast<const TimestampType&>(*it->type);
+        if (timezone && *timezone != ty.timezone()) return nullptr;
+        timezone = &ty.timezone();
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      default:
+        return nullptr;
+    }
+  }
+
+  if (timezone) {
+    // At least one timestamp seen
+    return timestamp(finest_unit, *timezone);
+  } else if (saw_date64) {
+    return date64();
+  } else if (saw_date32) {
+    return date32();
+  }
+  return nullptr;
+}
+
+std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
+  bool all_utf8 = true, all_offset32 = true, all_fixed_width = true;
+
+  const ValueDescr* end = begin + count;
+  for (auto it = begin; it != end; ++it) {
+    auto id = it->type->id();
+    // a common varbinary type is only possible if all types are binary like
+    switch (id) {
+      case Type::STRING:
+        all_fixed_width = false;
+        continue;
+      case Type::BINARY:
+        all_fixed_width = false;
+        all_utf8 = false;
+        continue;
+      case Type::FIXED_SIZE_BINARY:
+        all_utf8 = false;
+        continue;
+      case Type::LARGE_STRING:
+        all_offset32 = false;
+        all_fixed_width = false;
+        continue;
+      case Type::LARGE_BINARY:
+        all_offset32 = false;
+        all_fixed_width = false;
+        all_utf8 = false;
         continue;
       default:
         return nullptr;
     }
   }
 
-  return timestamp(finest_unit);
-}
-
-std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs) {
-  bool all_utf8 = true, all_offset32 = true;
-
-  for (const auto& descr : descrs) {
-    auto id = descr.type->id();
-    // a common varbinary type is only possible if all types are binary like
-    switch (id) {
-      case Type::STRING:
-        continue;
-      case Type::BINARY:
-        all_utf8 = false;
-        continue;
-      case Type::LARGE_STRING:
-        all_offset32 = false;
-        continue;
-      case Type::LARGE_BINARY:
-        all_offset32 = false;
-        all_utf8 = false;
-        continue;
-      default:
-        return nullptr;
-    }
+  if (all_fixed_width) {
+    // At least for the purposes of comparison, no need to cast.
+    return nullptr;
   }
 
   if (all_utf8) {
@@ -287,6 +342,67 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
       left_type, DecimalType::Make(casted_type_id, p1 + left_scaleup, s1 + left_scaleup));
   ARROW_ASSIGN_OR_RAISE(right_type, DecimalType::Make(casted_type_id, p2 + right_scaleup,
                                                       s2 + right_scaleup));
+  return Status::OK();
+}
+
+Status CastDecimalArgs(ValueDescr* begin, size_t count) {
+  Type::type casted_type_id = Type::DECIMAL128;
+  auto* end = begin + count;
+
+  int32_t max_scale = 0;
+  bool any_floating = false;
+  for (auto* it = begin; it != end; ++it) {
+    const auto& ty = *it->type;
+    if (is_floating(ty.id())) {
+      // Decimal + float = float
+      any_floating = true;
+    } else if (is_integer(ty.id())) {
+      // Nothing to do here
+    } else if (is_decimal(ty.id())) {
+      max_scale = std::max(max_scale, checked_cast<const DecimalType&>(ty).scale());
+      if (ty.id() == Type::DECIMAL256) {
+        casted_type_id = Type::DECIMAL256;
+      }
+    } else {
+      // Non-numeric, can't cast
+      return Status::OK();
+    }
+  }
+  if (any_floating) {
+    ReplaceTypes(float64(), begin, count);
+    return Status::OK();
+  }
+
+  // All integer and decimal, rescale
+  int32_t common_precision = 0;
+  for (auto* it = begin; it != end; ++it) {
+    const auto& ty = *it->type;
+    if (is_integer(ty.id())) {
+      ARROW_ASSIGN_OR_RAISE(auto precision, MaxDecimalDigitsForInteger(ty.id()));
+      precision += max_scale;
+      common_precision = std::max(common_precision, precision);
+    } else if (is_decimal(ty.id())) {
+      const auto& decimal_ty = checked_cast<const DecimalType&>(ty);
+      auto precision = decimal_ty.precision();
+      const auto scale = decimal_ty.scale();
+      precision += max_scale - scale;
+      common_precision = std::max(common_precision, precision);
+    }
+  }
+
+  if (common_precision > BasicDecimal256::kMaxPrecision) {
+    return Status::Invalid("Result precision (", common_precision,
+                           ") exceeds max precision of Decimal256 (",
+                           BasicDecimal256::kMaxPrecision, ")");
+  } else if (common_precision > BasicDecimal128::kMaxPrecision) {
+    casted_type_id = Type::DECIMAL256;
+  }
+
+  for (auto* it = begin; it != end; ++it) {
+    ARROW_ASSIGN_OR_RAISE(it->type,
+                          DecimalType::Make(casted_type_id, common_precision, max_scale));
+  }
+
   return Status::OK();
 }
 

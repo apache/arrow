@@ -399,6 +399,10 @@ cdef class ExtensionArray(Array):
     pass
 
 
+cdef class MonthDayNanoIntervalArray(Array):
+    pass
+
+
 cdef wrap_array_output(PyObject* output)
 cdef wrap_datum(const CDatum& datum)
 

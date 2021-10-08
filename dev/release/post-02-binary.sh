@@ -45,6 +45,7 @@ fi
 # To deactivate one category, deactivate the category and all of its dependents.
 # To explicitly select one category, set DEPLOY_DEFAULT=0 DEPLOY_X=1.
 : ${DEPLOY_DEFAULT:=1}
+: ${DEPLOY_ALMALINUX:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_AMAZON_LINUX:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}
@@ -55,6 +56,10 @@ fi
 rake_tasks=()
 apt_targets=()
 yum_targets=()
+if [ ${DEPLOY_ALMALINUX} -gt 0 ]; then
+  rake_tasks+=(yum:release)
+  yum_targets+=(almalinux)
+fi
 if [ ${DEPLOY_AMAZON_LINUX} -gt 0 ]; then
   rake_tasks+=(yum:release)
   yum_targets+=(amazon-linux)

@@ -86,6 +86,15 @@ enum class SortOrder {
   Descending,
 };
 
+enum class NullPlacement {
+  /// Place nulls and NaNs before any non-null values.
+  /// NaNs will come after nulls.
+  AtStart,
+  /// Place nulls and NaNs after any non-null values.
+  /// NaNs will come before nulls.
+  AtEnd,
+};
+
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
@@ -106,22 +115,28 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
 
 class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
-  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending);
+  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending,
+                            NullPlacement null_placement = NullPlacement::AtEnd);
   constexpr static char const kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
   /// Sorting order
   SortOrder order;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
 };
 
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
-  explicit SortOptions(std::vector<SortKey> sort_keys = {});
+  explicit SortOptions(std::vector<SortKey> sort_keys = {},
+                       NullPlacement null_placement = NullPlacement::AtEnd);
   constexpr static char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
 };
 
 /// \brief SelectK options
@@ -162,12 +177,15 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
-  explicit PartitionNthOptions(int64_t pivot);
+  explicit PartitionNthOptions(int64_t pivot,
+                               NullPlacement null_placement = NullPlacement::AtEnd);
   PartitionNthOptions() : PartitionNthOptions(0) {}
   constexpr static char const kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
+  /// Whether nulls and NaNs are partitioned at the start or at the end
+  NullPlacement null_placement;
 };
 
 /// @}
@@ -273,8 +291,7 @@ Result<Datum> DropNull(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Returns indices that partition an array around n-th
-/// sorted element.
+/// \brief Return indices that partition an array around n-th sorted element.
 ///
 /// Find index of n-th(0 based) smallest value and perform indirect
 /// partition of an array around that element. Output indices[0 ~ n-1]
@@ -291,14 +308,27 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would select the first `k` elements of the array in
-/// the specified order.
+/// \brief Return indices that partition an array around n-th sorted element.
 ///
-// Perform an indirect sort of the datum, keeping only the first `k` elements. The output
-// array will contain indices such that the item indicated by the k-th index will be in
-// the position it would be if the datum were sorted by `options.sort_keys`. However,
-// indices of null values will not be part of the output. The sort is not guaranteed to be
-// stable.
+/// This overload takes a PartitionNthOptions specifiying the pivot index
+/// and the null handling.
+///
+/// \param[in] values array to be partitioned
+/// \param[in] options options including pivot index and null handling
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would partition an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> NthToIndices(const Array& values,
+                                            const PartitionNthOptions& options,
+                                            ExecContext* ctx = NULLPTR);
+
+/// \brief Return indices that would select the first `k` elements.
+///
+/// Perform an indirect sort of the datum, keeping only the first `k` elements. The output
+/// array will contain indices such that the item indicated by the k-th index will be in
+/// the position it would be if the datum were sorted by `options.sort_keys`. However,
+/// indices of null values will not be part of the output. The sort is not guaranteed to
+/// be stable.
 ///
 /// \param[in] datum datum to be partitioned
 /// \param[in] options options
@@ -309,8 +339,7 @@ Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
                                                const SelectKOptions& options,
                                                ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort an array in the
-/// specified order.
+/// \brief Return the indices that would sort an array.
 ///
 /// Perform an indirect sort of array. The output array will contain
 /// indices that would sort an array, which would be the same length
@@ -330,8 +359,21 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
                                            SortOrder order = SortOrder::Ascending,
                                            ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort a chunked array in the
-/// specified order.
+/// \brief Return the indices that would sort an array.
+///
+/// This overload takes a ArraySortOptions specifiying the sort order
+/// and the null handling.
+///
+/// \param[in] array array to sort
+/// \param[in] options options including sort order and null handling
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would sort an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortIndices(const Array& array,
+                                           const ArraySortOptions& options,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Return the indices that would sort a chunked array.
 ///
 /// Perform an indirect sort of chunked array. The output array will
 /// contain indices that would sort a chunked array, which would be
@@ -351,14 +393,28 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order = SortOrder::Ascending,
                                            ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort an input in the
+/// \brief Return the indices that would sort a chunked array.
+///
+/// This overload takes a ArraySortOptions specifiying the sort order
+/// and the null handling.
+///
+/// \param[in] chunked_array chunked array to sort
+/// \param[in] options options including sort order and null handling
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would sort an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
+                                           const ArraySortOptions& options,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Return the indices that would sort an input in the
 /// specified order. Input is one of array, chunked array record batch
 /// or table.
 ///
 /// Perform an indirect sort of input. The output array will contain
 /// indices that would sort an input, which would be the same length
-/// as input. Nulls will be stably partitioned to the end of the
-/// output regardless of order.
+/// as input. Nulls will be stably partitioned to the start or to the end
+/// of the output depending on SortOrder::null_placement.
 ///
 /// For example given input (table) = {
 /// "column1": [[null,   1], [   3, null, 2, 1]],

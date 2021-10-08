@@ -436,8 +436,10 @@ class NullHashKernel : public HashKernel {
 
 class DictionaryHashKernel : public HashKernel {
  public:
-  explicit DictionaryHashKernel(std::unique_ptr<HashKernel> indices_kernel)
-      : indices_kernel_(std::move(indices_kernel)) {}
+  explicit DictionaryHashKernel(std::unique_ptr<HashKernel> indices_kernel,
+                                std::shared_ptr<DataType> dictionary_value_type)
+      : indices_kernel_(std::move(indices_kernel)),
+        dictionary_value_type_(std::move(dictionary_value_type)) {}
 
   Status Reset() override { return indices_kernel_->Reset(); }
 
@@ -485,11 +487,16 @@ class DictionaryHashKernel : public HashKernel {
     return indices_kernel_->value_type();
   }
 
+  std::shared_ptr<DataType> dictionary_value_type() const {
+    return dictionary_value_type_;
+  }
+
   std::shared_ptr<ArrayData> dictionary() const { return dictionary_; }
 
  private:
   std::unique_ptr<HashKernel> indices_kernel_;
   std::shared_ptr<ArrayData> dictionary_;
+  std::shared_ptr<DataType> dictionary_value_type_;
 };
 
 // ----------------------------------------------------------------------
@@ -582,15 +589,19 @@ Result<std::unique_ptr<KernelState>> DictionaryHashInit(KernelContext* ctx,
   Result<std::unique_ptr<HashKernel>> indices_hasher;
   switch (dict_type.index_type()->id()) {
     case Type::INT8:
+    case Type::UINT8:
       indices_hasher = HashInitImpl<UInt8Type, Action>(ctx, args);
       break;
     case Type::INT16:
+    case Type::UINT16:
       indices_hasher = HashInitImpl<UInt16Type, Action>(ctx, args);
       break;
     case Type::INT32:
+    case Type::UINT32:
       indices_hasher = HashInitImpl<UInt32Type, Action>(ctx, args);
       break;
     case Type::INT64:
+    case Type::UINT64:
       indices_hasher = HashInitImpl<UInt64Type, Action>(ctx, args);
       break;
     default:
@@ -599,7 +610,7 @@ Result<std::unique_ptr<KernelState>> DictionaryHashInit(KernelContext* ctx,
   }
   RETURN_NOT_OK(indices_hasher);
   return ::arrow::internal::make_unique<DictionaryHashKernel>(
-      std::move(indices_hasher.ValueOrDie()));
+      std::move(indices_hasher.ValueOrDie()), dict_type.value_type());
 }
 
 Status HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -649,10 +660,24 @@ Status ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   return Status::OK();
 }
 
+// Return the dictionary from the hash kernel or allocate an empty one.
+// Required because on empty inputs, we don't ever see the input and
+// hence have no dictionary.
+Result<std::shared_ptr<ArrayData>> EnsureHashDictionary(KernelContext* ctx,
+                                                        DictionaryHashKernel* hash) {
+  if (hash->dictionary()) {
+    return hash->dictionary();
+  }
+  ARROW_ASSIGN_OR_RAISE(auto null, MakeArrayOfNull(hash->dictionary_value_type(),
+                                                   /*length=*/0, ctx->memory_pool()));
+  return null->data();
+}
+
 Status UniqueFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
   RETURN_NOT_OK(UniqueFinalize(ctx, out));
   auto hash = checked_cast<DictionaryHashKernel*>(ctx->state());
-  (*out)[0].mutable_array()->dictionary = hash->dictionary();
+  ARROW_ASSIGN_OR_RAISE((*out)[0].mutable_array()->dictionary,
+                        EnsureHashDictionary(ctx, hash));
   return Status::OK();
 }
 
@@ -662,7 +687,7 @@ Status ValueCountsFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out
   Datum value_counts;
   RETURN_NOT_OK(hash->GetDictionary(&uniques));
   RETURN_NOT_OK(hash->FlushFinal(&value_counts));
-  uniques->dictionary = hash->dictionary();
+  ARROW_ASSIGN_OR_RAISE(uniques->dictionary, EnsureHashDictionary(ctx, hash));
   *out = {Datum(BoxValueCounts(uniques, value_counts.array()))};
   return Status::OK();
 }

@@ -122,8 +122,10 @@ namespace internal {
 
 struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   using Scalar::Scalar;
+  /// \brief Get a mutable pointer to the value of this scalar. May be null.
   virtual void* mutable_data() = 0;
-  virtual const void* data() const = 0;
+  /// \brief Get an immutable view of the value of this scalar as bytes.
+  virtual util::string_view view() const = 0;
 };
 
 template <typename T, typename CType = typename T::c_type>
@@ -142,7 +144,9 @@ struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
   ValueType value{};
 
   void* mutable_data() override { return &value; }
-  const void* data() const override { return &value; }
+  util::string_view view() const override {
+    return util::string_view(reinterpret_cast<const char*>(&value), sizeof(ValueType));
+  };
 };
 
 }  // namespace internal
@@ -217,15 +221,22 @@ struct ARROW_EXPORT DoubleScalar : public NumericScalar<DoubleType> {
   using NumericScalar<DoubleType>::NumericScalar;
 };
 
-struct ARROW_EXPORT BaseBinaryScalar : public Scalar {
-  using Scalar::Scalar;
+struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
+  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using ValueType = std::shared_ptr<Buffer>;
 
   std::shared_ptr<Buffer> value;
 
+  void* mutable_data() override {
+    return value ? reinterpret_cast<void*>(value->mutable_data()) : NULLPTR;
+  }
+  util::string_view view() const override {
+    return value ? util::string_view(*value) : util::string_view();
+  }
+
  protected:
   BaseBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
-      : Scalar{std::move(type), true}, value(std::move(value)) {}
+      : internal::PrimitiveScalarBase{std::move(type), true}, value(std::move(value)) {}
 };
 
 struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar {
@@ -357,24 +368,41 @@ struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
   using TemporalScalar<DurationType>::TemporalScalar;
 };
 
-struct ARROW_EXPORT Decimal128Scalar : public Scalar {
-  using Scalar::Scalar;
+struct ARROW_EXPORT Decimal128Scalar : public internal::PrimitiveScalarBase {
+  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = Decimal128Type;
   using ValueType = Decimal128;
 
   Decimal128Scalar(Decimal128 value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
+      : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
+
+  void* mutable_data() override {
+    return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
+  }
+  util::string_view view() const override {
+    return util::string_view(reinterpret_cast<const char*>(value.native_endian_bytes()),
+                             16);
+  }
 
   Decimal128 value;
 };
 
-struct ARROW_EXPORT Decimal256Scalar : public Scalar {
-  using Scalar::Scalar;
+struct ARROW_EXPORT Decimal256Scalar : public internal::PrimitiveScalarBase {
+  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = Decimal256Type;
   using ValueType = Decimal256;
 
   Decimal256Scalar(Decimal256 value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
+      : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
+
+  void* mutable_data() override {
+    return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
+  }
+  util::string_view view() const override {
+    const std::array<uint64_t, 4>& bytes = value.native_endian_array();
+    return util::string_view(reinterpret_cast<const char*>(bytes.data()),
+                             bytes.size() * sizeof(uint64_t));
+  }
 
   Decimal256 value;
 };
@@ -463,7 +491,7 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
 ///
 /// `is_valid` denotes the validity of the `index`, regardless of
 /// the corresponding value in the `dictionary`.
-struct ARROW_EXPORT DictionaryScalar : public Scalar {
+struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
   using TypeClass = DictionaryType;
   struct ValueType {
     std::shared_ptr<Scalar> index;
@@ -473,12 +501,22 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
   explicit DictionaryScalar(std::shared_ptr<DataType> type);
 
   DictionaryScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
-      : Scalar(std::move(type), is_valid), value(std::move(value)) {}
+      : internal::PrimitiveScalarBase(std::move(type), is_valid),
+        value(std::move(value)) {}
 
   static std::shared_ptr<DictionaryScalar> Make(std::shared_ptr<Scalar> index,
                                                 std::shared_ptr<Array> dict);
 
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
+
+  void* mutable_data() override {
+    return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index)
+        .mutable_data();
+  }
+  util::string_view view() const override {
+    return internal::checked_cast<const internal::PrimitiveScalarBase&>(*value.index)
+        .view();
+  }
 };
 
 /// \brief A Scalar value for ExtensionType

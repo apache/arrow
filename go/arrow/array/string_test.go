@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -103,6 +104,11 @@ func TestStringArray(t *testing.T) {
 	if got, want := arr.String(), `["hello" "世界" (null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+
+	if !bytes.Equal([]byte(`hello世界bye`), arr.ValueBytes()) {
+		t.Fatalf("got=%q, want=%q", string(arr.ValueBytes()), `hello世界bye`)
+	}
+
 	slice := array.NewSliceData(arr.Data(), 2, 4)
 	defer slice.Release()
 
@@ -116,6 +122,16 @@ func TestStringArray(t *testing.T) {
 
 	if got, want := v.String(), `[(null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	if !bytes.Equal(v.ValueBytes(), []byte("bye")) {
+		t.Fatalf("got=%q, want=%q", string(v.ValueBytes()), "bye")
+	}
+
+	for i := 0; i < v.Len(); i++ {
+		if got, want := v.ValueOffset(0), offsets[i+slice.Offset()]; got != want {
+			t.Fatalf("val-offset-with-offset[%d]: got=%q, want=%q", i, got, want)
+		}
 	}
 }
 

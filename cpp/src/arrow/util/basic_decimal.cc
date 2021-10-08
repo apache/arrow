@@ -377,6 +377,10 @@ BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
                       reinterpret_cast<const uint64_t*>(bytes)[1]) {}
 #endif
 
+constexpr int BasicDecimal128::kBitWidth;
+constexpr int BasicDecimal128::kMaxPrecision;
+constexpr int BasicDecimal128::kMaxScale;
+
 std::array<uint8_t, 16> BasicDecimal128::ToBytes() const {
   std::array<uint8_t, 16> out{{0}};
   ToBytes(out.data());
@@ -1152,6 +1156,10 @@ BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
               reinterpret_cast<const uint64_t*>(bytes)[1],
               reinterpret_cast<const uint64_t*>(bytes)[2],
               reinterpret_cast<const uint64_t*>(bytes)[3]}) {}
+
+constexpr int BasicDecimal256::kBitWidth;
+constexpr int BasicDecimal256::kMaxPrecision;
+constexpr int BasicDecimal256::kMaxScale;
 
 BasicDecimal256& BasicDecimal256::Negate() {
   auto array_le = BitUtil::LittleEndianArray::Make(&array_);

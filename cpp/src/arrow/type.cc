@@ -403,6 +403,18 @@ FloatingPointType::Precision DoubleType::precision() const {
   return FloatingPointType::DOUBLE;
 }
 
+std::ostream& operator<<(std::ostream& os,
+                         DayTimeIntervalType::DayMilliseconds interval) {
+  os << interval.days << "d" << interval.milliseconds << "ms";
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         MonthDayNanoIntervalType::MonthDayNanos interval) {
+  os << interval.months << "M" << interval.days << "d" << interval.nanoseconds << "ns";
+  return os;
+}
+
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";

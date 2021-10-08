@@ -40,7 +40,7 @@ pushd ${source_dir}/java
   arrow_version=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
 popd
 
-export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
 export MAVEN_OPTS="${MAVEN_OPTS} -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 
 pushd ${spark_dir}
@@ -55,10 +55,10 @@ pushd ${spark_dir}
 
     # Update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
     echo "Building Spark ${SPARK_VERSION} with Arrow ${arrow_version}"
-    mvn versions:set-property -Dproperty=arrow.version -DnewVersion=${arrow_version}
+    build/mvn versions:set-property -Dproperty=arrow.version -DnewVersion=${arrow_version}
 
     # Build Spark with new Arrow Java
-    build/mvn -B -DskipTests package -pl sql/core -pl assembly -am
+    build/mvn -B -DskipTests package
 
     spark_scala_tests=(
       "org.apache.spark.sql.execution.arrow"

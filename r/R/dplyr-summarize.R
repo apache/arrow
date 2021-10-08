@@ -18,7 +18,7 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb")) {
+summarise.arrow_dplyr_query <- function(.data, ...) {
   call <- match.call()
   .data <- as_adq(.data)
   exprs <- quos(...)
@@ -33,18 +33,15 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
   # so don't try to select() them (use intersect() to exclude them)
   # Note that this select() isn't useful for the Arrow summarize implementation
   # because it will effectively project to keep what it needs anyway,
-  # but the duckdb and data.frame fallback versions do benefit from select here
+  # but the data.frame fallback version does benefit from select here
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
-  if (match.arg(.engine) == "duckdb") {
-    dplyr::summarise(to_duckdb(.data), ...)
+
+  # Try stuff, if successful return()
+  out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
+  if (inherits(out, "try-error")) {
+    return(abandon_ship(call, .data, format(out)))
   } else {
-    # Try stuff, if successful return()
-    out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
-    if (inherits(out, "try-error")) {
-      return(abandon_ship(call, .data, format(out)))
-    } else {
-      return(out)
-    }
+    return(out)
   }
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
@@ -65,7 +62,12 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
-    summarize_eval(names(exprs)[i], exprs[[i]], ctx)
+    summarize_eval(
+      names(exprs)[i],
+      exprs[[i]],
+      ctx,
+      length(.data$group_by_vars) > 0
+    )
   }
 
   # Apply the results to the .data object.
@@ -150,7 +152,7 @@ format_aggregation <- function(x) {
 # appropriate combination of (1) aggregations (possibly temporary) and
 # (2) post-aggregation transformations (mutate)
 # The function returns nothing: it assigns into the `ctx` environment
-summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
+summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
   expr <- quo_get_expr(quosure)
   ctx$quo_env <- quo_get_env(quosure)
 
@@ -159,6 +161,15 @@ summarize_eval <- function(name, quosure, ctx, recurse = FALSE) {
     # If it is a scalar or field ref, no special handling required
     ctx$aggregations[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
     return()
+  }
+
+  # For the quantile() binding in the hash aggregation case, we need to mutate
+  # the list output from the Arrow hash_tdigest kernel to flatten it into a
+  # column of type float64. We do that by modifying the unevaluated expression
+  # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
+  if (hash && "quantile" %in% funs_in_expr) {
+    expr <- wrap_hash_quantile(expr)
+    funs_in_expr <- all_funs(expr)
   }
 
   # Start inspecting the expr to see what aggregations it involves
@@ -250,4 +261,18 @@ extract_aggregations <- function(expr, ctx) {
     expr <- as.symbol(tmpname)
   }
   expr
+}
+
+# This function recurses through expr and wraps each call to quantile() with a
+# call to arrow_list_element()
+wrap_hash_quantile <- function(expr) {
+  if (length(expr) == 1) {
+    return(expr)
+  } else {
+    if (is.call(expr) && expr[[1]] == quote(quantile)) {
+      return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
+    } else {
+      return(as.call(lapply(expr, wrap_hash_quantile)))
+    }
+  }
 }

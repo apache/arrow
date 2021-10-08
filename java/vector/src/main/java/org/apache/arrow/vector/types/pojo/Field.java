@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
@@ -91,7 +92,7 @@ public class Field {
   private Field(String name, FieldType fieldType, List<Field> children, TypeLayout typeLayout) {
     this.name = name;
     this.fieldType = checkNotNull(fieldType);
-    this.children = children == null ? Collections.emptyList() : children.stream().collect(Collectors.toList());
+    this.children = children == null ? Collections.emptyList() : Collections2.toImmutableList(children);
   }
 
   public Field(String name, FieldType fieldType, List<Field> children) {

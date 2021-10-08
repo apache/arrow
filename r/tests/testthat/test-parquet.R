@@ -17,8 +17,6 @@
 
 skip_if_not_available("parquet")
 
-context("Parquet file reading/writing")
-
 pq_file <- system.file("v0.7.1.parquet", package = "arrow")
 
 test_that("reading a known Parquet file to tibble", {
@@ -35,7 +33,7 @@ test_that("simple int column roundtrip", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_equivalent(df, df_read)
+  expect_equal(df, df_read)
   # Make sure file connection is cleaned up
   expect_error(file.remove(pq_tmp_file), NA)
   expect_false(file.exists(pq_tmp_file))
@@ -103,7 +101,7 @@ test_that("write_parquet() handles various write_statistics= specs", {
 test_that("write_parquet() accepts RecordBatch too", {
   batch <- RecordBatch$create(x1 = 1:5, x2 = 1:5, y = 1:5)
   tab <- parquet_roundtrip(batch)
-  expect_equivalent(tab, Table$create(batch))
+  expect_equal(tab, Table$create(batch))
 })
 
 test_that("write_parquet() with invalid input type", {
@@ -124,7 +122,7 @@ test_that("write_parquet() can truncate timestamps", {
   write_parquet(tab, tf, coerce_timestamps = "ms", allow_truncated_timestamps = TRUE)
   new <- read_parquet(tf, as_data_frame = FALSE)
   expect_type_equal(new$x1, timestamp("ms", "UTC"))
-  expect_equivalent(as.data.frame(tab), as.data.frame(new))
+  expect_equal(as.data.frame(tab), as.data.frame(new))
 })
 
 test_that("make_valid_version()", {
@@ -158,7 +156,7 @@ test_that("Factors are preserved when writing/reading from Parquet", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_equivalent(df, df_read)
+  expect_equal(df, df_read)
 })
 
 test_that("Lists are preserved when writing/reading from Parquet", {
@@ -173,7 +171,7 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_equivalent(df, df_read)
+  expect_equal(df, df_read, ignore_attr = TRUE)
 })
 
 test_that("write_parquet() to stream", {
@@ -191,7 +189,7 @@ test_that("write_parquet() returns its input", {
   tf <- tempfile()
   on.exit(unlink(tf))
   df_out <- write_parquet(df, tf)
-  expect_equivalent(df, df_out)
+  expect_equal(df, df_out)
 })
 
 test_that("write_parquet() handles version argument", {
@@ -255,7 +253,7 @@ test_that("Error messages are shown when the compression algorithm snappy is not
 
   if (codec_is_available("snappy")) {
     d <- read_parquet(pq_file)
-    expect_is(d, "data.frame")
+    expect_s3_class(d, "data.frame")
   } else {
     expect_error(read_parquet(pq_file), msg, fixed = TRUE)
   }

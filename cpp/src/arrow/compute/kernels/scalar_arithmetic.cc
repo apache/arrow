@@ -1374,6 +1374,16 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
   }
 };
 
+// A scalar kernel that ignores (assumed all-null) inputs and returns null.
+Status NullToNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  return Status::OK();
+}
+
+void AddNullExec(ScalarFunction* func) {
+  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
+  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
+}
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        const FunctionDoc* doc) {
@@ -1382,6 +1392,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1395,6 +1406,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
     auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1406,6 +1418,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
     auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1421,6 +1434,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
     auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1434,6 +1448,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(
     auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1493,6 +1508,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
     };
     DCHECK_OK(func->AddKernel({ty}, ty, exec, State::Init));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1508,6 +1524,7 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
       DCHECK_OK(func->AddKernel({ty}, ty, exec));
     }
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1519,6 +1536,7 @@ std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
     auto exec = TypeAgnosticBitWiseExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1530,6 +1548,7 @@ std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
     auto exec = ShiftExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1542,6 +1561,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1554,6 +1574,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1566,6 +1587,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1579,6 +1601,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, output, exec));
   }
+  AddNullExec(func.get());
   return func;
 }
 
@@ -1997,6 +2020,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       auto exec = TypeAgnosticBitWiseExecFromOp<ScalarUnaryNotNull, BitWiseNot>(ty);
       DCHECK_OK(bit_wise_not->AddKernel({ty}, ty, exec));
     }
+    AddNullExec(bit_wise_not.get());
     DCHECK_OK(registry->AddFunction(std::move(bit_wise_not)));
   }
 

@@ -571,9 +571,10 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
 }
 
 TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
-  for (auto index_ty : {int8(), int16(), int32(), int64()}) {
+  auto dict_json = "[10, 20, 30, 40]";
+  auto dict = ArrayFromJSON(int64(), dict_json);
+  for (auto index_ty : IntTypes()) {
     auto indices = ArrayFromJSON(index_ty, "[3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1]");
-    auto dict = ArrayFromJSON(int64(), "[10, 20, 30, 40]");
 
     auto dict_ty = dictionary(index_ty, int64());
 
@@ -585,6 +586,14 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
 
     auto ex_counts = ArrayFromJSON(int64(), "[3, 5, 4]");
     CheckValueCounts(input, ex_uniques, ex_counts);
+
+    // Empty array - executor never gives the kernel any batches,
+    // so result dictionary is empty
+    CheckUnique(DictArrayFromJSON(dict_ty, "[]", dict_json),
+                DictArrayFromJSON(dict_ty, "[]", "[]"));
+    CheckValueCounts(DictArrayFromJSON(dict_ty, "[]", dict_json),
+                     DictArrayFromJSON(dict_ty, "[]", "[]"),
+                     ArrayFromJSON(int64(), "[]"));
 
     // Check chunked array
     auto chunked = *ChunkedArray::Make({input->Slice(0, 2), input->Slice(2)});

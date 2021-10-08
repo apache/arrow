@@ -63,6 +63,7 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(STRING, utf8);
       GET_PRIMITIVE_TYPE(LARGE_BINARY, large_binary);
       GET_PRIMITIVE_TYPE(LARGE_STRING, large_utf8);
+      GET_PRIMITIVE_TYPE(INTERVAL_MONTH_DAY_NANO, month_day_nano_interval);
     default:
       return nullptr;
   }
@@ -273,6 +274,7 @@ static PyObject* pandas_NaT = nullptr;
 static PyObject* pandas_Timedelta = nullptr;
 static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
+static PyObject* pandas_DateOffset = nullptr;
 
 }  // namespace
 
@@ -321,6 +323,11 @@ void InitPandasStaticData() {
     pandas_NA = ref.obj();
   }
 
+  // Import DateOffset type
+  if (ImportFromModule(pandas.obj(), "DateOffset", &ref).ok()) {
+    pandas_DateOffset = ref.obj();
+  }
+
   pandas_static_initialized = true;
 }
 
@@ -346,6 +353,8 @@ bool IsPandasTimedelta(PyObject* obj) {
 bool IsPandasTimestamp(PyObject* obj) {
   return pandas_Timestamp && PyObject_IsInstance(obj, pandas_Timestamp);
 }
+
+PyObject* BorrowPandasDataOffsetType() { return pandas_DateOffset; }
 
 Status InvalidValue(PyObject* obj, const std::string& why) {
   auto obj_as_str = PyObject_StdStringRepr(obj);

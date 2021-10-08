@@ -55,7 +55,7 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> ExecPlan_run(
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options) {
   // For now, don't require R to construct SinkNodes.
@@ -77,16 +77,33 @@ std::shared_ptr<arrow::Table> ExecPlan_run(
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
 
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      final_node->output_schema(), std::move(sink_gen), gc_memory_pool());
+  // If the generator is destroyed before being completely drained, inform plan
+  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
+                                         bool not_finished_yet =
+                                             plan->finished().TryAddCallback([&plan] {
+                                               return [plan](const arrow::Status&) {};
+                                             });
 
-  plan->finished().Wait();
-  return ValueOrStop(arrow::Table::FromRecordBatchReader(sink_reader.get()));
+                                         if (not_finished_yet) {
+                                           plan->StopProducing();
+                                         }
+                                       }};
+
+  return compute::MakeGeneratorReader(
+      final_node->output_schema(),
+      [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
 }
 
 #if defined(ARROW_R_WITH_DATASET)
 
+#include <arrow/dataset/plan.h>
 #include <arrow/dataset/scanner.h>
+
+// [[dataset::export]]
+std::shared_ptr<arrow::Schema> ExecNode_output_schema(
+    const std::shared_ptr<compute::ExecNode>& node) {
+  return node->output_schema();
+}
 
 // [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
@@ -124,7 +141,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
 #endif
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Filter(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::shared_ptr<compute::Expression>& filter) {
@@ -132,7 +149,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Filter(
                             compute::FilterNodeOptions{*filter});
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Project(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::vector<std::shared_ptr<compute::Expression>>& exprs,
@@ -147,7 +164,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
       compute::ProjectNodeOptions{std::move(expressions), std::move(names)});
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> target_names, std::vector<std::string> out_field_names,
@@ -175,6 +192,59 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
       "aggregate", input->plan(), {input.get()},
       compute::AggregateNodeOptions{std::move(aggregates), std::move(targets),
                                     std::move(out_field_names), std::move(keys)});
+}
+
+// [[dataset::export]]
+std::shared_ptr<compute::ExecNode> ExecNode_Join(
+    const std::shared_ptr<compute::ExecNode>& input, int type,
+    const std::shared_ptr<compute::ExecNode>& right_data,
+    std::vector<std::string> left_keys, std::vector<std::string> right_keys,
+    std::vector<std::string> left_output, std::vector<std::string> right_output) {
+  std::vector<arrow::FieldRef> left_refs, right_refs, left_out_refs, right_out_refs;
+  for (auto&& name : left_keys) {
+    left_refs.emplace_back(std::move(name));
+  }
+  for (auto&& name : right_keys) {
+    right_refs.emplace_back(std::move(name));
+  }
+  for (auto&& name : left_output) {
+    left_out_refs.emplace_back(std::move(name));
+  }
+  if (type != 0 && type != 2) {
+    // Don't include out_refs in semi/anti join
+    for (auto&& name : right_output) {
+      right_out_refs.emplace_back(std::move(name));
+    }
+  }
+
+  // TODO: we should be able to use this enum directly
+  compute::JoinType join_type;
+  if (type == 0) {
+    join_type = compute::JoinType::LEFT_SEMI;
+  } else if (type == 1) {
+    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
+    join_type = compute::JoinType::RIGHT_SEMI;
+  } else if (type == 2) {
+    join_type = compute::JoinType::LEFT_ANTI;
+  } else if (type == 3) {
+    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
+    join_type = compute::JoinType::RIGHT_ANTI;
+  } else if (type == 4) {
+    join_type = compute::JoinType::INNER;
+  } else if (type == 5) {
+    join_type = compute::JoinType::LEFT_OUTER;
+  } else if (type == 6) {
+    join_type = compute::JoinType::RIGHT_OUTER;
+  } else if (type == 7) {
+    join_type = compute::JoinType::FULL_OUTER;
+  } else {
+    cpp11::stop("todo");
+  }
+
+  return MakeExecNodeOrStop(
+      "hashjoin", input->plan(), {input.get(), right_data.get()},
+      compute::HashJoinNodeOptions{join_type, std::move(left_refs), std::move(right_refs),
+                                   std::move(left_out_refs), std::move(right_out_refs)});
 }
 
 #endif

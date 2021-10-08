@@ -16,6 +16,12 @@
 
 package arrow
 
+import (
+	"hash/maphash"
+
+	"github.com/apache/arrow/go/arrow/internal/debug"
+)
+
 // Type is a logical type. They can be expressed as
 // either a primitive physical type (bytes or bits of some fixed size), a
 // nested type consisting of other data types, or another data type (e.g. a
@@ -127,6 +133,7 @@ type DataType interface {
 	ID() Type
 	// Name is name of the data type.
 	Name() string
+	Fingerprint() string
 }
 
 // FixedWidthDataType is the representation of an Arrow type that
@@ -140,4 +147,34 @@ type FixedWidthDataType interface {
 type BinaryDataType interface {
 	DataType
 	binary()
+}
+
+func HashType(seed maphash.Seed, dt DataType) uint64 {
+	var h maphash.Hash
+	h.SetSeed(seed)
+	h.WriteString(dt.Fingerprint())
+	return h.Sum64()
+}
+
+func typeIDFingerprint(id Type) string {
+	c := string(rune(int(id) + int('A')))
+	return "@" + c
+}
+
+func typeFingerprint(typ DataType) string { return typeIDFingerprint(typ.ID()) }
+
+func timeUnitFingerprint(unit TimeUnit) rune {
+	switch unit {
+	case Second:
+		return 's'
+	case Millisecond:
+		return 'm'
+	case Microsecond:
+		return 'u'
+	case Nanosecond:
+		return 'n'
+	default:
+		debug.Assert(false, "unexpected time unit")
+		return rune(0)
+	}
 }

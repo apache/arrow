@@ -19,7 +19,7 @@ skip_if_not_available("dataset")
 
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data

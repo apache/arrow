@@ -167,6 +167,13 @@ const FunctionDoc tdigest_doc{
     {"array"},
     "TDigestOptions"};
 
+const FunctionDoc approximate_median_doc{
+    "Approximate median of a numeric array with T-Digest algorithm",
+    ("Nulls and NaNs are ignored.\n"
+     "A null scalar is returned if there is no valid data point."),
+    {"array"},
+    "ScalarAggregateOptions"};
+
 std::shared_ptr<ScalarAggregateFunction> AddTDigestAggKernels() {
   static auto default_tdigest_options = TDigestOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>(
@@ -175,10 +182,52 @@ std::shared_ptr<ScalarAggregateFunction> AddTDigestAggKernels() {
   return func;
 }
 
+std::shared_ptr<ScalarAggregateFunction> AddApproximateMedianAggKernels(
+    const ScalarAggregateFunction* tdigest_func) {
+  static ScalarAggregateOptions default_scalar_aggregate_options;
+
+  auto median = std::make_shared<ScalarAggregateFunction>(
+      "approximate_median", Arity::Unary(), &approximate_median_doc,
+      &default_scalar_aggregate_options);
+
+  auto sig =
+      KernelSignature::Make({InputType(ValueDescr::ANY)}, ValueDescr::Scalar(float64()));
+
+  auto init = [tdigest_func](
+                  KernelContext* ctx,
+                  const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
+    std::vector<ValueDescr> inputs = args.inputs;
+    ARROW_ASSIGN_OR_RAISE(auto kernel, tdigest_func->DispatchBest(&inputs));
+    const auto& scalar_options =
+        checked_cast<const ScalarAggregateOptions&>(*args.options);
+    TDigestOptions options;
+    // Default q = 0.5
+    options.min_count = scalar_options.min_count;
+    options.skip_nulls = scalar_options.skip_nulls;
+    KernelInitArgs new_args{kernel, inputs, &options};
+    return kernel->init(ctx, new_args);
+  };
+
+  auto finalize = [](KernelContext* ctx, Datum* out) -> Status {
+    Datum temp;
+    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(ctx->state())->Finalize(ctx, &temp));
+    const auto arr = temp.make_array();
+    DCHECK_EQ(arr->length(), 1);
+    return arr->GetScalar(0).Value(out);
+  };
+
+  AddAggKernel(std::move(sig), std::move(init), std::move(finalize), median.get());
+  return median;
+}
+
 }  // namespace
 
 void RegisterScalarAggregateTDigest(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(AddTDigestAggKernels()));
+  auto tdigest = AddTDigestAggKernels();
+  DCHECK_OK(registry->AddFunction(tdigest));
+
+  auto approx_median = AddApproximateMedianAggKernels(tdigest.get());
+  DCHECK_OK(registry->AddFunction(approx_median));
 }
 
 }  // namespace internal

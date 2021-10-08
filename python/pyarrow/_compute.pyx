@@ -463,6 +463,11 @@ cdef class FunctionRegistry(_Weakrefable):
     def get_function(self, name):
         """
         Look up a function by name in the registry.
+
+        Parameters
+        ----------
+        name : str
+            The name of the function to lookup
         """
         cdef:
             c_string c_name = tobytes(name)
@@ -485,6 +490,11 @@ def get_function(name):
 
     The function is looked up in the global registry
     (as returned by `function_registry()`).
+
+    Parameters
+    ----------
+    name : str
+        The name of the function to lookup
     """
     return _global_func_registry.get_function(name)
 
@@ -502,6 +512,17 @@ def call_function(name, args, options=None, memory_pool=None):
 
     The function is looked up in the global registry
     (as returned by `function_registry()`).
+
+    Parameters
+    ----------
+    name : str
+        The name of the function to call.
+    args : list
+        The arguments to the function.
+    options : optional
+        options provided to the function.
+    memory_pool : MemoryPool, optional
+        memory pool to use for allocations during function execution.
     """
     func = _global_func_registry.get_function(name)
     return func.call(args, options=options, memory_pool=memory_pool)
@@ -524,6 +545,14 @@ cdef class FunctionOptions(_Weakrefable):
 
     @staticmethod
     def deserialize(buf):
+        """
+        Deserialize options for a function.
+
+        Parameters
+        ----------
+        buf : Buffer
+            The buffer containing the data to deserialize.
+        """
         cdef:
             shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
             CResult[unique_ptr[CFunctionOptions]] maybe_options = \
@@ -670,6 +699,14 @@ class CastOptions(_CastOptions):
 
     @staticmethod
     def safe(target_type=None):
+        """"
+        Create a CastOptions for a safe cast.
+
+        Parameters
+        ----------
+        target_type : optional
+            Target cast type for the safe cast.
+        """
         self = CastOptions()
         self._set_safe()
         self._set_type(target_type)
@@ -677,6 +714,14 @@ class CastOptions(_CastOptions):
 
     @staticmethod
     def unsafe(target_type=None):
+        """"
+        Create a CastOptions for an unsafe cast.
+
+        Parameters
+        ----------
+        target_type : optional
+            Target cast type for the unsafe cast.
+        """
         self = CastOptions()
         self._set_unsafe()
         self._set_type(target_type)
@@ -897,16 +942,6 @@ class TakeOptions(_TakeOptions):
         self._set_options(boundscheck)
 
 
-cdef class _PartitionNthOptions(FunctionOptions):
-    def _set_options(self, pivot):
-        self.wrapped.reset(new CPartitionNthOptions(pivot))
-
-
-class PartitionNthOptions(_PartitionNthOptions):
-    def __init__(self, pivot):
-        self._set_options(pivot)
-
-
 cdef class _MakeStructOptions(FunctionOptions):
     def _set_options(self, field_names, field_nullability, field_metadata):
         cdef:
@@ -1048,15 +1083,31 @@ class StrftimeOptions(_StrftimeOptions):
 
 
 cdef class _DayOfWeekOptions(FunctionOptions):
-    def _set_options(self, one_based_numbering, week_start):
+    def _set_options(self, count_from_zero, week_start):
         self.wrapped.reset(
-            new CDayOfWeekOptions(one_based_numbering, week_start)
+            new CDayOfWeekOptions(count_from_zero, week_start)
         )
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
-    def __init__(self, *, one_based_numbering=False, week_start=1):
-        self._set_options(one_based_numbering, week_start)
+    def __init__(self, *, count_from_zero=True, week_start=1):
+        self._set_options(count_from_zero, week_start)
+
+
+cdef class _WeekOptions(FunctionOptions):
+    def _set_options(self, week_starts_monday, count_from_zero,
+                     first_week_is_fully_in_year):
+        self.wrapped.reset(
+            new CWeekOptions(week_starts_monday, count_from_zero,
+                             first_week_is_fully_in_year)
+        )
+
+
+class WeekOptions(_WeekOptions):
+    def __init__(self, *, week_starts_monday=True, count_from_zero=False,
+                 first_week_is_fully_in_year=False):
+        self._set_options(week_starts_monday,
+                          count_from_zero, first_week_is_fully_in_year)
 
 
 cdef class _AssumeTimezoneOptions(FunctionOptions):
@@ -1140,29 +1191,50 @@ cdef CSortOrder unwrap_sort_order(order) except *:
     _raise_invalid_function_option(order, "sort order")
 
 
+cdef CNullPlacement unwrap_null_placement(null_placement) except *:
+    if null_placement == "at_start":
+        return CNullPlacement_AtStart
+    elif null_placement == "at_end":
+        return CNullPlacement_AtEnd
+    _raise_invalid_function_option(null_placement, "null placement")
+
+
+cdef class _PartitionNthOptions(FunctionOptions):
+    def _set_options(self, pivot, null_placement):
+        self.wrapped.reset(new CPartitionNthOptions(
+            pivot, unwrap_null_placement(null_placement)))
+
+
+class PartitionNthOptions(_PartitionNthOptions):
+    def __init__(self, pivot, *, null_placement="at_end"):
+        self._set_options(pivot, null_placement)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
-    def _set_options(self, order):
-        self.wrapped.reset(new CArraySortOptions(unwrap_sort_order(order)))
+    def _set_options(self, order, null_placement):
+        self.wrapped.reset(new CArraySortOptions(
+            unwrap_sort_order(order), unwrap_null_placement(null_placement)))
 
 
 class ArraySortOptions(_ArraySortOptions):
-    def __init__(self, order="ascending"):
-        self._set_options(order)
+    def __init__(self, order="ascending", *, null_placement="at_end"):
+        self._set_options(order, null_placement)
 
 
 cdef class _SortOptions(FunctionOptions):
-    def _set_options(self, sort_keys):
+    def _set_options(self, sort_keys, null_placement):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
                 CSortKey(tobytes(name), unwrap_sort_order(order))
             )
-        self.wrapped.reset(new CSortOptions(c_sort_keys))
+        self.wrapped.reset(new CSortOptions(
+            c_sort_keys, unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
-    def __init__(self, sort_keys):
-        self._set_options(sort_keys)
+    def __init__(self, sort_keys, *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
 
 
 cdef class _SelectKOptions(FunctionOptions):

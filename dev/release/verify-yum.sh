@@ -37,7 +37,7 @@ local_prefix="/arrow/dev/tasks/linux-packages"
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
-distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
+distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
 distribution_prefix="centos"
 
 cmake_package=cmake
@@ -50,6 +50,9 @@ have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
 
 case "${distribution}-${distribution_version}" in
+  almalinux-*)
+    distribution_prefix="almalinux"
+    ;;
   amzn-2)
     cmake_package=cmake3
     cmake_command=cmake3
@@ -87,6 +90,10 @@ if [ "${TYPE}" = "local" ]; then
   esac
   release_path="${local_prefix}/yum/repositories"
   case "${distribution}" in
+    almalinux)
+      package_version+=".el${distribution_version}"
+      release_path+="/almalinux"
+      ;;
     amzn)
       package_version+=".${distribution}${distribution_version}"
       release_path+="/amazon-linux"
@@ -122,6 +129,7 @@ else
   if [ "${TYPE}" = "rc" ]; then
     sed \
       -i"" \
+      -e "s,/almalinux/,/almalinux-rc/,g" \
       -e "s,/centos/,/centos-rc/,g" \
       -e "s,/amazon-linux/,/amazon-linux-rc/,g" \
       /etc/yum.repos.d/Apache-Arrow.repo

@@ -145,6 +145,16 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
       .ok();
 }
 
+Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
+  for (const auto& chunk : chunks_) {
+    if (index < chunk->length()) {
+      return chunk->GetScalar(index);
+    }
+    index -= chunk->length();
+  }
+  return Status::Invalid("index out of bounds");
+}
+
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
   ARROW_CHECK_LE(offset, length_) << "Slice offset greater than array length";
   bool offset_equals_length = offset == length_;

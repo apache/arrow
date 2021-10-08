@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Global Thread Pool")
 
 test_that("can set/get cpu thread pool capacity", {
   old <- cpu_count()

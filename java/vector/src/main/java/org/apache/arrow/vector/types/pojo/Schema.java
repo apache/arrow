@@ -97,7 +97,7 @@ public class Schema {
       String value = kv.value();
       metadata.put(key == null ? "" : key, value == null ? "" : value);
     }
-    return new Schema(Collections2.immutableListCopy(fields), Collections2.immutableMapCopy(metadata));
+    return new Schema(true, Collections.unmodifiableList(fields), Collections.unmodifiableMap(metadata));
   }
 
   private final List<Field> fields;
@@ -112,13 +112,11 @@ public class Schema {
    */
   public Schema(Iterable<Field> fields,
                 Map<String, String> metadata) {
-    List<Field> fieldList = new ArrayList<>();
-    for (Field field : fields) {
-      fieldList.add(field);
-    }
-    this.fields = Collections2.immutableListCopy(fieldList);
-    this.metadata = metadata == null ? Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
+    this(true,
+        Collections2.toImmutableList(fields),
+        metadata == null ? Collections.emptyMap() : Collections2.immutableMapCopy(metadata));
   }
+
 
   /**
    * Constructor used for JSON deserialization.
@@ -126,13 +124,18 @@ public class Schema {
   @JsonCreator
   private Schema(@JsonProperty("fields") Iterable<Field> fields,
                 @JsonProperty("metadata") List<Map<String, String>> metadata) {
-    List<Field> fieldList = new ArrayList<>();
-    for (Field field : fields) {
-      fieldList.add(field);
-    }
-    this.fields = Collections2.immutableListCopy(fieldList);
-    this.metadata = metadata == null ?
-        Collections.emptyMap() : Collections2.immutableMapCopy(convertMetadata(metadata));
+    this(fields, convertMetadata(metadata));
+  }
+
+
+  /**
+   * Private constructor to bypass automatic collection copy.
+   * @param unsafe a ignored argument. Its only purpose is to prevent using the constructor
+   *     by accident because of type collisions (List vs Iterable).
+   */
+  private Schema(boolean unsafe, List<Field> fields, Map<String, String> metadata) {
+    this.fields = fields;
+    this.metadata = metadata;
   }
 
   static Map<String, String> convertMetadata(List<Map<String, String>> metadata) {

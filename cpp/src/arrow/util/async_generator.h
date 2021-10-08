@@ -221,6 +221,9 @@ class MappingGenerator {
       bool should_trigger;
       {
         auto guard = state->mutex.Lock();
+        // A MappedCallback may have purged or be purging the queue;
+        // we shouldn't do anything here.
+        if (state->finished) return;
         if (end) {
           should_purge = !state->finished;
           state->finished = true;
@@ -272,6 +275,24 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn 
   };
 
   return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
+}
+
+/// \brief Creates a generator that will apply the map function to
+/// each element of source.  The map function is not called on the end
+/// token.  The result of the map function should be another
+/// generator; all these generators will then be flattened to produce
+/// a single stream of items.
+///
+/// Note: This function makes a copy of `map` for each item
+/// Note: Errors returned from the `map` function will be propagated
+///
+/// If the source generator is async-reentrant then this generator will be also
+template <typename T, typename MapFn,
+          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename V = typename EnsureFuture<Mapped>::type::ValueType>
+AsyncGenerator<T> MakeFlatMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
+  return MakeConcatenatedGenerator(
+      MakeMappedGenerator(std::move(source_generator), std::move(map)));
 }
 
 /// \see MakeSequencingGenerator
@@ -1001,32 +1022,45 @@ class MergedGenerator {
   };
 
   struct InnerCallback {
-    void operator()(const Result<T>& maybe_next) {
-      Future<T> sink;
-      bool sub_finished = maybe_next.ok() && IsIterationEnd(*maybe_next);
-      {
-        auto guard = state->mutex.Lock();
-        if (state->finished) {
-          // We've errored out so just ignore this result and don't keep pumping
-          return;
-        }
-        if (!sub_finished) {
-          if (state->waiting_jobs.empty()) {
-            state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
-                state->active_subscriptions[index], maybe_next, index));
-          } else {
-            sink = std::move(*state->waiting_jobs.front());
-            state->waiting_jobs.pop_front();
+    void operator()(const Result<T>& maybe_next_ref) {
+      Future<T> next_fut;
+      const Result<T>* maybe_next = &maybe_next_ref;
+
+      while (true) {
+        Future<T> sink;
+        bool sub_finished = maybe_next->ok() && IsIterationEnd(**maybe_next);
+        {
+          auto guard = state->mutex.Lock();
+          if (state->finished) {
+            // We've errored out so just ignore this result and don't keep pumping
+            return;
+          }
+          if (!sub_finished) {
+            if (state->waiting_jobs.empty()) {
+              state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
+                  state->active_subscriptions[index], *maybe_next, index));
+            } else {
+              sink = std::move(*state->waiting_jobs.front());
+              state->waiting_jobs.pop_front();
+            }
           }
         }
-      }
-      if (sub_finished) {
-        state->PullSource().AddCallback(OuterCallback{state, index});
-      } else if (sink.is_valid()) {
-        sink.MarkFinished(maybe_next);
-        if (maybe_next.ok()) {
-          state->active_subscriptions[index]().AddCallback(*this);
+        if (sub_finished) {
+          state->PullSource().AddCallback(OuterCallback{state, index});
+        } else if (sink.is_valid()) {
+          sink.MarkFinished(*maybe_next);
+          if (!maybe_next->ok()) return;
+
+          next_fut = state->active_subscriptions[index]();
+          if (next_fut.TryAddCallback([this]() { return *this; })) {
+            return;
+          }
+          // Already completed. Avoid very deep recursion by looping
+          // here instead of relying on the callback.
+          maybe_next = &next_fut.result();
+          continue;
         }
+        return;
       }
     }
     std::shared_ptr<State> state;

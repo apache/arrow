@@ -48,12 +48,21 @@ test_that("na.fail on Scalar", {
 
 test_that("na.omit on Table", {
   tbl <- Table$create(example_data)
-  expect_equivalent(as.data.frame(na.omit(tbl)), na.omit(example_data))
+  expect_equal(
+    as.data.frame(na.omit(tbl)),
+    na.omit(example_data),
+    # We don't include an attribute with the rows omitted
+    ignore_attr = "na.action"
+  )
 })
 
 test_that("na.exclude on Table", {
   tbl <- Table$create(example_data)
-  expect_equivalent(as.data.frame(na.exclude(tbl)), na.exclude(example_data))
+  expect_equal(
+    as.data.frame(na.exclude(tbl)),
+    na.exclude(example_data),
+    ignore_attr = "na.action"
+  )
 })
 
 test_that("na.fail on Table", {
@@ -63,12 +72,20 @@ test_that("na.fail on Table", {
 
 test_that("na.omit on RecordBatch", {
   batch <- record_batch(example_data)
-  expect_equivalent(as.data.frame(na.omit(batch)), na.omit(example_data))
+  expect_equal(
+    as.data.frame(na.omit(batch)),
+    na.omit(example_data),
+    ignore_attr = "na.action"
+  )
 })
 
 test_that("na.exclude on RecordBatch", {
   batch <- record_batch(example_data)
-  expect_equivalent(as.data.frame(na.exclude(batch)), na.omit(example_data))
+  expect_equal(
+    as.data.frame(na.exclude(batch)),
+    na.omit(example_data),
+    ignore_attr = "na.action"
+  )
 })
 
 test_that("na.fail on RecordBatch", {

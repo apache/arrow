@@ -18,10 +18,27 @@
 module ArrowDataset
   module ArrowTableLoadable
     private
+    def path_to_uri(path)
+      absolute_path = ::File.expand_path(path)
+      if absolute_path.start_with?("/")
+        URI("file://#{absolute_path}")
+      else
+        URI("file:///#{absolute_path}")
+      end
+    end
+
+    def load_from_directory
+      internal_load_from_uri(path_to_uri(@input))
+    end
+
     def load_from_uri
+      internal_load_from_uri(@input)
+    end
+
+    def internal_load_from_uri(uri)
       format = FileFormat.resolve(@options[:format])
       dataset = FileSystemDataset.build(format) do |factory|
-        factory.file_system_uri = @input
+        factory.file_system_uri = uri
       end
       dataset.to_table
     end

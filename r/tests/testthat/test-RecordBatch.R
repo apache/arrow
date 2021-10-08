@@ -339,7 +339,7 @@ test_that("record_batch() handles data frame columns", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
   # because tib is named here, this becomes a struct array
   batch <- record_batch(a = 1:10, b = tib)
-  expect_equivalent(
+  expect_equal(
     batch$schema,
     schema(
       a = int32(),
@@ -347,7 +347,7 @@ test_that("record_batch() handles data frame columns", {
     )
   )
   out <- as.data.frame(batch)
-  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib))
+  expect_equal(out, tibble::tibble(a = 1:10, b = tib))
 
   # if not named, columns from tib are auto spliced
   batch2 <- record_batch(a = 1:10, tib)
@@ -356,7 +356,7 @@ test_that("record_batch() handles data frame columns", {
     schema(a = int32(), x = int32(), y = int32())
   )
   out <- as.data.frame(batch2)
-  expect_equivalent(out, tibble::tibble(a = 1:10, !!!tib))
+  expect_equal(out, tibble::tibble(a = 1:10, !!!tib))
 })
 
 test_that("record_batch() handles data frame columns with schema spec", {
@@ -365,9 +365,9 @@ test_that("record_batch() handles data frame columns with schema spec", {
   tib_float$y <- as.numeric(tib_float$y)
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
-  expect_equivalent(batch$schema, schema)
+  expect_equal(batch$schema, schema)
   out <- as.data.frame(batch)
-  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib_float))
+  expect_equal(out, tibble::tibble(a = 1:10, b = tib_float))
 
   schema <- schema(a = int32(), b = struct(x = int16(), y = utf8()))
   expect_error(record_batch(a = 1:10, b = tib, schema = schema))
@@ -385,21 +385,27 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   batch4 <- record_batch(!!!df, z = 1:10)
   expect_equal(batch3, batch4)
   expect_equal(batch3$schema, schema(x = int32(), y = utf8(), z = int32()))
-  expect_equivalent(as.data.frame(batch3), cbind(df, data.frame(z = 1:10)))
+  expect_equal(
+    as.data.frame(batch3),
+    tibble::as_tibble(cbind(df, data.frame(z = 1:10)))
+  )
 
   s <- schema(x = float64(), y = utf8())
   batch5 <- record_batch(df, schema = s)
   batch6 <- record_batch(!!!df, schema = s)
   expect_equal(batch5, batch6)
   expect_equal(batch5$schema, s)
-  expect_equivalent(as.data.frame(batch5), df)
+  expect_equal(as.data.frame(batch5), df)
 
   s2 <- schema(x = float64(), y = utf8(), z = int16())
   batch7 <- record_batch(df, z = 1:10, schema = s2)
   batch8 <- record_batch(!!!df, z = 1:10, schema = s2)
   expect_equal(batch7, batch8)
   expect_equal(batch7$schema, s2)
-  expect_equivalent(as.data.frame(batch7), cbind(df, data.frame(z = 1:10)))
+  expect_equal(
+    as.data.frame(batch7),
+    tibble::as_tibble(cbind(df, data.frame(z = 1:10)))
+  )
 })
 
 test_that("record_batch() only auto splice data frames", {
@@ -411,7 +417,11 @@ test_that("record_batch() only auto splice data frames", {
 
 test_that("record_batch() handles null type (ARROW-7064)", {
   batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
-  expect_equivalent(batch$schema, schema(a = int32(), n = null()))
+  expect_equal(
+    batch$schema,
+    schema(a = int32(), n = null()),
+    ignore_attr = TRUE
+  )
 })
 
 test_that("record_batch() scalar recycling with vectors", {
@@ -481,7 +491,7 @@ test_that("RecordBatch$Equals(check_metadata)", {
   expect_false(rb1$Equals(rb2, check_metadata = TRUE))
 
   expect_failure(expect_equal(rb1, rb2)) # expect_equal has check_metadata=TRUE
-  expect_equivalent(rb1, rb2) # expect_equivalent has check_metadata=FALSE
+  expect_equal(rb1, rb2, ignore_attr = TRUE) # this passes check_metadata=FALSE
 
   expect_false(rb1$Equals(24)) # Not a RecordBatch
 })
@@ -504,7 +514,7 @@ test_that("record_batch() with different length arrays", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(list(
+  raws <- Array$create(structure(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
@@ -512,11 +522,14 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x74, 0x76))
   ),
   class = c("arrow_binary", "vctrs_vctr", "list")
-  )
+  ))
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
+
+  df <- as.data.frame(batch_with_nul)
+
   expect_error(
-    as.data.frame(batch_with_nul),
+    df$b[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
       "set options(arrow.skip_nul = TRUE)"
@@ -524,11 +537,15 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
 
+  batch_with_nul <- record_batch(a = 1:5, b = raws)
+  batch_with_nul$b <- batch_with_nul$b$cast(utf8())
+
   withr::with_options(list(arrow.skip_nul = TRUE), {
     expect_warning(
-      expect_equivalent(
+      expect_equal(
         as.data.frame(batch_with_nul)$b,
-        c("person", "woman", "man", "camera", "tv")
+        c("person", "woman", "man", "camera", "tv"),
+        ignore_attr = TRUE
       ),
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE

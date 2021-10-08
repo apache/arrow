@@ -692,6 +692,8 @@ def _set_default(opt, default):
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
               help='Include C++ in integration tests')
+@click.option('--with-csharp', type=bool, default=False,
+              help='Include C# in integration tests')
 @click.option('--with-java', type=bool, default=False,
               help='Include Java in integration tests')
 @click.option('--with-js', type=bool, default=False,
@@ -732,7 +734,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'java', 'js', 'go', 'rust']
+    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
 
     enabled_languages = 0
     for lang in languages:

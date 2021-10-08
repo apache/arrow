@@ -170,6 +170,22 @@ class ARROW_EXPORT BasicDecimal128 {
     return {low_bits_, static_cast<uint64_t>(high_bits_)};
   }
 
+  inline const uint8_t* native_endian_bytes() const {
+#if ARROW_LITTLE_ENDIAN
+    return reinterpret_cast<const uint8_t*>(&low_bits_);
+#else
+    return reinterpret_cast<const uint8_t*>(&high_bits_);
+#endif
+  }
+
+  inline uint8_t* mutable_native_endian_bytes() {
+#if ARROW_LITTLE_ENDIAN
+    return reinterpret_cast<uint8_t*>(&low_bits_);
+#else
+    return reinterpret_cast<uint8_t*>(&high_bits_);
+#endif
+  }
+
   /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, 16> ToBytes() const;
   void ToBytes(uint8_t* out) const;
@@ -337,6 +353,14 @@ class ARROW_EXPORT BasicDecimal256 {
   /// For example, BasicDecimal256(123).little_endian_array() = {123, 0};
   inline const std::array<uint64_t, 4> little_endian_array() const {
     return BitUtil::LittleEndianArray::FromNative(array_);
+  }
+
+  inline const uint8_t* native_endian_bytes() const {
+    return reinterpret_cast<const uint8_t*>(array_.data());
+  }
+
+  inline uint8_t* mutable_native_endian_bytes() {
+    return reinterpret_cast<uint8_t*>(array_.data());
   }
 
   /// \brief Get the lowest bits of the two's complement representation of the number.

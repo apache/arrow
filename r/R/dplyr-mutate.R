@@ -89,7 +89,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Respect .before and .after
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     new <- setdiff(new_vars, old_vars)
-    .data <- dplyr::relocate(.data, !!new, .before = !!.before, .after = !!.after)
+    .data <- dplyr::relocate(.data, all_of(new), .before = !!.before, .after = !!.after)
   }
 
   # Respect .keep
