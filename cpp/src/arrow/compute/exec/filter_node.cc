@@ -94,7 +94,7 @@ class FilterNode : public MapNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) { return DoFilter(std::move(batch)); };
-    this->SubmitTask(func, std::move(batch));
+    this->SubmitTask(std::move(func), std::move(batch));
   }
 
  protected:

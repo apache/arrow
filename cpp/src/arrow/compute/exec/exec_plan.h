@@ -30,7 +30,6 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/thread_pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -259,99 +258,28 @@ class ARROW_EXPORT ExecNode {
 class MapNode : public ExecNode {
  public:
   MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-          std::shared_ptr<Schema> output_schema)
-      : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-                 std::move(output_schema),
-                 /*num_outputs=*/1) {
-    executor_ = plan_->exec_context()->executor();
-  }
+          std::shared_ptr<Schema> output_schema);
 
-  void ErrorReceived(ExecNode* input, Status error) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->ErrorReceived(this, std::move(error));
-  }
+  void ErrorReceived(ExecNode* input, Status error) override;
 
-  void InputFinished(ExecNode* input, int total_batches) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, total_batches);
-    if (input_counter_.SetTotal(total_batches)) {
-      this->Finish();
-    }
-  }
+  void InputFinished(ExecNode* input, int total_batches) override;
 
-  Status StartProducing() override { return Status::OK(); }
+  Status StartProducing() override;
 
-  void PauseProducing(ExecNode* output) override {}
+  void PauseProducing(ExecNode* output) override;
 
-  void ResumeProducing(ExecNode* output) override {}
+  void ResumeProducing(ExecNode* output) override;
 
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
+  void StopProducing(ExecNode* output) override;
 
-  void StopProducing() override {
-    if (executor_) {
-      this->stop_source_.RequestStop();
-    }
-    if (input_counter_.Cancel()) {
-      this->Finish();
-    }
-    inputs_[0]->StopProducing(this);
-  }
+  void StopProducing() override;
 
-  Future<> finished() override { return finished_; }
+  Future<> finished() override;
 
  protected:
-  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch) {
-    Status status;
-    if (finished_.is_finished()) {
-      return;
-    }
-    auto task = [this, map_fn, batch]() {
-      auto output_batch = map_fn(std::move(batch));
-      if (ErrorIfNotOk(output_batch.status())) {
-        return output_batch.status();
-      }
-      output_batch->guarantee = batch.guarantee;
-      outputs_[0]->InputReceived(this, output_batch.MoveValueUnsafe());
-      return Status::OK();
-    };
-    if (executor_) {
-      status = task_group_.AddTask([this, task]() -> Result<Future<>> {
-        return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
-          auto status = task();
-          if (this->input_counter_.Increment()) {
-            this->Finish(status);
-          }
-          return status;
-        });
-      });
-    } else {
-      status = task();
-      if (input_counter_.Increment()) {
-        this->Finish(status);
-      }
-    }
-    if (!status.ok()) {
-      if (input_counter_.Cancel()) {
-        this->Finish(status);
-      }
-      inputs_[0]->StopProducing(this);
-      return;
-    }
-  }
+  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
 
-  void Finish(Status finish_st = Status::OK()) {
-    if (executor_) {
-      task_group_.End().AddCallback([this, finish_st](const Status& st) {
-        Status final_status = finish_st & st;
-        this->finished_.MarkFinished(final_status);
-      });
-    } else {
-      this->finished_.MarkFinished(finish_st);
-    }
-  }
+  void Finish(Status finish_st = Status::OK());
 
  protected:
   // Counter for the number of batches received
@@ -363,7 +291,6 @@ class MapNode : public ExecNode {
   // The task group for the corresponding batches
   util::AsyncTaskGroup task_group_;
 
-  // Executor
   ::arrow::internal::Executor* executor_;
 
   // Variable used to cancel remaining tasks in the executor
