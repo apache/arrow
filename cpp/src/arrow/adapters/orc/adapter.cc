@@ -359,10 +359,6 @@ class ORCFileReader::Impl {
   Status SelectNames(liborc::RowReaderOptions* opts,
                        const std::vector<std::string>& include_names) {
     std::list<std::string> include_names_list(include_names.begin(), include_names.end());
-    // for (auto it = include_indices.begin(); it != include_indices.end(); ++it) {
-    //   ARROW_RETURN_IF(*it < 0, Status::Invalid("Negative field index"));
-    //   include_indices_list.push_back(*it);
-    // }
     opts->include(include_names_list);
     return Status::OK();
   }

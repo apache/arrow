@@ -262,7 +262,9 @@ def test_column_selection(tempdir):
     assert result3.equals(table.select(["list", "struct", "list-struct"]))
 
     # error on non-existing name or index
-    with pytest.raises(ValueError):
+    with pytest.raises(IOError):
+        # liborc returns ParseError, which gets translated into IOError
+        # instead of ValueError
         orc_file.read(columns=["wrong"])
 
     with pytest.raises(ValueError):
