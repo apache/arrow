@@ -23,6 +23,8 @@ import java.util.Collection;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
+import org.apache.calcite.avatica.Meta.StatementType;
 
 /**
  * A wrapper for a {@link FlightClient}.
@@ -159,6 +161,20 @@ public interface FlightClientHandler extends AutoCloseable {
      * @throws SQLException on error.
      */
     FlightInfo executeQuery() throws SQLException;
+
+    /**
+     * Executes a {@link StatementType#UPDATE} query.
+     *
+     * @return the number of rows affected.
+     */
+    long executeUpdate();
+
+    /**
+     * Gets the {@link StatementType} of this {@link PreparedStatement}.
+     *
+     * @return the Statement Type.
+     */
+    StatementType getType();
 
     @Override
     void close();

@@ -158,7 +158,7 @@ public final class CoreMockedSqlProducers {
         }
       });
     });
-    producer.addQuery(LEGACY_REGULAR_SQL_CMD, querySchema, resultProducers);
+    producer.addSelectQuery(LEGACY_REGULAR_SQL_CMD, querySchema, resultProducers);
   }
 
   private static void addLegacyMetadataSqlCmdSupport(final MockFlightSqlProducer producer) {
@@ -192,11 +192,11 @@ public final class CoreMockedSqlProducers {
         listener.completed();
       }
     };
-    producer.addQuery(LEGACY_METADATA_SQL_CMD, metadataSchema, Collections.singletonList(formula));
+    producer.addSelectQuery(LEGACY_METADATA_SQL_CMD, metadataSchema, Collections.singletonList(formula));
   }
 
   private static void addLegacyCancellationSqlCmdSupport(final MockFlightSqlProducer producer) {
-    producer.addQuery(
+    producer.addSelectQuery(
         LEGACY_CANCELLATION_SQL_CMD,
         new Schema(Collections.singletonList(new Field(
             "integer0",

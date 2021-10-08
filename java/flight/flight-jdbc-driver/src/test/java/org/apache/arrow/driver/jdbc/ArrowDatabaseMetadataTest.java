@@ -22,6 +22,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer.serializeSchema;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForUtf8Field;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setInfoName;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setValues;
@@ -64,8 +65,6 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.holders.NullableIntHolder;
-import org.apache.arrow.vector.ipc.message.IpcOption;
-import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -269,11 +268,10 @@ public class ArrowDatabaseMetadataTest {
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA, allocator)) {
         final byte[] filledTableSchemaBytes =
             copyFrom(
-                MessageSerializer.serializeMetadata(new Schema(Arrays.asList(
+                serializeSchema(new Schema(Arrays.asList(
                         Field.nullable("column_1", ArrowType.Decimal.createDecimal(5, 2, 128)),
                         Field.nullable("column_2", new ArrowType.Timestamp(TimeUnit.NANOSECOND, "UTC")),
-                        Field.notNullable("column_3", Types.MinorType.INT.getType()))),
-                    IpcOption.DEFAULT))
+                        Field.notNullable("column_3", Types.MinorType.INT.getType())))))
                 .toByteArray();
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
         final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
@@ -412,7 +410,7 @@ public class ArrowDatabaseMetadataTest {
           final NullableIntHolder dataHolder = new NullableIntHolder();
           dataHolder.isSet = 1;
           dataHolder.value = EXPECTED_IS_READ_ONLY ? 1 : 0;
-          setValues(root, index, (byte) 1, values -> values.setSafe(index, dataHolder));
+          setValues(root, index, (byte) 3, values -> values.setSafe(index, dataHolder));
         };
 
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, flightSqlServerReadOnlyProvider);

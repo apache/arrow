@@ -126,7 +126,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   @Override
   public Meta createMeta(final AvaticaConnection connection) {
-    return new ArrowFlightMetaImpl(connection);
+    return new ArrowFlightMetaImpl((ArrowFlightConnection) connection);
   }
 
   @Override

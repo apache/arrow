@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.driver.jdbc.client.FlightClientHandler.PreparedStatement;
+import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
@@ -57,6 +59,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public void closeStatement(final StatementHandle statementHandle) {
+    // NO-OP.
   }
 
   @Override
@@ -66,9 +69,13 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public ExecuteResult execute(final StatementHandle statementHandle,
-                               final List<TypedValue> typedValues, final long maxRowCount)
-      throws NoSuchStatementException {
-    return null;
+                               final List<TypedValue> typedValues, final long maxRowCount) {
+    // TODO Why is maxRowCount ignored?
+    Preconditions.checkNotNull(statementHandle.signature, "Signature not found.");
+    return new ExecuteResult(
+        Collections.singletonList(MetaResultSet.create(
+            statementHandle.connectionId, statementHandle.id,
+            true, statementHandle.signature, null)));
   }
 
   @Override
@@ -117,7 +124,6 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   public ExecuteResult prepareAndExecute(final StatementHandle handle,
                                          final String query, final long maxRowCount, final int maxRowsInFirstFrame,
                                          final PrepareCallback callback) throws NoSuchStatementException {
-    final Signature signature = newSignature(query);
     try {
       final PreparedStatement preparedStatement =
           ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
@@ -126,7 +132,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       final long updateCount = statementType.equals(StatementType.UPDATE) ? preparedStatement.executeUpdate() : -1;
       synchronized (callback.getMonitor()) {
         callback.clear();
-        callback.assign(signature, null, -1);
+        callback.assign(signature, null, updateCount);
       }
       callback.execute();
       final MetaResultSet metaResultSet = MetaResultSet.create(handle.connectionId, handle.id,

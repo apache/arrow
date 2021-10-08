@@ -44,6 +44,8 @@ import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.calcite.avatica.Meta.StatementType;
 
 /**
  * A {@link FlightClientHandler} for a {@link FlightSqlClient}.
@@ -102,6 +104,17 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
       }
 
       @Override
+      public long executeUpdate() {
+        return preparedStatement.executeUpdate(getOptions());
+      }
+
+      @Override
+      public StatementType getType() {
+        final Schema schema = preparedStatement.getResultSetSchema();
+        return schema == null || schema.getFields().isEmpty() ? StatementType.UPDATE : StatementType.SELECT;
+      }
+
+      @Override
       public void close() {
         preparedStatement.close(getOptions());
       }
@@ -156,6 +169,8 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
    * Builder for {@link ArrowFlightSqlClientHandler}.
    */
   public static final class Builder {
+    private final Set<FlightClientMiddleware.Factory> middlewareFactories = new HashSet<>();
+    private final Set<CallOption> options = new HashSet<>();
     private String host;
     private int port;
     private String username;
@@ -164,8 +179,6 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
     private String keyStorePassword;
     private boolean useTls;
     private BufferAllocator allocator;
-    private final Set<FlightClientMiddleware.Factory> middlewareFactories = new HashSet<>();
-    private final Set<CallOption> options = new HashSet<>();
 
     /**
      * Sets the host for this handler.
