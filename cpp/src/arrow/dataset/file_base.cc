@@ -328,6 +328,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   DatasetWritingSinkNodeConsumer(std::shared_ptr<Schema> schema,
                                  std::unique_ptr<internal::DatasetWriter> dataset_writer,
+<<<<<<< HEAD
                                  FileSystemDatasetWriteOptions write_options,
                                  std::shared_ptr<util::AsyncToggle> backpressure_toggle)
       : schema_(std::move(schema)),
@@ -338,17 +339,33 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   Status Consume(compute::ExecBatch batch) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(schema_));
+=======
+                                 FileSystemDatasetWriteOptions write_options)
+      : schema(std::move(schema)),
+        dataset_writer(std::move(dataset_writer)),
+        write_options(std::move(write_options)) {}
+
+  Status Consume(compute::ExecBatch batch) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
+                          batch.ToRecordBatch(schema));
+>>>>>>> 9493b1fed... fix conflicts
     return WriteNextBatch(std::move(record_batch), batch.guarantee);
   }
 
   Future<> Finish() {
+<<<<<<< HEAD
     RETURN_NOT_OK(task_group_.AddTask([this] { return dataset_writer_->Finish(); }));
     return task_group_.End();
+=======
+    RETURN_NOT_OK(task_group.AddTask([this] { return dataset_writer->Finish(); }));
+    return task_group.End();
+>>>>>>> 9493b1fed... fix conflicts
   }
 
  private:
   Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
                         compute::Expression guarantee) {
+<<<<<<< HEAD
     ARROW_ASSIGN_OR_RAISE(auto groups, write_options_.partitioning->Partition(batch));
     batch.reset();  // drop to hopefully conserve memory
 
@@ -363,10 +380,22 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
                              write_options_.max_partitions);
     }
 
+=======
+    ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
+    batch.reset();  // drop to hopefully conserve memory
+
+    if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
+      return Status::Invalid("Fragment would be written into ", groups.batches.size(),
+                             " partitions. This exceeds the maximum of ",
+                             write_options.max_partitions);
+    }
+
+>>>>>>> 9493b1fed... fix conflicts
     for (std::size_t index = 0; index < groups.batches.size(); index++) {
       auto partition_expression = and_(groups.expressions[index], guarantee);
       auto next_batch = groups.batches[index];
       ARROW_ASSIGN_OR_RAISE(std::string destination,
+<<<<<<< HEAD
                             write_options_.partitioning->Format(partition_expression));
       RETURN_NOT_OK(task_group_.AddTask([this, next_batch, destination] {
         Future<> has_room = dataset_writer_->WriteRecordBatch(next_batch, destination);
@@ -375,22 +404,36 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
           return has_room.Then([this] { backpressure_toggle_->Open(); });
         }
         return has_room;
+=======
+                            write_options.partitioning->Format(partition_expression));
+      RETURN_NOT_OK(task_group.AddTask([this, next_batch, destination] {
+        return dataset_writer->WriteRecordBatch(next_batch, destination);
+>>>>>>> 9493b1fed... fix conflicts
       }));
     }
     return Status::OK();
   }
 
+<<<<<<< HEAD
   std::shared_ptr<Schema> schema_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
   std::shared_ptr<util::AsyncToggle> backpressure_toggle_;
   util::SerializedAsyncTaskGroup task_group_;
+=======
+  std::shared_ptr<Schema> schema;
+  std::unique_ptr<internal::DatasetWriter> dataset_writer;
+  FileSystemDatasetWriteOptions write_options;
+
+  util::SerializedAsyncTaskGroup task_group;
+>>>>>>> 9493b1fed... fix conflicts
 };
 
 }  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
+<<<<<<< HEAD
   if (!scanner->options()->use_async) {
     return Status::Invalid(
         "A dataset write operation was invoked on a scanner that was configured for "
@@ -398,6 +441,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
         "asynchronous scanning.  Please recreate the scanner with the use_async or "
         "UseAsync option set to true");
   }
+=======
+>>>>>>> 9493b1fed... fix conflicts
   const io::IOContext& io_context = scanner->options()->io_context;
   std::shared_ptr<compute::ExecContext> exec_context =
       std::make_shared<compute::ExecContext>(io_context.pool(),
@@ -410,19 +455,30 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
                    scanner->options()->projection.call()->options.get())
                    ->field_names;
   std::shared_ptr<Dataset> dataset = scanner->dataset();
+<<<<<<< HEAD
   std::shared_ptr<util::AsyncToggle> backpressure_toggle =
       std::make_shared<util::AsyncToggle>();
+=======
+>>>>>>> 9493b1fed... fix conflicts
 
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
           {
+<<<<<<< HEAD
               {"scan", ScanNodeOptions{dataset, scanner->options(), backpressure_toggle}},
+=======
+              {"scan", ScanNodeOptions{dataset, scanner->options()}},
+>>>>>>> 9493b1fed... fix conflicts
               {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
               {"project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
               {"write",
+<<<<<<< HEAD
                WriteNodeOptions{write_options, scanner->options()->projected_schema,
                                 backpressure_toggle}},
+=======
+               WriteNodeOptions{write_options, scanner->options()->projected_schema}},
+>>>>>>> 9493b1fed... fix conflicts
           })
           .AddToPlan(plan.get()));
 
@@ -441,16 +497,24 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
   const WriteNodeOptions write_node_options =
       checked_cast<const WriteNodeOptions&>(options);
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
+<<<<<<< HEAD
   const std::shared_ptr<Schema>& schema = write_node_options.schema;
   const std::shared_ptr<util::AsyncToggle>& backpressure_toggle =
       write_node_options.backpressure_toggle;
+=======
+  std::shared_ptr<Schema> schema = write_node_options.schema;
+>>>>>>> 9493b1fed... fix conflicts
 
   ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
                         internal::DatasetWriter::Make(write_options));
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
       std::make_shared<DatasetWritingSinkNodeConsumer>(
+<<<<<<< HEAD
           schema, std::move(dataset_writer), write_options, backpressure_toggle);
+=======
+          std::move(schema), std::move(dataset_writer), write_options);
+>>>>>>> 9493b1fed... fix conflicts
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,

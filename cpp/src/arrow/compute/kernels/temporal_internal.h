@@ -43,6 +43,10 @@ inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
 }
 
+inline int64_t GetQuarter(const year_month_day& ymd) {
+  return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
+}
+
 static inline Result<const time_zone*> LocateZone(const std::string& timezone) {
   try {
     return locate_zone(timezone);
@@ -143,6 +147,48 @@ struct TimestampFormatter {
     return std::move(bufstream).str();
   }
 };
+
+//
+// Which types to generate a kernel for
+//
+struct WithDates {};
+struct WithTimes {};
+struct WithTimestamps {};
+
+// This helper allows generating temporal kernels for selected type categories
+// without any spurious code generation for other categories (e.g. avoid
+// generating code for date kernels for a times-only function).
+template <typename Factory>
+void AddTemporalKernels(Factory* fac) {}
+
+template <typename Factory, typename... WithOthers>
+void AddTemporalKernels(Factory* fac, WithDates, WithOthers... others) {
+  fac->template AddKernel<days, Date32Type>(date32());
+  fac->template AddKernel<std::chrono::milliseconds, Date64Type>(date64());
+  AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
+}
+
+template <typename Factory, typename... WithOthers>
+void AddTemporalKernels(Factory* fac, WithTimes, WithOthers... others) {
+  fac->template AddKernel<std::chrono::seconds, Time32Type>(time32(TimeUnit::SECOND));
+  fac->template AddKernel<std::chrono::milliseconds, Time32Type>(time32(TimeUnit::MILLI));
+  fac->template AddKernel<std::chrono::microseconds, Time64Type>(time64(TimeUnit::MICRO));
+  fac->template AddKernel<std::chrono::nanoseconds, Time64Type>(time64(TimeUnit::NANO));
+  AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
+}
+
+template <typename Factory, typename... WithOthers>
+void AddTemporalKernels(Factory* fac, WithTimestamps, WithOthers... others) {
+  fac->template AddKernel<std::chrono::seconds, TimestampType>(
+      match::TimestampTypeUnit(TimeUnit::SECOND));
+  fac->template AddKernel<std::chrono::milliseconds, TimestampType>(
+      match::TimestampTypeUnit(TimeUnit::MILLI));
+  fac->template AddKernel<std::chrono::microseconds, TimestampType>(
+      match::TimestampTypeUnit(TimeUnit::MICRO));
+  fac->template AddKernel<std::chrono::nanoseconds, TimestampType>(
+      match::TimestampTypeUnit(TimeUnit::NANO));
+  AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
+}
 
 //
 // Which types to generate a kernel for

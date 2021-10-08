@@ -38,6 +38,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry);
 void RegisterScalarTemporalBinary(FunctionRegistry* registry);
 void RegisterScalarTemporalUnary(FunctionRegistry* registry);
 void RegisterScalarValidity(FunctionRegistry* registry);
+void RegisterScalarIfElse(FunctionRegistry* registry);
 
 void RegisterScalarOptions(FunctionRegistry* registry);
 
