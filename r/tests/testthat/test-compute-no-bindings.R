@@ -194,7 +194,7 @@ test_that("non-bound compute kernels using ExtractRegexOptions", {
 test_that("non-bound compute kernels using IndexOptions", {
   expect_equal(
     as.vector(
-      call_function("index", Array$create(c(10, 20, 30, 40)), options = list(value = 40))
+      call_function("index", Array$create(c(10, 20, 30, 40)), options = list(value = Scalar$create(40)))
     ),
     3
   )
