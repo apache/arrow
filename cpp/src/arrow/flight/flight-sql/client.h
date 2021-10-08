@@ -65,6 +65,11 @@ class ARROW_EXPORT PreparedStatementT {
   /// \return         Status.
   Status GetParameterSchema(std::shared_ptr<Schema>* schema);
 
+  /// \brief Retrieve the ResultSet schema from the query.
+  /// \param schema   The ResultSet schema from the query.
+  /// \return         Status.
+  Status GetResultSetSchema(std::shared_ptr<Schema>* schema);
+
   /// \brief Set a RecordBatch that contains the parameters that will be bind.
   /// \param parameter_binding_   The parameters that will be bind.
   /// \return                     Status.

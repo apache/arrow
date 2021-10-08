@@ -325,6 +325,20 @@ bool PreparedStatementT<T>::IsClosed() const {
 }
 
 template <class T>
+Status PreparedStatementT<T>::GetResultSetSchema(std::shared_ptr<Schema> *schema) {
+  ipc::DictionaryMemo in_memo;
+
+  auto &args = prepared_statement_result.dataset_schema();
+  std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
+
+  io::BufferReader reader(schema_buffer);
+
+  ARROW_ASSIGN_OR_RAISE(*schema, ReadSchema(&reader, &in_memo))
+
+  return Status::OK();
+}
+
+template <class T>
 Status PreparedStatementT<T>::GetParameterSchema(std::shared_ptr<Schema>* schema) {
   ipc::DictionaryMemo in_memo;
 

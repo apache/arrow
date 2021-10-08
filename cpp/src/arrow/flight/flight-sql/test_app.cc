@@ -140,15 +140,18 @@ Status RunMain() {
   } else if (fLS::FLAGS_command == "PreparedStatementExecuteParameterBinding") {
     std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement;
     ARROW_RETURN_NOT_OK(sqlClient.Prepare({}, fLS::FLAGS_query, &prepared_statement));
-    std::shared_ptr<Schema> schema;
-    ARROW_RETURN_NOT_OK(prepared_statement->GetParameterSchema(&schema));
+    std::shared_ptr<Schema> parameter_schema;
+    std::shared_ptr<Schema> result_set_schema;
+    ARROW_RETURN_NOT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
+    ARROW_RETURN_NOT_OK(prepared_statement->GetResultSetSchema(&result_set_schema));
 
+    std::cout << result_set_schema->ToString(false) << std::endl;
     arrow::Int64Builder  int_builder;
     ARROW_RETURN_NOT_OK(int_builder.Append(1));
     std::shared_ptr<arrow::Array> int_array;
     ARROW_RETURN_NOT_OK(int_builder.Finish(&int_array));
     std::shared_ptr<arrow::RecordBatch> result;
-    result = arrow::RecordBatch::Make(schema, 1, {int_array});
+    result = arrow::RecordBatch::Make(parameter_schema, 1, {int_array});
 
     ARROW_RETURN_NOT_OK(prepared_statement->SetParameters(result));
     ARROW_RETURN_NOT_OK(prepared_statement->Execute(&info));
