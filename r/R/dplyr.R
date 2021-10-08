@@ -259,3 +259,7 @@ has_aggregation <- function(x) {
   # TODO: update with joins (check right side data too)
   !is.null(x$aggregations) || (is_collapsed(x) && has_aggregation(x$.data))
 }
+
+has_head_tail <- function(x) {
+  !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))
+}

@@ -20,6 +20,14 @@ do_exec_plan <- function(.data) {
   final_node <- plan$Build(.data)
   tab <- plan$Run(final_node)$read_table()
 
+  # TODO: can we move all of this logic into plan$Run, making a "source" node?
+  if (!is.null(final_node$head)) {
+    # TODO: implement head off of the RecordBatchReader so you can bail early
+    tab <- head(tab, final_node$head)
+  } else if (!is.null(final_node$tail)) {
+    tab <- tail(tab, final_node$tail)
+  }
+
   # If arrange() created $temp_columns, make sure to omit them from the result
   # We can't currently handle this in the ExecPlan itself because sorting
   # happens in the end (SinkNode) so nothing comes after it.
@@ -176,12 +184,19 @@ ExecPlan <- R6Class("ExecPlan",
         )
       }
 
-      # TODO: head/tail
-      # if node$sort, translate into topK
-      # else, warn that order not deterministic?
+      # This is only safe because we are going to evaluate queries that end
+      # with head/tail first, then evaluate any subsequent query as a new query
+      if (!is.null(.data$head)) {
+        node$head <- .data$head
+      }
+      if (!is.null(.data$tail)) {
+        node$tail <- .data$tail
+      }
+
       node
     },
     Run = function(node) {
+      # TODO: pass head/tail to ExecPlan_run
       assert_is(node, "ExecNode")
       ExecPlan_run(self, node, node$sort %||% list())
     }
@@ -198,8 +213,13 @@ ExecNode <- R6Class("ExecNode",
     # which don't currently yield their own ExecNode but rather are consumed
     # in the SinkNode (in ExecPlan$run())
     sort = NULL,
+    # Similar hacks for head and tail
+    head = NULL,
+    tail = NULL,
     preserve_sort = function(new_node) {
       new_node$sort <- self$sort
+      new_node$head <- self$head
+      new_node$tail <- self$tail
       new_node
     },
     Project = function(cols) {
