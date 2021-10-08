@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/array/builder_binary.h>
 #include <arrow/flight/api.h>
 #include <arrow/flight/flight-sql/api.h>
 #include <arrow/io/memory.h>
@@ -23,10 +24,9 @@
 #include <arrow/table.h>
 #include <gflags/gflags.h>
 
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <memory>
-#include <arrow/array/builder_binary.h>
-#include <boost/algorithm/string.hpp>
 
 using arrow::Result;
 using arrow::Schema;

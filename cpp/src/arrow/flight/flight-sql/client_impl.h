@@ -18,14 +18,13 @@
 #include <arrow/buffer.h>
 #include <arrow/flight/flight-sql/FlightSql.pb.h>
 #include <arrow/flight/types.h>
+#include <arrow/io/memory.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/testing/gtest_util.h>
 #include <google/protobuf/any.pb.h>
 #include <google/protobuf/message_lite.h>
-#include "arrow/ipc/reader.h"
-#include <arrow/io/memory.h>
-
 
 #include <utility>
-#include <arrow/testing/gtest_util.h>
 
 namespace pb = arrow::flight::protocol;
 
