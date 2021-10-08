@@ -69,8 +69,9 @@ R_xlen_t Standard_Get_region<int>(SEXP data2, R_xlen_t i, R_xlen_t n, int* buf) 
   return INTEGER_GET_REGION(data2, i, n, buf);
 }
 
-void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
-using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
+void DeleteChunkedArray(std::shared_ptr<Array>* ptr) { delete ptr; }
+using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteChunkedArray>;
+
 
 // the Array that is being wrapped by the altrep object
 static const std::shared_ptr<Array>& GetArray(SEXP alt) {
@@ -86,8 +87,8 @@ static const std::shared_ptr<Array>& GetArray(SEXP alt) {
 template <typename Impl>
 struct AltrepVectorBase {
   // store the Array as an external pointer in data1, mark as immutable
-  static SEXP Make(const std::shared_ptr<Array>& array) {
-    SEXP alt = R_new_altrep(Impl::class_t, Pointer(new std::shared_ptr<Array>(array)),
+  static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
+    SEXP alt = R_new_altrep(Impl::class_t, Pointer(new std::shared_ptr<Array>(chunked_array->chunk(0))),
                             R_NilValue);
     MARK_NOT_MUTABLE(alt);
 
@@ -610,16 +611,16 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
     if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
       switch (array->type()->id()) {
         case arrow::Type::DOUBLE:
-          return altrep::AltrepVectorPrimitive<REALSXP>::Make(array);
+          return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
 
         case arrow::Type::INT32:
-          return altrep::AltrepVectorPrimitive<INTSXP>::Make(array);
+          return altrep::AltrepVectorPrimitive<INTSXP>::Make(chunked_array);
 
         case arrow::Type::STRING:
-          return altrep::AltrepVectorString<StringType>::Make(array);
+          return altrep::AltrepVectorString<StringType>::Make(chunked_array);
 
         case arrow::Type::LARGE_STRING:
-          return altrep::AltrepVectorString<LargeStringType>::Make(array);
+          return altrep::AltrepVectorString<LargeStringType>::Make(chunked_array);
 
         default:
           break;
