@@ -22,8 +22,8 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -83,7 +83,7 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool use_executo
       use_executor ? ::arrow::internal::GetCpuThreadPool() : nullptr);
 
   // ensure arrow::dataset node factories are in the registry
-  arrow::dataset::internal::Initialize();
+  ::arrow::dataset::internal::Initialize();
 
   // A ScanNode is constructed from an ExecPlan (into which it is inserted),
   // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
