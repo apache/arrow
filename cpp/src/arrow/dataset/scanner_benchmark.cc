@@ -74,6 +74,28 @@ RecordBatchVector GenerateBatches(const std::shared_ptr<Schema>& schema,
 
 namespace dataset {
 
+static std::map<std::pair<size_t, size_t>, RecordBatchVector> datasets;
+
+void StoreBatches(size_t num_batches, size_t batch_size,
+                  const RecordBatchVector& batches) {
+  datasets[std::make_pair(num_batches, batch_size)] = batches;
+}
+
+RecordBatchVector GetBatches(size_t num_batches, size_t batch_size) {
+  auto iter = datasets.find(std::make_pair(num_batches, batch_size));
+  if (iter == datasets.end()) {
+    return RecordBatchVector{};
+  }
+  return iter->second;
+}
+
+std::shared_ptr<Schema> GetSchema() {
+  static std::shared_ptr<Schema> s = schema({field("a", int32()), field("b", boolean())});
+  return s;
+}
+
+size_t GetBytesForSchema() { return sizeof(int32_t) + sizeof(bool); }
+
 void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool use_executor) {
   // NB: This test is here for didactic purposes
 
@@ -92,11 +114,10 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool use_executo
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                        compute::ExecPlan::Make(&exec_context));
 
-  std::shared_ptr<Schema> sch = schema({field("a", int32()), field("b", boolean())});
-  RecordBatchVector batches =
-      ::arrow::compute::GenerateBatches(sch, num_batches, batch_size);
+  RecordBatchVector batches = GetBatches(num_batches, batch_size);
 
-  std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(sch, batches);
+  std::shared_ptr<Dataset> dataset =
+      std::make_shared<InMemoryDataset>(GetSchema(), batches);
 
   auto options = std::make_shared<ScanOptions>();
   // sync scanning is not supported by ScanNode
@@ -131,7 +152,7 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool use_executo
   // finally, pipe the project node into a sink node
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
-                       compute::MakeExecNode("ordered_sink", plan.get(), {project},
+                       compute::MakeExecNode("sink", plan.get(), {project},
                                              compute::SinkNodeOptions{&sink_gen}));
 
   ASSERT_NE(sink, nullptr);
@@ -146,12 +167,7 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool use_executo
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
 
-  // Sort table
-  ASSERT_OK_AND_ASSIGN(
-      auto indices,
-      compute::SortIndices(collected, compute::SortOptions({compute::SortKey(
-                                          "a * 2", compute::SortOrder::Ascending)})));
-  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(collected, indices));
+  ASSERT_GT(collected->num_rows(), 0);
 
   // wait 1s for completion
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
@@ -165,22 +181,29 @@ static void MinimalEndToEndBench(benchmark::State& state) {
   for (auto _ : state) {
     MinimalEndToEndScan(num_batches, batch_size, use_executor);
   }
-  state.SetItemsProcessed(state.iterations());
+  state.SetItemsProcessed(state.iterations() * num_batches);
+  state.SetBytesProcessed(state.iterations() * num_batches * batch_size *
+                          GetBytesForSchema());
 }
 
-BENCHMARK(MinimalEndToEndBench)
-    ->Args({100, 10, false})
-    ->Args({1000, 100, false})
-    ->Args({10000, 100, false})
-    ->Args({10000, 1000, false})
-    ->Args({10000, 10000, false})
-    ->Args({100, 10, true})
-    ->Args({1000, 100, true})
-    ->Args({10000, 100, true})
-    ->Args({10000, 1000, true})
-    ->Args({10000, 10000, true})
-    ->MinTime(1.0)
-    ->Unit(benchmark::TimeUnit::kMillisecond);
+static const std::vector<int32_t> kWorkload = {100, 1000, 10000, 100000};
+
+static void MinimalEndToEnd_Customize(benchmark::internal::Benchmark* b) {
+  for (const int32_t num_batches : kWorkload) {
+    for (const int batch_size : {10, 100, 1000}) {
+      for (const bool use_executor : {true, false}) {
+        b->Args({num_batches, batch_size, use_executor});
+        RecordBatchVector batches =
+            ::arrow::compute::GenerateBatches(GetSchema(), num_batches, batch_size);
+        StoreBatches(num_batches, batch_size, batches);
+      }
+    }
+  }
+  b->ArgNames({"num_batches", "batch_size", "use_executor"});
+  b->UseRealTime();
+}
+
+BENCHMARK(MinimalEndToEndBench)->Apply(MinimalEndToEnd_Customize);
 
 }  // namespace dataset
 }  // namespace arrow
