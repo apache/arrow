@@ -97,6 +97,7 @@ list_compute_functions <- function(pattern = NULL, ...) {
   if (!is.null(pattern)) {
     funcs <- grep(pattern, funcs, value = TRUE, ...)
   }
+  # TODO: This filtering will already happen in C++ with ARROW-13943
   funcs <- grep("hash_", funcs, value = TRUE, invert = TRUE)
   funcs
 }
