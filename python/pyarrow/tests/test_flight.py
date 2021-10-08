@@ -2022,7 +2022,7 @@ def test_large_metadata_client():
 
 
 class ActionNoneFlightServer(EchoFlightServer):
-    """An echo server that streams individual record batches."""
+    """A server that implements a side effect to a non iterable action."""
     VALUES = []
 
     def do_action(self, context, action):
