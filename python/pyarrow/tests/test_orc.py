@@ -260,3 +260,10 @@ def test_column_selection(tempdir):
 
     result3 = orc_file.read(columns=[1, 2, 3])
     assert result3.equals(table.select(["list", "struct", "list-struct"]))
+
+    # error on non-existing name or index
+    with pytest.raises(ValueError):
+        orc_file.read(columns=["wrong"])
+
+    with pytest.raises(ValueError):
+        orc_file.read(columns=[5])
