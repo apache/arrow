@@ -275,7 +275,8 @@ Status FlightSqlClientT<T>::Prepare(
 
   prepared_result.UnpackTo(&prepared_statement_result);
 
-  prepared_statement->reset(new PreparedStatementT<T>(client.get(), query, prepared_statement_result, options));
+  prepared_statement->reset(
+      new PreparedStatementT<T>(client.get(), query, prepared_statement_result, options));
 
   return Status::OK();
 }
