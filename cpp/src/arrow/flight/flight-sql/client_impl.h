@@ -301,7 +301,7 @@ Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
   if (parameter_binding && parameter_binding->num_rows() > 0) {
     std::unique_ptr<FlightStreamWriter> writer;
     std::unique_ptr<FlightMetadataReader> reader;
-    client->DoPut(descriptor, parameter_binding->schema(), &writer, &reader);
+    client->DoPut(options, descriptor, parameter_binding->schema(), &writer, &reader);
 
     std::shared_ptr<Buffer> buffer;
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding));
