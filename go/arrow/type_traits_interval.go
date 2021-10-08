@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/arrow/endian"
+	"github.com/apache/arrow/go/arrow/internal/debug"
 )
 
 var (
@@ -28,6 +29,12 @@ var (
 	DayTimeIntervalTraits      daytimeTraits
 	MonthDayNanoIntervalTraits monthDayNanoTraits
 )
+
+func init() {
+	debug.Assert(MonthIntervalSizeBytes == 4, "MonthIntervalSizeBytes should be 4")
+	debug.Assert(DayTimeIntervalSizeBytes == 8, "DayTimeIntervalSizeBytes should be 8")
+	debug.Assert(MonthDayNanoIntervalSizeBytes == 16, "MonthDayNanoIntervalSizeBytes should be 16")
+}
 
 // MonthInterval traits
 
