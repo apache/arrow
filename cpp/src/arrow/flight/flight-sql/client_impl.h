@@ -302,9 +302,10 @@ Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
     std::unique_ptr<FlightMetadataReader> reader;
     client->DoPut(options, descriptor, parameter_binding->schema(), &writer, &reader);
 
-    std::shared_ptr<Buffer> buffer;
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding));
     ARROW_RETURN_NOT_OK(writer->DoneWriting());
+    // Wait for the server to ack the result
+    std::shared_ptr<Buffer> buffer;
     ARROW_RETURN_NOT_OK(reader->ReadMetadata(&buffer));
   }
 
