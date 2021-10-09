@@ -29,4 +29,4 @@ if [[ "${version}" -eq "default" ]]; then
   version="v0.7.0"
 fi
 
-pip install "git+https://github.com/googleapis/storage-testbench@${version}"
+pip install "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
