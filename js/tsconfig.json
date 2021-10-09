@@ -15,5 +15,5 @@
       "apache-arrow/*": ["src/*"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"]
 }
