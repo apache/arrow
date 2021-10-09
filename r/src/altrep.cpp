@@ -629,15 +629,15 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
   return R_NilValue;
 }
 
-// borrowed from
+// For context, see
 // https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
 #define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
 #define ALTREP_SERIALIZED_CLASS_PKGSYM(x) CADR(x)
 
 std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP x) {
   if (ALTREP(x)) {
-    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(ALTREP_CLASS(x));
-    SEXP pkg = ALTREP_SERIALIZED_CLASS_PKGSYM(info);
+    SEXP info = ATTRIB(ALTREP_CLASS(x));
+    SEXP pkg = CADR(info);
 
     if (pkg == symbols::arrow) {
       return GetArray(x);
