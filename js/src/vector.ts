@@ -306,6 +306,7 @@ export function makeVector(data: Int16Array | readonly Int16Array[]): Vector<dty
 export function makeVector(data: Int32Array | readonly Int32Array[]): Vector<dtypes.Int32>;
 export function makeVector(data: BigInt64Array | readonly BigInt64Array[]): Vector<dtypes.Int64>;
 export function makeVector(data: Uint8Array | readonly Uint8Array[]): Vector<dtypes.Uint8>;
+export function makeVector(data: Uint8ClampedArray | readonly Uint8ClampedArray[]): Vector<dtypes.Uint8>;
 export function makeVector(data: Uint16Array | readonly Uint16Array[]): Vector<dtypes.Uint16>;
 export function makeVector(data: Uint32Array | readonly Uint32Array[]): Vector<dtypes.Uint32>;
 export function makeVector(data: BigUint64Array | readonly BigUint64Array[]): Vector<dtypes.Uint64>;
@@ -332,7 +333,7 @@ export function makeVector(init: any) {
             if (init instanceof Int16Array) { return new Vector([makeData({ ...props, type: new dtypes.Int16 })]); }
             if (init instanceof Int32Array) { return new Vector([makeData({ ...props, type: new dtypes.Int32 })]); }
             if (init instanceof BigInt64Array) { return new Vector([makeData({ ...props, type: new dtypes.Int64 })]); }
-            if (init instanceof Uint8Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint8 })]); }
+            if (init instanceof Uint8Array || init instanceof Uint8ClampedArray) { return new Vector([makeData({ ...props, type: new dtypes.Uint8 })]); }
             if (init instanceof Uint16Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint16 })]); }
             if (init instanceof Uint32Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint32 })]); }
             if (init instanceof BigUint64Array) { return new Vector([makeData({ ...props, type: new dtypes.Uint64 })]); }
