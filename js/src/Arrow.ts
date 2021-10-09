@@ -52,7 +52,7 @@ export {
 } from './type';
 
 export { Table } from './table';
-export { Vector, makeVector } from './vector';
+export { Vector, makeVector, vectorFromArray } from './vector';
 export { Visitor } from './visitor';
 export { Schema, Field } from './schema';
 

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Bool, makeVector } from 'apache-arrow';
+import { Bool, makeVector, vectorFromArray } from 'apache-arrow';
 
 const newBoolVector = (length: number, data: Uint8Array) => makeVector({ type: new Bool(), length, data });
 
@@ -75,38 +75,37 @@ describe(`BoolVector`, () => {
     });
     test(`packs 0 values`, () => {
         const expected = new Uint8Array(64);
-        expect(BoolVector.from([]).values).toEqual(expected);
+        expect(vectorFromArray([], new Bool()).data[0].values).toEqual(expected);
     });
     test(`packs 3 values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 5;
-        expect(BoolVector.from([
+        expect(vectorFromArray([
             true, false, true
-        ]).values).toEqual(expected);
+        ]).data[0].values).toEqual(expected);
     });
     test(`packs 8 values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 27;
-        expect(BoolVector.from([
+        expect(vectorFromArray([
             true, true, false, true, true, false, false, false
-        ]).values).toEqual(expected);
+        ]).data[0].values).toEqual(expected);
     });
     test(`packs 25 values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 27;
         expected[1] = 216;
-        expect(BoolVector.from([
+        expect(vectorFromArray([
             true, true, false, true, true, false, false, false,
             false, false, false, true, true, false, true, true,
             false
-        ]).values).toEqual(expected);
+        ]).data[0].values).toEqual(expected);
     });
     test(`from with boolean Array packs values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 5;
-        expect(BoolVector
-            .from([true, false, true])
-            .slice().values
+        expect(vectorFromArray([true, false, true])
+            .slice().data[0].values
         ).toEqual(expected);
     });
 });

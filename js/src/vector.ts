@@ -19,6 +19,7 @@ import { Type } from './enum';
 import { clampRange } from './util/vector';
 import { DataType, strideForType } from './type';
 import { Data, makeData, DataProps } from './data';
+import { Builder } from './builder';
 
 import {
     ChunkedIterator,
@@ -341,6 +342,68 @@ export function makeVector(init: any) {
         }
     }
     throw new Error('Unrecognized input');
+}
+
+
+function inferType(value: any[]): DataType {
+    if (value.length === 0) { return new dtypes.Null; }
+    let nullsCount = 0;
+    // @ts-ignore
+    let arraysCount = 0;
+    // @ts-ignore
+    let objectsCount = 0;
+    let numbersCount = 0;
+    let stringsCount = 0;
+    let bigintsCount = 0;
+    let booleansCount = 0;
+    let datesCount = 0;
+
+    for (const val of value) {
+        if (val == null) { ++nullsCount; continue; }
+        switch (typeof val) {
+            case 'bigint': ++bigintsCount; continue;
+            case 'boolean': ++booleansCount; continue;
+            case 'number': ++numbersCount; continue;
+            case 'string': ++stringsCount; continue;
+            case 'object':
+                if (Array.isArray(val)) {
+                    ++arraysCount;
+                } else if (Object.prototype.toString.call(val) === '[object Date]') {
+                    ++datesCount;
+                } else {
+                    ++objectsCount;
+                }
+                continue;
+        }
+        throw new TypeError('Unable to infer Series type from input values, explicit type declaration expected');
+    }
+
+    if (numbersCount + nullsCount === value.length) {
+        return new dtypes.Float64;
+    } else if (stringsCount + nullsCount === value.length) {
+        return new dtypes.Utf8;
+    } else if (bigintsCount + nullsCount === value.length) {
+        return new dtypes.Int64;
+    } else if (booleansCount + nullsCount === value.length) {
+        return new dtypes.Bool;
+    } else if (datesCount + nullsCount === value.length) {
+        return new dtypes.TimestampMillisecond;
+    }
+    // TODO: add more types to infererence
+
+    throw new TypeError('Unable to infer Series type from input values, explicit type declaration expected');
+}
+
+
+export function vectorFromArray(values: null[], type?: dtypes.Null): Vector<dtypes.Null>;
+export function vectorFromArray(values: boolean[], type?: dtypes.Bool): Vector<dtypes.Bool>;
+export function vectorFromArray<T extends dtypes.Int>(values: number[], type: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: number[], type?: T): Vector<T>;
+
+export function vectorFromArray(values: unknown[], type?: DataType) {
+    const options = { type: type ?? inferType(values) };
+    const chunks = [...Builder.throughIterable(options)(values)];
+    return chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
 }
 
 function unwrapInputs(x: any) {

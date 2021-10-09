@@ -83,7 +83,7 @@ describe(`FloatVector`, () => {
         test(`return type is correct`, () => checkType(Float32Vector, f32Vec));
         test(`return type is correct`, () => checkType(Float64Vector, f64Vec));
         test(`throws on bad input`, () => {
-            expect(() => FloatVector.from(<any> {})).toThrow('Unrecognized FloatVector input');
+            expect(() => FloatVector.from(<any>{})).toThrow('Unrecognized FloatVector input');
         });
 
         testAndValidateVector(f16Vec, u16s, f16s);
@@ -179,7 +179,7 @@ describe(`IntVector`, () => {
         test(`return type is correct`, () => checkType(Uint32Vector, u32Vec));
         test(`return type is correct`, () => checkType(Uint64Vector, u64Vec));
         test(`throws on bad input`, () => {
-            expect(() => IntVector.from(<any> {})).toThrow('Unrecognized IntVector input');
+            expect(() => IntVector.from(<any>{})).toThrow('Unrecognized IntVector input');
         });
 
         const bigI64s = BigInt64Array.from(toBigNumsArray(i64s));
@@ -408,7 +408,7 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
             describe(`slicing without args`, () => { testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()); });
             // test slicing the middle half
             describe(`slice the middle half`, () => {
-                    testAndValidateVector(
+                testAndValidateVector(
                     vector.slice(begin, end),
                     typed.slice(begin, end),
                     jsArray.slice(begin, end)
@@ -546,12 +546,12 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T
                 // Distinguish the bigint comparisons to ensure the indexOf type signature accepts bigints
                 let shuffled64 = shuffled as bigint[];
                 if (isInt64) {
-                    let vector64 = (<unknown> vector) as Int64Vector;
+                    let vector64 = (<unknown>vector) as Int64Vector;
                     while (++i < n) {
                         expect(vector64.indexOf(shuffled64[i])).toEqual(original.indexOf(shuffled64[i]));
                     }
                 } else {
-                    let vector64 = (<unknown> vector) as Uint64Vector;
+                    let vector64 = (<unknown>vector) as Uint64Vector;
                     while (++i < n) {
                         expect(vector64.indexOf(shuffled64[i])).toEqual(original.indexOf(shuffled64[i]));
                     }
@@ -589,7 +589,7 @@ function slices_from_0_to_minus_20<T extends Int | Float>(vector: Vector<T>, val
     });
 }
 
-function slices_the_array_from_0_to_length_minus_20 <T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
+function slices_the_array_from_0_to_length_minus_20<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices the array from 0 to length - 20`, () => {
         expect.hasAssertions();
         expect(vector.slice(0, vector.length - 20).toArray()).toEqual(values.slice(0, values.length - (20 * vector.stride)));
