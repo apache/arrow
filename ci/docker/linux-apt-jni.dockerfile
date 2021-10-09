@@ -33,13 +33,18 @@ RUN apt-get update -y -q && \
       wget && \
     code_name=$(lsb_release --codename --short) && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    if [ "${code_name}" = "stretch" -a "${llvm}" -gt "12" ]; then \
+      llvm_real=12; \
+    else \
+      llvm_real=${llvm}; \
+    fi; \
     apt-add-repository -y \
-      "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" && \
+      "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm_real} main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         ca-certificates \
         ccache \
-        clang-${llvm} \
+        clang-${llvm_real} \
         cmake \
         git \
         g++ \
@@ -52,7 +57,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
-        llvm-${llvm}-dev \
+        llvm-${llvm_real}-dev \
         make \
         ninja-build \
         pkg-config \
