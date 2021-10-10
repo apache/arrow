@@ -2572,8 +2572,10 @@ macro(build_absl_once)
           "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
       add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
-      set_target_properties(absl::${_ABSL_LIB} PROPERTIES IMPORTED_LOCATION
-                                                          ${_ABSL_STATIC_LIBRARY})
+      set_target_properties(absl::${_ABSL_LIB}
+                            PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${ABSL_PREFIX}/include")
       list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
     endforeach()
     foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
@@ -3704,6 +3706,13 @@ endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   resolve_dependency(google_cloud_cpp_storage)
+  get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${google_cloud_cpp_storage_INCLUDE_DIR})
+  get_target_property(absl_base_INCLUDE_DIR absl::base INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${absl_base_INCLUDE_DIR})
+  message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
+  )
 endif()
 
 #
