@@ -65,6 +65,34 @@ struct GreaterEqual {
   }
 };
 
+struct Between {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static constexpr T Call(KernelContext*, const Arg0& value, const Arg1& left,
+                             const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value &&
+                  std::is_same<Arg0, Arg1>::value &&
+                  std::is_same<Arg1, Arg2>::value,
+                  "");
+    return (left < value) && (value < right);
+  }
+};
+
+
+template <typename T>
+using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
+                                                             std::is_unsigned<T>::value>;
+
+template <typename T>
+using is_signed_integer =
+    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
+
+template <typename T>
+using enable_if_integer =
+    enable_if_t<is_signed_integer<T>::value || is_unsigned_integer<T>::value, T>;
+
+template <typename T>
+using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
+
 struct Minimum {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T> Call(Arg0 left, Arg1 right) {
@@ -466,18 +494,6 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   return func;
 }
 
-struct Between {
-  template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static constexpr T Call(KernelContext*, const Arg0& value, const Arg1& left,
-                             const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value &&
-                  std::is_same<Arg0, Arg1>::value &&
-                  std::is_same<Arg1, Arg2>::value,
-                  "");
-    return (left < value) && (value < right);
-  }
-};
-
 template <typename Op>
 void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
@@ -594,9 +610,10 @@ const FunctionDoc max_element_wise_doc{
     {"*args"},
     "ElementWiseAggregateOptions"};
 
-const FunctionDoc between_doc{"Check if values are in a range x <= y <= z",
-                             ("A null on either side emits a null comparison result."),
-                             {"x", "y", "z"}};
+const FunctionDoc between_doc{
+    "Check if values are in a range x <= y <= z",
+    ("A null on either side emits a null comparison result."),
+    {"x", "y", "z"}};
 
 }  // namespace
 
