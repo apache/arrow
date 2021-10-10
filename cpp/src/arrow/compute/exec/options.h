@@ -112,6 +112,26 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()>* generator;
 };
 
+class ARROW_EXPORT SinkNodeConsumer {
+ public:
+  virtual ~SinkNodeConsumer() = default;
+  /// \brief Consume a batch of data
+  virtual Status Consume(ExecBatch batch) = 0;
+  /// \brief Signal to the consumer that the last batch has been delivered
+  ///
+  /// The returned future should only finish when all outstanding tasks have completed
+  virtual Future<> Finish() = 0;
+};
+
+/// \brief Add a sink node which consumes data within the exec plan run
+class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
+ public:
+  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer)
+      : consumer(std::move(consumer)) {}
+
+  std::shared_ptr<SinkNodeConsumer> consumer;
+};
+
 /// \brief Make a node which sorts rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then sorted, by the given

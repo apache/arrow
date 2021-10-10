@@ -34,12 +34,14 @@ void RegisterScalarIfElse(FunctionRegistry* registry);
 void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
-void RegisterScalarTemporal(FunctionRegistry* registry);
+void RegisterScalarTemporalBinary(FunctionRegistry* registry);
+void RegisterScalarTemporalUnary(FunctionRegistry* registry);
 void RegisterScalarValidity(FunctionRegistry* registry);
 
 void RegisterScalarOptions(FunctionRegistry* registry);
 
 // Vector functions
+void RegisterVectorArraySort(FunctionRegistry* registry);
 void RegisterVectorHash(FunctionRegistry* registry);
 void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);

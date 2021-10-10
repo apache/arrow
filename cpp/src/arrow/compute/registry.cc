@@ -161,12 +161,14 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarNested(registry.get());
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
-  RegisterScalarTemporal(registry.get());
+  RegisterScalarTemporalBinary(registry.get());
+  RegisterScalarTemporalUnary(registry.get());
   RegisterScalarValidity(registry.get());
 
   RegisterScalarOptions(registry.get());
 
   // Vector functions
+  RegisterVectorArraySort(registry.get());
   RegisterVectorHash(registry.get());
   RegisterVectorNested(registry.get());
   RegisterVectorReplace(registry.get());

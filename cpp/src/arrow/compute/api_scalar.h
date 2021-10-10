@@ -23,13 +23,12 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/exec.h"  // IWYU pragma: keep
 #include "arrow/compute/function.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
@@ -94,10 +93,17 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
  public:
   explicit RoundToMultipleOptions(double multiple = 1.0,
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  explicit RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
+                                  RoundMode round_mode = RoundMode::HALF_TO_EVEN);
   constexpr static char const kTypeName[] = "RoundToMultipleOptions";
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
-  /// Rounding scale (multiple to round to)
-  double multiple;
+  /// Rounding scale (multiple to round to).
+  ///
+  /// Should be a scalar of a type compatible with the argument to be rounded.
+  /// For example, rounding a decimal value means a decimal multiple is
+  /// required. Rounding a floating point or integer value means a floating
+  /// point scalar is required.
+  std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
 };

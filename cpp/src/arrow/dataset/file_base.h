@@ -407,7 +407,23 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   }
 };
 
+/// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
+class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+ public:
+  explicit WriteNodeOptions(FileSystemDatasetWriteOptions options,
+                            std::shared_ptr<Schema> schema)
+      : write_options(std::move(options)), schema(std::move(schema)) {}
+
+  FileSystemDatasetWriteOptions write_options;
+  std::shared_ptr<Schema> schema;
+};
+
 /// @}
+
+namespace internal {
+ARROW_DS_EXPORT void InitializeDatasetWriter(
+    arrow::compute::ExecFactoryRegistry* registry);
+}
 
 }  // namespace dataset
 }  // namespace arrow

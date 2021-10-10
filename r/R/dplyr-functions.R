@@ -601,6 +601,50 @@ nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), 
   )
 }
 
+nse_funcs$startsWith <- function(x, prefix) {
+  Expression$create(
+    "starts_with",
+    x,
+    options = list(pattern = prefix)
+  )
+}
+
+nse_funcs$endsWith <- function(x, suffix) {
+  Expression$create(
+    "ends_with",
+    x,
+    options = list(pattern = suffix)
+  )
+}
+
+nse_funcs$str_starts <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$startsWith(x = string, prefix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
+nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$endsWith(x = string, suffix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2
