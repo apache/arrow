@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
                      arrow::field("a>b? (self written)", arrow::boolean()),
                      arrow::field("a>b? (arrow)", arrow::boolean())});
   std::shared_ptr<arrow::Table> my_table =
-      arrow::Table::Make(schema, {array_a, array_b, array_c, array_d});
+      arrow::Table::Make(schema, {array_a, array_b, array_a_gt_b_self, array_a_gt_b_compute});
 
   std::cout << "Table created" << std::endl;
 
