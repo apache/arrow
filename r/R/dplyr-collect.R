@@ -23,15 +23,8 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   # so if there are any steps done after head/tail, we need to
   # evaluate the query up to then and then do a new query for the rest
   if (is_collapsed(x) && has_head_tail(x$.data)) {
-    x$.data <- as_adq(dplyr::compute(x$.data))
+    x$.data <- as_adq(dplyr::compute(x$.data))$.data
   }
-  # TODO: if there are no aggregations or joins or sorting, (and there is
-  # head/tail?), use the Scanner methods?
-  # Those will at least (for now) have deterministic ordering and be faster
-  # than evaluating the whole ExecPlan
-  #
-  # out <- head.Dataset(ensure_group_vars(x), n, ...)
-  # restore_dplyr_features(out, x)
 
   # See query-engine.R for ExecPlan/Nodes
   tab <- do_exec_plan(x)

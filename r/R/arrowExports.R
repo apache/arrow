@@ -568,6 +568,10 @@ dataset___ScannerBuilder__Finish <- function(sb) {
   .Call(`_arrow_dataset___ScannerBuilder__Finish`, sb)
 }
 
+dataset___ScannerBuilder__FromRecordBatchReader <- function(reader) {
+  .Call(`_arrow_dataset___ScannerBuilder__FromRecordBatchReader`, reader)
+}
+
 dataset___Scanner__ToTable <- function(scanner) {
   .Call(`_arrow_dataset___Scanner__ToTable`, scanner)
 }
@@ -1787,4 +1791,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

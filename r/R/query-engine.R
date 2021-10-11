@@ -18,14 +18,11 @@
 do_exec_plan <- function(.data) {
   plan <- ExecPlan$create()
   final_node <- plan$Build(.data)
-  tab <- plan$Run(final_node)$read_table()
+  tab <- plan$Run(final_node)
 
-  # TODO: can we move all of this logic into plan$Run, making a "source" node?
-  if (!is.null(final_node$head)) {
-    # TODO: implement head off of the RecordBatchReader so you can bail early
-    tab <- head(tab, final_node$head)
-  } else if (!is.null(final_node$tail)) {
-    tab <- tail(tab, final_node$tail)
+  # TODO: make the head/tail methods return RBR not Table
+  if (inherits(tab, "RecordBatchReader")) {
+    tab <- tab$read_table()
   }
 
   # If arrange() created $temp_columns, make sure to omit them from the result
@@ -196,9 +193,20 @@ ExecPlan <- R6Class("ExecPlan",
       node
     },
     Run = function(node) {
-      # TODO: pass head/tail to ExecPlan_run
       assert_is(node, "ExecNode")
-      ExecPlan_run(self, node, node$sort %||% list())
+      # TODO (ARROW-12763): pass head/tail to ExecPlan_run so we can maybe TopK
+      out <- ExecPlan_run(self, node, node$sort %||% list())
+
+      if (!is.null(node$head)) {
+        # These methods are on RecordBatchReader (but return Table)
+        # TODO: make the head/tail methods return RBR not Table
+        out <- head(out, node$head)
+        # TODO: can we now tell `self` to StopProducing? We already have
+        # everything we need for the head
+      } else if (!is.null(node$tail)) {
+        out <- tail(out, node$tail)
+      }
+      out
     }
   )
 )
