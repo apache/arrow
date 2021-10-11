@@ -111,7 +111,7 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
       @Override
       public StatementType getType() {
         final Schema schema = preparedStatement.getResultSetSchema();
-        return schema == null || schema.getFields().isEmpty() ? StatementType.UPDATE : StatementType.SELECT;
+        return schema.getFields().isEmpty() ? StatementType.UPDATE : StatementType.SELECT;
       }
 
       @Override
