@@ -42,6 +42,13 @@ func ListOf(t DataType) *ListType {
 func (*ListType) ID() Type         { return LIST }
 func (*ListType) Name() string     { return "list" }
 func (t *ListType) String() string { return fmt.Sprintf("list<item: %v>", t.elem) }
+func (t *ListType) Fingerprint() string {
+	child := t.elem.Fingerprint()
+	if len(child) > 0 {
+		return typeFingerprint(t) + "{" + child + "}"
+	}
+	return ""
+}
 
 // Elem returns the ListType's element type.
 func (t *ListType) Elem() DataType { return t.elem }
@@ -79,6 +86,14 @@ func (t *FixedSizeListType) Elem() DataType { return t.elem }
 
 // Len returns the FixedSizeListType's size.
 func (t *FixedSizeListType) Len() int32 { return t.n }
+
+func (t *FixedSizeListType) Fingerprint() string {
+	child := t.elem.Fingerprint()
+	if len(child) > 0 {
+		return fmt.Sprintf("%s[%d]{%s}", typeFingerprint(t), t.n, child)
+	}
+	return ""
+}
 
 // StructType describes a nested type parameterized by an ordered sequence
 // of relative types, called its fields.
@@ -153,6 +168,22 @@ func (t *StructType) FieldIdx(name string) (int, bool) {
 	return i, ok
 }
 
+func (t *StructType) Fingerprint() string {
+	var b strings.Builder
+	b.WriteString(typeFingerprint(t))
+	b.WriteByte('{')
+	for _, c := range t.fields {
+		child := c.Fingerprint()
+		if len(child) == 0 {
+			return ""
+		}
+		b.WriteString(child)
+		b.WriteByte(';')
+	}
+	b.WriteByte('}')
+	return b.String()
+}
+
 type MapType struct {
 	value      *ListType
 	KeysSorted bool
@@ -187,11 +218,45 @@ func (t *MapType) ItemField() Field       { return t.value.Elem().(*StructType).
 func (t *MapType) ItemType() DataType     { return t.ItemField().Type }
 func (t *MapType) ValueType() *StructType { return t.value.Elem().(*StructType) }
 
+func (t *MapType) Fingerprint() string {
+	keyFingerprint := t.KeyType().Fingerprint()
+	itemFingerprint := t.ItemType().Fingerprint()
+	if keyFingerprint == "" || itemFingerprint == "" {
+		return ""
+	}
+
+	fingerprint := typeFingerprint(t)
+	if t.KeysSorted {
+		fingerprint += "s"
+	}
+	return fingerprint + "{" + keyFingerprint + itemFingerprint + "}"
+}
+
 type Field struct {
 	Name     string   // Field name
 	Type     DataType // The field's data type
 	Nullable bool     // Fields can be nullable
 	Metadata Metadata // The field's metadata, if any
+}
+
+func (f Field) Fingerprint() string {
+	typeFingerprint := f.Type.Fingerprint()
+	if typeFingerprint == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteByte('F')
+	if f.Nullable {
+		b.WriteByte('n')
+	} else {
+		b.WriteByte('N')
+	}
+	b.WriteString(f.Name)
+	b.WriteByte('{')
+	b.WriteString(typeFingerprint)
+	b.WriteByte('}')
+	return b.String()
 }
 
 func (f Field) HasMetadata() bool { return f.Metadata.Len() != 0 }

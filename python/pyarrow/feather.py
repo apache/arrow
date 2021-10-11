@@ -205,7 +205,7 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
-    use_threads: bool, default True
+    use_threads : bool, default True
         Whether to parallelize reading using multiple threads.
     memory_map : boolean, default True
         Use memory mapping when opening file on disk

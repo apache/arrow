@@ -162,7 +162,6 @@ func processFile(w io.Writer, fname string) error {
 		for i, col := range rec.Columns() {
 			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 		}
-		rec.Release()
 	}
 
 	return nil

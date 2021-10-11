@@ -339,6 +339,14 @@ func (b *BinaryMemoTable) CopyValuesSubset(start int, out interface{}) {
 	copy(outval, b.builder.Value(start)[0:length])
 }
 
+func (b *BinaryMemoTable) WriteOut(out []byte) {
+	b.CopyValues(out)
+}
+
+func (b *BinaryMemoTable) WriteOutSubset(start int, out []byte) {
+	b.CopyValuesSubset(start, out)
+}
+
 // CopyFixedWidthValues exists to cope with the fact that the table doesn't keep
 // track of the fixed width when inserting the null value the databuffer holds a
 // zero length byte slice for the null value (if found)

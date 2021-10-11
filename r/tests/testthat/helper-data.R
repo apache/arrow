@@ -168,3 +168,24 @@ example_data_for_sorting <- tibble::tibble(
   )),
   grp = c(rep("A", 5), rep("B", 5))
 )
+
+# For Dataset tests
+first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
+df1 <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+  chr = letters[1:10],
+  fct = factor(LETTERS[1:10]),
+  ts = first_date + lubridate::days(1:10)
+)
+
+second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
+df2 <- tibble::tibble(
+  int = 101:110,
+  dbl = c(as.numeric(51:59), NaN),
+  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+  chr = letters[10:1],
+  fct = factor(LETTERS[10:1]),
+  ts = second_date + lubridate::days(10:1)
+)

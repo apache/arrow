@@ -759,9 +759,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 			bldr.Append(v)
 			beg := int64(arr.Offset[i])
 			end := int64(arr.Offset[i+1])
-			slice := array.NewSlice(elems, beg, end)
-			buildArray(bldr.ValueBuilder(), slice)
-			slice.Release()
+			buildArray(bldr.ValueBuilder(), array.NewSlice(elems, beg, end))
 		}
 		return bldr.NewArray()
 
@@ -776,9 +774,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 			bldr.Append(v)
 			beg := int64(i) * size
 			end := int64(i+1) * size
-			slice := array.NewSlice(elems, beg, end)
-			buildArray(bldr.ValueBuilder(), slice)
-			slice.Release()
+			buildArray(bldr.ValueBuilder(), array.NewSlice(elems, beg, end))
 		}
 		return bldr.NewArray()
 
@@ -795,7 +791,6 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		for i := range dt.Fields() {
 			fbldr := bldr.FieldBuilder(i)
 			buildArray(fbldr, fields[i])
-			fields[i].Release()
 		}
 
 		return bldr.NewArray()
@@ -829,12 +824,10 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 			bldr.Append(v)
 			beg := int64(arr.Offset[i])
 			end := int64(arr.Offset[i+1])
-			slice := array.NewSlice(pairs, beg, end).(*array.Struct)
 			kb := bldr.KeyBuilder()
-			buildArray(kb, slice.Field(0))
+			buildArray(kb, array.NewSlice(pairs.(*array.Struct).Field(0), beg, end))
 			ib := bldr.ItemBuilder()
-			buildArray(ib, slice.Field(1))
-			slice.Release()
+			buildArray(ib, array.NewSlice(pairs.(*array.Struct).Field(1), beg, end))
 		}
 		return bldr.NewArray()
 

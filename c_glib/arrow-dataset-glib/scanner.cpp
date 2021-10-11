@@ -245,6 +245,25 @@ gadataset_scanner_builder_new_record_batch_reader(
 }
 
 /**
+ * gadataset_scanner_builder_use_async:
+ * @builder: A #GADatasetScannerBuilder.
+ * @use_async: Use the asynchronous scanner
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: void
+ *
+ * Since: 6.0.0
+ */
+void
+gadataset_scanner_builder_use_async(GADatasetScannerBuilder *builder, gboolean use_async,
+                                 GError **error)
+{
+  auto arrow_builder = gadataset_scanner_builder_get_raw(builder);
+  auto use_async_result = arrow_builder->UseAsync(use_async);
+  garrow::check(error, use_async_result, "[scanner-builder][use_async]");
+}
+
+/**
  * gadataset_scanner_builder_finish:
  * @builder: A #GADatasetScannerBuilder.
  * @error: (nullable): Return location for a #GError or %NULL.

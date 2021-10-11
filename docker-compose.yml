@@ -113,6 +113,7 @@ x-hierarchy:
       - debian-ruby
     - debian-python
   - debian-go:
+    - debian-go-cgo
     - debian-go-cgo-python
   - debian-java:
     - debian-java-jni
@@ -1200,6 +1201,24 @@ services:
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/go_test.sh /arrow"
 
+  debian-go-cgo:
+    # Usage:
+    #   docker-compose build debian-go-cgo
+    #   docker-compose run debian-go-cgo
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
+    build:
+      context: .
+      dockerfile: ci/docker/debian-go-cgo.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
+      args:
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    environment:
+      ARROW_GO_TESTCGO: "1"
+    command: *go-command
+
   debian-go-cgo-python:
     # Usage:
     #   docker-compose build debian-go-cgo-python
@@ -1347,6 +1366,7 @@ services:
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/csharp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&

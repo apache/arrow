@@ -530,12 +530,13 @@ cdef class Dataset(_Weakrefable):
 
 
 cdef class InMemoryDataset(Dataset):
-    """A Dataset wrapping in-memory data.
+    """
+    A Dataset wrapping in-memory data.
 
     Parameters
     ----------
-    source
-        The data for this dataset. Can be a RecordBatch, Table, list of
+    source : The data for this dataset.
+        Can be a RecordBatch, Table, list of
         RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader.
         If an iterable is provided, the schema must also be provided.
     schema : Schema, optional
@@ -591,7 +592,8 @@ cdef class InMemoryDataset(Dataset):
 
 
 cdef class UnionDataset(Dataset):
-    """A Dataset wrapping child datasets.
+    """
+    A Dataset wrapping child datasets.
 
     Children's schemas must agree with the provided schema.
 
@@ -633,7 +635,8 @@ cdef class UnionDataset(Dataset):
 
 
 cdef class FileSystemDataset(Dataset):
-    """A Dataset of file fragments.
+    """
+    A Dataset of file fragments.
 
     A FileSystemDataset is composed of one or more FileFragment.
 
@@ -1173,7 +1176,15 @@ cdef class FileFragment(Fragment):
 
 
 class RowGroupInfo:
-    """A wrapper class for RowGroup information"""
+    """
+    A wrapper class for RowGroup information
+
+    Parameters
+    ----------
+    id : the group id.
+    metadata : the rowgroup metadata.
+    schema : schema of the rows.
+    """
 
     def __init__(self, id, metadata, schema):
         self.id = id
@@ -1550,6 +1561,18 @@ cdef set _PARQUET_READ_OPTIONS = {
 
 
 cdef class ParquetFileFormat(FileFormat):
+    """
+    FileFormat for Parquet
+
+    Parameters
+    ----------
+    read_options : ParquetReadOptions
+        Read options for the file.
+    default_fragment_scan_options : ParquetFragmentScanOptions
+        Scan Options for the file.
+    **kwargs : dict
+        Additional options for read option or scan option.
+    """
 
     cdef:
         CParquetFileFormat* parquet_format
@@ -1684,7 +1707,8 @@ cdef class ParquetFileFormat(FileFormat):
 
 
 cdef class ParquetFragmentScanOptions(FragmentScanOptions):
-    """Scan-specific options for Parquet fragments.
+    """
+    Scan-specific options for Parquet fragments.
 
     Parameters
     ----------
@@ -1811,6 +1835,20 @@ cdef class IpcFileFormat(FileFormat):
 
 
 cdef class CsvFileFormat(FileFormat):
+    """
+    FileFormat for CSV files.
+
+    Parameters
+    ----------
+    parse_options : ParseOptions
+        Options regarding CSV parsing.
+    convert_options : ConvertOptions
+        Options regarding value conversion.
+    read_options : ReadOptions
+        General read options.
+    default_fragment_scan_options : CsvFragmentScanOptions
+        Default options for fragments scan.
+    """
     cdef:
         CCsvFileFormat* csv_format
 
@@ -1880,7 +1918,16 @@ cdef class CsvFileFormat(FileFormat):
 
 
 cdef class CsvFragmentScanOptions(FragmentScanOptions):
-    """Scan-specific options for CSV fragments."""
+    """
+    Scan-specific options for CSV fragments.
+
+    Parameters
+    ----------
+    convert_options : ConvertOptions
+        Options regarding value conversion.
+    read_options : ReadOptions
+        General read options.
+    """
 
     cdef:
         CCsvFragmentScanOptions* csv_options
@@ -2345,7 +2392,7 @@ cdef class DatasetFactory(_Weakrefable):
         shared_ptr[CDatasetFactory] wrapped
         CDatasetFactory* factory
 
-    def __init__(self, list children):
+    def __init__(self):
         _forbid_instantiation(self.__class__)
 
     cdef init(self, const shared_ptr[CDatasetFactory]& sp):
@@ -2403,7 +2450,7 @@ cdef class DatasetFactory(_Weakrefable):
 
         Parameters
         ----------
-        schema: Schema, default None
+        schema : Schema, default None
             The schema to conform the source to.  If None, the inspected
             schema is used.
 
@@ -2438,7 +2485,7 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
         partition_base_dir prefix will be skipped for partitioning discovery.
         The ignored files will still be part of the Dataset, but will not
         have partition information.
-    partitioning: Partitioning/PartitioningFactory, optional
+    partitioning : Partitioning/PartitioningFactory, optional
        Apply the Partitioning to every discovered Fragment. See Partitioning or
        PartitioningFactory documentation.
     exclude_invalid_files : bool, optional (default True)
@@ -2548,7 +2595,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
     ----------
     filesystem : pyarrow.fs.FileSystem
         Filesystem to discover.
-    paths_or_selector: pyarrow.fs.Selector or list of path-likes
+    paths_or_selector : pyarrow.fs.Selector or list of path-likes
         Either a Selector object or a list of path-like objects.
     format : FileFormat
         Currently only ParquetFileFormat and IpcFileFormat are supported.
@@ -2807,7 +2854,14 @@ cdef class RecordBatchIterator(_Weakrefable):
 
 class TaggedRecordBatch(collections.namedtuple(
         "TaggedRecordBatch", ["record_batch", "fragment"])):
-    """A combination of a record batch and the fragment it came from."""
+    """
+    A combination of a record batch and the fragment it came from.
+
+    Parameters
+    ----------
+    record_batch : The record batch.
+    fragment : fragment of the record batch.
+    """
 
 
 cdef class TaggedRecordBatchIterator(_Weakrefable):
@@ -2961,6 +3015,33 @@ cdef class Scanner(_Weakrefable):
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
+        """
+        Create Scanner from Dataset,
+        refer to Scanner class doc for additional details on Scanner.
+
+        Parameters
+        ----------
+        dataset : Dataset
+            Dataset to scan.
+        columns : list of str or dict, default None
+            The columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+        batch_size : int, default 1M
+            The maximum row count for scanned record batches.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default False
+            If enabled, an async scanner will be used that should offer
+            better performance with high-latency/highly-parallel filesystems
+            (e.g. S3)
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+        fragment_scan_options : FragmentScanOptions
+            The fragment scan options.
+        """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -2982,6 +3063,35 @@ cdef class Scanner(_Weakrefable):
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       FragmentScanOptions fragment_scan_options=None):
+        """
+        Create Scanner from Fragment,
+        refer to Scanner class doc for additional details on Scanner.
+
+        Parameters
+        ----------
+        fragment : Fragment
+            fragment to scan.
+        schema : Schema
+            The schema of the fragment.
+        columns : list of str or dict, default None
+                The columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+        batch_size : int, default 1M
+            The maximum row count for scanned record batches.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default False
+            If enabled, an async scanner will be used that should offer
+            better performance with high-latency/highly-parallel filesystems
+            (e.g. S3)
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+        fragment_scan_options : FragmentScanOptions
+            The fragment scan options.
+        """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -3006,12 +3116,38 @@ cdef class Scanner(_Weakrefable):
                      Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
-        """Create a Scanner from an iterator of batches.
+        """
+        Create a Scanner from an iterator of batches.
 
         This creates a scanner which can be used only once. It is
         intended to support writing a dataset (which takes a scanner)
         from a source which can be read only once (e.g. a
         RecordBatchReader or generator).
+
+        Parameters
+        ----------
+        source : Iterator
+            The iterator of Batches.
+        schema : Schema
+            The schema of the batches.
+        columns : list of str or dict, default None
+                The columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+        batch_size : int, default 1M
+            The maximum row count for scanned record batches.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default False
+            If enabled, an async scanner will be used that should offer
+            better performance with high-latency/highly-parallel filesystems
+            (e.g. S3)
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
+        fragment_scan_options : FragmentScanOptions
+            The fragment scan options.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()

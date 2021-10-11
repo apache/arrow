@@ -50,9 +50,9 @@
   "str_length" = "utf8_length",
   # str_pad is defined in dplyr-functions.R
   # str_sub is defined in dplyr-functions.R
-  "str_to_lower" = "utf8_lower",
-  "str_to_title" = "utf8_title",
-  "str_to_upper" = "utf8_upper",
+  # str_to_lower is defined in dplyr-functions.R
+  # str_to_title is defined in dplyr-functions.R
+  # str_to_upper is defined in dplyr-functions.R
   # str_trim is defined in dplyr-functions.R
   "stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R

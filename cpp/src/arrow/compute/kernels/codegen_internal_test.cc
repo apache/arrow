@@ -130,24 +130,32 @@ TEST(TestDispatchBest, CastDecimalArgs) {
 }
 
 TEST(TestDispatchBest, CommonTemporal) {
-  AssertTypeEqual(timestamp(TimeUnit::NANO), CommonTemporal({timestamp(TimeUnit::SECOND),
-                                                             timestamp(TimeUnit::NANO)}));
+  std::vector<ValueDescr> args;
+
+  args = {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::NANO)};
+  AssertTypeEqual(timestamp(TimeUnit::NANO), CommonTemporal(args.data(), args.size()));
+  args = {timestamp(TimeUnit::SECOND, "UTC"), timestamp(TimeUnit::NANO, "UTC")};
   AssertTypeEqual(timestamp(TimeUnit::NANO, "UTC"),
-                  CommonTemporal({timestamp(TimeUnit::SECOND, "UTC"),
-                                  timestamp(TimeUnit::NANO, "UTC")}));
-  AssertTypeEqual(timestamp(TimeUnit::NANO),
-                  CommonTemporal({date32(), timestamp(TimeUnit::NANO)}));
-  AssertTypeEqual(timestamp(TimeUnit::MILLI),
-                  CommonTemporal({date64(), timestamp(TimeUnit::SECOND)}));
-  AssertTypeEqual(date32(), CommonTemporal({date32(), date32()}));
-  AssertTypeEqual(date64(), CommonTemporal({date64(), date64()}));
-  AssertTypeEqual(date64(), CommonTemporal({date32(), date64()}));
-  ASSERT_EQ(nullptr, CommonTemporal({}));
-  ASSERT_EQ(nullptr, CommonTemporal({float64(), int32()}));
-  ASSERT_EQ(nullptr, CommonTemporal({timestamp(TimeUnit::SECOND),
-                                     timestamp(TimeUnit::SECOND, "UTC")}));
-  ASSERT_EQ(nullptr, CommonTemporal({timestamp(TimeUnit::SECOND, "America/Phoenix"),
-                                     timestamp(TimeUnit::SECOND, "UTC")}));
+                  CommonTemporal(args.data(), args.size()));
+  args = {date32(), timestamp(TimeUnit::NANO)};
+  AssertTypeEqual(timestamp(TimeUnit::NANO), CommonTemporal(args.data(), args.size()));
+  args = {date64(), timestamp(TimeUnit::SECOND)};
+  AssertTypeEqual(timestamp(TimeUnit::MILLI), CommonTemporal(args.data(), args.size()));
+  args = {date32(), date32()};
+  AssertTypeEqual(date32(), CommonTemporal(args.data(), args.size()));
+  args = {date64(), date64()};
+  AssertTypeEqual(date64(), CommonTemporal(args.data(), args.size()));
+  args = {date32(), date64()};
+  AssertTypeEqual(date64(), CommonTemporal(args.data(), args.size()));
+  args = {};
+  ASSERT_EQ(nullptr, CommonTemporal(args.data(), args.size()));
+  args = {float64(), int32()};
+  ASSERT_EQ(nullptr, CommonTemporal(args.data(), args.size()));
+  args = {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND, "UTC")};
+  ASSERT_EQ(nullptr, CommonTemporal(args.data(), args.size()));
+  args = {timestamp(TimeUnit::SECOND, "America/Phoenix"),
+          timestamp(TimeUnit::SECOND, "UTC")};
+  ASSERT_EQ(nullptr, CommonTemporal(args.data(), args.size()));
 }
 
 }  // namespace internal

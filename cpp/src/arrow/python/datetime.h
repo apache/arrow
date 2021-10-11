@@ -24,6 +24,7 @@
 #include "arrow/python/visibility.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 
 // By default, PyDateTimeAPI is a *static* variable.  This forces
@@ -41,6 +42,10 @@ extern PyDateTime_CAPI* datetime_api;
 
 ARROW_PYTHON_EXPORT
 void InitDatetime();
+
+// Returns the MonthDayNano namedtuple type (increments the reference count).
+ARROW_PYTHON_EXPORT
+PyObject* NewMonthDayNanoTupleType();
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_us(PyObject* pytime) {
@@ -177,6 +182,29 @@ Result<PyObject*> StringToTzinfo(const std::string& tz);
 /// GIL must be held when calling this method.
 ARROW_PYTHON_EXPORT
 Result<std::string> TzinfoToString(PyObject* pytzinfo);
+
+/// \brief Convert MonthDayNano to a python namedtuple.
+///
+/// Return a named tuple (pyarrow.MonthDayNano) containing attributes
+/// "months", "days", "nanoseconds" in the given order
+/// with values extracted from the fields on interval.
+///
+/// GIL must be held when calling this method.
+ARROW_PYTHON_EXPORT
+PyObject* MonthDayNanoIntervalToNamedTuple(
+    const MonthDayNanoIntervalType::MonthDayNanos& interval);
+
+/// \brief Convert the given Array to a PyList object containing
+/// pyarrow.MonthDayNano objects.
+ARROW_PYTHON_EXPORT
+Result<PyObject*> MonthDayNanoIntervalArrayToPyList(
+    const MonthDayNanoIntervalArray& array);
+
+/// \brief Convert the Scalar obect to a pyarrow.MonthDayNano (or None if
+/// is isn't valid).
+ARROW_PYTHON_EXPORT
+Result<PyObject*> MonthDayNanoIntervalScalarToPyObject(
+    const MonthDayNanoIntervalScalar& scalar);
 
 }  // namespace internal
 }  // namespace py

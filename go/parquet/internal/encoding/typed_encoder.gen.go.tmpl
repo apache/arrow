@@ -162,11 +162,6 @@ func (enc *Dict{{.Name}}Encoder) Type() parquet.Type {
 }
 
 {{if and (ne .Name "ByteArray") (ne .Name "FixedLenByteArray")}}
-// WriteDict populates the byte slice with the dictionary index
-func (enc *Dict{{.Name}}Encoder) WriteDict(out []byte) {
-  enc.memo.CopyValues({{.prefix}}.{{.Name}}Traits.CastFromBytes(out))
-}
-
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *Dict{{.Name}}Encoder) Put(in []{{.name}}) {
   for _, val := range in {

@@ -33,6 +33,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -67,6 +68,95 @@ using internal::MakeChunker;
 using internal::MakeConverter;
 
 namespace py {
+
+namespace {
+enum class MonthDayNanoField { kMonths, kWeeksAndDays, kDaysOnly, kNanoseconds };
+
+template <MonthDayNanoField field>
+struct MonthDayNanoTraits;
+
+struct MonthDayNanoAttrData {
+  const char* name;
+  const int64_t multiplier;
+};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kMonths> {
+  using c_type = int32_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kMonths>::attrs[] = {
+    {"years", 1}, {"months", /*months_in_year=*/12}, {nullptr, 0}};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kWeeksAndDays> {
+  using c_type = int32_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kWeeksAndDays>::attrs[] =
+    {{"weeks", 1}, {"days", /*days_in_week=*/7}, {nullptr, 0}};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kDaysOnly> {
+  using c_type = int32_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kDaysOnly>::attrs[] = {
+    {"days", 1}, {nullptr, 0}};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kNanoseconds> {
+  using c_type = int64_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kNanoseconds>::attrs[] =
+    {{"hours", 1},
+     {"minutes", /*minutes_in_hours=*/60},
+     {"seconds", /*seconds_in_minute=*/60},
+     {"milliseconds", /*milliseconds_in_seconds*/ 1000},
+     {"microseconds", /*microseconds_in_millseconds=*/1000},
+     {"nanoseconds", /*nanoseconds_in_microseconds=*/1000},
+     {nullptr, 0}};
+
+template <MonthDayNanoField field>
+struct PopulateMonthDayNano {
+  using Traits = MonthDayNanoTraits<field>;
+  using field_c_type = typename Traits::c_type;
+
+  static Status Field(PyObject* obj, field_c_type* out, bool* found_attrs) {
+    *out = 0;
+    for (const MonthDayNanoAttrData* attr = &Traits::attrs[0]; attr->multiplier != 0;
+         ++attr) {
+      if (attr->multiplier != 1 &&
+          ::arrow::internal::MultiplyWithOverflow(
+              static_cast<field_c_type>(attr->multiplier), *out, out)) {
+        return Status::Invalid("Overflow on: ", (attr - 1)->name,
+                               " for: ", internal::PyObject_StdStringRepr(obj));
+      }
+
+      OwnedRef field_value(PyObject_GetAttrString(obj, attr->name));
+      if (field_value.obj() == nullptr) {
+        // No attribute present, skip  to the next one.
+        PyErr_Clear();
+        continue;
+      }
+      RETURN_IF_PYERROR();
+      *found_attrs = true;
+      field_c_type value;
+      RETURN_NOT_OK(internal::CIntFromPython(field_value.obj(), &value, attr->name));
+      if (::arrow::internal::AddWithOverflow(*out, value, out)) {
+        return Status::Invalid("Overflow on: ", attr->name,
+                               " for: ", internal::PyObject_StdStringRepr(obj));
+      }
+    }
+
+    return Status::OK();
+  }
+};
 
 // Utility for converting single python objects to their intermediate C representations
 // which can be fed to the typed builders
@@ -304,6 +394,34 @@ class PyValue {
     return value;
   }
 
+  static Result<MonthDayNanoIntervalType::MonthDayNanos> Convert(
+      const MonthDayNanoIntervalType* /*type*/, const O& /*options*/, I obj) {
+    MonthDayNanoIntervalType::MonthDayNanos output;
+    bool found_attrs = false;
+    RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kMonths>::Field(
+        obj, &output.months, &found_attrs));
+    // on relativeoffset weeks is a property calculated from days.  On
+    // DateOffset is is a field on its own. timedelta doesn't have a weeks
+    // attribute.
+    PyObject* pandas_date_offset_type = internal::BorrowPandasDataOffsetType();
+    bool is_date_offset = pandas_date_offset_type == (PyObject*)Py_TYPE(obj);
+    if (!is_date_offset) {
+      RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kDaysOnly>::Field(
+          obj, &output.days, &found_attrs));
+    } else {
+      RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kWeeksAndDays>::Field(
+          obj, &output.days, &found_attrs));
+    }
+    RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kNanoseconds>::Field(
+        obj, &output.nanoseconds, &found_attrs));
+
+    if (ARROW_PREDICT_FALSE(!found_attrs) && !is_date_offset) {
+      // date_offset can have zero fields.
+      return Status::TypeError("No temporal attributes found on object.");
+    }
+    return output;
+  }
+
   static Result<int64_t> Convert(const DurationType* type, const O&, I obj) {
     int64_t value;
     if (PyDelta_Check(obj)) {
@@ -438,8 +556,9 @@ struct PyConverterTrait;
 
 template <typename T>
 struct PyConverterTrait<
-    T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                   !is_extension_type<T>::value>> {
+    T, enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
+                    !is_extension_type<T>::value) ||
+                   std::is_same<T, MonthDayNanoIntervalType>::value>> {
   using type = PyPrimitiveConverter<T>;
 };
 
@@ -478,7 +597,9 @@ template <typename T>
 class PyPrimitiveConverter<
     T, enable_if_t<is_boolean_type<T>::value || is_number_type<T>::value ||
                    is_decimal_type<T>::value || is_date_type<T>::value ||
-                   is_time_type<T>::value>> : public PrimitiveConverter<T, PyConverter> {
+                   is_time_type<T>::value ||
+                   std::is_same<MonthDayNanoIntervalType, T>::value>>
+    : public PrimitiveConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     // Since the required space has been already allocated in the Extend functions we can
@@ -994,6 +1115,8 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
   }
   return Status::OK();
 }
+
+}  // namespace
 
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject* mask,
                                                         PyConversionOptions options,

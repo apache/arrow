@@ -704,7 +704,8 @@ def test_file_format_pickling():
     ]
     try:
         formats.append(ds.OrcFileFormat())
-    except ImportError:
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
         pass
 
     for file_format in formats:
@@ -2242,11 +2243,11 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
 
 
 @pytest.fixture
-def s3_example_simple(s3_connection, s3_server):
+def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     uri = (
         "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
         .format(access_key, secret_key, host, port)
@@ -2305,11 +2306,11 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server):
+def test_open_dataset_from_s3_with_filesystem_uri(s3_server):
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     bucket = 'theirbucket'
     path = 'nested/folder/data.parquet'
     uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}".format(
@@ -2692,7 +2693,8 @@ def test_orc_scan_options(tempdir, dataset_reader):
 def test_orc_format_not_supported():
     try:
         from pyarrow.dataset import OrcFileFormat  # noqa
-    except ImportError:
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
         # ORC is not available, test error message
         with pytest.raises(
             ValueError, match="not built with support for the ORC file"
@@ -3231,7 +3233,14 @@ def test_legacy_write_to_dataset_drops_null(tempdir):
     assert actual == expected
 
 
-def _check_dataset_roundtrip(dataset, base_dir, expected_files,
+def _sort_table(tab, sort_col):
+    import pyarrow.compute as pc
+    sorted_indices = pc.sort_indices(
+        tab, options=pc.SortOptions([(sort_col, 'ascending')]))
+    return pc.take(tab, sorted_indices)
+
+
+def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
                              base_dir_path=None, partitioning=None):
     base_dir_path = base_dir_path or base_dir
 
@@ -3245,7 +3254,9 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
     # check that reading back in as dataset gives the same result
     dataset2 = ds.dataset(
         base_dir_path, format="feather", partitioning=partitioning)
-    assert dataset2.to_table().equals(dataset.to_table())
+
+    assert _sort_table(dataset2.to_table(), sort_col).equals(
+        _sort_table(dataset.to_table(), sort_col))
 
 
 @pytest.mark.parquet
@@ -3259,12 +3270,12 @@ def test_write_dataset(tempdir):
     # full string path
     target = tempdir / 'single-file-target'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+    _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
     # pathlib path object
     target = tempdir / 'single-file-target2'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, target, expected_files, target)
+    _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
     # TODO
     # # relative path
@@ -3281,7 +3292,7 @@ def test_write_dataset(tempdir):
 
     target = tempdir / 'single-directory-target'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+    _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
 
 @pytest.mark.parquet
@@ -3296,24 +3307,24 @@ def test_write_dataset_partitioned(tempdir):
     target = tempdir / 'partitioned-hive-target'
     expected_paths = [
         target / "part=a", target / "part=a" / "part-0.feather",
-        target / "part=b", target / "part=b" / "part-1.feather"
+        target / "part=b", target / "part=b" / "part-0.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning_schema)
 
     # directory partitioning
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
         target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-1.feather"
+        target / "b", target / "b" / "part-0.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]))
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning_schema)
 
 
@@ -3361,8 +3372,8 @@ def test_write_dataset_with_scanner(tempdir):
     dataset = ds.dataset(tempdir, partitioning=["b"])
 
     with tempfile.TemporaryDirectory() as tempdir2:
-        ds.write_dataset(dataset.scanner(columns=["b", "c"]), tempdir2,
-                         format='parquet', partitioning=["b"])
+        ds.write_dataset(dataset.scanner(columns=["b", "c"], use_async=True),
+                         tempdir2, format='parquet', partitioning=["b"])
 
         load_back = ds.dataset(tempdir2, partitioning=["b"])
         load_back_table = load_back.to_table()
@@ -3400,7 +3411,7 @@ def test_write_dataset_partitioned_dict(tempdir):
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
         target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-1.feather"
+        target / "b", target / "b" / "part-0.feather"
     ]
     partitioning = ds.partitioning(pa.schema([
         dataset.schema.field('part')]),
@@ -3409,7 +3420,7 @@ def test_write_dataset_partitioned_dict(tempdir):
     # directories in _check_dataset_roundtrip (not currently required for
     # the formatting step)
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning)
 
 
@@ -3434,18 +3445,12 @@ def test_write_dataset_use_threads(tempdir):
         use_threads=True, file_visitor=file_visitor
     )
 
-    # Since it is a multi-threaded write there is no way to know which
-    # directory gets part-0 and which gets part-1
-    expected_paths_a = {
+    expected_paths = {
         target1 / 'part=a' / 'part-0.feather',
-        target1 / 'part=b' / 'part-1.feather'
-    }
-    expected_paths_b = {
-        target1 / 'part=a' / 'part-1.feather',
         target1 / 'part=b' / 'part-0.feather'
     }
     paths_written_set = set(map(pathlib.Path, paths_written))
-    assert paths_written_set in [expected_paths_a, expected_paths_b]
+    assert paths_written_set == expected_paths
 
     target2 = tempdir / 'partitioned2'
     ds.write_dataset(
@@ -3480,7 +3485,7 @@ def test_write_table(tempdir):
     base_dir = tempdir / 'partitioned'
     expected_paths = [
         base_dir / "part=a", base_dir / "part=a" / "dat_0.arrow",
-        base_dir / "part=b", base_dir / "part=b" / "dat_1.arrow"
+        base_dir / "part=b", base_dir / "part=b" / "dat_0.arrow"
     ]
 
     visited_paths = []
@@ -3561,10 +3566,10 @@ def test_write_iterable(tempdir):
 
 
 def test_write_scanner(tempdir, dataset_reader):
-    if dataset_reader.use_async:
+    if not dataset_reader.use_async:
         pytest.skip(
-            ('ARROW-12803: Write dataset with scanner does not'
-             ' support async scan'))
+            ('ARROW-13338: Write dataset with scanner does not'
+             ' support synchronous scan'))
 
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
@@ -3720,18 +3725,12 @@ def test_partition_dataset_parquet_file_visitor(tempdir):
         use_threads=True, file_visitor=file_visitor
     )
 
-    # Since it is a multi-threaded write there is no way to know which
-    # directory gets part-0 and which gets part-1
-    expected_paths_a = {
+    expected_paths = {
         root_path / 'part=a' / 'part-0.parquet',
-        root_path / 'part=b' / 'part-1.parquet'
-    }
-    expected_paths_b = {
-        root_path / 'part=a' / 'part-1.parquet',
         root_path / 'part=b' / 'part-0.parquet'
     }
     paths_written_set = set(map(pathlib.Path, paths_written))
-    assert paths_written_set in [expected_paths_a, expected_paths_b]
+    assert paths_written_set == expected_paths
     assert sample_metadata is not None
     assert sample_metadata.num_columns == 2
 

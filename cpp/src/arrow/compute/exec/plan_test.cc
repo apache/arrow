@@ -34,6 +34,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
@@ -98,6 +99,18 @@ TEST(ExecPlanConstruction, MultipleNode) {
   ASSERT_OK(plan->Validate());
   ASSERT_THAT(plan->sources(), ElementsAre(source1, source2));
   ASSERT_THAT(plan->sinks(), ElementsAre(sink));
+}
+
+TEST(ExecPlanConstruction, AutoLabel) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  auto source1 = MakeDummyNode(plan.get(), "", /*inputs=*/{}, /*num_outputs=*/2);
+  auto source2 =
+      MakeDummyNode(plan.get(), "some_label", /*inputs=*/{}, /*num_outputs=*/1);
+  auto source3 = MakeDummyNode(plan.get(), "", /*inputs=*/{}, /*num_outputs=*/2);
+
+  ASSERT_EQ("0", source1->label());
+  ASSERT_EQ("some_label", source2->label());
+  ASSERT_EQ("2", source3->label());
 }
 
 struct StartStopTracker {
@@ -371,6 +384,108 @@ TEST(ExecPlanExecution, SourceSinkError) {
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
+}
+
+TEST(ExecPlanExecution, SourceConsumingSink) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      std::atomic<uint32_t> batches_seen{0};
+      Future<> finish = Future<>::Make();
+      struct TestConsumer : public SinkNodeConsumer {
+        TestConsumer(std::atomic<uint32_t>* batches_seen, Future<> finish)
+            : batches_seen(batches_seen), finish(std::move(finish)) {}
+
+        Status Consume(ExecBatch batch) override {
+          (*batches_seen)++;
+          return Status::OK();
+        }
+
+        Future<> Finish() override { return finish; }
+
+        std::atomic<uint32_t>* batches_seen;
+        Future<> finish;
+      };
+      std::shared_ptr<TestConsumer> consumer =
+          std::make_shared<TestConsumer>(&batches_seen, finish);
+
+      auto basic_data = MakeBasicBatches();
+      ASSERT_OK_AND_ASSIGN(
+          auto source, MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions(basic_data.schema,
+                                                      basic_data.gen(parallel, slow))));
+      ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
+                             ConsumingSinkNodeOptions(consumer)));
+      ASSERT_OK(plan->StartProducing());
+      // Source should finish fairly quickly
+      ASSERT_FINISHES_OK(source->finished());
+      SleepABit();
+      ASSERT_EQ(2, batches_seen);
+      // Consumer isn't finished and so plan shouldn't have finished
+      AssertNotFinished(plan->finished());
+      // Mark consumption complete, plan should finish
+      finish.MarkFinished();
+      ASSERT_FINISHES_OK(plan->finished());
+    }
+  }
+}
+
+TEST(ExecPlanExecution, ConsumingSinkError) {
+  struct ConsumeErrorConsumer : public SinkNodeConsumer {
+    Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
+    Future<> Finish() override { return Future<>::MakeFinished(); }
+  };
+  struct FinishErrorConsumer : public SinkNodeConsumer {
+    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
+  };
+  std::vector<std::shared_ptr<SinkNodeConsumer>> consumers{
+      std::make_shared<ConsumeErrorConsumer>(), std::make_shared<FinishErrorConsumer>()};
+
+  for (auto& consumer : consumers) {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    auto basic_data = MakeBasicBatches();
+    ASSERT_OK(Declaration::Sequence(
+                  {{"source",
+                    SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
+                   {"consuming_sink", ConsumingSinkNodeOptions(consumer)}})
+                  .AddToPlan(plan.get()));
+    ASSERT_OK_AND_ASSIGN(
+        auto source,
+        MakeExecNode("source", plan.get(), {},
+                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
+    ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
+                           ConsumingSinkNodeOptions(consumer)));
+    ASSERT_OK(plan->StartProducing());
+    ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
+  }
+}
+
+TEST(ExecPlanExecution, ConsumingSinkErrorFinish) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  struct FinishErrorConsumer : public SinkNodeConsumer {
+    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
+  };
+  std::shared_ptr<FinishErrorConsumer> consumer = std::make_shared<FinishErrorConsumer>();
+
+  auto basic_data = MakeBasicBatches();
+  ASSERT_OK(
+      Declaration::Sequence(
+          {{"source", SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
+           {"consuming_sink", ConsumingSinkNodeOptions(consumer)}})
+          .AddToPlan(plan.get()));
+  ASSERT_OK_AND_ASSIGN(
+      auto source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
+  ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
+                         ConsumingSinkNodeOptions(consumer)));
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
 }
 
 TEST(ExecPlanExecution, StressSourceSink) {
@@ -664,6 +779,41 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
   }
 }
 
+TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    int batch_multiplicity = parallel ? 100 : 1;
+    auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    SelectKOptions options = SelectKOptions::TopKDefault(/*k=*/1, {"str"});
+    ASSERT_OK(
+        Declaration::Sequence(
+            {
+                {"source",
+                 SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+                {"project", ProjectNodeOptions{{
+                                field_ref("str"),
+                                call("multiply", {field_ref("i32"), literal(2)}),
+                            }}},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                                   /*targets=*/{"multiply(i32, 2)"},
+                                                   /*names=*/{"sum(multiply(i32, 2))"},
+                                                   /*keys=*/{"str"}}},
+                {"select_k_sink", SelectKSinkNodeOptions{options, &sink_gen}},
+            })
+            .AddToPlan(plan.get()));
+
+    ASSERT_THAT(
+        StartAndCollect(plan.get(), sink_gen),
+        Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
+            {int64(), utf8()}, parallel ? R"([[800, "gama"]])" : R"([[8, "gama"]])")}))));
+  }
+}
+
 TEST(ExecPlanExecution, SourceScalarAggSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -802,6 +952,121 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
                ValueDescr::Scalar(float64())},
               R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
       }))));
+}
+
+TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    auto input = MakeGroupableBatches();
+
+    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    ExecNode* left_source;
+    ExecNode* right_source;
+    for (auto source : {&left_source, &right_source}) {
+      ASSERT_OK_AND_ASSIGN(
+          *source, MakeExecNode("source", plan.get(), {},
+                                SourceNodeOptions{input.schema,
+                                                  input.gen(parallel, /*slow=*/false)}));
+    }
+    ASSERT_OK_AND_ASSIGN(
+        auto left_filter,
+        MakeExecNode("filter", plan.get(), {left_source},
+                     FilterNodeOptions{greater_equal(field_ref("i32"), literal(-1))}));
+    ASSERT_OK_AND_ASSIGN(
+        auto right_filter,
+        MakeExecNode("filter", plan.get(), {right_source},
+                     FilterNodeOptions{less_equal(field_ref("i32"), literal(2))}));
+
+    // left side: [3,  "alfa"], [3,  "alfa"], [12, "alfa"], [3,  "beta"], [7,  "beta"],
+    // [-1, "gama"], [5,  "gama"]
+    // right side: [-2, "alfa"], [-8, "alfa"], [-1, "gama"]
+
+    HashJoinNodeOptions join_opts{JoinType::INNER,
+                                  /*left_keys=*/{"str"},
+                                  /*right_keys=*/{"str"}, "l_", "r_"};
+
+    ASSERT_OK_AND_ASSIGN(
+        auto hashjoin,
+        MakeExecNode("hashjoin", plan.get(), {left_filter, right_filter}, join_opts));
+
+    ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
+                                                   SinkNodeOptions{&sink_gen}));
+
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+
+    std::vector<ExecBatch> expected = {
+        ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"], 
+            [12, "alfa", -2, "alfa"], [12, "alfa", -8, "alfa"],
+            [-1, "gama", -1, "gama"], [5, "gama", -1, "gama"]])")};
+
+    AssertExecBatchesEqual(hashjoin->output_schema(), result, expected);
+  }
+}
+
+TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    auto input = MakeGroupableBatches();
+
+    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+        default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    ExecNode* left_source;
+    ExecNode* right_source;
+    for (auto source : {&left_source, &right_source}) {
+      ASSERT_OK_AND_ASSIGN(
+          *source, MakeExecNode("source", plan.get(), {},
+                                SourceNodeOptions{input.schema,
+                                                  input.gen(parallel, /*slow=*/false)}));
+    }
+    ASSERT_OK_AND_ASSIGN(
+        auto left_filter,
+        MakeExecNode("filter", plan.get(), {left_source},
+                     FilterNodeOptions{greater_equal(field_ref("i32"), literal(-1))}));
+    ASSERT_OK_AND_ASSIGN(
+        auto right_filter,
+        MakeExecNode("filter", plan.get(), {right_source},
+                     FilterNodeOptions{less_equal(field_ref("i32"), literal(2))}));
+
+    // left side: [3,  "alfa"], [3,  "alfa"], [12, "alfa"], [3,  "beta"], [7,  "beta"],
+    // [-1, "gama"], [5,  "gama"]
+    // right side: [-2, "alfa"], [-8, "alfa"], [-1, "gama"]
+
+    HashJoinNodeOptions join_opts{JoinType::FULL_OUTER,
+                                  /*left_keys=*/{"str"},
+                                  /*right_keys=*/{"str"}, "l_", "r_"};
+
+    ASSERT_OK_AND_ASSIGN(
+        auto hashjoin,
+        MakeExecNode("hashjoin", plan.get(), {left_filter, right_filter}, join_opts));
+
+    ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
+                                                   SinkNodeOptions{&sink_gen}));
+
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+
+    std::vector<ExecBatch> expected = {
+        ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"], 
+            [12, "alfa", -2, "alfa"], [12, "alfa", -8, "alfa"],
+            [3,  "beta", null, null], [7,  "beta", null, null],
+            [-1, "gama", -1, "gama"], [5, "gama", -1, "gama"]])")};
+
+    AssertExecBatchesEqual(hashjoin->output_schema(), result, expected);
+  }
 }
 
 }  // namespace compute
