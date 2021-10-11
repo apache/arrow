@@ -212,14 +212,16 @@ ExecPlan <- R6Class("ExecPlan",
         # These methods are on RecordBatchReader (but return Table)
         # TODO (ARROW-14289): make the head/tail methods return RBR not Table
         out <- head(out, node$head)
-        # TODO: can we now tell `self` to StopProducing? We already have
+        # We can now tell `self` to StopProducing: we already have
         # everything we need for the head
+        self$Stop()
       } else if (!is.null(node$tail)) {
         out <- tail(out, node$tail)
       }
 
       out
-    }
+    },
+    Stop = function() ExecPlan_StopProducing(self)
   )
 )
 ExecPlan$create <- function(use_threads = option_use_threads()) {

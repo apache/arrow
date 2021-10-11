@@ -292,6 +292,10 @@ ExecPlan_run <- function(plan, final_node, sort_options) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
 }
 
+ExecPlan_StopProducing <- function(plan) {
+  invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
+}
+
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }
