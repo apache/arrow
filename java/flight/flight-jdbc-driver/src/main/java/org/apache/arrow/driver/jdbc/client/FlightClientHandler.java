@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.client;
 import java.sql.SQLException;
 import java.util.Collection;
 
+import java.util.List;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
@@ -134,7 +135,7 @@ public interface FlightClientHandler extends AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   FlightInfo getTables(String catalog, String schemaPattern, String tableNamePattern,
-                       String[] types, boolean includeSchema);
+                       List<String> types, boolean includeSchema);
 
   /**
    * Makes an RPC "getPrimaryKeys" request based on the provided info.

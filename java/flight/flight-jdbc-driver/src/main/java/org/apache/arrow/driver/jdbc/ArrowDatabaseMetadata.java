@@ -59,25 +59,25 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   private static final String JAVA_REGEX_SPECIALS = "[]()|^-+*?{}$\\.";
   private static final Charset CHARSET = StandardCharsets.UTF_8;
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
-  private static final int NO_DECIMAL_DIGITS = 0;
+  static final int NO_DECIMAL_DIGITS = 0;
   private static final int BASE10_RADIX = 10;
-  private static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_LONG = (int) Math.ceil((Long.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_VARCHAR_AND_BINARY = 65536;
-  private static final int COLUMN_SIZE_DATE = "YYYY-MM-DD".length();
-  private static final int COLUMN_SIZE_TIME = "HH:MM:ss".length();
-  private static final int COLUMN_SIZE_TIME_MILLISECONDS = "HH:MM:ss.SSS".length();
-  private static final int COLUMN_SIZE_TIME_MICROSECONDS = "HH:MM:ss.SSSSSS".length();
-  private static final int COLUMN_SIZE_TIME_NANOSECONDS = "HH:MM:ss.SSSSSSSSS".length();
-  private static final int COLUMN_SIZE_TIMESTAMP_SECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME;
-  private static final int COLUMN_SIZE_TIMESTAMP_MILLISECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MILLISECONDS;
-  private static final int COLUMN_SIZE_TIMESTAMP_MICROSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MICROSECONDS;
-  private static final int COLUMN_SIZE_TIMESTAMP_NANOSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_NANOSECONDS;
-  private static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
-  private static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
-  private static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
+  static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_LONG = (int) Math.ceil((Long.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_VARCHAR_AND_BINARY = 65536;
+  static final int COLUMN_SIZE_DATE = "YYYY-MM-DD".length();
+  static final int COLUMN_SIZE_TIME = "HH:MM:ss".length();
+  static final int COLUMN_SIZE_TIME_MILLISECONDS = "HH:MM:ss.SSS".length();
+  static final int COLUMN_SIZE_TIME_MICROSECONDS = "HH:MM:ss.SSSSSS".length();
+  static final int COLUMN_SIZE_TIME_NANOSECONDS = "HH:MM:ss.SSSSSSSSS".length();
+  static final int COLUMN_SIZE_TIMESTAMP_SECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME;
+  static final int COLUMN_SIZE_TIMESTAMP_MILLISECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MILLISECONDS;
+  static final int COLUMN_SIZE_TIMESTAMP_MICROSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MICROSECONDS;
+  static final int COLUMN_SIZE_TIMESTAMP_NANOSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_NANOSECONDS;
+  static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
+  static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
+  static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
   private static final Schema GET_COLUMNS_SCHEMA = new Schema(
       Arrays.asList(
           Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
@@ -242,8 +242,9 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
                              final String[] types)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
+    final List<String> typesList = types == null ? null : Arrays.asList(types);
     final FlightInfo flightInfoTables =
-        connection.getClientHandler().getTables(catalog, schemaPattern, tableNamePattern, types, false);
+        connection.getClientHandler().getTables(catalog, schemaPattern, tableNamePattern, typesList, false);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
@@ -338,7 +339,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
                                                       final Text tableName, final Text schemaName,
                                                       final Pattern columnNamePattern) {
     int ordinalIndex = 1;
-    int tableColumnsSize = tableColumns.size();
+    final int tableColumnsSize = tableColumns.size();
 
     final VarCharVector tableCatVector = (VarCharVector) currentRoot.getVector("TABLE_CAT");
     final VarCharVector tableSchemVector = (VarCharVector) currentRoot.getVector("TABLE_SCHEM");
@@ -387,80 +388,20 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
       if (fieldType instanceof ArrowType.Decimal) {
         final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
-        columnSizeVector.setSafe(insertIndex, thisDecimal.getPrecision());
-        decimalDigitsVector.setSafe(insertIndex, thisDecimal.getScale());
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
       } else if (fieldType instanceof ArrowType.Int) {
-        final ArrowType.Int thisInt = (ArrowType.Int) fieldType;
-        switch (thisInt.getBitWidth()) {
-          case Byte.SIZE:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_BYTE);
-            break;
-          case Short.SIZE:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_SHORT);
-            break;
-          case Integer.SIZE:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_INT);
-            break;
-          case Long.SIZE:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_LONG);
-            break;
-          default:
-            columnSizeVector.setSafe(insertIndex,
-                (int) Math.ceil((thisInt.getBitWidth() - 1) * Math.log(2) / Math.log(10)));
-            break;
-        }
-        decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
-      } else if (fieldType instanceof ArrowType.Utf8 || fieldType instanceof ArrowType.Binary) {
-        columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_VARCHAR_AND_BINARY);
-      } else if (fieldType instanceof ArrowType.Timestamp) {
-        switch (((ArrowType.Timestamp) fieldType).getUnit()) {
-          case SECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_SECONDS);
-            decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
-            break;
-          case MILLISECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_MILLISECONDS);
-            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MILLISECONDS);
-            break;
-          case MICROSECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_MICROSECONDS);
-            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MICROSECONDS);
-            break;
-          case NANOSECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIMESTAMP_NANOSECONDS);
-            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_NANOSECONDS);
-            break;
-          default:
-            break;
-        }
-      } else if (fieldType instanceof ArrowType.Time) {
-        switch (((ArrowType.Time) fieldType).getUnit()) {
-          case SECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME);
-            decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
-            break;
-          case MILLISECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME_MILLISECONDS);
-            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MILLISECONDS);
-            break;
-          case MICROSECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME_MICROSECONDS);
-            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_MICROSECONDS);
-            break;
-          case NANOSECOND:
-            columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_TIME_NANOSECONDS);
-            decimalDigitsVector.setSafe(insertIndex, DECIMAL_DIGITS_TIME_NANOSECONDS);
-            break;
-          default:
-            break;
-        }
-      } else if (fieldType instanceof ArrowType.Date) {
-        columnSizeVector.setSafe(insertIndex, COLUMN_SIZE_DATE);
-        decimalDigitsVector.setSafe(insertIndex, NO_DECIMAL_DIGITS);
       } else if (fieldType instanceof ArrowType.FloatingPoint) {
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
+      }
+      final Integer decimalDigits = getDecimalDigits(fieldType);
+      if (decimalDigits != null) {
+        decimalDigitsVector.setSafe(insertIndex, decimalDigits);
+      }
+
+      final Integer columnSize = getColumnSize(fieldType);
+      if (columnSize != null) {
+        columnSizeVector.setSafe(insertIndex, columnSize);
       }
 
       nullableVector.setSafe(insertIndex, tableColumns.get(i).isNullable() ? 1 : 0);
@@ -480,13 +421,98 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     return insertIndex;
   }
 
-  private String sqlToRegexLike(final String sqlPattern) {
+  static Integer getDecimalDigits(final ArrowType fieldType) {
+    // We're not setting  DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+    if (fieldType instanceof ArrowType.Decimal) {
+      final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
+      return thisDecimal.getScale();
+    } else if (fieldType instanceof ArrowType.Int) {
+      return NO_DECIMAL_DIGITS;
+    } else if (fieldType instanceof ArrowType.Timestamp) {
+      switch (((ArrowType.Timestamp) fieldType).getUnit()) {
+        case SECOND:
+          return NO_DECIMAL_DIGITS;
+        case MILLISECOND:
+          return DECIMAL_DIGITS_TIME_MILLISECONDS;
+        case MICROSECOND:
+          return DECIMAL_DIGITS_TIME_MICROSECONDS;
+        case NANOSECOND:
+          return DECIMAL_DIGITS_TIME_NANOSECONDS;
+      }
+    } else if (fieldType instanceof ArrowType.Time) {
+      switch (((ArrowType.Time) fieldType).getUnit()) {
+        case SECOND:
+          return NO_DECIMAL_DIGITS;
+        case MILLISECOND:
+          return DECIMAL_DIGITS_TIME_MILLISECONDS;
+        case MICROSECOND:
+          return DECIMAL_DIGITS_TIME_MICROSECONDS;
+        case NANOSECOND:
+          return DECIMAL_DIGITS_TIME_NANOSECONDS;
+      }
+    } else if (fieldType instanceof ArrowType.Date) {
+      return NO_DECIMAL_DIGITS;
+    }
+
+    return null;
+  }
+
+  static Integer getColumnSize(final ArrowType fieldType) {
+    // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
+    // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+    if (fieldType instanceof ArrowType.Decimal) {
+      final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
+      return thisDecimal.getPrecision();
+    } else if (fieldType instanceof ArrowType.Int) {
+      final ArrowType.Int thisInt = (ArrowType.Int) fieldType;
+      switch (thisInt.getBitWidth()) {
+        case Byte.SIZE:
+          return COLUMN_SIZE_BYTE;
+        case Short.SIZE:
+          return COLUMN_SIZE_SHORT;
+        case Integer.SIZE:
+          return COLUMN_SIZE_INT;
+        case Long.SIZE:
+          return COLUMN_SIZE_LONG;
+      }
+    } else if (fieldType instanceof ArrowType.Utf8 || fieldType instanceof ArrowType.Binary) {
+      return COLUMN_SIZE_VARCHAR_AND_BINARY;
+    } else if (fieldType instanceof ArrowType.Timestamp) {
+      switch (((ArrowType.Timestamp) fieldType).getUnit()) {
+        case SECOND:
+          return COLUMN_SIZE_TIMESTAMP_SECONDS;
+        case MILLISECOND:
+          return COLUMN_SIZE_TIMESTAMP_MILLISECONDS;
+        case MICROSECOND:
+          return COLUMN_SIZE_TIMESTAMP_MICROSECONDS;
+        case NANOSECOND:
+          return COLUMN_SIZE_TIMESTAMP_NANOSECONDS;
+      }
+    } else if (fieldType instanceof ArrowType.Time) {
+      switch (((ArrowType.Time) fieldType).getUnit()) {
+        case SECOND:
+          return COLUMN_SIZE_TIME;
+        case MILLISECOND:
+          return COLUMN_SIZE_TIME_MILLISECONDS;
+        case MICROSECOND:
+          return COLUMN_SIZE_TIME_MICROSECONDS;
+        case NANOSECOND:
+          return COLUMN_SIZE_TIME_NANOSECONDS;
+      }
+    } else if (fieldType instanceof ArrowType.Date) {
+      return COLUMN_SIZE_DATE;
+    }
+
+    return null;
+  }
+
+  static String sqlToRegexLike(final String sqlPattern) {
     final char escapeChar = (char) 0;
     final int len = sqlPattern.length();
     final StringBuilder javaPattern = new StringBuilder(len + len);
 
     for (int i = 0; i < len; i++) {
-      char currentChar = sqlPattern.charAt(i);
+      final char currentChar = sqlPattern.charAt(i);
 
       if (JAVA_REGEX_SPECIALS.indexOf(currentChar) >= 0) {
         javaPattern.append('\\');
@@ -494,7 +520,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
       switch (currentChar) {
         case escapeChar:
-          char nextChar = sqlPattern.charAt(i + 1);
+          final char nextChar = sqlPattern.charAt(i + 1);
           if ((nextChar == '_') || (nextChar == '%') || (nextChar == escapeChar)) {
             javaPattern.append(nextChar);
             i++;

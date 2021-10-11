@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -33,10 +32,6 @@ import org.apache.arrow.flight.FlightStream;
  */
 public abstract class ArrowFlightClientHandler implements FlightClientHandler {
   private final Set<CallOption> options = new HashSet<>();
-
-  protected ArrowFlightClientHandler(final CallOption... options) {
-    this(Arrays.asList(options));
-  }
 
   protected ArrowFlightClientHandler(final Collection<CallOption> options) {
     this.options.addAll(options);
