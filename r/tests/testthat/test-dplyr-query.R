@@ -240,6 +240,7 @@ test_that("tail", {
   b2 <- batch %>%
     select(int, chr) %>%
     filter(int > 5) %>%
+    arrange(int) %>%
     tail(2)
 
   expect_s3_class(b2, "arrow_dplyr_query")
@@ -249,6 +250,7 @@ test_that("tail", {
   b3 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
+    arrange(int) %>%
     tail(2)
   expect_s3_class(b3, "arrow_dplyr_query")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
@@ -257,6 +259,7 @@ test_that("tail", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     group_by(int) %>%
+    arrange(int) %>%
     tail(2)
   expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(

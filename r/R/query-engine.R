@@ -197,7 +197,18 @@ ExecPlan <- R6Class("ExecPlan",
       # TODO (ARROW-12763): pass head/tail to ExecPlan_run so we can maybe TopK
       out <- ExecPlan_run(self, node, node$sort %||% list())
 
-      if (!is.null(node$head)) {
+      if (is.null(node$sort)) {
+        # Since ExecPlans don't scan in deterministic order, head/tail are both
+        # essentially taking a random slice from somewhere in the dataset.
+        # And since the head() implementation is way more efficient than tail(),
+        # just use it to take the random slice
+        slice_size <- node$head %||% node$tail
+        if (!is.null(slice_size)) {
+          out <- head(out, slice_size)
+        }
+        # TODO (ARROW-12763): delete these else cases because they'll be handled
+        # with SelectK
+      } else if (!is.null(node$head)) {
         # These methods are on RecordBatchReader (but return Table)
         # TODO: make the head/tail methods return RBR not Table
         out <- head(out, node$head)
@@ -206,6 +217,7 @@ ExecPlan <- R6Class("ExecPlan",
       } else if (!is.null(node$tail)) {
         out <- tail(out, node$tail)
       }
+
       out
     }
   )
