@@ -38,13 +38,18 @@
 // out to a CSV file.
 //
 // To run this example you can use
-// ./comparison_example URI
+// ./compute_and_write_csv_example URI
 //
 // where URI is the universal resource identifier
 // to the directory you want created on your
 // filesystem that output will be put into, for
 // example on a local linux system
-// ./comparison_example file:///$PWD
+// ./compute_and_write_csv_example file:///$PWD
+//
+// Not putting a URI and using 
+// ./compute_and_write_csv_example
+// will write the files into output.csv in the
+// current directory
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
@@ -56,11 +61,6 @@
   } while (0);
 
 int main(int argc, char** argv) {
-  if (argc < 2) {
-    std::cout << "Please enter the path to which you want data saved" << std::endl;
-    // Fake success for CI purposes.
-    return EXIT_SUCCESS;
-  }
 
   // Make Arrays
   arrow::NumericBuilder<arrow::Int64Type> int64_builder;
@@ -91,22 +91,23 @@ int main(int argc, char** argv) {
       boolean_builder.UnsafeAppend(comparison_result);
     }
   }
-  std::shared_ptr<arrow::Array> array_c;
-  ABORT_ON_FAILURE(boolean_builder.Finish(&array_c));
+  std::shared_ptr<arrow::Array> array_a_gt_b_self;
+  ABORT_ON_FAILURE(boolean_builder.Finish(&array_a_gt_b_self));
   std::cout << "Array explicitly compared" << std::endl;
 
   // Explicit comparison of values using a compute function
   arrow::Datum compared_datum;
-  std::shared_ptr<arrow::Array> array_d;
-  arrow::Result<arrow::Datum> st_compared_datum =
+  std::shared_ptr<arrow::Array> array_a_gt_b_compute;
+  auto st_compared_datum =
       arrow::compute::CallFunction("greater", {array_a, array_b});
   if (st_compared_datum.ok()) {
     compared_datum = *st_compared_datum;
-    array_d = compared_datum.make_array();
+    array_a_gt_b_compute = compared_datum.make_array();
+    std::cout << "Arrays compared using a compute function" << std::endl;
   } else {
     std::cerr << st_compared_datum.status() << std::endl;
   }
-  std::cout << "Arrays compared using a compute function" << std::endl;
+  
   // Create a table for the output
   auto schema =
       arrow::schema({arrow::field("a", arrow::int64()), 
@@ -119,31 +120,30 @@ int main(int argc, char** argv) {
   std::cout << "Table created" << std::endl;
 
   // Create a folder to output the data
-  std::string uri = argv[1];
-  std::string root_path;
-  auto fs = arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
-  std::string base_path = root_path + "/csv_dataset";
-  std::cout << "Base path " << base_path << std::endl;
-  ABORT_ON_FAILURE(fs->CreateDir(base_path));
-  auto csv_filename = base_path + "/output.csv";
+  std::string base_path;
+  if (argc < 2) {
+    base_path = "";
+  }else{
+    std::string uri = argv[1];
+    std::string root_path;
+    auto fs = arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
+    base_path = root_path + "/csv_dataset/";
+    ABORT_ON_FAILURE(fs->CreateDir(base_path));
+  }
+  auto csv_filename = base_path + "output.csv";
 
   // Write table to CSV file
   std::shared_ptr<arrow::io::FileOutputStream> outstream;
-  arrow::Result<std::shared_ptr<arrow::io::FileOutputStream>> st =
-      arrow::io::FileOutputStream::Open(csv_filename, false);
+  auto st = arrow::io::FileOutputStream::Open(csv_filename, false);
   if (st.ok()) {
-    outstream = std::move(st).ValueOrDie();
+    outstream = *st;
   } else {
     std::cerr << st.status() << std::endl;
   }
 
   auto write_options = arrow::csv::WriteOptions::Defaults();
   std::cout << "Writing CSV file" << std::endl;
-  if (arrow::csv::WriteCSV(*my_table, write_options, outstream.get()).ok()) {
-    std::cout << "Writing CSV file completed" << std::endl;
-  } else {
-    std::cerr << "Writing CSV file failed" << std::endl;
-  }
+  ABORT_ON_FAILURE(arrow::csv::WriteCSV(*my_table, write_options, outstream.get()))
 
   return EXIT_SUCCESS;
 }
