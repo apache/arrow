@@ -17,7 +17,6 @@
     "benchmark",
     "boost-filesystem",
     "boost-multiprecision",
-    "boost-process",
     "boost-system",
     "brotli",
     "bzip2",
