@@ -625,24 +625,21 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
   // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
   // - the chunked array has at least one element
   if (arrow::r::GetBoolOption("arrow.use_altrep", true) && chunked_array->length() > 0) {
-    if (arrow::r::GetBoolOption("arrow.use_altrep", true) &&
-        chunked_array->length() > 0) {
-      switch (chunked_array->type()->id()) {
-        case arrow::Type::DOUBLE:
-          return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
+    switch (chunked_array->type()->id()) {
+      case arrow::Type::DOUBLE:
+        return altrep::AltrepVectorPrimitive<REALSXP>::Make(chunked_array);
 
-        case arrow::Type::INT32:
-          return altrep::AltrepVectorPrimitive<INTSXP>::Make(chunked_array);
+      case arrow::Type::INT32:
+        return altrep::AltrepVectorPrimitive<INTSXP>::Make(chunked_array);
 
-        case arrow::Type::STRING:
-          return altrep::AltrepVectorString<StringType>::Make(chunked_array);
+      case arrow::Type::STRING:
+        return altrep::AltrepVectorString<StringType>::Make(chunked_array);
 
-        case arrow::Type::LARGE_STRING:
-          return altrep::AltrepVectorString<LargeStringType>::Make(chunked_array);
+      case arrow::Type::LARGE_STRING:
+        return altrep::AltrepVectorString<LargeStringType>::Make(chunked_array);
 
-        default:
-          break;
-      }
+      default:
+        break;
     }
   }
 
