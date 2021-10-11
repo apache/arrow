@@ -450,7 +450,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    auto array = Base::GetChunkedArray(alt)->Slice(i, 1)->chunk(0);
+    auto array = GetChunkedArray(alt)->Slice(i, 1)->chunk(0);
     RStringViewer r_string_viewer;
     r_string_viewer.SetArray(array);
 
