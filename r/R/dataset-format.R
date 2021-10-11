@@ -74,12 +74,12 @@ FileFormat <- R6Class("FileFormat",
     type = function() dataset___FileFormat__type_name(self)
   )
 )
-FileFormat$create <- function(format, ...) {
+FileFormat$create <- function(format, ..., schema = NULL) {
   opt_names <- names(list(...))
   if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
-    CsvFileFormat$create(...)
+    CsvFileFormat$create(..., schema)
   } else if (format == c("tsv")) {
-    CsvFileFormat$create(delimiter = "\t", ...)
+    CsvFileFormat$create(delimiter = "\t", ..., schema)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing

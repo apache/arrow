@@ -158,26 +158,7 @@ open_dataset <- function(sources,
     return(dataset___UnionDataset__create(sources, schema))
   }
 
-  is_csv_format <- function(format) {
-    length(format) == 1 && "CsvFileFormat" %in% class(format) || is_string(format, string = "csv")
-  }
-
-  if (is_csv_format(format) && !is.null(schema)) {
-    factory <- DatasetFactory$create(
-      sources,
-      partitioning = partitioning,
-      format = format,
-      ...,
-      read_options = CsvReadOptions$create(column_names = names(schema))
-    )
-  } else {
-    factory <- DatasetFactory$create(
-      sources,
-      partitioning = partitioning,
-      format = format,
-      ...
-    )
-  }
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, schema = schema, ...)
 
   tryCatch(
     # Default is _not_ to inspect/unify schemas
