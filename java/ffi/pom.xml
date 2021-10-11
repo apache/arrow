@@ -70,7 +70,7 @@
             <resource>
                 <directory>${arrow.ffi.cpp.build.dir}</directory>
                 <includes>
-                    <include>**/libarrow_ffi_jni.*</include>
+                    <include>**/*arrow_ffi_jni.*</include>
                 </includes>
             </resource>
         </resources>

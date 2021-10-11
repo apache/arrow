@@ -20,18 +20,17 @@
 set -e
 
 arrow_dir=${1}
-cpp_lib_dir=${2}
-java_dist_dir=${3}
+dist_dir=${3}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 
 pushd ${arrow_dir}/java
 
 # build the entire project
-mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_lib_dir
+mvn clean install -Parrow-ffi -Parrow-jni -Darrow.cpp.build.dir=$dist_dir -Darrow.ffi.cpp.build.dir=$dist_dir
 
 # copy all jars and pom files to the distribution folder
-find . -name "*.jar" -exec echo {} \; -exec cp {} $java_dist_dir \;
-find . -name "*.pom" -exec echo {} \; -exec cp {} $java_dist_dir \;
+find . -name "*.jar" -exec echo {} \; -exec cp {} $dist_dir \;
+find . -name "*.pom" -exec echo {} \; -exec cp {} $dist_dir \;
 
 popd

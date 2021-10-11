@@ -21,6 +21,7 @@ set -ex
 arrow_dir=${1}
 source_dir=${1}/java
 cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
+ffi_build_dir=${2}/java/ffi
 with_docs=${3:-false}
 
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
@@ -82,6 +83,10 @@ ${mvn} install
 
 if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
   ${mvn} -Pshade-flatbuffers install
+fi
+
+if [ "${ARROW_JAVA_FFI}" = "ON" ]; then
+  ${mvn} -Darrow.ffi.cpp.build.dir=${ffi_build_dir} -Parrow-ffi install
 fi
 
 if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then

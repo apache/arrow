@@ -19,8 +19,8 @@
 # arrow_ffi_java
 #
 
-# Headers: top level
 cmake_minimum_required(VERSION 3.11)
+message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 project(arrow_ffi_java)
 
 # Find java/jni
@@ -49,3 +49,5 @@ set(SOURCES src/main/cpp/jni_wrapper.cc)
 add_library(arrow_ffi_jni SHARED ${SOURCES})
 target_link_libraries(arrow_ffi_jni ${JAVA_JVM_LIBRARY})
 add_dependencies(arrow_ffi_jni ${PROJECT_NAME})
+
+install(TARGETS arrow_ffi_jni DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
