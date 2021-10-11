@@ -248,5 +248,478 @@ TEST(Relation, Filter) {
       }))));
 }
 
+TEST(Relation, AggregateSimple) {
+  ASSERT_THAT(
+      ConvertJSON<ir::Relation>(R"({
+            "impl": {
+                "base": {
+                    "output_mapping": {},
+                    "output_mapping_type": "PassThrough"
+                },
+                "groupings": [
+                    {
+                        "keys": [
+                            {
+                                "impl": {
+                                    "ref": {
+                                        "position": 0
+                                    },
+                                    "ref_type": "FieldIndex",
+                                    "relation_index": 0
+                                },
+                                "impl_type": "FieldRef"
+                            }
+                        ]
+                    }
+                ],
+                "measures": [
+                    {
+                        "impl": {
+                            "arguments": [
+                                {
+                                    "impl": {
+                                        "ref": {
+                                            "position": 1
+                                        },
+                                        "ref_type": "FieldIndex",
+                                        "relation_index": 0
+                                    },
+                                    "impl_type": "FieldRef"
+                                }
+                            ],
+                            "name": "sum"
+                        },
+                        "impl_type": "Call"
+                    },
+                    {
+                        "impl": {
+                            "arguments": [
+                                {
+                                    "impl": {
+                                        "ref": {
+                                            "position": 2
+                                        },
+                                        "ref_type": "FieldIndex",
+                                        "relation_index": 0
+                                    },
+                                    "impl_type": "FieldRef"
+                                }
+                            ],
+                            "name": "mean"
+                        },
+                        "impl_type": "Call"
+                    }
+                ],
+                "rel": {
+                    "impl": {
+                        "base": {
+                            "output_mapping": {},
+                            "output_mapping_type": "PassThrough"
+                        },
+                        "name": "tbl",
+                        "schema": {
+                            "endianness": "Little",
+                            "fields": [
+                                {
+                                    "name": "foo",
+                                    "nullable": true,
+                                    "type": {
+                                        "bitWidth": 32,
+                                        "is_signed": true
+                                    },
+                                    "type_type": "Int"
+                                },
+                                {
+                                    "name": "bar",
+                                    "nullable": true,
+                                    "type": {
+                                        "bitWidth": 64,
+                                        "is_signed": true
+                                    },
+                                    "type_type": "Int"
+                                },
+                                {
+                                    "name": "baz",
+                                    "nullable": true,
+                                    "type": {
+                                        "precision": "DOUBLE"
+                                    },
+                                    "type_type": "FloatingPoint"
+                                }
+                            ]
+                        }
+                    },
+                    "impl_type": "Source"
+                }
+            },
+            "impl_type": "Aggregate"
+})"),
+      ResultWith(Eq(Declaration::Sequence({
+          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
+                                                                 field("foo", int32()),
+                                                                 field("bar", int64()),
+                                                                 field("baz", float64()),
+                                                             })}},
+          {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                                 {"sum", nullptr},
+                                                 {"mean", nullptr},
+                                             },
+                                             /*targets=*/{1, 2},
+                                             /*names=*/
+                                             {
+                                                 "sum FieldRef.FieldPath(1)",
+                                                 "mean FieldRef.FieldPath(2)",
+                                             },
+                                             /*keys=*/{0}}},
+      }))));
+}
+
+TEST(Relation, AggregateWithHaving) {
+  ASSERT_THAT(
+      ConvertJSON<ir::Relation>(R"({
+            "impl": {
+                "base": {
+                    "output_mapping": {},
+                    "output_mapping_type": "PassThrough"
+                },
+                "predicate": {
+                    "impl": {
+                        "arguments": [
+                            {
+                                            "impl": {
+                                                "ref": {
+                                                    "position": 0
+                                                },
+                                                "ref_type": "FieldIndex",
+                                                "relation_index": 0
+                                            },
+                                            "impl_type": "FieldRef"
+                            },
+                            {
+                                "impl": {
+                                    "impl": {
+                                        "value": 10
+                                    },
+                                    "impl_type": "Int8Literal",
+                                    "type": {
+                                        "nullable": true,
+                                        "type": {
+                                            "bitWidth": 8,
+                                            "is_signed": true
+                                        },
+                                        "type_type": "Int"
+                                    }
+                                },
+                                "impl_type": "Literal"
+                            }
+                        ],
+                        "name": "greater"
+                    },
+                    "impl_type": "Call"
+                },
+                "rel": {
+                    "impl": {
+                        "base": {
+                            "output_mapping": {},
+                            "output_mapping_type": "PassThrough"
+                        },
+                        "groupings": [
+                            {
+                                "keys": [
+                                    {
+                                        "impl": {
+                                            "ref": {
+                                                "position": 0
+                                            },
+                                            "ref_type": "FieldIndex",
+                                            "relation_index": 0
+                                        },
+                                        "impl_type": "FieldRef"
+                                    }
+                                ]
+                            }
+                        ],
+                        "measures": [
+                            {
+                                "impl": {
+                                    "arguments": [
+                                        {
+                                            "impl": {
+                                                "ref": {
+                                                    "position": 1
+                                                },
+                                                "ref_type": "FieldIndex",
+                                                "relation_index": 0
+                                            },
+                                            "impl_type": "FieldRef"
+                                        }
+                                    ],
+                                    "name": "sum"
+                                },
+                                "impl_type": "Call"
+                            },
+                            {
+                                "impl": {
+                                    "arguments": [
+                                        {
+                                            "impl": {
+                                                "ref": {
+                                                    "position": 2
+                                                },
+                                                "ref_type": "FieldIndex",
+                                                "relation_index": 0
+                                            },
+                                            "impl_type": "FieldRef"
+                                        }
+                                    ],
+                                    "name": "mean"
+                                },
+                                "impl_type": "Call"
+                            }
+                        ],
+                        "rel": {
+                            "impl": {
+                                "base": {
+                                    "output_mapping": {},
+                                    "output_mapping_type": "PassThrough"
+                                },
+                                "predicate": {
+                                    "impl": {
+                                        "arguments": [
+                                            {
+                                                "impl": {
+                                                    "ref": {
+                                                        "position": 0
+                                                    },
+                                                    "ref_type": "FieldIndex",
+                                                    "relation_index": 0
+                                                },
+                                                "impl_type": "FieldRef"
+                                            },
+                                            {
+                                                "impl": {
+                                                    "impl": {
+                                                        "value": 3
+                                                    },
+                                                    "impl_type": "Int8Literal",
+                                                    "type": {
+                                                        "nullable": true,
+                                                        "type": {
+                                                            "bitWidth": 8,
+                                                            "is_signed": true
+                                                        },
+                                                        "type_type": "Int"
+                                                    }
+                                                },
+                                                "impl_type": "Literal"
+                                            }
+                                        ],
+                                        "name": "less"
+                                    },
+                                    "impl_type": "Call"
+                                },
+                                "rel": {
+                                    "impl": {
+                                        "base": {
+                                            "output_mapping": {},
+                                            "output_mapping_type": "PassThrough"
+                                        },
+                                        "name": "tbl",
+                                        "schema": {
+                                            "endianness": "Little",
+                                            "fields": [
+                                                {
+                                                    "name": "foo",
+                                                    "nullable": true,
+                                                    "type": {
+                                                        "bitWidth": 32,
+                                                        "is_signed": true
+                                                    },
+                                                    "type_type": "Int"
+                                                },
+                                                {
+                                                    "name": "bar",
+                                                    "nullable": true,
+                                                    "type": {
+                                                        "bitWidth": 64,
+                                                        "is_signed": true
+                                                    },
+                                                    "type_type": "Int"
+                                                },
+                                                {
+                                                    "name": "baz",
+                                                    "nullable": true,
+                                                    "type": {
+                                                        "precision": "DOUBLE"
+                                                    },
+                                                    "type_type": "FloatingPoint"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "impl_type": "Source"
+                                }
+                            },
+                            "impl_type": "Filter"
+                        }
+                    },
+                    "impl_type": "Aggregate"
+                }
+            },
+            "impl_type": "Filter"
+})"),
+      ResultWith(Eq(Declaration::Sequence({
+          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
+                                                                 field("foo", int32()),
+                                                                 field("bar", int64()),
+                                                                 field("baz", float64()),
+                                                             })}},
+          {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}},
+          {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                                 {"sum", nullptr},
+                                                 {"mean", nullptr},
+                                             },
+                                             /*targets=*/{1, 2},
+                                             /*names=*/
+                                             {
+                                                 "sum FieldRef.FieldPath(1)",
+                                                 "mean FieldRef.FieldPath(2)",
+                                             },
+                                             /*keys=*/{0}}},
+          {"filter", FilterNodeOptions{greater(field_ref(0), literal<int8_t>(10))}},
+      }))));
+}
+
+TEST(Relation, ProjectionWithFilter) {
+  ASSERT_THAT(
+      ConvertJSON<ir::Relation>(R"({
+            "impl": {
+                "base": {
+                    "output_mapping": {},
+                    "output_mapping_type": "PassThrough"
+                },
+                "predicate": {
+                    "impl": {
+                        "arguments": [
+                            {
+                                "impl": {
+                                    "ref": {
+                                        "position": 0
+                                    },
+                                    "ref_type": "FieldIndex",
+                                    "relation_index": 0
+                                },
+                                "impl_type": "FieldRef"
+                            },
+                            {
+                                "impl": {
+                                    "impl": {
+                                        "value": 3
+                                    },
+                                    "impl_type": "Int8Literal",
+                                    "type": {
+                                        "nullable": true,
+                                        "type": {
+                                            "bitWidth": 8,
+                                            "is_signed": true
+                                        },
+                                        "type_type": "Int"
+                                    }
+                                },
+                                "impl_type": "Literal"
+                            }
+                        ],
+                        "name": "less"
+                    },
+                    "impl_type": "Call"
+                },
+                "rel": {
+                    "impl": {
+                        "base": {
+                            "output_mapping": {},
+                            "output_mapping_type": "PassThrough"
+                        },
+                        "expressions": [
+                            {
+                                "impl": {
+                                    "ref": {
+                                        "position": 1
+                                    },
+                                    "ref_type": "FieldIndex",
+                                    "relation_index": 0
+                                },
+                                "impl_type": "FieldRef"
+                            },
+                            {
+                                "impl": {
+                                    "ref": {
+                                        "position": 2
+                                    },
+                                    "ref_type": "FieldIndex",
+                                    "relation_index": 0
+                                },
+                                "impl_type": "FieldRef"
+                            }
+                        ],
+                        "rel": {
+                            "impl": {
+                                "base": {
+                                    "output_mapping": {},
+                                    "output_mapping_type": "PassThrough"
+                                },
+                                "name": "tbl",
+                                "schema": {
+                                    "endianness": "Little",
+                                    "fields": [
+                                        {
+                                            "name": "foo",
+                                            "nullable": true,
+                                            "type": {
+                                                "bitWidth": 32,
+                                                "is_signed": true
+                                            },
+                                            "type_type": "Int"
+                                        },
+                                        {
+                                            "name": "bar",
+                                            "nullable": true,
+                                            "type": {
+                                                "bitWidth": 64,
+                                                "is_signed": true
+                                            },
+                                            "type_type": "Int"
+                                        },
+                                        {
+                                            "name": "baz",
+                                            "nullable": true,
+                                            "type": {
+                                                "precision": "DOUBLE"
+                                            },
+                                            "type_type": "FloatingPoint"
+                                        }
+                                    ]
+                                }
+                            },
+                            "impl_type": "Source"
+                        }
+                    },
+                    "impl_type": "Project"
+                }
+            },
+            "impl_type": "Filter"
+})"),
+      ResultWith(Eq(Declaration::Sequence({
+          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
+                                                                 field("foo", int32()),
+                                                                 field("bar", int64()),
+                                                                 field("baz", float64()),
+                                                             })}},
+          {"project", ProjectNodeOptions{
+                          /*expressions=*/{field_ref(1), field_ref(2)},
+                      }},
+          {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}},
+      }))));
+}
+
 }  // namespace compute
 }  // namespace arrow

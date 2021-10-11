@@ -450,6 +450,66 @@ Result<Declaration> Convert(const ir::Relation& rel) {
       return Declaration{
           "filter", {std::move(arg)}, FilterNodeOptions{std::move(predicate)}};
     }
+
+    case ir::RelationImpl::Project: {
+      auto aggregate = rel.impl_as<ir::Project>();
+      ARROW_ASSIGN_OR_RAISE(auto arg,
+                            Convert(*aggregate->rel()).As<Declaration::Input>());
+
+      ProjectNodeOptions opts{{}};
+
+      for (const ir::Expression* expression : *aggregate->expressions()) {
+        ARROW_ASSIGN_OR_RAISE(auto expr, Convert(*expression));
+        opts.expressions.push_back(std::move(expr));
+      }
+
+      return Declaration{"project", {std::move(arg)}, std::move(opts)};
+    }
+
+    case ir::RelationImpl::Aggregate: {
+      auto aggregate = rel.impl_as<ir::Aggregate>();
+      ARROW_ASSIGN_OR_RAISE(auto arg,
+                            Convert(*aggregate->rel()).As<Declaration::Input>());
+
+      AggregateNodeOptions opts{{}, {}, {}};
+
+      for (const ir::Expression* measure : *aggregate->measures()) {
+        ARROW_ASSIGN_OR_RAISE(auto expr, Convert(*measure));
+        auto call = expr.call();
+        if (!call || call->arguments.size() != 1) {
+          return Status::IOError("One of Aggregate.measures was ", expr.ToString(),
+                                 " (expected Expression::Call with one argument)");
+        }
+
+        auto target = call->arguments.front().field_ref();
+        if (!target) {
+          return Status::NotImplemented(
+              "Support for non-FieldRef arguments to Aggregate.measures");
+        }
+
+        opts.aggregates.push_back({call->function_name, nullptr});
+        opts.targets.push_back(*target);
+        opts.names.push_back(call->function_name + " " + target->ToString());
+      }
+
+      if (aggregate->groupings()->size() > 1) {
+        return Status::NotImplemented("Support for multiple grouping sets");
+      }
+
+      if (aggregate->groupings()->size() == 1) {
+        for (const ir::Expression* key : *aggregate->groupings()->Get(0)->keys()) {
+          ARROW_ASSIGN_OR_RAISE(auto key_expr, Convert(*key));
+          auto key_ref = key_expr.field_ref();
+          if (!key_ref) {
+            return Status::NotImplemented("Support for non-FieldRef grouping keys");
+          }
+          opts.keys.push_back(*key_ref);
+        }
+      }
+
+      return Declaration{"aggregate", {std::move(arg)}, std::move(opts)};
+    }
+
     default:
       break;
   }
