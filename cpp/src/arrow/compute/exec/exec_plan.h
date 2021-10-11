@@ -291,7 +291,7 @@ class MapNode : public ExecNode {
   // The task group for the corresponding batches
   util::AsyncTaskGroup task_group_;
 
-  ::arrow::internal::Executor* executor_{nullptr};
+  ::arrow::internal::Executor* executor_;
 
   // Variable used to cancel remaining tasks in the executor
   StopSource stop_source_;

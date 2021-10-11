@@ -294,6 +294,8 @@ MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                /*num_outputs=*/1) {
   if (async_mode) {
     executor_ = plan_->exec_context()->executor();
+  } else {
+    executor_ = nullptr;
   }
 }
 
