@@ -193,6 +193,7 @@ r/man/*.Rd
 r/cran-comments.md
 r/vignettes/*.Rmd
 r/tests/testthat/test-*.txt
+r/tests/testthat/_snaps/*.md
 r/inst/include/cpp11.hpp
 r/inst/include/cpp11/*.hpp
 .gitattributes

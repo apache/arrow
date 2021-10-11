@@ -267,3 +267,19 @@ test_that("Conversion from altrep R vector to Array uses the existing Array", {
   b_str <- Array$create(a_str$as_vector())
   expect_true(test_same_Array(a_str$pointer(), b_str$pointer()))
 })
+
+test_that("R checks for bounds", {
+  v_int <- Array$create(c(1, 2, 3))$as_vector()
+  v_dbl <- Array$create(c(1L, 2L, 3L))$as_vector()
+  v_str <- Array$create(c("un", "deux", "trois"))$as_vector()
+
+  expect_snapshot({
+    (expect_error(v_int[[5]]))
+    (expect_error(v_dbl[[5]]))
+    (expect_error(v_str[[5]]))
+
+    (expect_error(v_int[[-1]]))
+    (expect_error(v_dbl[[-1]]))
+    (expect_error(v_str[[-1]]))
+  })
+})
