@@ -8,6 +8,10 @@ test_same_Array <- function(x, y) {
   .Call(`_arrow_test_same_Array`, x, y)
 }
 
+is_arrow_altrep <- function(x) {
+  .Call(`_arrow_is_arrow_altrep`, x)
+}
+
 Array__Slice1 <- function(array, offset) {
   .Call(`_arrow_Array__Slice1`, array, offset)
 }

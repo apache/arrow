@@ -629,19 +629,20 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
   return R_NilValue;
 }
 
-// For context, see
-// https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
-#define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
-#define ALTREP_SERIALIZED_CLASS_PKGSYM(x) CADR(x)
+bool is_arrow_altrep(SEXP x) {
+  if (ALTREP(x)) {
+    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(ALTREP_CLASS(x));
+    SEXP pkg = ALTREP_SERIALIZED_CLASS_PKGSYM(info);
+
+    if (pkg == symbols::arrow) return true;
+  }
+
+  return false;
+}
 
 std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP x) {
-  if (ALTREP(x)) {
-    SEXP info = ATTRIB(ALTREP_CLASS(x));
-    SEXP pkg = CADR(info);
-
-    if (pkg == symbols::arrow) {
-      return GetArray(x);
-    }
+  if (is_arrow_altrep(x)) {
+    return GetArray(x);
   }
 
   return nullptr;
@@ -662,6 +663,8 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
   return R_NilValue;
 }
 
+bool is_arrow_altrep(SEXP) { return false; }
+
 std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP x) { return nullptr; }
 
 }  // namespace altrep
@@ -680,5 +683,8 @@ bool test_same_Array(SEXP x, SEXP y) {
 
   return p_x->get() == p_y->get();
 }
+
+// [[arrow::export]]
+bool is_arrow_altrep(SEXP x) { return arrow::r::altrep::is_arrow_altrep(x); }
 
 #endif

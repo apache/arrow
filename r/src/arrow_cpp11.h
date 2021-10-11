@@ -35,6 +35,11 @@
 #define IS_ASCII(x) (LEVELS(x) & ASCII_MASK)
 #define IS_UTF8(x) (LEVELS(x) & UTF8_MASK)
 
+// For context, see:
+// https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
+#define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
+#define ALTREP_SERIALIZED_CLASS_PKGSYM(x) CADR(x)
+
 namespace arrow {
 namespace r {
 
