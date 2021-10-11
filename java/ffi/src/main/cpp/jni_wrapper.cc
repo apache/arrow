@@ -75,7 +75,7 @@ class InnerPrivateData {
 
 class JNIEnvGuard {
  public:
-  explicit JNIEnvGuard(JavaVM* vm) : vm_(vm), should_deattach_(false) {
+  explicit JNIEnvGuard(JavaVM* vm) : vm_(vm), should_detach_(false) {
     JNIEnv* env;
     jint code = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
     if (code == JNI_EDETACHED) {
@@ -84,7 +84,7 @@ class JNIEnvGuard {
       args.name = NULL;
       args.group = NULL;
       code = vm->AttachCurrentThread(reinterpret_cast<void**>(&env), &args);
-      should_deattach_ = (code == JNI_OK);
+      should_detach_ = (code == JNI_OK);
     }
     if (code != JNI_OK) {
       ThrowPendingException("Failed to attach the current thread to a Java VM");
@@ -95,14 +95,14 @@ class JNIEnvGuard {
   JNIEnv* env() { return env_; }
 
   ~JNIEnvGuard() {
-    if (should_deattach_) {
+    if (should_detach_) {
       vm_->DetachCurrentThread();
-      should_deattach_ = false;
+      should_detach_ = false;
     }
   }
 
  private:
-  bool should_deattach_;
+  bool should_detach_;
   JavaVM* vm_;
   JNIEnv* env_;
 };
