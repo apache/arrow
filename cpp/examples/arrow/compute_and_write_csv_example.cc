@@ -145,5 +145,5 @@ int main(int argc, char** argv) {
     std::cerr << "Writing CSV file failed" << std::endl;
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }
