@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
   arrow::Result<arrow::Datum> st_compared_datum =
       arrow::compute::CallFunction("greater", {array_a, array_b});
   if (st_compared_datum.ok()) {
-    compared_datum = std::move(st_compared_datum).ValueOrDie();
+    compared_datum = *st_compared_datum;
     array_d = compared_datum.make_array();
   } else {
     std::cerr << st_compared_datum.status() << std::endl;
