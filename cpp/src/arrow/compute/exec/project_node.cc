@@ -40,8 +40,9 @@ namespace {
 class ProjectNode : public MapNode {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)
-      : MapNode(plan, std::move(inputs), std::move(output_schema)),
+              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs,
+              bool async_mode)
+      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
         exprs_(std::move(exprs)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -69,7 +70,8 @@ class ProjectNode : public MapNode {
       ++i;
     }
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
-                                          schema(std::move(fields)), std::move(exprs));
+                                          schema(std::move(fields)), std::move(exprs),
+                                          project_options.async_mode);
   }
 
   const char* kind_name() const override { return "ProjectNode"; }

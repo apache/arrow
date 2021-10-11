@@ -288,11 +288,13 @@ bool ExecNode::ErrorIfNotOk(Status status) {
 }
 
 MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                 std::shared_ptr<Schema> output_schema)
+                 std::shared_ptr<Schema> output_schema, bool async_mode)
     : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
                std::move(output_schema),
                /*num_outputs=*/1) {
-  executor_ = plan_->exec_context()->executor();
+  if (async_mode) {
+    executor_ = plan_->exec_context()->executor();
+  }
 }
 
 void MapNode::ErrorReceived(ExecNode* input, Status error) {
