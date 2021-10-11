@@ -111,7 +111,7 @@ write_dataset <- function(dataset,
     dataset <- dplyr::ungroup(dataset)
   }
 
-  scanner <- Scanner$create(dataset)
+  scanner <- Scanner$create(dataset, use_async = TRUE)
   if (!inherits(partitioning, "Partitioning")) {
     partition_schema <- scanner$schema[partitioning]
     if (isTRUE(hive_style)) {

@@ -137,7 +137,7 @@ func (b *bitRunReader) loadWord(bitsRemaining int64) {
 
 		bitutil.SetBitTo(wordptr, int(bitsRemaining), bitutil.BitIsNotSet(wordptr, int(bitsRemaining-1)))
 		// reset the value to little endian for big endian architectures
-		b.word = toLEFunc(b.word)
+		b.word = ToLEUint64(b.word)
 	}
 
 	// Two cases:

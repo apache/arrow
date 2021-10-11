@@ -208,7 +208,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
-  if (func_name == "hash_count_distinct") {
+  if (func_name == "count_distinct" || func_name == "hash_count_distinct") {
     using Options = arrow::compute::CountOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->mode =
@@ -252,6 +252,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::SetLookupOptions;
     return std::make_shared<Options>(cpp11::as_cpp<arrow::Datum>(options["value_set"]),
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
+  }
+
+  if (func_name == "index") {
+    using Options = arrow::compute::IndexOptions;
+    return std::make_shared<Options>(
+        cpp11::as_cpp<std::shared_ptr<arrow::Scalar>>(options["value"]));
   }
 
   if (func_name == "is_null") {
@@ -515,7 +521,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::RoundToMultipleOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["multiple"])) {
-      out->multiple = cpp11::as_cpp<double>(options["multiple"]);
+      out->multiple = std::make_shared<arrow::DoubleScalar>(
+          cpp11::as_cpp<double>(options["multiple"]));
     }
     SEXP round_mode = options["round_mode"];
     if (!Rf_isNull(round_mode)) {

@@ -751,6 +751,11 @@ cdef class BaseExtensionType(DataType):
 cdef class ExtensionType(BaseExtensionType):
     """
     Concrete base class for Python-defined extension types.
+
+    Parameters
+    ----------
+    storage_type : DataType
+    extension_name : str
     """
 
     def __cinit__(self):
@@ -764,11 +769,6 @@ cdef class ExtensionType(BaseExtensionType):
 
         This should be called at the end of the subclass'
         ``__init__`` method.
-
-        Parameters
-        ----------
-        storage_type : DataType
-        extension_name : str
         """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
@@ -841,6 +841,11 @@ cdef class PyExtensionType(ExtensionType):
     """
     Concrete base class for Python-defined extension types based on pickle
     for (de)serialization.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
     """
 
     def __cinit__(self):
@@ -880,6 +885,13 @@ cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
+    serialized : bytes
+        The serialised output.
     """
 
     cdef:
@@ -941,6 +953,16 @@ def unregister_extension_type(type_name):
 
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
+    """
+    KeyValueMetadata
+
+    Parameters
+    ----------
+    __arg0__ : dict
+        A dict of the key-value metadata
+    **kwargs : optional
+        additional key-value metadata
+    """
 
     def __init__(self, __arg0__=None, **kwargs):
         cdef:
@@ -2154,6 +2176,14 @@ def duration(unit):
     return out
 
 
+def month_day_nano_interval():
+    """
+    Create instance of an interval type representing months, days and
+    nanoseconds between two dates.
+    """
+    return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
+
+
 def date32():
     """
     Create instance of 32-bit date (days since UNIX epoch 1970-01-01).
@@ -2702,12 +2732,18 @@ cdef dict _type_aliases = {
     'duration[ms]': duration('ms'),
     'duration[us]': duration('us'),
     'duration[ns]': duration('ns'),
+    'month_day_nano_interval': month_day_nano_interval(),
 }
 
 
 def type_for_alias(name):
     """
     Return DataType given a string alias if one exists.
+
+    Parameters
+    ----------
+    name : str
+        The alias of the DataType that should be retrieved.
 
     Returns
     -------
@@ -2741,7 +2777,7 @@ def schema(fields, metadata=None):
 
     Parameters
     ----------
-    field : iterable of Fields or tuples, or mapping of strings to DataTypes
+    fields : iterable of Fields or tuples, or mapping of strings to DataTypes
     metadata : dict, default None
         Keys and values must be coercible to bytes.
 
@@ -2797,6 +2833,10 @@ def schema(fields, metadata=None):
 def from_numpy_dtype(object dtype):
     """
     Convert NumPy dtype to pyarrow.DataType.
+
+    Parameters
+    ----------
+    dtype : the numpy dtype to convert
     """
     cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)
@@ -2807,14 +2847,38 @@ def from_numpy_dtype(object dtype):
 
 
 def is_boolean_value(object obj):
+    """
+    Check if the object is a boolean.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyBool(obj)
 
 
 def is_integer_value(object obj):
+    """
+    Check if the object is an integer.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyInt(obj)
 
 
 def is_float_value(object obj):
+    """
+    Check if the object is a float.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyFloat(obj)
 
 

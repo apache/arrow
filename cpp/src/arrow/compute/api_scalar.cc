@@ -25,7 +25,6 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/util_internal.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -284,8 +283,11 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 constexpr char RoundOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
+    : RoundToMultipleOptions(std::make_shared<DoubleScalar>(multiple), round_mode) {}
+RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
+                                               RoundMode round_mode)
     : FunctionOptions(internal::kRoundToMultipleOptionsType),
-      multiple(multiple),
+      multiple(std::move(multiple)),
       round_mode(round_mode) {}
 constexpr char RoundToMultipleOptions::kTypeName[];
 

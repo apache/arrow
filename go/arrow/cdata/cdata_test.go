@@ -57,11 +57,11 @@ func TestSimpleArrayExport(t *testing.T) {
 	assert.False(t, test1IsReleased())
 
 	testarr := exportInt32Array()
-	arr, err := ImportCArrayWithType(&testarr, arrow.PrimitiveTypes.Int32)
+	arr, err := ImportCArrayWithType(testarr, arrow.PrimitiveTypes.Int32)
 	assert.NoError(t, err)
 
 	assert.False(t, test1IsReleased())
-	assert.True(t, isReleased(&testarr))
+	assert.True(t, isReleased(testarr))
 
 	arr.Release()
 	runtime.GC()
@@ -76,7 +76,7 @@ func TestSimpleArrayAndSchema(t *testing.T) {
 	buflist := (*[2]unsafe.Pointer)(unsafe.Pointer(testarr.buffers))
 	origvals := (*[10]int32)(unsafe.Pointer(buflist[1]))
 
-	fld, arr, err := ImportCArray(&testarr, &sc)
+	fld, arr, err := ImportCArray(testarr, &sc)
 	assert.NoError(t, err)
 	assert.Equal(t, arrow.PrimitiveTypes.Int32, fld.Type)
 	assert.EqualValues(t, 10, arr.Len())

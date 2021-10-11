@@ -341,6 +341,8 @@ struct TypeTraits<FixedSizeBinaryType> {
   using ArrayType = FixedSizeBinaryArray;
   using BuilderType = FixedSizeBinaryBuilder;
   using ScalarType = FixedSizeBinaryScalar;
+  // FixedSizeBinary doesn't have offsets per se, but string length is int32 sized
+  using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = false;
 };
 

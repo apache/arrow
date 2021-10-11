@@ -21,6 +21,8 @@ test_that("list_compute_functions", {
   justmins <- list_compute_functions("^min")
   expect_true(length(justmins) > 0)
   expect_true(all(grepl("min", justmins)))
+  no_hash_funcs <- list_compute_functions("^hash")
+  expect_true(length(no_hash_funcs) == 0)
 })
 
 test_that("sum.Array", {

@@ -467,6 +467,27 @@ test_that("strsplit and str_split", {
   )
 })
 
+test_that("str_to_lower, str_to_upper, and str_to_title", {
+  df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        x_lower = str_to_lower(x),
+        x_upper = str_to_upper(x),
+        x_title = str_to_title(x)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # Error checking a single function because they all use the same code path.
+  expect_error(
+    nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
+    "Providing a value for 'locale' other than the default ('en') is not supported by Arrow",
+    fixed = TRUE
+  )
+})
+
 test_that("arrow_*_split_whitespace functions", {
   # use only ASCII whitespace characters
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
@@ -736,9 +757,10 @@ test_that("strftime", {
 
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
-    date = c(as.Date("2021-09-09"), NA)
+    date = c(as.Date("2021-01-01"), NA)
   )
   formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
 
   expect_dplyr_equal(
     input %>%
@@ -749,7 +771,7 @@ test_that("strftime", {
 
   expect_dplyr_equal(
     input %>%
-      mutate(x = strftime(date, format = formats)) %>%
+      mutate(x = strftime(date, format = formats_date)) %>%
       collect(),
     times
   )
@@ -769,13 +791,27 @@ test_that("strftime", {
   )
 
   withr::with_timezone(
-    "Pacific/Marquesas",
-    expect_dplyr_equal(
-      input %>%
-        mutate(x = strftime(datetime, format = formats, tz = "EST")) %>%
-        collect(),
-      times
-    )
+    "Pacific/Marquesas", {
+      expect_dplyr_equal(
+        input %>%
+          mutate(
+            x = strftime(datetime, format = formats, tz = "EST"),
+            x_date = strftime(date, format = formats_date, tz = "EST")
+          ) %>%
+          collect(),
+        times
+      )
+
+      expect_dplyr_equal(
+        input %>%
+          mutate(
+            x = strftime(datetime, format = formats),
+            x_date = strftime(date, format = formats_date)
+          ) %>%
+          collect(),
+        times
+      )
+    }
   )
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
@@ -1210,5 +1246,93 @@ test_that("str_sub", {
   expect_error(
     nse_funcs$str_sub("Apache Arrow", 1, c(2, 3)),
     "`end` must be length 1 - other lengths are not supported in Arrow"
+  )
+})
+
+test_that("str_starts, str_ends, startsWith, endsWith", {
+  df <- tibble(x = c("Foo", "bar", "baz", "qux"))
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, "b.*")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, "b.*", negate = TRUE)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, fixed("b.*"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_starts(x, fixed("b"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, "r")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, "r", negate = TRUE)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, fixed("r$"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(str_ends(x, fixed("r"))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(startsWith(x, "b")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(endsWith(x, "r")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(startsWith(x, "b.*")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(endsWith(x, "r$")) %>%
+      collect(),
+    df
   )
 })

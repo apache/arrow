@@ -116,6 +116,19 @@ struct BinaryLength {
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     return static_cast<OutValue>(val.size());
   }
+
+  static Status FixedSizeExec(KernelContext*, const ExecBatch& batch, Datum* out) {
+    // Output is preallocated and validity buffer is precomputed
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(*batch[0].type()).byte_width();
+    if (batch.values[0].is_array()) {
+      int32_t* buffer = out->mutable_array()->GetMutableValues<int32_t>(1);
+      std::fill(buffer, buffer + batch.length, width);
+    } else {
+      checked_cast<Int32Scalar*>(out->scalar().get())->value = width;
+    }
+    return Status::OK();
+  }
 };
 
 struct Utf8Length {
@@ -415,6 +428,96 @@ struct StringTransformExecWithState
     StringTransform transform(State::Get(ctx));
     RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
     return Execute(ctx, &transform, batch, out);
+  }
+};
+
+template <typename StringTransform>
+struct FixedSizeBinaryTransformExecBase {
+  static Status Execute(KernelContext* ctx, StringTransform* transform,
+                        const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      return ExecArray(ctx, transform, batch[0].array(), out);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
+    return ExecScalar(ctx, transform, batch[0].scalar(), out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, StringTransform* transform,
+                          const std::shared_ptr<ArrayData>& data, Datum* out) {
+    FixedSizeBinaryArray input(data);
+    ArrayData* output = out->mutable_array();
+
+    const int32_t input_width =
+        checked_cast<const FixedSizeBinaryType&>(*data->type).byte_width();
+    const int32_t output_width =
+        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
+    const int64_t input_nstrings = input.length();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          ctx->Allocate(output_width * input_nstrings));
+    uint8_t* output_str = values_buffer->mutable_data();
+
+    for (int64_t i = 0; i < input_nstrings; i++) {
+      if (!input.IsNull(i)) {
+        const uint8_t* input_string = input.GetValue(i);
+        auto encoded_nbytes = static_cast<int32_t>(
+            transform->Transform(input_string, input_width, output_str));
+        if (encoded_nbytes != output_width) {
+          return transform->InvalidStatus();
+        }
+      } else {
+        std::memset(output_str, 0x00, output_width);
+      }
+      output_str += output_width;
+    }
+
+    output->buffers[1] = std::move(values_buffer);
+    return Status::OK();
+  }
+
+  static Status ExecScalar(KernelContext* ctx, StringTransform* transform,
+                           const std::shared_ptr<Scalar>& scalar, Datum* out) {
+    const auto& input = checked_cast<const BaseBinaryScalar&>(*scalar);
+    if (!input.is_valid) {
+      return Status::OK();
+    }
+    const int32_t out_width =
+        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
+    auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+
+    const int32_t data_nbytes = static_cast<int32_t>(input.value->size());
+    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(out_width));
+    auto encoded_nbytes = static_cast<int32_t>(transform->Transform(
+        input.value->data(), data_nbytes, value_buffer->mutable_data()));
+    if (encoded_nbytes != out_width) {
+      return transform->InvalidStatus();
+    }
+
+    result->is_valid = true;
+    result->value = std::move(value_buffer);
+    return Status::OK();
+  }
+};
+
+template <typename StringTransform>
+struct FixedSizeBinaryTransformExecWithState
+    : public FixedSizeBinaryTransformExecBase<StringTransform> {
+  using State = typename StringTransform::State;
+  using FixedSizeBinaryTransformExecBase<StringTransform>::Execute;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    StringTransform transform(State::Get(ctx));
+    RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
+    return Execute(ctx, &transform, batch, out);
+  }
+
+  static Result<ValueDescr> OutputType(KernelContext* ctx,
+                                       const std::vector<ValueDescr>& descrs) {
+    DCHECK_EQ(1, descrs.size());
+    const auto& options = State::Get(ctx);
+    const int32_t input_width =
+        checked_cast<const FixedSizeBinaryType&>(*descrs[0].type).byte_width();
+    const int32_t output_width = StringTransform::FixedOutputSize(options, input_width);
+    return ValueDescr(fixed_size_binary(output_width), descrs[0].shape);
   }
 };
 
@@ -1278,6 +1381,9 @@ void AddFindSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              FindSubstringExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1291,6 +1397,9 @@ void AddFindSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              FindSubstringRegexExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1418,6 +1527,9 @@ void AddCountSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              CountSubstringExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1431,6 +1543,9 @@ void AddCountSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              CountSubstringRegexExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -2610,6 +2725,29 @@ struct BinaryReplaceSliceTransform : ReplaceSliceTransformBase {
     output = std::copy(input + after_slice, input + input_string_ncodeunits, output);
     return output - output_start;
   }
+
+  static int32_t FixedOutputSize(const ReplaceSliceOptions& opts, int32_t input_width) {
+    int32_t before_slice = 0;
+    int32_t after_slice = 0;
+    const int32_t start = static_cast<int32_t>(opts.start);
+    const int32_t stop = static_cast<int32_t>(opts.stop);
+    if (opts.start >= 0) {
+      // Count from left
+      before_slice = std::min<int32_t>(input_width, start);
+    } else {
+      // Count from right
+      before_slice = std::max<int32_t>(0, input_width + start);
+    }
+    if (opts.stop >= 0) {
+      // Count from left
+      after_slice = std::min<int32_t>(input_width, std::max<int32_t>(before_slice, stop));
+    } else {
+      // Count from right
+      after_slice = std::max<int32_t>(before_slice, input_width + stop);
+    }
+    return static_cast<int32_t>(before_slice + opts.replacement.size() +
+                                (input_width - after_slice));
+  }
 };
 
 struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
@@ -2708,6 +2846,11 @@ void AddReplaceSlice(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
                                 ReplaceSliceTransformBase::State::Init));
     }
+    using TransformExec =
+        FixedSizeBinaryTransformExecWithState<BinaryReplaceSliceTransform>;
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
+                              OutputType(TransformExec::OutputType), TransformExec::Exec,
+                              ReplaceSliceTransformBase::State::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -3441,6 +3584,8 @@ void AddBinaryLength(FunctionRegistry* registry) {
   for (const auto& input_type : {large_binary(), large_utf8()}) {
     DCHECK_OK(func->AddKernel({input_type}, int64(), exec_offset_64));
   }
+  DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                            BinaryLength::FixedSizeExec));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

@@ -66,6 +66,10 @@ r_symbolic_constants <- c(
 )
 
 is_function <- function(expr, name) {
+  # We could have a quosure here if we have an expression like `sum({{ var }})`
+  if (is_quosure(expr)) {
+    expr <- quo_get_expr(expr)
+  }
   if (!is.call(expr)) {
     return(FALSE)
   } else {
@@ -113,14 +117,6 @@ read_compressed_error <- function(e) {
       sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
       "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
-  }
-  stop(e)
-}
-
-handle_embedded_nul_error <- function(e) {
-  msg <- conditionMessage(e)
-  if (grepl(" nul ", msg)) {
-    e$message <- paste0(msg, "; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)")
   }
   stop(e)
 }

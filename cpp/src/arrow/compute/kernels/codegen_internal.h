@@ -247,6 +247,26 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <>
+struct ArrayIterator<FixedSizeBinaryType> {
+  const ArrayData& arr;
+  const char* data;
+  const int32_t width;
+  int64_t position;
+
+  explicit ArrayIterator(const ArrayData& arr)
+      : arr(arr),
+        data(reinterpret_cast<const char*>(arr.buffers[1]->data())),
+        width(checked_cast<const FixedSizeBinaryType&>(*arr.type).byte_width()),
+        position(arr.offset) {}
+
+  util::string_view operator()() {
+    auto result = util::string_view(data + position * width, width);
+    position++;
+    return result;
+  }
+};
+
 // Iterator over various output array types, taking a GetOutputType<Type>
 
 template <typename Type, typename Enable = void>
@@ -296,14 +316,14 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
 
 template <>
 struct UnboxScalar<Decimal128Type> {
-  static Decimal128 Unbox(const Scalar& val) {
+  static const Decimal128& Unbox(const Scalar& val) {
     return checked_cast<const Decimal128Scalar&>(val).value;
   }
 };
 
 template <>
 struct UnboxScalar<Decimal256Type> {
-  static Decimal256 Unbox(const Scalar& val) {
+  static const Decimal256& Unbox(const Scalar& val) {
     return checked_cast<const Decimal256Scalar&>(val).value;
   }
 };
@@ -397,6 +417,7 @@ static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& ar
 // Reusable type resolvers
 
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
+Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs);
 Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
 
 // ----------------------------------------------------------------------
@@ -1280,7 +1301,13 @@ ARROW_EXPORT
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs);
 
 ARROW_EXPORT
+void EnsureDictionaryDecoded(ValueDescr* begin, size_t count);
+
+ARROW_EXPORT
 void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
+void ReplaceNullWithOtherType(ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
@@ -1295,10 +1322,10 @@ ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonTemporal(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);
 
 /// How to promote decimal precision/scale in CastBinaryDecimalArgs.
 enum class DecimalPromotion : uint8_t {

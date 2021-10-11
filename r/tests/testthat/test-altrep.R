@@ -17,6 +17,10 @@
 
 skip_if(getRversion() <= "3.5.0")
 
+is_altrep <- function(x) {
+  !is.null(.Internal(altrep_class(x)))
+}
+
 test_that("altrep vectors from int32 and dbl arrays with no nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   v_int <- Array$create(1:1000)
@@ -95,15 +99,17 @@ test_that("empty vectors are not altrep", {
 test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   withr::local_options(list(arrow.use_altrep = TRUE))
 
-  table <- Table$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3))
+  table <- Table$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3), str = c("un", "deux", "trois"))
   df_table <- as.data.frame(table)
   expect_true(is_altrep(df_table$int))
   expect_true(is_altrep(df_table$dbl))
+  expect_true(is_altrep(df_table$str))
 
-  batch <- RecordBatch$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3))
+  batch <- RecordBatch$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3), str = c("un", "deux", "trois"))
   df_batch <- as.data.frame(batch)
   expect_true(is_altrep(df_batch$int))
   expect_true(is_altrep(df_batch$dbl))
+  expect_true(is_altrep(df_batch$str))
 })
 
 expect_altrep_rountrip <- function(x, fn, ...) {
@@ -191,15 +197,33 @@ test_that("altrep min/max/sum identical to R versions for int", {
 test_that("altrep vectors handle serialization", {
   ints <- c(1L, 2L, NA_integer_)
   dbls <- c(1, 2, NA_real_)
+  strs <- c("un", "deux", NA_character_)
 
   expect_identical(ints, unserialize(serialize(Array$create(ints)$as_vector(), NULL)))
   expect_identical(dbls, unserialize(serialize(Array$create(dbls)$as_vector(), NULL)))
+  expect_identical(strs, unserialize(serialize(Array$create(strs)$as_vector(), NULL)))
+  expect_identical(strs, unserialize(serialize(Array$create(strs, large_utf8())$as_vector(), NULL)))
 })
 
 test_that("altrep vectors handle coercion", {
   ints <- c(1L, 2L, NA_integer_)
   dbls <- c(1, 2, NA_real_)
+  strs <- c("1", "2", NA_character_)
 
   expect_identical(ints, as.integer(Array$create(dbls)$as_vector()))
+  expect_identical(ints, as.integer(Array$create(strs)$as_vector()))
+
   expect_identical(dbls, as.numeric(Array$create(ints)$as_vector()))
+  expect_identical(dbls, as.numeric(Array$create(strs)$as_vector()))
+
+  expect_identical(strs, as.character(Array$create(ints)$as_vector()))
+  expect_identical(strs, as.character(Array$create(dbls)$as_vector()))
+})
+
+test_that("columns of struct types may be altrep", {
+  st <- Array$create(data.frame(x = 1:10, y = runif(10)))
+  df <- st$as_vector()
+
+  expect_true(is_altrep(df$x))
+  expect_true(is_altrep(df$y))
 })

@@ -17,7 +17,9 @@
 package scalar
 
 import (
+	"encoding/binary"
 	"fmt"
+	"hash/maphash"
 	"math"
 	"math/big"
 	"reflect"
@@ -28,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/decimal128"
+	"github.com/apache/arrow/go/arrow/endian"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
@@ -58,6 +61,11 @@ type Scalar interface {
 	value() interface{}
 	equals(Scalar) bool
 	//TODO(zeroshade): approxEquals
+}
+
+type Releasable interface {
+	Release()
+	Retain()
 }
 
 func validateOptional(s *scalar, value interface{}, valueDesc string) error {
@@ -477,7 +485,9 @@ func GetScalar(arr array.Interface, idx int) (Scalar, error) {
 		return NewFixedSizeBinaryScalar(buf, arr.DataType()), nil
 	case *array.FixedSizeList:
 		size := int(arr.DataType().(*arrow.FixedSizeListType).Len())
-		return NewFixedSizeListScalarWithType(array.NewSlice(arr.ListValues(), int64(idx*size), int64((idx+1)*size)), arr.DataType()), nil
+		slice := array.NewSlice(arr.ListValues(), int64(idx*size), int64((idx+1)*size))
+		defer slice.Release()
+		return NewFixedSizeListScalarWithType(slice, arr.DataType()), nil
 	case *array.Float16:
 		return NewFloat16Scalar(arr.Value(idx)), nil
 	case *array.Float32:
@@ -502,10 +512,14 @@ func GetScalar(arr array.Interface, idx int) (Scalar, error) {
 		return NewUint64Scalar(arr.Value(idx)), nil
 	case *array.List:
 		offsets := arr.Offsets()
-		return NewListScalar(array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))), nil
+		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))
+		defer slice.Release()
+		return NewListScalar(slice), nil
 	case *array.Map:
 		offsets := arr.Offsets()
-		return NewMapScalar(array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))), nil
+		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))
+		defer slice.Release()
+		return NewMapScalar(slice), nil
 	case *array.MonthInterval:
 		return NewMonthIntervalScalar(arr.Value(idx)), nil
 	case *array.Null:
@@ -577,18 +591,21 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 
 	finishFixedWidth := func(data []byte) *array.Data {
 		buffer := createBuffer(data)
+		defer buffer.Release()
 		return array.NewData(sc.DataType(), length, []*memory.Buffer{nil, buffer}, nil, 0, 0)
 	}
 
 	switch s := sc.(type) {
 	case *Boolean:
 		data := memory.NewResizableBuffer(mem)
+		defer data.Release()
 		data.Resize(int(bitutil.BytesForBits(int64(length))))
 		c := byte(0x00)
 		if s.Value {
 			c = 0xFF
 		}
 		memory.Set(data.Bytes(), c)
+		defer data.Release()
 		return array.NewBoolean(length, data, nil, 0), nil
 	case BinaryScalar:
 		if s.DataType().ID() == arrow.FIXED_SIZE_BINARY {
@@ -600,13 +617,167 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 		valuesBuf := createBuffer(s.Data())
 		offsetsBuf := createOffsets(int32(len(s.Data())))
 		data := array.NewData(sc.DataType(), length, []*memory.Buffer{nil, offsetsBuf, valuesBuf}, nil, 0, 0)
-		defer data.Release()
+		defer func() {
+			valuesBuf.Release()
+			offsetsBuf.Release()
+			data.Release()
+		}()
 		return array.MakeFromData(data), nil
 	case PrimitiveScalar:
 		data := finishFixedWidth(s.Data())
 		defer data.Release()
 		return array.MakeFromData(data), nil
+	case *Decimal128:
+		data := finishFixedWidth(arrow.Decimal128Traits.CastToBytes([]decimal128.Num{s.Value}))
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case *List:
+		values := make([]array.Interface, length)
+		for i := range values {
+			values[i] = s.Value
+		}
+
+		valueArray, err := array.Concatenate(values, mem)
+		if err != nil {
+			return nil, err
+		}
+		defer valueArray.Release()
+
+		offsetsBuf := createOffsets(int32(s.Value.Len()))
+		defer offsetsBuf.Release()
+		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil, offsetsBuf}, []*array.Data{valueArray.Data()}, 0, 0)
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case *FixedSizeList:
+		values := make([]array.Interface, length)
+		for i := range values {
+			values[i] = s.Value
+		}
+
+		valueArray, err := array.Concatenate(values, mem)
+		if err != nil {
+			return nil, err
+		}
+		defer valueArray.Release()
+
+		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil}, []*array.Data{valueArray.Data()}, 0, 0)
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case *Struct:
+		fields := make([]*array.Data, 0)
+		for _, v := range s.Value {
+			arr, err := MakeArrayFromScalar(v, length, mem)
+			if err != nil {
+				return nil, err
+			}
+			defer arr.Release()
+			fields = append(fields, arr.Data())
+		}
+
+		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil}, fields, 0, 0)
+		defer data.Release()
+		return array.NewStructData(data), nil
+	case *Map:
+		structArr := s.GetList().(*array.Struct)
+		keys := make([]array.Interface, length)
+		values := make([]array.Interface, length)
+		for i := 0; i < length; i++ {
+			keys[i] = structArr.Field(0)
+			values[i] = structArr.Field(1)
+		}
+
+		keyArr, err := array.Concatenate(keys, mem)
+		if err != nil {
+			return nil, err
+		}
+		defer keyArr.Release()
+
+		valueArr, err := array.Concatenate(values, mem)
+		if err != nil {
+			return nil, err
+		}
+		defer valueArr.Release()
+
+		offsetsBuf := createOffsets(int32(structArr.Len()))
+		outStructArr := array.NewData(structArr.DataType(), keyArr.Len(), []*memory.Buffer{nil}, []*array.Data{keyArr.Data(), valueArr.Data()}, 0, 0)
+		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil, offsetsBuf}, []*array.Data{outStructArr}, 0, 0)
+		defer func() {
+			offsetsBuf.Release()
+			outStructArr.Release()
+			data.Release()
+		}()
+		return array.MakeFromData(data), nil
 	default:
 		return nil, xerrors.Errorf("array from scalar not yet implemented for type %s", sc.DataType())
 	}
+}
+
+func Hash(seed maphash.Seed, s Scalar) uint64 {
+	var h maphash.Hash
+	h.SetSeed(seed)
+	binary.Write(&h, endian.Native, arrow.HashType(seed, s.DataType()))
+
+	out := h.Sum64()
+	if !s.IsValid() {
+		return out
+	}
+
+	hash := func() {
+		out ^= h.Sum64()
+		h.Reset()
+	}
+
+	valueHash := func(v interface{}) {
+		switch v := v.(type) {
+		case int32:
+			h.Write((*[4]byte)(unsafe.Pointer(&v))[:])
+		case arrow.Date32:
+			binary.Write(&h, endian.Native, uint32(v))
+		case arrow.Time32:
+			binary.Write(&h, endian.Native, uint32(v))
+		case arrow.MonthInterval:
+			binary.Write(&h, endian.Native, uint32(v))
+		case arrow.Duration:
+			binary.Write(&h, endian.Native, uint64(v))
+		case arrow.Date64:
+			binary.Write(&h, endian.Native, uint64(v))
+		case arrow.Time64:
+			binary.Write(&h, endian.Native, uint64(v))
+		case arrow.Timestamp:
+			binary.Write(&h, endian.Native, uint64(v))
+		case float16.Num:
+			binary.Write(&h, endian.Native, v.Uint16())
+		case decimal128.Num:
+			binary.Write(&h, endian.Native, v.LowBits())
+			hash()
+			binary.Write(&h, endian.Native, uint64(v.HighBits()))
+		}
+		hash()
+	}
+
+	h.Reset()
+	switch s := s.(type) {
+	case *Null:
+	case *Extension:
+		out ^= Hash(seed, s.Value)
+	case *DayTimeInterval:
+		valueHash(s.Value.Days)
+		valueHash(s.Value.Milliseconds)
+	case PrimitiveScalar:
+		h.Write(s.Data())
+		hash()
+	case TemporalScalar:
+		valueHash(s.value())
+	case ListScalar:
+		array.Hash(&h, s.GetList().Data())
+		hash()
+	case *Struct:
+		for _, c := range s.Value {
+			if c.IsValid() {
+				out ^= Hash(seed, c)
+			}
+		}
+	}
+
+	return out
 }

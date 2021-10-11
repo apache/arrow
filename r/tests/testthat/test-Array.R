@@ -728,8 +728,13 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
   array_with_nul <- Array$create(raws)$cast(utf8())
-  expect_error(
-    as.vector(array_with_nul),
+
+  # no error on conversion, because altrep laziness
+  v <- expect_error(as.vector(array_with_nul), NA)
+
+  # attempting materialization -> error
+
+  expect_error(v[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -737,15 +742,41 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
 
+  # also error on materializing v[3]
+  expect_error(v[3],
+    paste0(
+     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+     "to R, set options(arrow.skip_nul = TRUE)"
+    ),
+    fixed = TRUE
+  )
+
   withr::with_options(list(arrow.skip_nul = TRUE), {
+    # no warning yet because altrep laziness
+    v <- as.vector(array_with_nul)
+
     expect_warning(
-      expect_identical(
-        as.vector(array_with_nul),
+      expect_identical(v[],
         c("person", "woman", "man", "fan", "camera", "tv")
       ),
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[3], "man"),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[4], "fan"),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
   })
 })
 

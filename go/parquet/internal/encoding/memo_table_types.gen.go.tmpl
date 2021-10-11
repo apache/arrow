@@ -98,6 +98,14 @@ func (m *{{.lower}}MemoTableImpl) GetOrInsert(val interface{}) (idx int, found b
   return
 }
 
+func (m *{{.lower}}MemoTableImpl) WriteOut(out []byte) {
+  m.CopyValuesSubset(0, out)
+}
+
+func (m *{{.lower}}MemoTableImpl) WriteOutSubset(start int, out []byte) {
+  m.CopyValuesSubset(start, out)
+}
+
 func (m *{{.lower}}MemoTableImpl) CopyValues(out interface{}) {
   m.CopyValuesSubset(0, out)
 }

@@ -117,7 +117,7 @@ TEST_F(TestArray, TestNullToString) {
   auto data = std::make_shared<Buffer>(nullptr, 400);
 
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
-  ASSERT_EQ(arr->ToString(), "<InvalidArray: Missing values buffer in non-empty array>");
+  ASSERT_EQ(arr->ToString(), "<Invalid array: Missing values buffer in non-empty array>");
 }
 
 TEST_F(TestArray, TestSliceSafe) {
@@ -544,10 +544,12 @@ static ScalarVector GetScalars() {
                                           sparse_union_ty),
       std::make_shared<SparseUnionScalar>(std::make_shared<Int32Scalar>(100), 42,
                                           sparse_union_ty),
+      std::make_shared<SparseUnionScalar>(42, sparse_union_ty),
       std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 6,
                                          dense_union_ty),
       std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 42,
                                          dense_union_ty),
+      std::make_shared<DenseUnionScalar>(42, dense_union_ty),
       DictionaryScalar::Make(ScalarFromJSON(int8(), "1"),
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
       DictionaryScalar::Make(ScalarFromJSON(uint8(), "1"),
@@ -1575,6 +1577,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
 
@@ -1585,6 +1588,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
 
   int64_t too_many = this->builder_->capacity() - 1000 + 1;
   ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
@@ -1602,7 +1606,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(100));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_OK(this->builder_->Advance(100));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_EQ(100, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
 

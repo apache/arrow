@@ -24,7 +24,6 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -55,7 +54,7 @@ Result<std::shared_ptr<ResizableBuffer>> KernelContext::AllocateBitmap(int64_t n
                         AllocateResizableBuffer(nbytes, exec_ctx_->memory_pool()));
   // Since bitmaps are typically written bit by bit, we could leak uninitialized bits.
   // Make sure all memory is initialized (this also appeases Valgrind).
-  internal::ZeroMemory(result.get());
+  std::memset(result->mutable_data(), 0, result->size());
   return result;
 }
 
@@ -250,8 +249,30 @@ class LargeBinaryLikeMatcher : public TypeMatcher {
   std::string ToString() const override { return "large-binary-like"; }
 };
 
+class FixedSizeBinaryLikeMatcher : public TypeMatcher {
+ public:
+  FixedSizeBinaryLikeMatcher() {}
+
+  bool Matches(const DataType& type) const override {
+    return is_fixed_size_binary(type.id());
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const FixedSizeBinaryLikeMatcher*>(&other);
+    return casted != nullptr;
+  }
+  std::string ToString() const override { return "fixed-size-binary-like"; }
+};
+
 std::shared_ptr<TypeMatcher> LargeBinaryLike() {
   return std::make_shared<LargeBinaryLikeMatcher>();
+}
+
+std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
+  return std::make_shared<FixedSizeBinaryLikeMatcher>();
 }
 
 }  // namespace match

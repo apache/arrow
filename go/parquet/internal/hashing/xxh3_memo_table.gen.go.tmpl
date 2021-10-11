@@ -18,6 +18,7 @@ package hashing
 
 import (
   "github.com/apache/arrow/go/arrow/bitutil"
+  "github.com/apache/arrow/go/parquet/internal/utils"
 )
 
 {{range .In}}
@@ -76,6 +77,20 @@ func (h *{{.Name}}HashTable) CopyValuesSubset(start int, out []{{.name}}) {
     idx := e.payload.memoIdx - int32(start)
     if idx >= 0 {
       out[idx] = e.payload.val
+    }
+  })
+}
+
+func (h *{{.Name}}HashTable) WriteOut(out []byte) {
+  h.WriteOutSubset(0, out)
+}
+
+func (h *{{.Name}}HashTable) WriteOutSubset(start int, out []byte) {
+  data := arrow.{{.Name}}Traits.CastFromBytes(out)
+  h.VisitEntries(func(e *entry{{.Name}}) {
+    idx := e.payload.memoIdx - int32(start)
+    if idx >= 0 {
+      data[idx] = utils.ToLE{{.Name}}(e.payload.val)
     }
   })
 }
@@ -226,6 +241,14 @@ func (s *{{.Name}}MemoTable) CopyValues(out interface{}) {
 // at the provided start index
 func (s *{{.Name}}MemoTable) CopyValuesSubset(start int, out interface{}) {
   s.tbl.CopyValuesSubset(start, out.([]{{.name}}))
+}
+
+func (s *{{.Name}}MemoTable) WriteOut(out []byte) {
+  s.tbl.WriteOut(out)
+}
+
+func (s *{{.Name}}MemoTable) WriteOutSubset(start int, out []byte) {
+  s.tbl.WriteOutSubset(start, out)
 }
 
 // Get returns the index of the requested value in the hash table or KeyNotFound

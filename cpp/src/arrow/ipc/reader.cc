@@ -2023,6 +2023,18 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
 // Helpers for fuzzing
 
 namespace internal {
+namespace {
+
+Status ValidateFuzzBatch(const RecordBatch& batch) {
+  auto st = batch.ValidateFull();
+  if (st.ok()) {
+    // If the batch is valid, printing should succeed
+    batch.ToString();
+  }
+  return st;
+}
+
+}  // namespace
 
 Status FuzzIpcStream(const uint8_t* data, int64_t size) {
   auto buffer = std::make_shared<Buffer>(data, size);
@@ -2030,6 +2042,7 @@ Status FuzzIpcStream(const uint8_t* data, int64_t size) {
 
   std::shared_ptr<RecordBatchReader> batch_reader;
   ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchStreamReader::Open(&buffer_reader));
+  Status st;
 
   while (true) {
     std::shared_ptr<arrow::RecordBatch> batch;
@@ -2037,10 +2050,10 @@ Status FuzzIpcStream(const uint8_t* data, int64_t size) {
     if (batch == nullptr) {
       break;
     }
-    RETURN_NOT_OK(batch->ValidateFull());
+    st &= ValidateFuzzBatch(*batch);
   }
 
-  return Status::OK();
+  return st;
 }
 
 Status FuzzIpcFile(const uint8_t* data, int64_t size) {
@@ -2049,14 +2062,15 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
 
   std::shared_ptr<RecordBatchFileReader> batch_reader;
   ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchFileReader::Open(&buffer_reader));
+  Status st;
 
   const int n_batches = batch_reader->num_record_batches();
   for (int i = 0; i < n_batches; ++i) {
     ARROW_ASSIGN_OR_RAISE(auto batch, batch_reader->ReadRecordBatch(i));
-    RETURN_NOT_OK(batch->ValidateFull());
+    st &= ValidateFuzzBatch(*batch);
   }
 
-  return Status::OK();
+  return st;
 }
 
 Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {

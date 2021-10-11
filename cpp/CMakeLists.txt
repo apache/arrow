@@ -740,6 +740,14 @@ if(ARROW_ORC)
   endif()
 endif()
 
+if(ARROW_GCS)
+  list(APPEND ARROW_LINK_LIBS google-cloud-cpp::storage)
+  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
+  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
+  endif()
+endif()
+
 if(ARROW_USE_GLOG)
   list(APPEND ARROW_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
@@ -793,7 +801,11 @@ endif()
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
 # boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
-if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)))
+if(((ARROW_FLIGHT
+     OR ARROW_S3
+     OR ARROW_GCS)
+    AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
+   ))
   list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 endif()
 

@@ -29,14 +29,24 @@ case "$(uname)" in
         ;;
 esac
 
+if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
+    testargs="" # -race not supported on s390x
+fi
+
 pushd ${source_dir}/arrow
+
+TAGS="assert,test"
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
+    TAGS="${TAGS},ccalloc"
+fi
+
 
 # the cgo implementation of the c data interface requires the "test"
 # tag in order to run its tests so that the testing functions implemented
 # in .c files don't get included in non-test builds.
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags "test" $d
+    go test $testargs -tags $TAGS $d
 done
 
 popd
@@ -44,7 +54,7 @@ popd
 pushd ${source_dir}/parquet
 
 for d in $(go list ./... | grep -v vendor); do
-    go test $testargs  $d
+    go test $testargs -tags assert $d
 done
 
 popd

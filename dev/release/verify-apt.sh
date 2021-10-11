@@ -34,10 +34,15 @@ TYPE="$2"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
+
+echo "::group::Prepare repository"
+
 export DEBIAN_FRONTEND=noninteractive
 
+APT_INSTALL="apt install -y -V --no-install-recommends"
+
 apt update
-apt install -y -V \
+${APT_INSTALL} \
   curl \
   lsb-release
 
@@ -80,14 +85,14 @@ if [ "${TYPE}" = "local" ]; then
   apt_source_path+="/${distribution}/pool/${code_name}/main"
   apt_source_path+="/a/apache-arrow-apt-source"
   apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
-  apt install -y -V "${apt_source_path}"
+  ${APT_INSTALL} "${apt_source_path}"
 else
   package_version="${VERSION}-1"
   apt_source_base_name="apache-arrow-apt-source-latest-${code_name}.deb"
   curl \
     --output "${apt_source_base_name}" \
     "${artifactory_base_url}/${apt_source_base_name}"
-  apt install -y -V "./${apt_source_base_name}"
+  ${APT_INSTALL} "./${apt_source_base_name}"
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -113,13 +118,19 @@ fi
 
 apt update
 
-apt install -y -V libarrow-glib-dev=${package_version}
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow C++"
+${APT_INSTALL} libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
 required_packages+=(g++)
 required_packages+=(git)
+required_packages+=(make)
+required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
-apt install -y -V ${required_packages[@]}
+${APT_INSTALL} ${required_packages[@]}
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build
 pushd build/minimal_build
@@ -127,25 +138,44 @@ cmake .
 make -j$(nproc)
 ./arrow_example
 popd
+echo "::endgroup::"
 
-apt install -y -V libarrow-glib-dev=${package_version}
-apt install -y -V libarrow-glib-doc=${package_version}
+
+echo "::group::Test Apache Arrow GLib"
+${APT_INSTALL} libarrow-glib-dev=${package_version}
+${APT_INSTALL} libarrow-glib-doc=${package_version}
+echo "::endgroup::"
+
 
 if [ "${have_flight}" = "yes" ]; then
-  apt install -y -V libarrow-flight-glib-dev=${package_version}
-  apt install -y -V libarrow-flight-glib-doc=${package_version}
+  echo "::group::Test Apache Arrow Flight"
+  ${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
+  ${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
+  echo "::endgroup::"
 fi
 
-apt install -y -V libarrow-python-dev=${package_version}
+
+echo "::group::Test libarrow-python"
+${APT_INSTALL} libarrow-python-dev=${package_version}
+echo "::endgroup::"
+
 
 if [ "${have_plasma}" = "yes" ]; then
-  apt install -y -V libplasma-glib-dev=${package_version}
-  apt install -y -V libplasma-glib-doc=${package_version}
-  apt install -y -V plasma-store-server=${package_version}
+  echo "::group::Test Plasma"
+  ${APT_INSTALL} libplasma-glib-dev=${package_version}
+  ${APT_INSTALL} libplasma-glib-doc=${package_version}
+  ${APT_INSTALL} plasma-store-server=${package_version}
+  echo "::endgroup::"
 fi
 
-apt install -y -V libgandiva-glib-dev=${package_version}
-apt install -y -V libgandiva-glib-doc=${package_version}
 
-apt install -y -V libparquet-glib-dev=${package_version}
-apt install -y -V libparquet-glib-doc=${package_version}
+echo "::group::Test Gandiva"
+${APT_INSTALL} libgandiva-glib-dev=${package_version}
+${APT_INSTALL} libgandiva-glib-doc=${package_version}
+echo "::endgroup::"
+
+
+echo "::group::Test Parquet"
+${APT_INSTALL} libparquet-glib-dev=${package_version}
+${APT_INSTALL} libparquet-glib-doc=${package_version}
+echo "::endgroup::"
