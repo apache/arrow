@@ -17,13 +17,9 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api_aggregate.h>
-#include <arrow/compute/cast.h>
-#include <arrow/compute/exec/expression.h>
 #include <arrow/csv/api.h>
 #include <arrow/csv/writer.h>
-#include <arrow/filesystem/filesystem.h>
-#include <arrow/io/file.h>
-#include <arrow/io/interfaces.h>
+#include <arrow/io/api.h>
 #include <arrow/result.h>
 #include <arrow/status.h>
 
@@ -38,48 +34,32 @@
 // out to a CSV file.
 //
 // To run this example you can use
-// ./compute_and_write_csv_example URI
+// ./compute_and_write_csv_example 
 //
-// where URI is the universal resource identifier
-// to the directory you want created on your
-// filesystem that output will be put into, for
-// example on a local linux system
-// ./compute_and_write_csv_example file:///$PWD
-//
-// Not putting a URI and using 
-// ./compute_and_write_csv_example
-// will write the files into output.csv in the
-// current directory
+// the program will write the files into 
+// compute_and_write_output.csv 
+// in the current directory
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
-int main(int argc, char** argv) {
+arrow::Status RunMain(int argc, char** argv) {
 
   // Make Arrays
   arrow::NumericBuilder<arrow::Int64Type> int64_builder;
   arrow::BooleanBuilder boolean_builder;
 
   // Make place for 8 values in total
-  ABORT_ON_FAILURE(int64_builder.Resize(8));
-  ABORT_ON_FAILURE(boolean_builder.Resize(8));
+  ARROW_RETURN_NOT_OK(int64_builder.Resize(8));
+  ARROW_RETURN_NOT_OK(boolean_builder.Resize(8));
 
   // Bulk append the given values
   std::vector<int64_t> int64_values = {1, 2, 3, 4, 5, 6, 7, 8};
-  ABORT_ON_FAILURE(int64_builder.AppendValues(int64_values));
+  ARROW_RETURN_NOT_OK(int64_builder.AppendValues(int64_values));
   std::shared_ptr<arrow::Array> array_a;
-  ABORT_ON_FAILURE(int64_builder.Finish(&array_a));
+  ARROW_RETURN_NOT_OK(int64_builder.Finish(&array_a));
   int64_builder.Reset();
   int64_values = {2, 5, 1, 3, 6, 2, 7, 4};
   std::shared_ptr<arrow::Array> array_b;
-  ABORT_ON_FAILURE(int64_builder.AppendValues(int64_values));
-  ABORT_ON_FAILURE(int64_builder.Finish(&array_b));
+  ARROW_RETURN_NOT_OK(int64_builder.AppendValues(int64_values));
+  ARROW_RETURN_NOT_OK(int64_builder.Finish(&array_b));
 
   // Cast the arrays to their actual types
   auto int64_array_a = std::static_pointer_cast<arrow::Int64Array>(array_a);
@@ -92,58 +72,46 @@ int main(int argc, char** argv) {
     }
   }
   std::shared_ptr<arrow::Array> array_a_gt_b_self;
-  ABORT_ON_FAILURE(boolean_builder.Finish(&array_a_gt_b_self));
+  ARROW_RETURN_NOT_OK(boolean_builder.Finish(&array_a_gt_b_self));
   std::cout << "Array explicitly compared" << std::endl;
 
   // Explicit comparison of values using a compute function
-  arrow::Datum compared_datum;
   std::shared_ptr<arrow::Array> array_a_gt_b_compute;
-  auto st_compared_datum =
-      arrow::compute::CallFunction("greater", {array_a, array_b});
-  if (st_compared_datum.ok()) {
-    compared_datum = *st_compared_datum;
-    array_a_gt_b_compute = compared_datum.make_array();
-    std::cout << "Arrays compared using a compute function" << std::endl;
-  } else {
-    std::cerr << st_compared_datum.status() << std::endl;
-  }
-  
+  ARROW_ASSIGN_OR_RAISE(arrow::Datum compared_datum, 
+                        arrow::compute::CallFunction("greater", {array_a, array_b}));
+  array_a_gt_b_compute = compared_datum.make_array();
+  std::cout << "Arrays compared using a compute function" << std::endl;
+
   // Create a table for the output
   auto schema =
-      arrow::schema({arrow::field("a", arrow::int64()), 
-                     arrow::field("b", arrow::int64()),
-                     arrow::field("a>b? (self written)", arrow::boolean()),
-                     arrow::field("a>b? (arrow)", arrow::boolean())});
+    arrow::schema({arrow::field("a", arrow::int64()), 
+                   arrow::field("b", arrow::int64()),
+                   arrow::field("a>b? (self written)", arrow::boolean()),
+                   arrow::field("a>b? (arrow)", arrow::boolean())});
   std::shared_ptr<arrow::Table> my_table =
-      arrow::Table::Make(schema, {array_a, array_b, array_a_gt_b_self, array_a_gt_b_compute});
+    arrow::Table::Make(schema, {array_a, array_b, 
+		                array_a_gt_b_self, array_a_gt_b_compute});
 
   std::cout << "Table created" << std::endl;
 
-  // Create a folder to output the data
-  std::string base_path;
-  if (argc < 2) {
-    base_path = "";
-  }else{
-    std::string uri = argv[1];
-    std::string root_path;
-    auto fs = arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
-    base_path = root_path + "/csv_dataset/";
-    ABORT_ON_FAILURE(fs->CreateDir(base_path));
-  }
-  auto csv_filename = base_path + "output.csv";
-
   // Write table to CSV file
-  std::shared_ptr<arrow::io::FileOutputStream> outstream;
-  auto st = arrow::io::FileOutputStream::Open(csv_filename, false);
-  if (st.ok()) {
-    outstream = *st;
-  } else {
-    std::cerr << st.status() << std::endl;
-  }
+  auto csv_filename = "compute_and_write_output.csv";
+  ARROW_ASSIGN_OR_RAISE(auto outstream, 
+                        arrow::io::FileOutputStream::Open(csv_filename));
 
-  auto write_options = arrow::csv::WriteOptions::Defaults();
   std::cout << "Writing CSV file" << std::endl;
-  ABORT_ON_FAILURE(arrow::csv::WriteCSV(*my_table, write_options, outstream.get()))
+  ARROW_RETURN_NOT_OK(arrow::csv::WriteCSV(*my_table,
+                      arrow::csv::WriteOptions::Defaults(),
+                      outstream.get()));
 
+  return arrow::Status::OK();
+}
+
+int main(int argc, char** argv) {
+  arrow::Status st = RunMain(argc, argv);
+  if (!st.ok()) {
+    std::cerr << st << std::endl;
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }
