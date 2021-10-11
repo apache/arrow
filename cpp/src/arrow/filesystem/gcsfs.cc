@@ -19,8 +19,7 @@
 
 #include <google/cloud/storage/client.h>
 
-#include <sstream>
-
+#include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
@@ -80,52 +79,14 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   return options;
 }
 
-Status ToArrowStatus(google::cloud::Status const& s) {
-  std::ostringstream os;
-  os << "google::cloud::Status(" << s << ")";
-  switch (s.code()) {
-    case google::cloud::StatusCode::kOk:
-      break;
-    case google::cloud::StatusCode::kCancelled:
-      return Status::Cancelled(os.str());
-    case google::cloud::StatusCode::kUnknown:
-      return Status::UnknownError(os.str());
-    case google::cloud::StatusCode::kInvalidArgument:
-      return Status::Invalid(os.str());
-    case google::cloud::StatusCode::kDeadlineExceeded:
-    case google::cloud::StatusCode::kNotFound:
-      // TODO: it is unclear if a better mapping would be possible.
-      return Status::UnknownError(os.str());
-    case google::cloud::StatusCode::kAlreadyExists:
-      return Status::AlreadyExists(os.str());
-    case google::cloud::StatusCode::kPermissionDenied:
-    case google::cloud::StatusCode::kUnauthenticated:
-      return Status::UnknownError(os.str());
-    case google::cloud::StatusCode::kResourceExhausted:
-      return Status::CapacityError(os.str());
-    case google::cloud::StatusCode::kFailedPrecondition:
-    case google::cloud::StatusCode::kAborted:
-      return Status::UnknownError(os.str());
-    case google::cloud::StatusCode::kOutOfRange:
-      return Status::Invalid(os.str());
-    case google::cloud::StatusCode::kUnimplemented:
-      return Status::NotImplemented(os.str());
-    case google::cloud::StatusCode::kInternal:
-    case google::cloud::StatusCode::kUnavailable:
-    case google::cloud::StatusCode::kDataLoss:
-      return Status::UnknownError(os.str());
-  }
-  return Status::OK();
-}
-
 class GcsFileSystem::Impl {
  public:
   explicit Impl(GcsOptions o)
       : options_(std::move(o)), client_(AsGoogleCloudOptions(options_)) {}
 
-  GcsOptions const& options() const { return options_; }
+  const GcsOptions& options() const { return options_; }
 
-  Result<FileInfo> GetFileInfo(GcsPath const& path) {
+  Result<FileInfo> GetFileInfo(const GcsPath& path) {
     if (!path.object.empty()) {
       auto meta = client_.GetObjectMetadata(path.bucket, path.object);
       return GetFileInfoImpl(path, std::move(meta).status(), FileType::File);
@@ -135,16 +96,17 @@ class GcsFileSystem::Impl {
   }
 
  private:
-  Result<FileInfo> GetFileInfoImpl(GcsPath const& path, google::cloud::Status status,
-                                   FileType type) {
+  static Result<FileInfo> GetFileInfoImpl(const GcsPath& path,
+                                          const google::cloud::Status& status,
+                                          FileType type) {
     if (status.ok()) {
-      return FileInfo(path.full_path, FileType::File);
+      return FileInfo(path.full_path, type);
     }
     using ::google::cloud::StatusCode;
     if (status.code() == StatusCode::kNotFound) {
       return FileInfo(path.full_path, FileType::NotFound);
     }
-    return ToArrowStatus(status);
+    return internal::ToArrowStatus(status);
   }
 
   GcsOptions options_;

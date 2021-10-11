@@ -27,6 +27,7 @@
 #include <boost/process.hpp>
 #include <string>
 
+#include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
@@ -38,6 +39,7 @@ namespace bp = boost::process;
 namespace gc = google::cloud;
 namespace gcs = google::cloud::storage;
 
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
@@ -68,9 +70,9 @@ class GcsIntegrationTest : public ::testing::Test {
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
             .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials()));
-    auto metadata = client.CreateBucketForProject(
+    google::cloud::StatusOr<gcs::BucketMetadata> metadata = client.CreateBucketForProject(
         kPreexistingBucket, "ignored-by-testbench", gcs::BucketMetadata{});
-    EXPECT_TRUE(metadata.ok()) << "Failed to create bucket <" << kPreexistingBucket
+    ASSERT_TRUE(metadata.ok()) << "Failed to create bucket <" << kPreexistingBucket
                                << ">, status=" << metadata.status();
   }
 
@@ -95,6 +97,48 @@ TEST(GcsFileSystem, OptionsCompare) {
   auto c = b;
   c.scheme = "http";
   EXPECT_FALSE(b.Equals(c));
+}
+
+TEST(GcsFileSystem, ToArrowStatusOK) {
+  Status actual = internal::ToArrowStatus(google::cloud::Status());
+  EXPECT_TRUE(actual.ok());
+}
+
+TEST(GcsFileSystem, ToArrowStatus) {
+  struct {
+    google::cloud::StatusCode input;
+    arrow::StatusCode expected;
+  } cases[] = {
+      {google::cloud::StatusCode::kCancelled, StatusCode::Cancelled},
+      {google::cloud::StatusCode::kUnknown, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kInvalidArgument, StatusCode::Invalid},
+      {google::cloud::StatusCode::kDeadlineExceeded, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kNotFound, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kAlreadyExists, StatusCode::AlreadyExists},
+      {google::cloud::StatusCode::kPermissionDenied, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kUnauthenticated, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kResourceExhausted, StatusCode::CapacityError},
+      {google::cloud::StatusCode::kFailedPrecondition, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kAborted, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kOutOfRange, StatusCode::Invalid},
+      {google::cloud::StatusCode::kUnimplemented, StatusCode::NotImplemented},
+      {google::cloud::StatusCode::kInternal, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kUnavailable, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kDataLoss, StatusCode::UnknownError},
+  };
+
+  for (const auto& test : cases) {
+    auto status = google::cloud::Status(test.input, "test-message");
+    auto message = [&] {
+      std::ostringstream os;
+      os << status;
+      return os.str();
+    }();
+    SCOPED_TRACE("Testing with status=" + message);
+    const auto actual = arrow::fs::internal::ToArrowStatus(status);
+    EXPECT_EQ(actual.code(), test.expected);
+    EXPECT_THAT(actual.message(), HasSubstr(message));
+  }
 }
 
 TEST(GcsFileSystem, FileSystemCompare) {

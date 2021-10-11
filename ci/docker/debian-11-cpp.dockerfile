@@ -71,7 +71,8 @@ RUN apt-get update -y -q && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ci/scripts/install_minio.sh \
-     ci/scripts/install_gcs_testbench.sh \
+     /arrow/ci/scripts/
+COPY ci/scripts/install_gcs_testbench.sh \
      /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
