@@ -293,6 +293,14 @@ bool operator==(const Declaration& l, const Declaration& r) {
            l_opts->keys == r_opts->keys;
   }
 
+  if (l.factory_name == "order_by_sink") {
+    auto l_opts = &OptionsAs<OrderBySinkNodeOptions>(l);
+    auto r_opts = &OptionsAs<OrderBySinkNodeOptions>(r);
+
+    return l_opts->generator == r_opts->generator &&
+           l_opts->sort_options == r_opts->sort_options;
+  }
+
   Unreachable("equality comparison is not supported for all ExecNodeOptions");
 }
 
@@ -358,6 +366,14 @@ static inline void PrintToImpl(const std::string& factory_name,
       *os << "}";
     }
     return;
+  }
+
+  if (factory_name == "order_by_sink") {
+    auto o = &OptionsAs<OrderBySinkNodeOptions>(opts);
+    if (o->generator) {
+      *os << "NON_NULL_GENERATOR,";
+    }
+    return PrintTo(o->sort_options, os);
   }
 
   Unreachable("debug printing is not supported for all ExecNodeOptions");

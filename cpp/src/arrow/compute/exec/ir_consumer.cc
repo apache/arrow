@@ -452,13 +452,12 @@ Result<Declaration> Convert(const ir::Relation& rel) {
     }
 
     case ir::RelationImpl::Project: {
-      auto aggregate = rel.impl_as<ir::Project>();
-      ARROW_ASSIGN_OR_RAISE(auto arg,
-                            Convert(*aggregate->rel()).As<Declaration::Input>());
+      auto project = rel.impl_as<ir::Project>();
+      ARROW_ASSIGN_OR_RAISE(auto arg, Convert(*project->rel()).As<Declaration::Input>());
 
       ProjectNodeOptions opts{{}};
 
-      for (const ir::Expression* expression : *aggregate->expressions()) {
+      for (const ir::Expression* expression : *project->expressions()) {
         ARROW_ASSIGN_OR_RAISE(auto expr, Convert(*expression));
         opts.expressions.push_back(std::move(expr));
       }
@@ -508,6 +507,66 @@ Result<Declaration> Convert(const ir::Relation& rel) {
       }
 
       return Declaration{"aggregate", {std::move(arg)}, std::move(opts)};
+    }
+
+    case ir::RelationImpl::OrderBy: {
+      auto aggregate = rel.impl_as<ir::OrderBy>();
+      ARROW_ASSIGN_OR_RAISE(auto arg,
+                            Convert(*aggregate->rel()).As<Declaration::Input>());
+
+      if (aggregate->keys()->size() == 0) {
+        return Status::NotImplemented("Empty sort key list");
+      }
+
+      util::optional<NullPlacement> null_placement;
+      std::vector<SortKey> sort_keys;
+
+      for (const ir::SortKey* key : *aggregate->keys()) {
+        ARROW_ASSIGN_OR_RAISE(auto expr, Convert(*key->expression()));
+
+        auto target = expr.field_ref();
+        if (!target) {
+          return Status::NotImplemented(
+              "Support for non-FieldRef expressions in SortKey");
+        }
+        if (target->IsNested()) {
+          return Status::NotImplemented(
+              "Support for nested FieldRef expressions in SortKey");
+        }
+        switch (key->ordering()) {
+          case ir::Ordering::ASCENDING_THEN_NULLS:
+          case ir::Ordering::NULLS_THEN_ASCENDING:
+            sort_keys.emplace_back(*target, SortOrder::Ascending);
+            break;
+          case ir::Ordering::DESCENDING_THEN_NULLS:
+          case ir::Ordering::NULLS_THEN_DESCENDING:
+            sort_keys.emplace_back(*target, SortOrder::Descending);
+            break;
+        }
+
+        NullPlacement key_null_placement;
+        switch (key->ordering()) {
+          case ir::Ordering::ASCENDING_THEN_NULLS:
+          case ir::Ordering::DESCENDING_THEN_NULLS:
+            key_null_placement = NullPlacement::AtEnd;
+            break;
+          case ir::Ordering::NULLS_THEN_ASCENDING:
+          case ir::Ordering::NULLS_THEN_DESCENDING:
+            key_null_placement = NullPlacement::AtStart;
+            break;
+        }
+
+        if (null_placement && *null_placement != key_null_placement) {
+          return Status::NotImplemented("Per-key null_placement");
+        }
+        null_placement = key_null_placement;
+      }
+
+      return Declaration{
+          "order_by_sink",
+          {std::move(arg)},
+          OrderBySinkNodeOptions{SortOptions{std::move(sort_keys), *null_placement},
+                                 nullptr}};
     }
 
     default:

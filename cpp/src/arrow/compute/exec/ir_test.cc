@@ -714,10 +714,147 @@ TEST(Relation, ProjectionWithFilter) {
                                                                  field("bar", int64()),
                                                                  field("baz", float64()),
                                                              })}},
-          {"project", ProjectNodeOptions{
-                          /*expressions=*/{field_ref(1), field_ref(2)},
-                      }},
+          {"project", ProjectNodeOptions{/*expressions=*/{field_ref(1), field_ref(2)}}},
           {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}},
+      }))));
+}
+
+TEST(Relation, ProjectionWithSort) {
+  ASSERT_THAT(
+      ConvertJSON<ir::Relation>(R"({
+            "impl": {
+                "base": {
+                    "output_mapping": {},
+                    "output_mapping_type": "PassThrough"
+                },
+                "keys": [
+                    {
+                        "expression": {
+                            "impl": {
+                                "ref": {
+                                    "position": 0
+                                },
+                                "ref_type": "FieldIndex",
+                                "relation_index": 0
+                            },
+                            "impl_type": "FieldRef"
+                        },
+                        "ordering": "NULLS_THEN_ASCENDING"
+                    },
+                    {
+                        "expression": {
+                            "impl": {
+                                "ref": {
+                                    "position": 1
+                                },
+                                "ref_type": "FieldIndex",
+                                "relation_index": 0
+                            },
+                            "impl_type": "FieldRef"
+                        },
+                        "ordering": "NULLS_THEN_DESCENDING"
+                    }
+                ],
+                "rel": {
+                    "impl": {
+                        "base": {
+                            "output_mapping": {},
+                            "output_mapping_type": "PassThrough"
+                        },
+                        "expressions": [
+                            {
+                                "impl": {
+                                    "ref": {
+                                        "position": 0
+                                    },
+                                    "ref_type": "FieldIndex",
+                                    "relation_index": 0
+                                },
+                                "impl_type": "FieldRef"
+                            },
+                            {
+                                "impl": {
+                                    "ref": {
+                                        "position": 1
+                                    },
+                                    "ref_type": "FieldIndex",
+                                    "relation_index": 0
+                                },
+                                "impl_type": "FieldRef"
+                            },
+                            {
+                                "impl": {
+                                    "ref": {
+                                        "position": 2
+                                    },
+                                    "ref_type": "FieldIndex",
+                                    "relation_index": 0
+                                },
+                                "impl_type": "FieldRef"
+                            }
+                        ],
+                        "rel": {
+                            "impl": {
+                                "base": {
+                                    "output_mapping": {},
+                                    "output_mapping_type": "PassThrough"
+                                },
+                                "name": "tbl",
+                                "schema": {
+                                    "endianness": "Little",
+                                    "fields": [
+                                        {
+                                            "name": "foo",
+                                            "nullable": true,
+                                            "type": {
+                                                "bitWidth": 32,
+                                                "is_signed": true
+                                            },
+                                            "type_type": "Int"
+                                        },
+                                        {
+                                            "name": "bar",
+                                            "nullable": true,
+                                            "type": {
+                                                "bitWidth": 64,
+                                                "is_signed": true
+                                            },
+                                            "type_type": "Int"
+                                        },
+                                        {
+                                            "name": "baz",
+                                            "nullable": true,
+                                            "type": {
+                                                "precision": "DOUBLE"
+                                            },
+                                            "type_type": "FloatingPoint"
+                                        }
+                                    ]
+                                }
+                            },
+                            "impl_type": "Source"
+                        }
+                    },
+                    "impl_type": "Project"
+                }
+            },
+            "impl_type": "OrderBy"
+})"),
+      ResultWith(Eq(Declaration::Sequence({
+          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
+                                                                 field("foo", int32()),
+                                                                 field("bar", int64()),
+                                                                 field("baz", float64()),
+                                                             })}},
+          {"project", ProjectNodeOptions{
+                          /*expressions=*/{field_ref(0), field_ref(1), field_ref(2)}}},
+          {"order_by_sink",
+           OrderBySinkNodeOptions{SortOptions{{
+                                                  SortKey{0, SortOrder::Ascending},
+                                                  SortKey{1, SortOrder::Descending},
+                                              },
+                                              NullPlacement::AtStart},
+                                  nullptr}},
       }))));
 }
 

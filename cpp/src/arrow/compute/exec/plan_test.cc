@@ -345,7 +345,7 @@ GroupByNode{"aggregate", inputs=[groupby: "project"], outputs=["filter"], keys=[
 	hash_count(multiply(i32, 2), {mode=NON_NULL}),
 ]}
 FilterNode{"filter", inputs=[target: "aggregate"], outputs=["order_by_sink"], filter=(sum(multiply(i32, 2)) > 10)}
-OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[sum(multiply(i32, 2)) ASC], null_placement=AtEnd}}
+OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
 )a");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
