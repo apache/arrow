@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
   auto int64_array_b = std::static_pointer_cast<arrow::Int64Array>(array_b);
   // Explicit comparison of values using a loop
   for (int64_t i = 0; i < 8; i++) {
-    if ((!int64_array_a->IsNull(i)) & (!int64_array_b->IsNull(i))) {
+    if ((!int64_array_a->IsNull(i)) && (!int64_array_b->IsNull(i))) {
       bool comparison_result = int64_array_a->Value(i) > int64_array_b->Value(i);
       boolean_builder.UnsafeAppend(comparison_result);
     }
