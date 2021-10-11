@@ -20,7 +20,7 @@ do_exec_plan <- function(.data) {
   final_node <- plan$Build(.data)
   tab <- plan$Run(final_node)
 
-  # TODO: make the head/tail methods return RBR not Table
+  # TODO (ARROW-14289): make the head/tail methods return RBR not Table
   if (inherits(tab, "RecordBatchReader")) {
     tab <- tab$read_table()
   }
@@ -210,7 +210,7 @@ ExecPlan <- R6Class("ExecPlan",
         # with SelectK
       } else if (!is.null(node$head)) {
         # These methods are on RecordBatchReader (but return Table)
-        # TODO: make the head/tail methods return RBR not Table
+        # TODO (ARROW-14289): make the head/tail methods return RBR not Table
         out <- head(out, node$head)
         # TODO: can we now tell `self` to StopProducing? We already have
         # everything we need for the head
