@@ -114,7 +114,7 @@ jobs:
     env:
       ARROW_BUILD_TESTS: OFF
       ARROW_FLIGHT: ON
-      ARROW_GANDIVA: ON
+      ARROW_GANDIVA: OFF
       ARROW_GLIB_DEVELOPMENT_MODE: true
       ARROW_GLIB_GTK_DOC: true
       ARROW_HOME: /usr/local
