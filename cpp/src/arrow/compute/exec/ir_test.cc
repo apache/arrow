@@ -22,6 +22,7 @@
 #include <gflags/gflags.h>
 
 #include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/io_util.h"
@@ -182,14 +183,16 @@ TEST(Relation, Filter) {
                 type: {
                   bitWidth: 32,
                   is_signed: true
-                }
+                },
+                nullable: true
               },
               {
                 name: "f64",
                 type_type: "FloatingPoint",
                 type: {
                   precision: "DOUBLE"
-                }
+                },
+                nullable: true
               },
               {
                 name: "i64",
@@ -197,7 +200,8 @@ TEST(Relation, Filter) {
                 type: {
                   bitWidth: 64,
                   is_signed: true
-                }
+                },
+                nullable: true
               }
             ]
           }

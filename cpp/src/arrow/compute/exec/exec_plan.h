@@ -393,10 +393,6 @@ struct ARROW_EXPORT Declaration {
   Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
                                                   default_exec_factory_registry()) const;
 
-  bool operator==(const Declaration& other) const;
-
-  friend void PrintTo(const Declaration& decl, std::ostream* os);
-
   std::string factory_name;
   std::vector<Input> inputs;
   std::shared_ptr<ExecNodeOptions> options;

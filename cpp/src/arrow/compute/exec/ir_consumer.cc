@@ -457,16 +457,5 @@ Result<Declaration> Convert(const ir::Relation& rel) {
   return Status::NotImplemented("RelationImpl::", EnumNameRelationImpl(rel.impl_type()));
 }
 
-using ::arrow::internal::DataMember;
-auto kCatalogSourceNodeOptions = ::arrow::internal::MakeProperties(
-    DataMember("name", &CatalogSourceNodeOptions::name));
-
-bool CatalogSourceNodeOptions::Equals(const ExecNodeOptions& other) const {
-  using Options = CatalogSourceNodeOptions;
-  const auto& lhs = checked_cast<const Options&>(*this);
-  const auto& rhs = checked_cast<const Options&>(other);
-  return internal::CompareImpl<Options>(lhs, rhs, kCatalogSourceNodeOptions).equal_;
-}
-
 }  // namespace compute
 }  // namespace arrow

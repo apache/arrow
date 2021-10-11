@@ -41,8 +41,6 @@ class ARROW_EXPORT CatalogSourceNodeOptions : public ExecNodeOptions {
   CatalogSourceNodeOptions(std::string name, std::shared_ptr<Schema> schema)
       : name(std::move(name)), schema(std::move(schema)) {}
 
-  bool Equals(const ExecNodeOptions& other) const override;
-
   std::string name;
   std::shared_ptr<Schema> schema;
 };

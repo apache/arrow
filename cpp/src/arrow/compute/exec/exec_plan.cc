@@ -520,23 +520,5 @@ Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
   return MakeBackgroundGenerator(std::move(batch_it), io_executor, max_q, q_restart);
 }
 
-bool Declaration::operator==(const Declaration& other) const {
-  if (factory_name != other.factory_name) return false;
-  if (inputs != other.inputs) return false;
-  if (label != other.label) return false;
-
-  return options == other.options || options->Equals(*other.options);
-}
-
-void PrintTo(const Declaration& decl, std::ostream* os) {
-  *os << decl.factory_name << "{";
-  for (const auto& input : decl.inputs) {
-    if (auto decl = util::get_if<Declaration>(&input)) {
-      PrintTo(*decl, os);
-    }
-  }
-  *os << "}";
-}
-
 }  // namespace compute
 }  // namespace arrow

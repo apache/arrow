@@ -380,7 +380,6 @@ if(ARROW_COMPUTE)
        compute/exec/project_node.cc
        compute/exec/source_node.cc
        compute/exec/sink_node.cc
-       compute/exec/options.cc
        compute/exec/order_by_impl.cc
        compute/function.cc
        compute/function_internal.cc

@@ -33,7 +33,10 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/ir_consumer.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -44,6 +47,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -233,6 +237,71 @@ void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
   ASSERT_OK_AND_ASSIGN(auto exp_tab, TableFromExecBatches(schema, exp));
   ASSERT_OK_AND_ASSIGN(auto act_tab, TableFromExecBatches(schema, act));
   AssertTablesEqual(exp_tab, act_tab);
+}
+
+template <typename T>
+static const T& OptionsAs(const ExecNodeOptions& opts) {
+  const auto& ptr = dynamic_cast<const T&>(opts);
+  return ptr;
+}
+
+template <typename T>
+static const T& OptionsAs(const Declaration& decl) {
+  return OptionsAs<T>(*decl.options);
+}
+
+bool operator==(const Declaration& l, const Declaration& r) {
+  if (l.factory_name != r.factory_name) return false;
+  if (l.inputs != r.inputs) return false;
+  if (l.label != r.label) return false;
+
+  if (l.factory_name == "filter") {
+    return OptionsAs<FilterNodeOptions>(l).filter_expression ==
+           OptionsAs<FilterNodeOptions>(l).filter_expression;
+  }
+
+  if (l.factory_name == "catalog_source") {
+    auto l_opts = &OptionsAs<CatalogSourceNodeOptions>(l);
+    auto r_opts = &OptionsAs<CatalogSourceNodeOptions>(r);
+    return l_opts->name == r_opts->name && l_opts->schema->Equals(r_opts->schema);
+  }
+
+  Unreachable("equality comparison is not supported for all ExecNodeOptions");
+}
+
+static inline void PrintToImpl(const std::string& factory_name,
+                               const ExecNodeOptions& opts, std::ostream* os) {
+  if (factory_name == "filter") {
+    return PrintTo(OptionsAs<FilterNodeOptions>(opts).filter_expression, os);
+  }
+
+  if (factory_name == "catalog_source") {
+    auto o = &OptionsAs<CatalogSourceNodeOptions>(opts);
+    *os << o->name << ", schema=" << o->schema->ToString();
+    return;
+  }
+
+  Unreachable("debug printing is not supported for all ExecNodeOptions");
+}
+
+void PrintTo(const Declaration& decl, std::ostream* os) {
+  *os << decl.factory_name;
+
+  if (decl.label != decl.factory_name) {
+    *os << ":" << decl.label;
+  }
+
+  *os << "<";
+  PrintToImpl(decl.factory_name, *decl.options, os);
+  *os << ">";
+
+  *os << "{";
+  for (const auto& input : decl.inputs) {
+    if (auto decl = util::get_if<Declaration>(&input)) {
+      PrintTo(*decl, os);
+    }
+  }
+  *os << "}";
 }
 
 }  // namespace compute
