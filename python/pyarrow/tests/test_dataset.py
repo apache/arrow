@@ -2663,6 +2663,14 @@ def test_orc_format(tempdir, dataset_reader):
     result.validate(full=True)
     assert result.equals(table.select(["b"]))
 
+    result = dataset_reader.to_table(
+        dataset, columns={"b2": ds.field("b") * 2}
+    )
+    result.validate(full=True)
+    assert result.equals(
+        pa.table({'b2': pa.array([.2, .4, .6], type="float64")})
+    )
+
     assert dataset_reader.count_rows(dataset) == 3
     assert dataset_reader.count_rows(dataset, filter=ds.field("a") > 2) == 1
 
