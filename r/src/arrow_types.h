@@ -183,7 +183,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 namespace altrep {
 
 void Init_Altrep_classes(DllInfo* dll);
-SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& array);
+SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array);
 
 }  // namespace altrep
 #endif
