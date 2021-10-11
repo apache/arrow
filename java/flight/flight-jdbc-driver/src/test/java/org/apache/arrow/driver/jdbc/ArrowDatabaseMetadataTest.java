@@ -65,6 +65,8 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -1008,5 +1010,83 @@ public class ArrowDatabaseMetadataTest {
     for (final Map.Entry<Integer, String> entry : expectedResultSetSchema.entrySet()) {
       Assert.assertEquals(entry.getValue(), resultSetMetaData.getColumnLabel(entry.getKey()));
     }
+  }
+
+  @Test
+  public void testGetColumnSize() {
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_BYTE),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Byte.SIZE, true)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_SHORT),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Short.SIZE, true)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_INT),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Integer.SIZE, true)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_LONG),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Long.SIZE, true)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_VARCHAR_AND_BINARY),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Utf8()));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_VARCHAR_AND_BINARY),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Binary()));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_SECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.SECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_MILLISECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_MICROSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_NANOSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MILLISECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MICROSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_NANOSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_DATE),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Date(DateUnit.DAY)));
+
+    Assert.assertNull(ArrowDatabaseMetadata.getColumnSize(new ArrowType.FloatingPoint(
+        FloatingPointPrecision.DOUBLE)));
+  }
+
+  @Test
+  public void testGetDecimalDigits() {
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Int(Byte.SIZE, true)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.SECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Date(DateUnit.DAY)));
+
+    Assert.assertNull(ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Utf8()));
+  }
+
+  @Test
+  public void testSqlToRegexLike() {
+    Assert.assertEquals(".*", ArrowDatabaseMetadata.sqlToRegexLike("%"));
+    Assert.assertEquals(".", ArrowDatabaseMetadata.sqlToRegexLike("_"));
+    Assert.assertEquals("\\*", ArrowDatabaseMetadata.sqlToRegexLike("*"));
+    Assert.assertEquals("T\\*E.S.*T", ArrowDatabaseMetadata.sqlToRegexLike("T*E_S%T"));
   }
 }

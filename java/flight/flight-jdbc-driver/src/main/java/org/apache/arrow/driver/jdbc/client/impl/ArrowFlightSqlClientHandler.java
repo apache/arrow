@@ -147,11 +147,11 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
   }
 
   @Override
-  public FlightInfo getTables(final String catalog, final String schemaPattern, final String tableNamePattern,
-                              final String[] types, final boolean includeSchema) {
+  public FlightInfo getTables(final String catalog, final String schemaPattern,
+                              final String tableNamePattern,
+                              final List<String> types, final boolean includeSchema) {
 
-    return sqlClient.getTables(catalog, schemaPattern,
-        tableNamePattern, types != null ? Arrays.asList(types) : null, includeSchema,
+    return sqlClient.getTables(catalog, schemaPattern, tableNamePattern, types, includeSchema,
         getOptions());
   }
 
