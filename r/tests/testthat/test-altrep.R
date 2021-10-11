@@ -247,7 +247,8 @@ test_that("altrep vectors handle coercion", {
 })
 
 test_that("columns of struct types may be altrep", {
-  st <- Array$create(data.frame(x = 1:10, y = runif(10)))
+  numbers <- runif(10)
+  st <- Array$create(data.frame(x = 1:10, y = numbers))
   df <- st$as_vector()
 
   expect_true(is_arrow_altrep(df$x))
@@ -266,6 +267,20 @@ test_that("Conversion from altrep R vector to Array uses the existing Array", {
   a_str <- Array$create(c("un", "deux", "trois"))
   b_str <- Array$create(a_str$as_vector())
   expect_true(test_same_Array(a_str$pointer(), b_str$pointer()))
+  expect_true(is_arrow_altrep(df$x))
+  expect_true(is_arrow_altrep(df$y))
+  expect_equal(df$x, 1:10)
+  expect_equal(df$y, numbers)
+
+  st <- ChunkedArray$create(
+    data.frame(x = 1:10, y = numbers),
+    data.frame(x = 1:10, y = numbers)
+  )
+  df <- st$as_vector()
+  expect_true(is_arrow_altrep(df$x))
+  expect_true(is_arrow_altrep(df$y))
+  expect_equal(df$x, rep(1:10, 2))
+  expect_equal(df$y, rep(numbers, 2))
 })
 
 test_that("R checks for bounds", {
