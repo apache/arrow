@@ -72,6 +72,19 @@ void AssertNullToNull(const std::string& func_name) {
   }
 }
 
+// Construct an array of decimals, where negative scale is allowed.
+//
+// Works around DecimalXXX::FromString intentionally not inferring
+// negative scales.
+std::shared_ptr<Array> DecimalArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                            const std::string& json) {
+  const auto& ty = checked_cast<const DecimalType&>(*type);
+  if (ty.scale() >= 0) return ArrayFromJSON(type, json);
+  auto p = ty.precision() - ty.scale();
+  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
+  return Cast(ArrayFromJSON(adjusted_ty, json), type).ValueOrDie().make_array();
+}
+
 template <typename T, typename OptionsType>
 class TestBaseUnaryArithmetic : public TestBase {
  protected:
@@ -236,7 +249,9 @@ class TestUnaryRoundToMultiple
   using Base = TestBaseUnaryArithmetic<T, RoundToMultipleOptions>;
   using Base::options_;
   void SetRoundMode(RoundMode value) { options_.round_mode = value; }
-  void SetRoundMultiple(double value) { options_.multiple = value; }
+  void SetRoundMultiple(double value) {
+    options_.multiple = std::make_shared<DoubleScalar>(value);
+  }
 };
 
 template <typename T>
@@ -250,6 +265,40 @@ class TestUnaryRoundToMultipleUnsigned : public TestUnaryRoundToMultipleIntegral
 
 template <typename T>
 class TestUnaryRoundToMultipleFloating : public TestUnaryRoundToMultiple<T> {};
+
+class TestArithmeticDecimal : public ::testing::Test {
+ protected:
+  std::vector<std::shared_ptr<DataType>> PositiveScaleTypes() {
+    return {decimal128(4, 2), decimal256(4, 2), decimal128(38, 2), decimal256(76, 2)};
+  }
+  std::vector<std::shared_ptr<DataType>> NegativeScaleTypes() {
+    return {decimal128(2, -2), decimal256(2, -2)};
+  }
+
+  // Validate that func(*decimals) is the same as
+  // func([cast(x, float64) x for x in decimals])
+  void CheckDecimalToFloat(const std::string& func, const DatumVector& args) {
+    DatumVector floating_args;
+    for (const auto& arg : args) {
+      if (is_decimal(arg.type()->id())) {
+        ASSERT_OK_AND_ASSIGN(auto casted, Cast(arg, float64()));
+        floating_args.push_back(casted);
+      } else {
+        floating_args.push_back(arg);
+      }
+    }
+    ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args));
+    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args));
+    auto equal_options = EqualOptions::Defaults().nans_equal(true);
+    AssertDatumsApproxEqual(actual, expected, /*verbose=*/true, equal_options);
+  }
+
+  void CheckRaises(const std::string& func, const DatumVector& args,
+                   const std::string& substr, FunctionOptions* options = nullptr) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(substr),
+                                    CallFunction(func, args, options));
+  }
+};
 
 template <typename T>
 class TestBinaryArithmetic : public TestBase {
@@ -1436,6 +1485,494 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
   }
 }
 
+class TestUnaryArithmeticDecimal : public TestArithmeticDecimal {};
+
+// Check two modes exhaustively, give all modes a simple test
+TEST_F(TestUnaryArithmeticDecimal, Round) {
+  const auto func = "round";
+  RoundOptions options(2, RoundMode::DOWN);
+  for (const auto& ty : {decimal128(4, 3), decimal256(4, 3)}) {
+    auto values = ArrayFromJSON(
+        ty,
+        R"(["1.010", "1.012", "1.015", "1.019", "-1.010", "-1.012", "-1.015", "-1.019", null])");
+    options.round_mode = RoundMode::DOWN;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.020", "-1.020", "-1.020", null])"),
+        &options);
+    options.round_mode = RoundMode::UP;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.010", null])"),
+        &options);
+    options.round_mode = RoundMode::TOWARDS_ZERO;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.010", "-1.010", "-1.010", null])"),
+        &options);
+    options.round_mode = RoundMode::TOWARDS_INFINITY;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.020", "-1.020", "-1.020", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_DOWN;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_UP;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TOWARDS_ZERO;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TOWARDS_INFINITY;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TO_EVEN;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TO_ODD;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"),
+        &options);
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundTowardsInfinity) {
+  const auto func = "round";
+  RoundOptions options(0, RoundMode::TOWARDS_INFINITY);
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    auto values = ArrayFromJSON(
+        ty, R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])");
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
+    options.ndigits = 0;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty,
+                      R"(["1.00", "2.00", "2.00", "-42.00", "-43.00", "-43.00", null])"),
+        &options);
+    options.ndigits = 1;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty,
+                      R"(["1.00", "2.00", "1.10", "-42.00", "-43.00", "-42.20", null])"),
+        &options);
+    options.ndigits = 2;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 4;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 100;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -1;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty, R"(["10.00", "10.00", "10.00", "-50.00", "-50.00", "-50.00", null])"),
+        &options);
+    options.ndigits = -2;
+    CheckRaises(func, {values}, "Rounding to -2 digits will not fit in precision",
+                &options);
+    options.ndigits = -1;
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounded value 100.00 does not fit in precision", &options);
+  }
+  for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
+    auto values = DecimalArrayFromJSON(
+        ty, R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])");
+    options.ndigits = 0;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 2;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 100;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -1;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -2;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -3;
+    CheckScalar(func, {values},
+                DecimalArrayFromJSON(
+                    ty, R"(["10E2", "20E2", "20E2", "-10E2", "-20E2", "-20E2", null])"),
+                &options);
+    options.ndigits = -4;
+    CheckRaises(func, {values}, "Rounding to -4 digits will not fit in precision",
+                &options);
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundHalfToEven) {
+  const auto func = "round";
+  RoundOptions options(0, RoundMode::HALF_TO_EVEN);
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    auto values = ArrayFromJSON(
+        ty,
+        R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])");
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
+    options.ndigits = 0;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.00", "2.00", "2.00", "-6.00", "-3.00", null])"),
+        &options);
+    options.ndigits = 1;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.20", "1.50", "2.50", "-5.50", "-2.60", null])"),
+        &options);
+    options.ndigits = 2;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 4;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 100;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -1;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["0.00", "10.00", "0.00", "-40.00", "-40.00", "-40.00", "0.00", "0.00", "-10.00", "0.00", null])"),
+        &options);
+    options.ndigits = -2;
+    CheckRaises(func, {values}, "Rounding to -2 digits will not fit in precision",
+                &options);
+    options.ndigits = -1;
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounded value 100.00 does not fit in precision", &options);
+  }
+  for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
+    auto values = DecimalArrayFromJSON(
+        ty,
+        R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])");
+    options.ndigits = 0;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 2;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = 100;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -1;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -2;
+    CheckScalar(func, {values}, values, &options);
+    options.ndigits = -3;
+    CheckScalar(
+        func, {values},
+        DecimalArrayFromJSON(
+            ty,
+            R"(["0", "10E2", "10E2", "20E2", "20E2", "-10E2", "-10E2", "-20E2", "-20E2", null])"),
+        &options);
+    options.ndigits = -4;
+    CheckRaises(func, {values}, "Rounding to -4 digits will not fit in precision",
+                &options);
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundCeil) {
+  const auto func = "ceil";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+    CheckScalar(
+        func,
+        {ArrayFromJSON(
+            ty, R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])")},
+        ArrayFromJSON(ty,
+                      R"(["1.00", "2.00", "2.00", "-42.00", "-42.00", "-42.00", null])"));
+  }
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    CheckRaises(func, {ScalarFromJSON(ty, R"("99.99")")},
+                "Rounded value 100.00 does not fit in precision of decimal");
+    CheckScalar(func, {ScalarFromJSON(ty, R"("-99.99")")},
+                ScalarFromJSON(ty, R"("-99.00")"));
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+    CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
+                DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])"));
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundFloor) {
+  const auto func = "floor";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+    CheckScalar(
+        func,
+        {ArrayFromJSON(
+            ty, R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])")},
+        ArrayFromJSON(ty,
+                      R"(["1.00", "1.00", "1.00", "-42.00", "-43.00", "-43.00", null])"));
+  }
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    CheckScalar(func, {ScalarFromJSON(ty, R"("99.99")")},
+                ScalarFromJSON(ty, R"("99.00")"));
+    CheckRaises(func, {ScalarFromJSON(ty, R"("-99.99")")},
+                "Rounded value -100.00 does not fit in precision of decimal");
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+    CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
+                DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])"));
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundTrunc) {
+  const auto func = "trunc";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+    CheckScalar(
+        func,
+        {ArrayFromJSON(
+            ty, R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])")},
+        ArrayFromJSON(ty,
+                      R"(["1.00", "1.00", "1.00", "-42.00", "-42.00", "-42.00", null])"));
+  }
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    CheckScalar(func, {ScalarFromJSON(ty, R"("99.99")")},
+                ScalarFromJSON(ty, R"("99.00")"));
+    CheckScalar(func, {ScalarFromJSON(ty, R"("-99.99")")},
+                ScalarFromJSON(ty, R"("-99.00")"));
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+    CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
+                DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])"));
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundToMultiple) {
+  const auto func = "round_to_multiple";
+  RoundToMultipleOptions options(0, RoundMode::DOWN);
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    if (ty->id() == Type::DECIMAL128) {
+      options.multiple = std::make_shared<Decimal128Scalar>(Decimal128(200), ty);
+    } else {
+      options.multiple = std::make_shared<Decimal256Scalar>(Decimal256(200), ty);
+    }
+    auto values = ArrayFromJSON(
+        ty,
+        R"(["-3.50", "-3.00", "-2.50", "-2.00", "-1.50", "-1.00", "-0.50", "0.00",
+            "0.50", "1.00", "1.50", "2.00", "2.50", "3.00", "3.50", null])");
+    options.round_mode = RoundMode::DOWN;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "0.00",
+            "0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", null])"),
+        &options);
+    options.round_mode = RoundMode::UP;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "-0.00", "0.00",
+            "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", "4.00", null])"),
+        &options);
+    options.round_mode = RoundMode::TOWARDS_ZERO;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "-0.00", "0.00",
+            "0.00", "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", null])"),
+        &options);
+    options.round_mode = RoundMode::TOWARDS_INFINITY;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "0.00",
+            "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", "4.00", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_DOWN;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "0.00",
+            "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_UP;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "0.00",
+            "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TOWARDS_ZERO;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "0.00",
+            "0.00", "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TOWARDS_INFINITY;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "0.00",
+            "0.00", "2.00", "2.00", "2.00", "2.00", "4.00", "4.00", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TO_EVEN;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-4.00", "-2.00", "-2.00", "-2.00", "-0.00", "-0.00", "0.00",
+            "0.00", "0.00", "2.00", "2.00", "2.00", "4.00", "4.00", null])"),
+        &options);
+    options.round_mode = RoundMode::HALF_TO_ODD;
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(
+            ty,
+            R"(["-4.00", "-2.00", "-2.00", "-2.00", "-2.00", "-2.00", "-0.00", "0.00",
+            "0.00", "2.00", "2.00", "2.00", "2.00", "2.00", "4.00", null])"),
+        &options);
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleTowardsInfinity) {
+  const auto func = "round_to_multiple";
+  RoundToMultipleOptions options(0, RoundMode::TOWARDS_INFINITY);
+  auto set_multiple = [&](const std::shared_ptr<DataType>& ty, int64_t value) {
+    if (ty->id() == Type::DECIMAL128) {
+      options.multiple = std::make_shared<Decimal128Scalar>(Decimal128(value), ty);
+    } else {
+      options.multiple = std::make_shared<Decimal256Scalar>(Decimal256(value), ty);
+    }
+  };
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    auto values = ArrayFromJSON(
+        ty, R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])");
+    set_multiple(ty, 25);
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
+    CheckScalar(
+        func, {values},
+        ArrayFromJSON(ty,
+                      R"(["1.00", "2.00", "1.25", "-42.00", "-43.00", "-42.25", null])"),
+        &options);
+    set_multiple(ty, 1);
+    CheckScalar(func, {values}, values, &options);
+    set_multiple(ty, 0);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounding multiple must be positive", &options);
+    set_multiple(ty, -10);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounding multiple must be positive", &options);
+    set_multiple(ty, 100);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounded value 100.00 does not fit in precision", &options);
+    options.multiple = std::make_shared<DoubleScalar>(1.0);
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not double",
+                &options);
+    options.multiple =
+        std::make_shared<Decimal128Scalar>(Decimal128(0), decimal128(3, 0));
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")}, "scalar, not decimal128(3, 0)",
+                &options);
+    options.multiple = std::make_shared<Decimal128Scalar>(decimal128(3, 0));
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounding multiple must be non-null and valid", &options);
+    options.multiple = nullptr;
+    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
+                "Rounding multiple must be non-null and valid", &options);
+  }
+  for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
+    auto values = DecimalArrayFromJSON(
+        ty, R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])");
+    set_multiple(ty, 4);
+    CheckScalar(func, {values},
+                DecimalArrayFromJSON(
+                    ty, R"(["12E2", "12E2", "20E2", "-12E2", "-12E2", "-20E2", null])"),
+                &options);
+    set_multiple(ty, 1);
+    CheckScalar(func, {values}, values, &options);
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleHalfToOdd) {
+  const auto func = "round_to_multiple";
+  RoundToMultipleOptions options(0, RoundMode::HALF_TO_ODD);
+  auto set_multiple = [&](const std::shared_ptr<DataType>& ty, int64_t value) {
+    if (ty->id() == Type::DECIMAL128) {
+      options.multiple = std::make_shared<Decimal128Scalar>(Decimal128(value), ty);
+    } else {
+      options.multiple = std::make_shared<Decimal256Scalar>(Decimal256(value), ty);
+    }
+  };
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    auto values =
+        ArrayFromJSON(ty, R"(["-0.38", "-0.37", "-0.25", "-0.13", "-0.12", "0.00",
+                "0.12", "0.13", "0.25", "0.37", "0.38", null])");
+    // There is no exact halfway point, check what happens
+    set_multiple(ty, 25);
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
+    CheckScalar(func, {values},
+                ArrayFromJSON(ty, R"(["-0.50", "-0.25", "-0.25", "-0.25", "-0.00", "0.00",
+                              "0.00", "0.25", "0.25", "0.25", "0.50", null])"),
+                &options);
+    set_multiple(ty, 1);
+    CheckScalar(func, {values}, values, &options);
+    set_multiple(ty, 24);
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
+    CheckScalar(func, {values},
+                ArrayFromJSON(ty, R"(["-0.48", "-0.48", "-0.24", "-0.24", "-0.24", "0.00",
+                              "0.24", "0.24", "0.24", "0.48", "0.48", null])"),
+                &options);
+  }
+  for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
+    auto values = DecimalArrayFromJSON(
+        ty, R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])");
+    set_multiple(ty, 4);
+    CheckScalar(func, {values},
+                DecimalArrayFromJSON(
+                    ty, R"(["12E2", "12E2", "20E2", "-12E2", "-12E2", "-20E2", null])"),
+                &options);
+    set_multiple(ty, 5);
+    CheckScalar(func, {values},
+                DecimalArrayFromJSON(
+                    ty, R"(["10E2", "10E2", "20E2", "-10E2", "-10E2", "-20E2", null])"),
+                &options);
+    set_multiple(ty, 1);
+    CheckScalar(func, {values}, values, &options);
+  }
+}
+
 TYPED_TEST_SUITE(TestUnaryRoundIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryRoundSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundUnsigned, UnsignedIntegerTypes);
@@ -1639,8 +2176,7 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   }
 
   this->SetRoundMultiple(-2);
-  this->AssertUnaryOpRaises(RoundToMultiple, values,
-                            "multiple has to be a positive value");
+  this->AssertUnaryOpRaises(RoundToMultiple, values, "multiple must be positive");
 }
 
 TEST(TestBinaryDecimalArithmetic, DispatchBest) {

@@ -147,7 +147,7 @@ dim.arrow_dplyr_query <- function(x) {
   if (is_collapsed(x)) {
     # Don't evaluate just for nrow
     rows <- NA_integer_
-  } else if (isTRUE(x$filtered)) {
+  } else if (isTRUE(x$filtered_rows)) {
     rows <- x$.data$num_rows
   } else {
     rows <- Scanner$create(x)$CountRows()

@@ -20,6 +20,37 @@ extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
 }
 #endif
 
+// altrep.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool test_same_Array(SEXP x, SEXP y);
+extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type y(y_sexp);
+	return cpp11::as_sexp(test_same_Array(x, y));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
+	Rf_error("Cannot call test_same_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// altrep.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool is_arrow_altrep(SEXP x);
+extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(is_arrow_altrep(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
+	Rf_error("Cannot call is_arrow_altrep(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset);
@@ -7090,6 +7121,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
+		{ "_arrow_test_same_Array", (DL_FUNC) &_arrow_test_same_Array, 2}, 
+		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 

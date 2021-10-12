@@ -488,37 +488,37 @@ Rounding functions
 Rounding functions displace numeric inputs to an approximate value with a simpler
 representation based on the rounding criterion.
 
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| Function name     | Arity      | Input types | Output type      | Options class                    | Notes  |
-+===================+============+=============+==================+==================================+========+
-| ceil              | Unary      | Numeric     | Float32/Float64  |                                  |        |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| floor             | Unary      | Numeric     | Float32/Float64  |                                  |        |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| round             | Unary      | Numeric     | Float32/Float64  | :struct:`RoundOptions`           | (1)(2) |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| round_to_multiple | Unary      | Numeric     | Float32/Float64  | :struct:`RoundToMultipleOptions` | (1)(3) |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| trunc             | Unary      | Numeric     | Float32/Float64  |                                  |        |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| Function name     | Arity      | Input types | Output type             | Options class                    | Notes  |
++===================+============+=============+=========================+==================================+========+
+| ceil              | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| floor             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| round             | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundOptions`           | (1)(2) |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| round_to_multiple | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundToMultipleOptions` | (1)(3) |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| trunc             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 
 * \(1) Output value is a 64-bit floating-point for integral inputs and the
-  retains the same type for floating-point inputs.  By default rounding
-  functions displace a value to the nearest integer using HALF_TO_EVEN
-  to resolve ties.  Options are available to control the rounding criterion.
-  Both ``round`` and ``round_to_multiple`` have the ``round_mode`` option to set
-  the rounding mode.
+  retains the same type for floating-point and decimal inputs.  By default
+  rounding functions displace a value to the nearest integer using
+  HALF_TO_EVEN to resolve ties.  Options are available to control the rounding
+  criterion.  Both ``round`` and ``round_to_multiple`` have the ``round_mode``
+  option to set the rounding mode.
 * \(2) Round to a number of digits where the ``ndigits`` option of
-  :struct:`RoundOptions` specifies the rounding precision in terms of number of
-  digits.  A negative value corresponds to digits in the non-fractional part.
-  For example, -2 corresponds to rounding to the nearest multiple of 100
-  (zeroing the ones and tens digits).  Default value of ``ndigits`` is 0 which
-  rounds to the nearest integer.
-* \(3) Round to a multiple where the ``multiple`` option of :struct:`RoundToMultipleOptions`
-  specifies the rounding scale.  The rounding multiple has to be a positive value.
-  For example, 100 corresponds to rounding to the nearest multiple of 100
-  (zeroing the ones and tens digits).  Default value of ``multiple`` is 1 which
-  rounds to the nearest integer.
+  :struct:`RoundOptions` specifies the rounding precision in terms of number
+  of digits.  A negative value corresponds to digits in the non-fractional
+  part.  For example, -2 corresponds to rounding to the nearest multiple of
+  100 (zeroing the ones and tens digits).  Default value of ``ndigits`` is 0
+  which rounds to the nearest integer.
+* \(3) Round to a multiple where the ``multiple`` option of
+  :struct:`RoundToMultipleOptions` specifies the rounding scale.  The rounding
+  multiple has to be a positive value.  For example, 100 corresponds to
+  rounding to the nearest multiple of 100 (zeroing the ones and tens digits).
+  Default value of ``multiple`` is 1 which rounds to the nearest integer.
 
 For ``round`` and ``round_to_multiple``, the following rounding modes are available.
 Tie-breaking modes are prefixed with HALF and round non-ties to the nearest integer.
@@ -540,22 +540,22 @@ The example values are given for default values of ``ndigits`` and ``multiple``.
 |                       | round positive values with ``UP`` rule                       | -3.2 -> -4, -3.7 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_DOWN             | Round ties with ``DOWN`` rule                                | 3.5 -> 3, 4.5 -> 4,       |
-|                       |                                                              | -3.5 -> -4, -3.5 -> -5    |
+|                       |                                                              | -3.5 -> -4, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_UP               | Round ties with ``UP`` rule                                  | 3.5 -> 4, 4.5 -> 5,       |
-|                       |                                                              | -3.5 -> -3, -3.5 -> -4    |
+|                       |                                                              | -3.5 -> -3, -4.5 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_TOWARDS_ZERO     | Round ties with ``TOWARDS_ZERO`` rule                        | 3.5 -> 3, 4.5 -> 4,       |
-|                       |                                                              | -3.5 -> -3, -3.5 -> -4    |
+|                       |                                                              | -3.5 -> -3, -4.5 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_TOWARDS_INFINITY | Round ties with ``TOWARDS_INFINITY`` rule                    | 3.5 -> 4, 4.5 -> 5,       |
-|                       |                                                              | -3.5 -> -4, -3.5 -> -5    |
+|                       |                                                              | -3.5 -> -4, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
-| HALF_TO_EVEN          | Round ties to nearest even integer                           | 3.5 -> 5, 4.5 -> 4,       |
-|                       |                                                              | -3.5 -> -4, -3.5 -> -4    |
+| HALF_TO_EVEN          | Round ties to nearest even integer                           | 3.5 -> 4, 4.5 -> 4,       |
+|                       |                                                              | -3.5 -> -4, -4.5 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_TO_ODD           | Round ties to nearest odd integer                            | 3.5 -> 3, 4.5 -> 5,       |
-|                       |                                                              | -3.5 -> -3, -3.5 -> -5    |
+|                       |                                                              | -3.5 -> -3, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 
 The following table gives examples of how ``ndigits`` (for the ``round``

@@ -48,6 +48,16 @@ struct StatisticsTestParam {
   std::string expected_max;
 };
 
+// Define a custom print since the default Googletest print trips Valgrind
+void PrintTo(const StatisticsTestParam& param, std::ostream* os) {
+  (*os) << "StatisticsTestParam{"
+        << "table.schema=" << param.table->schema()->ToString()
+        << ", expected_null_count=" << param.expected_null_count
+        << ", expected_value_count=" << param.expected_value_count
+        << ", expected_min=" << param.expected_min
+        << ", expected_max=" << param.expected_max << "}";
+}
+
 class ParameterizedStatisticsTest : public ::testing::TestWithParam<StatisticsTestParam> {
 };
 

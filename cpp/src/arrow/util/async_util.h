@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <queue>
+
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/future.h"
@@ -113,8 +115,10 @@ class ARROW_EXPORT AsyncTaskGroup {
   ///
   /// If WaitForTasksToFinish has been called and the returned future has been marked
   /// completed then adding a task will fail.
+  Status AddTask(std::function<Result<Future<>>()> task);
+  /// Add a task that has already been started
   Status AddTask(const Future<>& task);
-  /// A future that will be completed when all running tasks are finished.
+  /// Signal that top level tasks are done being added
   ///
   /// It is allowed for tasks to be added after this call provided the future has not yet
   /// completed.  This should be safe as long as the tasks being added are added as part
@@ -122,14 +126,73 @@ class ARROW_EXPORT AsyncTaskGroup {
   /// future will be marked complete.
   ///
   /// Any attempt to add a task after the returned future has completed will fail.
-  Future<> WaitForTasksToFinish();
+  ///
+  /// The returned future that will finish when all running tasks have finsihed.
+  Future<> End();
+  /// A future that will be finished after End is called and all tasks have completed
+  ///
+  /// This is the same future that is returned by End() but calling this method does
+  /// not indicate that top level tasks are done being added.  End() must still be called
+  /// at some point or the future returned will never finish.
+  ///
+  /// This is a utility method for workflows where the finish future needs to be
+  /// referenced before all top level tasks have been queued.
+  Future<> OnFinished() const;
 
  private:
+  Status AddTaskUnlocked(const Future<>& task, util::Mutex::Guard guard);
+
   bool finished_adding_ = false;
   int running_tasks_ = 0;
   Status err_;
   Future<> all_tasks_done_ = Future<>::Make();
   util::Mutex mutex_;
+};
+
+/// A task group which serializes asynchronous tasks in a push-based workflow
+///
+/// Tasks will be executed in the order they are added
+///
+/// This will buffer results in an unlimited fashion so it should be combined
+/// with some kind of backpressure
+class ARROW_EXPORT SerializedAsyncTaskGroup {
+ public:
+  SerializedAsyncTaskGroup();
+  /// Push an item into the serializer and (eventually) into the consumer
+  ///
+  /// The item will not be delivered to the consumer until all previous items have been
+  /// consumed.
+  ///
+  /// If the consumer returns an error then this serializer will go into an error state
+  /// and all subsequent pushes will fail with that error.  Pushes that have been queued
+  /// but not delivered will be silently dropped.
+  ///
+  /// \return True if the item was pushed immediately to the consumer, false if it was
+  /// queued
+  Status AddTask(std::function<Result<Future<>>()> task);
+
+  /// Signal that all top level tasks have been added
+  ///
+  /// The returned future that will finish when all tasks have been consumed.
+  Future<> End();
+
+  /// A future that finishes when all queued items have been delivered.
+  ///
+  /// This will return the same future returned by End but will not signal
+  /// that all tasks have been finished.  End must be called at some point in order for
+  /// this future to finish.
+  Future<> OnFinished() const { return on_finished_; }
+
+ private:
+  void ConsumeAsMuchAsPossibleUnlocked(util::Mutex::Guard&& guard);
+  bool TryDrainUnlocked();
+
+  Future<> on_finished_;
+  std::queue<std::function<Result<Future<>>()>> tasks_;
+  util::Mutex mutex_;
+  bool ended_ = false;
+  Status err_;
+  Future<> processing_;
 };
 
 }  // namespace util
