@@ -441,7 +441,8 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   Result<TaggedRecordBatchGenerator> ScanBatchesAsync(Executor* executor);
   Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
                              Executor* executor);
-  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(Executor* executor, bool sequence_fragments = false);
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
+      Executor* executor, bool sequence_fragments = false);
   Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
 
   Result<FragmentGenerator> GetFragments() const;
@@ -605,15 +606,17 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
 
-  RETURN_NOT_OK(compute::Declaration::Sequence(
-                    {
-                        {"scan", ScanNodeOptions{dataset_, scan_options_, backpressure.toggle, sequence_fragments}},
-                        {"filter", compute::FilterNodeOptions{scan_options_->filter}},
-                        {"augmented_project",
-                         compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-                        {"sink", compute::SinkNodeOptions{&sink_gen, std::move(backpressure)}},
-                    })
-                    .AddToPlan(plan.get()));
+  RETURN_NOT_OK(
+      compute::Declaration::Sequence(
+          {
+              {"scan", ScanNodeOptions{dataset_, scan_options_, backpressure.toggle,
+                                       sequence_fragments}},
+              {"filter", compute::FilterNodeOptions{scan_options_->filter}},
+              {"augmented_project",
+               compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+              {"sink", compute::SinkNodeOptions{&sink_gen, std::move(backpressure)}},
+          })
+          .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->StartProducing());
 
@@ -648,7 +651,8 @@ Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     Executor* cpu_executor) {
-  ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/true));
+  ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(
+                                            cpu_executor, /*sequence_fragments=*/true));
   // We need an initial value sentinel, so we use one with fragment.index < 0
   auto is_before_any = [](const EnumeratedRecordBatch& batch) {
     return batch.fragment.index < 0;
@@ -1177,7 +1181,9 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
 
   AsyncGenerator<EnumeratedRecordBatch> merged_batch_gen;
   if (require_sequenced_output) {
-    ARROW_ASSIGN_OR_RAISE(merged_batch_gen, MakeSequencedMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead));
+    ARROW_ASSIGN_OR_RAISE(merged_batch_gen,
+                          MakeSequencedMergedGenerator(std::move(batch_gen_gen),
+                                                       scan_options->fragment_readahead));
   } else {
     merged_batch_gen =
         MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);

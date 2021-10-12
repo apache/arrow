@@ -21,7 +21,6 @@
 #include <cassert>
 #include <cstring>
 #include <deque>
-#include <iostream>
 #include <limits>
 #include <queue>
 
@@ -715,7 +714,6 @@ AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generato
 template <typename T>
 AsyncGenerator<T> MakeAutoStartingGenerator(AsyncGenerator<T> generator) {
   struct AutostartGenerator {
-
     Future<T> operator()() {
       if (first_future->is_valid()) {
         Future<T> result = *first_future;
@@ -1179,17 +1177,19 @@ AsyncGenerator<T> MakeMergedGenerator(AsyncGenerator<AsyncGenerator<T>> source,
 }
 
 template <typename T>
-Result<AsyncGenerator<T>> MakeSequencedMergedGenerator(AsyncGenerator<AsyncGenerator<T>> source, int max_subscriptions) {
+Result<AsyncGenerator<T>> MakeSequencedMergedGenerator(
+    AsyncGenerator<AsyncGenerator<T>> source, int max_subscriptions) {
   if (max_subscriptions < 0) {
     return Status::Invalid("max_subscriptions must be a positive integer");
   }
   if (max_subscriptions == 1) {
     return Status::Invalid("Use MakeConcatenatedGenerator is max_subscriptions is 1");
   }
-  AsyncGenerator<AsyncGenerator<T>> autostarting_source = MakeMappedGenerator(std::move(source), [] (const AsyncGenerator<T>& sub) {
-    return MakeAutoStartingGenerator(sub);
-  });
-  AsyncGenerator<AsyncGenerator<T>> sub_readahead = MakeSerialReadaheadGenerator(std::move(autostarting_source), max_subscriptions - 1);
+  AsyncGenerator<AsyncGenerator<T>> autostarting_source = MakeMappedGenerator(
+      std::move(source),
+      [](const AsyncGenerator<T>& sub) { return MakeAutoStartingGenerator(sub); });
+  AsyncGenerator<AsyncGenerator<T>> sub_readahead =
+      MakeSerialReadaheadGenerator(std::move(autostarting_source), max_subscriptions - 1);
   return MakeConcatenatedGenerator(std::move(sub_readahead));
 }
 

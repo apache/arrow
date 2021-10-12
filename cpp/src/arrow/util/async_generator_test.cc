@@ -668,13 +668,13 @@ TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
 INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
                          ::testing::Values(false, true));
 
-class AutoStartingGeneratorTestFixture : public GeneratorTestFixture {
-};
+class AutoStartingGeneratorTestFixture : public GeneratorTestFixture {};
 
 TEST_P(AutoStartingGeneratorTestFixture, Basic) {
   AsyncGenerator<TestInt> source = MakeSource({1, 2, 3});
   TrackingGenerator<TestInt> tracked(source);
-  AsyncGenerator<TestInt> gen = MakeAutoStartingGenerator(static_cast<AsyncGenerator<TestInt>>(tracked));
+  AsyncGenerator<TestInt> gen =
+      MakeAutoStartingGenerator(static_cast<AsyncGenerator<TestInt>>(tracked));
   ASSERT_EQ(1, tracked.num_read());
   ASSERT_FINISHES_OK_AND_EQ(TestInt(1), gen());
   ASSERT_EQ(1, tracked.num_read());
@@ -700,12 +700,11 @@ INSTANTIATE_TEST_SUITE_P(AutoStartingGeneratorTests, AutoStartingGeneratorTestFi
                          ::testing::Values(false, true));
 
 class SeqMergedGeneratorTestFixture : public ::testing::Test {
-
  protected:
   SeqMergedGeneratorTestFixture() : tracked_source_(push_source_) {}
 
   void BeginCaptureOutput(AsyncGenerator<TestInt> gen) {
-    finished_ = VisitAsyncGenerator(std::move(gen), [this] (TestInt val) {
+    finished_ = VisitAsyncGenerator(std::move(gen), [this](TestInt val) {
       sink_.push_back(val.value);
       return Status::OK();
     });
@@ -729,35 +728,25 @@ class SeqMergedGeneratorTestFixture : public ::testing::Test {
     push_source_.producer().Push(std::move(tracked_sub));
   }
 
-  void EmitErrorSub() {
-    push_source_.producer().Push(Status::Invalid("XYZ"));
-  }
+  void EmitErrorSub() { push_source_.producer().Push(Status::Invalid("XYZ")); }
 
   void FinishSub(int sub_index) {
     EXPECT_LT(sub_index, tracked_subs_.size());
     push_subs_[sub_index].producer().Close();
   }
 
-  void FinishSubs() {
-    push_source_.producer().Close();
-  }
+  void FinishSubs() { push_source_.producer().Close(); }
 
-  void AssertFinishedOk() {
-    ASSERT_FINISHES_OK(finished_);
-  }
+  void AssertFinishedOk() { ASSERT_FINISHES_OK(finished_); }
 
-  void AssertFailed() {
-    ASSERT_FINISHES_AND_RAISES(Invalid, finished_);
-  }
+  void AssertFailed() { ASSERT_FINISHES_AND_RAISES(Invalid, finished_); }
 
   int NumItemsAskedFor(int sub_index) {
     EXPECT_LT(sub_index, tracked_subs_.size());
     return tracked_subs_[sub_index].num_read();
   }
 
-  int NumSubsAskedFor() {
-    return tracked_source_.num_read();
-  }
+  int NumSubsAskedFor() { return tracked_source_.num_read(); }
 
   void AssertRead(std::vector<int> values) {
     ASSERT_EQ(values.size(), sink_.size());
@@ -772,11 +761,13 @@ class SeqMergedGeneratorTestFixture : public ::testing::Test {
   TrackingGenerator<AsyncGenerator<TestInt>> tracked_source_;
   Future<> finished_;
   std::vector<int> sink_;
-
 };
 
 TEST_F(SeqMergedGeneratorTestFixture, Basic) {
-  ASSERT_OK_AND_ASSIGN(AsyncGenerator<TestInt> gen, MakeSequencedMergedGenerator(static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
+  ASSERT_OK_AND_ASSIGN(
+      AsyncGenerator<TestInt> gen,
+      MakeSequencedMergedGenerator(
+          static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
   // Should not initially ask for anything
   ASSERT_EQ(0, NumSubsAskedFor());
   BeginCaptureOutput(gen);
@@ -823,12 +814,16 @@ TEST_F(SeqMergedGeneratorTestFixture, Basic) {
 }
 
 TEST_F(SeqMergedGeneratorTestFixture, ErrorItem) {
-  ASSERT_OK_AND_ASSIGN(AsyncGenerator<TestInt> gen, MakeSequencedMergedGenerator(static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
+  ASSERT_OK_AND_ASSIGN(
+      AsyncGenerator<TestInt> gen,
+      MakeSequencedMergedGenerator(
+          static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
   BeginCaptureOutput(gen);
   EmitSub();
   EmitSub();
   EmitErrorItem(1);
-  // It will still read from the active sub and won't notice the error until it switches to the failing sub
+  // It will still read from the active sub and won't notice the error until it switches
+  // to the failing sub
   EmitItem(0, 0);
   AssertRead({0});
   FinishSub(0);
@@ -836,7 +831,10 @@ TEST_F(SeqMergedGeneratorTestFixture, ErrorItem) {
 }
 
 TEST_F(SeqMergedGeneratorTestFixture, ErrorSub) {
-  ASSERT_OK_AND_ASSIGN(AsyncGenerator<TestInt> gen, MakeSequencedMergedGenerator(static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
+  ASSERT_OK_AND_ASSIGN(
+      AsyncGenerator<TestInt> gen,
+      MakeSequencedMergedGenerator(
+          static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
   BeginCaptureOutput(gen);
   EmitSub();
   EmitErrorSub();
