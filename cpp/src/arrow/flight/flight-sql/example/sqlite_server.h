@@ -79,6 +79,20 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
                                  std::unique_ptr<FlightInfo> *info) override;
   Status DoGetTableTypes(const ServerCallContext &context,
                          std::unique_ptr<FlightDataStream> *result) override;
+  Status GetFlightInfoImportedKeys(const pb::sql::CommandGetImportedKeys &command,
+                                   const ServerCallContext &context,
+                                   const FlightDescriptor &descriptor,
+                                   std::unique_ptr<FlightInfo> *info) override;
+  Status DoGetImportedKeys(const pb::sql::CommandGetImportedKeys &command,
+                           const ServerCallContext &context,
+                           std::unique_ptr<FlightDataStream> *result) override;
+  Status GetFlightInfoExportedKeys(const pb::sql::CommandGetExportedKeys &command,
+                                   const ServerCallContext &context,
+                                   const FlightDescriptor &descriptor,
+                                   std::unique_ptr<FlightInfo> *info) override;
+  Status DoGetExportedKeys(const pb::sql::CommandGetExportedKeys &command,
+                           const ServerCallContext &context,
+                           std::unique_ptr<FlightDataStream> *result) override;
 
   Status GetFlightInfoPrimaryKeys(const pb::sql::CommandGetPrimaryKeys &command,
                                   const ServerCallContext &context,

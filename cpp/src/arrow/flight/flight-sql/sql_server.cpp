@@ -300,6 +300,24 @@ return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()
                       field("key_sequence", int64()), field("key_name", utf8())});
 }
 
+std::shared_ptr<Schema> SqlSchema::GetImportedAndExportedKeysSchema() {
+  return arrow::schema({
+    field("pk_catalog_name", utf8(), true),
+    field("pk_schema_name", utf8(), true),
+    field("pk_table_name", utf8(), false),
+    field("pk_column_name", utf8(), false),
+    field("fk_catalog_name", utf8(), true),
+    field("fk_schema_name", utf8(), true),
+    field("fk_table_name", utf8(), false),
+    field("fk_column_name", utf8(), false),
+    field("key_sequence", int32(), false),
+    field("fk_key_name", utf8(), true),
+    field("pk_key_name", utf8(), true),
+    field("update_rule", uint8(), false),
+    field("delete_rule", uint8(), false)
+  });
+}
+
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow

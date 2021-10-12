@@ -349,6 +349,71 @@ TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
+TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
+  std::unique_ptr<FlightInfo> flight_info;
+  ASSERT_OK(sql_client->GetImportedKeys({}, NULLPTR, NULLPTR, "intTable", &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  DECLARE_NULL_ARRAY(pk_catalog_name, String, 1);
+  DECLARE_NULL_ARRAY(pk_schema_name, String, 1);
+  DECLARE_ARRAY(pk_table_name, String, ({"foreignTable"}));
+  DECLARE_ARRAY(pk_column_name, String, ({"id"}));
+  DECLARE_NULL_ARRAY(fk_catalog_name, String, 1);
+  DECLARE_NULL_ARRAY(fk_schema_name, String, 1);
+  DECLARE_ARRAY(fk_table_name, String, ({"intTable"}));
+  DECLARE_ARRAY(fk_column_name, String, ({"foreignId"}));
+  DECLARE_ARRAY(key_sequence, Int32, ({0}));
+  DECLARE_NULL_ARRAY(fk_key_name, String, 1);
+  DECLARE_NULL_ARRAY(pk_key_name, String, 1);
+  DECLARE_ARRAY(update_rule, UInt8, ({3}));
+  DECLARE_ARRAY(delete_rule, UInt8, ({3}));
+
+  const std::shared_ptr<Table>& expected_table =
+      Table::Make(SqlSchema::GetImportedAndExportedKeysSchema(),
+                  {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
+                   fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
+                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
+TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
+  std::unique_ptr<FlightInfo> flight_info;
+  ASSERT_OK(
+      sql_client->GetExportedKeys({}, NULLPTR, NULLPTR, "foreignTable", &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(stream->ReadAll(&table));
+
+  DECLARE_NULL_ARRAY(pk_catalog_name, String, 1);
+  DECLARE_NULL_ARRAY(pk_schema_name, String, 1);
+  DECLARE_ARRAY(pk_table_name, String, ({"foreignTable"}));
+  DECLARE_ARRAY(pk_column_name, String, ({"id"}));
+  DECLARE_NULL_ARRAY(fk_catalog_name, String, 1);
+  DECLARE_NULL_ARRAY(fk_schema_name, String, 1);
+  DECLARE_ARRAY(fk_table_name, String, ({"intTable"}));
+  DECLARE_ARRAY(fk_column_name, String, ({"foreignId"}));
+  DECLARE_ARRAY(key_sequence, Int32, ({0}));
+  DECLARE_NULL_ARRAY(fk_key_name, String, 1);
+  DECLARE_NULL_ARRAY(pk_key_name, String, 1);
+  DECLARE_ARRAY(update_rule, UInt8, ({3}));
+  DECLARE_ARRAY(delete_rule, UInt8, ({3}));
+
+  const std::shared_ptr<Table>& expected_table =
+      Table::Make(SqlSchema::GetImportedAndExportedKeysSchema(),
+                  {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
+                   fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
+                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
 auto env =
     ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);
 

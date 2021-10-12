@@ -106,6 +106,21 @@ void SQLiteFlightSqlServer::ExecuteSql(const std::string& sql) {
   }
 }
 
+Status DoGetSQLiteQuery(sqlite3* db, const std::string& query,
+                        const std::shared_ptr<Schema>& schema,
+                        std::unique_ptr<FlightDataStream>* result) {
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db, query, &statement));
+
+  std::shared_ptr<SqliteStatementBatchReader> reader;
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
+      statement, schema, &reader));
+
+  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+
+  return Status::OK();
+}
+
 Status GetFlightInfoForCommand(const FlightDescriptor& descriptor,
                                std::unique_ptr<FlightInfo>* info,
                                const google::protobuf::Message& command,
@@ -299,16 +314,7 @@ Status SQLiteFlightSqlServer::DoGetTableTypes(const ServerCallContext& context,
                                               std::unique_ptr<FlightDataStream>* result) {
   std::string query = "SELECT DISTINCT type as table_type FROM sqlite_master";
 
-  std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, query, &statement));
-
-  std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
-      statement, SqlSchema::GetTableTypesSchema(), &reader));
-
-  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
-
-  return Status::OK();
+  return DoGetSQLiteQuery(db_, query, SqlSchema::GetTableTypesSchema(), result);
 }
 
 Status SQLiteFlightSqlServer::GetFlightInfoPrimaryKeys(
@@ -343,17 +349,86 @@ SQLiteFlightSqlServer::DoGetPrimaryKeys(const pb::sql::CommandGetPrimaryKeys &co
 
   table_query << " and table_name LIKE '" << command.table() << "'";
 
-  std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, table_query.str(), &statement));
+  return DoGetSQLiteQuery(db_, table_query.str(), SqlSchema::GetPrimaryKeysSchema(),
+                          result);
+}
 
-  std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
-      statement, SqlSchema::GetPrimaryKeysSchema(), &reader));
+std::string PrepareQueryForGetImportedOrExportedKeys(const std::string& filter) {
+  return R"(SELECT * FROM (SELECT NULL AS pk_catalog_name,
+    NULL AS pk_schema_name,
+    p."table" AS pk_table_name,
+    p."to" AS pk_column_name,
+    NULL AS fk_catalog_name,
+    NULL AS fk_schema_name,
+    m.name AS fk_table_name,
+    p."from" AS fk_column_name,
+    p.seq AS key_sequence,
+    NULL AS pk_key_name,
+    NULL AS fk_key_name,
+    CASE
+        WHEN p.on_update = 'CASCADE' THEN 0
+        WHEN p.on_update = 'RESTRICT' THEN 1
+        WHEN p.on_update = 'SET NULL' THEN 2
+        WHEN p.on_update = 'NO ACTION' THEN 3
+        WHEN p.on_update = 'SET DEFAULT' THEN 4
+    END AS update_rule,
+    CASE
+        WHEN p.on_delete = 'CASCADE' THEN 0
+        WHEN p.on_delete = 'RESTRICT' THEN 1
+        WHEN p.on_delete = 'SET NULL' THEN 2
+        WHEN p.on_delete = 'NO ACTION' THEN 3
+        WHEN p.on_delete = 'SET DEFAULT' THEN 4
+    END AS delete_rule
+  FROM sqlite_master m
+  JOIN pragma_foreign_key_list(m.name) p ON m.name != p."table"
+  WHERE m.type = 'table') WHERE )" + filter + R"( ORDER BY
+  pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, key_sequence)";
+}
 
-  *result = std::unique_ptr<FlightDataStream>(
-      new RecordBatchStream(reader));
+Status SQLiteFlightSqlServer::GetFlightInfoImportedKeys(
+    const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+  return GetFlightInfoForCommand(descriptor, info, command,
+                                 SqlSchema::GetImportedAndExportedKeysSchema());
+}
 
-  return Status::OK();
+Status SQLiteFlightSqlServer::DoGetImportedKeys(
+    const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
+    std::unique_ptr<FlightDataStream>* result) {
+  std::string filter = "fk_table_name = '" + command.table() + "'";
+  if (command.has_catalog()) {
+    filter += " AND fk_catalog_name = '" + command.catalog() + "'";
+  }
+  if (command.has_schema()) {
+    filter += " AND fk_schema_name = '" + command.schema() + "'";
+  }
+  std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
+
+  return DoGetSQLiteQuery(db_, query, SqlSchema::GetImportedAndExportedKeysSchema(),
+                          result);
+}
+
+Status SQLiteFlightSqlServer::GetFlightInfoExportedKeys(
+    const pb::sql::CommandGetExportedKeys& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+  return GetFlightInfoForCommand(descriptor, info, command,
+                                 SqlSchema::GetImportedAndExportedKeysSchema());
+}
+
+Status SQLiteFlightSqlServer::DoGetExportedKeys(
+    const pb::sql::CommandGetExportedKeys& command, const ServerCallContext& context,
+    std::unique_ptr<FlightDataStream>* result) {
+  std::string filter = "pk_table_name = '" + command.table() + "'";
+  if (command.has_catalog()) {
+    filter += " AND pk_catalog_name = '" + command.catalog() + "'";
+  }
+  if (command.has_schema()) {
+    filter += " AND pk_schema_name = '" + command.schema() + "'";
+  }
+  std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
+
+  return DoGetSQLiteQuery(db_, query, SqlSchema::GetImportedAndExportedKeysSchema(),
+                          result);
 }
 
 }  // namespace example

@@ -303,6 +303,11 @@ class SqlSchema {
   /// flags is set to true.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetPrimaryKeysSchema();
+
+  /// \brief Gets the Schema used on CommandGetImportedKeys and CommandGetExportedKeys
+  /// response.
+  /// \return The default schema template.
+  static std::shared_ptr<Schema> GetImportedAndExportedKeysSchema();
 };
 }  // namespace sql
 }  // namespace flight
