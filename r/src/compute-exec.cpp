@@ -25,8 +25,8 @@
 #include <arrow/compute/exec/options.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
-#include <arrow/util/optional.h>
 #include <arrow/util/future.h>
+#include <arrow/util/optional.h>
 #include <arrow/util/thread_pool.h>
 
 #include <iostream>
