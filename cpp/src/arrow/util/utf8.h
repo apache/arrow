@@ -92,7 +92,7 @@ ARROW_EXPORT void CheckUTF8Initialized();
 // This function needs to be called before doing UTF8 validation.
 ARROW_EXPORT void InitializeUTF8();
 
-inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
+static inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   static constexpr uint64_t high_bits_64 = 0x8080808080808080ULL;
   static constexpr uint32_t high_bits_32 = 0x80808080UL;
   static constexpr uint16_t high_bits_16 = 0x8080U;
@@ -210,44 +210,37 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   return ARROW_PREDICT_TRUE(state == internal::kUTF8ValidateAccept);
 }
 
-inline bool ValidateUTF8(const util::string_view& str) {
+static inline bool ValidateUTF8(const util::string_view& str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
   return ValidateUTF8(data, length);
 }
 
-inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
+static inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
   uint8_t orall = 0;
 
-  if (len >= 16) {
-    uint64_t or1 = 0, or2 = 0;
-    const uint8_t* data2 = data + 8;
+  if (len >= 8) {
+    uint64_t or8 = 0;
 
     do {
-      or1 |= *(const uint64_t*)data;
-      or2 |= *(const uint64_t*)data2;
-      data += 16;
-      data2 += 16;
-      len -= 16;
-    } while (len >= 16);
+      or8 |= SafeLoadAs<uint64_t>(data);
+      data += 8;
+      len -= 8;
+    } while (len >= 8);
 
-    orall = !((or1 | or2) & 0x8080808080808080ULL) - 1;
+    orall = !(or8 & 0x8080808080808080ULL) - 1;
   }
 
   while (len--) {
     orall |= *data++;
   }
 
-  if (orall < 0x80) {
-    return true;
-  } else {
-    return false;
-  }
+  return orall < 0x80U;
 }
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
+static inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
 #ifdef ARROW_HAVE_NEON
   using simd_batch = xsimd::batch<int8_t, xsimd::neon64>;
 #else
@@ -278,7 +271,7 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
 }
 #endif  // ARROW_HAVE_SSE4_2
 
-inline bool ValidateAscii(const uint8_t* data, int64_t len) {
+static inline bool ValidateAscii(const uint8_t* data, int64_t len) {
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
   return ValidateAsciiSimd(data, len);
 #else
@@ -286,7 +279,7 @@ inline bool ValidateAscii(const uint8_t* data, int64_t len) {
 #endif
 }
 
-inline bool ValidateAscii(const util::string_view& str) {
+static inline bool ValidateAscii(const util::string_view& str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
