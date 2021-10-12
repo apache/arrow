@@ -109,7 +109,7 @@ arrow::Status RunMain(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
-  arrow::Status st = RunMain(argc, argv);
+  arrow::Status status = RunMain(argc, argv);
   if (!st.ok()) {
     std::cerr << st << std::endl;
     return EXIT_FAILURE;
