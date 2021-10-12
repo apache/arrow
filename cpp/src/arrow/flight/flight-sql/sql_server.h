@@ -298,6 +298,11 @@ class SqlSchema {
   /// \brief Gets the Schema used on CommandGetTableTypes response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetTableTypesSchema();
+
+  /// \brief Gets the Schema used on CommandGetPrimaryKeys response when included schema
+  /// flags is set to true.
+  /// \return The default schema template.
+  static std::shared_ptr<Schema> GetPrimaryKeysSchema();
 };
 }  // namespace sql
 }  // namespace flight

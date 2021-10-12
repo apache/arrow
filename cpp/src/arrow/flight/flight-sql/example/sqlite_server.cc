@@ -311,6 +311,51 @@ Status SQLiteFlightSqlServer::DoGetTableTypes(const ServerCallContext& context,
   return Status::OK();
 }
 
+Status SQLiteFlightSqlServer::GetFlightInfoPrimaryKeys(
+    const pb::sql::CommandGetPrimaryKeys& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+  return GetFlightInfoForCommand(descriptor, info, command,
+                                 SqlSchema::GetPrimaryKeysSchema());
+}
+
+Status
+SQLiteFlightSqlServer::DoGetPrimaryKeys(const pb::sql::CommandGetPrimaryKeys &command,
+                                        const ServerCallContext &context,
+                                        std::unique_ptr<FlightDataStream> *result) {
+  std::stringstream table_query;
+
+  // The field key_name can not be recovered by the sqlite, so it is being set
+  // to null following the same pattern for catalog_name and schema_name.
+  table_query << "SELECT null as catalog_name, null as schema_name, table_name, "
+                 "name as column_name,  pk as key_sequence, null as key_name\n"
+                 "FROM pragma_table_info(table_name)\n"
+                 "    JOIN (SELECT null as catalog_name, null as schema_name, name as "
+                 "table_name, type as table_type\n"
+                 "FROM sqlite_master) where 1=1 and pk != 0";
+
+  if (command.has_catalog()) {
+    table_query << " and catalog_name LIKE '" << command.catalog() << "'";
+  }
+
+  if (command.has_schema()) {
+    table_query << " and schema_name LIKE '" << command.schema() << "'";
+  }
+
+  table_query << " and table_name LIKE '" << command.table() << "'";
+
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, table_query.str(), &statement));
+
+  std::shared_ptr<SqliteStatementBatchReader> reader;
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
+      statement, SqlSchema::GetPrimaryKeysSchema(), &reader));
+
+  *result = std::unique_ptr<FlightDataStream>(
+      new RecordBatchStream(reader));
+
+  return Status::OK();
+}
+
 }  // namespace example
 }  // namespace sql
 }  // namespace flight
