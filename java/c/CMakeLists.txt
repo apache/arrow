@@ -24,9 +24,7 @@ message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 project(arrow_cdata_java)
 
 # Find java/jni
-include(FindJava)
 include(UseJava)
-include(FindJNI)
 
 find_package(Java REQUIRED)
 find_package(JNI REQUIRED)
