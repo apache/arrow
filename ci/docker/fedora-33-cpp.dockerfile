@@ -63,10 +63,8 @@ RUN dnf update -y && \
         which \
         zlib-devel
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
-COPY ci/scripts/install_gcs_testbench.sh \
-     /arrow/ci/scripts/
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
