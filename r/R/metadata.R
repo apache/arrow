@@ -108,9 +108,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
   x
 }
 
-arrow_attributes <- function(x, only_top_level = FALSE) {
-  att <- attributes(x)
-
+remove_attributes <- function(x) {
   removed_attributes <- character()
   if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
     removed_attributes <- c("class", "row.names", "names")
@@ -127,6 +125,13 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   } else if (inherits(x, "hms") || inherits(x, "difftime")) {
     removed_attributes <- c("class", "units")
   }
+  removed_attributes
+}
+
+arrow_attributes <- function(x, only_top_level = FALSE) {
+  att <- attributes(x)
+
+  removed_attributes <- remove_attributes(x)
 
   att <- att[setdiff(names(att), removed_attributes)]
   if (isTRUE(only_top_level)) {
@@ -142,7 +147,6 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   }
 
   columns <- NULL
-
   attempt_to_save_row_level <- getOption("arrow.preserve_row_level_metadata", FALSE) &&
     is.list(x) && !inherits(x, "POSIXlt")
   if (attempt_to_save_row_level) {
