@@ -127,6 +127,14 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// The table will be composed of one record batch per stripe.
   ///
+  /// \param[in] include_names the selected field names to read
+  /// \return the returned Table
+  Result<std::shared_ptr<Table>> Read(const std::vector<std::string>& include_names);
+
+  /// \brief Read the file as a Table
+  ///
+  /// The table will be composed of one record batch per stripe.
+  ///
   /// \param[in] schema the Table schema
   /// \param[in] include_indices the selected field indices to read
   /// \param[out] out the returned Table
@@ -173,6 +181,14 @@ class ARROW_EXPORT ORCFileReader {
   /// \return the returned RecordBatch
   Result<std::shared_ptr<RecordBatch>> ReadStripe(
       int64_t stripe, const std::vector<int>& include_indices);
+
+  /// \brief Read a single stripe as a RecordBatch
+  ///
+  /// \param[in] stripe the stripe index
+  /// \param[in] include_names the selected field names to read
+  /// \return the returned RecordBatch
+  Result<std::shared_ptr<RecordBatch>> ReadStripe(
+      int64_t stripe, const std::vector<std::string>& include_names);
 
   /// \brief Seek to designated row. Invoke NextStripeReader() after seek
   ///        will return stripe reader starting from designated row.
