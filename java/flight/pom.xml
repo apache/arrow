@@ -25,7 +25,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <dep.grpc.version>1.30.2</dep.grpc.version>
+        <dep.grpc.version>1.41.0</dep.grpc.version>
         <dep.protobuf.version>3.17.3</dep.protobuf.version>
     </properties>
 
