@@ -2745,6 +2745,8 @@ def test_array_masked():
                    mask=np.array([False, True, False, True]))
     assert arr.type == pa.int64()
 
+
+def test_array_supported_masks():
     # ARROW-13883
     arr = pa.array([4, None, 4, 3],
                    mask=pa.array([False, True, False, True]))
@@ -2753,6 +2755,10 @@ def test_array_masked():
     arr = pa.array([4, None, 4, 3],
                    mask=[False, True, False, True])
     assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, 3, None, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, None, None]
 
     # Non boolean values
     with pytest.raises(pa.ArrowTypeError):
