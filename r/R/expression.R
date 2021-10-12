@@ -215,7 +215,7 @@ build_expr <- function(FUN,
     } else if (FUN == "%/%") {
       # In R, integer division works like floor(float division)
       out <- build_expr("/", args = args)
-      return(Expression$create("floor", out))
+      return(out$cast(int32(), allow_float_truncate = TRUE))
     } else if (FUN == "%%") {
       return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
     }
