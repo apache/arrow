@@ -1402,7 +1402,8 @@ TEST(ScanNode, MinimalEndToEnd) {
   // NB: This test is here for didactic purposes
 
   // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
+  compute::ExecContext exec_context(default_memory_pool(),
+                                    ::arrow::internal::GetCpuThreadPool());
 
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();

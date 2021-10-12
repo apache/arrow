@@ -58,10 +58,11 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
 /// excluded in the batch emitted by this node.
 class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
  public:
-  explicit FilterNodeOptions(Expression filter_expression)
-      : filter_expression(std::move(filter_expression)) {}
+  explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
+      : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
 
   Expression filter_expression;
+  bool async_mode;
 };
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
@@ -73,11 +74,14 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
-                              std::vector<std::string> names = {})
-      : expressions(std::move(expressions)), names(std::move(names)) {}
+                              std::vector<std::string> names = {}, bool async_mode = true)
+      : expressions(std::move(expressions)),
+        names(std::move(names)),
+        async_mode(async_mode) {}
 
   std::vector<Expression> expressions;
   std::vector<std::string> names;
+  bool async_mode;
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.

@@ -274,9 +274,9 @@ struct OrderBySinkNode final : public SinkNode {
                                            plan()->exec_context()->memory_pool());
     if (ErrorIfNotOk(maybe_batch.status())) {
       StopProducing();
-      bool cancelled = input_counter_.Cancel();
-      DCHECK(cancelled);
-      finished_.MarkFinished(maybe_batch.status());
+      if (input_counter_.Cancel()) {
+        finished_.MarkFinished(maybe_batch.status());
+      }
       return;
     }
     auto record_batch = maybe_batch.MoveValueUnsafe();

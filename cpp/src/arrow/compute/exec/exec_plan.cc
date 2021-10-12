@@ -287,6 +287,107 @@ bool ExecNode::ErrorIfNotOk(Status status) {
   return true;
 }
 
+MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                 std::shared_ptr<Schema> output_schema, bool async_mode)
+    : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
+               std::move(output_schema),
+               /*num_outputs=*/1) {
+  if (async_mode) {
+    executor_ = plan_->exec_context()->executor();
+  } else {
+    executor_ = nullptr;
+  }
+}
+
+void MapNode::ErrorReceived(ExecNode* input, Status error) {
+  DCHECK_EQ(input, inputs_[0]);
+  outputs_[0]->ErrorReceived(this, std::move(error));
+}
+
+void MapNode::InputFinished(ExecNode* input, int total_batches) {
+  DCHECK_EQ(input, inputs_[0]);
+  outputs_[0]->InputFinished(this, total_batches);
+  if (input_counter_.SetTotal(total_batches)) {
+    this->Finish();
+  }
+}
+
+Status MapNode::StartProducing() { return Status::OK(); }
+
+void MapNode::PauseProducing(ExecNode* output) {}
+
+void MapNode::ResumeProducing(ExecNode* output) {}
+
+void MapNode::StopProducing(ExecNode* output) {
+  DCHECK_EQ(output, outputs_[0]);
+  StopProducing();
+}
+
+void MapNode::StopProducing() {
+  if (executor_) {
+    this->stop_source_.RequestStop();
+  }
+  if (input_counter_.Cancel()) {
+    this->Finish();
+  }
+  inputs_[0]->StopProducing(this);
+}
+
+Future<> MapNode::finished() { return finished_; }
+
+void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
+                         ExecBatch batch) {
+  Status status;
+  if (finished_.is_finished()) {
+    return;
+  }
+  auto task = [this, map_fn, batch]() {
+    auto guarantee = batch.guarantee;
+    auto output_batch = map_fn(std::move(batch));
+    if (ErrorIfNotOk(output_batch.status())) {
+      return output_batch.status();
+    }
+    output_batch->guarantee = guarantee;
+    outputs_[0]->InputReceived(this, output_batch.MoveValueUnsafe());
+    return Status::OK();
+  };
+
+  if (executor_) {
+    status = task_group_.AddTask([this, task]() -> Result<Future<>> {
+      return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
+        auto status = task();
+        if (this->input_counter_.Increment()) {
+          this->Finish(status);
+        }
+        return status;
+      });
+    });
+  } else {
+    status = task();
+    if (input_counter_.Increment()) {
+      this->Finish(status);
+    }
+  }
+  if (!status.ok()) {
+    if (input_counter_.Cancel()) {
+      this->Finish(status);
+    }
+    inputs_[0]->StopProducing(this);
+    return;
+  }
+}
+
+void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
+  if (executor_) {
+    task_group_.End().AddCallback([this, finish_st](const Status& st) {
+      Status final_status = finish_st & st;
+      this->finished_.MarkFinished(final_status);
+    });
+  } else {
+    this->finished_.MarkFinished(finish_st);
+  }
+}
+
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema> schema,
     std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
