@@ -24,6 +24,7 @@
 #include <limits>
 #include <queue>
 
+#include "arrow/util/async_util.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
@@ -785,6 +786,24 @@ class ReadaheadGenerator {
 template <typename T>
 class PushGenerator {
   struct State {
+    explicit State(util::BackpressureOptions backpressure)
+        : backpressure(std::move(backpressure)) {}
+
+    void OpenBackpressureIfFreeUnlocked(util::Mutex::Guard&& guard) {
+      if (backpressure.toggle && result_q.size() < backpressure.resume_if_below) {
+        // Open might trigger callbacks so release the lock first
+        guard.Unlock();
+        backpressure.toggle->Open();
+      }
+    }
+
+    void CloseBackpressureIfFullUnlocked() {
+      if (backpressure.toggle && result_q.size() > backpressure.pause_if_above) {
+        backpressure.toggle->Close();
+      }
+    }
+
+    util::BackpressureOptions backpressure;
     util::Mutex mutex;
     std::deque<Result<T>> result_q;
     util::optional<Future<T>> consumer_fut;
@@ -820,6 +839,7 @@ class PushGenerator {
         fut.MarkFinished(std::move(result));
       } else {
         state->result_q.push_back(std::move(result));
+        state->CloseBackpressureIfFullUnlocked();
       }
       return true;
     }
@@ -868,7 +888,8 @@ class PushGenerator {
     const std::weak_ptr<State> weak_state_;
   };
 
-  PushGenerator() : state_(std::make_shared<State>()) {}
+  explicit PushGenerator(util::BackpressureOptions backpressure = {})
+      : state_(std::make_shared<State>(std::move(backpressure))) {}
 
   /// Read an item from the queue
   Future<T> operator()() const {
@@ -877,6 +898,7 @@ class PushGenerator {
     if (!state_->result_q.empty()) {
       auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
       state_->result_q.pop_front();
+      state_->OpenBackpressureIfFreeUnlocked(std::move(lock));
       return fut;
     }
     if (state_->finished) {
@@ -1643,6 +1665,50 @@ struct CancellableGenerator {
 template <typename T>
 AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token) {
   return CancellableGenerator<T>{std::move(source), std::move(stop_token)};
+}
+
+template <typename T>
+struct PauseableGenerator {
+ public:
+  PauseableGenerator(AsyncGenerator<T> source, std::shared_ptr<util::AsyncToggle> toggle)
+      : state_(std::make_shared<PauseableGeneratorState>(std::move(source),
+                                                         std::move(toggle))) {}
+
+  Future<T> operator()() { return (*state_)(); }
+
+ private:
+  struct PauseableGeneratorState
+      : public std::enable_shared_from_this<PauseableGeneratorState> {
+    PauseableGeneratorState(AsyncGenerator<T> source,
+                            std::shared_ptr<util::AsyncToggle> toggle)
+        : source_(std::move(source)), toggle_(std::move(toggle)) {}
+
+    Future<T> operator()() {
+      std::shared_ptr<PauseableGeneratorState> self = this->shared_from_this();
+      return toggle_->WhenOpen().Then([self] {
+        util::Mutex::Guard guard = self->mutex_.Lock();
+        return self->source_();
+      });
+    }
+
+    AsyncGenerator<T> source_;
+    std::shared_ptr<util::AsyncToggle> toggle_;
+    util::Mutex mutex_;
+  };
+  std::shared_ptr<PauseableGeneratorState> state_;
+};
+
+/// \brief Allows an async generator to be paused
+///
+/// This generator is NOT async-reentrant and calling it in an async-reentrant fashion
+/// may lead to items getting reordered (and potentially truncated if the end token is
+/// reordered ahead of valid items)
+///
+/// This generator forwards async-reentrant pressure
+template <typename T>
+AsyncGenerator<T> MakePauseable(AsyncGenerator<T> source,
+                                std::shared_ptr<util::AsyncToggle> toggle) {
+  return PauseableGenerator<T>(std::move(source), std::move(toggle));
 }
 
 template <typename T>

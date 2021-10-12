@@ -25,10 +25,12 @@
 #include <utility>
 
 #include "arrow/io/slow.h"
+#include "arrow/testing/async_test_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
@@ -71,30 +73,6 @@ AsyncGenerator<T> MakeJittery(AsyncGenerator<T> source) {
     return out;
   });
 }
-
-template <typename T>
-class TrackingGenerator {
- public:
-  explicit TrackingGenerator(AsyncGenerator<T> source)
-      : state_(std::make_shared<State>(std::move(source))) {}
-
-  Future<T> operator()() {
-    state_->num_read++;
-    return state_->source();
-  }
-
-  int num_read() { return state_->num_read.load(); }
-
- private:
-  struct State {
-    explicit State(AsyncGenerator<T> source) : source(std::move(source)), num_read(0) {}
-
-    AsyncGenerator<T> source;
-    std::atomic<int> num_read;
-  };
-
-  std::shared_ptr<State> state_;
-};
 
 // Yields items with a small pause between each one from a background thread
 std::function<Future<TestInt>()> BackgroundAsyncVectorIt(
@@ -233,6 +211,9 @@ ReentrantCheckerGuard<T> ExpectNotAccessedReentrantly(AsyncGenerator<T>* generat
 }
 
 class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
+ public:
+  ~GeneratorTestFixture() override = default;
+
  protected:
   AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items) {
     std::vector<TestInt> wrapped(items.begin(), items.end());
@@ -386,7 +367,7 @@ TEST(TestAsyncUtil, MapAsync) {
 TEST(TestAsyncUtil, MapReentrant) {
   std::vector<TestInt> input = {1, 2};
   auto source = AsyncVectorIt(input);
-  TrackingGenerator<TestInt> tracker(std::move(source));
+  util::TrackingGenerator<TestInt> tracker(std::move(source));
   source = MakeTransferredGenerator(AsyncGenerator<TestInt>(tracker),
                                     internal::GetCpuThreadPool());
 
@@ -590,7 +571,7 @@ TEST_P(MergedGeneratorTestFixture, MergedLimitedSubscriptions) {
   auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>(
       {MakeSource({1, 2}), MakeSource({3, 4}), MakeSource({5, 6, 7, 8}),
        MakeSource({9, 10, 11, 12})});
-  TrackingGenerator<AsyncGenerator<TestInt>> tracker(std::move(gen));
+  util::TrackingGenerator<AsyncGenerator<TestInt>> tracker(std::move(gen));
   auto merged = MakeMergedGenerator(AsyncGenerator<AsyncGenerator<TestInt>>(tracker), 2);
 
   SleepABit();
@@ -1263,6 +1244,91 @@ TEST_P(EnumeratorTestFixture, Error) {
 INSTANTIATE_TEST_SUITE_P(EnumeratedTests, EnumeratorTestFixture,
                          ::testing::Values(false, true));
 
+class PauseableTestFixture : public GeneratorTestFixture {
+ public:
+  ~PauseableTestFixture() override { generator_.producer().Close(); }
+
+ protected:
+  PauseableTestFixture() : toggle_(std::make_shared<util::AsyncToggle>()) {
+    sink_.clear();
+    counter_ = 0;
+    AsyncGenerator<TestInt> source = GetSource();
+    AsyncGenerator<TestInt> pauseable = MakePauseable(std::move(source), toggle_);
+    finished_ = VisitAsyncGenerator(std::move(pauseable), [this](TestInt val) {
+      std::lock_guard<std::mutex> lg(mutex_);
+      sink_.push_back(val.value);
+      return Status::OK();
+    });
+  }
+
+  void Emit() { generator_.producer().Push(counter_++); }
+
+  void Pause() { toggle_->Close(); }
+
+  void Resume() { toggle_->Open(); }
+
+  int NumCollected() {
+    std::lock_guard<std::mutex> lg(mutex_);
+    // The push generator can desequence things so we check and don't count gaps.  It's
+    // a bit inefficient but good enough for this test
+    int count = 0;
+    for (std::size_t i = 0; i < sink_.size(); i++) {
+      int prev_count = count;
+      for (std::size_t j = 0; j < sink_.size(); j++) {
+        if (sink_[j] == count) {
+          count++;
+          break;
+        }
+      }
+      if (prev_count == count) {
+        break;
+      }
+    }
+    return count;
+  }
+
+  void AssertAtLeastNCollected(int target_count) {
+    BusyWait(10, [this, target_count] { return NumCollected() >= target_count; });
+    ASSERT_GE(NumCollected(), target_count);
+  }
+
+  void AssertNoMoreThanNCollected(int target_count) {
+    ASSERT_LE(NumCollected(), target_count);
+  }
+
+  AsyncGenerator<TestInt> GetSource() {
+    const auto& source = static_cast<AsyncGenerator<TestInt>>(generator_);
+    if (IsSlow()) {
+      return SlowdownABit(source);
+    } else {
+      return source;
+    }
+  }
+
+  std::mutex mutex_;
+  int counter_ = 0;
+  PushGenerator<TestInt> generator_;
+  std::shared_ptr<util::AsyncToggle> toggle_;
+  std::vector<int> sink_;
+  Future<> finished_;
+};
+
+INSTANTIATE_TEST_SUITE_P(PauseableTests, PauseableTestFixture,
+                         ::testing::Values(false, true));
+
+TEST_P(PauseableTestFixture, PauseBasic) {
+  Emit();
+  Pause();
+  // This emit was asked for before the pause so it will go through
+  Emit();
+  AssertNoMoreThanNCollected(2);
+  // This emit should be blocked by the pause
+  Emit();
+  AssertNoMoreThanNCollected(2);
+  Resume();
+  AssertAtLeastNCollected(3);
+}
+
 class SequencerTestFixture : public GeneratorTestFixture {
  protected:
   void RandomShuffle(std::vector<TestInt>& values) {
@@ -1359,6 +1425,21 @@ TEST_P(SequencerTestFixture, SequenceError) {
     // have stopped pumping on error
     ASSERT_FINISHES_OK_AND_EQ(TestInt(2), source());
   }
+}
+
+TEST_P(SequencerTestFixture, Readahead) {
+  AsyncGenerator<TestInt> original = MakeSource({4, 2, 0, 6});
+  util::TrackingGenerator<TestInt> tracker(original);
+  AsyncGenerator<TestInt> sequenced = MakeSequencingGenerator(
+      static_cast<AsyncGenerator<TestInt>>(tracker), cmp_, is_next_, TestInt(-2));
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), sequenced());
+  ASSERT_EQ(3, tracker.num_read());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(2), sequenced());
+  ASSERT_EQ(3, tracker.num_read());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(4), sequenced());
+  ASSERT_EQ(3, tracker.num_read());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(6), sequenced());
+  ASSERT_EQ(4, tracker.num_read());
 }
 
 TEST_P(SequencerTestFixture, SequenceStress) {

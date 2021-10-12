@@ -26,6 +26,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
@@ -110,10 +111,12 @@ class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
 /// Emitted batches will not be ordered.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator)
-      : generator(generator) {}
+  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
+                           util::BackpressureOptions backpressure = {})
+      : generator(generator), backpressure(std::move(backpressure)) {}
 
   std::function<Future<util::optional<ExecBatch>>()>* generator;
+  util::BackpressureOptions backpressure;
 };
 
 class ARROW_EXPORT SinkNodeConsumer {

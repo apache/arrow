@@ -237,6 +237,56 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlanExecution, SinkNodeBackpressure) {
+  constexpr uint32_t kPauseIfAbove = 4;
+  constexpr uint32_t kResumeIfBelow = 2;
+  EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
+  PushGenerator<util::optional<ExecBatch>> batch_producer;
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  util::BackpressureOptions backpressure_options =
+      util::BackpressureOptions::Make(kResumeIfBelow, kPauseIfAbove);
+  std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
+  ARROW_EXPECT_OK(compute::Declaration::Sequence(
+                      {
+                          {"source", SourceNodeOptions(schema_, batch_producer)},
+                          {"sink", SinkNodeOptions{&sink_gen, backpressure_options}},
+                      })
+                      .AddToPlan(plan.get()));
+  ARROW_EXPECT_OK(plan->StartProducing());
+
+  EXPECT_OK_AND_ASSIGN(util::optional<ExecBatch> batch, ExecBatch::Make({MakeScalar(0)}));
+  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+
+  // Should be able to push kPauseIfAbove batches without triggering back pressure
+  for (uint32_t i = 0; i < kPauseIfAbove; i++) {
+    batch_producer.producer().Push(batch);
+  }
+  SleepABit();
+  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+
+  // One more batch should trigger back pressure
+  batch_producer.producer().Push(batch);
+  BusyWait(10, [&] { return !backpressure_options.toggle->IsOpen(); });
+  ASSERT_FALSE(backpressure_options.toggle->IsOpen());
+
+  // Reading as much as we can while keeping it paused
+  for (uint32_t i = kPauseIfAbove; i >= kResumeIfBelow; i--) {
+    ASSERT_FINISHES_OK(sink_gen());
+  }
+  SleepABit();
+  ASSERT_FALSE(backpressure_options.toggle->IsOpen());
+
+  // Reading one more item should open up backpressure
+  ASSERT_FINISHES_OK(sink_gen());
+  BusyWait(10, [&] { return backpressure_options.toggle->IsOpen(); });
+  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+
+  // Cleanup
+  batch_producer.producer().Push(IterationEnd<util::optional<ExecBatch>>());
+  plan->StopProducing();
+  ASSERT_FINISHES_OK(plan->finished());
+}
+
 TEST(ExecPlan, ToString) {
   auto basic_data = MakeBasicBatches();
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;

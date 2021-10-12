@@ -49,22 +49,25 @@ namespace {
 class SinkNode : public ExecNode {
  public:
   SinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-           AsyncGenerator<util::optional<ExecBatch>>* generator)
+           AsyncGenerator<util::optional<ExecBatch>>* generator,
+           util::BackpressureOptions backpressure)
       : ExecNode(plan, std::move(inputs), {"collected"}, {},
                  /*num_outputs=*/0),
-        producer_(MakeProducer(generator)) {}
+        producer_(MakeProducer(generator, std::move(backpressure))) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SinkNode"));
 
     const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
-    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator);
+    return plan->EmplaceNode<SinkNode>(plan, std::move(inputs), sink_options.generator,
+                                       sink_options.backpressure);
   }
 
   static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
-      AsyncGenerator<util::optional<ExecBatch>>* out_gen) {
-    PushGenerator<util::optional<ExecBatch>> push_gen;
+      AsyncGenerator<util::optional<ExecBatch>>* out_gen,
+      util::BackpressureOptions backpressure) {
+    PushGenerator<util::optional<ExecBatch>> push_gen(std::move(backpressure));
     auto out = push_gen.producer();
     *out_gen = std::move(push_gen);
     return out;
@@ -234,8 +237,10 @@ class ConsumingSinkNode : public ExecNode {
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                   std::unique_ptr<OrderByImpl> impl,
-                  AsyncGenerator<util::optional<ExecBatch>>* generator)
-      : SinkNode(plan, std::move(inputs), generator), impl_{std::move(impl)} {}
+                  AsyncGenerator<util::optional<ExecBatch>>* generator,
+                  util::BackpressureOptions backpressure)
+      : SinkNode(plan, std::move(inputs), generator, std::move(backpressure)),
+        impl_{std::move(impl)} {}
 
   const char* kind_name() const override { return "OrderBySinkNode"; }
 
@@ -250,7 +255,8 @@ struct OrderBySinkNode final : public SinkNode {
         OrderByImpl::MakeSort(plan->exec_context(), inputs[0]->output_schema(),
                               sink_options.sort_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
-                                              sink_options.generator);
+                                              sink_options.generator,
+                                              sink_options.backpressure);
   }
 
   // A sink node that receives inputs and then compute top_k/bottom_k.
@@ -264,7 +270,8 @@ struct OrderBySinkNode final : public SinkNode {
         OrderByImpl::MakeSelectK(plan->exec_context(), inputs[0]->output_schema(),
                                  sink_options.select_k_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
-                                              sink_options.generator);
+                                              sink_options.generator,
+                                              sink_options.backpressure);
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {

@@ -53,6 +53,8 @@ namespace dataset {
 constexpr int64_t kDefaultBatchSize = 1 << 20;
 constexpr int32_t kDefaultBatchReadahead = 32;
 constexpr int32_t kDefaultFragmentReadahead = 8;
+constexpr int32_t kDefaultBackpressureHigh = 64;
+constexpr int32_t kDefaultBackpressureLow = 32;
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
@@ -417,12 +419,16 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
  public:
-  explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
-                           std::shared_ptr<ScanOptions> scan_options)
-      : dataset(std::move(dataset)), scan_options(std::move(scan_options)) {}
+  explicit ScanNodeOptions(
+      std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
+      : dataset(std::move(dataset)),
+        scan_options(std::move(scan_options)),
+        backpressure_toggle(std::move(backpressure_toggle)) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
+  std::shared_ptr<util::AsyncToggle> backpressure_toggle;
 };
 
 /// @}
