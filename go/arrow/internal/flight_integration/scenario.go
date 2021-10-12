@@ -189,6 +189,8 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 		}
 	}
 
+	wr.Close()
+
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
