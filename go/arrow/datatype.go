@@ -95,12 +95,18 @@ const (
 	// nanoseconds since midnight
 	TIME64
 
-	// INTERVAL is YEAR_MONTH or DAY_TIME interval in SQL style
-	INTERVAL
+	// INTERVAL_MONTHS is YEAR_MONTH interval in SQL style
+	INTERVAL_MONTHS
 
-	// DECIMAL is a precision- and scale-based decimal type. Storage type depends on the
+	// INTERVAL_DAY_TIME is DAY_TIME in SQL Style
+	INTERVAL_DAY_TIME
+
+	// DECIMAL128 is a precision- and scale-based decimal type. Storage type depends on the
 	// parameters.
-	DECIMAL
+	DECIMAL128
+
+	// DECIMAL256 is a precision and scale based decimal type, with 256 bit max. not yet implemented
+	DECIMAL256
 
 	// LIST is a list of some logical data type
 	LIST
@@ -108,8 +114,11 @@ const (
 	// STRUCT of logical types
 	STRUCT
 
-	// UNION of logical types
-	UNION
+	// SPARSE_UNION of logical types. not yet implemented
+	SPARSE_UNION
+
+	// DENSE_UNION of logical types. not yet implemented
+	DENSE_UNION
 
 	// DICTIONARY aka Category type
 	DICTIONARY
@@ -126,6 +135,28 @@ const (
 	// Measure of elapsed time in either seconds, milliseconds, microseconds
 	// or nanoseconds.
 	DURATION
+
+	// like STRING, but 64-bit offsets. not yet implemented
+	LARGE_STRING
+
+	// like BINARY but with 64-bit offsets, not yet implemented
+	LARGE_BINARY
+
+	// like LIST but with 64-bit offsets. not yet implmented
+	LARGE_LIST
+
+	// calendar interval with three fields
+	INTERVAL_MONTH_DAY_NANO
+
+	// INTERVAL could be any of the interval types, kept to avoid breaking anyone
+	// after switching to individual type ids for the interval types that were using
+	// it when calling MakeFromData or NewBuilder
+	//
+	// Deprecated and will be removed in the next major version release
+	INTERVAL
+
+	// Alias to ensure we do not break any consumers
+	DECIMAL = DECIMAL128
 )
 
 // DataType is the representation of an Arrow type.
