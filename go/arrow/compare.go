@@ -59,17 +59,17 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 			return false
 		}
 		if cfg.metadata {
-			return l.Meta.Equal(right.(*ListType).Meta)
+			return l.elem.Metadata.Equal(right.(*ListType).elem.Metadata)
 		}
-		return l.NullableElem == right.(*ListType).NullableElem
+		return l.elem.Nullable == right.(*ListType).elem.Nullable
 	case *FixedSizeListType:
 		if !TypeEqual(l.Elem(), right.(*FixedSizeListType).Elem(), opts...) {
 			return false
 		}
 		if cfg.metadata {
-			return l.Meta.Equal(right.(*FixedSizeListType).Meta)
+			return l.elem.Metadata.Equal(right.(*FixedSizeListType).elem.Metadata)
 		}
-		return l.n == right.(*FixedSizeListType).n && l.NullableElem == right.(*FixedSizeListType).NullableElem
+		return l.n == right.(*FixedSizeListType).n && l.elem.Nullable == right.(*FixedSizeListType).elem.Nullable
 	case *StructType:
 		r := right.(*StructType)
 		switch {

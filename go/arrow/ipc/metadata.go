@@ -611,9 +611,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
-		dt := arrow.ListOf(children[0].Type)
-		dt.Meta = children[0].Metadata
-		dt.NullableElem = children[0].Nullable
+		dt := arrow.ListOfField(children[0])
 		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:
@@ -622,9 +620,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
 		}
-		ret := arrow.FixedSizeListOf(dt.ListSize(), children[0].Type)
-		ret.Meta = children[0].Metadata
-		ret.NullableElem = children[0].Nullable
+		ret := arrow.FixedSizeListOfField(dt.ListSize(), children[0])
 		return ret, nil
 
 	case flatbuf.TypeStruct_:

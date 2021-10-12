@@ -354,9 +354,12 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			f.arrowType.(*arrow.TimestampType).Unit = arrow.Nanosecond
 		}
 	case "list":
-		f.arrowType = arrow.ListOf(f.Children[0].arrowType)
-		f.arrowType.(*arrow.ListType).Meta = f.Children[0].arrowMeta
-		f.arrowType.(*arrow.ListType).NullableElem = f.Children[0].Nullable
+		f.arrowType = arrow.ListOfField(arrow.Field{
+			Name:     f.Children[0].Name,
+			Type:     f.Children[0].arrowType,
+			Metadata: f.Children[0].arrowMeta,
+			Nullable: f.Children[0].Nullable,
+		})
 	case "map":
 		t := mapJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
@@ -378,9 +381,12 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
-		f.arrowType = arrow.FixedSizeListOf(t.ListSize, f.Children[0].arrowType)
-		f.arrowType.(*arrow.FixedSizeListType).NullableElem = f.Children[0].Nullable
-		f.arrowType.(*arrow.FixedSizeListType).Meta = f.Children[0].arrowMeta
+		f.arrowType = arrow.FixedSizeListOfField(t.ListSize, arrow.Field{
+			Name:     f.Children[0].Name,
+			Type:     f.Children[0].arrowType,
+			Metadata: f.Children[0].arrowMeta,
+			Nullable: f.Children[0].Nullable,
+		})
 	case "interval":
 		t := unitZoneJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
