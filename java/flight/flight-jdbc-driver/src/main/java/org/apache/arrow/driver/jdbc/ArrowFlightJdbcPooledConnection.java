@@ -41,22 +41,17 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
   private final Set<StatementEventListener> statementEventListeners;
 
   private final class ConnectionHandle extends ConnectionWrapper {
-    private boolean closed;
+    private boolean closed = false;
+
     public ConnectionHandle() {
       super(connection);
     }
 
     @Override
     public void close() throws SQLException {
-      if (closed) {
-        return;
-      }
-      try {
-        final ConnectionEvent connectionEvent =
-            new ConnectionEvent(ArrowFlightJdbcPooledConnection.this);
-        eventListeners.forEach(listener -> listener.connectionClosed(connectionEvent));
-      } finally {
+      if (!closed) {
         closed = true;
+        onConnectionClosed();
       }
     }
 
@@ -108,5 +103,10 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
   @Override
   public void removeStatementEventListener(StatementEventListener listener) {
     this.statementEventListeners.remove(listener);
+  }
+
+  private void onConnectionClosed() {
+    ConnectionEvent connectionEvent = new ConnectionEvent(this);
+    eventListeners.forEach(listener -> listener.connectionClosed(connectionEvent));
   }
 }
