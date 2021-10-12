@@ -156,7 +156,6 @@ struct BitBlockNotAndAndNot<bool> {
   static bool Call(bool left, bool mid, bool right) { return !left && mid && !right; }
 };
 
-
 template <typename T>
 struct BitBlockOrOr {
   static T Call(T left, T mid, T right) { return left | mid | right; }
@@ -226,7 +225,6 @@ template <>
 struct BitBlockOrNotOrNot<bool> {
   static bool Call(bool left, bool mid, bool right) { return left || !mid || !right; }
 };
-
 
 }  // namespace detail
 
@@ -565,7 +563,6 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
   }
 };
 
-
 /// \brief A class that computes popcounts on the result of bitwise operations
 /// between three bitmaps, 64 bits at a time. A 64-bit word is loaded from each
 /// bitmap, then the popcount is computed on e.g. the bitwise-and of the three
@@ -573,12 +570,13 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
 class ARROW_EXPORT TernaryBitBlockCounter {
  public:
   TernaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
-		         const uint8_t* mid_bitmap,  int64_t mid_offset,
-                         const uint8_t* right_bitmap, int64_t right_offset, int64_t length)
+                         const uint8_t* mid_bitmap, int64_t mid_offset,
+                         const uint8_t* right_bitmap, int64_t right_offset,
+                         int64_t length)
       : left_bitmap_(util::MakeNonNull(left_bitmap) + left_offset / 8),
         left_offset_(left_offset % 8),
-	mid_bitmap_(util::MakeNonNull(mid_bitmap) + mid_offset / 8),
-	mid_offset_(mid_offset % 8),
+        mid_bitmap_(util::MakeNonNull(mid_bitmap) + mid_offset / 8),
+        mid_offset_(mid_offset % 8),
         right_bitmap_(util::MakeNonNull(right_bitmap) + right_offset / 8),
         right_offset_(right_offset % 8),
         bits_remaining_(length) {}
@@ -591,16 +589,22 @@ class ARROW_EXPORT TernaryBitBlockCounter {
   BitBlockCount NextAndAndWord() { return NextWord<detail::BitBlockAndAnd>(); }
 
   /// \brief Computes "x & ~y & ~z" block for each available run of bits.
-  BitBlockCount NextAndNotAndNotWord() { return NextWord<detail::BitBlockAndNotAndNot>(); }
+  BitBlockCount NextAndNotAndNotWord() {
+    return NextWord<detail::BitBlockAndNotAndNot>();
+  }
 
   /// \brief Computes "~x & y & ~z" block for each available run of bits.
-  BitBlockCount NextNotAndAndNotWord() { return NextWord<detail::BitBlockNotAndAndNot>(); }
+  BitBlockCount NextNotAndAndNotWord() {
+    return NextWord<detail::BitBlockNotAndAndNot>();
+  }
 
   /// \brief Computes "~x & ~y & z" block for each available run of bits.
-  BitBlockCount NextNotAndNotAndWord() { return NextWord<detail::BitBlockNotAndNotAnd>(); }
+  BitBlockCount NextNotAndNotAndWord() {
+    return NextWord<detail::BitBlockNotAndNotAnd>();
+  }
 
   /// \brief Computes "~x & y & z" block for each available run of bits.
-  BitBlockCount NextiNotAndAndWord() { return NextWord<detail::BitBlockNotAndAnd>(); }
+  BitBlockCount NextNotAndAndWord() { return NextWord<detail::BitBlockNotAndAnd>(); }
 
   /// \brief Computes "x & ~y & z" block for each available run of bits.
   BitBlockCount NextAndNotAndWord() { return NextWord<detail::BitBlockAndNotAnd>(); }
@@ -642,17 +646,17 @@ class ARROW_EXPORT TernaryBitBlockCounter {
     // word in the bitmap for the bit shifting logic.
     constexpr int64_t kWordBits = BitBlockCounter::kWordBits;
     const int64_t bits_required_to_use_words =
-        std::max({ left_offset_  == 0 ? 64 : 64 + (64 - left_offset_),
-		   mid_offset_   == 0 ? 64 : 64 + (64 - mid_offset_),
-                   right_offset_ == 0 ? 64 : 64 + (64 - right_offset_) });
+        std::max({left_offset_ == 0 ? 64 : 64 + (64 - left_offset_),
+                  mid_offset_ == 0 ? 64 : 64 + (64 - mid_offset_),
+                  right_offset_ == 0 ? 64 : 64 + (64 - right_offset_)});
     if (bits_remaining_ < bits_required_to_use_words) {
       const int16_t run_length =
           static_cast<int16_t>(std::min(bits_remaining_, kWordBits));
       int16_t popcount = 0;
       for (int64_t i = 0; i < run_length; ++i) {
-        if (Op<bool>::Call(BitUtil::GetBit(left_bitmap_, left_offset_ + i),
-			   BitUtil::GetBit(mid_bitmap_, mid_offset_ + i),
-                           BitUtil::GetBit(right_bitmap_, right_offset_ + i))) {
+        if (Op<bool>::Call(bit_util::GetBit(left_bitmap_, left_offset_ + i),
+                           bit_util::GetBit(mid_bitmap_, mid_offset_ + i),
+                           bit_util::GetBit(right_bitmap_, right_offset_ + i))) {
           ++popcount;
         }
       }
@@ -667,18 +671,16 @@ class ARROW_EXPORT TernaryBitBlockCounter {
 
     int64_t popcount = 0;
     if (left_offset_ == 0 && right_offset_ == 0 && mid_offset_ == 0) {
-      popcount = BitUtil::PopCount(
-          Op<uint64_t>::Call(LoadWord(left_bitmap_), 
-		             LoadWord(mid_bitmap_),
-		             LoadWord(right_bitmap_)));
+      popcount = bit_util::PopCount(Op<uint64_t>::Call(
+          LoadWord(left_bitmap_), LoadWord(mid_bitmap_), LoadWord(right_bitmap_)));
     } else {
       auto left_word =
           ShiftWord(LoadWord(left_bitmap_), LoadWord(left_bitmap_ + 8), left_offset_);
       auto mid_word =
-	  ShiftWord(LoadWord(mid_bitmap_), LoadWord(mid_bitmap_ + 8), mid_offset_);
+          ShiftWord(LoadWord(mid_bitmap_), LoadWord(mid_bitmap_ + 8), mid_offset_);
       auto right_word =
           ShiftWord(LoadWord(right_bitmap_), LoadWord(right_bitmap_ + 8), right_offset_);
-      popcount = BitUtil::PopCount(Op<uint64_t>::Call(left_word, mid_word, right_word));
+      popcount = bit_util::PopCount(Op<uint64_t>::Call(left_word, mid_word, right_word));
     }
     left_bitmap_ += kWordBits / 8;
     mid_bitmap_ += kWordBits / 8;
@@ -700,27 +702,27 @@ class ARROW_EXPORT OptionalTernaryBitBlockCounter {
  public:
   // Any bitmap may be NULLPTR
   OptionalTernaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
-		                 const uint8_t* mid_bitmap, int64_t mid_offset,
+                                 const uint8_t* mid_bitmap, int64_t mid_offset,
                                  const uint8_t* right_bitmap, int64_t right_offset,
                                  int64_t length);
 
   // Any bitmap may be null
   OptionalTernaryBitBlockCounter(const std::shared_ptr<Buffer>& left_bitmap,
-                                int64_t left_offset,
-				const std::shared_ptr<Buffer>& mid_bitmap,
-				int64_t mid_offset,
-                                const std::shared_ptr<Buffer>& right_bitmap,
-                                int64_t right_offset, int64_t length);
+                                 int64_t left_offset,
+                                 const std::shared_ptr<Buffer>& mid_bitmap,
+                                 int64_t mid_offset,
+                                 const std::shared_ptr<Buffer>& right_bitmap,
+                                 int64_t right_offset, int64_t length);
 
   BitBlockCount NextAndBlock() {
     static constexpr int64_t kMaxBlockSize = std::numeric_limits<int16_t>::max();
     switch (has_bitmap_) {
-     case HasBitmap::THREE: {
+      case HasBitmap::THREE: {
         BitBlockCount block = ternary_counter_.NextAndAndWord();
         position_ += block.length;
         return block;
       }
-     case HasBitmap::TWO: {
+      case HasBitmap::TWO: {
         BitBlockCount block = binary_counter_.NextAndWord();
         position_ += block.length;
         return block;
@@ -780,22 +782,20 @@ class ARROW_EXPORT OptionalTernaryBitBlockCounter {
   BinaryBitBlockCounter binary_counter_;
   TernaryBitBlockCounter ternary_counter_;
 
-  static HasBitmap HasBitmapFromBitmaps(bool has_left,bool has_mid, bool has_right) {
-    switch (static_cast<int>(has_left) + 
-	    static_cast<int>(has_mid) +
-	    static_cast<int>(has_right)) {
+  static HasBitmap HasBitmapFromBitmaps(bool has_left, bool has_mid, bool has_right) {
+    switch (static_cast<int>(has_left) + static_cast<int>(has_mid) +
+            static_cast<int>(has_right)) {
       case 0:
         return HasBitmap::NONE;
       case 1:
         return HasBitmap::ONE;
       case 2:
-	return HasBitmap::TWO;
+        return HasBitmap::TWO;
       default:  // 3
         return HasBitmap::THREE;
     }
   }
 };
-
 
 // Functional-style bit block visitors.
 
@@ -942,124 +942,48 @@ static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offse
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static void VisitThreeBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf,
-                                  int64_t left_offset,
-				  const std::shared_ptr<Buffer>& mid_bitmap_buf,
-				  int64_t mid_offset,
-                                  const std::shared_ptr<Buffer>& right_bitmap_buf,
-                                  int64_t right_offset, int64_t length,
-                                  VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
-  if ( ((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf   == NULLPTR) ) ||
-       ((mid_bitmap_buf  == NULLPTR) && (right_bitmap_buf == NULLPTR) ) ||
-       ((left_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR) ) ) {
-    // At most one bitmap is present
-    if ((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf == NULLPTR)) {
-      return VisitBitBlocksVoid(right_bitmap_buf, right_offset, length,
-                                std::forward<VisitNotNull>(visit_not_null),
-                                std::forward<VisitNull>(visit_null));
-    } else if ((mid_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR)) {
-      return VisitBitBlocksVoid(left_bitmap_buf, left_offset, length,
-                                std::forward<VisitNotNull>(visit_not_null),
-                                std::forward<VisitNull>(visit_null));
-    } else {
-      return VisitBitBlocksVoid(mid_bitmap_buf, mid_offset, length,
-                                std::forward<VisitNotNull>(visit_not_null),
-                                std::forward<VisitNull>(visit_null));
-    }
+static void VisitThreeBitBlocksVoid(
+    const std::shared_ptr<Buffer>& left_bitmap_buf, int64_t left_offset,
+    const std::shared_ptr<Buffer>& mid_bitmap_buf, int64_t mid_offset,
+    const std::shared_ptr<Buffer>& right_bitmap_buf, int64_t right_offset, int64_t length,
+    VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+  // At most one bitmap is present
+  if ((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf == NULLPTR)) {
+    return VisitBitBlocksVoid(right_bitmap_buf, right_offset, length,
+                              std::forward<VisitNotNull>(visit_not_null),
+                              std::forward<VisitNull>(visit_null));
+  } else if ((mid_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR)) {
+    return VisitBitBlocksVoid(left_bitmap_buf, left_offset, length,
+                              std::forward<VisitNotNull>(visit_not_null),
+                              std::forward<VisitNull>(visit_null));
+  } else if ((left_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR)) {
+    return VisitBitBlocksVoid(mid_bitmap_buf, mid_offset, length,
+                              std::forward<VisitNotNull>(visit_not_null),
+                              std::forward<VisitNull>(visit_null));
   }
   // Two bitmaps are present
-  if ( left_bitmap_buf == NULLPTR ) { 
-  const uint8_t* mid_bitmap = mid_bitmap_buf->data();
-  const uint8_t* right_bitmap = right_bitmap_buf->data();
-  BinaryBitBlockCounter bit_counter(mid_bitmap, mid_offset, right_bitmap, right_offset,
-                                    length);
-  int64_t position = 0;
-  while (position < length) {
-    BitBlockCount block = bit_counter.NextAndWord();
-    if (block.AllSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
-      }
-    } else if (block.NoneSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
-      }
-    } else {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(mid_bitmap, mid_offset + position) &&
-            BitUtil::GetBit(right_bitmap, right_offset + position)) {
-          visit_not_null(position);
-        } else {
-          visit_null();
-        }
-      }
-    }
-  }
+  if (left_bitmap_buf == NULLPTR) {
+    return VisitTwoBitBlocksVoid(mid_bitmap_buf, mid_offset, right_bitmap_buf,
+		                 right_offset, length,
+                                 std::forward<VisitNull>(visit_not_null), 
+				 std::forward<VisitNull>(visit_null));
   } else if (mid_bitmap_buf == NULLPTR) {
-  const uint8_t* left_bitmap = left_bitmap_buf->data();
-  const uint8_t* right_bitmap = right_bitmap_buf->data();
-  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
-                                    length);
-  int64_t position = 0;
-  while (position < length) {
-    BitBlockCount block = bit_counter.NextAndWord();
-    if (block.AllSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
-      }
-    } else if (block.NoneSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
-      }
-    } else {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
-            BitUtil::GetBit(right_bitmap, right_offset + position)) {
-          visit_not_null(position);
-        } else {
-          visit_null();
-        }
-      }
-    }
-  }
-  } else {
-  const uint8_t* left_bitmap = left_bitmap_buf->data();
-  const uint8_t* mid_bitmap = mid_bitmap_buf->data();
-  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, mid_bitmap, mid_offset,
-                                    length);
-  int64_t position = 0;
-  while (position < length) {
-    BitBlockCount block = bit_counter.NextAndWord();
-    if (block.AllSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
-      }
-    } else if (block.NoneSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
-      }
-    } else {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
-            BitUtil::GetBit(mid_bitmap, mid_offset + position)) {
-          visit_not_null(position);
-        } else {
-          visit_null();
-        }
-      }
-    }
-  }
- 
+    return VisitTwoBitBlocksVoid(left_bitmap_buf, left_offset, right_bitmap_buf,
+		                 right_offset, length,
+                                 std::forward<VisitNull>(visit_not_null), 
+				 std::forward<VisitNull>(visit_null));
+  } else if (right_bitmap_buf == NULLPTR) {
+    return VisitTwoBitBlocksVoid(left_bitmap_buf, left_offset, mid_bitmap_buf,
+		                 mid_offset, length,
+                                 std::forward<VisitNull>(visit_not_null), 
+				 std::forward<VisitNull>(visit_null));
   }
   // All three bitmaps are present
-
   const uint8_t* left_bitmap = left_bitmap_buf->data();
-  const uint8_t* mid_bitmap  = mid_bitmap_buf->data();
+  const uint8_t* mid_bitmap = mid_bitmap_buf->data();
   const uint8_t* right_bitmap = right_bitmap_buf->data();
-  TernaryBitBlockCounter bit_counter(left_bitmap, left_offset, 
-		                     mid_bitmap, mid_offset,
-		                     right_bitmap, right_offset,
-                                     length);
+  TernaryBitBlockCounter bit_counter(left_bitmap, left_offset, mid_bitmap, mid_offset,
+                                     right_bitmap, right_offset, length);
   int64_t position = 0;
   while (position < length) {
     BitBlockCount block = bit_counter.NextAndAndWord();
@@ -1073,9 +997,9 @@ static void VisitThreeBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_b
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
-	    BitUtil::GetBit(mid_bitmap, mid_offset + position) &&
-            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+        if (bit_util::GetBit(left_bitmap, left_offset + position) &&
+            bit_util::GetBit(mid_bitmap, mid_offset + position) &&
+            bit_util::GetBit(right_bitmap, right_offset + position)) {
           visit_not_null(position);
         } else {
           visit_null();
@@ -1083,9 +1007,7 @@ static void VisitThreeBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_b
       }
     }
   }
-
 }
-
 
 }  // namespace internal
 }  // namespace arrow

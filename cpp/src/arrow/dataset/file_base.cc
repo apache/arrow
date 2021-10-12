@@ -346,7 +346,6 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   Status Consume(compute::ExecBatch batch) override {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(schema_));
-
     return WriteNextBatch(std::move(record_batch), batch.guarantee);
   }
 

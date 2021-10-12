@@ -104,6 +104,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
       if (has_payload) {
         InitEncoder(0, HashJoinProjection::PAYLOAD, &local_state.exec_batch_payloads);
       }
+
       local_state.is_initialized = true;
     }
     return Status::OK();

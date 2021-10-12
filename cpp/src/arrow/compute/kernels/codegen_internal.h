@@ -449,18 +449,18 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
                         std::move(visit_null));
 }
 
-template <typename Arg0Type, typename Arg1Type, typename Arg2Type,
-	 typename VisitFunc, typename NullFunc>
+template <typename Arg0Type, typename Arg1Type, typename Arg2Type, typename VisitFunc,
+          typename NullFunc>
 static void VisitThreeArrayValuesInline(const ArrayData& arr0, const ArrayData& arr1,
-                                      const ArrayData& arr2,
-				      VisitFunc&& valid_func, NullFunc&& null_func) {
+                                        const ArrayData& arr2, VisitFunc&& valid_func,
+                                        NullFunc&& null_func) {
   ArrayIterator<Arg0Type> arr0_it(arr0);
   ArrayIterator<Arg1Type> arr1_it(arr1);
   ArrayIterator<Arg2Type> arr2_it(arr2);
   auto visit_valid = [&](int64_t i) {
     valid_func(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
                GetViewType<Arg1Type>::LogicalValue(arr1_it()),
-	       GetViewType<Arg2Type>::LogicalValue(arr2_it()));
+               GetViewType<Arg2Type>::LogicalValue(arr2_it()));
   };
   auto visit_null = [&]() {
     arr0_it();
@@ -468,10 +468,9 @@ static void VisitThreeArrayValuesInline(const ArrayData& arr0, const ArrayData& 
     arr2_it();
     null_func();
   };
-  VisitThreeBitBlocksVoid(arr0.buffers[0], arr0.offset, 
-	                arr1.buffers[0], arr1.offset,
-	                arr2.buffers[0], arr2.offset,
-                        arr0.length, std::move(visit_valid), std::move(visit_null));
+  VisitThreeBitBlocksVoid(arr0.buffers[0], arr0.offset, arr1.buffers[0], arr1.offset,
+                          arr2.buffers[0], arr2.offset, arr0.length,
+                          std::move(visit_valid), std::move(visit_null));
 }
 // ----------------------------------------------------------------------
 // Reusable type resolvers
@@ -578,23 +577,7 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
     return Status::NotImplemented("NYI");
   }
 };
-/*
-template <typename Type>
-struct OutputAdapter<Type, enable_if_base_binary<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType::ValueType;
 
-  template <typename Generator>
-  static Status Write(KernelContext*, Datum* out, Generator&& generator) {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<T>(1);
-    // TODO: Is this as fast as a more explicitly inlined function?
-    for (int64_t i = 0; i < out_arr->length; ++i) {
-      *out_data++ = generator();
-    }
-    return Status::OK();
-  }
-};
-*/
 // A kernel exec generator for unary functions that addresses both array and
 // scalar inputs and dispatches input iteration and output writing to other
 // templates
@@ -940,7 +923,6 @@ template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryNotNullStatefulEqualTypes =
     ScalarBinaryNotNullStateful<OutType, ArgType, ArgType, Op>;
 
-
 // A kernel exec generator for ternary functions that addresses both array and
 // scalar inputs and dispatches input iteration and output writing to other
 // templates
@@ -952,9 +934,11 @@ using ScalarBinaryNotNullStatefulEqualTypes =
 // The "Op" functor should have the form
 //
 // struct Op {
-//   template <typename OutValue, typename Arg0Value, typename Arg1Value, typename
-//   Arg2Value> static OutValue Call(KernelContext* ctx, Arg0Value arg0, Arg1Value arg1,
-//   Arg2Value arg2, Status *st) {
+//   template <typename OutValue, typename Arg0Value, typename Arg1Value,
+//             typename Arg2Value> 
+//   static OutValue Call(KernelContext* ctx, Arg0Value arg0, Arg1Value arg1,
+//                        Arg2Value arg2, Status *st) 
+//   {
 //     // implementation
 //     // NOTE: "status" should only be populated with errors,
 //     //       leave it unmodified to indicate Status::OK()
@@ -969,107 +953,110 @@ struct ScalarTernary {
   using Arg2Value = typename GetViewType<Arg2Type>::T;
 
   static Status ArrayArrayArray(KernelContext* ctx, const ArrayData& arg0,
-                              const ArrayData& arg1, const ArrayData& arg2, Datum* out) {
+                                const ArrayData& arg1, const ArrayData& arg2,
+                                Datum* out) {
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     ArrayIterator<Arg2Type> arg2_it(arg2);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-                               (ctx, arg0_it(), arg1_it(), arg2_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+          ctx, arg0_it(), arg1_it(), arg2_it(), &st);
     }));
     return st;
   }
 
   static Status ArrayArrayScalar(KernelContext* ctx, const ArrayData& arg0,
-                               const ArrayData& arg1, const Scalar& arg2, Datum* out) {
+                                 const ArrayData& arg1, const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-                              (ctx, arg0_it(), arg1_it(), arg2_val, &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+          ctx, arg0_it(), arg1_it(), arg2_val, &st);
     }));
     return st;
   }
 
   static Status ArrayScalarArray(KernelContext* ctx, const ArrayData& arg0,
-                               const Scalar& arg1, const ArrayData& arg2, Datum* out) {
+                                 const Scalar& arg1, const ArrayData& arg2, Datum* out) {
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
     ArrayIterator<Arg2Type> arg2_it(arg2);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-                              (ctx, arg0_it(), arg1_val, arg2_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+          ctx, arg0_it(), arg1_val, arg2_it(), &st);
     }));
     return st;
   }
 
   static Status ScalarArrayArray(KernelContext* ctx, const Scalar& arg0,
-                               const ArrayData& arg1, const ArrayData& arg2, Datum* out) {
+                                 const ArrayData& arg1, const ArrayData& arg2,
+                                 Datum* out) {
     Status st = Status::OK();
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     ArrayIterator<Arg2Type> arg2_it(arg2);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-                             (ctx, arg0_val, arg1_it(), arg2_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+          ctx, arg0_val, arg1_it(), arg2_it(), &st);
     }));
     return st;
   }
 
   static Status ArrayScalarScalar(KernelContext* ctx, const ArrayData& arg0,
-                                const Scalar& arg1, const Scalar& arg2, Datum* out) {
+                                  const Scalar& arg1, const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
     auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-                              (ctx, arg0_it(), arg1_val, arg2_val, &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+          ctx, arg0_it(), arg1_val, arg2_val, &st);
     }));
     return st;
   }
 
   static Status ScalarScalarArray(KernelContext* ctx, const Scalar& arg0,
-                                const Scalar& arg1, const ArrayData& arg2, Datum* out) {
+                                  const Scalar& arg1, const ArrayData& arg2, Datum* out) {
     Status st = Status::OK();
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
     ArrayIterator<Arg2Type> arg2_it(arg2);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-                              (ctx, arg0_val, arg1_val, arg2_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+          ctx, arg0_val, arg1_val, arg2_it(), &st);
     }));
     return st;
   }
 
   static Status ScalarArrayScalar(KernelContext* ctx, const Scalar& arg0,
-                                const ArrayData& arg1, const Scalar& arg2, Datum* out) {
+                                  const ArrayData& arg1, const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
-    OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-                  (ctx, arg0_val, arg1_it(), arg2_val, &st);
-    });
+    RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
+      return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+          ctx, arg0_val, arg1_it(), arg2_val, &st);
+    }));
     return st;
   }
 
   static Status ScalarScalarScalar(KernelContext* ctx, const Scalar& arg0,
-                                 const Scalar& arg1, const Scalar& arg2, Datum* out) {
+                                   const Scalar& arg1, const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
-    if (out->scalar()->is_valid){
-    auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-    auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-    auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
-    BoxScalar<OutType>::Box(Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-		                          (ctx, arg0_val, arg1_val, arg2_val, &st),
-                            out->scalar().get());
-  }
+    if (out->scalar()->is_valid) {
+      auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
+      auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
+      auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
+      BoxScalar<OutType>::Box(
+          Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+              ctx, arg0_val, arg1_val, arg2_val, &st),
+          out->scalar().get());
+    }
     return st;
   }
 
@@ -1131,23 +1118,23 @@ struct ScalarTernaryNotNullStateful {
 
   // NOTE: In ArrayExec<Type>, Type is really OutputType
 
-  Status ArrayArrayArray(KernelContext* ctx, const ArrayData& arg0,
-                              const ArrayData& arg1, const ArrayData& arg2, Datum* out) {
+  Status ArrayArrayArray(KernelContext* ctx, const ArrayData& arg0, const ArrayData& arg1,
+                         const ArrayData& arg2, Datum* out) {
     // recently added, needs checking
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->mutable_array());
     VisitThreeArrayValuesInline<Arg0Type, Arg1Type, Arg2Type>(
-       arg0, arg1, arg2,
-       [&](Arg0Value u, Arg1Value v, Arg2Value w) {
-          writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
-	    (ctx, u, v, w, &st));
-	  },
-	  [&]()  { writer.WriteNull(); });
+        arg0, arg1, arg2,
+        [&](Arg0Value u, Arg1Value v, Arg2Value w) {
+          writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
+              ctx, u, v, w, &st));
+        },
+        [&]() { writer.WriteNull(); });
     return st;
   }
 
-  Status ArrayArrayScalar(KernelContext* ctx, const ArrayData& arg0, const ArrayData& arg1,
-                        const Scalar& arg2, Datum* out) {
+  Status ArrayArrayScalar(KernelContext* ctx, const ArrayData& arg0,
+                          const ArrayData& arg1, const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->mutable_array());
     if (arg2.is_valid) {
@@ -1164,7 +1151,7 @@ struct ScalarTernaryNotNullStateful {
   }
 
   Status ArrayScalarArray(KernelContext* ctx, const ArrayData& arg0, const Scalar& arg1,
-                        const ArrayData& arg2, Datum* out) {
+                          const ArrayData& arg2, Datum* out) {
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->mutable_array());
     if (arg1.is_valid) {
@@ -1181,9 +1168,9 @@ struct ScalarTernaryNotNullStateful {
   }
 
   Status ScalarArrayArray(KernelContext* ctx, const Scalar& arg0, const ArrayData& arg1,
-                        const ArrayData& arg2, Datum* out) {
-   Status st = Status::OK();
-   OutputArrayWriter<OutType> writer(out->mutable_array());
+                          const ArrayData& arg2, Datum* out) {
+    Status st = Status::OK();
+    OutputArrayWriter<OutType> writer(out->mutable_array());
     if (arg0.is_valid) {
       const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       VisitTwoArrayValuesInline<Arg1Type, Arg2Type>(
@@ -1198,9 +1185,9 @@ struct ScalarTernaryNotNullStateful {
   }
 
   Status ArrayScalarScalar(KernelContext* ctx, const ArrayData& arg0, const Scalar& arg1,
-                         const Scalar& arg2, Datum* out) {
-   Status st = Status::OK();
-   OutputArrayWriter<OutType> writer(out->mutable_array());
+                           const Scalar& arg2, Datum* out) {
+    Status st = Status::OK();
+    OutputArrayWriter<OutType> writer(out->mutable_array());
     if (arg1.is_valid && arg2.is_valid) {
       const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
       const auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
@@ -1216,7 +1203,7 @@ struct ScalarTernaryNotNullStateful {
   }
 
   Status ScalarScalarArray(KernelContext* ctx, const Scalar& arg0, const Scalar& arg1,
-                         const ArrayData& arg2, Datum* out) {
+                           const ArrayData& arg2, Datum* out) {
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->mutable_array());
     if (arg0.is_valid && arg1.is_valid) {
@@ -1234,7 +1221,7 @@ struct ScalarTernaryNotNullStateful {
   }
 
   Status ScalarArrayScalar(KernelContext* ctx, const Scalar& arg0, const ArrayData& arg1,
-                         const Scalar& arg2, Datum* out) {
+                           const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->mutable_array());
     if (arg0.is_valid && arg2.is_valid) {
@@ -1252,9 +1239,9 @@ struct ScalarTernaryNotNullStateful {
   }
 
   Status ScalarScalarScalar(KernelContext* ctx, const Scalar& arg0, const Scalar& arg1,
-                          const Scalar& arg2, Datum* out) {
-      Status st = Status::OK();
-      if (arg0.is_valid && arg1.is_valid && arg2.is_valid) {
+                            const Scalar& arg2, Datum* out) {
+    Status st = Status::OK();
+    if (arg0.is_valid && arg1.is_valid && arg2.is_valid) {
       auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
       auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
@@ -1269,7 +1256,7 @@ struct ScalarTernaryNotNullStateful {
       if (batch[1].kind() == Datum::ARRAY) {
         if (batch[2].kind() == Datum::ARRAY) {
           Status st = Status::NotImplemented("NYI");
-      	  return st;
+          return st;
         } else {
           return ArrayArrayScalar(ctx, *batch[0].array(), *batch[1].array(),
                                   *batch[2].scalar(), out);
@@ -1334,6 +1321,10 @@ using ScalarTernaryEqualTypes = ScalarTernary<OutType, ArgType, ArgType, ArgType
 template <typename OutType, typename ArgType, typename Op>
 using ScalarTernaryNotNullEqualTypes =
     ScalarTernaryNotNull<OutType, ArgType, ArgType, ArgType, Op>;
+
+template <typename OutType, typename ArgType, typename Op>
+using ScalarTernaryNotNullStatefulEqualTypes =
+    ScalarTernaryNotNullStateful<OutType, ArgType, ArgType, ArgType, Op>;
 
 }  // namespace applicator
 
@@ -1831,4 +1822,3 @@ bool HasDecimal(const std::vector<TypeHolder>& types);
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
-

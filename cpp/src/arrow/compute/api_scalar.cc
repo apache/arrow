@@ -870,4 +870,3 @@ Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext*
 
 }  // namespace compute
 }  // namespace arrow
-
