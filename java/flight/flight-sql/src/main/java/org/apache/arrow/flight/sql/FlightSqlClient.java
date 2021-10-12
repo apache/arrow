@@ -35,7 +35,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.sql.SQLException;
@@ -590,7 +590,7 @@ public class FlightSqlClient implements AutoCloseable {
             new Schema(Collections.emptyList()) :
             MessageSerializer.deserializeSchema(
                 new ReadChannel(Channels.newChannel(
-                    new ByteBufferBackedInputStream(bytes.asReadOnlyByteBuffer()))));
+                    new ByteArrayInputStream(bytes.toByteArray()))));
       } catch (final IOException e) {
         throw new RuntimeException("Failed to deserialize schema", e);
       }
