@@ -225,8 +225,7 @@ test_that("Row-level metadata (does not by default) roundtrip", {
   # But we can re-enable this / read data that has already been written with
   # row-level metadata
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE),
-    {
+    list("arrow.preserve_row_level_metadata" = TRUE), {
       tab <- Table$create(df)
       expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
       expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
@@ -257,8 +256,7 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   dst_dir <- make_temp_dir()
 
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE),
-    {
+    list("arrow.preserve_row_level_metadata" = TRUE), {
       withr::local_options(list("arrow.preserve_row_level_metadata" = TRUE))
       expect_warning(
         write_dataset(df, dst_dir, partitioning = "part"),
@@ -308,8 +306,7 @@ test_that("When we encounter SF cols, we warn", {
   # But we can re-enable this / read data that has already been written with
   # row-level metadata without a warning
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE),
-    {
+    list("arrow.preserve_row_level_metadata" = TRUE), {
       expect_warning(tab <- Table$create(df), NA)
       expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
       expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
