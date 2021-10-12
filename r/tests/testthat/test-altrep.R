@@ -304,9 +304,12 @@ test_that("R checks for bounds", {
     (expect_error(v_int[[5]]))
     (expect_error(v_dbl[[5]]))
     (expect_error(v_str[[5]]))
-
-    (expect_error(v_int[[-1]]))
-    (expect_error(v_dbl[[-1]]))
-    (expect_error(v_str[[-1]]))
   })
+
+  # excluded from the snapshot because something has changed in R at some point
+  # not really worth investigating when/where
+  # https://github.com/apache/arrow/runs/3870446814#step:17:38473
+  expect_error(v_int[[-1]])
+  expect_error(v_dbl[[-1]])
+  expect_error(v_str[[-1]])
 })
