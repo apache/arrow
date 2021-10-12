@@ -131,9 +131,8 @@ bool GcsFileSystem::Equals(const FileSystem& other) const {
 }
 
 Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
-  auto p = GcsPath::FromString(path);
-  if (!p.ok()) return std::move(p).status();
-  return impl_->GetFileInfo(*p);
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->GetFileInfo(p);
 }
 
 Result<FileInfoVector> GcsFileSystem::GetFileInfo(const FileSelector& select) {

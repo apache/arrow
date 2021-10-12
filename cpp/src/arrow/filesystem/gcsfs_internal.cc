@@ -38,6 +38,7 @@ Status ToArrowStatus(const google::cloud::Status& s) {
     case google::cloud::StatusCode::kInvalidArgument:
       return Status::Invalid(os.str());
     case google::cloud::StatusCode::kDeadlineExceeded:
+      return Status::IOError(os.str());
     case google::cloud::StatusCode::kNotFound:
       // TODO: it is unclear if a better mapping would be possible.
       return Status::UnknownError(os.str());
@@ -45,12 +46,12 @@ Status ToArrowStatus(const google::cloud::Status& s) {
       return Status::AlreadyExists(os.str());
     case google::cloud::StatusCode::kPermissionDenied:
     case google::cloud::StatusCode::kUnauthenticated:
-      return Status::UnknownError(os.str());
+      return Status::IOError(os.str());
     case google::cloud::StatusCode::kResourceExhausted:
       return Status::CapacityError(os.str());
     case google::cloud::StatusCode::kFailedPrecondition:
     case google::cloud::StatusCode::kAborted:
-      return Status::UnknownError(os.str());
+      return Status::IOError(os.str());
     case google::cloud::StatusCode::kOutOfRange:
       return Status::Invalid(os.str());
     case google::cloud::StatusCode::kUnimplemented:
@@ -58,7 +59,7 @@ Status ToArrowStatus(const google::cloud::Status& s) {
     case google::cloud::StatusCode::kInternal:
     case google::cloud::StatusCode::kUnavailable:
     case google::cloud::StatusCode::kDataLoss:
-      return Status::UnknownError(os.str());
+      return Status::IOError(os.str());
   }
   return Status::OK();
 }
