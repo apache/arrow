@@ -72,7 +72,21 @@ class OrcScanTask : public ScanTask {
             auto reader,
             OpenORCReader(source, std::make_shared<ScanOptions>(scan_options)));
         int num_stripes = reader->NumberOfStripes();
-        return RecordBatchIterator(Impl{std::move(reader), 0, num_stripes});
+
+        auto materialized_fields = scan_options.MaterializedFields();
+        // filter out virtual columns
+        std::vector<std::string> included_fields;
+        ARROW_ASSIGN_OR_RAISE(auto schema, reader->ReadSchema());
+        for (auto name : materialized_fields) {
+          FieldRef ref(name);
+          ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*schema));
+          if (match.indices().empty()) continue;
+
+          included_fields.push_back(name);
+        }
+
+        return RecordBatchIterator(
+            Impl{std::move(reader), 0, num_stripes, included_fields});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
@@ -80,19 +94,15 @@ class OrcScanTask : public ScanTask {
           return nullptr;
         }
         std::shared_ptr<RecordBatch> batch;
-        // TODO (https://issues.apache.org/jira/browse/ARROW-13797)
-        // determine included fields from options_->MaterializedFields() to
-        // optimize the column selection (see _column_index_lookup in python
-        // orc.py for custom logic)
-        // std::vector<int> included_fields;
         // TODO (https://issues.apache.org/jira/browse/ARROW-14153)
         // pass scan_options_->batch_size
-        return reader_->ReadStripe(i_++);
+        return reader_->ReadStripe(i_++, included_fields_);
       }
 
       std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader_;
       int i_;
       int num_stripes_;
+      std::vector<std::string> included_fields_;
     };
 
     return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),

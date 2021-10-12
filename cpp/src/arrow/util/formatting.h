@@ -349,6 +349,13 @@ bool IsDateTimeInRange(Unit duration) {
 // range, and the {kMinIncl, kMaxExcl} constants above would overflow.
 constexpr bool IsDateTimeInRange(std::chrono::nanoseconds duration) { return true; }
 
+template <typename Unit>
+bool IsTimeInRange(Unit duration) {
+  constexpr Unit kMinIncl = std::chrono::duration_cast<Unit>(std::chrono::seconds{0});
+  constexpr Unit kMaxExcl = std::chrono::duration_cast<Unit>(std::chrono::seconds{86400});
+  return duration >= kMinIncl && duration < kMaxExcl;
+}
+
 template <typename RawValue, typename Appender>
 Return<Appender> FormatOutOfRange(RawValue&& raw_value, Appender&& append) {
   // XXX locale-sensitive but good enough for now
@@ -484,7 +491,10 @@ class StringFormatter<T, enable_if_time<T>> {
 
   template <typename Duration, typename Appender>
   Return<Appender> operator()(Duration, value_type count, Appender&& append) {
-    Duration since_midnight{count};
+    const Duration since_midnight{count};
+    if (!ARROW_PREDICT_TRUE(detail::IsTimeInRange(since_midnight))) {
+      return detail::FormatOutOfRange(count, append);
+    }
 
     constexpr size_t buffer_size = detail::BufferSizeHH_MM_SS<Duration>();
 
