@@ -123,7 +123,7 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
   } else if (py::is_array(mo)) {
     auto unwrap_mask_result = unwrap_array(mo);
     if (!unwrap_mask_result.ok()) {
-      return Status::TypeError("Mask must be an array of booleans");
+      return unwrap_mask_result;
     }
     std::shared_ptr<Array> mask_ = unwrap_mask_result.ValueOrDie();
     BooleanArray* boolmask = dynamic_cast<BooleanArray*>(mask_.get());
