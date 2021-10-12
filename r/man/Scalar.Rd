@@ -19,3 +19,20 @@ A \code{Scalar} holds a single value of an Arrow type.
 \verb{$type}: Scalar type
 }
 
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+Scalar$create(pi)
+Scalar$create(404)
+# If you pass a vector into Scalar$create, you get a list containing your items
+Scalar$create(c(1, 2, 3))
+
+# Comparisons
+my_scalar <- Scalar$create(99)
+my_scalar$ApproxEquals(Scalar$create(99.00001)) # FALSE
+my_scalar$ApproxEquals(Scalar$create(99.000009)) # TRUE
+my_scalar$Equals(Scalar$create(99.000009)) # FALSE
+my_scalar$Equals(Scalar$create(99L)) # FALSE (types don't match)
+
+my_scalar$ToString()
+\dontshow{\}) # examplesIf}
+}

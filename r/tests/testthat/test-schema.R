@@ -40,7 +40,9 @@ test_that("Schema print method", {
 
 test_that("Schema with non-nullable fields", {
   expect_output(
-    print(schema(b = double(), c = list(bool(), NULL, FALSE), d = string())),
+    print(schema(field("b", double()),
+                 field("c", bool(), nullable = FALSE),
+                 field("d", string()))),
     paste(
       "Schema",
       "b: double",

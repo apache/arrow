@@ -15,3 +15,13 @@ an arrow logical type
 \description{
 infer the arrow Array type from an R vector
 }
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+type(1:10)
+type(1L:10L)
+type(c(1, 1.5, 2))
+type(c("A", "B", "C"))
+type(mtcars)
+type(Sys.Date())
+\dontshow{\}) # examplesIf}
+}

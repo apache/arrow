@@ -9,10 +9,8 @@
 schema(...)
 }
 \arguments{
-\item{...}{named list, with each element a \link[=data-type]{data type} or a
-list(\link[=data-type]{data type}, \link{metadata}, boolean) specifying
-data type, metadata (currently ignored) and whether the field is
-nullable}
+\item{...}{named list containing \link[=data-type]{data types} or
+a list of \link[=field]{fields} containing the fields for the schema}
 }
 \description{
 A \code{Schema} is a list of \link{Field}s, which map names to
@@ -77,3 +75,12 @@ Files with compressed metadata are readable by older versions of arrow, but
 the metadata is dropped.
 }
 
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
+tab1 <- Table$create(df)
+tab1$schema
+tab2 <- Table$create(df, schema = schema(col1 = int8(), col2 = float32()))
+tab2$schema
+\dontshow{\}) # examplesIf}
+}

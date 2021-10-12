@@ -74,16 +74,10 @@ Field$import_from_c <- ImportField
 #' @export
 field <- Field$create
 
-.fields <- function(.list) {
+.fields <- function(.list, nullable = TRUE) {
   if (length(.list)) {
     assert_that(!is.null(nms <- names(.list)))
-    map2(nms, .list, function(nm, list_val) {
-      if(is.list(list_val)) {
-        field(nm, list_val[[1]], nullable = list_val[[3]])
-      } else {
-        field(nm, list_val)
-      }
-    })
+    map2(nms, .list, field)
   } else {
     list()
   }

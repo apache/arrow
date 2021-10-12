@@ -23,3 +23,13 @@ Nothing: called for side effects in the file system
 \description{
 Copy files between FileSystems
 }
+\examples{
+\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+# Copy an S3 bucket's files to a local directory:
+copy_files("s3://your-bucket-name", "local-directory")
+# Using a FileSystem object
+copy_files(s3_bucket("your-bucket-name"), "local-directory")
+# Or go the other way, from local to S3
+copy_files("local-directory", s3_bucket("your-bucket-name"))
+\dontshow{\}) # examplesIf}
+}
