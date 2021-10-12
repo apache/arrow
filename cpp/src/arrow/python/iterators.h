@@ -134,6 +134,10 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
       return Status::Invalid("Mask was a different length from sequence being converted");
     }
 
+    if (mask_->null_count() != 0) {
+      return Status::TypeError("Mask must be an array of booleans");
+    }
+
     BooleanArray* boolmask = checked_cast<BooleanArray*>(mask_.get());
     return VisitSequenceGeneric(
         obj, offset, [&func, &boolmask](PyObject* value, int64_t i, bool* keep_going) {

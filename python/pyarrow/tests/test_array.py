@@ -2772,6 +2772,10 @@ def test_array_masked():
                        mask=pa.array([False, True, False, True],
                                      mask=pa.array([True, True, True, True])))
 
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([False, None, False, True]))
+
     # Numpy arrays only accepts numpy masks
     with pytest.raises(ValueError):
         arr = pa.array(np.array([4, None, 4, 3.]),
