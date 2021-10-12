@@ -43,6 +43,12 @@ test_that("Print method for field", {
     print(field("zz", dictionary())),
     "Field\nzz: dictionary<values=string, indices=int32>"
   )
+
+  expect_output(
+    print(field("x", int32(), nullable = FALSE)),
+    "Field\nx: int32 not null"
+  )
+
 })
 
 test_that("Field to C-interface", {

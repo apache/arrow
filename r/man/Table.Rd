@@ -79,14 +79,3 @@ All list elements are coerced to string. See \code{schema()} for more informatio
 }
 }
 
-\examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-tab <- Table$create(name = rownames(mtcars), mtcars)
-dim(tab)
-dim(head(tab))
-names(tab)
-tab$mpg
-tab[["cyl"]]
-as.data.frame(tab[4:8, c("gear", "hp", "wt")])
-\dontshow{\}) # examplesIf}
-}

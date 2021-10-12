@@ -34,16 +34,3 @@ that is backed by the Arrow object given. No data is copied or modified until
 \details{
 The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
 }
-\examples{
-\dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-library(dplyr)
-
-ds <- InMemoryDataset$create(mtcars)
-
-ds \%>\%
-  filter(mpg < 30) \%>\%
-  to_duckdb() \%>\%
-  group_by(cyl) \%>\%
-  summarize(mean_mpg = mean(mpg, na.rm = TRUE))
-\dontshow{\}) # examplesIf}
-}

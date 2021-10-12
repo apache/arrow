@@ -38,6 +38,20 @@ test_that("Schema print method", {
   )
 })
 
+test_that("Schema with non-nullable fields", {
+  expect_output(
+    print(schema(b = double(), c = list(bool(), NULL, FALSE), d = string())),
+    paste(
+      "Schema",
+      "b: double",
+      "c: bool not null",
+      "d: string",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
 test_that("Schema $GetFieldByName", {
   schm <- schema(b = double(), c = string())
   expect_equal(schm$GetFieldByName("b"), field("b", double()))

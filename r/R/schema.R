@@ -136,7 +136,9 @@ Schema <- R6Class("Schema",
     }
   )
 )
-Schema$create <- function(...) schema_(.fields(list2(...)))
+Schema$create <- function(...) {
+  schema_(.fields(list2(...)))
+}
 #' @include arrowExports.R
 Schema$import_from_c <- ImportSchema
 
@@ -161,7 +163,10 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... named list of [data types][data-type]
+#' @param ... named list, with each element a [data type][data-type] or a
+#'    list([data type][data-type], [metadata], boolean) specifying
+#'    data type, metadata (currently ignored) and whether the field is
+#'    nullable
 #' @export
 #' @rdname Schema
 schema <- Schema$create

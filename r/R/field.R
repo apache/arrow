@@ -66,6 +66,7 @@ Field$import_from_c <- ImportField
 #' @param name field name
 #' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
+#' @param nullable TRUE if field is nullable
 #'
 #' @examplesIf arrow_available()
 #' field("x", int32())
@@ -76,7 +77,13 @@ field <- Field$create
 .fields <- function(.list) {
   if (length(.list)) {
     assert_that(!is.null(nms <- names(.list)))
-    map2(nms, .list, field)
+    map2(nms, .list, function(nm, list_val) {
+      if(is.list(list_val)) {
+        field(nm, list_val[[1]], nullable = list_val[[3]])
+      } else {
+        field(nm, list_val)
+      }
+    })
   } else {
     list()
   }
