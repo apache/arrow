@@ -103,7 +103,7 @@ eval_array_expression <- function(FUN,
   } else if (FUN == "%/%") {
     # In R, integer division works like floor(float division)
     out <- eval_array_expression("/", args = args, options = options)
-    return(out$cast(int32(), allow_float_truncate = TRUE))
+    return(call_function("floor", out)$cast(int32()))
   } else if (FUN == "%%") {
     # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
     # eagerly, but we can build that up
