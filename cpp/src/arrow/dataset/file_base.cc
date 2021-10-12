@@ -273,7 +273,6 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   DatasetWritingSinkNodeConsumer(std::shared_ptr<Schema> schema,
                                  std::unique_ptr<internal::DatasetWriter> dataset_writer,
-<<<<<<< HEAD
                                  FileSystemDatasetWriteOptions write_options,
                                  std::shared_ptr<util::AsyncToggle> backpressure_toggle)
       : schema_(std::move(schema)),
@@ -284,7 +283,6 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   Status Consume(compute::ExecBatch batch) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(schema_));
-
     return WriteNextBatch(std::move(record_batch), batch.guarantee);
   }
 

@@ -795,4 +795,3 @@ Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
 
 }  // namespace compute
 }  // namespace arrow
-
