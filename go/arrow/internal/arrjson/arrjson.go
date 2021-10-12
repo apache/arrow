@@ -772,6 +772,8 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		defer elems.Release()
 
 		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
@@ -785,6 +787,8 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		defer elems.Release()
 
 		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, []*array.Data{elems.Data()}, nulls, 0)
 		defer data.Release()
@@ -793,6 +797,8 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 	case *arrow.StructType:
 		valids := validsFromJSON(arr.Valids)
 		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 
 		fields := make([]*array.Data, len(dt.Fields()))
@@ -832,6 +838,8 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		defer elems.Release()
 
 		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
