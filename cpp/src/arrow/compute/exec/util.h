@@ -235,6 +235,9 @@ class AtomicCounter {
   // return true if the counter has not already been completed
   bool Cancel() { return DoneOnce(); }
 
+  // return true if the counter has finished or been cancelled
+  bool Completed() { return complete_.load(); }
+
  private:
   // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
   bool DoneOnce() {

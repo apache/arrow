@@ -2176,6 +2176,14 @@ def duration(unit):
     return out
 
 
+def month_day_nano_interval():
+    """
+    Create instance of an interval type representing months, days and
+    nanoseconds between two dates.
+    """
+    return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
+
+
 def date32():
     """
     Create instance of 32-bit date (days since UNIX epoch 1970-01-01).
@@ -2724,6 +2732,7 @@ cdef dict _type_aliases = {
     'duration[ms]': duration('ms'),
     'duration[us]': duration('us'),
     'duration[ns]': duration('ns'),
+    'month_day_nano_interval': month_day_nano_interval(),
 }
 
 

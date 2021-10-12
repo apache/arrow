@@ -1107,24 +1107,24 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         SchemaFromColumnNames(source_schema_, {"year", "month"})));
 
     expected_files_["/new_root/2018/1/dat_0"] = R"([
-        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
-        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
-        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"},
-        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
-        {"region": "QC", "model": "S", "sales": 978, "country": "CA"},
-        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
         {"region": "QC", "model": "X", "sales": 1.0, "country": "CA"},
-        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"}
+        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"},
+        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"},
+        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
+        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
+        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
+        {"region": "QC", "model": "S", "sales": 978, "country": "CA"}
       ])";
     expected_files_["/new_root/2019/1/dat_0"] = R"([
-        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"},
-        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
-        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
         {"region": "QC", "model": "S", "sales": 10, "country": "CA"},
+        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
         {"region": "CA", "model": "Y", "sales": 21, "country": "US"},
-        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"},
         {"region": "QC", "model": "X", "sales": 42, "country": "CA"},
-        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"}
+        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"}
       ])";
     expected_physical_schema_ =
         SchemaFromColumnNames(source_schema_, {"region", "model", "sales", "country"});
@@ -1139,27 +1139,27 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
     expected_files_["/new_root/US/NY/dat_0"] = R"([
-        {"year": 2018, "month": 1, "model": "3", "sales": 742.0},
-        {"year": 2018, "month": 1, "model": "S", "sales": 304.125},
         {"year": 2018, "month": 1, "model": "Y", "sales": 27.5},
-        {"year": 2018, "month": 1, "model": "X", "sales": 136.25}
-  ])";
+        {"year": 2018, "month": 1, "model": "X", "sales": 136.25},
+        {"year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"year": 2018, "month": 1, "model": "3", "sales": 742.0}
+    ])";
     expected_files_["/new_root/CA/QC/dat_0"] = R"([
-        {"year": 2018, "month": 1, "model": "3", "sales": 512},
-        {"year": 2018, "month": 1, "model": "S", "sales": 978},
         {"year": 2018, "month": 1, "model": "X", "sales": 1.0},
-        {"year": 2018, "month": 1, "model": "Y", "sales": 69},
         {"year": 2019, "month": 1, "model": "S", "sales": 10},
-        {"year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 37},
         {"year": 2019, "month": 1, "model": "X", "sales": 42},
-        {"year": 2019, "month": 1, "model": "Y", "sales": 37}
-  ])";
+        {"year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"year": 2018, "month": 1, "model": "S", "sales": 978}
+    ])";
     expected_files_["/new_root/US/CA/dat_0"] = R"([
-        {"year": 2019, "month": 1, "model": "3", "sales": 273.5},
         {"year": 2019, "month": 1, "model": "S", "sales": 13},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 21},
         {"year": 2019, "month": 1, "model": "X", "sales": 54},
-        {"year": 2019, "month": 1, "model": "Y", "sales": 21}
-  ])";
+        {"year": 2019, "month": 1, "model": "3", "sales": 273.5}
+    ])";
     expected_physical_schema_ =
         SchemaFromColumnNames(source_schema_, {"model", "sales", "year", "month"});
 
@@ -1173,29 +1173,29 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
     expected_files_["/new_root/2018/1/US/NY/dat_0"] = R"([
-        {"model": "3", "sales": 742.0},
-        {"model": "S", "sales": 304.125},
         {"model": "Y", "sales": 27.5},
-        {"model": "X", "sales": 136.25}
-  ])";
+        {"model": "X", "sales": 136.25},
+        {"model": "S", "sales": 304.125},
+        {"model": "3", "sales": 742.0}
+    ])";
     expected_files_["/new_root/2018/1/CA/QC/dat_0"] = R"([
-        {"model": "3", "sales": 512},
-        {"model": "S", "sales": 978},
         {"model": "X", "sales": 1.0},
-        {"model": "Y", "sales": 69}
-  ])";
+        {"model": "Y", "sales": 69},
+        {"model": "3", "sales": 512},
+        {"model": "S", "sales": 978}
+    ])";
     expected_files_["/new_root/2019/1/US/CA/dat_0"] = R"([
-        {"model": "3", "sales": 273.5},
         {"model": "S", "sales": 13},
+        {"model": "Y", "sales": 21},
         {"model": "X", "sales": 54},
-        {"model": "Y", "sales": 21}
-  ])";
+        {"model": "3", "sales": 273.5}
+    ])";
     expected_files_["/new_root/2019/1/CA/QC/dat_0"] = R"([
         {"model": "S", "sales": 10},
-        {"model": "3", "sales": 152.25},
+        {"model": "Y", "sales": 37},
         {"model": "X", "sales": 42},
-        {"model": "Y", "sales": 37}
-  ])";
+        {"model": "3", "sales": 152.25}
+    ])";
     expected_physical_schema_ = SchemaFromColumnNames(source_schema_, {"model", "sales"});
 
     AssertWrittenAsExpected();
@@ -1206,23 +1206,23 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         SchemaFromColumnNames(source_schema_, {})));
 
     expected_files_["/new_root/dat_0"] = R"([
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "S", "sales": 304.125},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "Y", "sales": 27.5},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "3", "sales": 512},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "S", "sales": 978},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "X", "sales": 136.25},
         {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "X", "sales": 1.0},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "Y", "sales": 69},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "3", "sales": 273.5},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "S", "sales": 13},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "X", "sales": 54},
         {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "S", "sales": 10},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "S", "sales": 13},
         {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "Y", "sales": 21},
-        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "Y", "sales": 27.5},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "Y", "sales": 37},
         {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "X", "sales": 42},
-        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "Y", "sales": 37}
-  ])";
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "X", "sales": 54},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "X", "sales": 136.25},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "3", "sales": 273.5},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "S", "sales": 978}
+    ])";
     expected_physical_schema_ = source_schema_;
 
     AssertWrittenAsExpected();
@@ -1270,7 +1270,12 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       for (auto maybe_batch :
            MakeIteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
+        ASSERT_OK_AND_ASSIGN(
+            auto sort_indices,
+            compute::SortIndices(batch->GetColumnByName("sales"),
+                                 compute::SortOptions({compute::SortKey{"sales"}})));
+        ASSERT_OK_AND_ASSIGN(Datum sorted_batch, compute::Take(batch, sort_indices));
+        ASSERT_OK_AND_ASSIGN(actual_struct, sorted_batch.record_batch()->ToStructArray());
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),

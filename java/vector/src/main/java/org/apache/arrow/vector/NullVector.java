@@ -199,6 +199,14 @@ public class NullVector implements FieldVector {
     return Collections.emptyList();
   }
 
+  /**
+   * Get the inner vectors.
+   *
+   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
+   *
+   * @return the inner vectors for this field as defined by the TypeLayout
+   */
+  @Deprecated
   @Override
   public List<BufferBacked> getFieldInnerVectors() {
     return Collections.emptyList();

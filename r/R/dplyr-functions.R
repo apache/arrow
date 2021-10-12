@@ -255,6 +255,10 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   assert_that(is.null(n))
   nse_funcs$is.logical(x)
 }
+nse_funcs$is_timestamp <- function(x, n = NULL) {
+  assert_that(is.null(n))
+  inherits(x, "POSIXt") || (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
+}
 
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
@@ -597,6 +601,50 @@ nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), 
   )
 }
 
+nse_funcs$startsWith <- function(x, prefix) {
+  Expression$create(
+    "starts_with",
+    x,
+    options = list(pattern = prefix)
+  )
+}
+
+nse_funcs$endsWith <- function(x, suffix) {
+  Expression$create(
+    "ends_with",
+    x,
+    options = list(pattern = suffix)
+  )
+}
+
+nse_funcs$str_starts <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$startsWith(x = string, prefix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
+nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$endsWith(x = string, suffix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2
@@ -714,7 +762,11 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
   # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
   # cast the timestamp to desired timezone. This is a metadata only change.
-  ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+  if (nse_funcs$is_timestamp(x)) {
+    ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+  } else {
+    ts <- x
+  }
   Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
 

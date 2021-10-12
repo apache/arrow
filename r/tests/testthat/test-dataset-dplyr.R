@@ -186,13 +186,14 @@ test_that("collect() on Dataset works (if fits in memory)", {
 })
 
 test_that("count()", {
-  skip("count() is not a generic so we have to get here through summarize()")
   ds <- open_dataset(dataset_dir)
   df <- rbind(df1, df2)
   expect_equal(
     ds %>%
       filter(int > 6, int < 108) %>%
-      count(chr),
+      count(chr) %>%
+      arrange(chr) %>%
+      collect(),
     df %>%
       filter(int > 6, int < 108) %>%
       count(chr)

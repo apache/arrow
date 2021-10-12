@@ -72,6 +72,11 @@ R_xlen_t Standard_Get_region<int>(SEXP data2, R_xlen_t i, R_xlen_t n, int* buf) 
 void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
 using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
+// the Array that is being wrapped by the altrep object
+static const std::shared_ptr<Array>& GetArray(SEXP alt) {
+  return *Pointer(R_altrep_data1(alt));
+}
+
 // base class for all altrep vectors
 //
 // data1: the Array as an external pointer.
@@ -87,11 +92,6 @@ struct AltrepVectorBase {
     MARK_NOT_MUTABLE(alt);
 
     return alt;
-  }
-
-  // the Array that is being wrapped by the altrep object
-  static const std::shared_ptr<Array>& GetArray(SEXP alt) {
-    return *Pointer(R_altrep_data1(alt));
   }
 
   // Is the vector materialized, i.e. does the data2 slot contain a
@@ -176,7 +176,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     }
 
     // the Array has no nulls, we can directly return the start of its data
-    const auto& array = Base::GetArray(alt);
+    const auto& array = GetArray(alt);
     if (array->null_count() == 0) {
       return reinterpret_cast<const void*>(array->data()->template GetValues<c_type>(1));
     }
@@ -190,7 +190,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // If the object hasn't been materialized, and the array has no
     // nulls we can directly point to the array data.
     if (!Base::IsMaterialized(alt)) {
-      const auto& array = Base::GetArray(alt);
+      const auto& array = GetArray(alt);
 
       if (array->null_count() == 0) {
         return reinterpret_cast<void*>(
@@ -215,7 +215,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
-    const auto& array = Base::GetArray(alt);
+    const auto& array = GetArray(alt);
     return array->IsNull(i) ? cpp11::na<c_type>()
                             : array->data()->template GetValues<c_type>(1)[i];
   }
@@ -237,7 +237,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // array has nulls
     //
     // This only materialize the region, into buf. Not the entire vector.
-    auto slice = Base::GetArray(alt)->Slice(i, n);
+    auto slice = GetArray(alt)->Slice(i, n);
     R_xlen_t ncopy = slice->length();
 
     // first copy the data buffer
@@ -273,7 +273,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     using scalar_type =
         typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
-    const auto& array = Base::GetArray(alt);
+    const auto& array = GetArray(alt);
     bool na_rm = narm == TRUE;
     auto n = array->length();
     auto null_count = array->null_count();
@@ -303,7 +303,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   static SEXP Sum(SEXP alt, Rboolean narm) {
     using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
-    const auto& array = Base::GetArray(alt);
+    const auto& array = GetArray(alt);
     bool na_rm = narm == TRUE;
     auto null_count = array->null_count();
 
@@ -436,7 +436,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    const auto& array = Base::GetArray(alt);
+    const auto& array = GetArray(alt);
     RStringViewer r_string_viewer(array);
 
     // r_string_viewer.Convert(i) might jump so it's wrapped
@@ -463,7 +463,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
     BEGIN_CPP11
 
-    const auto& array = Base::GetArray(alt);
+    const auto& array = GetArray(alt);
     R_xlen_t n = array->length();
     SEXP data2 = PROTECT(Rf_allocVector(STRSXP, n));
     MARK_NOT_MUTABLE(data2);
@@ -629,6 +629,25 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
   return R_NilValue;
 }
 
+bool is_arrow_altrep(SEXP x) {
+  if (ALTREP(x)) {
+    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(ALTREP_CLASS(x));
+    SEXP pkg = ALTREP_SERIALIZED_CLASS_PKGSYM(info);
+
+    if (pkg == symbols::arrow) return true;
+  }
+
+  return false;
+}
+
+std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP x) {
+  if (is_arrow_altrep(x)) {
+    return GetArray(x);
+  }
+
+  return nullptr;
+}
+
 }  // namespace altrep
 }  // namespace r
 }  // namespace arrow
@@ -644,6 +663,10 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
   return R_NilValue;
 }
 
+bool is_arrow_altrep(SEXP) { return false; }
+
+std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP x) { return nullptr; }
+
 }  // namespace altrep
 }  // namespace r
 }  // namespace arrow
@@ -652,5 +675,16 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 
 // [[arrow::export]]
 void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden")); }
+
+// [[arrow::export]]
+bool test_same_Array(SEXP x, SEXP y) {
+  auto* p_x = reinterpret_cast<std::shared_ptr<arrow::Array>*>(x);
+  auto* p_y = reinterpret_cast<std::shared_ptr<arrow::Array>*>(y);
+
+  return p_x->get() == p_y->get();
+}
+
+// [[arrow::export]]
+bool is_arrow_altrep(SEXP x) { return arrow::r::altrep::is_arrow_altrep(x); }
 
 #endif
