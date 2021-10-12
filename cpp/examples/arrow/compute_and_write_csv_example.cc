@@ -34,14 +34,13 @@
 // out to a CSV file.
 //
 // To run this example you can use
-// ./compute_and_write_csv_example 
+// ./compute_and_write_csv_example
 //
-// the program will write the files into 
-// compute_and_write_output.csv 
+// the program will write the files into
+// compute_and_write_output.csv
 // in the current directory
 
 arrow::Status RunMain(int argc, char** argv) {
-
   // Make Arrays
   arrow::NumericBuilder<arrow::Int64Type> int64_builder;
   arrow::BooleanBuilder boolean_builder;
@@ -78,40 +77,36 @@ arrow::Status RunMain(int argc, char** argv) {
   std::cout << "Array explicitly compared" << std::endl;
 
   // Explicit comparison of values using a compute function
-  ARROW_ASSIGN_OR_RAISE(arrow::Datum compared_datum, 
+  ARROW_ASSIGN_OR_RAISE(arrow::Datum compared_datum,
                         arrow::compute::CallFunction("greater", {array_a, array_b}));
   auto array_a_gt_b_compute = compared_datum.make_array();
   std::cout << "Arrays compared using a compute function" << std::endl;
 
   // Create a table for the output
   auto schema =
-    arrow::schema({arrow::field("a", arrow::int64()), 
-                   arrow::field("b", arrow::int64()),
-                   arrow::field("a>b? (self written)", arrow::boolean()),
-                   arrow::field("a>b? (arrow)", arrow::boolean())});
-  std::shared_ptr<arrow::Table> my_table =
-    arrow::Table::Make(schema, {array_a, array_b, 
-		                array_a_gt_b_self, array_a_gt_b_compute});
+      arrow::schema({arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64()),
+                     arrow::field("a>b? (self written)", arrow::boolean()),
+                     arrow::field("a>b? (arrow)", arrow::boolean())});
+  std::shared_ptr<arrow::Table> my_table = arrow::Table::Make(
+      schema, {array_a, array_b, array_a_gt_b_self, array_a_gt_b_compute});
 
   std::cout << "Table created" << std::endl;
 
   // Write table to CSV file
   auto csv_filename = "compute_and_write_output.csv";
-  ARROW_ASSIGN_OR_RAISE(auto outstream, 
-                        arrow::io::FileOutputStream::Open(csv_filename));
+  ARROW_ASSIGN_OR_RAISE(auto outstream, arrow::io::FileOutputStream::Open(csv_filename));
 
   std::cout << "Writing CSV file" << std::endl;
-  ARROW_RETURN_NOT_OK(arrow::csv::WriteCSV(*my_table,
-                      arrow::csv::WriteOptions::Defaults(),
-                      outstream.get()));
+  ARROW_RETURN_NOT_OK(arrow::csv::WriteCSV(
+      *my_table, arrow::csv::WriteOptions::Defaults(), outstream.get()));
 
   return arrow::Status::OK();
 }
 
 int main(int argc, char** argv) {
   arrow::Status status = RunMain(argc, argv);
-  if (!st.ok()) {
-    std::cerr << st << std::endl;
+  if (!status.ok()) {
+    std::cerr << status << std::endl;
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
