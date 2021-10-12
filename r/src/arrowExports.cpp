@@ -1142,6 +1142,22 @@ extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP s
 #endif
 
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan);
+extern "C" SEXP _arrow_ExecPlan_StopProducing(SEXP plan_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	ExecPlan_StopProducing(plan);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecPlan_StopProducing(SEXP plan_sexp){
+	Rf_error("Cannot call ExecPlan_StopProducing(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<compute::ExecNode>& node);
 extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
@@ -2252,6 +2268,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 	Rf_error("Cannot call dataset___ScannerBuilder__Finish(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::ScannerBuilder> dataset___ScannerBuilder__FromRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_dataset___ScannerBuilder__FromRecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(dataset___ScannerBuilder__FromRecordBatchReader(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___ScannerBuilder__FromRecordBatchReader(SEXP reader_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__FromRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7193,6 +7224,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 3}, 
+		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
@@ -7262,6 +7294,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ScannerBuilder__FragmentScanOptions", (DL_FUNC) &_arrow_dataset___ScannerBuilder__FragmentScanOptions, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
+		{ "_arrow_dataset___ScannerBuilder__FromRecordBatchReader", (DL_FUNC) &_arrow_dataset___ScannerBuilder__FromRecordBatchReader, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_dataset___Scanner__ScanBatches", (DL_FUNC) &_arrow_dataset___Scanner__ScanBatches, 1}, 
 		{ "_arrow_dataset___Scanner__ToRecordBatchReader", (DL_FUNC) &_arrow_dataset___Scanner__ToRecordBatchReader, 1}, 

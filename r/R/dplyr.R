@@ -162,22 +162,33 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO (ARROW-13893): refactor
-  out <- head.Dataset(x, n, ...)
-  restore_dplyr_features(out, x)
+  x$head <- n
+  collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO (ARROW-13893): refactor
-  out <- tail.Dataset(x, n, ...)
-  restore_dplyr_features(out, x)
+  x$tail <- n
+  collapse.arrow_dplyr_query(x)
 }
 
 #' @export
-`[.arrow_dplyr_query` <- `[.Dataset`
-# TODO: ^ should also probably restore_dplyr_features, and/or that should be moved down
-# TODO (ARROW-13893): refactor
+`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
+  x <- ensure_group_vars(x)
+  if (nargs() == 2L) {
+    # List-like column extraction (x[i])
+    return(x[, i])
+  }
+  if (!missing(j)) {
+    x <- select.arrow_dplyr_query(x, all_of(j))
+  }
+
+  if (!missing(i)) {
+    out <- take_dataset_rows(x, i)
+    x <- restore_dplyr_features(out, x)
+  }
+  x
+}
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
@@ -239,4 +250,8 @@ is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 has_aggregation <- function(x) {
   # TODO: update with joins (check right side data too)
   !is.null(x$aggregations) || (is_collapsed(x) && has_aggregation(x$.data))
+}
+
+has_head_tail <- function(x) {
+  !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))
 }

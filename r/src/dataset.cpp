@@ -452,6 +452,12 @@ std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(
 }
 
 // [[dataset::export]]
+std::shared_ptr<ds::ScannerBuilder> dataset___ScannerBuilder__FromRecordBatchReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  return (ds::ScannerBuilder::FromRecordBatchReader(reader));
+}
+
+// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
     const std::shared_ptr<ds::Scanner>& scanner) {
   return ValueOrStop(scanner->ToTable());

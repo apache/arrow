@@ -94,6 +94,11 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
       [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
 }
 
+// [[arrow::export]]
+void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan) {
+  plan->StopProducing();
+}
+
 #if defined(ARROW_R_WITH_DATASET)
 
 #include <arrow/dataset/plan.h>

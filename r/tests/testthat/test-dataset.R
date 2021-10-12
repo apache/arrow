@@ -419,31 +419,18 @@ test_that("partitioning = NULL to ignore partition information (but why?)", {
 })
 
 test_that("head/tail", {
+  # head/tail with no query are still deterministic order
   ds <- open_dataset(dataset_dir)
   expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(
     as.data.frame(head(ds, 12)),
     rbind(df1, df2[1:2, ])
   )
-  expect_equal(
-    ds %>%
-      filter(int > 6) %>%
-      head() %>%
-      as.data.frame(),
-    rbind(df1[7:10, ], df2[1:2, ])
-  )
 
   expect_equal(as.data.frame(tail(ds)), tail(df2))
   expect_equal(
     as.data.frame(tail(ds, 12)),
     rbind(df1[9:10, ], df2)
-  )
-  expect_equal(
-    ds %>%
-      filter(int < 105) %>%
-      tail() %>%
-      as.data.frame(),
-    rbind(df1[9:10, ], df2[1:4, ])
   )
 })
 
