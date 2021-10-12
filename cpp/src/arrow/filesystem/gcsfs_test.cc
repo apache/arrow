@@ -28,7 +28,7 @@
 #include <string>
 
 #include "arrow/filesystem/gcsfs_internal.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/testing/util.h"
 
 namespace arrow {
@@ -65,7 +65,7 @@ class GcsIntegrationTest : public ::testing::Test {
     server_process_ = bp::child(boost::this_process::environment(), exe_path, "-m",
                                 "testbench", "--port", port_);
 
-    // Create a bucket in the testbench so additional
+    // Create a bucket in the testbench, simplifying some of the tests.
     auto client = gcs::Client(
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
@@ -157,7 +157,7 @@ TEST(GcsFileSystem, FileSystemCompare) {
 
 TEST_F(GcsIntegrationTest, MakeBucket) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
-  ASSERT_OK(fs->GetFileInfo(kPreexistingBucket));
+  arrow::fs::AssertFileInfo(fs.get(), kPreexistingBucket, FileType::Directory);
 }
 
 }  // namespace
