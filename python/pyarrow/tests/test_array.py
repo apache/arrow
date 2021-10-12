@@ -2783,11 +2783,11 @@ def test_array_supported_masks():
                        mask=pa.array([False, None, False, True]))
 
     # Numpy arrays only accepts numpy masks
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         arr = pa.array(np.array([4, None, 4, 3.]),
                        mask=[True, False, True, False])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         arr = pa.array(np.array([4, None, 4, 3.]),
                        mask=pa.array([True, False, True, False]))
 
@@ -2841,7 +2841,7 @@ def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
         ([1, 2], np.array([False, False], dtype="O"),
-         pa.ArrowInvalid, "must be boolean dtype"),
+         TypeError, "must be boolean dtype"),
 
         ([1, 2], np.array([[False], [False]]),
          pa.ArrowInvalid, "must be 1D array"),
