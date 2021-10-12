@@ -104,12 +104,12 @@ test_that("chunked array become altrep", {
   a <- Array$create(s1)
   v <- a$as_vector()
   expect_equal(v, s1)
-  expect_true(is_altrep(v))
+  expect_true(is_arrow_altrep(v))
 
   ca <- ChunkedArray$create(s1, s2)
   cv <- ca$as_vector()
   expect_equal(cv, c(s1, s2))
-  expect_true(is_altrep(cv))
+  expect_true(is_arrow_altrep(cv))
 
   # chunked array with 2 chunks
   c_int <- ChunkedArray$create(0L, c(1L, NA, 3L))
@@ -117,8 +117,8 @@ test_that("chunked array become altrep", {
   expect_equal(c_int$num_chunks, 2L)
   expect_equal(c_dbl$num_chunks, 2L)
 
-  expect_true(is_altrep(as.vector(c_int)))
-  expect_true(is_altrep(as.vector(c_dbl)))
+  expect_true(is_arrow_altrep(as.vector(c_int)))
+  expect_true(is_arrow_altrep(as.vector(c_dbl)))
 })
 
 
