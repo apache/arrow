@@ -2755,13 +2755,17 @@ def test_array_masked():
     assert arr.to_pylist() == [4, None, 4, None]
 
     # Non boolean values
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
                        mask=pa.array([1.0, 2.0, 3.0, 4.0]))
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
                        mask=[1.0, 2.0, 3.0, 4.0])
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=np.array([1.0, 2.0, 3.0, 4.0]))
 
     # Numpy arrays only accepts numpy masks
     with pytest.raises(ValueError):

@@ -118,17 +118,17 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
             return func(value, mask_values[i], keep_going);
           });
     } else {
-      return Status::Invalid("Mask must be boolean dtype");
+      return Status::TypeError("Mask must be boolean dtype");
     }
   } else if (py::is_array(mo)) {
     auto unwrap_mask_result = unwrap_array(mo);
     if (!unwrap_mask_result.ok()) {
-      return Status::Invalid("Mask must be an array of booleans");
+      return Status::TypeError("Mask must be an array of booleans");
     }
     std::shared_ptr<Array> mask_ = unwrap_mask_result.ValueOrDie();
     BooleanArray* boolmask = dynamic_cast<BooleanArray*>(mask_.get());
     if (boolmask == nullptr) {
-      return Status::Invalid("Mask must be an array of booleans");
+      return Status::TypeError("Mask must be an array of booleans");
     }
 
     if (mask_->length() != PySequence_Size(obj)) {
@@ -149,7 +149,7 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
         obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
           OwnedRef value_ref(PySequence_ITEM(mo, i));
           if (!PyBool_Check(value_ref.obj()))
-            return Status::Invalid("Mask must be a sequence of booleans");
+            return Status::TypeError("Mask must be a sequence of booleans");
           return func(value, value_ref.obj() == Py_True, keep_going);
         });
   } else {
