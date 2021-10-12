@@ -3417,8 +3417,8 @@ def test_write_dataset_with_backpressure(tempdir):
             yield batch
 
     scanner = ds.Scanner.from_batches(
-            counting_generator(), schema=schema, use_threads=True,
-            use_async=True)
+        counting_generator(), schema=schema, use_threads=True,
+        use_async=True)
 
     write_thread = threading.Thread(
         target=lambda: ds.write_dataset(
