@@ -268,7 +268,7 @@ test_that("columns of struct types may be altrep", {
   expect_equal(df$y, rep(numbers, 2))
 })
 
-test_that("Conversion from altrep R vector to Array uses the existing Array", {
+test_that("Conversion from altrep R vector to Array uses the existing Array/ChunkedArray", {
   a_int <- Array$create(c(1L, 2L, 3L))
   b_int <- Array$create(a_int$as_vector())
   expect_true(test_same_Array(a_int$pointer(), b_int$pointer()))
@@ -280,7 +280,23 @@ test_that("Conversion from altrep R vector to Array uses the existing Array", {
   a_str <- Array$create(c("un", "deux", "trois"))
   b_str <- Array$create(a_str$as_vector())
   expect_true(test_same_Array(a_str$pointer(), b_str$pointer()))
+
+  ca_int <- ChunkedArray$create(c(1L, 2L, 3L), c(4L, 5L, 6L))
+  cb_int <- ChunkedArray$create(ca_int$as_vector())
+  expect_true(test_same_Array(ca_int$chunk(0)$pointer(), cb_int$chunk(0)$pointer()))
+  expect_true(test_same_Array(ca_int$chunk(1)$pointer(), cb_int$chunk(1)$pointer()))
+
+  ca_dbl <- ChunkedArray$create(c(1, 2, 3), c(4, 5, 6))
+  cb_dbl <- ChunkedArray$create(ca_dbl$as_vector())
+  expect_true(test_same_Array(ca_dbl$chunk(0)$pointer(), cb_dbl$chunk(0)$pointer()))
+  expect_true(test_same_Array(ca_dbl$chunk(1)$pointer(), cb_dbl$chunk(1)$pointer()))
+
+  ca_str <- ChunkedArray$create(c("un", "deux", "trois"), c("quatre", "cinq", "six"))
+  cb_str <- ChunkedArray$create(ca_str$as_vector())
+  expect_true(test_same_Array(ca_str$chunk(0)$pointer(), cb_str$chunk(0)$pointer()))
+  expect_true(test_same_Array(ca_str$chunk(0)$pointer(), cb_str$chunk(0)$pointer()))
 })
+
 
 test_that("R checks for bounds", {
   v_int <- Array$create(c(1, 2, 3))$as_vector()
