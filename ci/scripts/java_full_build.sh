@@ -20,7 +20,7 @@
 set -e
 
 arrow_dir=${1}
-dist_dir=${3}
+dist_dir=${2}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 
