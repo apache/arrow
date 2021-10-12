@@ -28,6 +28,12 @@ public class JniWrapper {
   }
 
   private JniWrapper() {
+    // A best effort to error on 32-bit systems
+    String dataModel = System.getProperty("sun.arch.data.model");
+    if (dataModel != null && dataModel.equals("32")) {
+      throw new UnsupportedOperationException(
+          "The Java C Data Interface implementation is currently only supported on 64-bit systems");
+    }
     JniLoader.get().ensureLoaded();
   }
 
