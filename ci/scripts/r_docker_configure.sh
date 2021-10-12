@@ -28,7 +28,7 @@ if [ -f "/arrow/ci/etc/rprofile" ]; then
 fi
 
 # Ensure parallel compilation of C/C++ code
-echo "MAKEFLAGS=-j$(${R_BIN} -s -e 'cat(parallel::detectCores())')" >> $(${R_BIN} RHOME)/etc/Makeconf
+echo "MAKEFLAGS=-j$(${R_BIN} -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
 
 # Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
 # which uses a bespoke clang compiled to use libc++
