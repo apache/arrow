@@ -78,10 +78,9 @@ arrow::Status RunMain(int argc, char** argv) {
   std::cout << "Array explicitly compared" << std::endl;
 
   // Explicit comparison of values using a compute function
-  std::shared_ptr<arrow::Array> array_a_gt_b_compute;
   ARROW_ASSIGN_OR_RAISE(arrow::Datum compared_datum, 
                         arrow::compute::CallFunction("greater", {array_a, array_b}));
-  array_a_gt_b_compute = compared_datum.make_array();
+  auto array_a_gt_b_compute = compared_datum.make_array();
   std::cout << "Arrays compared using a compute function" << std::endl;
 
   // Create a table for the output
