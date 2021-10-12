@@ -138,7 +138,7 @@ Schema <- R6Class("Schema",
 )
 Schema$create <- function(...) {
   .list <- list2(...)
-  if (all(map_lgl(.list, ~ inherits(. "Field")))) {
+  if (all(map_lgl(.list, ~ inherits(., "Field")))) {
     schema_(.list)
   } else {
     schema_(.fields(.list))
