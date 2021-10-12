@@ -73,6 +73,29 @@ std::shared_ptr<ColumnPath> ColumnPath::FromNode(const Node& node) {
   return std::make_shared<ColumnPath>(std::move(path));
 }
 
+std::shared_ptr<ColumnPath> ColumnPath::ShortFromNode(const Node& node) {
+  // Build the path in reverse order as we traverse the nodes to the top
+  std::vector<std::string> rpath_;
+  const Node* cursor = &node;
+  while (cursor->parent()) {
+    if (cursor->is_group()) {
+      auto group = dynamic_cast<const GroupNode*>(cursor);
+      // If we have a parent list node, remove the names of the two direct
+      // child nodes (list.element)
+      if (group->logical_type()->is_list()) {
+        rpath_.pop_back();
+        rpath_.pop_back();
+      }
+    }
+    rpath_.push_back(cursor->name());
+    cursor = cursor->parent();
+  }
+
+  // Build ColumnPath in correct order
+  std::vector<std::string> path(rpath_.crbegin(), rpath_.crend());
+  return std::make_shared<ColumnPath>(std::move(path));
+}
+
 std::shared_ptr<ColumnPath> ColumnPath::extend(const std::string& node_name) const {
   std::vector<std::string> path;
   path.reserve(path_.size() + 1);
@@ -103,6 +126,10 @@ const std::shared_ptr<ColumnPath> Node::path() const {
   // TODO(itaiin): Cache the result, or more precisely, cache ->ToDotString()
   //    since it is being used to access the leaf nodes
   return ColumnPath::FromNode(*this);
+}
+
+const std::shared_ptr<ColumnPath> Node::short_path() const {
+  return ColumnPath::ShortFromNode(*this);
 }
 
 bool Node::EqualsInternal(const Node* other) const {
@@ -940,6 +967,10 @@ int ColumnDescriptor::type_length() const { return primitive_node_->type_length(
 
 const std::shared_ptr<ColumnPath> ColumnDescriptor::path() const {
   return primitive_node_->path();
+}
+
+const std::shared_ptr<ColumnPath> ColumnDescriptor::short_path() const {
+  return primitive_node_->short_path();
 }
 
 }  // namespace parquet

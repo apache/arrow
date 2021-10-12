@@ -237,21 +237,23 @@ class ParquetFile:
         self._nested_paths_by_prefix = self._build_nested_paths()
 
     def _build_nested_paths(self):
-        paths = self.reader.column_paths
+        column_paths = self.reader.column_paths
 
         result = defaultdict(list)
 
-        for i, path in enumerate(paths):
-            key = path[0]
-            rest = path[1:]
-            while True:
-                result[key].append(i)
+        for i, paths in enumerate(column_paths):
+            for path in paths:
+                key = path[0]
+                rest = path[1:]
+                while True:
+                    if i not in result[key]:
+                        result[key].append(i)
 
-                if not rest:
-                    break
+                    if not rest:
+                        break
 
-                key = '.'.join((key, rest[0]))
-                rest = rest[1:]
+                    key = '.'.join((key, rest[0]))
+                    rest = rest[1:]
 
         return result
 

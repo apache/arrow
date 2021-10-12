@@ -274,3 +274,75 @@ def test_pre_buffer(pre_buffer):
     buf.seek(0)
     pf = pq.ParquetFile(buf, pre_buffer=pre_buffer)
     assert pf.read().num_rows == N
+
+
+def test_column_selection(tempdir):
+    # create a table with nested types
+    inner = pa.field('inner', pa.int64())
+    middle = pa.field('middle', pa.struct([inner]))
+    fields = [
+        pa.field('basic', pa.int32()),
+        pa.field(
+            'list', pa.list_(pa.field('item', pa.int32()))
+        ),
+        pa.field(
+            'struct', pa.struct([middle, pa.field('inner2', pa.int64())])
+        ),
+        pa.field(
+            'list-struct', pa.list_(pa.field(
+                'item', pa.struct([
+                    pa.field('inner1', pa.int64()),
+                    pa.field('inner2', pa.int64())
+                ])
+            ))
+        ),
+        pa.field('basic2', pa.int64()),
+    ]
+    arrs = [
+        [0], [[1, 2]], [{"middle": {"inner": 3}, "inner2": 4}],
+        [[{"inner1": 5, "inner2": 6}, {"inner1": 7, "inner2": 8}]], [9]]
+    table = pa.table(arrs, schema=pa.schema(fields))
+
+    path = str(tempdir / 'test.parquet')
+    pq.write_table(table, path)
+    pf = pq.ParquetFile(path)
+
+    # default selecting all columns
+    result1 = pf.read()
+    assert result1.equals(table)
+
+    # selecting with columns names
+    result2 = pf.read(columns=["basic", "basic2"])
+    assert result2.equals(table.select(["basic", "basic2"]))
+
+    result3 = pf.read(columns=["list", "struct", "basic2"])
+    assert result3.equals(table.select(["list", "struct", "basic2"]))
+
+    # using dotted paths
+    result4 = pf.read(columns=["struct.middle.inner"])
+    expected4 = pa.table({"struct": [{"middle": {"inner": 3}}]})
+    assert result4.equals(expected4)
+
+    result5 = pf.read(columns=["struct.inner2"])
+    expected5 = pa.table({"struct": [{"inner2": 4}]})
+    assert result5.equals(expected5)
+
+    result6 = pf.read(
+        columns=["list", "struct.middle.inner", "struct.inner2"]
+    )
+    assert result6.equals(table.select(["list", "struct"]))
+
+    # dotted paths for lists with or without list.item
+
+    # result7 = pf.read(columns=["list-struct.list.item.inner1"])
+    # expected7 = pa.table({"list-struct": [[{"inner1": 5}, {"inner1": 7}]]})
+    # assert result7.equals(expected7)
+
+    # result7b = pf.read(columns=["list-struct.inner1"])
+    # assert result7b.equals(expected7)
+
+    # empty table on non-existing name
+    # TODO is this the behaviour we want?
+    empty = pf.read(columns=["wrong"])
+    assert empty.num_columns == 0
+    assert empty.num_rows == 1

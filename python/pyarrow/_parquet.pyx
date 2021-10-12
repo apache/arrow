@@ -768,6 +768,10 @@ cdef class ColumnSchema(_Weakrefable):
         return frombytes(self.descr.path().get().ToDotString())
 
     @property
+    def short_path(self):
+        return frombytes(self.descr.short_path().get().ToDotString())
+
+    @property
     def max_definition_level(self):
         return self.descr.max_definition_level()
 
@@ -997,14 +1001,21 @@ cdef class ParquetReader(_Weakrefable):
         cdef:
             FileMetaData container = self.metadata
             const CFileMetaData* metadata = container._metadata
-            vector[c_string] path
+            vector[c_string] c_path
             int i = 0
 
         paths = []
         for i in range(0, metadata.num_columns()):
-            path = (metadata.schema().Column(i)
-                    .path().get().ToDotVector())
-            paths.append([frombytes(x) for x in path])
+            c_path = (metadata.schema().Column(i)
+                      .path().get().ToDotVector())
+            path = [frombytes(x) for x in c_path]
+            c_path = (metadata.schema().Column(i)
+                      .short_path().get().ToDotVector())
+            short_path = [frombytes(x) for x in c_path]
+            if path == short_path:
+                paths.append((path, ))
+            else:
+                paths.append((path, short_path))
 
         return paths
 

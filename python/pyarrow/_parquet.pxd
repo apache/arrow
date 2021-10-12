@@ -171,6 +171,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         c_bool Equals(const ColumnDescriptor& other)
 
         shared_ptr[ColumnPath] path()
+        shared_ptr[ColumnPath] short_path()
         int16_t max_definition_level()
         int16_t max_repetition_level()
 
