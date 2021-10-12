@@ -459,6 +459,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
   FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
+
   const std::string query = "SELECT * FROM IRRELEVANT";
   const FlightCallOptions call_options;
   int64_t expected_rows = 100L;
@@ -470,6 +471,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
   prepared_statement_result.set_prepared_statement_handle(query);
   command.PackFrom(prepared_statement_result);
   const std::string& serializedCommand = command.SerializeAsString();
+
   ON_CALL(*client_mock, DoAction)
       .WillByDefault([&serializedCommand](const FlightCallOptions& options,
                                           const Action& action,
@@ -479,6 +481,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
         return Status::OK();
       });
   EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
+
   ON_CALL(*client_mock, DoPut)
       .WillByDefault([&buffer](const FlightCallOptions& options,
                                const FlightDescriptor& descriptor1,
@@ -490,6 +493,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
         return Status::OK();
       });
   EXPECT_CALL(*client_mock, DoPut(_, _, _, _, _));
+
   int64_t rows;
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
   ASSERT_OK(sql_client.Prepare(call_options, query, &prepared_statement));
@@ -501,6 +505,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
   FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
+
   const std::string query = "SELECT * FROM IRRELEVANT";
   const FlightCallOptions call_options;
   int64_t expected_rows = 100L;
@@ -512,6 +517,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
   prepared_statement_result.set_prepared_statement_handle(query);
   command.PackFrom(prepared_statement_result);
   const std::string& serializedCommand = command.SerializeAsString();
+
   ON_CALL(*client_mock, DoAction)
       .WillByDefault([&serializedCommand](const FlightCallOptions& options,
                                           const Action& action,
@@ -521,6 +527,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
         return Status::OK();
       });
   EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
+
   ON_CALL(*client_mock, DoPut)
       .WillByDefault([&buffer](const FlightCallOptions& options,
                                const FlightDescriptor& descriptor1,
@@ -537,6 +544,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
   const auto& schema = arrow::schema(
       {arrow::field("field0", arrow::utf8()),
        arrow::field("field1", arrow::uint8())});
+
   std::shared_ptr<Array> stringArray;
   std::shared_ptr<Array> uInt8Array;
   const std::vector<std::string> stringData {"Loren", "Ipsum", "Foo", "Bar", "Baz"};
@@ -545,6 +553,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
   ArrayFromVector<UInt8Type, uint8_t>(uInt8Data, &uInt8Array);
   std::shared_ptr<RecordBatch> recordBatch =
       RecordBatch::Make(schema, 100, {stringArray, uInt8Array});
+
   EXPECT_CALL(*client_mock, DoPut(_, _, schema, _, _));
   ASSERT_OK(prepared_statement->SetParameters(recordBatch));
   ASSERT_OK(prepared_statement->ExecuteUpdate(&rows));

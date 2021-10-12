@@ -60,6 +60,11 @@ class ARROW_EXPORT PreparedStatementT {
   /// \return Status.
   Status Execute(std::unique_ptr<FlightInfo>* info);
 
+  /// \brief Executes the prepared statement update query on the server.
+  /// \param rows[out] The number of rows affected.
+  /// \return Status.
+  Status ExecuteUpdate(int64_t* rows);
+
   /// \brief Retrieve the parameter schema from the query.
   /// \param schema   The parameter schema from the query.
   /// \return         Status.

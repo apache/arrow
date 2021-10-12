@@ -317,12 +317,14 @@ Status PreparedStatementT<T>::ExecuteUpdate(int64_t* rows) {
   if (is_closed) {
     return Status::Invalid("Statement already closed.");
   }
+
   pb::sql::CommandPreparedStatementUpdate command;
   command.set_prepared_statement_handle(
       prepared_statement_result.prepared_statement_handle());
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
+
   if (parameter_binding && parameter_binding->num_rows() > 0) {
     ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, parameter_binding->schema(),
                                       &writer, &reader));
@@ -333,12 +335,14 @@ Status PreparedStatementT<T>::ExecuteUpdate(int64_t* rows) {
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(
         *arrow::RecordBatch::Make(schema, 0, (std::vector<std::shared_ptr<Array>>){})));
   }
+
   ARROW_RETURN_NOT_OK(writer->DoneWriting());
   std::shared_ptr<Buffer> metadata;
   ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
   pb::sql::DoPutUpdateResult doPutUpdateResult;
-  const std::string& string = metadata->ToString();
-  doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(string);
+  const std::string& metadataAsString = metadata->ToString();
+
+  doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(metadataAsString);
   *rows = doPutUpdateResult.record_count();
   ARROW_RETURN_NOT_OK(writer->Close());
   return Status::OK();
