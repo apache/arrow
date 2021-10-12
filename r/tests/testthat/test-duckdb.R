@@ -30,7 +30,7 @@ test_that("to_duckdb", {
     ds %>%
       to_duckdb() %>%
       collect() %>%
-      # factors don't roundtrip
+      # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(!fct),
     select(example_data, !fct)
   )
@@ -70,7 +70,7 @@ test_that("to_duckdb then to_arrow", {
 
   ds_rt <- ds %>%
     to_duckdb() %>%
-    # factors don't roundtrip
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
     select(-fct) %>%
     to_arrow()
 
@@ -84,7 +84,7 @@ test_that("to_duckdb then to_arrow", {
   # And we can continue the pipeline
   ds_rt <- ds %>%
     to_duckdb() %>%
-    # factors don't roundtrip
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
     select(-fct) %>%
     to_arrow() %>%
     filter(int > 5)
@@ -100,7 +100,7 @@ test_that("to_duckdb then to_arrow", {
   # Now check errors
   ds_rt <- ds %>%
     to_duckdb() %>%
-    # factors don't roundtrip
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
     select(-fct)
 
   # alter the class of ds_rt's connection to simulate some other database

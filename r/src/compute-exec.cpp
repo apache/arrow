@@ -258,9 +258,9 @@ std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   arrow::compute::SourceNodeOptions options{
-    /*output_schema=*/reader->schema(),
-      /*generator=*/ValueOrStop(compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))
-  };
+      /*output_schema=*/reader->schema(),
+      /*generator=*/ValueOrStop(
+          compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
 
   return MakeExecNodeOrStop("source", plan.get(), {}, options);
 }

@@ -677,12 +677,17 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
   reader_adq <- arrow_dplyr_query(circle)
 
   tab_from_c_new <- reader_adq %>%
-    dplyr::collect()
+    filter(int < 8, int > 55) %>%
+    mutate(part_plus = part + 6) %>%
+    collect()
   expect_equal(
     tab_from_c_new %>%
       arrange(dbl),
     ds %>%
+      filter(int < 8, int > 55) %>%
+      mutate(part_plus = part + 6) %>%
       collect() %>%
+      # TODO: this arrange should be able to be above collect here.
       arrange(dbl)
   )
 
