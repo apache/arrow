@@ -138,12 +138,21 @@ test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   expect_true(is_arrow_altrep(df_batch$str))
 })
 
-expect_altrep_rountrip <- function(x, fn, ...) {
+expect_altrep_rountrip <- function(x, fn, ..., .expect_warning = NA) {
   alt <- Array$create(x)$as_vector()
 
   expect_true(is_arrow_altrep(alt))
-  expect_identical(fn(x, ...), fn(alt, ...))
+  expect_warning(
+    expect_identical(fn(x, ...), fn(alt, ...)), .expect_warning
+  )
   expect_true(is_arrow_altrep(alt))
+
+  alt2 <- ChunkedArray$create(x, x)$as_vector()
+  expect_true(is_arrow_altrep(alt2))
+  expect_warning(
+    expect_identical(fn(c(x, x), ...), fn(alt2, ...)), .expect_warning
+  )
+  expect_true(is_arrow_altrep(alt2))
 }
 
 test_that("altrep min/max/sum identical to R versions for double", {
@@ -166,14 +175,8 @@ test_that("altrep min/max/sum identical to R versions for double", {
   expect_altrep_rountrip(x, sum)
 
   x <- rep(NA_real_, 3)
-  expect_warning(
-    expect_altrep_rountrip(x, min, na.rm = TRUE),
-    "no non-missing arguments to min"
-  )
-  expect_warning(
-    expect_altrep_rountrip(x, max, na.rm = TRUE),
-    "no non-missing arguments to max"
-  )
+  expect_altrep_rountrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
+  expect_altrep_rountrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
   expect_altrep_rountrip(x, sum, na.rm = TRUE)
 
   expect_altrep_rountrip(x, min)
@@ -201,14 +204,8 @@ test_that("altrep min/max/sum identical to R versions for int", {
   expect_altrep_rountrip(x, sum)
 
   x <- rep(NA_integer_, 3)
-  expect_warning(
-    expect_altrep_rountrip(x, min, na.rm = TRUE),
-    "no non-missing arguments to min"
-  )
-  expect_warning(
-    expect_altrep_rountrip(x, max, na.rm = TRUE),
-    "no non-missing arguments to max"
-  )
+  expect_altrep_rountrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
+  expect_altrep_rountrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
   expect_altrep_rountrip(x, sum, na.rm = TRUE)
 
   expect_altrep_rountrip(x, min)
