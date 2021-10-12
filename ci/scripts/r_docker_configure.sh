@@ -72,7 +72,7 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
     /arrow/ci/scripts/install_minio.sh amd64 linux latest /usr/local
   fi
 
-  if [ -f "/arrow/ci/scripts/install_gcs_testbench.sh"] && [ "`which pip`" ]; then
+  if [ -f "/arrow/ci/scripts/install_gcs_testbench.sh" ] && [ "`which pip`" ]; then
     /arrow/ci/scripts/install_gcs_testbench.sh default
   fi
 fi

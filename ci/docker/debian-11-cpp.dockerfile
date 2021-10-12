@@ -71,8 +71,8 @@ RUN apt-get update -y -q && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
-COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 ENV ARROW_BUILD_TESTS=ON \
