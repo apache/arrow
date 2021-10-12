@@ -162,16 +162,14 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  out <- as_adq(x)
-  out$head <- n
-  collapse.arrow_dplyr_query(out)
+  x$head <- n
+  collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  out <- as_adq(x)
-  out$tail <- n
-  collapse.arrow_dplyr_query(out)
+  x$tail <- n
+  collapse.arrow_dplyr_query(x)
 }
 
 #' @export
