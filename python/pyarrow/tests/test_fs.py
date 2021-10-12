@@ -29,7 +29,7 @@ import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.tests.util import _filesystem_uri
+from pyarrow.tests.util import _filesystem_uri, ProxyHandler
 from pyarrow.vendored.version import Version
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
@@ -141,67 +141,6 @@ class DummyHandler(FileSystemHandler):
         if "notfound" in path:
             raise FileNotFoundError(path)
         return pa.BufferOutputStream()
-
-
-class ProxyHandler(FileSystemHandler):
-
-    def __init__(self, fs):
-        self._fs = fs
-
-    def __eq__(self, other):
-        if isinstance(other, ProxyHandler):
-            return self._fs == other._fs
-        return NotImplemented
-
-    def __ne__(self, other):
-        if isinstance(other, ProxyHandler):
-            return self._fs != other._fs
-        return NotImplemented
-
-    def get_type_name(self):
-        return "proxy::" + self._fs.type_name
-
-    def normalize_path(self, path):
-        return self._fs.normalize_path(path)
-
-    def get_file_info(self, paths):
-        return self._fs.get_file_info(paths)
-
-    def get_file_info_selector(self, selector):
-        return self._fs.get_file_info(selector)
-
-    def create_dir(self, path, recursive):
-        return self._fs.create_dir(path, recursive=recursive)
-
-    def delete_dir(self, path):
-        return self._fs.delete_dir(path)
-
-    def delete_dir_contents(self, path):
-        return self._fs.delete_dir_contents(path)
-
-    def delete_root_dir_contents(self):
-        return self._fs.delete_dir_contents("", accept_root_dir=True)
-
-    def delete_file(self, path):
-        return self._fs.delete_file(path)
-
-    def move(self, src, dest):
-        return self._fs.move(src, dest)
-
-    def copy_file(self, src, dest):
-        return self._fs.copy_file(src, dest)
-
-    def open_input_stream(self, path):
-        return self._fs.open_input_stream(path)
-
-    def open_input_file(self, path):
-        return self._fs.open_input_file(path)
-
-    def open_output_stream(self, path, metadata):
-        return self._fs.open_output_stream(path, metadata=metadata)
-
-    def open_append_stream(self, path, metadata):
-        return self._fs.open_append_stream(path, metadata=metadata)
 
 
 @pytest.fixture
