@@ -267,18 +267,28 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		case *arrow.MonthIntervalType:
 			return NewMonthIntervalBuilder(mem)
 		}
-	case arrow.DECIMAL:
+	case arrow.INTERVAL_MONTHS:
+		return NewMonthIntervalBuilder(mem)
+	case arrow.INTERVAL_DAY_TIME:
+		return NewDayTimeIntervalBuilder(mem)
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+	case arrow.DECIMAL128:
 		if typ, ok := dtype.(*arrow.Decimal128Type); ok {
 			return NewDecimal128Builder(mem, typ)
 		}
+	case arrow.DECIMAL256:
 	case arrow.LIST:
 		typ := dtype.(*arrow.ListType)
 		return NewListBuilder(mem, typ.Elem())
 	case arrow.STRUCT:
 		typ := dtype.(*arrow.StructType)
 		return NewStructBuilder(mem, typ)
-	case arrow.UNION:
+	case arrow.SPARSE_UNION:
+	case arrow.DENSE_UNION:
 	case arrow.DICTIONARY:
+	case arrow.LARGE_STRING:
+	case arrow.LARGE_BINARY:
+	case arrow.LARGE_LIST:
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)

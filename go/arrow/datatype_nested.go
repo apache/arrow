@@ -24,24 +24,41 @@ import (
 // ListType describes a nested type in which each array slot contains
 // a variable-size sequence of values, all having the same relative type.
 type ListType struct {
-	elem DataType // DataType of the list's elements
-	Meta Metadata
+	elem         DataType // DataType of the list's elements
+	Meta         Metadata
+	NullableElem bool
 }
 
 // ListOf returns the list type with element type t.
 // For example, if t represents int32, ListOf(t) represents []int32.
 //
-// ListOf panics if t is nil or invalid.
+// ListOf panics if t is nil or invalid. NullableElem defaults to true
 func ListOf(t DataType) *ListType {
 	if t == nil {
 		panic("arrow: nil DataType")
 	}
-	return &ListType{elem: t}
+	return &ListType{elem: t, NullableElem: true}
 }
 
-func (*ListType) ID() Type         { return LIST }
-func (*ListType) Name() string     { return "list" }
-func (t *ListType) String() string { return fmt.Sprintf("list<item: %v>", t.elem) }
+// ListOfNonNullable is like ListOf but NullableElem defaults to false, indicating
+// that the child type should be marked as non-nullable.
+func ListOfNonNullable(t DataType) *ListType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListType{elem: t, NullableElem: false}
+}
+
+func (*ListType) ID() Type     { return LIST }
+func (*ListType) Name() string { return "list" }
+
+func (t *ListType) String() string {
+	if t.NullableElem {
+		return fmt.Sprintf("list<item: %v, nullable>", t.elem)
+	}
+	return fmt.Sprintf("list<item: %v>", t.elem)
+}
+
 func (t *ListType) Fingerprint() string {
 	child := t.elem.Fingerprint()
 	if len(child) > 0 {
@@ -53,11 +70,22 @@ func (t *ListType) Fingerprint() string {
 // Elem returns the ListType's element type.
 func (t *ListType) Elem() DataType { return t.elem }
 
+func (t *ListType) ElemField() Field {
+	return Field{
+		Name:     "item",
+		Type:     t.elem,
+		Metadata: t.Meta,
+		Nullable: t.NullableElem,
+	}
+}
+
 // FixedSizeListType describes a nested type in which each array slot contains
 // a fixed-size sequence of values, all having the same relative type.
 type FixedSizeListType struct {
-	n    int32    // number of elements in the list
-	elem DataType // DataType of the list's elements
+	n            int32    // number of elements in the list
+	elem         DataType // DataType of the list's elements
+	Meta         Metadata
+	NullableElem bool
 }
 
 // FixedSizeListOf returns the list type with element type t.
@@ -65,6 +93,7 @@ type FixedSizeListType struct {
 //
 // FixedSizeListOf panics if t is nil or invalid.
 // FixedSizeListOf panics if n is <= 0.
+// NullableElem defaults to true
 func FixedSizeListOf(n int32, t DataType) *FixedSizeListType {
 	if t == nil {
 		panic("arrow: nil DataType")
@@ -72,12 +101,27 @@ func FixedSizeListOf(n int32, t DataType) *FixedSizeListType {
 	if n <= 0 {
 		panic("arrow: invalid size")
 	}
-	return &FixedSizeListType{elem: t, n: n}
+	return &FixedSizeListType{elem: t, n: n, NullableElem: true}
+}
+
+// FixedSizeListOfNonNullable is like FixedSizeListOf but NullableElem defaults to false
+// indicating that the child type should be marked as non-nullable.
+func FixedSizeListOfNonNullable(n int32, t DataType) *FixedSizeListType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	if n <= 0 {
+		panic("arrow: invalid size")
+	}
+	return &FixedSizeListType{elem: t, n: n, NullableElem: false}
 }
 
 func (*FixedSizeListType) ID() Type     { return FIXED_SIZE_LIST }
 func (*FixedSizeListType) Name() string { return "fixed_size_list" }
 func (t *FixedSizeListType) String() string {
+	if t.NullableElem {
+		return fmt.Sprintf("fixed_size_list<item: %v, nullable>[%d]", t.elem, t.n)
+	}
 	return fmt.Sprintf("fixed_size_list<item: %v>[%d]", t.elem, t.n)
 }
 
@@ -86,6 +130,15 @@ func (t *FixedSizeListType) Elem() DataType { return t.elem }
 
 // Len returns the FixedSizeListType's size.
 func (t *FixedSizeListType) Len() int32 { return t.n }
+
+func (t *FixedSizeListType) ElemField() Field {
+	return Field{
+		Name:     "item",
+		Type:     t.elem,
+		Metadata: t.Meta,
+		Nullable: t.NullableElem,
+	}
+}
 
 func (t *FixedSizeListType) Fingerprint() string {
 	child := t.elem.Fingerprint()
@@ -217,6 +270,16 @@ func (t *MapType) KeyType() DataType      { return t.KeyField().Type }
 func (t *MapType) ItemField() Field       { return t.value.Elem().(*StructType).Field(1) }
 func (t *MapType) ItemType() DataType     { return t.ItemField().Type }
 func (t *MapType) ValueType() *StructType { return t.value.Elem().(*StructType) }
+func (t *MapType) ValueField() Field {
+	return Field{
+		Name: "entries",
+		Type: t.ValueType(),
+	}
+}
+
+func (t *MapType) SetItemNullable(nullable bool) {
+	t.value.Elem().(*StructType).fields[1].Nullable = nullable
+}
 
 func (t *MapType) Fingerprint() string {
 	keyFingerprint := t.KeyType().Fingerprint()

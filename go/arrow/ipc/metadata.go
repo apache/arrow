@@ -347,13 +347,13 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 
 	case *arrow.ListType:
 		fv.dtype = flatbuf.TypeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable, Metadata: dt.Meta}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, dt.ElemField(), fv.memo))
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, dt.ElemField(), fv.memo))
 		flatbuf.FixedSizeListStart(fv.b)
 		flatbuf.FixedSizeListAddListSize(fv.b, dt.Len())
 		fv.offset = flatbuf.FixedSizeListEnd(fv.b)
@@ -379,7 +379,7 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 
 	case *arrow.MapType:
 		fv.dtype = flatbuf.TypeMap
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "entries", Type: dt.ValueType()}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, dt.ValueField(), fv.memo))
 		flatbuf.MapStart(fv.b)
 		flatbuf.MapAddKeysSorted(fv.b, dt.KeysSorted)
 		fv.offset = flatbuf.MapEnd(fv.b)
@@ -607,6 +607,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		}
 		dt := arrow.ListOf(children[0].Type)
 		dt.Meta = children[0].Metadata
+		dt.NullableElem = children[0].Nullable
 		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:
@@ -615,7 +616,10 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
 		}
-		return arrow.FixedSizeListOf(dt.ListSize(), children[0].Type), nil
+		ret := arrow.FixedSizeListOf(dt.ListSize(), children[0].Type)
+		ret.Meta = children[0].Metadata
+		ret.NullableElem = children[0].Nullable
+		return ret, nil
 
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil

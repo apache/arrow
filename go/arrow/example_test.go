@@ -162,9 +162,11 @@ func Example_listArray() {
 	arr := lb.NewArray().(*array.List)
 	defer arr.Release()
 
+	arr.DataType().(*arrow.ListType).NullableElem = false
 	fmt.Printf("NullN()   = %d\n", arr.NullN())
 	fmt.Printf("Len()     = %d\n", arr.Len())
 	fmt.Printf("Offsets() = %v\n", arr.Offsets())
+	fmt.Printf("Type()    = %v\n", arr.DataType())
 
 	offsets := arr.Offsets()[1:]
 
@@ -192,6 +194,7 @@ func Example_listArray() {
 	// NullN()   = 2
 	// Len()     = 7
 	// Offsets() = [0 3 3 4 6 9 9 10]
+	// Type()    = list<item: int64>
 	// List[0]   = [0, 1, 2]
 	// List[1]   = (null)
 	// List[2]   = [3]
@@ -245,7 +248,7 @@ func Example_fixedSizeListArray() {
 	// Output:
 	// NullN()   = 2
 	// Len()     = 5
-	// Type()    = fixed_size_list<item: int64>[3]
+	// Type()    = fixed_size_list<item: int64, nullable>[3]
 	// List      = [[0 1 2] (null) [3 4 5] [6 7 8] (null)]
 }
 
