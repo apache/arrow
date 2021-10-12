@@ -464,20 +464,21 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
   int64_t expected_rows = 100L;
   pb::sql::DoPutUpdateResult result;
   result.set_record_count(expected_rows);
-  auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(result.SerializeAsString().data()),
-      result.ByteSizeLong());
+  auto buffer = Buffer::FromString(result.SerializeAsString());
+  google::protobuf::Any command;
+  pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+  prepared_statement_result.set_prepared_statement_handle(query);
+  command.PackFrom(prepared_statement_result);
+  const std::string& serializedCommand = command.SerializeAsString();
   ON_CALL(*client_mock, DoAction)
-      .WillByDefault([&query](const FlightCallOptions& options, const Action& action,
-                              std::unique_ptr<ResultStream>* results) {
-        google::protobuf::Any command;
-        pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
-        prepared_statement_result.set_prepared_statement_handle(query);
-        command.PackFrom(prepared_statement_result);
-        *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
-            {Result{Buffer::FromString(command.SerializeAsString())}}));
+      .WillByDefault([&serializedCommand](const FlightCallOptions& options,
+                                          const Action& action,
+                                          std::unique_ptr<ResultStream>* results) {
+        *results = std::unique_ptr<ResultStream>(
+            new SimpleResultStream({Result{Buffer::FromString(serializedCommand)}}));
         return Status::OK();
       });
+  EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
   ON_CALL(*client_mock, DoPut)
       .WillByDefault([&buffer](const FlightCallOptions& options,
                                const FlightDescriptor& descriptor1,
@@ -488,6 +489,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
         writer->reset(new FlightStreamWriterMock());
         return Status::OK();
       });
+  EXPECT_CALL(*client_mock, DoPut(_, _, _, _, _));
   int64_t rows;
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
   ASSERT_OK(sql_client.Prepare(call_options, query, &prepared_statement));
