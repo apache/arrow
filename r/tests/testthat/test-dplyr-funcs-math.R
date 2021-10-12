@@ -301,7 +301,8 @@ test_that("arith functions ", {
         subtraction = x - 5,
         division = x / 2,
         power = x ^ 3,
-        modulo = x %% 3) %>%
+        modulo = x %% 3
+      ) %>%
       collect(),
     df
   )
