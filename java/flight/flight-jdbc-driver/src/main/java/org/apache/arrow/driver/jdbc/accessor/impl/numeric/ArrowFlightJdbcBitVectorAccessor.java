@@ -53,13 +53,8 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   @Override
   public String getString() {
-    final long number = getLong();
-
-    if (this.wasNull) {
-      return null;
-    } else {
-      return number == 0 ? "false" : "true";
-    }
+    final boolean value = getBoolean();
+    return wasNull ? null : Boolean.toString(value);
   }
 
   @Override
