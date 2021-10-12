@@ -21,7 +21,7 @@ set -ex
 arrow_dir=${1}
 source_dir=${1}/java
 cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
-ffi_build_dir=${2}/java/ffi
+cdata_dist_dir=${2}/java/c
 
 # For JNI and Plasma tests
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
@@ -39,8 +39,8 @@ if [ "${ARROW_JNI}" = "ON" ]; then
   ${mvn} test -Parrow-jni -pl adapter/orc,gandiva,dataset -Darrow.cpp.build.dir=${cpp_build_dir}
 fi
 
-if [ "${ARROW_JAVA_FFI}" = "ON" ]; then
-  ${mvn} test -Parrow-ffi -pl ffi -Darrow.ffi.cpp.build.dir=${ffi_build_dir}
+if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
+  ${mvn} test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${cdata_dist_dir}
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then
