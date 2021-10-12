@@ -57,7 +57,7 @@ func TestDecimal128Type(t *testing.T) {
 				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
 			}
 
-			if got, want := dt.ID(), arrow.DECIMAL; got != want {
+			if got, want := dt.ID(), arrow.DECIMAL128; got != want {
 				t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
 			}
 
@@ -268,7 +268,7 @@ func TestDayTimeIntervalType(t *testing.T) {
 		t.Fatalf("invalid type name: got=%q, want=%q", got, want)
 	}
 
-	if got, want := dt.ID(), arrow.INTERVAL; got != want {
+	if got, want := dt.ID(), arrow.INTERVAL_DAY_TIME; got != want {
 		t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
 	}
 
@@ -287,7 +287,7 @@ func TestMonthIntervalType(t *testing.T) {
 		t.Fatalf("invalid type name: got=%q, want=%q", got, want)
 	}
 
-	if got, want := dt.ID(), arrow.INTERVAL; got != want {
+	if got, want := dt.ID(), arrow.INTERVAL_MONTHS; got != want {
 		t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
 	}
 
