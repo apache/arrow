@@ -28,6 +28,8 @@ namespace arrow {
 namespace py {
 namespace internal {
 
+using arrow::internal::checked_cast;
+
 // Visit the Python sequence, calling the given callable on each element.  If
 // the callable returns a non-OK status, iteration stops and the status is
 // returned.
@@ -122,12 +124,9 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
     }
   } else if (py::is_array(mo)) {
     auto unwrap_mask_result = unwrap_array(mo);
-    if (!unwrap_mask_result.ok()) {
-      return unwrap_mask_result;
-    }
+    ARROW_RETURN_NOT_OK(unwrap_mask_result);
     std::shared_ptr<Array> mask_ = unwrap_mask_result.ValueOrDie();
-    BooleanArray* boolmask = dynamic_cast<BooleanArray*>(mask_.get());
-    if (boolmask == nullptr) {
+    if (mask_->type_id() != Type::type::BOOL) {
       return Status::TypeError("Mask must be an array of booleans");
     }
 
@@ -135,6 +134,7 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
       return Status::Invalid("Mask was a different length from sequence being converted");
     }
 
+    BooleanArray* boolmask = checked_cast<BooleanArray*>(mask_.get());
     return VisitSequenceGeneric(
         obj, offset, [&func, &boolmask](PyObject* value, int64_t i, bool* keep_going) {
           return func(value, boolmask->Value(i), keep_going);
