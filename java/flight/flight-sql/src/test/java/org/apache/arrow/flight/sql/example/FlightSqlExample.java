@@ -138,10 +138,8 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
-import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.ipc.WriteChannel;
-import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -180,7 +178,6 @@ import com.google.protobuf.ProtocolStringList;
  * with {@link #getFlightInfo} and {@link #getStream}.
  */
 public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
-  private static final IpcOption DEFAULT_OPTION = IpcOption.DEFAULT;
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
   private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
