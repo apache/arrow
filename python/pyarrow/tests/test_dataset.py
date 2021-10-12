@@ -3454,7 +3454,7 @@ def test_write_dataset_with_backpressure(tempdir):
         assert backpressure_probably_hit
 
     finally:
-        consumer_gate.release(1)
+        consumer_gate.release()
         write_thread.join()
     assert batches_read == end
 
