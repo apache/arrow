@@ -672,7 +672,7 @@ class AutoStartingGeneratorTestFixture : public GeneratorTestFixture {};
 
 TEST_P(AutoStartingGeneratorTestFixture, Basic) {
   AsyncGenerator<TestInt> source = MakeSource({1, 2, 3});
-  TrackingGenerator<TestInt> tracked(source);
+  util::TrackingGenerator<TestInt> tracked(source);
   AsyncGenerator<TestInt> gen =
       MakeAutoStartingGenerator(static_cast<AsyncGenerator<TestInt>>(tracked));
   ASSERT_EQ(1, tracked.num_read());
@@ -722,7 +722,7 @@ class SeqMergedGeneratorTestFixture : public ::testing::Test {
 
   void EmitSub() {
     PushGenerator<TestInt> sub;
-    TrackingGenerator<TestInt> tracked_sub(sub);
+    util::TrackingGenerator<TestInt> tracked_sub(sub);
     tracked_subs_.push_back(tracked_sub);
     push_subs_.push_back(std::move(sub));
     push_source_.producer().Push(std::move(tracked_sub));
@@ -757,8 +757,8 @@ class SeqMergedGeneratorTestFixture : public ::testing::Test {
 
   PushGenerator<AsyncGenerator<TestInt>> push_source_;
   std::vector<PushGenerator<TestInt>> push_subs_;
-  std::vector<TrackingGenerator<TestInt>> tracked_subs_;
-  TrackingGenerator<AsyncGenerator<TestInt>> tracked_source_;
+  std::vector<util::TrackingGenerator<TestInt>> tracked_subs_;
+  util::TrackingGenerator<AsyncGenerator<TestInt>> tracked_source_;
   Future<> finished_;
   std::vector<int> sink_;
 };
