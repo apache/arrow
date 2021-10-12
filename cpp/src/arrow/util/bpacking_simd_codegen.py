@@ -174,6 +174,7 @@ def main(simd_width):
 
         #include <cstdint>
         #include <cstring>
+        #include <limits>  // missing include in xsimd
 
         #include <xsimd/xsimd.hpp>
 

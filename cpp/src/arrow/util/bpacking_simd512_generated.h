@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <limits>  // missing include in xsimd
 
 #include <xsimd/xsimd.hpp>
 
