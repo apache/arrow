@@ -34,8 +34,10 @@ _FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
 _DECIMAL_TYPES = {lib.Type_DECIMAL128, lib.Type_DECIMAL256}
 _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
-_TEMPORAL_TYPES = {lib.Type_TIMESTAMP,
-                   lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES
+_INTERVAL_TYPES = {lib.Type_INTERVAL_MONTH_DAY_NANO}
+_TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
+                    lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
+                   _INTERVAL_TYPES)
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
 _NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
                  lib.Type_MAP} | _UNION_TYPES
@@ -524,6 +526,17 @@ def is_dictionary(t):
     t : DataType
     """
     return t.id == lib.Type_DICTIONARY
+
+
+def is_interval(t):
+    """
+    Return True if the value is an instance of an interval type.
+
+    Parameters
+    ----------
+    t : DateType
+    """
+    return t.id == lib.Type_INTERVAL_MONTH_DAY_NANO
 
 
 def is_primitive(t):

@@ -1486,6 +1486,7 @@ def test_cast_from_null():
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
         pa.duration('us'),
+        pa.month_day_nano_interval(),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
@@ -2160,6 +2161,99 @@ def test_array_from_numpy_ascii():
     arrow_arr = pa.array(arr)
     expected = pa.array(['', '', ''], type='binary')
     assert arrow_arr.equals(expected)
+
+
+def test_interval_array_from_timedelta():
+    data = [
+        None,
+        datetime.timedelta(days=1, seconds=1, microseconds=1,
+                           milliseconds=1, minutes=1, hours=1, weeks=1)]
+
+    # From timedelta (explicit type required)
+    arr = pa.array(data, pa.month_day_nano_interval())
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([0, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             milliseconds=1, minutes=1,
+                                             hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pylist() == expected_list
+
+
+@pytest.mark.pandas
+def test_interval_array_from_relativedelta():
+    # dateutil is dependency of pandas
+    from dateutil.relativedelta import relativedelta
+    from pandas import DateOffset
+    data = [
+        None,
+        relativedelta(years=1, months=1,
+                      days=1, seconds=1, microseconds=1,
+                      minutes=1, hours=1, weeks=1, leapdays=1)]
+    # Note leapdays are ignored.
+
+    # From relativedelta
+    arr = pa.array(data)
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([13, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             minutes=1, hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pandas().tolist() == [
+        None, DateOffset(months=13, days=8,
+                         microseconds=(
+                             datetime.timedelta(seconds=1, microseconds=1,
+                                                minutes=1, hours=1) //
+                             datetime.timedelta(microseconds=1)),
+                         nanoseconds=0)]
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(years=((1 << 32) // 12), months=100)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(weeks=((1 << 32) // 7), days=100)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(seconds=((1 << 64) // 1000000000),
+                             nanoseconds=1)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(microseconds=((1 << 64) // 100))])
+
+
+@pytest.mark.pandas
+def test_interval_array_from_dateoffset():
+    from pandas.tseries.offsets import DateOffset
+    data = [
+        None,
+        DateOffset(years=1, months=1,
+                   days=1, seconds=1, microseconds=1,
+                   minutes=1, hours=1, weeks=1, nanoseconds=1),
+        DateOffset()]
+
+    arr = pa.array(data)
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([13, 8, 3661000001001]),
+        pa.MonthDayNano([0, 0, 0])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pandas().tolist() == [
+        None, DateOffset(months=13, days=8,
+                         microseconds=(
+                             datetime.timedelta(seconds=1, microseconds=1,
+                                                minutes=1, hours=1) //
+                             datetime.timedelta(microseconds=1)),
+                         nanoseconds=1),
+        DateOffset(months=0, days=0, microseconds=0, nanoseconds=0)]
 
 
 def test_array_from_numpy_unicode():

@@ -222,8 +222,9 @@ test_that("read_csv_arrow() can read timestamps", {
   df <- read_csv_arrow(tf, col_types = schema(time = timestamp(timezone = "UTC")))
   expect_equal(tbl, df)
 
-  df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)
-  expect_equal(tbl, df, ignore_attr = "tzone") # col_types = "t" makes timezone-naive timestamp
+  # time zones are being read in as time zone-naive, hence ignore_attr = "tzone"
+  df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
+  expect_equal(tbl, df, ignore_attr = "tzone")
 })
 
 test_that("read_csv_arrow(timestamp_parsers=)", {
@@ -328,4 +329,29 @@ test_that("Write a CSV file with invalid batch size", {
     write_csv_arrow(tbl_no_dates, csv_file, batch_size = -1),
     regexp = "batch_size not greater than 0"
   )
+})
+
+test_that("time mapping work as expected (ARROW-13624)", {
+  tbl <- tibble::tibble(
+    dt = as.POSIXct(c("2020-07-20 16:20", NA), tz = "UTC"),
+    time = c(hms::as_hms("16:20:00"), NA)
+  )
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf,
+    col_names = c("dt", "time"),
+    col_types = "Tt",
+    skip = 1
+  )
+
+  expect_error(
+    read_csv_arrow(tf,
+      col_names = c("dt", "time"),
+      col_types = "tT", skip = 1
+    )
+  )
+
+  expect_equal(df, tbl, ignore_attr = "tzone")
 })

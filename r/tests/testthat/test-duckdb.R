@@ -18,6 +18,7 @@
 skip_if_not_installed("duckdb", minimum_version = "0.2.8")
 skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
+skip_on_cran()
 
 library(duckdb)
 library(dplyr)

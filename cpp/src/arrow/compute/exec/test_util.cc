@@ -133,7 +133,9 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
   auto node =
       plan->EmplaceNode<DummyNode>(plan, std::move(inputs), num_outputs,
                                    std::move(start_producing), std::move(stop_producing));
-  node->SetLabel(std::move(label));
+  if (!label.empty()) {
+    node->SetLabel(std::move(label));
+  }
   return node;
 }
 

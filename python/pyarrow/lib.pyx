@@ -38,6 +38,9 @@ arrow_init_numpy()
 import_pyarrow()
 
 
+MonthDayNano = NewMonthDayNanoTupleType()
+
+
 def cpu_count():
     """
     Return the number of threads to use in parallel operations.
@@ -96,6 +99,7 @@ Type_TIMESTAMP = _Type_TIMESTAMP
 Type_TIME32 = _Type_TIME32
 Type_TIME64 = _Type_TIME64
 Type_DURATION = _Type_DURATION
+Type_INTERVAL_MONTH_DAY_NANO = _Type_INTERVAL_MONTH_DAY_NANO
 Type_BINARY = _Type_BINARY
 Type_STRING = _Type_STRING
 Type_LARGE_BINARY = _Type_LARGE_BINARY
