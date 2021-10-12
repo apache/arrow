@@ -186,7 +186,7 @@ Array$create <- function(x, type = NULL) {
     }
     return(out)
   }
-  vec_to_arrow(x, type)
+  vec_to_Array(x, type)
 }
 #' @include arrowExports.R
 Array$import_from_c <- ImportArray

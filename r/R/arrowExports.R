@@ -1440,8 +1440,8 @@ Table__from_dots <- function(lst, schema_sxp, use_threads) {
   .Call(`_arrow_Table__from_dots`, lst, schema_sxp, use_threads)
 }
 
-vec_to_arrow <- function(x, s_type) {
-  .Call(`_arrow_vec_to_arrow`, x, s_type)
+vec_to_Array <- function(x, s_type) {
+  .Call(`_arrow_vec_to_Array`, x, s_type)
 }
 
 DictionaryArray__FromArrays <- function(type, indices, dict) {

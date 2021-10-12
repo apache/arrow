@@ -5676,17 +5676,17 @@ extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp, SEX
 
 // r_to_arrow.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP vec_to_arrow(SEXP x, SEXP s_type);
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
+SEXP vec_to_Array(SEXP x, SEXP s_type);
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
 	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(vec_to_arrow(x, s_type));
+	return cpp11::as_sexp(vec_to_Array(x, s_type));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
-	Rf_error("Cannot call vec_to_arrow(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
+	Rf_error("Cannot call vec_to_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7531,7 +7531,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
 		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 3}, 
-		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
+		{ "_arrow_vec_to_Array", (DL_FUNC) &_arrow_vec_to_Array, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 

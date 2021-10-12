@@ -657,9 +657,9 @@ bool is_arrow_altrep(SEXP x) {
   return false;
 }
 
-std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP x) {
+std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) {
   if (is_arrow_altrep(x)) {
-    return GetArray(x);
+    return GetChunkedArray(x);
   }
 
   return nullptr;
