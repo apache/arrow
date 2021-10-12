@@ -291,7 +291,7 @@ CsvFragmentScanOptions$create <- function(...,
 ParquetFragmentScanOptions <- R6Class("ParquetFragmentScanOptions", inherit = FragmentScanOptions)
 ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
                                               buffer_size = 8196,
-                                              pre_buffer = FALSE) {
+                                              pre_buffer = TRUE) {
   dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
 }
 
