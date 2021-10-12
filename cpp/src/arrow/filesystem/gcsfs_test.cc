@@ -65,7 +65,7 @@ class GcsIntegrationTest : public ::testing::Test {
     server_process_ = bp::child(boost::this_process::environment(), exe_path, "-m",
                                 "testbench", "--port", port_);
 
-    // Create a bucket in the testbench, simplifying some of the tests.
+    // Create a bucket in the testbench. This makes it easier to bootstrap GcsFileSystem and its tests.
     auto client = gcs::Client(
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
@@ -142,13 +142,16 @@ TEST(GcsFileSystem, ToArrowStatus) {
 }
 
 TEST(GcsFileSystem, FileSystemCompare) {
-  auto a = internal::MakeGcsFileSystemForTest(GcsOptions{});
+  GcsOptions a_options;
+  a_options.scheme = "http";
+  auto a = internal::MakeGcsFileSystemForTest(a_options);
   EXPECT_THAT(a, NotNull());
   EXPECT_TRUE(a->Equals(*a));
 
-  GcsOptions options;
-  options.endpoint_override = "localhost:1234";
-  auto b = internal::MakeGcsFileSystemForTest(options);
+  GcsOptions b_options;
+  b_options.scheme = "http";
+  b_options.endpoint_override = "localhost:1234";
+  auto b = internal::MakeGcsFileSystemForTest(b_options);
   EXPECT_THAT(b, NotNull());
   EXPECT_TRUE(b->Equals(*b));
 
