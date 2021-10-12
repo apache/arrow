@@ -69,6 +69,8 @@ arrow::Status RunMain(int argc, char** argv) {
     if ((!int64_array_a->IsNull(i)) && (!int64_array_b->IsNull(i))) {
       bool comparison_result = int64_array_a->Value(i) > int64_array_b->Value(i);
       boolean_builder.UnsafeAppend(comparison_result);
+    } else {
+      boolean_builder.UnsafeAppendNull();
     }
   }
   std::shared_ptr<arrow::Array> array_a_gt_b_self;
