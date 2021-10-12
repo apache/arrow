@@ -137,14 +137,12 @@ Schema <- R6Class("Schema",
   )
 )
 Schema$create <- function(...) {
-
   .list <- list2(...)
-  if (all(sapply(.list, function(x) inherits(x = x, what = "Field")))) {
+  if (all(map_lgl(.list, ~ inherits(. "Field")))) {
     schema_(.list)
   } else {
     schema_(.fields(.list))
   }
-
 }
 #' @include arrowExports.R
 Schema$import_from_c <- ImportSchema
