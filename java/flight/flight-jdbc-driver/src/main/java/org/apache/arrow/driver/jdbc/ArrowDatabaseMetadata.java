@@ -17,26 +17,42 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static java.sql.Types.*;
+import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.doesBitmaskTranslateToEnum;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlJoinsSupportLevel;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedGroupBy;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedPositionedCommands;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedResultSetType;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedSubqueries;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedUnions;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlTransactionIsolationLevel;
+import org.apache.arrow.flight.sql.impl.FlightSql.SupportedAnsi92SqlGrammarLevel;
+import org.apache.arrow.flight.sql.impl.FlightSql.SupportedSqlGrammar;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -52,6 +68,8 @@ import org.apache.arrow.vector.util.Text;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 
+import com.google.protobuf.ProtocolMessageEnum;
+
 /**
  * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
  */
@@ -59,25 +77,25 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   private static final String JAVA_REGEX_SPECIALS = "[]()|^-+*?{}$\\.";
   private static final Charset CHARSET = StandardCharsets.UTF_8;
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
-  static final int NO_DECIMAL_DIGITS = 0;
+  private static final int NO_DECIMAL_DIGITS = 0;
   private static final int BASE10_RADIX = 10;
-  static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
-  static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
-  static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
-  static final int COLUMN_SIZE_LONG = (int) Math.ceil((Long.SIZE - 1) * Math.log(2) / Math.log(10));
-  static final int COLUMN_SIZE_VARCHAR_AND_BINARY = 65536;
-  static final int COLUMN_SIZE_DATE = "YYYY-MM-DD".length();
-  static final int COLUMN_SIZE_TIME = "HH:MM:ss".length();
-  static final int COLUMN_SIZE_TIME_MILLISECONDS = "HH:MM:ss.SSS".length();
-  static final int COLUMN_SIZE_TIME_MICROSECONDS = "HH:MM:ss.SSSSSS".length();
-  static final int COLUMN_SIZE_TIME_NANOSECONDS = "HH:MM:ss.SSSSSSSSS".length();
-  static final int COLUMN_SIZE_TIMESTAMP_SECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME;
-  static final int COLUMN_SIZE_TIMESTAMP_MILLISECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MILLISECONDS;
-  static final int COLUMN_SIZE_TIMESTAMP_MICROSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MICROSECONDS;
-  static final int COLUMN_SIZE_TIMESTAMP_NANOSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_NANOSECONDS;
-  static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
-  static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
-  static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
+  private static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_LONG = (int) Math.ceil((Long.SIZE - 1) * Math.log(2) / Math.log(10));
+  private static final int COLUMN_SIZE_VARCHAR_AND_BINARY = 65536;
+  private static final int COLUMN_SIZE_DATE = "YYYY-MM-DD".length();
+  private static final int COLUMN_SIZE_TIME = "HH:MM:ss".length();
+  private static final int COLUMN_SIZE_TIME_MILLISECONDS = "HH:MM:ss.SSS".length();
+  private static final int COLUMN_SIZE_TIME_MICROSECONDS = "HH:MM:ss.SSSSSS".length();
+  private static final int COLUMN_SIZE_TIME_NANOSECONDS = "HH:MM:ss.SSSSSSSSS".length();
+  private static final int COLUMN_SIZE_TIMESTAMP_SECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME;
+  private static final int COLUMN_SIZE_TIMESTAMP_MILLISECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MILLISECONDS;
+  private static final int COLUMN_SIZE_TIMESTAMP_MICROSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MICROSECONDS;
+  private static final int COLUMN_SIZE_TIMESTAMP_NANOSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_NANOSECONDS;
+  private static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
+  private static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
+  private static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
   private static final Schema GET_COLUMNS_SCHEMA = new Schema(
       Arrays.asList(
           Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
@@ -128,7 +146,512 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean isReadOnly() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, Integer.class) == 1;
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, Boolean.class);
+  }
+
+  @Override
+  public String getSQLKeywords() throws SQLException {
+    return convertListSqlInfoToString(
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_KEYWORDS, List.class));
+  }
+
+  @Override
+  public String getNumericFunctions() throws SQLException {
+    return convertListSqlInfoToString(
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_NUMERIC_FUNCTIONS, List.class));
+  }
+
+  @Override
+  public String getStringFunctions() throws SQLException {
+    return convertListSqlInfoToString(
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_STRING_FUNCTIONS, List.class));
+  }
+
+  @Override
+  public String getSystemFunctions() throws SQLException {
+    return convertListSqlInfoToString(
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SYSTEM_FUNCTIONS, List.class));
+  }
+
+  @Override
+  public String getTimeDateFunctions() throws SQLException {
+    return convertListSqlInfoToString(
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATETIME_FUNCTIONS, List.class));
+  }
+
+  @Override
+  public String getSearchStringEscape() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SEARCH_STRING_ESCAPE, String.class);
+  }
+
+  @Override
+  public String getExtraNameCharacters() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_EXTRA_NAME_CHARACTERS, String.class);
+  }
+
+  @Override
+  public boolean supportsColumnAliasing() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_COLUMN_ALIASING, Boolean.class);
+  }
+
+  @Override
+  public boolean nullPlusNonNullIsNull() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_NULL_PLUS_NULL_IS_NULL, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsConvert() throws SQLException {
+    return !getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_CONVERT, Map.class).isEmpty();
+  }
+
+  @Override
+  public boolean supportsConvert(int fromType, int toType) throws SQLException {
+    final Map<Integer, List<Integer>> sqlSupportsConvert =
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_CONVERT, Map.class);
+    final Map<Integer, Integer> sqlTypesToFlightEnumConvertTypes = new HashMap<>();
+
+    sqlTypesToFlightEnumConvertTypes.put(BIT, SqlSupportsConvert.SQL_CONVERT_BIT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(INTEGER, SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(NUMERIC, SqlSupportsConvert.SQL_CONVERT_NUMERIC_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(SMALLINT, SqlSupportsConvert.SQL_CONVERT_SMALLINT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(TINYINT, SqlSupportsConvert.SQL_CONVERT_TINYINT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(FLOAT, SqlSupportsConvert.SQL_CONVERT_FLOAT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(BIGINT, SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(REAL, SqlSupportsConvert.SQL_CONVERT_REAL_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(DECIMAL, SqlSupportsConvert.SQL_CONVERT_DECIMAL_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(BINARY, SqlSupportsConvert.SQL_CONVERT_BINARY_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(LONGVARBINARY, SqlSupportsConvert.SQL_CONVERT_LONGVARBINARY_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(CHAR, SqlSupportsConvert.SQL_CONVERT_CHAR_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(VARCHAR, SqlSupportsConvert.SQL_CONVERT_VARCHAR_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(LONGNVARCHAR, SqlSupportsConvert.SQL_CONVERT_LONGVARCHAR_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(DATE, SqlSupportsConvert.SQL_CONVERT_DATE_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(TIMESTAMP, SqlSupportsConvert.SQL_CONVERT_TIMESTAMP_VALUE);
+
+    if (!sqlTypesToFlightEnumConvertTypes.containsKey(fromType)) {
+      return false;
+    }
+
+    final List<Integer> list = sqlSupportsConvert.get(sqlTypesToFlightEnumConvertTypes.get(fromType));
+
+    return list != null && list.contains(toType);
+  }
+
+  @Override
+  public boolean supportsTableCorrelationNames() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_TABLE_CORRELATION_NAMES, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsDifferentTableCorrelationNames() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsExpressionsInOrderBy() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsOrderByUnrelated() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_ORDER_BY_UNRELATED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsGroupBy() throws SQLException {
+    final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GROUP_BY, Integer.class);
+    return bitmask != 0;
+  }
+
+  @Override
+  public boolean supportsGroupByUnrelated() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GROUP_BY,
+        SqlSupportedGroupBy.SQL_GROUP_BY_UNRELATED);
+  }
+
+  @Override
+  public boolean supportsLikeEscapeClause() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsNonNullableColumns() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_NON_NULLABLE_COLUMNS, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsMinimumSQLGrammar() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+        SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR);
+  }
+
+  @Override
+  public boolean supportsCoreSQLGrammar() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+        SupportedSqlGrammar.SQL_CORE_GRAMMAR);
+  }
+
+  @Override
+  public boolean supportsExtendedSQLGrammar() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+        SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR);
+  }
+
+  @Override
+  public boolean supportsANSI92EntryLevelSQL() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+        SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL);
+  }
+
+  @Override
+  public boolean supportsANSI92IntermediateSQL() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+        SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL);
+  }
+
+  @Override
+  public boolean supportsANSI92FullSQL() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+        SupportedAnsi92SqlGrammarLevel.ANSI92_FULL_SQL);
+  }
+
+  @Override
+  public boolean supportsIntegrityEnhancementFacility() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsOuterJoins() throws SQLException {
+    final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_JOINS_SUPPORT_LEVEL, Integer.class);
+    return bitmask != 0;
+  }
+
+  @Override
+  public boolean supportsFullOuterJoins() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_JOINS_SUPPORT_LEVEL,
+        SqlJoinsSupportLevel.SQL_FULL_OUTER_JOINS);
+  }
+
+  @Override
+  public boolean supportsLimitedOuterJoins() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_JOINS_SUPPORT_LEVEL,
+        SqlJoinsSupportLevel.SQL_LIMITED_JOINS);
+  }
+
+  @Override
+  public String getSchemaTerm() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMA_TERM, String.class);
+  }
+
+  @Override
+  public String getProcedureTerm() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_PROCEDURE_TERM, String.class);
+  }
+
+  @Override
+  public String getCatalogTerm() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_CATALOG_TERM, String.class);
+  }
+
+  @Override
+  public boolean isCatalogAtStart() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_CATALOG_AT_START, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsSchemasInProcedureCalls() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
+        SqlSupportedElementActions.SQL_ELEMENT_IN_PROCEDURE_CALLS);
+  }
+
+  @Override
+  public boolean supportsSchemasInIndexDefinitions() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
+        SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS);
+  }
+
+  @Override
+  public boolean supportsSchemasInPrivilegeDefinitions() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
+        SqlSupportedElementActions.SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS);
+  }
+
+  @Override
+  public boolean supportsCatalogsInIndexDefinitions() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS,
+        SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS);
+  }
+
+  @Override
+  public boolean supportsCatalogsInPrivilegeDefinitions() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS,
+        SqlSupportedElementActions.SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS);
+  }
+
+  @Override
+  public boolean supportsPositionedDelete() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
+        SqlSupportedPositionedCommands.SQL_POSITIONED_DELETE);
+  }
+
+  @Override
+  public boolean supportsPositionedUpdate() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
+        SqlSupportedPositionedCommands.SQL_POSITIONED_UPDATE);
+  }
+
+  @Override
+  public boolean supportsResultSetType(final int type) throws SQLException {
+    final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES, Integer.class);
+
+    switch (type) {
+      case ResultSet.TYPE_FORWARD_ONLY:
+        return doesBitmaskTranslateToEnum(
+            SqlSupportedResultSetType.forNumber(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY_VALUE),
+            bitmask);
+      case ResultSet.TYPE_SCROLL_INSENSITIVE:
+        return doesBitmaskTranslateToEnum(
+            SqlSupportedResultSetType.forNumber(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE_VALUE),
+            bitmask);
+      case ResultSet.TYPE_SCROLL_SENSITIVE:
+        return doesBitmaskTranslateToEnum(
+            SqlSupportedResultSetType.forNumber(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE_VALUE),
+            bitmask);
+      default:
+        throw new SQLException(
+            "Invalid result set type argument. The informed type is not defined in java.sql.ResultSet.");
+    }
+  }
+
+  @Override
+  public boolean supportsSelectForUpdate() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SELECT_FOR_UPDATE_SUPPORTED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsStoredProcedures() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_STORED_PROCEDURES_SUPPORTED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsSubqueriesInComparisons() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
+        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_COMPARISONS);
+  }
+
+  @Override
+  public boolean supportsSubqueriesInExists() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
+        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_EXISTS);
+  }
+
+  @Override
+  public boolean supportsSubqueriesInIns() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
+        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_INS);
+  }
+
+  @Override
+  public boolean supportsSubqueriesInQuantifieds() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
+        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_QUANTIFIEDS);
+  }
+
+  @Override
+  public boolean supportsCorrelatedSubqueries() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_CORRELATED_SUBQUERIES_SUPPORTED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsUnion() throws SQLException {
+    final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_UNIONS, Integer.class);
+    return bitmask != 0;
+  }
+
+  @Override
+  public boolean supportsUnionAll() throws SQLException {
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_UNIONS,
+        SqlSupportedUnions.SQL_UNION_ALL);
+  }
+
+  @Override
+  public int getMaxBinaryLiteralLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_BINARY_LITERAL_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxCharLiteralLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CHAR_LITERAL_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxColumnNameLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMN_NAME_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxColumnsInGroupBy() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_GROUP_BY, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxColumnsInIndex() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_INDEX, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxColumnsInOrderBy() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_ORDER_BY, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxColumnsInSelect() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_SELECT, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxColumnsInTable() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_TABLE, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxConnections() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CONNECTIONS, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxCursorNameLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CURSOR_NAME_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxIndexLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_INDEX_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxSchemaNameLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMA_NAME_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxProcedureNameLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_PROCEDURE_NAME_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxCatalogNameLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CATALOG_NAME_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxRowSize() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_ROW_SIZE, Long.class).intValue();
+  }
+
+  @Override
+  public boolean doesMaxRowSizeIncludeBlobs() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_ROW_SIZE_INCLUDES_BLOBS, Boolean.class);
+  }
+
+  @Override
+  public int getMaxStatementLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_STATEMENT_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxStatements() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_STATEMENTS, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxTableNameLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_TABLE_NAME_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxTablesInSelect() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_TABLES_IN_SELECT, Long.class).intValue();
+  }
+
+  @Override
+  public int getMaxUserNameLength() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_USERNAME_LENGTH, Long.class).intValue();
+  }
+
+  @Override
+  public int getDefaultTransactionIsolation() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DEFAULT_TRANSACTION_ISOLATION, Long.class).intValue();
+  }
+
+  @Override
+  public boolean supportsTransactions() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_TRANSACTIONS_SUPPORTED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsTransactionIsolationLevel(final int level) throws SQLException {
+    final int bitmask =
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS, Integer.class);
+
+    switch (level) {
+      case Connection.TRANSACTION_NONE:
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.forNumber(SqlTransactionIsolationLevel.SQL_TRANSACTION_NONE_VALUE), bitmask);
+      case Connection.TRANSACTION_READ_COMMITTED:
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.forNumber(SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED_VALUE),
+            bitmask);
+      case Connection.TRANSACTION_READ_UNCOMMITTED:
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.forNumber(SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_UNCOMMITTED_VALUE),
+            bitmask);
+      case Connection.TRANSACTION_REPEATABLE_READ:
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.forNumber(SqlTransactionIsolationLevel.SQL_TRANSACTION_REPEATABLE_READ_VALUE),
+            bitmask);
+      case Connection.TRANSACTION_SERIALIZABLE:
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.forNumber(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE_VALUE),
+            bitmask);
+      default:
+        throw new SQLException(
+            "Invalid transaction isolation level argument. The informed level is not defined in java.sql.Connection.");
+    }
+  }
+
+  @Override
+  public boolean dataDefinitionCausesTransactionCommit() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT, Boolean.class);
+  }
+
+  @Override
+  public boolean dataDefinitionIgnoredInTransactions() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsBatchUpdates() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_BATCH_UPDATES_SUPPORTED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsSavepoints() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SAVEPOINTS_SUPPORTED, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsNamedParameters() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_NAMED_PARAMETERS_SUPPORTED, Boolean.class);
+  }
+
+  @Override
+  public boolean locatorsUpdateCopy() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_LOCATORS_UPDATE_COPY, Boolean.class);
+  }
+
+  @Override
+  public boolean supportsStoredFunctionsUsingCallSyntax() throws SQLException {
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED, Boolean.class);
   }
 
   @Override
@@ -155,6 +678,18 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       }
     }
     return desiredType.cast(cachedSqlInfo.get(sqlInfoCommand));
+  }
+
+  private String convertListSqlInfoToString(List<Text> sqlInfoList) {
+    return sqlInfoList.stream().map(Object::toString).collect(Collectors.joining(", "));
+  }
+
+  private boolean getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+      final SqlInfo sqlInfoCommand,
+      ProtocolMessageEnum enumInstance
+  ) throws SQLException {
+    final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(sqlInfoCommand, Integer.class);
+    return doesBitmaskTranslateToEnum(enumInstance, bitmask);
   }
 
   @Override
