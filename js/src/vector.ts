@@ -226,7 +226,7 @@ export class Vector<T extends DataType = any> {
      *
      * @returns An Array or TypedArray of the Vector's elements, based on the Vector's DataType.
      */
-    public toArray() {
+    public toArray(): T['TArray'] {
         const data = this.data;
         const toArray = toArrayVisitor.getVisitFn(this.type.typeId);
         switch (data.length) {
@@ -242,7 +242,7 @@ export class Vector<T extends DataType = any> {
             memo.array.set(array, memo.offset);
             memo.offset += array.length;
             return memo;
-        }, { array: new ArrayType(this.length * this.stride), offset: 0 });
+        }, { array: new ArrayType(this.length * this.stride), offset: 0 }).array;
     }
 
     /**
@@ -401,6 +401,7 @@ export function vectorFromArray(values: (null | undefined | boolean)[], type?: d
 export function vectorFromArray(values: (null | undefined | string)[], type?: dtypes.Utf8): Vector<dtypes.Utf8>;
 export function vectorFromArray<T extends dtypes.Date_>(values: (null | undefined | Date)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Int>(values: (null | undefined | number)[], type: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: (null | undefined | bigint)[], type: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: (null | undefined | number)[], type?: T): Vector<T>;
 
 export function vectorFromArray(values: unknown[], type?: DataType) {
