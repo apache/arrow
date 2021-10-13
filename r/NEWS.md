@@ -21,17 +21,26 @@
 
 There are now two ways to query Arrow data:
 
-## 1. Grouped aggregation in Arrow
+## 1. Aggregation and joins in Arrow
 
 `dplyr::summarize()`, both grouped and ungrouped, is now implemented for Arrow Datasets, Tables, and RecordBatches. Because data is scanned in chunks, you can aggregate over larger-than-memory datasets backed by many files. Supported aggregation functions include `n()`, `n_distinct()`, `min(),` `max()`, `sum()`, `mean()`, `var()`, `sd()`, `any()`, and `all()`. `median()` and `quantile()` with one probability are also supported and currently return approximate results using the t-digest algorithm.
 
+Along with `summarize()`, you can also call `count()`, `tally()`, and `distinct()`, which effectively wrap `summarize()`.
+
 This enhancement does change the behavior of `summarize()` and `collect()` in some cases: see "Breaking changes" below for details.
 
-New compute functions include `str_to_title()` and `strftime()`.
+In addition to `summarize()`, equality joins (`left_join()`, `inner_join()`, `semi_join()`, et al.) are also supported natively in Arrow.
+
+Grouped aggregation and (especially) joins should be considered somewhat experimental in this release. We expect them to work, but they may not be well optimized for all workloads. To help us focus our efforts on improving them in the next release, please let us know if you encounter unexpected behavior or poor performance.
+
+New non-aggregating compute functions include `str_to_title()` and `strftime()`. We've also worked to fill in support for all data types, such as `Decimal`, for functions added in previous releases. All type limitations mentioned in previous release notes should be no longer valid, and if you find a function that is not implemented for a certain data type, please report an issue.
 
 ## 2. duckdb integration
 
-If you have the [duckdb](https://duckdb.org/) package installed, you can hand off an Arrow Dataset or query object to duckdb for further querying using the `to_duckdb()` function. This allows you to use duckdb's `dbplyr` methods, as well as its SQL interface, to aggregate data. Filtering and column projection done before `to_duckdb()` is evaluated in Arrow.
+If you have the [duckdb](https://duckdb.org/) package installed, you can hand off an Arrow Dataset or query object to duckdb for further querying using the `to_duckdb()` function. This allows you to use duckdb's `dbplyr` methods, as well as its SQL interface, to aggregate data. Filtering and column projection done before `to_duckdb()` is evaluated in Arrow, and duckdb can push down some predicates to Arrow as well.
+
+You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's query engine. This means that in a single dplyr pipeline, you could start with an Arrow Dataset, evaulate some steps in duckdb, then evaluate the rest in arrow.
+
 ## Breaking changes
 
 * Row order of data from a Dataset query is no longer deterministic. If you need a stable sort order, you should explicitly `arrange()` the query result. For calls to `summarize()`, you can set `options(arrow.summarise.sort = TRUE)` to match the current `dplyr` behavior of sorting on the grouping columns.
@@ -46,6 +55,12 @@ If you have the [duckdb](https://duckdb.org/) package installed, you can hand of
 * Source packages now bundle the Arrow C++ source code, so it does not have to be downloaded in order to build the package. Because the source is included, it is now possible to build the package on an offline/airgapped system. By default, the offline build will be minimal because it cannot download third-party C++ dependencies required to support all features. To allow a fully featured offline build, the included `create_package_with_all_dependencies()` function (also available on GitHub without installing the arrow package) will download all third-party C++ dependencies and bundle them inside the R source package. Run this function on a system connected to the network to produce the "fat" source package, then copy that .tar.gz package to your offline machine and install.
 * Source builds can make use of system dependencies (such as `libz`) by setting `ARROW_DEPENDENCY_SOURCE=AUTO`. This is not the default in this release (`BUNDLED`, i.e. download and build all dependencies) but may become the default in the future.
 * The JSON library components (`read_json_arrow()`) are now optional and still on by default; set `ARROW_JSON=OFF` before building to disable them.
+
+## Other enhancements and fixes
+
+* More Arrow data types use ALTREP when converting to and from R. This speeds up some workflows signficantly, while for others it merely delays conversion from Arrow to R. ALTREP is used by default, but to disable it, set `options(arrow.use_altrep = FALSE)`
+* `Field` objects can now be created as non-nullable, and `schema()` now optionally accepts a list of `Field`s
+* Numeric division by zero now matches R's behavior and no longer raises an error
 
 # arrow 5.0.0.2
 
