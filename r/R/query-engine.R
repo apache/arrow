@@ -176,7 +176,7 @@ ExecPlan <- R6Class("ExecPlan",
       if (length(.data$arrange_vars)) {
         node$sort <- list(
           names = names(.data$arrange_vars),
-          orders = as.integer(.data$arrange_desc),
+          orders = .data$arrange_desc,
           temp_columns = names(.data$temp_columns)
         )
       }
@@ -194,8 +194,23 @@ ExecPlan <- R6Class("ExecPlan",
     },
     Run = function(node) {
       assert_is(node, "ExecNode")
-      # TODO (ARROW-12763): pass head/tail to ExecPlan_run so we can maybe TopK
-      out <- ExecPlan_run(self, node, node$sort %||% list(), node$head %||% -1L)
+
+      # Sorting and head/tail (if sorted) are handled in the SinkNode,
+      # created in ExecPlan_run
+      sorting <- node$sort %||% list()
+      select_k <- node$head %||% -1L
+      has_sorting <- length(sorting) > 0
+      if (has_sorting) {
+        if (!is.null(node$tail)) {
+          # Reverse the sort order and take the top K, then after we'll reverse
+          # the resulting rows so that it is ordered as expected
+          sorting$orders <- !sorting$orders
+          select_k <- node$tail
+        }
+        sorting$orders <- as.integer(sorting$orders)
+      }
+
+      out <- ExecPlan_run(self, node, sorting, select_k)
 
       if (is.null(node$sort)) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
@@ -204,12 +219,14 @@ ExecPlan <- R6Class("ExecPlan",
         # just use it to take the random slice
         slice_size <- node$head %||% node$tail
         if (!is.null(slice_size)) {
+          # TODO (ARROW-14289): make the head methods return RBR not Table
           out <- head(out, slice_size)
         }
-        # TODO (ARROW-12763): delete these else cases because they'll be handled
-        # with SelectK
       } else if (!is.null(node$tail)) {
-        out <- tail(out, node$tail)
+        # Reverse the row order to get back what we expect
+        # TODO: don't return Table, return RecordBatchReader
+        out <- out$read_table()
+        out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
       }
 
       out
