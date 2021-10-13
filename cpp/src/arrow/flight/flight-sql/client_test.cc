@@ -462,12 +462,28 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
   command.PackFrom(prepared_statement_result);
   const std::string& serializedCommand = command.SerializeAsString();
 
+  const auto schema = arrow::schema({arrow::field("field0", arrow::utf8()),
+                                     arrow::field("field1", arrow::uint8())});
+
   ON_CALL(*client_mock, DoAction)
-      .WillByDefault([&serializedCommand](const FlightCallOptions& options,
+      .WillByDefault([&query, &schema](const FlightCallOptions& options,
                                           const Action& action,
                                           std::unique_ptr<ResultStream>* results) {
-        *results = std::unique_ptr<ResultStream>(
-            new SimpleResultStream({Result{Buffer::FromString(serializedCommand)}}));
+        google::protobuf::Any command;
+        pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+
+        prepared_statement_result.set_prepared_statement_handle(query);
+        std::shared_ptr<Buffer> schema_buffer;
+        const arrow::Result<std::shared_ptr<Buffer>>& result =
+            arrow::ipc::SerializeSchema(*schema);
+
+        ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
+
+        prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
+        command.PackFrom(prepared_statement_result);
+        *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
+            {Result{Buffer::FromString(command.SerializeAsString())}}));
+
         return Status::OK();
       });
   EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
@@ -505,27 +521,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
          FlightClientMock& client_mock, const std::string& query) {
         const auto schema = arrow::schema({arrow::field("field0", arrow::utf8()),
                                            arrow::field("field1", arrow::uint8())});
-        ON_CALL(client_mock, DoAction)
-            .WillByDefault([&schema, &query](const FlightCallOptions& options,
-                                             const Action& action,
-                                             std::unique_ptr<ResultStream>* results) {
-              google::protobuf::Any command;
-              pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
 
-              prepared_statement_result.set_prepared_statement_handle(query);
-              std::shared_ptr<Buffer> schema_buffer;
-              const arrow::Result<std::shared_ptr<Buffer>>& result =
-                  arrow::ipc::SerializeSchema(*schema);
-
-              ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
-
-              prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
-              command.PackFrom(prepared_statement_result);
-              *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
-                  {Result{Buffer::FromString(command.SerializeAsString())}}));
-
-              return Status::OK();
-            });
         std::shared_ptr<Array> stringArray;
         std::shared_ptr<Array> uInt8Array;
         const std::vector<std::string> stringData{"Loren", "Ipsum", "Foo", "Bar", "Baz"};
@@ -535,6 +531,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
         std::shared_ptr<RecordBatch> recordBatch =
             RecordBatch::Make(schema, 100, {stringArray, uInt8Array});
         ASSERT_OK(prepared_statement->SetParameters(recordBatch));
+
         EXPECT_CALL(client_mock, DoPut(_, _, schema, _, _));
       });
 }
