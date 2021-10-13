@@ -542,6 +542,24 @@ class Converter_FixedSizeBinary : public Converter {
   int byte_width_;
 };
 
+bool DictionaryChunkArrayNeedUnification(
+    const std::shared_ptr<ChunkedArray>& chunked_array) {
+  int n = chunked_array->num_chunks();
+  if (n < 2) {
+    return false;
+  }
+  const auto& arr_first =
+      internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+  for (int i = 1; i < n; i++) {
+    const auto& arr =
+        internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i));
+    if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class Converter_Dictionary : public Converter {
  private:
   bool need_unification_;
@@ -552,7 +570,8 @@ class Converter_Dictionary : public Converter {
 
  public:
   explicit Converter_Dictionary(const std::shared_ptr<ChunkedArray>& chunked_array)
-      : Converter(chunked_array), need_unification_(NeedUnification()) {
+      : Converter(chunked_array),
+        need_unification_(DictionaryChunkArrayNeedUnification(chunked_array)) {
     if (need_unification_) {
       const auto& arr_type = checked_cast<const DictionaryType&>(*chunked_array->type());
       unifier_ = ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
@@ -585,8 +604,8 @@ class Converter_Dictionary : public Converter {
       }
 
       if (chunked_array->num_chunks() > 0) {
-        // NeedUnification() returned false so we can safely assume the
-        // dictionary of the first chunk applies everywhere
+        // DictionaryChunkArrayNeedUnification() returned false so we can safely assume
+        // the dictionary of the first chunk applies everywhere
         const auto& dict_array =
             checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
         dictionary_ = dict_array.dictionary();
@@ -675,22 +694,6 @@ class Converter_Dictionary : public Converter {
       };
       return IngestSome(array, n, ingest_one, null_one);
     }
-  }
-
-  bool NeedUnification() {
-    int n = chunked_array_->num_chunks();
-    if (n < 2) {
-      return false;
-    }
-    const auto& arr_first =
-        checked_cast<const DictionaryArray&>(*chunked_array_->chunk(0));
-    for (int i = 1; i < n; i++) {
-      const auto& arr = checked_cast<const DictionaryArray&>(*chunked_array_->chunk(i));
-      if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
-        return true;
-      }
-    }
-    return false;
   }
 
   bool GetOrdered() const {
