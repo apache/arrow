@@ -9,7 +9,8 @@
 schema(...)
 }
 \arguments{
-\item{...}{named list of \link[=data-type]{data types}}
+\item{...}{named list containing \link[=data-type]{data types} or
+a list of \link[=field]{fields} containing the fields for the schema}
 }
 \description{
 A \code{Schema} is a list of \link{Field}s, which map names to

@@ -136,7 +136,14 @@ Schema <- R6Class("Schema",
     }
   )
 )
-Schema$create <- function(...) schema_(.fields(list2(...)))
+Schema$create <- function(...) {
+  .list <- list2(...)
+  if (all(map_lgl(.list, ~ inherits(., "Field")))) {
+    schema_(.list)
+  } else {
+    schema_(.fields(.list))
+  }
+}
 #' @include arrowExports.R
 Schema$import_from_c <- ImportSchema
 
@@ -161,7 +168,8 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... named list of [data types][data-type]
+#' @param ... named list containing [data types][data-type] or
+#'   a list of [fields][field] containing the fields for the schema
 #' @export
 #' @rdname Schema
 schema <- Schema$create
