@@ -94,8 +94,8 @@ test_that("collapse", {
   expect_true(is_collapsed(collapse(q)))
   expect_false(is_collapsed(collapse(q)$.data))
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       select(chr, int, lgl) %>%
       mutate(twice = int * 2L) %>%
@@ -106,8 +106,8 @@ test_that("collapse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       collapse() %>%
       select(chr, int, lgl) %>%
@@ -118,8 +118,8 @@ test_that("collapse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       collapse() %>%
       group_by(chr) %>%
