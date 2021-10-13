@@ -212,7 +212,7 @@ ExecPlan <- R6Class("ExecPlan",
 
       out <- ExecPlan_run(self, node, sorting, select_k)
 
-      if (is.null(node$sort)) {
+      if (!has_sorting) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
         # essentially taking a random slice from somewhere in the dataset.
         # And since the head() implementation is way more efficient than tail(),
@@ -222,6 +222,8 @@ ExecPlan <- R6Class("ExecPlan",
           # TODO (ARROW-14289): make the head methods return RBR not Table
           out <- head(out, slice_size)
         }
+        # Can we now tell `self$Stop()` to StopProducing? We already have
+        # everything we need for the head (but it seems to segfault)
       } else if (!is.null(node$tail)) {
         # Reverse the row order to get back what we expect
         # TODO: don't return Table, return RecordBatchReader
