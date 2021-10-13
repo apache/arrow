@@ -16,6 +16,7 @@
 // under the License.
 
 #include <memory>
+#include <string>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -128,23 +129,29 @@ TYPED_TEST(TestBinaryKernels, BinaryLength) {
   this->CheckUnary("binary_length", R"(["aaa", null, "áéíóú", "", "b"])",
                    this->offset_type(), "[3, null, 10, 0, 1]");
 
-  // Binary non-UTF8 inputs
+  // Invalid UTF-8 inputs
   this->CheckUnary("binary_length", this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}),
                    this->offset_type(), "[3, 4]");
+
+  // Invalid UTF-8 inputs with null bytes
+  this->CheckUnary("binary_length",
+                   this->template MakeArray<std::string>(
+                       {{"\xf7\x00\xab", 3}, {"\x00\x9b\x00\xbb", 4}, {"\x00\x00", 2}}),
+                   this->offset_type(), "[3, 4, 2]");
 }
 
-TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
-  // Kernels found here do not accept invalid UTF-8 when processing
-  // [Large]StringType data. These tests use binary non-encoded inputs.
+TYPED_TEST(TestBinaryBaseKernels, NonUtf8) {
+  // These kernels do not accept invalid UTF-8 when processing
+  // [Large]StringType data. These tests use invalid UTF-8 inputs.
   {
-    ReplaceSliceOptions options{1, 2, "\xfc\x40"};
+    ReplaceSliceOptions options{1, 2, std::string("\xfc\x40", 2)};
     this->CheckUnary(
         "binary_replace_slice", this->MakeArray({"\xf7\x0f\xab", "\xff\x9b\xc3\xbb"}),
         this->MakeArray({"\xf7\xfc\x40\xab", "\xff\xfc\x40\xc3\xbb"}), &options);
   }
   {
     for (auto ignore_case : { true, false } ) {
-      MatchSubstringOptions options{"\xfc\x40", ignore_case};
+      MatchSubstringOptions options{std::string("\xfc\x40", 2), ignore_case};
       this->CheckUnary("find_substring",
                        this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
                        this->offset_type(), "[0, 2, -1]", &options);
@@ -155,47 +162,140 @@ TYPED_TEST(TestBinaryBaseKernels, BinaryNonUtf8Tests) {
                        this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
                        this->offset_type(), "[1, 3, -1]", &options);
 
-      options.pattern = "@+";
-      this->CheckUnary("find_substring_regex",
-                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
-                       this->offset_type(), "[1, 3, -1]", &options);
-
-      options.pattern = "\xfc\x40";
+      options.pattern = std::string("\xfc\x40", 2);
       this->CheckUnary("count_substring",
                        this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
                        this->offset_type(), "[1, 1, 0, 2]", &options);
 
-      // @ = \x40, A = \x41
-      options.pattern = "@*A";
-      this->CheckUnary("count_substring_regex",
-                       this->MakeArray({"\xfc\x42\xab", "\xff\x9b\x40\x41\xab", "\x01\x41\x41", "\x01\x40\x41\x40\x40\x41\xab"}),
-                       this->offset_type(), "[0, 1, 2, 2]", &options);
-      // options.pattern = "\xfc\x40";
-      options.pattern = "@*A";
-      this->CheckUnary("match_substring_regex",
-                       this->MakeArray({"\xfc\x42\xab", "\xff\x9b\x40\x41\xab", "\x01\x41\x41", "\x01\x40\x41\x40\x40\x41\xab"}),
-                       boolean(), "[false, true, true, true]", &options);
+      options.pattern = "@";
+      this->CheckUnary("count_substring",
+                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
+                                        "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
+                       this->offset_type(), "[1, 1, 0, 3]", &options);
+
+      options.pattern = std::string("\xfc\x40", 2);
+      this->CheckUnary("match_substring",
+                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
+                                        "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
+                       boolean(), "[true, true, false, true]", &options);
+
+      options.pattern = std::string("\xfc\x40", 2);
+      this->CheckUnary("starts_with",
+                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
+                                        "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
+                       boolean(), "[true, false, false, false]", &options);
+
+      options.pattern = std::string("\xfc\x40", 2);
+      this->CheckUnary("ends_with",
+                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
+                                        "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40"}),
+                       boolean(), "[false, false, false, true]", &options);
     }
   }
   {
-    // These kernels use PlainStartsWithMatcher and do not accept
-    // `ignore_case = true` because it fails DCHECK in PlainSubstringMatcher::Make().
-    MatchSubstringOptions options{"\xfc\x40"};
-    this->CheckUnary("match_substring",
-                     this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
-                     boolean(), "[true, true, false, true]", &options);
+    // "foo<non-UTF8>bar" = \x66\x6f\x6f\xfc\x62\x61\x72
+    SplitPatternOptions options{"\xfc"};
+    this->CheckUnary("split_pattern",
+                     this->MakeArray({"\x66\x6f\x6f\xfc\x62\x61\x72", "foo"}),
+                     list(this->type()), R"([["foo", "bar"], ["foo"]])", &options);
   }
-  // TODO: Add binary support to?
-  //   * ascii_reverse
-  //   * is_alpha
-  //   * is_numeric
-  //   * is_ascii
-  //   * is_utf8
-  //   * ...
-  // this->CheckUnary("ascii_reverse",
-  //                  this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01"}),
-  //                  this->MakeArray({"\xab\x40\xfc", "\xab\x40\xfc\x9b\xff", "\x01"}));
+  {
+    ReplaceSubstringOptions options{"\xfc\x40", "bazz", 1};
+    this->CheckUnary("replace_substring",
+                     this->MakeArray({"\xfc\x40", "this \xfc\x40 that \xfc\x40"}),
+                     this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
+  }
 }
+
+TYPED_TEST(TestBinaryBaseKernels, NonUtf8WithNull) {
+  // These kernels do not accept invalid UTF-8 when processing
+  // [Large]StringType data. These tests use invalid UTF-8 inputs.
+  for (auto ignore_case : {true, false}) {
+    MatchSubstringOptions options{std::string("\xfc\x00", 2), ignore_case};
+    this->CheckUnary(
+        "count_substring",
+        this->template MakeArray<std::string>({{"\xfc\x00\xab", 3},
+                                               {"\xff\x9b\xfc\x00\xab", 5},
+                                               {"\x01\xfc\x41", 3},
+                                               {"\x01\xfc\x00\x40\xfc\x00\xab", 7}}),
+        this->offset_type(), "[1, 1, 0, 2]", &options);
+  }
+}
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestBinaryBaseKernels, NonUtf8Regex) {
+  // These kernels do not accept invalid UTF-8 when processing
+  // [Large]StringType data. These tests use invalid UTF-8 inputs.
+  for (auto ignore_case : {true, false}) {
+    MatchSubstringOptions options{std::string("\xfc\x40", 2), ignore_case};
+    // @ = \x40
+    options.pattern = "@+";
+    this->CheckUnary(
+        "find_substring_regex",
+        this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
+        this->offset_type(), "[1, 3, -1]", &options);
+
+    // @ = \x40, A = \x41
+    options.pattern = "@*A";
+    this->CheckUnary("count_substring_regex",
+                     this->MakeArray({"\xfc\x42\xab", "\xff\x9b\x40\x41\xab",
+                                      "\x01\x41\x41", "\x01\x40\x41\x40\x40\x41\xab"}),
+                     this->offset_type(), "[0, 1, 2, 2]", &options);
+
+    // options.pattern = "@*A";
+    options.pattern = std::string("\x40*\x41", 3);
+    this->CheckUnary("match_substring_regex",
+                     this->MakeArray({"\xfc\x42\xab", "\xff\x9b\x40\x41\xab",
+                                      "\x01\x41\x41", "\x01\x40\x41\x40\x40\x41\xab"}),
+                     boolean(), "[false, true, true, true]", &options);
+
+    options.pattern = std::string("\xfc*\xab", 3);
+    this->CheckUnary("match_substring_regex",
+                     this->MakeArray({"\xfc\x42\xab", "\xff\x9b\x40\x41\xab",
+                                      "\x01\x41\x41", "\x01\x40\x41\x40\x40\x41\xab"}),
+                     boolean(), "[true, true, false, true]", &options);
+
+    options.pattern = std::string("%\xfc\x40", 3);
+    this->CheckUnary("match_like",
+                     this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
+                                      "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40"}),
+                     boolean(), "[false, false, false, true]", &options);
+  }
+  {
+    // "foo<non-UTF8>bar" = \x66\x6f\x6f\xfc\x62\x61\x72
+    SplitPatternOptions options{"\xfc"};
+    this->CheckUnary("split_pattern_regex",
+                     this->MakeArray({"\x66\x6f\x6f\xfc\x62\x61\x72", "foo"}),
+                     list(this->type()), R"([["foo", "bar"], ["foo"]])", &options);
+
+    options.pattern = "\xfc+|\x10";
+    this->CheckUnary("split_pattern_regex",
+                     this->MakeArray({"\x66\xfc\xfc\x6f\xfc\x62\x10\x72", "bar"}),
+                     list(this->type()), R"([["f", "o", "b", "r"], ["bar"]])", &options);
+  }
+  {
+    ReplaceSubstringOptions options{"\xfc\x40", "bazz", 1};
+    this->CheckUnary("replace_substring_regex",
+                     this->MakeArray({"\xfc\x40", "this \xfc\x40 that \xfc\x40"}),
+                     this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
+  }
+}
+
+TYPED_TEST(TestBinaryBaseKernels, NonUtf8WithNullRegex) {
+  // These kernels do not accept invalid UTF-8 when processing
+  // [Large]StringType data. These tests use invalid UTF-8 inputs.
+  for (auto ignore_case : {true, false}) {
+    MatchSubstringOptions options{std::string("\xfc\x00", 2), ignore_case};
+    this->CheckUnary(
+        "count_substring_regex",
+        this->template MakeArray<std::string>({{"\xfc\x00\xab", 3},
+                                               {"\xff\x9b\xfc\x00\xab", 5},
+                                               {"\x01\xfc\x41", 3},
+                                               {"\x01\xfc\x00\x40\xfc\x00\xab", 7}}),
+        this->offset_type(), "[1, 1, 0, 2]", &options);
+  }
+}
+#endif
 
 TYPED_TEST(TestBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
@@ -668,11 +768,6 @@ TEST_F(TestFixedSizeBinaryKernels, FindSubstringIgnoreCase) {
                                   CallFunction("find_substring", {input}, &options));
 }
 #endif
-
-template <typename TestType>
-class TestStringKernels : public BaseTestStringKernels<TestType> {};
-
-TYPED_TEST_SUITE(TestStringKernels, StringArrowTypes);
 
 TYPED_TEST(TestStringKernels, AsciiUpper) {
   this->CheckUnary("ascii_upper", "[]", this->type(), "[]");
@@ -1385,71 +1480,67 @@ TYPED_TEST(TestStringKernels, Utf8ReplaceSlice) {
                    &options_neg_flip);
 }
 
-TYPED_TEST(TestStringKernels, ReplaceSubstring) {
+TYPED_TEST(TestBinaryKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
                    this->type(), R"(["bazz", "this bazz that bazz", null])", &options);
-}
 
-TYPED_TEST(TestStringKernels, ReplaceSubstringLimited) {
-  ReplaceSubstringOptions options{"foo", "bazz", 1};
+  options = ReplaceSubstringOptions{"foo", "bazz", 1};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
                    this->type(), R"(["bazz", "this bazz that foo", null])", &options);
-}
 
-TYPED_TEST(TestStringKernels, ReplaceSubstringNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}));
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestStringKernels, ReplaceSubstringRegex) {
-  ReplaceSubstringOptions options_regex{"(fo+)\\s*", "\\1-bazz"};
+TYPED_TEST(TestBinaryKernels, ReplaceSubstringRegex) {
+  ReplaceSubstringOptions options{"(fo+)\\s*", "\\1-bazz"};
   this->CheckUnary("replace_substring_regex", R"(["foo ", "this foo   that foo", null])",
                    this->type(), R"(["foo-bazz", "this foo-bazzthat foo-bazz", null])",
-                   &options_regex);
+                   &options);
   // make sure we match non-overlapping
-  ReplaceSubstringOptions options_regex2{"(a.a)", "aba\\1"};
+  options = ReplaceSubstringOptions{"(a.a)", "aba\\1"};
   this->CheckUnary("replace_substring_regex", R"(["aaaaaa"])", this->type(),
-                   R"(["abaaaaabaaaa"])", &options_regex2);
+                   R"(["abaaaaabaaaa"])", &options);
 
   // ARROW-12774
-  ReplaceSubstringOptions options_regex3{"X", "Y"};
+  options = ReplaceSubstringOptions{"X", "Y"};
   this->CheckUnary("replace_substring_regex",
                    R"(["A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A"])",
                    this->type(),
                    R"(["A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A"])",
-                   &options_regex3);
-}
+                   &options);
 
-TYPED_TEST(TestStringKernels, ReplaceSubstringRegexLimited) {
   // With a finite number of replacements
-  ReplaceSubstringOptions options1{"foo", "bazz", 1};
+  options = ReplaceSubstringOptions{"foo", "bazz", 1};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
-                   this->type(), R"(["bazz", "this bazz that foo", null])", &options1);
-  ReplaceSubstringOptions options_regex1{"(fo+)\\s*", "\\1-bazz", 1};
+                   this->type(), R"(["bazz", "this bazz that foo", null])", &options);
+
+  options = ReplaceSubstringOptions{"(fo+)\\s*", "\\1-bazz", 1};
   this->CheckUnary("replace_substring_regex", R"(["foo ", "this foo   that foo", null])",
                    this->type(), R"(["foo-bazz", "this foo-bazzthat foo", null])",
-                   &options_regex1);
+                   &options);
 }
 
-TYPED_TEST(TestStringKernels, ReplaceSubstringRegexNoOptions) {
-  Datum input = ArrayFromJSON(this->type(), "[]");
-  ASSERT_RAISES(Invalid, CallFunction("replace_substring_regex", {input}));
-}
+TYPED_TEST(TestBinaryKernels, ReplaceSubstringRegexInvalid) {
+  {
+    Datum input = ArrayFromJSON(this->type(), "[]");
+    ASSERT_RAISES(Invalid, CallFunction("replace_substring_regex", {input}));
+  }
+  {
+    Datum input = ArrayFromJSON(this->type(), R"(["foo"])");
+    ReplaceSubstringOptions options{"invalid[", ""};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
+        CallFunction("replace_substring_regex", {input}, &options));
 
-TYPED_TEST(TestStringKernels, ReplaceSubstringRegexInvalid) {
-  Datum input = ArrayFromJSON(this->type(), R"(["foo"])");
-  ReplaceSubstringOptions options{"invalid[", ""};
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
-      CallFunction("replace_substring_regex", {input}, &options));
-
-  // Capture group number out of range
-  options = ReplaceSubstringOptions{"(.)", "\\9"};
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Invalid replacement string"),
-      CallFunction("replace_substring_regex", {input}, &options));
+    // Capture group number out of range
+    options = ReplaceSubstringOptions{"(.)", "\\9"};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Invalid replacement string"),
+        CallFunction("replace_substring_regex", {input}, &options));
+  }
 }
 
 TYPED_TEST(TestStringKernels, ExtractRegex) {

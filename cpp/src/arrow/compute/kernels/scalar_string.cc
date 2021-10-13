@@ -967,17 +967,17 @@ struct RegexSubstringMatcher {
   const RE2 regex_match_;
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
-      const MatchSubstringOptions& options, bool literal = false) {
+      const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
     auto matcher =
-        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, literal);
+        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
 
   explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
-                                 bool literal = false)
+                                 bool is_utf8 = true, bool literal = false)
       : options_(options),
-        regex_match_(options_.pattern, MakeRE2Options(options, literal)) {}
+        regex_match_(options_.pattern, MakeRE2Options(options, is_utf8, literal)) {}
 
   bool Match(util::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
@@ -985,9 +985,11 @@ struct RegexSubstringMatcher {
   }
 
   static RE2::RE2::Options MakeRE2Options(const MatchSubstringOptions& options,
-                                          bool literal) {
+                                          bool is_utf8, bool literal) {
     RE2::RE2::Options re2_options(RE2::Quiet);
     re2_options.set_case_sensitive(!options.ignore_case);
+    re2_options.set_encoding(is_utf8 ? RE2::RE2::Options::EncodingUTF8
+                                     : RE2::RE2::Options::EncodingLatin1);
     re2_options.set_literal(literal);
     return re2_options;
   }
@@ -1031,20 +1033,31 @@ struct MatchSubstring {
 };
 
 template <typename Type>
+struct MatchSubstring<Type, RegexSubstringMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO Cache matcher across invocations (for regex compilation)
+    ARROW_ASSIGN_OR_RAISE(auto matcher,
+                          RegexSubstringMatcher::Make(MatchSubstringState::Get(ctx),
+                                                      /*is_utf8=*/Type::is_utf8));
+    return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                 matcher.get());
+  }
+};
+
+template <typename Type>
 struct MatchSubstring<Type, PlainSubstringMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto options = MatchSubstringState::Get(ctx);
-    if (Type::is_utf8) {
-      if (options.ignore_case) {
+    if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-        ARROW_ASSIGN_OR_RAISE(auto matcher,
-                              RegexSubstringMatcher::Make(options, /*literal=*/true));
-        return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
-                                                                     matcher.get());
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher, RegexSubstringMatcher::Make(options, /*is_utf8=*/Type::is_utf8,
+                                                    /*literal=*/true));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
 #else
-        return Status::NotImplemented("ignore_case requires RE2");
+      return Status::NotImplemented("ignore_case requires RE2");
 #endif
-      }
     }
     ARROW_ASSIGN_OR_RAISE(auto matcher, PlainSubstringMatcher::Make(options));
     return MatchSubstringImpl<Type, PlainSubstringMatcher>::Exec(ctx, batch, out,
@@ -1056,18 +1069,18 @@ template <typename Type>
 struct MatchSubstring<Type, PlainStartsWithMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto options = MatchSubstringState::Get(ctx);
-    if (Type::is_utf8) {
-      if (options.ignore_case) {
+    if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-        MatchSubstringOptions converted_options = options;
-        converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
-        ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
-        return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
-                                                                     matcher.get());
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher,
+          RegexSubstringMatcher::Make(converted_options, /*is_utf8=*/Type::is_utf8));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
 #else
-        return Status::NotImplemented("ignore_case requires RE2");
+      return Status::NotImplemented("ignore_case requires RE2");
 #endif
-      }
     }
     ARROW_ASSIGN_OR_RAISE(auto matcher, PlainStartsWithMatcher::Make(options));
     return MatchSubstringImpl<Type, PlainStartsWithMatcher>::Exec(ctx, batch, out,
@@ -1079,18 +1092,18 @@ template <typename Type>
 struct MatchSubstring<Type, PlainEndsWithMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto options = MatchSubstringState::Get(ctx);
-    if (Type::is_utf8) {
-      if (options.ignore_case) {
+    if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-        MatchSubstringOptions converted_options = options;
-        converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
-        ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
-        return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
-                                                                     matcher.get());
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher,
+          RegexSubstringMatcher::Make(converted_options, /*is_utf8=*/Type::is_utf8));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
 #else
-        return Status::NotImplemented("ignore_case requires RE2");
+      return Status::NotImplemented("ignore_case requires RE2");
 #endif
-      }
     }
     ARROW_ASSIGN_OR_RAISE(auto matcher, PlainEndsWithMatcher::Make(options));
     return MatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out,
@@ -1181,12 +1194,16 @@ template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // NOTE: avoid making those constants global to avoid compiling regexes at startup
+    // Set RE2 encoding based on input type: Latin-1 for Binary and UTF-8 for String
+    static const RE2::CannedOptions kLikeEncoding =
+        StringType::is_utf8 ? RE2::DefaultOptions : RE2::Latin1;
     // A LIKE pattern matching this regex can be translated into a substring search.
-    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)");
+    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)",
+                                                  kLikeEncoding);
     // A LIKE pattern matching this regex can be translated into a prefix search.
-    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)");
+    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)", kLikeEncoding);
     // A LIKE pattern matching this regex can be translated into a suffix search.
-    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))");
+    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))", kLikeEncoding);
 
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
@@ -1214,10 +1231,6 @@ struct MatchLike {
     }
 
     if (!matched) {
-      if (original_options.ignore_case && !StringType::is_utf8) {
-        return Status::NotImplemented(
-            "ignore_case is not supported for non-encoded binary types");
-      }
       MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
                                               original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
@@ -1308,14 +1321,15 @@ struct FindSubstring {
 struct FindSubstringRegex {
   std::unique_ptr<RE2> regex_match_;
 
-  explicit FindSubstringRegex(const MatchSubstringOptions& options,
+  explicit FindSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
                               bool literal = false) {
     std::string regex = "(";
     regex.reserve(options.pattern.length() + 2);
     regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
     regex += ")";
-    regex_match_.reset(new RE2(std::move(regex), RegexSubstringMatcher::MakeRE2Options(
-                                                     options, /*literal=*/false)));
+    regex_match_.reset(
+        new RE2(std::move(regex), RegexSubstringMatcher::MakeRE2Options(
+                                      options, /*is_utf8=*/is_utf8, /*literal=*/false)));
   }
 
   template <typename OutValue, typename... Ignored>
@@ -1335,15 +1349,14 @@ struct FindSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
-    if (InputType::is_utf8) {
-      if (options.ignore_case) {
+    if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-        applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
-            kernel{FindSubstringRegex(options, /*literal=*/true)};
-        return kernel.Exec(ctx, batch, out);
+      applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
+          kernel{FindSubstringRegex(options, /*is_utf8=*/InputType::is_utf8,
+                                    /*literal=*/true)};
+      return kernel.Exec(ctx, batch, out);
 #endif
-        return Status::NotImplemented("ignore_case requires RE2");
-      }
+      return Status::NotImplemented("ignore_case requires RE2");
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
         FindSubstring(PlainSubstringMatcher(options))};
@@ -1440,13 +1453,14 @@ struct CountSubstring {
 struct CountSubstringRegex {
   std::unique_ptr<RE2> regex_match_;
 
-  explicit CountSubstringRegex(const MatchSubstringOptions& options, bool literal = false)
-      : regex_match_(new RE2(options.pattern,
-                             RegexSubstringMatcher::MakeRE2Options(options, literal))) {}
+  explicit CountSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
+                               bool literal = false)
+      : regex_match_(new RE2(options.pattern, RegexSubstringMatcher::MakeRE2Options(
+                                                  options, is_utf8, literal))) {}
 
   static Result<CountSubstringRegex> Make(const MatchSubstringOptions& options,
-                                          bool literal = false) {
-    CountSubstringRegex counter(options, literal);
+                                          bool is_utf8 = true, bool literal = false) {
+    CountSubstringRegex counter(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*counter.regex_match_));
     return std::move(counter);
   }
@@ -1477,7 +1491,8 @@ struct CountSubstringRegexExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
-    ARROW_ASSIGN_OR_RAISE(auto counter, CountSubstringRegex::Make(options));
+    ARROW_ASSIGN_OR_RAISE(
+        auto counter, CountSubstringRegex::Make(options, /*is_utf8=*/InputType::is_utf8));
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
         kernel{std::move(counter)};
     return kernel.Exec(ctx, batch, out);
@@ -1490,18 +1505,17 @@ struct CountSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
-    if (InputType::is_utf8) {
-      if (options.ignore_case) {
+    if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-        ARROW_ASSIGN_OR_RAISE(auto counter,
-                              CountSubstringRegex::Make(options, /*literal=*/true));
-        applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
-            kernel{std::move(counter)};
-        return kernel.Exec(ctx, batch, out);
+      ARROW_ASSIGN_OR_RAISE(
+          auto counter, CountSubstringRegex::Make(options, /*is_utf8=*/InputType::is_utf8,
+                                                  /*literal=*/true));
+      applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
+          kernel{std::move(counter)};
+      return kernel.Exec(ctx, batch, out);
 #else
-        return Status::NotImplemented("ignore_case requires RE2");
+      return Status::NotImplemented("ignore_case requires RE2");
 #endif
-      }
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstring> kernel{
         CountSubstring(PlainSubstringMatcher(options))};
@@ -2404,6 +2418,7 @@ void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
 #endif  // ARROW_WITH_UTF8PROC
 
 #ifdef ARROW_WITH_RE2
+template <typename Type>
 struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
   using Options = SplitPatternOptions;
 
@@ -2419,7 +2434,8 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
     pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
-    regex_split.emplace(std::move(pattern));
+    regex_split.emplace(std::move(pattern),
+                        Type::is_utf8 ? RE2::DefaultOptions : RE2::Latin1);
     return RegexStatus(*regex_split);
   }
 
@@ -2446,7 +2462,7 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitRegexExec = SplitExec<Type, ListType, SplitRegexFinder>;
+using SplitRegexExec = SplitExec<Type, ListType, SplitRegexFinder<Type>>;
 
 const FunctionDoc split_pattern_regex_doc(
     "Split string according to regex pattern",
@@ -2483,17 +2499,18 @@ void AddSplit(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Replace substring (plain, regex)
 
+using ReplaceState = OptionsWrapper<ReplaceSubstringOptions>;
+
 template <typename Type, typename Replacer>
-struct ReplaceSubString {
+struct ReplaceSubstring {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using offset_type = typename Type::offset_type;
   using ValueDataBuilder = TypedBufferBuilder<uint8_t>;
   using OffsetBuilder = TypedBufferBuilder<offset_type>;
-  using State = OptionsWrapper<ReplaceSubstringOptions>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // TODO Cache replacer across invocations (for regex compilation)
-    ARROW_ASSIGN_OR_RAISE(auto replacer, Replacer::Make(State::Get(ctx)));
+    ARROW_ASSIGN_OR_RAISE(auto replacer, Replacer::Make(ReplaceState::Get(ctx)));
     return Replace(ctx, batch, *replacer, out);
   }
 
@@ -2541,15 +2558,15 @@ struct ReplaceSubString {
   }
 };
 
-struct PlainSubStringReplacer {
+struct PlainSubstringReplacer {
   const ReplaceSubstringOptions& options_;
 
-  static Result<std::unique_ptr<PlainSubStringReplacer>> Make(
+  static Result<std::unique_ptr<PlainSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    return arrow::internal::make_unique<PlainSubStringReplacer>(options);
+    return arrow::internal::make_unique<PlainSubstringReplacer>(options);
   }
 
-  explicit PlainSubStringReplacer(const ReplaceSubstringOptions& options)
+  explicit PlainSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options) {}
 
   Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
@@ -2583,14 +2600,15 @@ struct PlainSubStringReplacer {
 };
 
 #ifdef ARROW_WITH_RE2
-struct RegexSubStringReplacer {
+template <typename Type>
+struct RegexSubstringReplacer {
   const ReplaceSubstringOptions& options_;
   const RE2 regex_find_;
   const RE2 regex_replacement_;
 
-  static Result<std::unique_ptr<RegexSubStringReplacer>> Make(
+  static Result<std::unique_ptr<RegexSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    auto replacer = arrow::internal::make_unique<RegexSubStringReplacer>(options);
+    auto replacer = arrow::internal::make_unique<RegexSubstringReplacer>(options);
 
     RETURN_NOT_OK(RegexStatus(replacer->regex_find_));
     RETURN_NOT_OK(RegexStatus(replacer->regex_replacement_));
@@ -2607,10 +2625,11 @@ struct RegexSubStringReplacer {
 
   // Using RE2::FindAndConsume we can only find the pattern if it is a group, therefore
   // we have 2 regexes, one with () around it, one without.
-  explicit RegexSubStringReplacer(const ReplaceSubstringOptions& options)
+  explicit RegexSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options),
-        regex_find_("(" + options_.pattern + ")", RE2::Quiet),
-        regex_replacement_(options_.pattern, RE2::Quiet) {}
+        regex_find_("(" + options_.pattern + ")",
+                    Type::is_utf8 ? RE2::Quiet : RE2::Latin1),
+        regex_replacement_(options_.pattern, Type::is_utf8 ? RE2::Quiet : RE2::Latin1) {}
 
   Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
@@ -2661,7 +2680,7 @@ struct RegexSubStringReplacer {
 #endif
 
 template <typename Type>
-using ReplaceSubStringPlain = ReplaceSubString<Type, PlainSubStringReplacer>;
+using ReplaceSubstringPlain = ReplaceSubstring<Type, PlainSubstringReplacer>;
 
 const FunctionDoc replace_substring_doc(
     "Replace non-overlapping substrings that match pattern by replacement",
@@ -2673,7 +2692,7 @@ const FunctionDoc replace_substring_doc(
 
 #ifdef ARROW_WITH_RE2
 template <typename Type>
-using ReplaceSubStringRegex = ReplaceSubString<Type, RegexSubStringReplacer>;
+using ReplaceSubstringRegex = ReplaceSubstring<Type, RegexSubstringReplacer<Type>>;
 
 const FunctionDoc replace_substring_regex_doc(
     "Replace non-overlapping substrings that match regex `pattern` by `replacement`",
@@ -4153,6 +4172,33 @@ void MakeUnaryStringBatchKernelWithState(
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+void AddReplaceSubstring(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("replace_substring", Arity::Unary(),
+                                                 &replace_substring_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringPlain>(ty);
+      ScalarKernel kernel{{ty}, ty, exec, ReplaceState::Init};
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>(
+        "replace_substring_regex", Arity::Unary(), &replace_substring_regex_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringRegex>(ty);
+      ScalarKernel kernel{{ty}, ty, exec, ReplaceState::Init};
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
+}
+
 #ifdef ARROW_WITH_UTF8PROC
 
 template <template <typename> class Transformer>
@@ -4471,13 +4517,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddMatchSubstring(registry);
   AddFindSubstring(registry);
   AddCountSubstring(registry);
-  MakeUnaryStringBatchKernelWithState<ReplaceSubStringPlain>(
-      "replace_substring", registry, &replace_substring_doc,
-      MemAllocation::NO_PREALLOCATE);
+  AddReplaceSubstring(registry);
 #ifdef ARROW_WITH_RE2
-  MakeUnaryStringBatchKernelWithState<ReplaceSubStringRegex>(
-      "replace_substring_regex", registry, &replace_substring_regex_doc,
-      MemAllocation::NO_PREALLOCATE);
   AddExtractRegex(registry);
 #endif
   AddReplaceSlice(registry);
