@@ -71,6 +71,10 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   if [ -f "/arrow/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
     /arrow/ci/scripts/install_minio.sh amd64 linux latest /usr/local
   fi
+
+  if [ -f "/arrow/ci/scripts/install_gcs_testbench.sh" ] && [ "`which pip`" ]; then
+    /arrow/ci/scripts/install_gcs_testbench.sh default
+  fi
 fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786

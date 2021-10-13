@@ -19,14 +19,46 @@
 
 #include <google/cloud/storage/client.h>
 
-#include <sstream>
-
+#include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace fs {
+namespace {
+
+auto constexpr kSep = '/';
+
+struct GcsPath {
+  std::string full_path;
+  std::string bucket;
+  std::string object;
+
+  static Result<GcsPath> FromString(const std::string& s) {
+    const auto src = internal::RemoveTrailingSlash(s);
+    auto const first_sep = src.find_first_of(kSep);
+    if (first_sep == 0) {
+      return Status::Invalid("Path cannot start with a separator ('", s, "')");
+    }
+    if (first_sep == std::string::npos) {
+      return GcsPath{std::string(src), std::string(src), ""};
+    }
+    GcsPath path;
+    path.full_path = std::string(src);
+    path.bucket = std::string(src.substr(0, first_sep));
+    path.object = std::string(src.substr(first_sep + 1));
+    return path;
+  }
+
+  bool empty() const { return bucket.empty() && object.empty(); }
+
+  bool operator==(const GcsPath& other) const {
+    return bucket == other.bucket && object == other.object;
+  }
+};
+
+}  // namespace
 
 namespace gcs = google::cloud::storage;
 
@@ -35,6 +67,13 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   if (!o.endpoint_override.empty()) {
     std::string scheme = o.scheme;
     if (scheme.empty()) scheme = "https";
+    if (scheme == "https") {
+      options.set<google::cloud::UnifiedCredentialsOption>(
+          google::cloud::MakeGoogleDefaultCredentials());
+    } else {
+      options.set<google::cloud::UnifiedCredentialsOption>(
+          google::cloud::MakeInsecureCredentials());
+    }
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
   return options;
@@ -45,9 +84,31 @@ class GcsFileSystem::Impl {
   explicit Impl(GcsOptions o)
       : options_(std::move(o)), client_(AsGoogleCloudOptions(options_)) {}
 
-  GcsOptions const& options() const { return options_; }
+  const GcsOptions& options() const { return options_; }
+
+  Result<FileInfo> GetFileInfo(const GcsPath& path) {
+    if (!path.object.empty()) {
+      auto meta = client_.GetObjectMetadata(path.bucket, path.object);
+      return GetFileInfoImpl(path, std::move(meta).status(), FileType::File);
+    }
+    auto meta = client_.GetBucketMetadata(path.bucket);
+    return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
+  }
 
  private:
+  static Result<FileInfo> GetFileInfoImpl(const GcsPath& path,
+                                          const google::cloud::Status& status,
+                                          FileType type) {
+    if (status.ok()) {
+      return FileInfo(path.full_path, type);
+    }
+    using ::google::cloud::StatusCode;
+    if (status.code() == StatusCode::kNotFound) {
+      return FileInfo(path.full_path, FileType::NotFound);
+    }
+    return internal::ToArrowStatus(status);
+  }
+
   GcsOptions options_;
   gcs::Client client_;
 };
@@ -70,7 +131,8 @@ bool GcsFileSystem::Equals(const FileSystem& other) const {
 }
 
 Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->GetFileInfo(p);
 }
 
 Result<FileInfoVector> GcsFileSystem::GetFileInfo(const FileSelector& select) {

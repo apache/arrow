@@ -53,6 +53,7 @@ RUN dnf update -y && \
         openssl-devel \
         protobuf-devel \
         python \
+        python-pip \
         rapidjson-devel \
         re2-devel \
         snappy-devel \
@@ -62,9 +63,10 @@ RUN dnf update -y && \
         which \
         zlib-devel
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

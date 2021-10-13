@@ -90,15 +90,17 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
+        python3-pip \
         rapidjson-dev \
         tzdata \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
