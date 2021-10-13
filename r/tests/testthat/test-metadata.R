@@ -240,7 +240,6 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
-  local_edition(3)
   library(dplyr, warn.conflicts = FALSE)
 
   df <- tibble::tibble(
