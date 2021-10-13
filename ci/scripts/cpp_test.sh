@@ -19,9 +19,14 @@
 
 set -ex
 
-arrow_dir=${1}
-source_dir=${1}/cpp
-build_dir=${2}/cpp
+if [[ $# < 2 ]]; then
+  echo "Usage: $0 <Arrow dir> <build dir> [ctest args ...]"
+  exit 1
+fi
+
+arrow_dir=${1}; shift
+build_dir=${1}/cpp; shift
+source_dir=${arrow_dir}/cpp
 binary_output_dir=${build_dir}/${ARROW_BUILD_TYPE:-debug}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
@@ -79,7 +84,8 @@ ctest \
     --output-on-failure \
     --parallel ${n_jobs} \
     --timeout 300 \
-    "${ctest_options[@]}"
+    "${ctest_options[@]}" \
+    $@
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
     examples=$(find ${binary_output_dir} -executable -name "*example")
