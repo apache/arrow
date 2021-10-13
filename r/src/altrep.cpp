@@ -255,7 +255,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       // then set the R NA sentinels if needed
       if (array->null_count() > 0) {
         internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                             array->offset(), ncopy);
+                                             array->offset(), n);
 
         for (R_xlen_t j = 0; j < n; j++, bitmap_reader.Next()) {
           if (bitmap_reader.IsNotSet()) {
