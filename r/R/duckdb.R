@@ -143,9 +143,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'   collect()
 to_arrow <- function(.data) {
   # If this is an Arrow object already, return quickly since we're already Arrow
-  is_adq <- inherits(.data, "arrow_dplyr_query")
-  is_arrow_tabular <- inherits(.data, "ArrowObject") & inherits(.data, c("Dataset", "ArrowTabular"))
-  if (is_adq | is_arrow_tabular) {
+  if (inherits(.data, c("arrow_dplyr_query", "ArrowObject")) {
     return(.data)
   }
 
