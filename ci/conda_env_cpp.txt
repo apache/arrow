@@ -15,8 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# workaround for https://issues.apache.org/jira/browse/ARROW-13134
-aws-sdk-cpp<1.9
+aws-sdk-cpp
 benchmark>=1.5.4
 boost-cpp>=1.68.0
 brotli
