@@ -108,6 +108,17 @@ test_that("CSV scan options", {
     chr = c("foo", NA),
     chr2 = c("bar", "baz")
   ))
+  expect_equal(
+    ds %>%
+      group_by(chr2) %>%
+      summarize(na = all(is.na(chr))) %>%
+      arrange(chr2) %>%
+      collect(),
+    tibble(
+      chr2 = c("bar", "baz"),
+      na = c(FALSE, TRUE)
+    )
+  )
 })
 
 test_that("compressed CSV dataset", {

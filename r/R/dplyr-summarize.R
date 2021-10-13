@@ -116,9 +116,10 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       out$group_by_vars <- .data$group_by_vars
     } else if (.groups == "rowwise") {
       stop(arrow_not_supported('.groups = "rowwise"'))
-    } else if (.groups != "drop") {
-      # Drop means don't group by anything so there's nothing to do.
-      # Anything else is invalid
+    } else if (.groups == "drop") {
+      # collapse() preserves groups so remove them
+      out <- dplyr::ungroup(out)
+    } else {
       stop(paste("Invalid .groups argument:", .groups))
     }
     # TODO: shouldn't we be doing something with `drop_empty_groups` in summarize? (ARROW-14044)

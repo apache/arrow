@@ -64,6 +64,8 @@ import pyarrow as pa
      pa.Time32Scalar, pa.Time32Value),
     (datetime.datetime.now().time(), None, pa.Time64Scalar, pa.Time64Value),
     (datetime.timedelta(days=1), None, pa.DurationScalar, pa.DurationValue),
+    (pa.MonthDayNano([1, -1, -10100]), None,
+     pa.MonthDayNanoIntervalScalar, None),
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar,
      pa.MapValue),
@@ -78,8 +80,9 @@ def test_basics(value, ty, klass, deprecated):
     assert hash(s) == hash(s)
     assert s.is_valid is True
     assert s != None  # noqa: E711
-    with pytest.warns(FutureWarning):
-        assert isinstance(s, deprecated)
+    if deprecated is not None:
+        with pytest.warns(FutureWarning):
+            assert isinstance(s, deprecated)
 
     s = pa.scalar(None, type=s.type)
     assert s.is_valid is False
@@ -362,6 +365,14 @@ def test_duration_nanos_nopandas():
     arr = pa.array([946684800000000001], type=pa.duration('ns'))
     with pytest.raises(ValueError):
         arr[0].as_py()
+
+
+def test_month_day_nano_interval():
+    triple = pa.MonthDayNano([-3600, 1800, -50])
+    arr = pa.array([triple])
+    assert isinstance(arr[0].as_py(), pa.MonthDayNano)
+    assert arr[0].as_py() == triple
+    assert arr[0].value == triple
 
 
 @pytest.mark.parametrize('value', ['foo', 'mañana'])

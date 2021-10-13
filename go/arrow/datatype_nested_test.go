@@ -40,7 +40,7 @@ func TestListOf(t *testing.T) {
 	} {
 		t.Run(tc.Name(), func(t *testing.T) {
 			got := ListOf(tc)
-			want := &ListType{elem: tc}
+			want := &ListType{elem: tc, NullableElem: true}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("got=%#v, want=%#v", got, want)
 			}
@@ -313,7 +313,7 @@ func TestFixedSizeListOf(t *testing.T) {
 		t.Run(tc.Name(), func(t *testing.T) {
 			const size = 3
 			got := FixedSizeListOf(size, tc)
-			want := &FixedSizeListType{elem: tc, n: size}
+			want := &FixedSizeListType{elem: tc, n: size, NullableElem: true}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("got=%#v, want=%#v", got, want)
 			}

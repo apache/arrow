@@ -26,6 +26,7 @@ set(ARROW_DATASET_SRCS
     file_base.cc
     file_ipc.cc
     partition.cc
+    plan.cc
     projector.cc
     scanner.cc)
 
@@ -132,10 +133,13 @@ endif()
 
 if(ARROW_BUILD_BENCHMARKS)
   add_arrow_benchmark(file_benchmark PREFIX "arrow-dataset")
+  add_arrow_benchmark(scanner_benchmark PREFIX "arrow-dataset")
 
   if(ARROW_BUILD_STATIC)
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_static)
+    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_static)
   else()
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_shared)
+    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_shared)
   endif()
 endif()

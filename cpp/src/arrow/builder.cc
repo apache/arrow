@@ -25,6 +25,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -33,6 +34,106 @@ class MemoryPool;
 
 // ----------------------------------------------------------------------
 // Helper functions
+
+using arrow::internal::checked_cast;
+
+// Generic int builder that delegates to the builder for a specific
+// type. Used to reduce the number of template instantiations in the
+// exact_index_type case below, to reduce build time and memory usage.
+class ARROW_EXPORT TypeErasedIntBuilder : public ArrayBuilder {
+ public:
+  explicit TypeErasedIntBuilder(MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool) {
+    // Not intended to be used, but adding this is easier than adding a bunch of enable_if
+    // magic to builder_dict.h
+    DCHECK(false);
+  }
+  explicit TypeErasedIntBuilder(const std::shared_ptr<DataType>& type,
+                                MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool), type_id_(type->id()) {
+    DCHECK(is_integer(type_id_));
+    switch (type_id_) {
+      case Type::UINT8:
+        builder_ = internal::make_unique<UInt8Builder>(pool);
+        break;
+      case Type::INT8:
+        builder_ = internal::make_unique<Int8Builder>(pool);
+        break;
+      case Type::UINT16:
+        builder_ = internal::make_unique<UInt16Builder>(pool);
+        break;
+      case Type::INT16:
+        builder_ = internal::make_unique<Int16Builder>(pool);
+        break;
+      case Type::UINT32:
+        builder_ = internal::make_unique<UInt32Builder>(pool);
+        break;
+      case Type::INT32:
+        builder_ = internal::make_unique<Int32Builder>(pool);
+        break;
+      case Type::UINT64:
+        builder_ = internal::make_unique<UInt64Builder>(pool);
+        break;
+      case Type::INT64:
+        builder_ = internal::make_unique<Int64Builder>(pool);
+        break;
+      default:
+        DCHECK(false);
+    }
+  }
+
+  void Reset() override { return builder_->Reset(); }
+  Status Append(int32_t value) {
+    switch (type_id_) {
+      case Type::UINT8:
+        return checked_cast<UInt8Builder*>(builder_.get())->Append(value);
+      case Type::INT8:
+        return checked_cast<Int8Builder*>(builder_.get())->Append(value);
+      case Type::UINT16:
+        return checked_cast<UInt16Builder*>(builder_.get())->Append(value);
+      case Type::INT16:
+        return checked_cast<Int16Builder*>(builder_.get())->Append(value);
+      case Type::UINT32:
+        return checked_cast<UInt32Builder*>(builder_.get())->Append(value);
+      case Type::INT32:
+        return checked_cast<Int32Builder*>(builder_.get())->Append(value);
+      case Type::UINT64:
+        return checked_cast<UInt64Builder*>(builder_.get())->Append(value);
+      case Type::INT64:
+        return checked_cast<Int64Builder*>(builder_.get())->Append(value);
+      default:
+        DCHECK(false);
+    }
+    return Status::NotImplemented("Internal implementation error");
+  }
+  Status AppendNull() override { return builder_->AppendNull(); }
+  Status AppendNulls(int64_t length) override { return builder_->AppendNulls(length); }
+  Status AppendEmptyValue() override { return builder_->AppendEmptyValue(); }
+  Status AppendEmptyValues(int64_t length) override {
+    return builder_->AppendEmptyValues(length);
+  }
+
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    return builder_->AppendScalar(scalar, n_repeats);
+  }
+  Status AppendScalars(const ScalarVector& scalars) override {
+    return builder_->AppendScalars(scalars);
+  }
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
+    return builder_->AppendArraySlice(array, offset, length);
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    return builder_->FinishInternal(out);
+  }
+
+  std::shared_ptr<DataType> type() const override { return builder_->type(); }
+
+ private:
+  std::unique_ptr<ArrayBuilder> builder_;
+  Type::type type_id_;
+};
 
 struct DictionaryBuilderCase {
   template <typename ValueType, typename Enable = typename ValueType::c_type>
@@ -63,42 +164,11 @@ struct DictionaryBuilderCase {
     if (dictionary != nullptr) {
       out->reset(new AdaptiveBuilderType(dictionary, pool));
     } else if (exact_index_type) {
-      switch (index_type->id()) {
-        case Type::UINT8:
-          out->reset(new internal::DictionaryBuilderBase<UInt8Builder, ValueType>(
-              value_type, pool));
-          break;
-        case Type::INT8:
-          out->reset(new internal::DictionaryBuilderBase<Int8Builder, ValueType>(
-              value_type, pool));
-          break;
-        case Type::UINT16:
-          out->reset(new internal::DictionaryBuilderBase<UInt16Builder, ValueType>(
-              value_type, pool));
-          break;
-        case Type::INT16:
-          out->reset(new internal::DictionaryBuilderBase<Int16Builder, ValueType>(
-              value_type, pool));
-          break;
-        case Type::UINT32:
-          out->reset(new internal::DictionaryBuilderBase<UInt32Builder, ValueType>(
-              value_type, pool));
-          break;
-        case Type::INT32:
-          out->reset(new internal::DictionaryBuilderBase<Int32Builder, ValueType>(
-              value_type, pool));
-          break;
-        case Type::UINT64:
-          out->reset(new internal::DictionaryBuilderBase<UInt64Builder, ValueType>(
-              value_type, pool));
-          break;
-        case Type::INT64:
-          out->reset(new internal::DictionaryBuilderBase<Int64Builder, ValueType>(
-              value_type, pool));
-          break;
-        default:
-          return Status::TypeError("MakeBuilder: invalid index type ", *index_type);
+      if (!is_integer(index_type->id())) {
+        return Status::TypeError("MakeBuilder: invalid index type ", *index_type);
       }
+      out->reset(new internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>(
+          index_type, value_type, pool));
     } else {
       auto start_int_size = internal::GetByteWidth(*index_type);
       out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool));

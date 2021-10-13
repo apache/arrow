@@ -83,8 +83,8 @@ func TestMonthIntervalArray(t *testing.T) {
 	sub := array.MakeFromData(arr.Data())
 	defer sub.Release()
 
-	if sub.DataType().ID() != arrow.INTERVAL {
-		t.Fatalf("invalid type: got=%q, want=interval", sub.DataType().Name())
+	if sub.DataType().ID() != arrow.INTERVAL_MONTHS {
+		t.Fatalf("invalid type: got=%q, want=interval_months", sub.DataType().Name())
 	}
 
 	if _, ok := sub.(*array.MonthInterval); !ok {
@@ -208,8 +208,8 @@ func TestDayTimeArray(t *testing.T) {
 	sub := array.MakeFromData(arr.Data())
 	defer sub.Release()
 
-	if sub.DataType().ID() != arrow.INTERVAL {
-		t.Fatalf("invalid type: got=%q, want=interval", sub.DataType().Name())
+	if sub.DataType().ID() != arrow.INTERVAL_DAY_TIME {
+		t.Fatalf("invalid type: got=%q, want=interval_day_time", sub.DataType().Name())
 	}
 
 	if _, ok := sub.(*array.DayTimeInterval); !ok {

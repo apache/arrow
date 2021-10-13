@@ -1338,7 +1338,7 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
 ::arrow::Result<std::deque<LevelInfo>> RootToTreeLeafLevels(
     const SchemaManifest& manifest, int column_number) {
   std::deque<LevelInfo> out;
-  const SchemaField* field;
+  const SchemaField* field = nullptr;
   RETURN_NOT_OK(manifest.GetColumnField(column_number, &field));
   while (field != nullptr) {
     out.push_front(field->level_info);

@@ -572,7 +572,7 @@ into memory:
     # other method that yields record batches.  In addition, you can pass a dataset
     # into write_dataset directly but this method is useful if you want to customize
     # the scanner (e.g. to filter the input dataset or set a maximum batch size)
-    scanner = input_dataset.scanner()
+    scanner = input_dataset.scanner(use_async=True)
 
     ds.write_dataset(scanner, new_root, format="parquet", partitioning=new_part)
 
@@ -614,6 +614,9 @@ that are unique to a particular format.  For example, to allow truncated timesta
 Parquet files:
 
 .. ipython:: python
+
+    dataset_root = base / "sample_dataset2"
+    dataset_root.mkdir(exist_ok=True)
 
     parquet_format = ds.ParquetFileFormat()
     write_options = parquet_format.make_write_options(allow_truncated_timestamps=True)

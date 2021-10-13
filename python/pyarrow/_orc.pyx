@@ -36,6 +36,7 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           pyarrow_unwrap_table,
                           get_reader,
                           get_writer)
+from pyarrow.lib import tobytes
 
 
 cdef class ORCReader(_Weakrefable):
@@ -99,41 +100,41 @@ cdef class ORCReader(_Weakrefable):
     def nstripes(self):
         return deref(self.reader).NumberOfStripes()
 
-    def read_stripe(self, n, include_indices=None):
+    def read_stripe(self, n, columns=None):
         cdef:
             shared_ptr[CRecordBatch] sp_record_batch
             RecordBatch batch
             int64_t stripe
-            std_vector[int] indices
+            std_vector[c_string] c_names
 
         stripe = n
 
-        if include_indices is None:
+        if columns is None:
             with nogil:
                 sp_record_batch = GetResultValue(
                     deref(self.reader).ReadStripe(stripe)
                 )
         else:
-            indices = include_indices
+            c_names = [tobytes(name) for name in columns]
             with nogil:
                 sp_record_batch = GetResultValue(
-                    deref(self.reader).ReadStripe(stripe, indices)
+                    deref(self.reader).ReadStripe(stripe, c_names)
                 )
 
         return pyarrow_wrap_batch(sp_record_batch)
 
-    def read(self, include_indices=None):
+    def read(self, columns=None):
         cdef:
             shared_ptr[CTable] sp_table
-            std_vector[int] indices
+            std_vector[c_string] c_names
 
-        if include_indices is None:
+        if columns is None:
             with nogil:
                 sp_table = GetResultValue(deref(self.reader).Read())
         else:
-            indices = include_indices
+            c_names = [tobytes(name) for name in columns]
             with nogil:
-                sp_table = GetResultValue(deref(self.reader).Read(indices))
+                sp_table = GetResultValue(deref(self.reader).Read(c_names))
 
         return pyarrow_wrap_table(sp_table)
 

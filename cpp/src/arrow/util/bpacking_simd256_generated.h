@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <limits>  // missing include in xsimd
 
 #include <xsimd/xsimd.hpp>
 
@@ -36,7 +37,8 @@ using ::arrow::util::SafeLoad;
 template <DispatchLevel level>
 struct UnpackBits256 {
 
-using simd_batch = xsimd::batch<uint32_t, 8>;
+using simd_arch = xsimd::avx2;
+using simd_batch = xsimd::batch<uint32_t, simd_arch>;
 
 inline static const uint32_t* unpack0_32(const uint32_t* in, uint32_t* out) {
   memset(out, 0x0, 32 * sizeof(*out));

@@ -167,10 +167,10 @@ type MonthInterval int32
 // representing a number of months.
 type MonthIntervalType struct{}
 
-func (*MonthIntervalType) ID() Type            { return INTERVAL }
+func (*MonthIntervalType) ID() Type            { return INTERVAL_MONTHS }
 func (*MonthIntervalType) Name() string        { return "month_interval" }
 func (*MonthIntervalType) String() string      { return "month_interval" }
-func (*MonthIntervalType) Fingerprint() string { return typeIDFingerprint(INTERVAL) + "M" }
+func (*MonthIntervalType) Fingerprint() string { return typeIDFingerprint(INTERVAL_MONTHS) + "M" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *MonthIntervalType) BitWidth() int { return 32 }
@@ -185,10 +185,10 @@ type DayTimeInterval struct {
 // representing a number of days and milliseconds (fraction of day).
 type DayTimeIntervalType struct{}
 
-func (*DayTimeIntervalType) ID() Type            { return INTERVAL }
+func (*DayTimeIntervalType) ID() Type            { return INTERVAL_DAY_TIME }
 func (*DayTimeIntervalType) Name() string        { return "day_time_interval" }
 func (*DayTimeIntervalType) String() string      { return "day_time_interval" }
-func (*DayTimeIntervalType) Fingerprint() string { return typeIDFingerprint(INTERVAL) + "d" }
+func (*DayTimeIntervalType) Fingerprint() string { return typeIDFingerprint(INTERVAL_DAY_TIME) + "d" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *DayTimeIntervalType) BitWidth() int { return 64 }

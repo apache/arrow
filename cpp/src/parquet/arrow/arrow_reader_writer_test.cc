@@ -4190,5 +4190,148 @@ TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
 }
 #endif
 
+struct NestedFilterTestCase {
+  std::shared_ptr<::arrow::DataType> write_schema;
+  std::vector<int> indices_to_read;
+  std::shared_ptr<::arrow::DataType> expected_schema;
+  std::string write_data;
+  std::string read_data;
+};
+class TestNestedSchemaFilteredReader
+    : public ::testing::TestWithParam<NestedFilterTestCase> {};
+
+TEST_P(TestNestedSchemaFilteredReader, ReadWrite) {
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink = CreateOutputStream();
+  auto write_props = WriterProperties::Builder().build();
+  std::shared_ptr<::arrow::Array> array =
+      ArrayFromJSON(GetParam().write_schema, GetParam().write_data);
+
+  ASSERT_OK_NO_THROW(
+      WriteTable(**Table::FromRecordBatches({::arrow::RecordBatch::Make(
+                     ::arrow::schema({::arrow::field("col", array->type())}),
+                     array->length(), {array})}),
+                 ::arrow::default_memory_pool(), sink, /*chunk_size=*/100, write_props,
+                 ArrowWriterProperties::Builder().store_schema()->build()));
+  std::shared_ptr<::arrow::Buffer> buffer;
+  ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(default_arrow_reader_properties())->Build(&reader));
+  std::shared_ptr<::arrow::Table> read_table;
+  ASSERT_OK_NO_THROW(reader->ReadTable(GetParam().indices_to_read, &read_table));
+
+  std::shared_ptr<::arrow::Array> expected =
+      ArrayFromJSON(GetParam().expected_schema, GetParam().read_data);
+  AssertArraysEqual(*read_table->column(0)->chunk(0), *expected, /*verbose=*/true);
+}
+
+std::vector<NestedFilterTestCase> GenerateListFilterTestCases() {
+  auto struct_type = ::arrow::struct_(
+      {::arrow::field("a", ::arrow::int64()), ::arrow::field("b", ::arrow::int64())});
+
+  constexpr auto kWriteData = R"([[{"a": 1, "b": 2}]])";
+  constexpr auto kReadData = R"([[{"a": 1}]])";
+
+  std::vector<NestedFilterTestCase> cases;
+  auto first_selected_type = ::arrow::struct_({struct_type->field(0)});
+  cases.push_back({::arrow::list(struct_type),
+                   /*indices=*/{0}, ::arrow::list(first_selected_type), kWriteData,
+                   kReadData});
+  cases.push_back({::arrow::large_list(struct_type),
+                   /*indices=*/{0}, ::arrow::large_list(first_selected_type), kWriteData,
+                   kReadData});
+  cases.push_back({::arrow::fixed_size_list(struct_type, /*list_size=*/1),
+                   /*indices=*/{0},
+                   ::arrow::fixed_size_list(first_selected_type, /*list_size=*/1),
+                   kWriteData, kReadData});
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(ListFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateListFilterTestCases()));
+
+std::vector<NestedFilterTestCase> GenerateNestedStructFilteredTestCases() {
+  using ::arrow::field;
+  using ::arrow::struct_;
+  auto struct_type = struct_(
+      {field("t1", struct_({field("a", ::arrow::int64()), field("b", ::arrow::int64())})),
+       field("t2", ::arrow::int64())});
+
+  constexpr auto kWriteData = R"([{"t1": {"a": 1, "b":2}, "t2": 3}])";
+
+  std::vector<NestedFilterTestCase> cases;
+  auto selected_type = ::arrow::struct_(
+      {field("t1", struct_({field("a", ::arrow::int64())})), struct_type->field(1)});
+  cases.push_back({struct_type,
+                   /*indices=*/{0, 2}, selected_type, kWriteData,
+                   /*expected=*/R"([{"t1": {"a": 1}, "t2": 3}])"});
+  selected_type = ::arrow::struct_(
+      {field("t1", struct_({field("b", ::arrow::int64())})), struct_type->field(1)});
+
+  cases.push_back({struct_type,
+                   /*indices=*/{1, 2}, selected_type, kWriteData,
+                   /*expected=*/R"([{"t1": {"b": 2}, "t2": 3}])"});
+
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(StructFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateNestedStructFilteredTestCases()));
+
+std::vector<NestedFilterTestCase> GenerateMapFilteredTestCases() {
+  using ::arrow::field;
+  using ::arrow::struct_;
+  auto map_type = std::static_pointer_cast<::arrow::MapType>(::arrow::map(
+      struct_({field("a", ::arrow::int64()), field("b", ::arrow::int64())}),
+      struct_({field("c", ::arrow::int64()), field("d", ::arrow::int64())})));
+
+  constexpr auto kWriteData = R"([[[{"a": 0, "b": 1}, {"c": 2, "d": 3}]]])";
+  std::vector<NestedFilterTestCase> cases;
+  // Remove the value element completely converts to a list of struct.
+  cases.push_back(
+      {map_type,
+       /*indices=*/{0, 1},
+       /*selected_type=*/
+       ::arrow::list(field("col", struct_({map_type->key_field()}), /*nullable=*/false)),
+       kWriteData, /*expected_data=*/R"([[{"key": {"a": 0, "b":1}}]])"});
+  // The "col" field name below comes from how naming is done when writing out the
+  // array (it is assigned the column name col.
+
+  // Removing the full key converts to a list of struct.
+  cases.push_back(
+      {map_type,
+       /*indices=*/{3},
+       /*selected_type=*/
+       ::arrow::list(field(
+           "col", struct_({field("value", struct_({field("d", ::arrow::int64())}))}),
+           /*nullable=*/false)),
+       kWriteData, /*expected_data=*/R"([[{"value": {"d": 3}}]])"});
+  // Selecting the full key and a value maintains the map
+  cases.push_back(
+      {map_type, /*indices=*/{0, 1, 2},
+       /*selected_type=*/
+       ::arrow::map(map_type->key_type(), struct_({field("c", ::arrow::int64())})),
+       kWriteData, /*expected=*/R"([[[{"a": 0, "b": 1}, {"c": 2}]]])"});
+
+  // Selecting the partial key (with some part of the value converts to
+  // list of structs (because the key might no longer be unique).
+  cases.push_back(
+      {map_type, /*indices=*/{1, 2, 3},
+       /*selected_type=*/
+       ::arrow::list(field("col",
+                           struct_({field("key", struct_({field("b", ::arrow::int64())}),
+                                          /*nullable=*/false),
+                                    map_type->item_field()}),
+                           /*nullable=*/false)),
+       kWriteData, /*expected=*/R"([[{"key":{"b": 1}, "value": {"c": 2, "d": 3}}]])"});
+
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(MapFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateMapFilteredTestCases()));
+
 }  // namespace arrow
 }  // namespace parquet

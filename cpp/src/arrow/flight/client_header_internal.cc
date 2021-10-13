@@ -293,11 +293,8 @@ std::string CookieCache::GetValidCookiesAsString() {
 void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& username,
                          const std::string& password) {
   const std::string credentials = username + ":" + password;
-  context->AddMetadata(
-      kAuthHeader,
-      kBasicPrefix + arrow::util::base64_encode(
-                         reinterpret_cast<const unsigned char*>(credentials.c_str()),
-                         static_cast<unsigned int>(credentials.size())));
+  context->AddMetadata(kAuthHeader,
+                       kBasicPrefix + arrow::util::base64_encode(credentials));
 }
 
 /// \brief Get bearer token from inbound headers.

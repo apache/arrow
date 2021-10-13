@@ -353,7 +353,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 	case "list":
 		f.arrowType = arrow.ListOf(f.Children[0].arrowType)
 		f.arrowType.(*arrow.ListType).Meta = f.Children[0].arrowMeta
-
+		f.arrowType.(*arrow.ListType).NullableElem = f.Children[0].Nullable
 	case "map":
 		t := mapJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
@@ -376,6 +376,8 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		f.arrowType = arrow.FixedSizeListOf(t.ListSize, f.Children[0].arrowType)
+		f.arrowType.(*arrow.FixedSizeListType).NullableElem = f.Children[0].Nullable
+		f.arrowType.(*arrow.FixedSizeListType).Meta = f.Children[0].arrowMeta
 	case "interval":
 		t := unitZoneJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
@@ -548,13 +550,13 @@ func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
 		}}
 		switch dt := f.Type.(type) {
 		case *arrow.ListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable, Metadata: dt.Meta}})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()})
 		case *arrow.FixedSizeListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable}})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()})
 		case *arrow.StructType:
 			o[i].Children = fieldsToJSON(dt.Fields())
 		case *arrow.MapType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "entries", Type: dt.ValueType()}})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ValueField()})
 		}
 	}
 	return o

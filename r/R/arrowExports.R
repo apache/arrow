@@ -4,6 +4,14 @@ test_SET_STRING_ELT <- function(s) {
   invisible(.Call(`_arrow_test_SET_STRING_ELT`, s))
 }
 
+test_same_Array <- function(x, y) {
+  .Call(`_arrow_test_same_Array`, x, y)
+}
+
+is_arrow_altrep <- function(x) {
+  .Call(`_arrow_is_arrow_altrep`, x)
+}
+
 Array__Slice1 <- function(array, offset) {
   .Call(`_arrow_Array__Slice1`, array, offset)
 }
@@ -284,6 +292,10 @@ ExecPlan_run <- function(plan, final_node, sort_options) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
 }
 
+ExecPlan_StopProducing <- function(plan) {
+  invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
+}
+
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }
@@ -558,6 +570,10 @@ dataset___ScannerBuilder__schema <- function(sb) {
 
 dataset___ScannerBuilder__Finish <- function(sb) {
   .Call(`_arrow_dataset___ScannerBuilder__Finish`, sb)
+}
+
+dataset___ScannerBuilder__FromRecordBatchReader <- function(reader) {
+  .Call(`_arrow_dataset___ScannerBuilder__FromRecordBatchReader`, reader)
 }
 
 dataset___Scanner__ToTable <- function(scanner) {
@@ -1779,4 +1795,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

@@ -684,6 +684,7 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
     -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
     -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
+    -DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY})
 
@@ -806,7 +807,8 @@ macro(build_boost)
                         CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
                         BUILD_COMMAND ${BOOST_BUILD_COMMAND}
                         INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static)
+    add_dependencies(boost_system_static boost_ep)
+    add_dependencies(boost_filesystem_static boost_ep)
   else()
     externalproject_add(boost_ep
                         ${EP_LOG_OPTIONS}
@@ -2422,10 +2424,7 @@ macro(build_absl_once)
     message(STATUS "Building Abseil-cpp from source")
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
     set(ABSL_CMAKE_ARGS
-        "${EP_COMMON_CMAKE_ARGS}"
-        -DABSL_RUN_TESTS=OFF
-        -DCMAKE_CXX_STANDARD=11
-        -DCMAKE_INSTALL_LIBDIR=lib
+        "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
     set(ABSL_BUILD_BYPRODUCTS)
     set(ABSL_LIBRARIES)
@@ -2575,8 +2574,10 @@ macro(build_absl_once)
           "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
       add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
-      set_target_properties(absl::${_ABSL_LIB} PROPERTIES IMPORTED_LOCATION
-                                                          ${_ABSL_STATIC_LIBRARY})
+      set_target_properties(absl::${_ABSL_LIB}
+                            PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${ABSL_PREFIX}/include")
       list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
     endforeach()
     foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
@@ -3566,7 +3567,7 @@ macro(build_nlohmann_json_once)
         ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
 
-    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/json.hpp)
+    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
     externalproject_add(nlohmann_json_ep
                         ${EP_LOG_OPTIONS}
@@ -3594,7 +3595,7 @@ macro(build_google_cloud_cpp_storage)
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
-  find_package(CURL REQUIRED 7.47.0)
+  find_package(CURL 7.47.0 REQUIRED)
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -3707,6 +3708,13 @@ endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   resolve_dependency(google_cloud_cpp_storage)
+  get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${google_cloud_cpp_storage_INCLUDE_DIR})
+  get_target_property(absl_base_INCLUDE_DIR absl::base INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${absl_base_INCLUDE_DIR})
+  message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
+  )
 endif()
 
 #
