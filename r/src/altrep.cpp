@@ -694,14 +694,6 @@ std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP x) { return nullptr; }
 void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden")); }
 
 // [[arrow::export]]
-bool test_same_Array(SEXP x, SEXP y) {
-  auto* p_x = reinterpret_cast<std::shared_ptr<arrow::Array>*>(x);
-  auto* p_y = reinterpret_cast<std::shared_ptr<arrow::Array>*>(y);
-
-  return p_x->get() == p_y->get();
-}
-
-// [[arrow::export]]
 bool is_arrow_altrep(SEXP x) { return arrow::r::altrep::is_arrow_altrep(x); }
 
 #endif

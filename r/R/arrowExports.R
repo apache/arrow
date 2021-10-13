@@ -4,10 +4,6 @@ test_SET_STRING_ELT <- function(s) {
   invisible(.Call(`_arrow_test_SET_STRING_ELT`, s))
 }
 
-test_same_Array <- function(x, y) {
-  .Call(`_arrow_test_same_Array`, x, y)
-}
-
 is_arrow_altrep <- function(x) {
   .Call(`_arrow_is_arrow_altrep`, x)
 }
@@ -146,6 +142,18 @@ ListArray__raw_value_offsets <- function(array) {
 
 LargeListArray__raw_value_offsets <- function(array) {
   .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
+}
+
+Array__address <- function(array) {
+  .Call(`_arrow_Array__address`, array)
+}
+
+ChunkedArray__address <- function(chunked_array) {
+  .Call(`_arrow_ChunkedArray__address`, chunked_array)
+}
+
+Array__Same <- function(x, y) {
+  .Call(`_arrow_Array__Same`, x, y)
 }
 
 Array__as_vector <- function(array) {

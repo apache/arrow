@@ -22,22 +22,6 @@ extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool test_same_Array(SEXP x, SEXP y);
-extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	arrow::r::Input<SEXP>::type y(y_sexp);
-	return cpp11::as_sexp(test_same_Array(x, y));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
-	Rf_error("Cannot call test_same_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// altrep.cpp
-#if defined(ARROW_R_WITH_ARROW)
 bool is_arrow_altrep(SEXP x);
 extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
 BEGIN_CPP11
@@ -580,6 +564,52 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 	Rf_error("Cannot call LargeListArray__raw_value_offsets(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::strings Array__address(const std::shared_ptr<arrow::Array>& array);
+extern "C" SEXP _arrow_Array__address(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	return cpp11::as_sexp(Array__address(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Array__address(SEXP array_sexp){
+	Rf_error("Cannot call Array__address(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::strings ChunkedArray__address(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+extern "C" SEXP _arrow_ChunkedArray__address(SEXP chunked_array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return cpp11::as_sexp(ChunkedArray__address(chunked_array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ChunkedArray__address(SEXP chunked_array_sexp){
+	Rf_error("Cannot call ChunkedArray__address(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Array__Same(const std::shared_ptr<arrow::Array>& x, const std::shared_ptr<arrow::Array>& y);
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type y(y_sexp);
+	return cpp11::as_sexp(Array__Same(x, y));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+	Rf_error("Cannot call Array__Same(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7172,7 +7202,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
-		{ "_arrow_test_same_Array", (DL_FUNC) &_arrow_test_same_Array, 2}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
@@ -7208,6 +7237,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
+		{ "_arrow_Array__address", (DL_FUNC) &_arrow_Array__address, 1}, 
+		{ "_arrow_ChunkedArray__address", (DL_FUNC) &_arrow_ChunkedArray__address, 1}, 
+		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 

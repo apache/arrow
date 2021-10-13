@@ -166,6 +166,8 @@ Array <- R6Class("Array",
     View = function(type) {
       Array$create(Array__View(self, as_type(type)))
     },
+    Address = function() Array__address(self),
+    Same = function(other) Array__Same(self, other),
     Validate = function() Array__Validate(self),
     export_to_c = function(array_ptr, schema_ptr) ExportArray(self, array_ptr, schema_ptr)
   ),

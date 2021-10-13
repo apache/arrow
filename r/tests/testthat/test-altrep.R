@@ -268,32 +268,59 @@ test_that("columns of struct types may be altrep", {
 test_that("Conversion from altrep R vector to Array uses the existing Array/ChunkedArray", {
   a_int <- Array$create(c(1L, 2L, 3L))
   b_int <- Array$create(a_int$as_vector())
-  expect_true(test_same_Array(a_int$pointer(), b_int$pointer()))
+  expect_true(a_int$Same(b_int))
 
   a_dbl <- Array$create(c(1, 2, 3))
   b_dbl <- Array$create(a_dbl$as_vector())
-  expect_true(test_same_Array(a_dbl$pointer(), b_dbl$pointer()))
+  expect_true(a_dbl$Same(b_dbl))
 
   a_str <- Array$create(c("un", "deux", "trois"))
   b_str <- Array$create(a_str$as_vector())
-  expect_true(test_same_Array(a_str$pointer(), b_str$pointer()))
+  expect_true(a_str$Same(b_str))
 
   ca_int <- ChunkedArray$create(c(1L, 2L, 3L), c(4L, 5L, 6L))
   cb_int <- ChunkedArray$create(ca_int$as_vector())
-  expect_true(test_same_Array(ca_int$chunk(0)$pointer(), cb_int$chunk(0)$pointer()))
-  expect_true(test_same_Array(ca_int$chunk(1)$pointer(), cb_int$chunk(1)$pointer()))
+  expect_true(ca_int$chunk(0)$Same(cb_int$chunk(0)))
+  expect_true(ca_int$chunk(1)$Same(cb_int$chunk(1)))
 
   ca_dbl <- ChunkedArray$create(c(1, 2, 3), c(4, 5, 6))
   cb_dbl <- ChunkedArray$create(ca_dbl$as_vector())
-  expect_true(test_same_Array(ca_dbl$chunk(0)$pointer(), cb_dbl$chunk(0)$pointer()))
-  expect_true(test_same_Array(ca_dbl$chunk(1)$pointer(), cb_dbl$chunk(1)$pointer()))
+  expect_true(ca_dbl$chunk(0)$Same(cb_dbl$chunk(0)))
+  expect_true(ca_dbl$chunk(1)$Same(cb_dbl$chunk(1)))
 
   ca_str <- ChunkedArray$create(c("un", "deux", "trois"), c("quatre", "cinq", "six"))
   cb_str <- ChunkedArray$create(ca_str$as_vector())
-  expect_true(test_same_Array(ca_str$chunk(0)$pointer(), cb_str$chunk(0)$pointer()))
-  expect_true(test_same_Array(ca_str$chunk(0)$pointer(), cb_str$chunk(0)$pointer()))
+  expect_true(ca_str$chunk(0)$Same(cb_str$chunk(0)))
+  expect_true(ca_str$chunk(1)$Same(cb_str$chunk(1)))
 })
 
+test_that("ChunkedArray$create(...) keeps Array even when from altrep vectors", {
+  a <- ChunkedArray$create(c(1, 2, 3), c(4, 5, 6))
+  b <- ChunkedArray$create(c(7, 8, 9))
+  c <- Array$create(c(10, 11, 12))
+  d <- Array$create(c(13, 14, 15))
+  e <- ChunkedArray$create(c(16, 17), c(18, 19))
+
+  x <- ChunkedArray$create(
+    # converter to R vectors (with altrep but keeping underlying arrays)
+    a$as_vector(), # 2 chunks
+    b$as_vector(), # 1 chunk
+    c$as_vector(), # 1 array
+
+    # passed in directly
+    d,
+    e
+  )
+
+  expect_true(x$chunk(0)$Same(a$chunk(0)))
+  expect_true(x$chunk(1)$Same(a$chunk(1)))
+  expect_true(x$chunk(2)$Same(b$chunk(0)))
+  expect_true(x$chunk(3)$Same(c))
+  expect_true(x$chunk(4)$Same(d))
+  expect_true(x$chunk(5)$Same(e$chunk(0)))
+  expect_true(x$chunk(6)$Same(e$chunk(1)))
+
+})
 
 test_that("R checks for bounds", {
   v_int <- Array$create(c(1, 2, 3))$as_vector()
