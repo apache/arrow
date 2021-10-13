@@ -101,7 +101,7 @@ public final class Data {
    * @param provider  Dictionary provider for dictionary encoded vectors
    *                  (optional)
    * @param out       C struct where to export the array
-   * @param outSchema Optional C struct where to export the array type
+   * @param outSchema C struct where to export the array type (optional)
    */
   public static void exportVector(BufferAllocator allocator, FieldVector vector, DictionaryProvider provider,
       ArrowArray out, ArrowSchema outSchema) {
@@ -145,7 +145,7 @@ public final class Data {
    * @param provider  Dictionary provider for dictionary encoded vectors
    *                  (optional)
    * @param out       C struct where to export the record batch
-   * @param outSchema Optional C struct where to export the record batch schema
+   * @param outSchema C struct where to export the record batch schema (optional)
    */
   public static void exportVectorSchemaRoot(BufferAllocator allocator, VectorSchemaRoot vsr,
       DictionaryProvider provider, ArrowArray out, ArrowSchema outSchema) {
@@ -284,7 +284,7 @@ public final class Data {
    */
   public static VectorSchemaRoot importVectorSchemaRoot(BufferAllocator allocator, ArrowSchema schema,
       CDataDictionaryProvider provider) {
-    return importVectorSchemaRoot(allocator, schema, null, provider);
+    return importVectorSchemaRoot(allocator, null, schema, provider);
   }
 
   /**
@@ -300,13 +300,13 @@ public final class Data {
    * reusing the same vector schema root.
    * 
    * @param allocator Buffer allocator for allocating the output VectorSchemaRoot
+   * @param array     C data interface struct holding the record batch data
+   *                  (optional)
    * @param schema    C data interface struct holding the record batch schema
-   * @param array     Optional C data interface struct holding the record batch
-   *                  data
    * @param provider  Dictionary provider to load dictionary vectors to (optional)
    * @return Imported vector schema root
    */
-  public static VectorSchemaRoot importVectorSchemaRoot(BufferAllocator allocator, ArrowSchema schema, ArrowArray array,
+  public static VectorSchemaRoot importVectorSchemaRoot(BufferAllocator allocator, ArrowArray array, ArrowSchema schema,
       CDataDictionaryProvider provider) {
     VectorSchemaRoot vsr = VectorSchemaRoot.create(importSchema(allocator, schema, provider), allocator);
     if (array != null) {

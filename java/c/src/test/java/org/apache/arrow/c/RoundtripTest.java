@@ -147,7 +147,7 @@ public class RoundtripTest {
       }
 
       // Consumer imports vector
-      return Data.importVectorSchemaRoot(allocator, consumerArrowSchema, consumerArrowArray, null);
+      return Data.importVectorSchemaRoot(allocator, consumerArrowArray, consumerArrowSchema, null);
     }
   }
 
@@ -647,7 +647,7 @@ public class RoundtripTest {
         }
       }
       // Consumer imports vector
-      imported = Data.importVectorSchemaRoot(allocator, consumerArrowSchema, consumerArrowArray, null);
+      imported = Data.importVectorSchemaRoot(allocator, consumerArrowArray, consumerArrowSchema, null);
     }
 
     // Ensure that imported VectorSchemaRoot is valid even after C Data Interface
