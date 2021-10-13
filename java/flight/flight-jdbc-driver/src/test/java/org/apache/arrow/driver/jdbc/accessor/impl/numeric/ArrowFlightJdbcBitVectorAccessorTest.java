@@ -134,7 +134,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getObject, 1L, 0L, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getObject, true, false, vector);
 
   }
 

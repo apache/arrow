@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static java.sql.Types.*;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.doesBitmaskTranslateToEnum;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
@@ -77,26 +78,26 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   private static final String JAVA_REGEX_SPECIALS = "[]()|^-+*?{}$\\.";
   private static final Charset CHARSET = StandardCharsets.UTF_8;
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
-  private static final int NO_DECIMAL_DIGITS = 0;
-  private static final int BASE10_RADIX = 10;
-  private static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_LONG = (int) Math.ceil((Long.SIZE - 1) * Math.log(2) / Math.log(10));
-  private static final int COLUMN_SIZE_VARCHAR_AND_BINARY = 65536;
-  private static final int COLUMN_SIZE_DATE = "YYYY-MM-DD".length();
-  private static final int COLUMN_SIZE_TIME = "HH:MM:ss".length();
-  private static final int COLUMN_SIZE_TIME_MILLISECONDS = "HH:MM:ss.SSS".length();
-  private static final int COLUMN_SIZE_TIME_MICROSECONDS = "HH:MM:ss.SSSSSS".length();
-  private static final int COLUMN_SIZE_TIME_NANOSECONDS = "HH:MM:ss.SSSSSSSSS".length();
-  private static final int COLUMN_SIZE_TIMESTAMP_SECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME;
-  private static final int COLUMN_SIZE_TIMESTAMP_MILLISECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MILLISECONDS;
-  private static final int COLUMN_SIZE_TIMESTAMP_MICROSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MICROSECONDS;
-  private static final int COLUMN_SIZE_TIMESTAMP_NANOSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_NANOSECONDS;
-  private static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
-  private static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
-  private static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
-  private static final Schema GET_COLUMNS_SCHEMA = new Schema(
+  static final int NO_DECIMAL_DIGITS = 0;
+  static final int BASE10_RADIX = 10;
+  static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_LONG = (int) Math.ceil((Long.SIZE - 1) * Math.log(2) / Math.log(10));
+  static final int COLUMN_SIZE_VARCHAR_AND_BINARY = 65536;
+  static final int COLUMN_SIZE_DATE = "YYYY-MM-DD".length();
+  static final int COLUMN_SIZE_TIME = "HH:MM:ss".length();
+  static final int COLUMN_SIZE_TIME_MILLISECONDS = "HH:MM:ss.SSS".length();
+  static final int COLUMN_SIZE_TIME_MICROSECONDS = "HH:MM:ss.SSSSSS".length();
+  static final int COLUMN_SIZE_TIME_NANOSECONDS = "HH:MM:ss.SSSSSSSSS".length();
+  static final int COLUMN_SIZE_TIMESTAMP_SECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME;
+  static final int COLUMN_SIZE_TIMESTAMP_MILLISECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MILLISECONDS;
+  static final int COLUMN_SIZE_TIMESTAMP_MICROSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_MICROSECONDS;
+  static final int COLUMN_SIZE_TIMESTAMP_NANOSECONDS = COLUMN_SIZE_DATE + 1 + COLUMN_SIZE_TIME_NANOSECONDS;
+  static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
+  static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
+  static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
+  static final Schema GET_COLUMNS_SCHEMA = new Schema(
       Arrays.asList(
           Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
           Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
@@ -124,6 +125,26 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())
       ));
   private final Map<SqlInfo, Object> cachedSqlInfo = Collections.synchronizedMap(new EnumMap<>(SqlInfo.class));
+  private static final Map<Integer, Integer> sqlTypesToFlightEnumConvertTypes = new HashMap<>();
+
+  static {
+    sqlTypesToFlightEnumConvertTypes.put(BIT, SqlSupportsConvert.SQL_CONVERT_BIT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(INTEGER, SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(NUMERIC, SqlSupportsConvert.SQL_CONVERT_NUMERIC_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(SMALLINT, SqlSupportsConvert.SQL_CONVERT_SMALLINT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(TINYINT, SqlSupportsConvert.SQL_CONVERT_TINYINT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(FLOAT, SqlSupportsConvert.SQL_CONVERT_FLOAT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(BIGINT, SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(REAL, SqlSupportsConvert.SQL_CONVERT_REAL_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(DECIMAL, SqlSupportsConvert.SQL_CONVERT_DECIMAL_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(BINARY, SqlSupportsConvert.SQL_CONVERT_BINARY_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(LONGVARBINARY, SqlSupportsConvert.SQL_CONVERT_LONGVARBINARY_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(CHAR, SqlSupportsConvert.SQL_CONVERT_CHAR_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(VARCHAR, SqlSupportsConvert.SQL_CONVERT_VARCHAR_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(LONGNVARCHAR, SqlSupportsConvert.SQL_CONVERT_LONGVARCHAR_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(DATE, SqlSupportsConvert.SQL_CONVERT_DATE_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(TIMESTAMP, SqlSupportsConvert.SQL_CONVERT_TIMESTAMP_VALUE);
+  }
 
   ArrowDatabaseMetadata(final AvaticaConnection connection) {
     super(connection);
@@ -208,24 +229,6 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   public boolean supportsConvert(int fromType, int toType) throws SQLException {
     final Map<Integer, List<Integer>> sqlSupportsConvert =
         getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_CONVERT, Map.class);
-    final Map<Integer, Integer> sqlTypesToFlightEnumConvertTypes = new HashMap<>();
-
-    sqlTypesToFlightEnumConvertTypes.put(BIT, SqlSupportsConvert.SQL_CONVERT_BIT_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(INTEGER, SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(NUMERIC, SqlSupportsConvert.SQL_CONVERT_NUMERIC_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(SMALLINT, SqlSupportsConvert.SQL_CONVERT_SMALLINT_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(TINYINT, SqlSupportsConvert.SQL_CONVERT_TINYINT_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(FLOAT, SqlSupportsConvert.SQL_CONVERT_FLOAT_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(BIGINT, SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(REAL, SqlSupportsConvert.SQL_CONVERT_REAL_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(DECIMAL, SqlSupportsConvert.SQL_CONVERT_DECIMAL_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(BINARY, SqlSupportsConvert.SQL_CONVERT_BINARY_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(LONGVARBINARY, SqlSupportsConvert.SQL_CONVERT_LONGVARBINARY_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(CHAR, SqlSupportsConvert.SQL_CONVERT_CHAR_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(VARCHAR, SqlSupportsConvert.SQL_CONVERT_VARCHAR_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(LONGNVARCHAR, SqlSupportsConvert.SQL_CONVERT_LONGVARCHAR_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(DATE, SqlSupportsConvert.SQL_CONVERT_DATE_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(TIMESTAMP, SqlSupportsConvert.SQL_CONVERT_TIMESTAMP_VALUE);
 
     if (!sqlTypesToFlightEnumConvertTypes.containsKey(fromType)) {
       return false;
@@ -233,7 +236,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final List<Integer> list = sqlSupportsConvert.get(sqlTypesToFlightEnumConvertTypes.get(fromType));
 
-    return list != null && list.contains(toType);
+    return list != null && list.contains(sqlTypesToFlightEnumConvertTypes.get(toType));
   }
 
   @Override
