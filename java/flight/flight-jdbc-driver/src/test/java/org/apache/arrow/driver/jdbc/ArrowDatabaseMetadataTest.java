@@ -19,8 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
-import static java.sql.Types.BIGINT;
-import static java.sql.Types.BIT;
+import static java.sql.Types.*;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -1047,13 +1046,13 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.getSearchStringEscape(), is(EXPECTED_SEARCH_STRING_ESCAPE));
     collector.checkThat(metaData.getExtraNameCharacters(), is(EXPECTED_EXTRA_NAME_CHARACTERS));
     collector.checkThat(
-        metaData.supportsConvert(BIT, SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE),
+        metaData.supportsConvert(BIT, INTEGER),
         is(EXPECTED_SQL_SUPPORTS_CONVERT));
     collector.checkThat(
-        metaData.supportsConvert(BIT, SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE),
+        metaData.supportsConvert(BIT, BIGINT),
         is(EXPECTED_SQL_SUPPORTS_CONVERT));
     collector.checkThat(
-        metaData.supportsConvert(BIGINT, SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE),
+        metaData.supportsConvert(BIGINT, INTEGER),
         is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
     collector.checkThat(metaData.supportsTableCorrelationNames(), is(EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES));
     collector.checkThat(metaData.supportsDifferentTableCorrelationNames(),
