@@ -15,14 +15,14 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Examples
-========
+.. default-domain:: cpp
+.. highlight:: cpp
 
-.. toctree::
-   :maxdepth: 1
+Compute and Write CSV Example
+=============================
 
-   cmake_minimal_build
-   compute_and_write_example
-   dataset_documentation_example
-   row_columnar_conversion
-   std::tuple-like ranges to Arrow <tuple_range_conversion>
+The file ``cpp/examples/arrow/compute_and_write_csv_example.cc`` located inside 
+the source tree contains an example of creating a table of two numerical columns 
+and then compariong the magnitudes of the entries in the columns and wrting out to 
+a CSV file with the column entries and their comparisons.  The code in the example
+is documented.
