@@ -24,6 +24,7 @@ arrow_dplyr_query <- function(.data) {
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
+  gv <- dplyr::group_vars(.data) %||% character()
   if (!inherits(.data, c("Dataset", "arrow_dplyr_query"))) {
     .data <- InMemoryDataset$create(.data)
   }
@@ -50,7 +51,7 @@ arrow_dplyr_query <- function(.data) {
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
       # in the data. They will be kept when data is pulled into R.
-      group_by_vars = character(),
+      group_by_vars = gv,
       # drop_empty_groups is a logical value indicating whether to drop
       # groups formed by factor levels that don't appear in the data. It
       # should be non-null only when the data is grouped.

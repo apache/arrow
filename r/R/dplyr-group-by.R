@@ -61,7 +61,10 @@ groups.arrow_dplyr_query <- function(x) syms(dplyr::group_vars(x))
 groups.Dataset <- groups.ArrowTabular <- function(x) NULL
 
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
-group_vars.Dataset <- group_vars.ArrowTabular <- function(x) NULL
+group_vars.Dataset <- function(x) NULL
+group_vars.ArrowTabular <- function(x) {
+  x$r_metadata$attributes$.group_vars
+}
 
 # the logical literal in the two functions below controls the default value of
 # the .drop argument to group_by()
@@ -75,4 +78,8 @@ ungroup.arrow_dplyr_query <- function(x, ...) {
   x$drop_empty_groups <- NULL
   x
 }
-ungroup.Dataset <- ungroup.ArrowTabular <- force
+ungroup.Dataset <- force
+ungroup.ArrowTabular <- function(x) {
+  x$r_metadata$attributes$.group_vars <- NULL
+  x
+}

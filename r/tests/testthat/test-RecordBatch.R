@@ -553,8 +553,9 @@ test_that("Handling string data with embedded nuls", {
   })
 })
 
-test_that("ARROW-11769 - grouping preserved in record batch creation", {
+test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation", {
   skip_if_not_available("dataset")
+  library(dplyr, warn.conflicts = FALSE)
 
   tbl <- tibble::tibble(
     int = 1:10,
@@ -562,11 +563,33 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
 
+  expect_r6_class(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      record_batch(),
+    "RecordBatch"
+  )
   expect_identical(
     tbl %>%
-      dplyr::group_by(fct, fct2) %>%
+      group_by(fct, fct2) %>%
       record_batch() %>%
-      dplyr::group_vars(),
+      group_vars(),
+    c("fct", "fct2")
+  )
+  expect_identical(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      record_batch() %>%
+      ungroup() %>%
+      group_vars(),
+    NULL
+  )
+  expect_identical(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      record_batch() %>%
+      select(-int) %>%
+      group_vars(),
     c("fct", "fct2")
   )
 })
