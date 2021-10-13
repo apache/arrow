@@ -213,10 +213,12 @@ some environment variables.
 
   .. code-block:: shell
 
-      export CLASSPATH=`$HADOOP_HOME/bin/hdfs classpath --glob`
+      export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
+      # or on Windows
+      %HADOOP_HOME%/bin/hadoop classpath --glob > %CLASSPATH%
 
-  If ``CLASSPATH`` is not set, then it will be set automatically if the
-  ``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
+  In contrast to the legacy HDFS filesystem with ``pa.hdfs.connect``, setting
+  ``CLASSPATH`` is not optional (pyarrow will not attempt to infer it).
 
 .. _filesystem-fsspec:
 
