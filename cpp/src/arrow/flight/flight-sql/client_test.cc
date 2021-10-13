@@ -65,42 +65,34 @@ class FlightMetadataReaderMock : public FlightMetadataReader {
 };
 
 class FlightStreamWriterMock : public FlightStreamWriter {
-public:
+ public:
   explicit FlightStreamWriterMock() = default;
 
-  Status DoneWriting() override {
-    return Status::OK();
-  }
+  Status DoneWriting() override { return Status::OK(); }
 
   Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
     return Status::OK();
   }
 
-  Status Begin(const std::shared_ptr<Schema> &schema,
-               const ipc::IpcWriteOptions &options) override {
+  Status Begin(const std::shared_ptr<Schema>& schema,
+               const ipc::IpcWriteOptions& options) override {
     return Status::OK();
   }
 
-  Status Begin(const std::shared_ptr<Schema> &schema) override {
+  Status Begin(const std::shared_ptr<Schema>& schema) override {
     return MetadataRecordBatchWriter::Begin(schema);
   }
 
-  ipc::WriteStats stats() const override {
-    return ipc::WriteStats();
-  }
+  ipc::WriteStats stats() const override { return ipc::WriteStats(); }
 
-  Status WriteWithMetadata(const RecordBatch &batch,
+  Status WriteWithMetadata(const RecordBatch& batch,
                            std::shared_ptr<Buffer> app_metadata) override {
     return Status::OK();
   }
 
-  Status Close() override {
-    return Status::OK();
-  }
+  Status Close() override { return Status::OK(); }
 
-  Status WriteRecordBatch(const RecordBatch &batch) override {
-    return Status::OK();
-  }
+  Status WriteRecordBatch(const RecordBatch& batch) override { return Status::OK(); }
 };
 
 FlightDescriptor getDescriptor(google::protobuf::Message& command) {
@@ -321,46 +313,44 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
   const std::string query = "query";
 
   ON_CALL(*client_mock, DoAction)
-  .WillByDefault([](const FlightCallOptions& options, const Action& action,
-      std::unique_ptr<ResultStream>* results) {
-    google::protobuf::Any command;
+      .WillByDefault([](const FlightCallOptions& options, const Action& action,
+                        std::unique_ptr<ResultStream>* results) {
+        google::protobuf::Any command;
 
-    pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+        pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
 
-    prepared_statement_result.set_prepared_statement_handle("query");
+        prepared_statement_result.set_prepared_statement_handle("query");
 
-    auto schema = arrow::schema({arrow::field("id", int64())});
+        auto schema = arrow::schema({arrow::field("id", int64())});
 
-    std::shared_ptr<Buffer> schema_buffer;
-    const arrow::Result<std::shared_ptr<Buffer>> &result = arrow::ipc::SerializeSchema(
-        *schema);
+        std::shared_ptr<Buffer> schema_buffer;
+        const arrow::Result<std::shared_ptr<Buffer>>& result =
+            arrow::ipc::SerializeSchema(*schema);
 
-    ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
+        ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
 
-    prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
+        prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
 
-    command.PackFrom(prepared_statement_result);
+        command.PackFrom(prepared_statement_result);
 
-    *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
-        {Result{Buffer::FromString(command.SerializeAsString())}}));
+        *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
+            {Result{Buffer::FromString(command.SerializeAsString())}}));
 
-    return Status::OK();
-  });
+        return Status::OK();
+      });
 
   std::shared_ptr<Buffer> buffer_ptr;
   ON_CALL(*client_mock, DoPut)
-  .WillByDefault([&buffer_ptr](const FlightCallOptions& options,
-      const FlightDescriptor& descriptor1,
-      const std::shared_ptr<Schema>& schema,
-      std::unique_ptr<FlightStreamWriter>* writer,
-      std::unique_ptr<FlightMetadataReader>* reader) {
+      .WillByDefault([&buffer_ptr](const FlightCallOptions& options,
+                                   const FlightDescriptor& descriptor1,
+                                   const std::shared_ptr<Schema>& schema,
+                                   std::unique_ptr<FlightStreamWriter>* writer,
+                                   std::unique_ptr<FlightMetadataReader>* reader) {
+        writer->reset(new FlightStreamWriterMock());
+        reader->reset(new FlightMetadataReaderMock(&buffer_ptr));
 
-      writer->reset(new FlightStreamWriterMock());
-      reader->reset(new FlightMetadataReaderMock(&buffer_ptr));
-
-    return Status::OK();
-  });
-
+        return Status::OK();
+      });
 
   std::unique_ptr<FlightInfo> flight_info;
   EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
@@ -372,7 +362,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
   std::shared_ptr<Schema> parameter_schema;
   ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
 
-  arrow::Int64Builder  int_builder;
+  arrow::Int64Builder int_builder;
   ASSERT_OK(int_builder.Append(1));
   std::shared_ptr<arrow::Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
@@ -450,15 +440,14 @@ TEST(TestFlightSqlClient, TestGetSqlInfo) {
   const FlightDescriptor& descriptor = FlightDescriptor::Command(any.SerializeAsString());
 
   FlightCallOptions call_options;
-  EXPECT_CALL(*client_mock,
-              GetFlightInfo(Ref(call_options), descriptor, &flight_info));
-  (void) sql_client.GetSqlInfo(call_options, sql_info, &flight_info);
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  (void)sql_client.GetSqlInfo(call_options, sql_info, &flight_info);
 }
 
 template <class Func>
 inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
-  FlightClientMock client_mock;
-  std::unique_ptr<FlightClientMock> client_mock_ptr(&client_mock);
+  auto* client_mock = new FlightClientMock();
+  std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
   FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
 
   const std::string query = "SELECT * FROM IRRELEVANT";
@@ -473,7 +462,7 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
   command.PackFrom(prepared_statement_result);
   const std::string& serializedCommand = command.SerializeAsString();
 
-  ON_CALL(client_mock, DoAction)
+  ON_CALL(*client_mock, DoAction)
       .WillByDefault([&serializedCommand](const FlightCallOptions& options,
                                           const Action& action,
                                           std::unique_ptr<ResultStream>* results) {
@@ -481,9 +470,9 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
             new SimpleResultStream({Result{Buffer::FromString(serializedCommand)}}));
         return Status::OK();
       });
-  EXPECT_CALL(client_mock, DoAction(_, _, _)).Times(2);
+  EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
 
-  ON_CALL(client_mock, DoPut)
+  ON_CALL(*client_mock, DoPut)
       .WillByDefault([&buffer](const FlightCallOptions& options,
                                const FlightDescriptor& descriptor1,
                                const std::shared_ptr<Schema>& schema,
@@ -493,32 +482,54 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
         writer->reset(new FlightStreamWriterMock());
         return Status::OK();
       });
-  EXPECT_CALL(client_mock, DoPut(_, _, _, _, _));
 
   int64_t rows;
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
   ASSERT_OK(sql_client.Prepare(call_options, query, &prepared_statement));
-  func(prepared_statement, client_mock);
+  func(prepared_statement, *client_mock, query);
   ASSERT_OK(prepared_statement->ExecuteUpdate(&rows));
-  EXPECT_EQ(expected_rows, rows);
+  ASSERT_EQ(expected_rows, rows);
 }
 
 TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<internal::PreparedStatementT<FlightClientMock>>&
-             prepared_statement, FlightClientMock& client_mock) {});
+             prepared_statement,
+         FlightClientMock& client_mock, const std::string& query) {});
 }
 
 TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding) {
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<internal::PreparedStatementT<FlightClientMock>>&
-             prepared_statement, FlightClientMock& client_mock) {
-        const auto& schema = arrow::schema({arrow::field("field0", arrow::utf8()),
-                                            arrow::field("field1", arrow::uint8())});
+             prepared_statement,
+         FlightClientMock& client_mock, const std::string& query) {
+        const auto schema = arrow::schema({arrow::field("field0", arrow::utf8()),
+                                           arrow::field("field1", arrow::uint8())});
+        ON_CALL(client_mock, DoAction)
+            .WillByDefault([&schema, &query](const FlightCallOptions& options,
+                                             const Action& action,
+                                             std::unique_ptr<ResultStream>* results) {
+              google::protobuf::Any command;
+              pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+
+              prepared_statement_result.set_prepared_statement_handle(query);
+              std::shared_ptr<Buffer> schema_buffer;
+              const arrow::Result<std::shared_ptr<Buffer>>& result =
+                  arrow::ipc::SerializeSchema(*schema);
+
+              ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
+
+              prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
+              command.PackFrom(prepared_statement_result);
+              *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
+                  {Result{Buffer::FromString(command.SerializeAsString())}}));
+
+              return Status::OK();
+            });
         std::shared_ptr<Array> stringArray;
         std::shared_ptr<Array> uInt8Array;
-        const std::vector<std::string> stringData {"Loren", "Ipsum", "Foo", "Bar", "Baz"};
-        const std::vector<uint8_t> uInt8Data {0, 10, 15, 20, 25};
+        const std::vector<std::string> stringData{"Loren", "Ipsum", "Foo", "Bar", "Baz"};
+        const std::vector<uint8_t> uInt8Data{0, 10, 15, 20, 25};
         ArrayFromVector<StringType, std::string>(stringData, &stringArray);
         ArrayFromVector<UInt8Type, uint8_t>(uInt8Data, &uInt8Array);
         std::shared_ptr<RecordBatch> recordBatch =
