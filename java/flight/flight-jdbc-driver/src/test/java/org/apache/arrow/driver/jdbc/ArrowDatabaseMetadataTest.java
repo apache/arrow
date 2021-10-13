@@ -19,8 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
-import static java.sql.Types.BIGINT;
-import static java.sql.Types.BIT;
+import static java.sql.Types.*;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
