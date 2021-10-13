@@ -257,7 +257,6 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   withr::with_options(
     list("arrow.preserve_row_level_metadata" = TRUE), {
-      withr::local_options(list("arrow.preserve_row_level_metadata" = TRUE))
       expect_warning(
         write_dataset(df, dst_dir, partitioning = "part"),
         "Row-level metadata is not compatible with datasets and will be discarded"
