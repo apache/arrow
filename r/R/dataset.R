@@ -138,7 +138,6 @@ open_dataset <- function(sources,
   if (!arrow_with_dataset()) {
     stop("This build of the arrow package does not support Datasets", call. = FALSE)
   }
-
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
@@ -159,7 +158,6 @@ open_dataset <- function(sources,
   }
 
   factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, schema = schema, ...)
-
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
