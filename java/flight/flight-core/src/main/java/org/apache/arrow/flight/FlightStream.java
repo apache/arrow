@@ -427,7 +427,7 @@ public class FlightStream implements AutoCloseable {
           }
 
           synchronized (completed) {
-            if (!completed.isDone()) {              
+            if (!completed.isDone()) {
               fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
               loader = new VectorLoader(fulfilledRoot);
               if (msg.getDescriptor() != null) {
