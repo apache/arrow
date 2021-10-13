@@ -74,12 +74,13 @@ FileFormat <- R6Class("FileFormat",
     type = function() dataset___FileFormat__type_name(self)
   )
 )
-FileFormat$create <- function(format, ..., schema = NULL) {
+FileFormat$create <- function(format, schema = NULL, ...) {
+
   opt_names <- names(list(...))
   if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
-    CsvFileFormat$create(..., schema=schema)
+    CsvFileFormat$create(schema=schema, ...)
   } else if (format == c("tsv")) {
-    CsvFileFormat$create(delimiter = "\t", ..., schema=schema)
+    CsvFileFormat$create(delimiter = "\t", schema=schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
@@ -125,7 +126,7 @@ CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...),
 }
 
 # Support both readr-style option names and Arrow C++ option names
-csv_file_format_parse_options <- function(...) {
+csv_file_format_parse_options <- function(schema = NULL, ...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
   convert_opts <- names(formals(CsvConvertOptions$create))
@@ -196,7 +197,7 @@ csv_file_format_parse_options <- function(...) {
   }
 }
 
-csv_file_format_convert_opts <- function(...) {
+csv_file_format_convert_opts <- function(schema = NULL, ...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvReadOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -208,7 +209,7 @@ csv_file_format_convert_opts <- function(...) {
   do.call(CsvConvertOptions$create, opts)
 }
 
-csv_file_format_read_opts <- function(...) {
+csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -217,6 +218,9 @@ csv_file_format_read_opts <- function(...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
+  if(!is.null(schema)){
+    opts[["column_names"]] <- names(schema)
+  }
   do.call(CsvReadOptions$create, opts)
 }
 
