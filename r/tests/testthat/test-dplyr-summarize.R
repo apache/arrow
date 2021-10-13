@@ -241,6 +241,39 @@ test_that("n_distinct() on dataset", {
       collect(),
     tbl
   )
+
+  # We don't handle nargs != 1
+  expect_dplyr_equal(
+    input %>%
+      summarize(distinct = n_distinct()) %>%
+      collect(),
+    tbl,
+    warning = "0 arguments"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(distinct = n_distinct()) %>%
+      collect(),
+    tbl,
+    warning = "0 arguments"
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      summarize(distinct = n_distinct(int, lgl)) %>%
+      collect(),
+    tbl,
+    warning = "Multiple arguments"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(distinct = n_distinct(int, lgl)) %>%
+      collect(),
+    tbl,
+    warning = "Multiple arguments"
+  )
 })
 
 test_that("median()", {
@@ -248,6 +281,10 @@ test_that("median()", {
   # type integer, whereas whereas the Arrow approx_median kernels always return
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
+
+  # Use old testthat behavior here so we don't have to assert the same warning
+  # over and over
+  local_edition(2)
 
   # with groups
   expect_dplyr_equal(
@@ -290,6 +327,7 @@ test_that("median()", {
     tbl,
     warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
+  local_edition(3)
 })
 
 test_that("quantile()", {
@@ -315,6 +353,7 @@ test_that("quantile()", {
   # return output of type float64. The calls to quantile(int, ...) in the tests
   # below are enclosed in as.double() to work around this known difference.
 
+  local_edition(2)
   # with groups
   expect_warning(
     expect_equal(
@@ -378,6 +417,7 @@ test_that("quantile()", {
     "quantile() currently returns an approximate quantile in Arrow",
     fixed = TRUE
   )
+  local_edition(3)
 
   # with a vector of 2+ probs
   expect_warning(

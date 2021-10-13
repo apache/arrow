@@ -1011,10 +1011,17 @@ agg_funcs$median <- function(x, na.rm = FALSE) {
     options = list(skip_nulls = na.rm)
   )
 }
-agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+agg_funcs$n_distinct <- function(..., na.rm = FALSE) {
+  args <- list2(...)
+  if (length(args) == 0) {
+    arrow_not_supported("n_distinct() with 0 arguments")
+  } else if (length(args) > 1) {
+    arrow_not_supported("Multiple arguments to n_distinct()")
+  }
+
   list(
     fun = "count_distinct",
-    data = x,
+    data = args[[1]],
     options = list(na.rm = na.rm)
   )
 }
