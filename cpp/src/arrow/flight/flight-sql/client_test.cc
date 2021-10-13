@@ -456,12 +456,6 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
   int64_t expected_rows = 100L;
   pb::sql::DoPutUpdateResult result;
   result.set_record_count(expected_rows);
-  auto buffer = Buffer::FromString(result.SerializeAsString());
-  google::protobuf::Any command;
-  pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
-  prepared_statement_result.set_prepared_statement_handle(query);
-  command.PackFrom(prepared_statement_result);
-  const std::string& serializedCommand = command.SerializeAsString();
 
   ON_CALL(*client_mock, DoAction)
       .WillByDefault([&query, &schema](const FlightCallOptions& options,
@@ -489,6 +483,7 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
       });
   EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
 
+  auto buffer = Buffer::FromString(result.SerializeAsString());
   ON_CALL(*client_mock, DoPut)
       .WillByDefault([&buffer](const FlightCallOptions& options,
                                const FlightDescriptor& descriptor1,
@@ -508,7 +503,7 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
   int64_t rows;
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
   ASSERT_OK(sql_client.Prepare(call_options, query, &prepared_statement));
-  func(prepared_statement, *client_mock, schema);
+  func(prepared_statement, *client_mock, schema, expected_rows);
   ASSERT_OK(prepared_statement->ExecuteUpdate(&rows));
   ASSERT_EQ(expected_rows, rows);
 }
@@ -517,7 +512,8 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateNoParameterBinding) 
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<internal::PreparedStatementT<FlightClientMock>>&
              prepared_statement,
-         FlightClientMock& client_mock, const std::shared_ptr<Schema>* schema) {},
+         FlightClientMock& client_mock, const std::shared_ptr<Schema>* schema,
+         const int64_t& row_count) {},
       NULLPTR);
 }
 
@@ -527,15 +523,16 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<internal::PreparedStatementT<FlightClientMock>>&
              prepared_statement,
-         FlightClientMock& client_mock, const std::shared_ptr<Schema>* schema) {
-        std::shared_ptr<Array> stringArray;
-        std::shared_ptr<Array> uInt8Array;
-        const std::vector<std::string> stringData{"Lorem", "Ipsum", "Foo", "Bar", "Baz"};
-        const std::vector<uint8_t> uInt8Data{0, 10, 15, 20, 25};
-        ArrayFromVector<StringType, std::string>(stringData, &stringArray);
-        ArrayFromVector<UInt8Type, uint8_t>(uInt8Data, &uInt8Array);
+         FlightClientMock& client_mock, const std::shared_ptr<Schema>* schema,
+         const int64_t& row_count) {
+        std::shared_ptr<Array> string_array;
+        std::shared_ptr<Array> uint8_array;
+        const std::vector<std::string> string_data{"Lorem", "Ipsum", "Foo", "Bar", "Baz"};
+        const std::vector<uint8_t> uint8_data{0, 10, 15, 20, 25};
+        ArrayFromVector<StringType, std::string>(string_data, &string_array);
+        ArrayFromVector<UInt8Type, uint8_t>(uint8_data, &uint8_array);
         std::shared_ptr<RecordBatch> recordBatch =
-            RecordBatch::Make(*schema, 100, {stringArray, uInt8Array});
+            RecordBatch::Make(*schema, row_count, {string_array, uint8_array});
         ASSERT_OK(prepared_statement->SetParameters(recordBatch));
       },
       &schema);
