@@ -195,7 +195,7 @@ ExecPlan <- R6Class("ExecPlan",
     Run = function(node) {
       assert_is(node, "ExecNode")
       # TODO (ARROW-12763): pass head/tail to ExecPlan_run so we can maybe TopK
-      out <- ExecPlan_run(self, node, node$sort %||% list())
+      out <- ExecPlan_run(self, node, node$sort %||% list(), node$head %||% -1L)
 
       if (is.null(node$sort)) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
@@ -208,13 +208,6 @@ ExecPlan <- R6Class("ExecPlan",
         }
         # TODO (ARROW-12763): delete these else cases because they'll be handled
         # with SelectK
-      } else if (!is.null(node$head)) {
-        # These methods are on RecordBatchReader (but return Table)
-        # TODO (ARROW-14289): make the head/tail methods return RBR not Table
-        out <- head(out, node$head)
-        # We can now tell `self` to StopProducing: we already have
-        # everything we need for the head
-        self$Stop()
       } else if (!is.null(node$tail)) {
         out <- tail(out, node$tail)
       }
