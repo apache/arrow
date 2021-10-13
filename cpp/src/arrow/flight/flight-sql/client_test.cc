@@ -445,7 +445,8 @@ TEST(TestFlightSqlClient, TestGetSqlInfo) {
 }
 
 template <class Func>
-inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
+inline void AssertTestPreparedStatementExecuteUpdateOk(
+    Func func, const std::shared_ptr<Schema>* schema) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
   FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
@@ -462,24 +463,24 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
   command.PackFrom(prepared_statement_result);
   const std::string& serializedCommand = command.SerializeAsString();
 
-  const auto schema = arrow::schema({arrow::field("field0", arrow::utf8()),
-                                     arrow::field("field1", arrow::uint8())});
-
   ON_CALL(*client_mock, DoAction)
       .WillByDefault([&query, &schema](const FlightCallOptions& options,
-                                          const Action& action,
-                                          std::unique_ptr<ResultStream>* results) {
+                                       const Action& action,
+                                       std::unique_ptr<ResultStream>* results) {
         google::protobuf::Any command;
         pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
 
         prepared_statement_result.set_prepared_statement_handle(query);
-        std::shared_ptr<Buffer> schema_buffer;
-        const arrow::Result<std::shared_ptr<Buffer>>& result =
-            arrow::ipc::SerializeSchema(*schema);
 
-        ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
+        if (schema != NULLPTR) {
+          std::shared_ptr<Buffer> schema_buffer;
+          const arrow::Result<std::shared_ptr<Buffer>>& result =
+              arrow::ipc::SerializeSchema(**schema);
 
-        prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
+          ARROW_ASSIGN_OR_RAISE(schema_buffer, result);
+          prepared_statement_result.set_parameter_schema(schema_buffer->ToString());
+        }
+
         command.PackFrom(prepared_statement_result);
         *results = std::unique_ptr<ResultStream>(new SimpleResultStream(
             {Result{Buffer::FromString(command.SerializeAsString())}}));
@@ -498,42 +499,46 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(Func func) {
         writer->reset(new FlightStreamWriterMock());
         return Status::OK();
       });
+  if (schema == NULLPTR) {
+    EXPECT_CALL(*client_mock, DoPut(_, _, _, _, _));
+  } else {
+    EXPECT_CALL(*client_mock, DoPut(_, _, *schema, _, _));
+  }
 
   int64_t rows;
   std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
   ASSERT_OK(sql_client.Prepare(call_options, query, &prepared_statement));
-  func(prepared_statement, *client_mock, query);
+  func(prepared_statement, *client_mock, schema);
   ASSERT_OK(prepared_statement->ExecuteUpdate(&rows));
   ASSERT_EQ(expected_rows, rows);
 }
 
-TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdate) {
+TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateNoParameterBinding) {
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<internal::PreparedStatementT<FlightClientMock>>&
              prepared_statement,
-         FlightClientMock& client_mock, const std::string& query) {});
+         FlightClientMock& client_mock, const std::shared_ptr<Schema>* schema) {},
+      NULLPTR);
 }
 
 TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding) {
+  const auto schema = arrow::schema(
+      {arrow::field("field0", arrow::utf8()), arrow::field("field1", arrow::uint8())});
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<internal::PreparedStatementT<FlightClientMock>>&
              prepared_statement,
-         FlightClientMock& client_mock, const std::string& query) {
-        const auto schema = arrow::schema({arrow::field("field0", arrow::utf8()),
-                                           arrow::field("field1", arrow::uint8())});
-
+         FlightClientMock& client_mock, const std::shared_ptr<Schema>* schema) {
         std::shared_ptr<Array> stringArray;
         std::shared_ptr<Array> uInt8Array;
-        const std::vector<std::string> stringData{"Loren", "Ipsum", "Foo", "Bar", "Baz"};
+        const std::vector<std::string> stringData{"Lorem", "Ipsum", "Foo", "Bar", "Baz"};
         const std::vector<uint8_t> uInt8Data{0, 10, 15, 20, 25};
         ArrayFromVector<StringType, std::string>(stringData, &stringArray);
         ArrayFromVector<UInt8Type, uint8_t>(uInt8Data, &uInt8Array);
         std::shared_ptr<RecordBatch> recordBatch =
-            RecordBatch::Make(schema, 100, {stringArray, uInt8Array});
+            RecordBatch::Make(*schema, 100, {stringArray, uInt8Array});
         ASSERT_OK(prepared_statement->SetParameters(recordBatch));
-
-        EXPECT_CALL(client_mock, DoPut(_, _, schema, _, _));
-      });
+      },
+      &schema);
 }
 
 }  // namespace sql
