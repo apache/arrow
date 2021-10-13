@@ -337,7 +337,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   @Override
   public boolean supportsLimitedOuterJoins() throws SQLException {
     return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_JOINS_SUPPORT_LEVEL,
-        SqlJoinsSupportLevel.SQL_LIMITED_JOINS);
+        SqlJoinsSupportLevel.SQL_LIMITED_OUTER_JOINS);
   }
 
   @Override
