@@ -283,7 +283,7 @@ cpp11::writable::integers LargeListArray__raw_value_offsets(
   return cpp11::writable::integers(offsets, offsets + array->length());
 }
 
-#include <cstdio>            // for snprintf
+#include <cstdio>  // for snprintf
 
 namespace {
 template <typename T>
