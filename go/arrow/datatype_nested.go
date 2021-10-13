@@ -25,9 +25,6 @@ import (
 // a variable-size sequence of values, all having the same relative type.
 type ListType struct {
 	elem Field
-	// elem         DataType // DataType of the list's elements
-	// Meta         Metadata
-	// NullableElem bool
 }
 
 func ListOfField(f Field) *ListType {
