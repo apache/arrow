@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.IntStream.range;
 
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
@@ -30,6 +31,15 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
+import org.apache.arrow.vector.complex.writer.IntWriter;
+import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 
 /**
@@ -115,5 +125,134 @@ public final class DatabaseMetadataDenseUnionUtils {
           values -> values.setSafe(index, getHolderForUtf8(value, buf));
       setValues(root, index, (byte) 0, producer);
     });
+  }
+
+  /**
+   * Sets the data {@code value} for a {@code Int} field.
+   *
+   * @param root    the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
+   * @param index   the index to use for {@link DenseUnionVector#setSafe}
+   * @param sqlInfo the {@link SqlInfo} to use.
+   * @param value   the input value.
+   */
+  public static void setDataForIntField(final VectorSchemaRoot root, final int index,
+                                        final SqlInfo sqlInfo, final int value) {
+    setInfoName(root, index, sqlInfo);
+    final NullableIntHolder dataHolder = new NullableIntHolder();
+    dataHolder.isSet = 1;
+    dataHolder.value = value;
+    setValues(root, index, (byte) 3, values -> values.setSafe(index, dataHolder));
+  }
+
+  /**
+   * Sets the data {@code value} for a {@code BigInt} field.
+   *
+   * @param root    the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
+   * @param index   the index to use for {@link DenseUnionVector#setSafe}
+   * @param sqlInfo the {@link SqlInfo} to use.
+   * @param value   the input value.
+   */
+  public static void setDataForBigIntField(final VectorSchemaRoot root, final int index,
+                                           final SqlInfo sqlInfo, final long value) {
+    setInfoName(root, index, sqlInfo);
+    final NullableBigIntHolder dataHolder = new NullableBigIntHolder();
+    dataHolder.isSet = 1;
+    dataHolder.value = value;
+    setValues(root, index, (byte) 2, values -> values.setSafe(index, dataHolder));
+  }
+
+  /**
+   * Sets the data {@code value} for a {@code Boolean} field.
+   *
+   * @param root    the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
+   * @param index   the index to use for {@link DenseUnionVector#setSafe}
+   * @param sqlInfo the {@link SqlInfo} to use.
+   * @param value   the input value.
+   */
+  public static void setDataForBooleanField(final VectorSchemaRoot root, final int index,
+                                            final SqlInfo sqlInfo, final boolean value) {
+    setInfoName(root, index, sqlInfo);
+    final NullableBitHolder dataHolder = new NullableBitHolder();
+    dataHolder.isSet = 1;
+    dataHolder.value = value ? 1 : 0;
+    setValues(root, index, (byte) 1, values -> values.setSafe(index, dataHolder));
+  }
+
+  /**
+   * Sets the data {@code values} for a {@code List} field.
+   *
+   * @param root    the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
+   * @param index   the index to use for {@link DenseUnionVector#setSafe}
+   * @param sqlInfo the {@link SqlInfo} to use.
+   * @param values  the input value.
+   */
+  public static void setDataVarCharListField(final VectorSchemaRoot root, final int index, final int listIndex,
+                                             final SqlInfo sqlInfo, final String[] values) {
+    final DenseUnionVector denseUnion = (DenseUnionVector) root.getVector("value");
+    final ListVector listVector = denseUnion.getList((byte) 4);
+    final int denseUnionValueCount = index + 1;
+    final int listVectorValueCount = listIndex + 1;
+    denseUnion.setValueCount(denseUnionValueCount);
+    listVector.setValueCount(listVectorValueCount);
+
+    final UnionListWriter writer = listVector.getWriter();
+    writer.setPosition(listIndex);
+    writer.startList();
+    final int length = values.length;
+    range(0, length)
+        .forEach(i -> {
+          onCreateArrowBuf(buf -> {
+            final byte[] bytes = values[i].getBytes(UTF_8);
+            buf.setBytes(0, bytes);
+            writer.writeVarChar(0, bytes.length, buf);
+          });
+        });
+    writer.endList();
+    writer.setValueCount(listVectorValueCount);
+
+    denseUnion.setTypeId(index, (byte) 4);
+    denseUnion.getOffsetBuffer().setInt(index * 4L, listIndex);
+    setInfoName(root, index, sqlInfo);
+  }
+
+  /**
+   * Sets the data {@code values} for a {@code Map} field.
+   *
+   * @param root     the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
+   * @param index    the index to use for {@link DenseUnionVector#setSafe}
+   * @param mapIndex the index to use for {@link UnionMapWriter#setPosition}
+   * @param sqlInfo  the {@link SqlInfo} to use.
+   * @param values   the input value.
+   */
+  public static void setIntToIntListMapField(final VectorSchemaRoot root, final int index, final int mapIndex,
+                                             final SqlInfo sqlInfo, final int key, int[] values) {
+    final DenseUnionVector denseUnion = (DenseUnionVector) root.getVector("value");
+    final MapVector mapVector = denseUnion.getMap((byte) 5);
+    final int denseUnionValueCount = index + 1;
+    final int mapVectorValueCount = mapIndex + 1;
+    denseUnion.setValueCount(denseUnionValueCount);
+    mapVector.setValueCount(mapVectorValueCount);
+
+    final UnionMapWriter mapWriter = mapVector.getWriter();
+    mapWriter.setPosition(mapIndex);
+    mapWriter.startMap();
+    mapWriter.startEntry();
+    mapWriter.key().integer().writeInt(key);
+    final BaseWriter.ListWriter listWriter = mapWriter.value().list();
+    listWriter.setPosition(0);
+    listWriter.startList();
+    final int length = values.length;
+    range(0, length)
+        .forEach(i -> {
+          listWriter.integer().writeInt(values[i]);
+        });
+    listWriter.endList();
+    mapWriter.endEntry();
+    mapWriter.endMap();
+    mapWriter.setValueCount(mapVectorValueCount);
+
+    denseUnion.setTypeId(index, (byte) 5);
+    denseUnion.getOffsetBuffer().setInt(index * 4L, mapIndex);
+    setInfoName(root, index, sqlInfo);
   }
 }
