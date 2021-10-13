@@ -16,8 +16,7 @@
 // under the License.
 
 import {
-    Int32, Dictionary, DateUnit, util,
-    Data, Vector, Utf8Vector, DateVector, DictionaryVector,
+    DateDay, DateMillisecond, Dictionary, Int32, makeVector, util, Vector, vectorFromArray
 } from 'apache-arrow';
 
 describe(`DateVector`, () => {
@@ -32,7 +31,7 @@ describe(`DateVector`, () => {
             new Date(1987, 2, 24, 7, 8, 9),
             new Date(2018, 4, 12, 17, 30, 0)
         ];
-        const vector = DateVector.from(values);
+        const vector = vectorFromArray(values, new DateMillisecond);
         basicVectorTests(vector, values, extras);
     });
     describe(`unit = DAY`, () => {
@@ -43,7 +42,8 @@ describe(`DateVector`, () => {
             new Date(Date.UTC(1987, 2, 24)),
             new Date(Date.UTC(2018, 4, 12))
         ];
-        const vector = DateVector.from(values, DateUnit.DAY);
+        const vector = vectorFromArray(values, new DateDay);
+
         basicVectorTests(vector, values, extras);
     });
 });
@@ -52,20 +52,24 @@ describe(`DictionaryVector`, () => {
 
     const dictionary = ['foo', 'bar', 'baz'];
     const extras = ['abc', '123']; // values to search for that should NOT be found
-    const dictionary_vec = Utf8Vector.from(dictionary);
+    const dictionary_vec = vectorFromArray(dictionary);
 
-    const indices = Array.from({length: 50}, () => Math.random() * 3 | 0);
+    const indices = Array.from({ length: 50 }, () => Math.random() * 3 | 0);
     const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2 ? true : false);
 
     describe(`index with nullCount == 0`, () => {
 
         const values = Array.from(indices).map((d) => dictionary[d]);
-        const vector = DictionaryVector.from(dictionary_vec, new Int32(), indices);
+        const vector = makeVector({
+            data: indices,
+            dictionary: dictionary_vec,
+            type: new Dictionary(dictionary_vec.type, new Int32)
+        });
 
         basicVectorTests(vector, values, extras);
 
         describe(`sliced`, () => {
-            basicVectorTests(vector.slice(10, 20), values.slice(10,20), extras);
+            basicVectorTests(vector.slice(10, 20), values.slice(10, 20), extras);
         });
     });
 
@@ -74,22 +78,28 @@ describe(`DictionaryVector`, () => {
         const nullBitmap = util.packBools(validity);
         const nullCount = validity.reduce((acc, d) => acc + (d ? 0 : 1), 0);
         const values = Array.from(indices).map((d, i) => validity[i] ? dictionary[d] : null);
-        const type = new Dictionary(dictionary_vec.type, new Int32(), null, null);
-        const vector = Vector.new(Data.Dictionary(type, 0, indices.length, nullCount, nullBitmap, indices, dictionary_vec));
+
+        const vector = makeVector({
+            data: indices,
+            nullCount,
+            nullBitmap,
+            dictionary: dictionary_vec,
+            type: new Dictionary(dictionary_vec.type, new Int32)
+        });
 
         basicVectorTests(vector, values, ['abc', '123']);
         describe(`sliced`, () => {
-            basicVectorTests(vector.slice(10, 20), values.slice(10,20), extras);
+            basicVectorTests(vector.slice(10, 20), values.slice(10, 20), extras);
         });
     });
 });
 
 describe(`Utf8Vector`, () => {
     const values = ['foo', 'bar', 'baz', 'foo bar', 'bar'];
-    const vector = Utf8Vector.from(values);
+    const vector = vectorFromArray(values);
     basicVectorTests(vector, values, ['abc', '123']);
     describe(`sliced`, () => {
-        basicVectorTests(vector.slice(1,3), values.slice(1,3), ['foo', 'abc']);
+        basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);
     });
 });
 

@@ -396,12 +396,12 @@ function inferType(value: any[]): DataType {
 }
 
 
-export function vectorFromArray(values: null[], type?: dtypes.Null): Vector<dtypes.Null>;
-export function vectorFromArray(values: boolean[], type?: dtypes.Bool): Vector<dtypes.Bool>;
-export function vectorFromArray(values: string[], type?: dtypes.Utf8): Vector<dtypes.Utf8>;
-export function vectorFromArray(values: Date[], type?: dtypes.TimestampMillisecond): Vector<dtypes.TimestampMillisecond>;
-export function vectorFromArray<T extends dtypes.Int>(values: number[], type: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: number[], type?: T): Vector<T>;
+export function vectorFromArray(values: (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
+export function vectorFromArray(values: (null | undefined | boolean)[], type?: dtypes.Bool): Vector<dtypes.Bool>;
+export function vectorFromArray(values: (null | undefined | string)[], type?: dtypes.Utf8): Vector<dtypes.Utf8>;
+export function vectorFromArray<T extends dtypes.Date_>(values: (null | undefined | Date)[], type?: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Int>(values: (null | undefined | number)[], type: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: (null | undefined | number)[], type?: T): Vector<T>;
 
 export function vectorFromArray(values: unknown[], type?: DataType) {
     const options = { type: type ?? inferType(values) };
