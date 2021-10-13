@@ -48,7 +48,15 @@ elif [[ ${version} != "latest" ]]; then
   exit 1
 fi
 
-wget -nv -P ${prefix}/bin https://dl.min.io/server/minio/release/${platform}-${arch}/minio
-wget -nv -P ${prefix}/bin https://dl.min.io/client/mc/release/${platform}-${arch}/mc
-chmod +x ${prefix}/bin/minio
-chmod +x ${prefix}/bin/mc
+if [[ ! -x ${prefix}/bin/minio ]]; then
+  url="https://dl.min.io/server/minio/release/${platform}-${arch}/minio"
+  echo "Fetching ${url}..."
+  wget -nv -P ${prefix}/bin ${url}
+  chmod +x ${prefix}/bin/minio
+fi
+if [[ ! -x ${prefix}/bin/mc ]]; then
+  url="https://dl.min.io/client/mc/release/${platform}-${arch}/mc"
+  echo "Fetching ${url}..."
+  wget -nv -P ${prefix}/bin ${url}
+  chmod +x ${prefix}/bin/mc
+fi
