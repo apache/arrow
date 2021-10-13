@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,21 +17,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 arrow_dir=${1}
-cpp_lib_dir=${2}
-java_dist_dir=${3}
+build_dir=${2}
+# The directory where the final binaries will be stored when scripts finish
+dist_dir=${3}
 
-export ARROW_TEST_DATA=${arrow_dir}/testing/data
+echo "=== Clear output directories and leftovers ==="
+# Clear output directories and leftovers
+rm -rf ${build_dir}
 
-pushd ${arrow_dir}/java
+echo "=== Building Arrow Java C Data Interface native library ==="
+mkdir -p "${build_dir}"
+pushd "${build_dir}"
 
-# build the entire project
-mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_lib_dir
-
-# copy all jars and pom files to the distribution folder
-find . -name "*.jar" -exec echo {} \; -exec cp {} $java_dist_dir \;
-find . -name "*.pom" -exec echo {} \; -exec cp {} $java_dist_dir \;
-
+cmake \
+  -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-release} \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_INSTALL_PREFIX=${build_dir} \
+  ${arrow_dir}/java/c
+cmake --build . --target install --config ${ARROW_BUILD_TYPE:-release}
 popd
+
+echo "=== Copying libraries to the distribution folder ==="
+mkdir -p "${dist_dir}"
+cp -L ${build_dir}/lib/*arrow_cdata_jni.* ${dist_dir}
