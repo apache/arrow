@@ -526,10 +526,8 @@ test_that("Handling string data with embedded nuls", {
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
-  df <- as.data.frame(batch_with_nul)
-
   expect_error(
-    df$b[],
+    as.data.frame(batch_with_nul)$b[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
       "set options(arrow.skip_nul = TRUE)"

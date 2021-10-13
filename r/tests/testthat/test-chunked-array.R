@@ -431,6 +431,12 @@ test_that("Handling string data with embedded nuls", {
   class = c("arrow_binary", "vctrs_vctr", "list")
   )
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
+
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_if_r_version("3.5.0")
+
   v <- expect_error(as.vector(chunked_array_with_nul), NA)
 
   expect_error(
