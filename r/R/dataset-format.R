@@ -75,12 +75,11 @@ FileFormat <- R6Class("FileFormat",
   )
 )
 FileFormat$create <- function(format, schema = NULL, ...) {
-
   opt_names <- names(list(...))
   if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
-    CsvFileFormat$create(schema=schema, ...)
+    CsvFileFormat$create(schema = schema, ...)
   } else if (format == c("tsv")) {
-    CsvFileFormat$create(delimiter = "\t", schema=schema, ...)
+    CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
@@ -119,20 +118,22 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname FileFormat
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...),
+CsvFileFormat$create <- function(...,
+                                 opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
 # Support both readr-style option names and Arrow C++ option names
-csv_file_format_parse_options <- function(schema = NULL, ...) {
+csv_file_format_parse_options <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
   convert_opts <- names(formals(CsvConvertOptions$create))
   read_opts <- names(formals(CsvReadOptions$create))
   opts[convert_opts] <- NULL
   opts[read_opts] <- NULL
+  opts[["schema"]] <- NULL
   opt_names <- names(opts)
   # Catch any readr-style options specified with full option names that are
   # supported by read_delim_arrow() (and its wrappers) but are not yet
@@ -197,7 +198,7 @@ csv_file_format_parse_options <- function(schema = NULL, ...) {
   }
 }
 
-csv_file_format_convert_opts <- function(schema = NULL, ...) {
+csv_file_format_convert_opts <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvReadOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -206,6 +207,7 @@ csv_file_format_convert_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[read_opts] <- NULL
+  opts[["schema"]] <- NULL
   do.call(CsvConvertOptions$create, opts)
 }
 
@@ -218,7 +220,7 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
-  if(!is.null(schema)){
+  if (!is.null(schema)) {
     opts[["column_names"]] <- names(schema)
   }
   do.call(CsvReadOptions$create, opts)
