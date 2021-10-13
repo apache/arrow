@@ -729,6 +729,9 @@ test_that("Handling string data with embedded nuls", {
   )
   array_with_nul <- Array$create(raws)$cast(utf8())
 
+  # test below use/rely on altrep
+  skip_if_r_version("3.5.0")
+
   # no error on conversion, because altrep laziness
   v <- expect_error(as.vector(array_with_nul), NA)
 
@@ -776,7 +779,6 @@ test_that("Handling string data with embedded nuls", {
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
-
   })
 })
 

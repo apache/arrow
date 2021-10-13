@@ -69,7 +69,7 @@ skip_on_valgrind <- function() {
   }
 }
 
-skip_if_r_version <- function(r_version){
+skip_if_r_version <- function(r_version) {
   if (getRversion() <= r_version) {
     skip(paste("R version:", getRversion()))
   }
