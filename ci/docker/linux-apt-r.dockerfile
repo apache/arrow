@@ -88,7 +88,7 @@ RUN /arrow/ci/scripts/r_deps.sh /arrow
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
 
 # Set up Python 3 and its dependencies
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \

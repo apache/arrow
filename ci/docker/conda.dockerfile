@@ -37,7 +37,7 @@ COPY ci/scripts/install_conda.sh \
 RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix}
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
-RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
 
 # create a conda environment
 ADD ci/conda_env_unix.txt /arrow/ci/
