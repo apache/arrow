@@ -223,13 +223,12 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
 
     const type = new DataType();
     const ArrayType = type.ArrayType;
-    const stride = type.bitWidth < 64 ? 1 : 2;
 
     const typed: TypedArray | BigIntArray = new ArrayType(testValuesBuffer);
     const jsArray = values || [...typed];
-    const vector = new Vector(makeData({ type, offset: 0, length: typed.length / stride, nullCount: 0, nullBitmap: null, data: typed }));
+    const vector = new Vector(makeData({ type, offset: 0, length: typed.length, nullCount: 0, nullBitmap: null, data: typed }));
     const chunked = testValueBuffers.map((b) => new ArrayType(b))
-        .map((b) => new Vector(makeData({ type, offset: 0, length: b.length / stride, nullCount: 0, nullBitmap: null, data: b })))
+        .map((b) => new Vector(makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })))
         .reduce((v: any, v2) => v.concat(v2));
 
     const vectorBegin = (vector.length * .25) | 0;
