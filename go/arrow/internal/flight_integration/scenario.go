@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strconv"
 
@@ -56,6 +57,13 @@ func GetScenario(name string, args ...string) Scenario {
 		return &defaultIntegrationTester{}
 	}
 	panic(fmt.Errorf("scenario not found: %s", name))
+}
+
+func initServer(port int, srv flight.Server) int {
+	srv.Init(fmt.Sprintf("0.0.0.0:%d", port))
+	_, p, _ := net.SplitHostPort(srv.Addr().String())
+	port, _ = strconv.Atoi(p)
+	return port
 }
 
 type integrationDataSet struct {
@@ -209,7 +217,6 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 }
 
 func (s *defaultIntegrationTester) MakeServer(port int) flight.Server {
-	s.port = port
 	s.uploadedChunks = make(map[string]integrationDataSet)
 	srv := flight.NewServerWithMiddleware(nil, nil)
 	srv.RegisterFlightService(&flight.FlightServiceService{
@@ -217,6 +224,7 @@ func (s *defaultIntegrationTester) MakeServer(port int) flight.Server {
 		DoGet:         s.DoGet,
 		DoPut:         s.DoPut,
 	})
+	s.port = initServer(port, srv)
 	return srv
 }
 
@@ -236,7 +244,7 @@ func (s *defaultIntegrationTester) GetFlightInfo(ctx context.Context, in *flight
 			FlightDescriptor: in,
 			Endpoint: []*flight.FlightEndpoint{{
 				Ticket:   &flight.Ticket{Ticket: []byte(in.Path[0])},
-				Location: []*flight.Location{{Uri: fmt.Sprintf("127.0.0.1:%d", s.port)}},
+				Location: []*flight.Location{{Uri: fmt.Sprintf("grpc+tcp://127.0.0.1:%d", s.port)}},
 			}},
 			TotalRecords: 0,
 			TotalBytes:   -1,
@@ -420,12 +428,13 @@ func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) e
 	return CheckActionResults(ctx, client, &flight.Action{}, []string{authUsername})
 }
 
-func (s *authBasicProtoTester) MakeServer(_ int) flight.Server {
+func (s *authBasicProtoTester) MakeServer(port int) flight.Server {
 	srv := flight.NewServerWithMiddleware(&authBasicValidator{
 		auth: flight.BasicAuth{Username: authUsername, Password: authPassword}}, nil)
 	srv.RegisterFlightService(&flight.FlightServiceService{
 		DoAction: s.DoAction,
 	})
+	initServer(port, srv)
 	return srv
 }
 
@@ -470,12 +479,13 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 	return nil
 }
 
-func (m *middlewareScenarioTester) MakeServer(_ int) flight.Server {
+func (m *middlewareScenarioTester) MakeServer(port int) flight.Server {
 	srv := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
 		flight.CreateServerMiddleware(testServerMiddleware{})})
 	srv.RegisterFlightService(&flight.FlightServiceService{
 		GetFlightInfo: m.GetFlightInfo,
 	})
+	initServer(port, srv)
 	return srv
 }
 
@@ -489,7 +499,7 @@ func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flig
 		FlightDescriptor: desc,
 		Endpoint: []*flight.FlightEndpoint{{
 			Ticket:   &flight.Ticket{Ticket: []byte("foo")},
-			Location: []*flight.Location{{Uri: "localhost:10010"}},
+			Location: []*flight.Location{{Uri: "grpc+tcp://localhost:10010"}},
 		}},
 		TotalRecords: -1,
 		TotalBytes:   -1,

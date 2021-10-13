@@ -2673,6 +2673,15 @@ func makeIntervalsWantJSONs() string {
         },
         "nullable": true,
         "children": []
+      },
+      {
+        "name": "nanos",
+        "type": {
+          "name": "interval",
+          "unit": "MONTH_DAY_NANO"
+        },
+        "nullable": true,
+        "children": []
       }
     ]
   },
@@ -2730,32 +2739,9 @@ func makeIntervalsWantJSONs() string {
               "milliseconds": 5
             }
           ]
-        }
-      ]
-    },
-    {
-      "count": 5,
-      "columns": [
-        {
-          "name": "months",
-          "count": 5,
-          "VALIDITY": [
-            1,
-            0,
-            0,
-            1,
-            1
-          ],
-          "DATA": [
-            11,
-            12,
-            13,
-            14,
-            15
-          ]
         },
         {
-          "name": "days",
+          "name": "nanos",
           "count": 5,
           "VALIDITY": [
             1,
@@ -2766,24 +2752,29 @@ func makeIntervalsWantJSONs() string {
           ],
           "DATA": [
             {
-              "days": 11,
-              "milliseconds": 11
+              "months": 1,
+              "days": 1,
+              "nanoseconds": 1000
             },
             {
-              "days": 12,
-              "milliseconds": 12
+              "months": 2,
+              "days": 2,
+              "nanoseconds": 2000
             },
             {
-              "days": 13,
-              "milliseconds": 13
+              "months": 3,
+              "days": 3,
+              "nanoseconds": 3000
             },
             {
-              "days": 14,
-              "milliseconds": 14
+              "months": 4,
+              "days": 4,
+              "nanoseconds": 4000
             },
             {
-              "days": 15,
-              "milliseconds": 15
+              "months": 5,
+              "days": 5,
+              "nanoseconds": 5000
             }
           ]
         }
@@ -2803,11 +2794,11 @@ func makeIntervalsWantJSONs() string {
             1
           ],
           "DATA": [
-            21,
-            22,
-            23,
-            24,
-            25
+            -11,
+            -12,
+            -13,
+            -14,
+            -15
           ]
         },
         {
@@ -2817,6 +2808,103 @@ func makeIntervalsWantJSONs() string {
             1,
             0,
             0,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "days": -11,
+              "milliseconds": -11
+            },
+            {
+              "days": -12,
+              "milliseconds": -12
+            },
+            {
+              "days": -13,
+              "milliseconds": -13
+            },
+            {
+              "days": -14,
+              "milliseconds": -14
+            },
+            {
+              "days": -15,
+              "milliseconds": -15
+            }
+          ]
+        },
+        {
+          "name": "nanos",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "months": -11,
+              "days": -11,
+              "nanoseconds": -11000
+            },
+            {
+              "months": -12,
+              "days": -12,
+              "nanoseconds": -12000
+            },
+            {
+              "months": -13,
+              "days": -13,
+              "nanoseconds": -13000
+            },
+            {
+              "months": -14,
+              "days": -14,
+              "nanoseconds": -14000
+            },
+            {
+              "months": -15,
+              "days": -15,
+              "nanoseconds": -15000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "count": 6,
+      "columns": [
+        {
+          "name": "months",
+          "count": 6,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            21,
+            22,
+            23,
+            24,
+            25,
+            0
+          ]
+        },
+        {
+          "name": "days",
+          "count": 6,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
             1,
             1
           ],
@@ -2840,6 +2928,54 @@ func makeIntervalsWantJSONs() string {
             {
               "days": 25,
               "milliseconds": 25
+            },
+            {
+              "days": 0,
+              "milliseconds": 0
+            }
+          ]
+        },
+        {
+          "name": "nanos",
+          "count": 6,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "months": 21,
+              "days": 21,
+              "nanoseconds": 21000
+            },
+            {
+              "months": 22,
+              "days": 22,
+              "nanoseconds": 22000
+            },
+            {
+              "months": 23,
+              "days": 23,
+              "nanoseconds": 23000
+            },
+            {
+              "months": 24,
+              "days": 24,
+              "nanoseconds": 24000
+            },
+            {
+              "months": 25,
+              "days": 25,
+              "nanoseconds": 25000
+            },
+            {
+              "months": 0,
+              "days": 0,
+              "nanoseconds": 0
             }
           ]
         }

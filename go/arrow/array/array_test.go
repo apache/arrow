@@ -68,7 +68,8 @@ func TestMakeFromData(t *testing.T) {
 		{name: "time64", d: &testDataType{arrow.TIME64}},
 		{name: "month_interval", d: arrow.FixedWidthTypes.MonthInterval},
 		{name: "day_time_interval", d: arrow.FixedWidthTypes.DayTimeInterval},
-		{name: "decimal", d: &testDataType{arrow.DECIMAL128}},
+		{name: "decimal128", d: &testDataType{arrow.DECIMAL128}},
+		{name: "month_day_nano_interval", d: arrow.FixedWidthTypes.MonthDayNanoInterval},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),

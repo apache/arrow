@@ -208,6 +208,8 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "tiM"
 	case *arrow.DayTimeIntervalType:
 		return "tiD"
+	case *arrow.MonthDayNanoIntervalType:
+		return "tin"
 	case *arrow.ListType:
 		return "+l"
 	case *arrow.FixedSizeListType:

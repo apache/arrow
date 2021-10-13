@@ -34,6 +34,8 @@ func NewIntervalData(data *Data) Interface {
 		return NewMonthIntervalData(data)
 	case *arrow.DayTimeIntervalType:
 		return NewDayTimeIntervalData(data)
+	case *arrow.MonthDayNanoIntervalType:
+		return NewMonthDayNanoIntervalData(data)
 	default:
 		panic(xerrors.Errorf("arrow/array: unknown interval data type %T", data.dtype))
 	}
@@ -425,10 +427,207 @@ func (b *DayTimeIntervalBuilder) newData() (data *Data) {
 	return
 }
 
+// A type which represents an immutable sequence of arrow.DayTimeInterval values.
+type MonthDayNanoInterval struct {
+	array
+	values []arrow.MonthDayNanoInterval
+}
+
+func NewMonthDayNanoIntervalData(data *Data) *MonthDayNanoInterval {
+	a := &MonthDayNanoInterval{}
+	a.refCount = 1
+	a.setData(data)
+	return a
+}
+
+func (a *MonthDayNanoInterval) Value(i int) arrow.MonthDayNanoInterval { return a.values[i] }
+func (a *MonthDayNanoInterval) MonthDayNanoIntervalValues() []arrow.MonthDayNanoInterval {
+	return a.values
+}
+
+func (a *MonthDayNanoInterval) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *MonthDayNanoInterval) setData(data *Data) {
+	a.array.setData(data)
+	vals := data.buffers[1]
+	if vals != nil {
+		a.values = arrow.MonthDayNanoIntervalTraits.CastFromBytes(vals.Bytes())
+		beg := a.array.data.offset
+		end := beg + a.array.data.length
+		a.values = a.values[beg:end]
+	}
+}
+
+func arrayEqualMonthDayNanoInterval(left, right *MonthDayNanoInterval) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
+type MonthDayNanoIntervalBuilder struct {
+	builder
+
+	data    *memory.Buffer
+	rawData []arrow.MonthDayNanoInterval
+}
+
+func NewMonthDayNanoIntervalBuilder(mem memory.Allocator) *MonthDayNanoIntervalBuilder {
+	return &MonthDayNanoIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+func (b *MonthDayNanoIntervalBuilder) Release() {
+	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&b.refCount, -1) == 0 {
+		if b.nullBitmap != nil {
+			b.nullBitmap.Release()
+			b.nullBitmap = nil
+		}
+		if b.data != nil {
+			b.data.Release()
+			b.data = nil
+			b.rawData = nil
+		}
+	}
+}
+
+func (b *MonthDayNanoIntervalBuilder) Append(v arrow.MonthDayNanoInterval) {
+	b.Reserve(1)
+	b.UnsafeAppend(v)
+}
+
+func (b *MonthDayNanoIntervalBuilder) AppendNull() {
+	b.Reserve(1)
+	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *MonthDayNanoIntervalBuilder) UnsafeAppend(v arrow.MonthDayNanoInterval) {
+	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
+	b.rawData[b.length] = v
+	b.length++
+}
+
+func (b *MonthDayNanoIntervalBuilder) UnsafeAppendBoolToBitmap(isValid bool) {
+	if isValid {
+		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
+	} else {
+		b.nulls++
+	}
+	b.length++
+}
+
+// AppendValues will append the values in the v slice. The valid slice determines which values
+// in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
+// all values in v are appended and considered valid.
+func (b *MonthDayNanoIntervalBuilder) AppendValues(v []arrow.MonthDayNanoInterval, valid []bool) {
+	if len(v) != len(valid) && len(valid) != 0 {
+		panic("len(v) != len(valid) && len(valid) != 0")
+	}
+
+	if len(v) == 0 {
+		return
+	}
+
+	b.Reserve(len(v))
+	arrow.MonthDayNanoIntervalTraits.Copy(b.rawData[b.length:], v)
+	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
+}
+
+func (b *MonthDayNanoIntervalBuilder) init(capacity int) {
+	b.builder.init(capacity)
+
+	b.data = memory.NewResizableBuffer(b.mem)
+	bytesN := arrow.MonthDayNanoIntervalTraits.BytesRequired(capacity)
+	b.data.Resize(bytesN)
+	b.rawData = arrow.MonthDayNanoIntervalTraits.CastFromBytes(b.data.Bytes())
+}
+
+// Reserve ensures there is enough space for appending n elements
+// by checking the capacity and calling Resize if necessary.
+func (b *MonthDayNanoIntervalBuilder) Reserve(n int) {
+	b.builder.reserve(n, b.Resize)
+}
+
+// Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
+// additional memory will be allocated. If n is smaller, the allocated memory may reduced.
+func (b *MonthDayNanoIntervalBuilder) Resize(n int) {
+	nBuilder := n
+	if n < minBuilderCapacity {
+		n = minBuilderCapacity
+	}
+
+	if b.capacity == 0 {
+		b.init(n)
+	} else {
+		b.builder.resize(nBuilder, b.init)
+		b.data.Resize(arrow.MonthDayNanoIntervalTraits.BytesRequired(n))
+		b.rawData = arrow.MonthDayNanoIntervalTraits.CastFromBytes(b.data.Bytes())
+	}
+}
+
+// NewArray creates a MonthDayNanoInterval array from the memory buffers used by the builder and resets the MonthDayNanoIntervalBuilder
+// so it can be used to build a new array.
+func (b *MonthDayNanoIntervalBuilder) NewArray() Interface {
+	return b.NewMonthDayNanoIntervalArray()
+}
+
+// NewMonthDayNanoIntervalArray creates a MonthDayNanoInterval array from the memory buffers used by the builder and resets the MonthDayNanoIntervalBuilder
+// so it can be used to build a new array.
+func (b *MonthDayNanoIntervalBuilder) NewMonthDayNanoIntervalArray() (a *MonthDayNanoInterval) {
+	data := b.newData()
+	a = NewMonthDayNanoIntervalData(data)
+	data.Release()
+	return
+}
+
+func (b *MonthDayNanoIntervalBuilder) newData() (data *Data) {
+	bytesRequired := arrow.MonthDayNanoIntervalTraits.BytesRequired(b.length)
+	if bytesRequired > 0 && bytesRequired < b.data.Len() {
+		// trim buffers
+		b.data.Resize(bytesRequired)
+	}
+	data = NewData(arrow.FixedWidthTypes.MonthDayNanoInterval, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
+	b.reset()
+
+	if b.data != nil {
+		b.data.Release()
+		b.data = nil
+		b.rawData = nil
+	}
+
+	return
+}
+
 var (
 	_ Interface = (*MonthInterval)(nil)
 	_ Interface = (*DayTimeInterval)(nil)
+	_ Interface = (*MonthDayNanoInterval)(nil)
 
 	_ Builder = (*MonthIntervalBuilder)(nil)
 	_ Builder = (*DayTimeIntervalBuilder)(nil)
+	_ Builder = (*MonthDayNanoIntervalBuilder)(nil)
 )
