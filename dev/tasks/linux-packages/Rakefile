@@ -174,19 +174,21 @@ class LocalBinaryTask < BinaryTask
     namespace :apt do
       desc "Test deb packages"
       task :test do
-        repositories_dir = "apt/repositories"
-        rm_rf(repositories_dir)
+        incoming_dir = "apt/incoming"
+        rm_rf(incoming_dir)
         @packages.each do |package|
           package_repositories = "#{package}/apt/repositories"
           next unless File.exist?(package_repositories)
-          sh("rsync", "-a", "#{package_repositories}/", repositories_dir)
+          sh("rsync", "-a", "#{package_repositories}/", incoming_dir)
         end
-        Dir.glob("#{repositories_dir}/ubuntu/pool/*") do |code_name_dir|
+        Dir.glob("#{incoming_dir}/ubuntu/pool/*") do |code_name_dir|
           universe_dir = "#{code_name_dir}/universe"
           next unless File.exist?(universe_dir)
           mv(universe_dir, "#{code_name_dir}/main")
         end
-        apt_update(repositories_dir)
+        base_dir = "nonexistent"
+        repositories_dir = "apt/repositories"
+        apt_update(base_dir, incoming_dir, repositories_dir)
         apt_test_targets.each do |target|
           verify(target)
         end
@@ -224,7 +226,8 @@ class LocalBinaryTask < BinaryTask
           sh("rsync", "-a", "#{package_repositories}/", repositories_dir)
         end
         rpm_sign(repositories_dir)
-        yum_update(repositories_dir)
+        base_dir = "nonexistent"
+        yum_update(base_dir, repositories_dir)
         yum_test_targets.each do |target|
           verify(target)
         end
