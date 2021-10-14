@@ -3393,11 +3393,15 @@ def test_write_dataset_with_scanner(tempdir):
 
 
 def test_write_dataset_with_backpressure(tempdir):
-    consumer_gate = threading.Semaphore(0)
+    consumer_gate = threading.Event()
 
+    # A filesystem that blocks all writes so that we can build
+    # up backpressure.  The writes are released at the end of
+    # the test.
     class GatingFs(ProxyHandler):
         def open_output_stream(self, path, metadata):
-            consumer_gate.acquire(1)
+            # Block until the end of the test
+            consumer_gate.wait()
             return self._fs.open_output_stream(path, metadata=metadata)
     gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
 
@@ -3454,7 +3458,7 @@ def test_write_dataset_with_backpressure(tempdir):
         assert backpressure_probably_hit
 
     finally:
-        consumer_gate.release()
+        consumer_gate.set()
         write_thread.join()
     assert batches_read == end
 
