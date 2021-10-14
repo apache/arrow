@@ -70,9 +70,9 @@ jobs:
           set -e
           sudo apt update
           # We can install createrepo_c by package with Ubuntu 22.04.
+          #   createrepo_c \
           sudo apt install -y \
             apt-utils \
-            # createrepo_c \
             devscripts \
             gpg \
             rpm
