@@ -35,14 +35,14 @@ For many complex computations, successive direct `invocation of
 compute functions <invoking-compute-functions>` is not feasible
 in either memory or computation time. Doing so causes all intermediate
 data to be fully materialized. To facilitate arbitrarily large inputs
-and more efficient resource usage, arrow also provides a streaming query
+and more efficient resource usage, Arrow also provides a streaming query
 engine with which computations can be formulated and executed.
 
 .. image:: simple_graph.svg
 
 :class:`ExecNode` is provided to reify the graph of operations in a query.
 Batches of data (:struct:`ExecBatch`) flow along edges of the graph from
-node to node. Structuring the API around a stream of batches allows the
+node to node. Structuring the API around streams of batches allows the
 working set for each node to be tuned for optimal performance independent
 of any other nodes in the graph. Each :class:`ExecNode` processes batches
 as they are pushed to it along an edge of the graph by upstream nodes
@@ -268,7 +268,7 @@ In the example above we're writing completed
 batches to disk. However we can also collect these in memory into a :class:`Table`
 or forward them to a :class:`RecordBatchReader` as an out-of-graph stream.
 This flexibility allows an :class:`ExecPlan` to be used as streaming middleware
-between any endpoints which support arrow formatted batches.
+between any endpoints which support Arrow formatted batches.
 
 An :class:`arrow::dataset::Dataset` can also be wrapped as a source node which
 pushes all the dataset's batches into an :class:`ExecPlan`. This factory is added
