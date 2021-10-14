@@ -1286,7 +1286,11 @@ def test_compressed_input_bz2(tmpdir):
         pytest.skip(str(e))
 
 
+@pytest.mark.gzip
 def test_compressed_input_openfile(tmpdir):
+    if not Codec.is_available("gzip"):
+        pytest.skip("gzip support is not built")
+
     data = b"some test data\n" * 10 + b"eof\n"
     fn = str(tmpdir / "compressed_input_test.gz")
     with gzip.open(fn, "wb") as f:
