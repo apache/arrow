@@ -174,21 +174,26 @@ class LocalBinaryTask < BinaryTask
     namespace :apt do
       desc "Test deb packages"
       task :test do
-        incoming_dir = "apt/incoming"
-        rm_rf(incoming_dir)
+        repositories_dir = "apt/repositories"
+        rm_rf(repositories_dir)
         @packages.each do |package|
           package_repositories = "#{package}/apt/repositories"
           next unless File.exist?(package_repositories)
-          sh("rsync", "-a", "#{package_repositories}/", incoming_dir)
+          sh("rsync", "-a", "#{package_repositories}/", repositories_dir)
         end
-        Dir.glob("#{incoming_dir}/ubuntu/pool/*") do |code_name_dir|
+        Dir.glob("#{repositories_dir}/ubuntu/pool/*") do |code_name_dir|
           universe_dir = "#{code_name_dir}/universe"
           next unless File.exist?(universe_dir)
           mv(universe_dir, "#{code_name_dir}/main")
         end
         base_dir = "nonexistent"
-        repositories_dir = "apt/repositories"
-        apt_update(base_dir, incoming_dir, repositories_dir)
+        merged_dir = "apt/merged"
+        apt_update(base_dir, repositories_dir, merged_dir)
+        Dir.glob("#{merged_dir}/*/dists/*") do |dists_code_name_dir|
+          prefix = dists_code_name_dir.split("/")[-3..-1].join("/")
+          mv(Dir.glob("#{dists_code_name_dir}/*Release*"),
+             "#{repositories_dir}/#{prefix}")
+        end
         apt_test_targets.each do |target|
           verify(target)
         end
