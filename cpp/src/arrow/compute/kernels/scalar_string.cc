@@ -2904,8 +2904,9 @@ struct ExtractRegexData {
   std::unique_ptr<RE2> regex;
   std::vector<std::string> group_names;
 
-  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options) {
-    ExtractRegexData data(options.pattern);
+  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options,
+                                       bool is_utf8 = true) {
+    ExtractRegexData data(options.pattern, is_utf8);
     RETURN_NOT_OK(RegexStatus(*data.regex));
 
     const int group_count = data.regex->NumberOfCapturingGroups();
@@ -2940,8 +2941,8 @@ struct ExtractRegexData {
   }
 
  private:
-  explicit ExtractRegexData(const std::string& pattern)
-      : regex(new RE2(pattern, RE2::Quiet)) {}
+  explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+      : regex(new RE2(pattern, is_utf8 ? RE2::Quiet : RE2::Latin1)) {}
 };
 
 Result<ValueDescr> ResolveExtractRegexOutput(KernelContext* ctx,
@@ -2991,7 +2992,7 @@ struct ExtractRegex : public ExtractRegexBase {
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ExtractRegexOptions options = ExtractRegexState::Get(ctx);
-    ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
+    ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options, Type::is_utf8));
     return ExtractRegex{data}.Extract(ctx, batch, out);
   }
 
@@ -3063,7 +3064,7 @@ void AddExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
                                                &extract_regex_doc);
   OutputType out_ty(ResolveExtractRegexOutput);
-  for (const auto& ty : StringTypes()) {
+  for (const auto& ty : BaseBinaryTypes()) {
     ScalarKernel kernel{{ty},
                         out_ty,
                         GenerateVarBinaryToVarBinary<ExtractRegex>(ty),
@@ -4107,7 +4108,7 @@ const auto kDefaultJoinOptions = JoinOptions::Defaults();
 
 template <typename ListType>
 void AddBinaryJoinForListType(ScalarFunction* func) {
-  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+  for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
     auto list_ty = std::make_shared<ListType>(ty);
     DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, exec));

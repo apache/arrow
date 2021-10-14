@@ -279,6 +279,15 @@ TYPED_TEST(TestBinaryBaseKernels, NonUtf8Regex) {
                      this->MakeArray({"\xfc\x40", "this \xfc\x40 that \xfc\x40"}),
                      this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
   }
+  {
+    ExtractRegexOptions options{"(?P<letter>[\\xfc])(?P<digit>\\d)"};
+    auto null_bitmap = std::make_shared<Buffer>("0");
+    auto output = StructArray::Make(
+        {this->MakeArray({"\xfc", "1"}), this->MakeArray({"\xfc", "2"})},
+        {field("letter", this->type()), field("digit", this->type())}, null_bitmap);
+    this->CheckUnary("extract_regex", this->MakeArray({"foo\xfc 1bar", "\x02\xfc\x40"}),
+                     std::static_pointer_cast<Array>(*output), &options);
+  }
 }
 
 TYPED_TEST(TestBinaryBaseKernels, NonUtf8WithNullRegex) {
@@ -347,7 +356,7 @@ TYPED_TEST(TestBinaryKernels, BinaryReplaceSlice) {
                    &options_neg_flip);
 }
 
-TYPED_TEST(TestBinaryKernels, FindSubstring) {
+TYPED_TEST(TestStringKernels, FindSubstring) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
   this->CheckUnary("find_substring", R"(["abc", "acb", "cab", null, "bac"])",
@@ -400,7 +409,7 @@ TYPED_TEST(TestStringKernels, FindSubstringIgnoreCase) {
 }
 #endif
 
-TYPED_TEST(TestBinaryKernels, CountSubstring) {
+TYPED_TEST(TestStringKernels, CountSubstring) {
   MatchSubstringOptions options{"aba"};
   this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
   this->CheckUnary(
@@ -418,7 +427,7 @@ TYPED_TEST(TestBinaryKernels, CountSubstring) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryKernels, CountSubstringRegex) {
+TYPED_TEST(TestStringKernels, CountSubstringRegex) {
   MatchSubstringOptions options{"aba"};
   this->CheckUnary("count_substring_regex", "[]", this->offset_type(), "[]", &options);
   this->CheckUnary(
@@ -1110,7 +1119,7 @@ TYPED_TEST(TestStringKernels, IsUpperAscii) {
                    "[false, null, false, true, true, false, false]");
 }
 
-TYPED_TEST(TestBinaryKernels, MatchSubstring) {
+TYPED_TEST(TestStringKernels, MatchSubstring) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("match_substring", "[]", boolean(), "[]", &options);
   this->CheckUnary("match_substring", R"(["abc", "acb", "cab", null, "bac", "AB"])",
@@ -1152,7 +1161,7 @@ TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
 }
 #endif
 
-TYPED_TEST(TestBinaryKernels, MatchStartsWith) {
+TYPED_TEST(TestStringKernels, MatchStartsWith) {
   MatchSubstringOptions options{"abab"};
   this->CheckUnary("starts_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -1161,7 +1170,7 @@ TYPED_TEST(TestBinaryKernels, MatchStartsWith) {
                    boolean(), "[false, false, false, false, false]", &options);
 }
 
-TYPED_TEST(TestBinaryKernels, MatchEndsWith) {
+TYPED_TEST(TestStringKernels, MatchEndsWith) {
   MatchSubstringOptions options{"abab"};
   this->CheckUnary("ends_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
@@ -1286,7 +1295,7 @@ TYPED_TEST(TestStringKernels, MatchLike) {
                    "[false, true, false]", &insensitive_regex);
 }
 
-TYPED_TEST(TestBinaryKernels, MatchLikeEscaping) {
+TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
   auto inputs = R"(["%%foo", "_bar", "({", "\\baz"])";
 
   // N.B. I believe Impala mistakenly optimizes these into substring searches
@@ -1320,7 +1329,7 @@ TYPED_TEST(TestBinaryKernels, MatchLikeEscaping) {
 }
 #endif
 
-TYPED_TEST(TestBinaryKernels, SplitBasics) {
+TYPED_TEST(TestStringKernels, SplitBasics) {
   SplitPatternOptions options{" "};
   // basics
   this->CheckUnary("split_pattern", R"(["foo bar", "foo"])", list(this->type()),
@@ -1342,7 +1351,7 @@ TYPED_TEST(TestBinaryKernels, SplitBasics) {
                    &options_long_reverse);
 }
 
-TYPED_TEST(TestBinaryKernels, SplitMax) {
+TYPED_TEST(TestStringKernels, SplitMax) {
   SplitPatternOptions options{"---", 2};
   SplitPatternOptions options_reverse{"---", 2, /*reverse=*/true};
   this->CheckUnary("split_pattern", R"(["foo---bar", "foo", "foo---bar------ar"])",
@@ -1403,7 +1412,7 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryKernels, SplitRegex) {
+TYPED_TEST(TestStringKernels, SplitRegex) {
   SplitPatternOptions options{"a+|b"};
 
   this->CheckUnary(
@@ -1420,7 +1429,7 @@ TYPED_TEST(TestBinaryKernels, SplitRegex) {
       &options);
 }
 
-TYPED_TEST(TestBinaryKernels, SplitRegexReverse) {
+TYPED_TEST(TestStringKernels, SplitRegexReverse) {
   SplitPatternOptions options{"a+|b", /*max_splits=*/1, /*reverse=*/true};
   Datum input = ArrayFromJSON(this->type(), R"(["a"])");
 
@@ -1480,7 +1489,7 @@ TYPED_TEST(TestStringKernels, Utf8ReplaceSlice) {
                    &options_neg_flip);
 }
 
-TYPED_TEST(TestBinaryKernels, ReplaceSubstring) {
+TYPED_TEST(TestStringKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
                    this->type(), R"(["bazz", "this bazz that bazz", null])", &options);
@@ -1494,7 +1503,7 @@ TYPED_TEST(TestBinaryKernels, ReplaceSubstring) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryKernels, ReplaceSubstringRegex) {
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegex) {
   ReplaceSubstringOptions options{"(fo+)\\s*", "\\1-bazz"};
   this->CheckUnary("replace_substring_regex", R"(["foo ", "this foo   that foo", null])",
                    this->type(), R"(["foo-bazz", "this foo-bazzthat foo-bazz", null])",
@@ -1523,7 +1532,7 @@ TYPED_TEST(TestBinaryKernels, ReplaceSubstringRegex) {
                    &options);
 }
 
-TYPED_TEST(TestBinaryKernels, ReplaceSubstringRegexInvalid) {
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegexInvalid) {
   {
     Datum input = ArrayFromJSON(this->type(), "[]");
     ASSERT_RAISES(Invalid, CallFunction("replace_substring_regex", {input}));
