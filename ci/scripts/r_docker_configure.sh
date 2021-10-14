@@ -73,7 +73,7 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   fi
 
   if [ -f "/arrow/ci/scripts/install_gcs_testbench.sh" ] && [ "`which pip`" ]; then
-    /arrow/ci/scripts/install_gcs_testbench.sh default
+    /arrow/ci/scripts/install_gcs_testbench.sh amd64 default
   fi
 fi
 
