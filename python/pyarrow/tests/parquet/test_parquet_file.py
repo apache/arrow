@@ -333,13 +333,12 @@ def test_column_selection(tempdir):
     assert result6.equals(table.select(["list", "struct"]))
 
     # dotted paths for lists with or without list.item
+    result7 = pf.read(columns=["list-struct.list.item.inner1"])
+    expected7 = pa.table({"list-struct": [[{"inner1": 5}, {"inner1": 7}]]})
+    assert result7.equals(expected7)
 
-    # result7 = pf.read(columns=["list-struct.list.item.inner1"])
-    # expected7 = pa.table({"list-struct": [[{"inner1": 5}, {"inner1": 7}]]})
-    # assert result7.equals(expected7)
-
-    # result7b = pf.read(columns=["list-struct.inner1"])
-    # assert result7b.equals(expected7)
+    result7b = pf.read(columns=["list-struct.inner1"])
+    assert result7b.equals(expected7)
 
     # empty table on non-existing name
     # TODO is this the behaviour we want?
