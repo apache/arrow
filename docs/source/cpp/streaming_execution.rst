@@ -32,7 +32,7 @@ Motivation
 ----------
 
 For many complex computations, successive direct `invocation of
-compute functions <invoking compute functions>` is not feasible
+compute functions <invoking-compute-functions>` is not feasible
 in either memory or computation time. Doing so causes all intermediate
 data to be fully materialized. To facilitate arbitrarily large inputs
 and more efficient resource usage, arrow also provides a streaming query
@@ -41,7 +41,7 @@ engine with which computations can be formulated and executed.
 .. image:: simple_graph.svg
 
 :class:`ExecNode` is provided to reify the graph of operations in a query.
-Batches of data (struct:`ExecBatch`) flow along edges of the graph from
+Batches of data (:struct:`ExecBatch`) flow along edges of the graph from
 node to node. Structuring the API around a stream of batches allows the
 working set for each node to be tuned for optimal performance independent
 of any other nodes in the graph. Each :class:`ExecNode` processes batches
@@ -73,16 +73,17 @@ Overview
   ``dplyr``-inspired helper for efficient construction of an :class:`ExecPlan`.
 
 :struct:`ExecBatch`
-  A lightweight container for a single chunk of arrow-formatted data. In contrast
-  to :class:`RecordBatch`, :struct:`ExecBatch` is intended for use exclusively
-  in a streaming execution context (for example, it will never have a corresponding
-  Python binding). Furthermore columns which happen to have a constant value may
-  be represented by a :class:`Scalar` instead of an :class:`Array`. In addition,
-  :struct:`ExecBatch` may carry execution-relevant properties including a
-  guaranteed-true-filter for :class:`Expression` simplification.
+  A lightweight container for a single chunk of data in the Arrow format. In
+  contrast to :class:`RecordBatch`, :struct:`ExecBatch` is intended for use
+  exclusively in a streaming execution context (for example, it doesn't have a
+  corresponding Python binding). Furthermore columns which happen to have a
+  constant value may be represented by a :class:`Scalar` instead of an
+  :class:`Array`. In addition, :struct:`ExecBatch` may carry
+  execution-relevant properties including a guaranteed-true-filter
+  for :class:`Expression` simplification.
 
 
-An example :class:`ExecNode` implementation which simlpy passes all input batches
+An example :class:`ExecNode` implementation which simply passes all input batches
 through unchanged::
 
     class PassthruNode : public ExecNode {
@@ -95,7 +96,7 @@ through unchanged::
         outputs_[0]->InputReceived(this, batch);
       }
 
-      // ErrorRecieved is called by an input of this node to report an error.
+      // ErrorReceived is called by an input of this node to report an error.
       void ErrorReceived(ExecNode* input, Status error) override {
         outputs_[0]->ErrorReceived(this, error);
       }
@@ -138,11 +139,11 @@ Note that each method which is associated with an edge of the graph must be invo
 with an ``ExecNode*`` to identify the node which invoked it. For example, in an
 :class:`ExecNode` which implements ``JOIN`` this tagging might be used to differentiate
 between batches from the left or right inputs.
-``InputReceived, ErrorReceived, InputFinished`` may only be invoked by the inputs of a
-node, while ``ResumeProducing, PauseProducing, StopProducing`` may only be invoked by
-outputs of a node.
+``InputReceived``, ``ErrorReceived``, ``InputFinished`` may only be invoked by
+the inputs of a node, while ``ResumeProducing``, ``PauseProducing``, ``StopProducing``
+may only be invoked by outputs of a node.
 
-:class:`ExecPlan` contains the associated instances of :class:`ExecNode` alive
+:class:`ExecPlan` contains the associated instances of :class:`ExecNode`
 and provides convenience methods for starting and stopping execution of all nodes
 and for querying/awaiting their completion::
 
@@ -240,8 +241,9 @@ writes to disk::
     MakeExecNode("write", plan.get(), {project_node},
                  WriteNodeOptions{/*base_dir=*/"/dat", /*...*/});
 
-:struct:`Declaration` is a dplyr-inspired helper which further decreases the
-boilerplate associated with populating an :class:`ExecPlan` from C++::
+:struct:`Declaration` is a `dplyr <https://dplyr.tidyverse.org>`-inspired
+helper which further decreases the boilerplate associated with populating
+an :class:`ExecPlan` from C++::
 
     std::shared_ptr<RecordBatchReader> reader = GetStreamOfBatches();
     ASSERT_OK(Declaration::Sequence(
@@ -259,9 +261,10 @@ boilerplate associated with populating an :class:`ExecPlan` from C++::
                   .AddToPlan(plan.get()));
 
 Note that a source node can wrap anything which resembles a stream of batches.
-For example, https://github.com/apache/arrow/pull/11032 adds support for use
-of a DuckDB query as a source node. Similarly, a sink node can wrap anything
-which absorbs a stream of batches. In the example above we're writing completed
+For example, `PR#11032 <https://github.com/apache/arrow/pull/11032>` adds
+support for use of a `DuckDB <https://duckdb.org>` query as a source node.
+Similarly, a sink node can wrap anything which absorbs a stream of batches.
+In the example above we're writing completed
 batches to disk. However we can also collect these in memory into a :class:`Table`
 or forward them to a :class:`RecordBatchReader` as an out-of-graph stream.
 This flexibility allows an :class:`ExecPlan` to be used as streaming middleware
