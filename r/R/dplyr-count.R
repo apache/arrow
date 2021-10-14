@@ -19,11 +19,11 @@
 
 count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL) {
   if (!missing(...)) {
-    out <- group_by(x, ..., .add = TRUE)
+    out <- dplyr::group_by(x, ..., .add = TRUE)
   } else {
     out <- x
   }
-  out <- tally(out, wt = {{ wt }}, sort = sort, name = name)
+  out <- dplyr::tally(out, wt = {{ wt }}, sort = sort, name = name)
 
   # Restore original group vars
   gv <- dplyr::group_vars(x)
@@ -36,18 +36,19 @@ count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL
 
 count.Dataset <- count.ArrowTabular <- count.arrow_dplyr_query
 
+#' @importFrom rlang sym :=
 tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
-  check_name <- getFromNamespace("check_name", "dplyr")
+  check_name <- utils::getFromNamespace("check_name", "dplyr")
   name <- check_name(name, dplyr::group_vars(x))
 
   if (quo_is_null(enquo(wt))) {
-    out <- dplyr::summarize(x, !!name := n())
+    out <- dplyr::summarize(x, !!name := dplyr::n())
   } else {
     out <- dplyr::summarize(x, !!name := sum({{ wt }}, na.rm = TRUE))
   }
 
   if (sort) {
-    arrange(out, desc(!!sym(name)))
+    dplyr::arrange(out, dplyr::desc(!!sym(name)))
   } else {
     out
   }
