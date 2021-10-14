@@ -78,9 +78,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
         int nullable = sqlite3_column_int(schema_statement->GetSqlite3Stmt(), 3);
 
         column_fields.push_back(
-            arrow::field(column_name,
-                         GetArrowType(column_type),
-                         nullable == 0, NULL));
+            arrow::field(column_name, GetArrowType(column_type), nullable == 0, NULL));
       }
     }
     const arrow::Result<std::shared_ptr<Buffer>>& value =

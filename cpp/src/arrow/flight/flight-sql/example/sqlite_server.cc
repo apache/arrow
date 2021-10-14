@@ -15,19 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/flight-sql/example/sqlite_server.h"
+
+#include <sqlite3.h>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <sqlite3.h>
 #include <sstream>
 
 #include "arrow/api.h"
-#include "arrow/flight/flight-sql/sql_server.h"
-#include "arrow/flight/flight-sql/example/sqlite_server.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/flight-sql/example/sqlite_tables_schema_batch_reader.h"
+#include "arrow/flight/flight-sql/sql_server.h"
 
 namespace arrow {
 namespace flight {
@@ -138,8 +140,7 @@ Status DoGetSQLiteQuery(sqlite3* db, const std::string& query,
   ARROW_RETURN_NOT_OK(SqliteStatement::Create(db, query, &statement));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
-      statement, schema, &reader));
+  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, schema, &reader));
 
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
 
@@ -295,11 +296,10 @@ Status SQLiteFlightSqlServer::DoGetTables(const pb::sql::CommandGetTables& comma
   if (command.include_schema()) {
     std::shared_ptr<SqliteTablesWithSchemaBatchReader> table_schema_reader =
         std::make_shared<SqliteTablesWithSchemaBatchReader>(reader, query, db_);
-    *result = std::unique_ptr<FlightDataStream>(
-        new RecordBatchStream(table_schema_reader));
+    *result =
+        std::unique_ptr<FlightDataStream>(new RecordBatchStream(table_schema_reader));
   } else {
-    *result = std::unique_ptr<FlightDataStream>(
-        new RecordBatchStream(reader));
+    *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
   }
 
   return Status::OK();
@@ -484,7 +484,8 @@ Status SQLiteFlightSqlServer::DoPutPreparedStatement(
             break;
           }
           case Type::STRING: {
-            std::shared_ptr<Buffer> buffer = reinterpret_cast<StringScalar&>(*holder).value;
+            std::shared_ptr<Buffer> buffer =
+                reinterpret_cast<StringScalar&>(*holder).value;
             const std::string string = buffer->ToString();
             const char* value = string.c_str();
             sqlite3_bind_text(stmt, c + 1, value, static_cast<int>(strlen(value)),
@@ -492,7 +493,8 @@ Status SQLiteFlightSqlServer::DoPutPreparedStatement(
             break;
           }
           case Type::BINARY: {
-            std::shared_ptr<Buffer> buffer = reinterpret_cast<BinaryScalar&>(*holder).value;
+            std::shared_ptr<Buffer> buffer =
+                reinterpret_cast<BinaryScalar&>(*holder).value;
             sqlite3_bind_blob(stmt, c + 1, buffer->data(),
                               static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
             break;
@@ -530,10 +532,9 @@ Status SQLiteFlightSqlServer::GetFlightInfoPrimaryKeys(
                                  SqlSchema::GetPrimaryKeysSchema());
 }
 
-Status
-SQLiteFlightSqlServer::DoGetPrimaryKeys(const pb::sql::CommandGetPrimaryKeys &command,
-                                        const ServerCallContext &context,
-                                        std::unique_ptr<FlightDataStream> *result) {
+Status SQLiteFlightSqlServer::DoGetPrimaryKeys(
+    const pb::sql::CommandGetPrimaryKeys& command, const ServerCallContext& context,
+    std::unique_ptr<FlightDataStream>* result) {
   std::stringstream table_query;
 
   // The field key_name can not be recovered by the sqlite, so it is being set
@@ -587,7 +588,8 @@ std::string PrepareQueryForGetImportedOrExportedKeys(const std::string& filter) 
     END AS delete_rule
   FROM sqlite_master m
   JOIN pragma_foreign_key_list(m.name) p ON m.name != p."table"
-  WHERE m.type = 'table') WHERE )" + filter + R"( ORDER BY
+  WHERE m.type = 'table') WHERE )" +
+         filter + R"( ORDER BY
   pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, key_sequence)";
 }
 

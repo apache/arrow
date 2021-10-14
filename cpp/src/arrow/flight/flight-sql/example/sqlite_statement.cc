@@ -66,9 +66,9 @@ Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
   for (int i = 0; i < column_count; i++) {
     const char* column_name = sqlite3_column_name(stmt_, i);
 
-    // SQLite does not always provide column types, especially when the statement has not been
-    // executed yet. Because of this behaviour this method tries to get the column types
-    // in two attempts:
+    // SQLite does not always provide column types, especially when the statement has not
+    // been executed yet. Because of this behaviour this method tries to get the column
+    // types in two attempts:
     // 1. Use sqlite3_column_type(), which return SQLITE_NULL if the statement has not
     //    been executed yet
     // 2. Use sqlite3_column_decltype(), which returns correctly if given column is

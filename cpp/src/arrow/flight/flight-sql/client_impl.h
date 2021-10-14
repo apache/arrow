@@ -332,8 +332,8 @@ Status PreparedStatementT<T>::ExecuteUpdate(int64_t* rows) {
   } else {
     const std::shared_ptr<Schema> schema = arrow::schema({});
     ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, schema, &writer, &reader));
-    const auto& record_batch = arrow::RecordBatch::Make(
-        schema, 0, (std::vector<std::shared_ptr<Array>>){});
+    const auto& record_batch =
+        arrow::RecordBatch::Make(schema, 0, (std::vector<std::shared_ptr<Array>>){});
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
   }
 
@@ -363,8 +363,8 @@ bool PreparedStatementT<T>::IsClosed() const {
 }
 
 template <class T>
-Status PreparedStatementT<T>::GetResultSetSchema(std::shared_ptr<Schema> *schema) {
-  auto &args = prepared_statement_result.dataset_schema();
+Status PreparedStatementT<T>::GetResultSetSchema(std::shared_ptr<Schema>* schema) {
+  auto& args = prepared_statement_result.dataset_schema();
   std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
 
   io::BufferReader reader(schema_buffer);
@@ -377,7 +377,7 @@ Status PreparedStatementT<T>::GetResultSetSchema(std::shared_ptr<Schema> *schema
 
 template <class T>
 Status PreparedStatementT<T>::GetParameterSchema(std::shared_ptr<Schema>* schema) {
-  auto &args = prepared_statement_result.parameter_schema();
+  auto& args = prepared_statement_result.parameter_schema();
   std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
 
   io::BufferReader reader(schema_buffer);
@@ -414,19 +414,20 @@ Status PreparedStatementT<T>::Close() {
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetSqlInfo(
-    const FlightCallOptions& options, const std::vector<int>& sql_info,
-    std::unique_ptr<FlightInfo>* flight_info) const {
+Status FlightSqlClientT<T>::GetSqlInfo(const FlightCallOptions& options,
+                                       const std::vector<int>& sql_info,
+                                       std::unique_ptr<FlightInfo>* flight_info) const {
   pb::sql::CommandGetSqlInfo command;
   for (const int& info : sql_info) command.add_info(info);
   return GetFlightInfoForCommand(client, options, flight_info, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetSqlInfo(
-    const FlightCallOptions& options, const std::vector<pb::sql::SqlInfo>& sql_info,
-    std::unique_ptr<FlightInfo>* flight_info) const {
-  return GetSqlInfo(options, reinterpret_cast<const std::vector<int>&>(sql_info), flight_info);
+Status FlightSqlClientT<T>::GetSqlInfo(const FlightCallOptions& options,
+                                       const std::vector<pb::sql::SqlInfo>& sql_info,
+                                       std::unique_ptr<FlightInfo>* flight_info) const {
+  return GetSqlInfo(options, reinterpret_cast<const std::vector<int>&>(sql_info),
+                    flight_info);
 }
 
 }  // namespace internal

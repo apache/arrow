@@ -66,7 +66,7 @@ class FlightMetadataReaderMock : public FlightMetadataReader {
 
 class FlightStreamWriterMock : public FlightStreamWriter {
  public:
-  explicit FlightStreamWriterMock() = default;
+  FlightStreamWriterMock() = default;
 
   Status DoneWriting() override { return Status::OK(); }
 

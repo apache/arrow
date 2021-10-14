@@ -41,10 +41,10 @@ std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
 /// \return DataType used when parameter type is not known.
 inline std::shared_ptr<DataType> GetUnknownColumnDataType() {
   return dense_union({
-    field("string", utf8()),
-    field("bytes", binary()),
-    field("bigint", int64()),
-    field("double", float64()),
+      field("string", utf8()),
+      field("bytes", binary()),
+      field("bigint", int64()),
+      field("double", float64()),
   });
 }
 
@@ -98,7 +98,7 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
                                 const ServerCallContext& context,
                                 std::unique_ptr<FlightDataStream>* result) override;
   Status DoPutPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
-                                const ServerCallContext &context,
+                                const ServerCallContext& context,
                                 std::unique_ptr<FlightMessageReader>& reader,
                                 std::unique_ptr<FlightMetadataWriter>& writer) override;
 
@@ -110,36 +110,36 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   Status DoGetTables(const pb::sql::CommandGetTables& command,
                      const ServerCallContext& context,
                      std::unique_ptr<FlightDataStream>* result) override;
-  Status GetFlightInfoTableTypes(const ServerCallContext &context,
-                                 const FlightDescriptor &descriptor,
-                                 std::unique_ptr<FlightInfo> *info) override;
-  Status DoGetTableTypes(const ServerCallContext &context,
-                         std::unique_ptr<FlightDataStream> *result) override;
-  Status GetFlightInfoImportedKeys(const pb::sql::CommandGetImportedKeys &command,
-                                   const ServerCallContext &context,
-                                   const FlightDescriptor &descriptor,
-                                   std::unique_ptr<FlightInfo> *info) override;
-  Status DoGetImportedKeys(const pb::sql::CommandGetImportedKeys &command,
-                           const ServerCallContext &context,
-                           std::unique_ptr<FlightDataStream> *result) override;
-  Status GetFlightInfoExportedKeys(const pb::sql::CommandGetExportedKeys &command,
-                                   const ServerCallContext &context,
-                                   const FlightDescriptor &descriptor,
-                                   std::unique_ptr<FlightInfo> *info) override;
-  Status DoGetExportedKeys(const pb::sql::CommandGetExportedKeys &command,
-                           const ServerCallContext &context,
-                           std::unique_ptr<FlightDataStream> *result) override;
+  Status GetFlightInfoTableTypes(const ServerCallContext& context,
+                                 const FlightDescriptor& descriptor,
+                                 std::unique_ptr<FlightInfo>* info) override;
+  Status DoGetTableTypes(const ServerCallContext& context,
+                         std::unique_ptr<FlightDataStream>* result) override;
+  Status GetFlightInfoImportedKeys(const pb::sql::CommandGetImportedKeys& command,
+                                   const ServerCallContext& context,
+                                   const FlightDescriptor& descriptor,
+                                   std::unique_ptr<FlightInfo>* info) override;
+  Status DoGetImportedKeys(const pb::sql::CommandGetImportedKeys& command,
+                           const ServerCallContext& context,
+                           std::unique_ptr<FlightDataStream>* result) override;
+  Status GetFlightInfoExportedKeys(const pb::sql::CommandGetExportedKeys& command,
+                                   const ServerCallContext& context,
+                                   const FlightDescriptor& descriptor,
+                                   std::unique_ptr<FlightInfo>* info) override;
+  Status DoGetExportedKeys(const pb::sql::CommandGetExportedKeys& command,
+                           const ServerCallContext& context,
+                           std::unique_ptr<FlightDataStream>* result) override;
 
-  Status GetFlightInfoPrimaryKeys(const pb::sql::CommandGetPrimaryKeys &command,
-                                  const ServerCallContext &context,
-                                  const FlightDescriptor &descriptor,
-                                  std::unique_ptr<FlightInfo> *info) override;
+  Status GetFlightInfoPrimaryKeys(const pb::sql::CommandGetPrimaryKeys& command,
+                                  const ServerCallContext& context,
+                                  const FlightDescriptor& descriptor,
+                                  std::unique_ptr<FlightInfo>* info) override;
 
-  Status DoGetPrimaryKeys(const pb::sql::CommandGetPrimaryKeys &command,
-                          const ServerCallContext &context,
-                          std::unique_ptr<FlightDataStream> *result) override;
+  Status DoGetPrimaryKeys(const pb::sql::CommandGetPrimaryKeys& command,
+                          const ServerCallContext& context,
+                          std::unique_ptr<FlightDataStream>* result) override;
 
-private:
+ private:
   sqlite3* db_;
   boost::uuids::random_generator uuid_generator_;
   std::map<boost::uuids::uuid, std::shared_ptr<SqliteStatement>> prepared_statements_;

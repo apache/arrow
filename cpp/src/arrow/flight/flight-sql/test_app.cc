@@ -134,7 +134,8 @@ Status RunMain() {
   } else if (fLS::FLAGS_command == "PreparedStatementExecute") {
     std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement;
 
-    ARROW_RETURN_NOT_OK(sqlClient.Prepare(call_options, fLS::FLAGS_query, &prepared_statement));
+    ARROW_RETURN_NOT_OK(
+        sqlClient.Prepare(call_options, fLS::FLAGS_query, &prepared_statement));
     ARROW_RETURN_NOT_OK(prepared_statement->Execute(&info));
     ARROW_RETURN_NOT_OK(PrintResults(sqlClient, call_options, info));
   } else if (fLS::FLAGS_command == "PreparedStatementExecuteParameterBinding") {
@@ -146,7 +147,7 @@ Status RunMain() {
     ARROW_RETURN_NOT_OK(prepared_statement->GetResultSetSchema(&result_set_schema));
 
     std::cout << result_set_schema->ToString(false) << std::endl;
-    arrow::Int64Builder  int_builder;
+    arrow::Int64Builder int_builder;
     ARROW_RETURN_NOT_OK(int_builder.Append(1));
     std::shared_ptr<arrow::Array> int_array;
     ARROW_RETURN_NOT_OK(int_builder.Finish(&int_array));
@@ -156,7 +157,7 @@ Status RunMain() {
     ARROW_RETURN_NOT_OK(prepared_statement->SetParameters(result));
     ARROW_RETURN_NOT_OK(prepared_statement->Execute(&info));
     ARROW_RETURN_NOT_OK(PrintResults(sqlClient, call_options, info));
-  }else if (fLS::FLAGS_command == "GetSchemas") {
+  } else if (fLS::FLAGS_command == "GetSchemas") {
     ARROW_RETURN_NOT_OK(sqlClient.GetSchemas(call_options, &fLS::FLAGS_catalog,
                                              &fLS::FLAGS_schema, &info));
   } else if (fLS::FLAGS_command == "GetTableTypes") {

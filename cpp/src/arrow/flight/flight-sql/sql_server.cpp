@@ -128,11 +128,10 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
   return Status::Invalid("The defined request is invalid.");
 }
 
-Status FlightSqlServerBase::DoPut(const ServerCallContext &context,
+Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
                                   std::unique_ptr<FlightMessageReader> reader,
                                   std::unique_ptr<FlightMetadataWriter> writer) {
-
-  const FlightDescriptor &request = reader->descriptor();
+  const FlightDescriptor& request = reader->descriptor();
 
   google::protobuf::Any any;
   any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()));
@@ -313,10 +312,10 @@ Status FlightSqlServerBase::ClosePreparedStatement(
   return Status::NotImplemented("ClosePreparedStatement not implemented");
 }
 
-Status FlightSqlServerBase::DoPutPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
-                                                   const ServerCallContext &context,
-                                                   std::unique_ptr<FlightMessageReader> &reader,
-                                                   std::unique_ptr<FlightMetadataWriter> &writer) {
+Status FlightSqlServerBase::DoPutPreparedStatement(
+    const pb::sql::CommandPreparedStatementQuery& command,
+    const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+    std::unique_ptr<FlightMetadataWriter>& writer) {
   return Status::NotImplemented("DoPutPreparedStatement not implemented");
 }
 
@@ -352,27 +351,20 @@ std::shared_ptr<Schema> SqlSchema::GetTableTypesSchema() {
 }
 
 std::shared_ptr<Schema> SqlSchema::GetPrimaryKeysSchema() {
-return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
-                      field("table_name", utf8()), field("column_name", utf8()),
-                      field("key_sequence", int64()), field("key_name", utf8())});
+  return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
+                        field("table_name", utf8()), field("column_name", utf8()),
+                        field("key_sequence", int64()), field("key_name", utf8())});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetImportedAndExportedKeysSchema() {
-  return arrow::schema({
-    field("pk_catalog_name", utf8(), true),
-    field("pk_schema_name", utf8(), true),
-    field("pk_table_name", utf8(), false),
-    field("pk_column_name", utf8(), false),
-    field("fk_catalog_name", utf8(), true),
-    field("fk_schema_name", utf8(), true),
-    field("fk_table_name", utf8(), false),
-    field("fk_column_name", utf8(), false),
-    field("key_sequence", int32(), false),
-    field("fk_key_name", utf8(), true),
-    field("pk_key_name", utf8(), true),
-    field("update_rule", uint8(), false),
-    field("delete_rule", uint8(), false)
-  });
+  return arrow::schema(
+      {field("pk_catalog_name", utf8(), true), field("pk_schema_name", utf8(), true),
+       field("pk_table_name", utf8(), false), field("pk_column_name", utf8(), false),
+       field("fk_catalog_name", utf8(), true), field("fk_schema_name", utf8(), true),
+       field("fk_table_name", utf8(), false), field("fk_column_name", utf8(), false),
+       field("key_sequence", int32(), false), field("fk_key_name", utf8(), true),
+       field("pk_key_name", utf8(), true), field("update_rule", uint8(), false),
+       field("delete_rule", uint8(), false)});
 }
 
 }  // namespace sql

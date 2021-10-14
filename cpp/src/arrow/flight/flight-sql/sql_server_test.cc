@@ -18,8 +18,8 @@
 #include <arrow/api.h>
 #include <arrow/flight/api.h>
 #include <arrow/flight/flight-sql/api.h>
-#include <arrow/flight/flight-sql/sql_server.h>
 #include <arrow/flight/flight-sql/example/sqlite_server.h>
+#include <arrow/flight/flight-sql/sql_server.h>
 #include <arrow/flight/test_util.h>
 #include <arrow/flight/types.h>
 #include <arrow/testing/gtest_util.h>
@@ -139,7 +139,12 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
 
   DECLARE_NULL_ARRAY(catalog_name, String, 3);
   DECLARE_NULL_ARRAY(schema_name, String, 3);
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "intTable", "sqlite_sequence", }));
+  DECLARE_ARRAY(table_name, String,
+                ({
+                    "foreignTable",
+                    "intTable",
+                    "sqlite_sequence",
+                }));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
@@ -206,7 +211,12 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
 
   DECLARE_NULL_ARRAY(catalog_name, String, 3);
   DECLARE_NULL_ARRAY(schema_name, String, 3);
-  DECLARE_ARRAY(table_name, String, ({"foreignTable", "intTable", "sqlite_sequence", }));
+  DECLARE_ARRAY(table_name, String,
+                ({
+                    "foreignTable",
+                    "intTable",
+                    "sqlite_sequence",
+                }));
   DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
@@ -360,8 +370,8 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
   std::shared_ptr<Schema> parameter_schema;
   ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
 
-  const std::shared_ptr<Schema>& expected_parameter_schema = arrow::schema(
-      {arrow::field("parameter_1", example::GetUnknownColumnDataType())});
+  const std::shared_ptr<Schema>& expected_parameter_schema =
+      arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
 
   ASSERT_TRUE(expected_parameter_schema->Equals(*parameter_schema));
 
@@ -417,8 +427,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
-  ASSERT_OK(sql_client->GetPrimaryKeys({}, nullptr, nullptr, "int%",
-                                  &flight_info));
+  ASSERT_OK(sql_client->GetPrimaryKeys({}, nullptr, nullptr, "int%", &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
@@ -505,8 +514,7 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
-auto env =
-    ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);
+auto env = ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);
 
 }  // namespace sql
 }  // namespace flight
