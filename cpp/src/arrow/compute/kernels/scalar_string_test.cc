@@ -111,21 +111,21 @@ class BaseTestStringKernels : public ::testing::Test {
 };
 
 template <typename TestType>
-class TestBinaryBaseKernels : public BaseTestStringKernels<TestType> {};
-
-TYPED_TEST_SUITE(TestBinaryBaseKernels, BinaryBaseArrowTypes);
-
-template <typename TestType>
 class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 
 TYPED_TEST_SUITE(TestBinaryKernels, BinaryArrowTypes);
+
+template <typename TestType>
+class TestBaseBinaryKernels : public BaseTestStringKernels<TestType> {};
+
+TYPED_TEST_SUITE(TestBaseBinaryKernels, BaseBinaryArrowTypes);
 
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};
 
 TYPED_TEST_SUITE(TestStringKernels, StringArrowTypes);
 
-TYPED_TEST(TestBinaryKernels, BinaryLength) {
+TYPED_TEST(TestBaseBinaryKernels, BinaryLength) {
   this->CheckUnary("binary_length", R"(["aaa", null, "áéíóú", "", "b"])",
                    this->offset_type(), "[3, null, 10, 0, 1]");
 
@@ -140,7 +140,7 @@ TYPED_TEST(TestBinaryKernels, BinaryLength) {
                    this->offset_type(), "[3, 4, 2]");
 }
 
-TYPED_TEST(TestBinaryBaseKernels, NonUtf8) {
+TYPED_TEST(TestBinaryKernels, NonUtf8) {
   // These kernels do not accept invalid UTF-8 when processing
   // [Large]StringType data. These tests use invalid UTF-8 inputs.
   {
@@ -210,7 +210,7 @@ TYPED_TEST(TestBinaryBaseKernels, NonUtf8) {
   }
 }
 
-TYPED_TEST(TestBinaryBaseKernels, NonUtf8WithNull) {
+TYPED_TEST(TestBinaryKernels, NonUtf8WithNull) {
   // These kernels do not accept invalid UTF-8 when processing
   // [Large]StringType data. These tests use invalid UTF-8 inputs.
   for (auto ignore_case : {true, false}) {
@@ -226,7 +226,7 @@ TYPED_TEST(TestBinaryBaseKernels, NonUtf8WithNull) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestBinaryBaseKernels, NonUtf8Regex) {
+TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
   // These kernels do not accept invalid UTF-8 when processing
   // [Large]StringType data. These tests use invalid UTF-8 inputs.
   for (auto ignore_case : {true, false}) {
@@ -293,7 +293,7 @@ TYPED_TEST(TestBinaryBaseKernels, NonUtf8Regex) {
   }
 }
 
-TYPED_TEST(TestBinaryBaseKernels, NonUtf8WithNullRegex) {
+TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
   // These kernels do not accept invalid UTF-8 when processing
   // [Large]StringType data. These tests use invalid UTF-8 inputs.
   for (auto ignore_case : {true, false}) {
@@ -309,7 +309,7 @@ TYPED_TEST(TestBinaryBaseKernels, NonUtf8WithNullRegex) {
 }
 #endif
 
-TYPED_TEST(TestBinaryKernels, BinaryReplaceSlice) {
+TYPED_TEST(TestBaseBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   this->CheckUnary("binary_replace_slice", "[]", this->type(), "[]", &options);
   this->CheckUnary("binary_replace_slice", R"([null, "", "a", "ab", "abc"])",
@@ -488,7 +488,7 @@ TYPED_TEST(TestStringKernels, CountSubstringIgnoreCase) {
 }
 #endif
 
-TYPED_TEST(TestBinaryKernels, BinaryJoinElementWise) {
+TYPED_TEST(TestBaseBinaryKernels, BinaryJoinElementWise) {
   const auto ty = this->type();
   JoinOptions options;
   JoinOptions options_skip(JoinOptions::SKIP);
@@ -1249,12 +1249,12 @@ TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
                    "[true, true, false, false]", &options_unicode);
 }
 
-TYPED_TEST(TestBinaryKernels, MatchSubstringRegexNoOptions) {
+TYPED_TEST(TestBaseBinaryKernels, MatchSubstringRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("match_substring_regex", {input}));
 }
 
-TYPED_TEST(TestBinaryKernels, MatchSubstringRegexInvalid) {
+TYPED_TEST(TestBaseBinaryKernels, MatchSubstringRegexInvalid) {
   Datum input = ArrayFromJSON(this->type(), "[null]");
   MatchSubstringOptions options{"invalid["};
   EXPECT_RAISES_WITH_MESSAGE_THAT(

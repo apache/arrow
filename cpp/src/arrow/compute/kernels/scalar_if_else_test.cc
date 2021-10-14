@@ -389,7 +389,7 @@ TEST_F(TestIfElseKernel, IfElseDispatchBest) {
 template <typename Type>
 class TestIfElseBaseBinary : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestIfElseBaseBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestIfElseBaseBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
@@ -1488,7 +1488,7 @@ TEST(TestCaseWhen, FixedSizeBinary) {
 template <typename Type>
 class TestCaseWhenBinary : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestCaseWhenBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestCaseWhenBinary, Basics) {
   auto type = default_type_instance<TypeParam>();
@@ -2129,7 +2129,7 @@ template <typename Type>
 class TestCoalesceList : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCoalesceNumeric, NumericBasedTypes);
-TYPED_TEST_SUITE(TestCoalesceBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestCoalesceBinary, BaseBinaryArrowTypes);
 TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
 
 TYPED_TEST(TestCoalesceNumeric, Basics) {
@@ -2724,7 +2724,7 @@ template <typename Type>
 class TestChooseBinary : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestChooseNumeric, NumericBasedTypes);
-TYPED_TEST_SUITE(TestChooseBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestChooseBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestChooseNumeric, FixedSize) {
   auto type = default_type_instance<TypeParam>();
