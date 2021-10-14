@@ -835,3 +835,47 @@ test_that(".groups argument", {
     "NOTVALID"
   )
 })
+
+test_that("summarize() handles group_by .drop", {
+  # Error: Type error: Sorting not supported for type dictionary<values=string, indices=int8, ordered=0>
+  withr::local_options(list(arrow.summarise.sort = FALSE))
+
+  tbl <- tibble(
+    x = 1:10,
+    y = factor(rep(c("a", "c"), each = 5), levels = c("a", "b", "c"))
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(y) %>%
+      count() %>%
+      collect() %>%
+      arrange(y),
+    tbl
+  )
+  # Not supported: check message
+  expect_dplyr_equal(
+    input %>%
+      group_by(y, .drop = FALSE) %>%
+      count() %>%
+      collect() %>%
+      # Because it's not supported, we have to filter out the (empty) row
+      # that dplyr keeps, just so we test equal (otherwise)
+      filter(y != "b") %>%
+      arrange(y),
+    tbl,
+    warning = ".drop = FALSE currently not supported in Arrow aggregation"
+  )
+
+  # But this is ok because there is no factor group
+  expect_dplyr_equal(
+    input %>%
+      group_by(y, .drop = FALSE) %>%
+      count() %>%
+      collect() %>%
+      arrange(y),
+    tibble(
+      x = 1:10,
+      y = rep(c("a", "c"), each = 5)
+    )
+  )
+})
