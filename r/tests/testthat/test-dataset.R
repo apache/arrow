@@ -686,9 +686,8 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
     ds %>%
       filter(int < 8, int > 55) %>%
       mutate(part_plus = part + 6) %>%
-      collect() %>%
-      # TODO: this arrange should be able to be above collect here.
-      arrange(dbl)
+      arrange(dbl) %>%
+      collect()
   )
 
   # must clean up the pointer or we leak
