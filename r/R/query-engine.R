@@ -223,7 +223,7 @@ ExecPlan <- R6Class("ExecPlan",
           out <- head(out, slice_size)
         }
         # Can we now tell `self$Stop()` to StopProducing? We already have
-        # everything we need for the head (but it seems to segfault)
+        # everything we need for the head (but it seems to segfault: ARROW-14329)
       } else if (!is.null(node$tail)) {
         # Reverse the row order to get back what we expect
         # TODO: don't return Table, return RecordBatchReader
