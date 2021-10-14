@@ -788,11 +788,7 @@ class Converter_Struct : public Converter {
   std::vector<std::shared_ptr<Converter>> converters;
 
   bool is_altrep(SEXP x) const {
-#if defined(HAS_ALTREP)
     return ALTREP(x);
-#else
-    return false;
-#endif
   }
 };
 
