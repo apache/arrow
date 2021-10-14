@@ -28,6 +28,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "./types.h"
 
 // Expand the inner fn for types that support extended math.
@@ -236,6 +237,25 @@ gdv_int64 round_int64(gdv_int64 num) { return num; }
 ROUND_DECIMAL(float32)
 ROUND_DECIMAL(float64)
 
+// rounds the number to the nearest integer
+#define BROUND_DECIMAL(TYPE)                       \
+  FORCE_INLINE                                     \
+  gdv_##TYPE bround_##TYPE(gdv_##TYPE num) {       \
+    const float round_num = round(num);            \
+    const float dif_num = round_num - num;         \
+    if ((dif_num != 0.5f) && (dif_num != -0.5f)) { \
+      return static_cast<gdv_##TYPE>(round_num);   \
+    }                                              \
+    if (fmod(round_num, 2.0f) == 0.0f) {           \
+      return static_cast<gdv_##TYPE>(round_num);   \
+    }                                              \
+                                                   \
+    return static_cast<gdv_##TYPE>(num - dif_num); \
+  }
+
+BROUND_DECIMAL(float32)
+BROUND_DECIMAL(float64)
+
 // rounds the number to the given scale
 #define ROUND_DECIMAL_TO_SCALE(TYPE)                                        \
   FORCE_INLINE                                                              \
@@ -248,6 +268,30 @@ ROUND_DECIMAL(float64)
 
 ROUND_DECIMAL_TO_SCALE(float32)
 ROUND_DECIMAL_TO_SCALE(float64)
+
+// rounds the number to the given scale
+#define BROUND_DECIMAL_TO_SCALE(TYPE)                                     \
+  FORCE_INLINE                                                            \
+  gdv_##TYPE bround_##TYPE##_int32(gdv_##TYPE num, gdv_int32 out_scale) { \
+    if (out_scale < 0) {                                                  \
+      out_scale = out_scale * (-1);                                       \
+    }                                                                     \
+    gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);       \
+    const float to_round = num * scale_multiplier;                        \
+    const float round_num = round(to_round);                              \
+    const float dif_num = round_num - to_round;                           \
+    if ((dif_num != 0.5f) && (dif_num != -0.5f)) {                        \
+      return static_cast<gdv_float64>(round_num / scale_multiplier);      \
+    }                                                                     \
+    if (fmod(round_num, 2.0f) == 0.0f) {                                  \
+      return static_cast<gdv_float64>(round_num / scale_multiplier);      \
+    }                                                                     \
+                                                                          \
+    return static_cast<gdv_float64>(num - (dif_num / scale_multiplier));  \
+  }
+
+BROUND_DECIMAL_TO_SCALE(float32)
+BROUND_DECIMAL_TO_SCALE(float64)
 
 FORCE_INLINE
 gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision) {
