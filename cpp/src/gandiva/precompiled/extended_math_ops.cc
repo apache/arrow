@@ -241,8 +241,8 @@ ROUND_DECIMAL(float64)
 #define BROUND_DECIMAL(TYPE)                       \
   FORCE_INLINE                                     \
   gdv_##TYPE bround_##TYPE(gdv_##TYPE num) {       \
-    const float round_num = round(num);            \
-    const float dif_num = round_num - num;         \
+    const gdv_float64 round_num = round(num);      \
+    const gdv_float64 dif_num = round_num - num;   \
     if ((dif_num != 0.5f) && (dif_num != -0.5f)) { \
       return static_cast<gdv_##TYPE>(round_num);   \
     }                                              \
@@ -277,17 +277,17 @@ ROUND_DECIMAL_TO_SCALE(float64)
       out_scale = out_scale * (-1);                                       \
     }                                                                     \
     gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);       \
-    const float to_round = num * scale_multiplier;                        \
-    const float round_num = round(to_round);                              \
-    const float dif_num = round_num - to_round;                           \
+    const gdv_float64 to_round = num * scale_multiplier;                  \
+    const gdv_float64 round_num = round(to_round);                        \
+    const gdv_float64 dif_num = round_num - to_round;                     \
     if ((dif_num != 0.5f) && (dif_num != -0.5f)) {                        \
-      return static_cast<gdv_float64>(round_num / scale_multiplier);      \
+      return static_cast<gdv_##TYPE>(round_num / scale_multiplier);       \
     }                                                                     \
     if (fmod(round_num, 2.0f) == 0.0f) {                                  \
-      return static_cast<gdv_float64>(round_num / scale_multiplier);      \
+      return static_cast<gdv_##TYPE>(round_num / scale_multiplier);       \
     }                                                                     \
                                                                           \
-    return static_cast<gdv_float64>(num - (dif_num / scale_multiplier));  \
+    return static_cast<gdv_##TYPE>(num - (dif_num / scale_multiplier));   \
   }
 
 BROUND_DECIMAL_TO_SCALE(float32)
