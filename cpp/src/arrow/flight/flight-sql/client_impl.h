@@ -332,8 +332,9 @@ Status PreparedStatementT<T>::ExecuteUpdate(int64_t* rows) {
   } else {
     const std::shared_ptr<Schema> schema = arrow::schema({});
     ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, schema, &writer, &reader));
-    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(
-        *arrow::RecordBatch::Make(schema, 0, (std::vector<std::shared_ptr<Array>>){})));
+    const auto& record_batch = arrow::RecordBatch::Make(
+        schema, 0, (std::vector<std::shared_ptr<Array>>){});
+    ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
   }
 
   ARROW_RETURN_NOT_OK(writer->DoneWriting());
