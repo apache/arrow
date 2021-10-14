@@ -15,9 +15,9 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-===========
+=======
 Dataset
-===========
+=======
 
 .. warning::
 
@@ -28,7 +28,7 @@ supposed to be located from a traditional file system, however Arrow Dataset is 
 such as from inter-process communication or from other network locations, etc. 
 
 Getting Started
-===========
+===============
 
 Below shows a simplest example of using Dataset to query a Parquet file in Java:
 
@@ -61,7 +61,7 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
    Load record batches with :doc:`VectorSchemaRoot <vector_schema_root>`.
 
 Schema
-===========
+======
 
 Schema of the data to be queried can be inspected via method ``DatasetFactory#inspect()`` before actually reading it. For example:
 
@@ -94,7 +94,7 @@ Also, if projector is specified during scanning (see next section :ref:`Projecti
     Schema projectedSchema = scanner.schema();
  
 Projection
-===========
+==========
 
 User can specify projections in ScanOptions. For ``FileSystemDataset``, only column projection is allowed for now, which means, only column names
 in the projection list will be accepted. For example:
@@ -114,7 +114,7 @@ If no projection is needed, specify an empty String array ``new String[0]`` in S
 This way all columns will be emitted during scanning.
 
 Read Data from HDFS
-===========
+===================
 
 ``FileSystemDataset`` supports reading data from non-local file systems. HDFS support is included in the official Apache Arrow Java package releases and
 can be used directly without re-building the source code.
@@ -128,7 +128,7 @@ To access HDFS data using Dataset API, pass a general HDFS URI to ``FilesSystemD
         FileFormat.PARQUET, uri);
         
 Native Memory Management
-===========
+========================
 
 To gain better performance and reduce code complexity, Java ``FileSystemDataset`` internally relys on C++ ``arrow::dataset::FileSystemDataset`` via JNI.
 As a result, all Arrow data read from ``FileSystemDataset`` is supposed to be allocated off the JVM heap. To manage this part of memory, an utility class
@@ -174,7 +174,7 @@ be thrown during scanning.
     dataset instances. Once the Java buffers are created the passed allocator will become their parent allocator.
 
 Native Object Resource Management
-===========
+=================================
 As another result of relying on JNI, all components related to ``FileSystemDataset`` should be closed manually to release the corresponding native
 objects after using. For example:
 
