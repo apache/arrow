@@ -64,6 +64,22 @@ Status RegexStatus(const RE2& regex) {
   }
   return Status::OK();
 }
+
+RE2::Options MakeRE2Options(bool is_utf8, bool ignore_case = false,
+                            bool literal = false) {
+  RE2::Options options(RE2::Quiet);
+  options.set_encoding(is_utf8 ? RE2::Options::EncodingUTF8
+                               : RE2::Options::EncodingLatin1);
+  options.set_case_sensitive(!ignore_case);
+  options.set_literal(literal);
+  return options;
+}
+
+// Set RE2 encoding based on input type: Latin-1 for BinaryTypes and UTF-8 for StringTypes
+template <typename T>
+RE2::Options MakeRE2Options(bool ignore_case = false, bool literal = false) {
+  return MakeRE2Options(T::is_utf8, ignore_case, literal);
+}
 #endif
 
 // Code units in the range [a-z] can only be an encoding of an ASCII
@@ -977,21 +993,12 @@ struct RegexSubstringMatcher {
   explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
                                  bool is_utf8 = true, bool literal = false)
       : options_(options),
-        regex_match_(options_.pattern, MakeRE2Options(options, is_utf8, literal)) {}
+        regex_match_(options_.pattern,
+                     MakeRE2Options(is_utf8, options.ignore_case, literal)) {}
 
   bool Match(util::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
-    return re2::RE2::PartialMatch(piece, regex_match_);
-  }
-
-  static RE2::RE2::Options MakeRE2Options(const MatchSubstringOptions& options,
-                                          bool is_utf8, bool literal) {
-    RE2::RE2::Options re2_options(RE2::Quiet);
-    re2_options.set_case_sensitive(!options.ignore_case);
-    re2_options.set_encoding(is_utf8 ? RE2::RE2::Options::EncodingUTF8
-                                     : RE2::RE2::Options::EncodingLatin1);
-    re2_options.set_literal(literal);
-    return re2_options;
+    return RE2::PartialMatch(piece, regex_match_);
   }
 };
 #endif
@@ -1196,16 +1203,13 @@ template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // NOTE: avoid making those constants global to avoid compiling regexes at startup
-    // Set RE2 encoding based on input type: Latin-1 for Binary and UTF-8 for String
-    static const RE2::CannedOptions kLikeEncoding =
-        StringType::is_utf8 ? RE2::DefaultOptions : RE2::Latin1;
+    static const RE2::Options kRE2Options = MakeRE2Options<StringType>();
     // A LIKE pattern matching this regex can be translated into a substring search.
-    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)",
-                                                  kLikeEncoding);
+    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)", kRE2Options);
     // A LIKE pattern matching this regex can be translated into a prefix search.
-    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)", kLikeEncoding);
+    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)", kRE2Options);
     // A LIKE pattern matching this regex can be translated into a suffix search.
-    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))", kLikeEncoding);
+    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))", kRE2Options);
 
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
@@ -1214,21 +1218,21 @@ struct MatchLike {
     std::string pattern;
     bool matched = false;
     if (!original_options.ignore_case) {
-      if ((matched = re2::RE2::FullMatch(original_options.pattern,
-                                         kLikePatternIsSubstringMatch, &pattern))) {
+      if ((matched = RE2::FullMatch(original_options.pattern,
+                                    kLikePatternIsSubstringMatch, &pattern))) {
         MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
         MatchSubstringState converted_state(converted_options);
         ctx->SetState(&converted_state);
         status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
-      } else if ((matched = re2::RE2::FullMatch(original_options.pattern,
-                                                kLikePatternIsStartsWith, &pattern))) {
+      } else if ((matched = RE2::FullMatch(original_options.pattern,
+                                           kLikePatternIsStartsWith, &pattern))) {
         MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
         MatchSubstringState converted_state(converted_options);
         ctx->SetState(&converted_state);
         status =
             MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
-      } else if ((matched = re2::RE2::FullMatch(original_options.pattern,
-                                                kLikePatternIsEndsWith, &pattern))) {
+      } else if ((matched = RE2::FullMatch(original_options.pattern,
+                                           kLikePatternIsEndsWith, &pattern))) {
         MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
         MatchSubstringState converted_state(converted_options);
         ctx->SetState(&converted_state);
@@ -1339,15 +1343,15 @@ struct FindSubstringRegex {
     regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
     regex += ")";
     regex_match_.reset(
-        new RE2(std::move(regex), RegexSubstringMatcher::MakeRE2Options(
-                                      options, /*is_utf8=*/is_utf8, /*literal=*/false)));
+        new RE2(std::move(regex),
+                MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
   }
 
   template <typename OutValue, typename... Ignored>
   OutValue Call(KernelContext*, util::string_view val, Status*) const {
     re2::StringPiece piece(val.data(), val.length());
     re2::StringPiece match;
-    if (re2::RE2::PartialMatch(piece, *regex_match_, &match)) {
+    if (RE2::PartialMatch(piece, *regex_match_, &match)) {
       return static_cast<OutValue>(match.data() - piece.data());
     }
     return -1;
@@ -1467,8 +1471,8 @@ struct CountSubstringRegex {
 
   explicit CountSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
                                bool literal = false)
-      : regex_match_(new RE2(options.pattern, RegexSubstringMatcher::MakeRE2Options(
-                                                  options, is_utf8, literal))) {}
+      : regex_match_(new RE2(options.pattern,
+                             MakeRE2Options(is_utf8, options.ignore_case, literal))) {}
 
   static Result<CountSubstringRegex> Make(const MatchSubstringOptions& options,
                                           bool is_utf8 = true, bool literal = false) {
@@ -1482,7 +1486,7 @@ struct CountSubstringRegex {
     OutValue count = 0;
     re2::StringPiece input(val.data(), val.size());
     auto last_size = input.size();
-    while (re2::RE2::FindAndConsume(&input, *regex_match_)) {
+    while (RE2::FindAndConsume(&input, *regex_match_)) {
       count++;
       if (last_size == input.size()) {
         // 0-length match
@@ -2419,7 +2423,7 @@ template <typename Type, typename ListType>
 using SplitWhitespaceUtf8Exec = SplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
 
 void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
-  static const SplitOptions default_options{};
+  static const SplitOptions default_options;
   auto func =
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
                                        &utf8_split_whitespace_doc, &default_options);
@@ -2436,7 +2440,7 @@ template <typename Type>
 struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
   using Options = SplitPatternOptions;
 
-  util::optional<RE2> regex_split;
+  std::unique_ptr<RE2> regex_split;
 
   Status PreExec(const SplitPatternOptions& options) override {
     if (options.reverse) {
@@ -2448,8 +2452,7 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
     pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
-    regex_split.emplace(std::move(pattern),
-                        Type::is_utf8 ? RE2::DefaultOptions : RE2::Latin1);
+    regex_split = arrow::internal::make_unique<RE2>(pattern, MakeRE2Options<Type>());
     return RegexStatus(*regex_split);
   }
 
@@ -2459,7 +2462,7 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
                            std::distance(begin, end));
     // "StringPiece is mutated to point to matched piece"
     re2::StringPiece result;
-    if (!re2::RE2::PartialMatch(piece, *regex_split, &result)) {
+    if (!RE2::PartialMatch(piece, *regex_split, &result)) {
       return false;
     }
     *separator_begin = reinterpret_cast<const uint8_t*>(result.data());
@@ -2642,16 +2645,15 @@ struct RegexSubstringReplacer {
   // we have 2 regexes, one with () around it, one without.
   explicit RegexSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options),
-        regex_find_("(" + options_.pattern + ")",
-                    Type::is_utf8 ? RE2::Quiet : RE2::Latin1),
-        regex_replacement_(options_.pattern, Type::is_utf8 ? RE2::Quiet : RE2::Latin1) {}
+        regex_find_("(" + options_.pattern + ")", MakeRE2Options<Type>()),
+        regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
   Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
     if (options_.max_replacements == -1) {
       std::string s_copy(s.to_string());
-      re2::RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
+      RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
     }
@@ -2666,7 +2668,7 @@ struct RegexSubstringReplacer {
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       std::string found;
-      if (!re2::RE2::FindAndConsume(&piece, regex_find_, &found)) {
+      if (!RE2::FindAndConsume(&piece, regex_find_, &found)) {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(end - i)));
         i = end;
@@ -2677,7 +2679,7 @@ struct RegexSubstringReplacer {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(pos - i)));
         // replace the pattern in what we found
-        if (!re2::RE2::Replace(&found, regex_replacement_, replacement)) {
+        if (!RE2::Replace(&found, regex_replacement_, replacement)) {
           return Status::Invalid("Regex found, but replacement failed");
         }
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(found.data()),
@@ -2916,7 +2918,7 @@ using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
 
 // TODO cache this once per ExtractRegexOptions
 struct ExtractRegexData {
-  // Use unique_ptr<> because RE2 is non-movable
+  // Use unique_ptr<> because RE2 is non-movable (for ARROW_ASSIGN_OR_RAISE)
   std::unique_ptr<RE2> regex;
   std::vector<std::string> group_names;
 
@@ -2958,7 +2960,7 @@ struct ExtractRegexData {
 
  private:
   explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
-      : regex(new RE2(pattern, is_utf8 ? RE2::Quiet : RE2::Latin1)) {}
+      : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
 };
 
 Result<ValueDescr> ResolveExtractRegexOutput(KernelContext* ctx,
@@ -2972,10 +2974,10 @@ struct ExtractRegexBase {
   const ExtractRegexData& data;
   const int group_count;
   std::vector<re2::StringPiece> found_values;
-  std::vector<re2::RE2::Arg> args;
-  std::vector<const re2::RE2::Arg*> args_pointers;
-  const re2::RE2::Arg** args_pointers_start;
-  const re2::RE2::Arg* null_arg = nullptr;
+  std::vector<RE2::Arg> args;
+  std::vector<const RE2::Arg*> args_pointers;
+  const RE2::Arg** args_pointers_start;
+  const RE2::Arg* null_arg = nullptr;
 
   explicit ExtractRegexBase(const ExtractRegexData& data)
       : data(data),
@@ -2994,8 +2996,8 @@ struct ExtractRegexBase {
   }
 
   bool Match(util::string_view s) {
-    return re2::RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
-                                   group_count);
+    return RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
+                              group_count);
   }
 };
 
