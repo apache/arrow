@@ -33,7 +33,7 @@ the top level directory install Archery by using the command
 
 .. code:: bash
 
-   pip install -e dev/archery
+   pip install -e dev/archery[all]
 
 Usage
 -----
