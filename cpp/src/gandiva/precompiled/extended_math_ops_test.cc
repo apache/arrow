@@ -127,12 +127,6 @@ TEST(TestExtendedMathOps, TestBRoundDecimal) {
   EXPECT_FLOAT_EQ(bround_float32(-2.5f), -2);
   EXPECT_FLOAT_EQ(bround_float32(-3.5f), -4);
   EXPECT_FLOAT_EQ(bround_float32(1.4999999f), 1);
-  EXPECT_FLOAT_EQ(bround_float64(0.0f), 0);
-  EXPECT_FLOAT_EQ(bround_float64(2.5), 2);
-  EXPECT_FLOAT_EQ(bround_float64(3.5), 4);
-  EXPECT_FLOAT_EQ(bround_float64(-2.5), -2);
-  EXPECT_FLOAT_EQ(bround_float64(-3.5), -4);
-  EXPECT_FLOAT_EQ(bround_float64(1.4999999), 1);
   EXPECT_EQ(std::signbit(bround_float32(0)), 0);
   EXPECT_EQ(std::signbit(bround_float64(0)), 0);
   EXPECT_FLOAT_EQ(bround_float32_int32(8.25f, 1), 8.2f);
