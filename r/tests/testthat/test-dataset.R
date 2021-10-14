@@ -686,7 +686,7 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
       arrange(dbl),
     ds %>%
       filter(int < 8, int > 55) %>%
-      mutate(part_plus = part + 6)%>%
+      mutate(part_plus = part + 6) %>%
       collect() %>%
       arrange(dbl)
   )
