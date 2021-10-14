@@ -1617,10 +1617,13 @@ TEST_F(TestProjector, TestBround) {
 
   // Build expression
   auto bround_expr =
-      TreeExprBuilder::MakeExpression("bround", {field0}, field_bround);
+      TreeExprBuilder::MakeExpression("bround", {field0},
+                                      field_bround);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema_bround, {bround_expr}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema_bround, {bround_expr},
+                                TestConfiguration(), &projector);
+
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -1632,7 +1635,8 @@ TEST_F(TestProjector, TestBround) {
                                            {true, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema_bround, num_records, {array0});
+  auto in_batch = arrow::RecordBatch::Make(schema_bround, num_records,
+                                           {array0});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
