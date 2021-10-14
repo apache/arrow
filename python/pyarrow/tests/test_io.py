@@ -1292,7 +1292,7 @@ def test_compressed_input_openfile(tmpdir):
         pytest.skip("gzip support is not built")
 
     data = b"some test data\n" * 10 + b"eof\n"
-    fn = str(tmpdir / "compressed_input_test.gz")
+    fn = str(tmpdir / "test_compressed_input_openfile.gz")
     with gzip.open(fn, "wb") as f:
         f.write(data)
 
