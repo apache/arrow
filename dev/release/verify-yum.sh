@@ -21,10 +21,14 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
+  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
+  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
-  echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
+  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
+  echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -109,9 +113,12 @@ if [ "${TYPE}" = "local" ]; then
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
-  if [ "${TYPE}" = "rc" ]; then
-    distribution_prefix+="-rc"
-  fi
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
+      distribution_prefix+="-${suffix}"
+      ;;
+  esac
   ${install_command} \
     ${artifactory_base_url}/${distribution_prefix}/${distribution_version}/apache-arrow-release-latest.rpm
 fi
@@ -126,14 +133,17 @@ if [ "${TYPE}" = "local" ]; then
     cp "${keys}" /etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
   fi
 else
-  if [ "${TYPE}" = "rc" ]; then
-    sed \
-      -i"" \
-      -e "s,/almalinux/,/almalinux-rc/,g" \
-      -e "s,/centos/,/centos-rc/,g" \
-      -e "s,/amazon-linux/,/amazon-linux-rc/,g" \
-      /etc/yum.repos.d/Apache-Arrow.repo
-  fi
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
+      sed \
+        -i"" \
+        -e "s,/almalinux/,/almalinux-${suffix}/,g" \
+        -e "s,/centos/,/centos-${suffix}/,g" \
+        -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
+        /etc/yum.repos.d/Apache-Arrow.repo
+      ;;
+  esac
 fi
 
 ${install_command} --enablerepo=epel arrow-devel-${package_version}
