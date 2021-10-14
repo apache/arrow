@@ -729,7 +729,9 @@ test_that("Handling string data with embedded nuls", {
   )
   array_with_nul <- Array$create(raws)$cast(utf8())
 
-  # test below use/rely on altrep
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
   skip_if_r_version("3.5.0")
 
   # no error on conversion, because altrep laziness

@@ -65,14 +65,11 @@ class Converter {
 
   // converter is passed as self to outlive the scope of Converter::Convert()
   SEXP ScheduleConvertTasks(RTasks& tasks, std::shared_ptr<Converter> self) {
-// try altrep first
-#if defined(HAS_ALTREP)
-    void Init_Altrep_classes(DllInfo * dll);
-    SEXP alt = altrep::MakeAltrepVector(chunked_array_);
-    if (!Rf_isNull(alt)) {
-      return alt;
-    }
-#endif
+  // try altrep first
+  SEXP alt = altrep::MakeAltrepVector(chunked_array_);
+  if (!Rf_isNull(alt)) {
+    return alt;
+  }
 
     // otherwise use the Converter api:
 
@@ -124,9 +121,8 @@ class Converter {
     return Convert(std::make_shared<ChunkedArray>(array), false);
   }
 
-#if defined(HAS_ALTREP)
-  SEXP MaybeAltrep() { return altrep::MakeAltrepVector(chunked_array_); }
-#endif
+
+SEXP MaybeAltrep() { return altrep::MakeAltrepVector(chunked_array_); }
 
  protected:
   std::shared_ptr<ChunkedArray> chunked_array_;
@@ -726,7 +722,6 @@ class Converter_Struct : public Converter {
         checked_cast<const arrow::StructType*>(this->chunked_array_->type().get());
     auto out = arrow::r::to_r_list(
         converters, [n, this](const std::shared_ptr<Converter>& converter) {
-#if defined(HAS_ALTREP)
           // when there is only one chunk, perhaps this field
           // can be dealt with upfront with altrep
           if (this->chunked_array_->num_chunks() == 1) {
@@ -735,7 +730,6 @@ class Converter_Struct : public Converter {
               return alt;
             }
           }
-#endif
 
           return converter->Allocate(n);
         });
