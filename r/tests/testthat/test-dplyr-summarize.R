@@ -241,6 +241,53 @@ test_that("n_distinct() on dataset", {
       collect(),
     tbl
   )
+
+  expect_dplyr_equal(
+    input %>%
+      summarize(distinct = n_distinct(int, lgl)) %>%
+      collect(),
+    tbl,
+    warning = "Multiple arguments"
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(distinct = n_distinct(int, lgl)) %>%
+      collect(),
+    tbl,
+    warning = "Multiple arguments"
+  )
+})
+
+test_that("Functions that take ... but we only accept a single arg", {
+  expect_dplyr_equal(
+    input %>%
+      summarize(distinct = n_distinct()) %>%
+      collect(),
+    tbl,
+    warning = "0 arguments"
+  )
+  expect_dplyr_equal(
+    input %>%
+      summarize(distinct = n_distinct(int, lgl)) %>%
+      collect(),
+    tbl,
+    warning = "Multiple arguments"
+  )
+  # Now that we've demonstrated that the whole machinery works, let's test
+  # the agg_funcs directly
+  expect_error(agg_funcs$n_distinct(), "n_distinct() with 0 arguments", fixed = TRUE)
+  expect_error(agg_funcs$sum(), "sum() with 0 arguments", fixed = TRUE)
+  expect_error(agg_funcs$any(), "any() with 0 arguments", fixed = TRUE)
+  expect_error(agg_funcs$all(), "all() with 0 arguments", fixed = TRUE)
+  expect_error(agg_funcs$min(), "min() with 0 arguments", fixed = TRUE)
+  expect_error(agg_funcs$max(), "max() with 0 arguments", fixed = TRUE)
+  expect_error(agg_funcs$n_distinct(1, 2), "Multiple arguments to n_distinct()")
+  expect_error(agg_funcs$sum(1, 2), "Multiple arguments to sum")
+  expect_error(agg_funcs$any(1, 2), "Multiple arguments to any()")
+  expect_error(agg_funcs$all(1, 2), "Multiple arguments to all()")
+  expect_error(agg_funcs$min(1, 2), "Multiple arguments to min()")
+  expect_error(agg_funcs$max(1, 2), "Multiple arguments to max()")
 })
 
 test_that("median()", {
@@ -248,6 +295,10 @@ test_that("median()", {
   # type integer, whereas whereas the Arrow approx_median kernels always return
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
+
+  # Use old testthat behavior here so we don't have to assert the same warning
+  # over and over
+  local_edition(2)
 
   # with groups
   expect_dplyr_equal(
@@ -290,6 +341,7 @@ test_that("median()", {
     tbl,
     warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
+  local_edition(3)
 })
 
 test_that("quantile()", {
@@ -315,6 +367,7 @@ test_that("quantile()", {
   # return output of type float64. The calls to quantile(int, ...) in the tests
   # below are enclosed in as.double() to work around this known difference.
 
+  local_edition(2)
   # with groups
   expect_warning(
     expect_equal(
@@ -378,6 +431,7 @@ test_that("quantile()", {
     "quantile() currently returns an approximate quantile in Arrow",
     fixed = TRUE
   )
+  local_edition(3)
 
   # with a vector of 2+ probs
   expect_warning(
