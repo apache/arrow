@@ -25,6 +25,7 @@ import tempfile
 import threading
 import time
 import traceback
+import json
 
 import numpy as np
 import pytest
@@ -2018,3 +2019,29 @@ def test_large_metadata_client():
             writer, reader = client.do_exchange(descriptor)
             with writer:
                 reader.read_all()
+
+
+class ActionNoneFlightServer(EchoFlightServer):
+    """A server that implements a side effect to a non iterable action."""
+    VALUES = []
+
+    def do_action(self, context, action):
+        if action.type == "get_value":
+            return [json.dumps(self.VALUES).encode('utf-8')]
+        elif action.type == "append":
+            self.VALUES.append(True)
+            return None
+        raise NotImplementedError
+
+
+def test_none_action_side_effect():
+    """Ensure that actions are executed even when we don't consume iterator.
+
+    See https://issues.apache.org/jira/browse/ARROW-14255
+    """
+
+    with ActionNoneFlightServer() as server:
+        client = FlightClient(('localhost', server.port))
+        client.do_action(flight.Action("append", b""))
+        r = client.do_action(flight.Action("get_value", b""))
+        assert json.loads(next(r).body.to_pybytes()) == [True]

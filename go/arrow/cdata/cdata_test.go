@@ -149,6 +149,7 @@ func TestImportTemporalSchema(t *testing.T) {
 		{arrow.FixedWidthTypes.Duration_ns, "tDn"},
 		{arrow.FixedWidthTypes.MonthInterval, "tiM"},
 		{arrow.FixedWidthTypes.DayTimeInterval, "tiD"},
+		{arrow.FixedWidthTypes.MonthDayNanoInterval, "tin"},
 		{arrow.FixedWidthTypes.Timestamp_s, "tss:"},
 		{&arrow.TimestampType{Unit: arrow.Second, TimeZone: "Europe/Paris"}, "tss:Europe/Paris"},
 		{arrow.FixedWidthTypes.Timestamp_ms, "tsm:"},

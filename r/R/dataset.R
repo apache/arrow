@@ -157,7 +157,7 @@ open_dataset <- function(sources,
     return(dataset___UnionDataset__create(sources, schema))
   }
 
-  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, ...)
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, schema = schema, ...)
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),

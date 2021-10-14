@@ -150,7 +150,7 @@ type Decimal128Type struct {
 	Scale     int32
 }
 
-func (*Decimal128Type) ID() Type      { return DECIMAL }
+func (*Decimal128Type) ID() Type      { return DECIMAL128 }
 func (*Decimal128Type) Name() string  { return "decimal" }
 func (*Decimal128Type) BitWidth() int { return 128 }
 func (t *Decimal128Type) String() string {
@@ -193,45 +193,69 @@ func (*DayTimeIntervalType) Fingerprint() string { return typeIDFingerprint(INTE
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *DayTimeIntervalType) BitWidth() int { return 64 }
 
+// MonthDayNanoInterval represents a number of months, days and nanoseconds (fraction of day).
+type MonthDayNanoInterval struct {
+	Months      int32 `json:"months"`
+	Days        int32 `json:"days"`
+	Nanoseconds int64 `json:"nanoseconds"`
+}
+
+// MonthDayNanoIntervalType is encoded as two signed 32-bit integers representing
+// a number of months and a number of days, followed by a 64-bit integer representing
+// the number of nanoseconds since midnight for fractions of a day.
+type MonthDayNanoIntervalType struct{}
+
+func (*MonthDayNanoIntervalType) ID() Type       { return INTERVAL_MONTH_DAY_NANO }
+func (*MonthDayNanoIntervalType) Name() string   { return "month_day_nano_interval" }
+func (*MonthDayNanoIntervalType) String() string { return "month_day_nano_interval" }
+func (*MonthDayNanoIntervalType) Fingerprint() string {
+	return typeIDFingerprint(INTERVAL_MONTH_DAY_NANO) + "N"
+}
+
+// BitWidth returns the number of bits required to store a single element of this data type in memory.
+func (*MonthDayNanoIntervalType) BitWidth() int { return 128 }
+
 var (
 	FixedWidthTypes = struct {
-		Boolean         FixedWidthDataType
-		Date32          FixedWidthDataType
-		Date64          FixedWidthDataType
-		DayTimeInterval FixedWidthDataType
-		Duration_s      FixedWidthDataType
-		Duration_ms     FixedWidthDataType
-		Duration_us     FixedWidthDataType
-		Duration_ns     FixedWidthDataType
-		Float16         FixedWidthDataType
-		MonthInterval   FixedWidthDataType
-		Time32s         FixedWidthDataType
-		Time32ms        FixedWidthDataType
-		Time64us        FixedWidthDataType
-		Time64ns        FixedWidthDataType
-		Timestamp_s     FixedWidthDataType
-		Timestamp_ms    FixedWidthDataType
-		Timestamp_us    FixedWidthDataType
-		Timestamp_ns    FixedWidthDataType
+		Boolean              FixedWidthDataType
+		Date32               FixedWidthDataType
+		Date64               FixedWidthDataType
+		DayTimeInterval      FixedWidthDataType
+		Duration_s           FixedWidthDataType
+		Duration_ms          FixedWidthDataType
+		Duration_us          FixedWidthDataType
+		Duration_ns          FixedWidthDataType
+		Float16              FixedWidthDataType
+		MonthInterval        FixedWidthDataType
+		Time32s              FixedWidthDataType
+		Time32ms             FixedWidthDataType
+		Time64us             FixedWidthDataType
+		Time64ns             FixedWidthDataType
+		Timestamp_s          FixedWidthDataType
+		Timestamp_ms         FixedWidthDataType
+		Timestamp_us         FixedWidthDataType
+		Timestamp_ns         FixedWidthDataType
+		MonthDayNanoInterval FixedWidthDataType
 	}{
-		Boolean:         &BooleanType{},
-		Date32:          &Date32Type{},
-		Date64:          &Date64Type{},
-		DayTimeInterval: &DayTimeIntervalType{},
-		Duration_s:      &DurationType{Unit: Second},
-		Duration_ms:     &DurationType{Unit: Millisecond},
-		Duration_us:     &DurationType{Unit: Microsecond},
-		Duration_ns:     &DurationType{Unit: Nanosecond},
-		Float16:         &Float16Type{},
-		MonthInterval:   &MonthIntervalType{},
-		Time32s:         &Time32Type{Unit: Second},
-		Time32ms:        &Time32Type{Unit: Millisecond},
-		Time64us:        &Time64Type{Unit: Microsecond},
-		Time64ns:        &Time64Type{Unit: Nanosecond},
-		Timestamp_s:     &TimestampType{Unit: Second, TimeZone: "UTC"},
-		Timestamp_ms:    &TimestampType{Unit: Millisecond, TimeZone: "UTC"},
-		Timestamp_us:    &TimestampType{Unit: Microsecond, TimeZone: "UTC"},
-		Timestamp_ns:    &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
+		Boolean:              &BooleanType{},
+		Date32:               &Date32Type{},
+		Date64:               &Date64Type{},
+		DayTimeInterval:      &DayTimeIntervalType{},
+		Duration_s:           &DurationType{Unit: Second},
+		Duration_ms:          &DurationType{Unit: Millisecond},
+		Duration_us:          &DurationType{Unit: Microsecond},
+		Duration_ns:          &DurationType{Unit: Nanosecond},
+		Float16:              &Float16Type{},
+		MonthInterval:        &MonthIntervalType{},
+		Time32s:              &Time32Type{Unit: Second},
+		Time32ms:             &Time32Type{Unit: Millisecond},
+		Time64us:             &Time64Type{Unit: Microsecond},
+		Time64ns:             &Time64Type{Unit: Nanosecond},
+		Timestamp_s:          &TimestampType{Unit: Second, TimeZone: "UTC"},
+		Timestamp_ms:         &TimestampType{Unit: Millisecond, TimeZone: "UTC"},
+		Timestamp_us:         &TimestampType{Unit: Microsecond, TimeZone: "UTC"},
+		Timestamp_ns:         &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
+		MonthDayNanoInterval: &MonthDayNanoIntervalType{},
 	}
 
 	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)

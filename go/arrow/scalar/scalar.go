@@ -295,7 +295,7 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	switch to.ID() {
-	case arrow.DECIMAL:
+	case arrow.DECIMAL128:
 		return NewDecimal128Scalar(s.Value, to), nil
 	case arrow.STRING:
 		dt := s.Type.(*arrow.Decimal128Type)
@@ -431,10 +431,14 @@ func init() {
 			if arrow.TypeEqual(dt, arrow.FixedWidthTypes.MonthInterval) {
 				return &MonthInterval{scalar: scalar{dt, false}}
 			}
+			if arrow.TypeEqual(dt, arrow.FixedWidthTypes.MonthDayNanoInterval) {
+				return &MonthDayNanoInterval{scalar: scalar{dt, false}}
+			}
 			return &DayTimeInterval{scalar: scalar{dt, false}}
 		},
 		arrow.INTERVAL_MONTHS:         func(dt arrow.DataType) Scalar { return &MonthInterval{scalar: scalar{dt, false}} },
 		arrow.INTERVAL_DAY_TIME:       func(dt arrow.DataType) Scalar { return &DayTimeInterval{scalar: scalar{dt, false}} },
+		arrow.INTERVAL_MONTH_DAY_NANO: func(dt arrow.DataType) Scalar { return &MonthDayNanoInterval{scalar: scalar{dt, false}} },
 		arrow.DECIMAL128:              func(dt arrow.DataType) Scalar { return &Decimal128{scalar: scalar{dt, false}} },
 		arrow.LIST:                    func(dt arrow.DataType) Scalar { return &List{scalar: scalar{dt, false}} },
 		arrow.STRUCT:                  func(dt arrow.DataType) Scalar { return &Struct{scalar: scalar{dt, false}} },
@@ -449,9 +453,7 @@ func init() {
 		arrow.EXTENSION:               func(dt arrow.DataType) Scalar { return &Extension{scalar: scalar{dt, false}} },
 		arrow.FIXED_SIZE_LIST:         func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
 		arrow.DURATION:                func(dt arrow.DataType) Scalar { return &Duration{scalar: scalar{dt, false}} },
-		arrow.INTERVAL_MONTH_DAY_NANO: unsupportedScalarType,
-
-		// invalid data types to fill out array size 2⁵-1
+		// invalid data types to fill out array size 2^6 - 1
 		63: invalidScalarType,
 	}
 
@@ -530,6 +532,8 @@ func GetScalar(arr array.Interface, idx int) (Scalar, error) {
 		return NewMapScalar(slice), nil
 	case *array.MonthInterval:
 		return NewMonthIntervalScalar(arr.Value(idx)), nil
+	case *array.MonthDayNanoInterval:
+		return NewMonthDayNanoIntervalScalar(arr.Value(idx)), nil
 	case *array.Null:
 		return ScalarNull, nil
 	case *array.String:
@@ -773,6 +777,8 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 		out ^= Hash(seed, s.Value)
 	case *DayTimeInterval:
 		return valueHash(s.Value.Days) & valueHash(s.Value.Milliseconds)
+	case *MonthDayNanoInterval:
+		return valueHash(s.Value.Months) & valueHash(s.Value.Days) & valueHash(s.Value.Nanoseconds)
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()
