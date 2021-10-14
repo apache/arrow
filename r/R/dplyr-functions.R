@@ -915,6 +915,9 @@ nse_funcs$case_when <- function(...) {
     if (!nse_funcs$is.logical(query[[i]])) {
       abort("Left side of each formula in case_when() must be a logical expression")
     }
+    if (inherits(value[[i]], "try-error")) {
+      abort(handle_arrow_not_supported(value[[i]], as_label(f[[3]])))
+    }
   }
   build_expr(
     "case_when",
