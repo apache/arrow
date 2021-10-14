@@ -40,7 +40,7 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
     DatasetFactory factory = new FileSystemDatasetFactory(allocator, NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, uri);
     Dataset dataset = factory.finish();
-    Scanner scanner = dataset.newScan(new ScanOptions(new String[0], 100));
+    Scanner scanner = dataset.newScan(new ScanOptions(100)));
     List<ArrowRecordBatch> batches = StreamSupport.stream(scanner.scan().spliterator(), false)
         .flatMap(t -> stream(t.execute()))
         .collect(Collectors.toList());
@@ -90,7 +90,7 @@ Also, if projector is specified during scanning (see next section :ref:`Projecti
 
 .. code-block:: Java
 
-    Scanner scanner = dataset.newScan(new ScanOptions(new String[] {"id", "name"}, 100));
+    Scanner scanner = dataset.newScan(new ScanOptions(100, Optional.of(new String[] {"id", "name"})));
     Schema projectedSchema = scanner.schema();
  
 Projection
@@ -102,16 +102,21 @@ in the projection list will be accepted. For example:
 .. code-block:: Java
 
     String[] projection = new String[] {"id", "name"};
-    ScanOptions options = new ScanOptions(projection, 100);
+    ScanOptions options = new ScanOptions(100, Optional.of(projection));
     
-If no projection is needed, specify an empty String array ``new String[0]`` in ScanOptions:
+If no projection is needed, leave the optional projection argument absent in ScanOptions:
 
 .. code-block:: Java
 
-    String[] projection = new String[0];
-    ScanOptions options = new ScanOptions(projection, 100);
+    ScanOptions options = new ScanOptions(100, Optional.empty());
     
-This way all columns will be emitted during scanning.
+Or use shortcut construtor:
+
+.. code-block:: Java
+    
+    ScanOptions options = new ScanOptions(100);
+    
+Then all columns will be emitted during scanning.
 
 Read Data from HDFS
 ===================
@@ -183,7 +188,7 @@ objects after using. For example:
     DatasetFactory factory = new FileSystemDatasetFactory(allocator, NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, uri);
     Dataset dataset = factory.finish();
-    Scanner scanner = dataset.newScan(new ScanOptions(new String[0], 100));
+    Scanner scanner = dataset.newScan(new ScanOptions(100));
     
     // do something
     
