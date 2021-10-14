@@ -1606,4 +1606,41 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestBround) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::float32());
+
+  auto schema_bround = arrow::schema({field0});
+
+  // output fields
+  auto field_bround = field("bround", arrow::float32());
+
+  // Build expression
+  auto bround_expr =
+      TreeExprBuilder::MakeExpression("bround", {field0}, field_bround);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema_bround, {bround_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayFloat32({0.0f, 2.5f, -3.5f, 1.499999f},
+                                   {true, true, true, true});
+  // expected output
+  auto exp_bround = MakeArrowArrayFloat32({0, 2, -4, 1},
+                                           {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema_bround, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_bround, outputs.at(0));
+}
+
 }  // namespace gandiva
