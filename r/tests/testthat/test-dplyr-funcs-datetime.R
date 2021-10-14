@@ -33,7 +33,6 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
   test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 }
 
-skip_on_os("windows")
 
 test_df <- tibble::tibble(
   # test_date + 1 turns the tzone = "" to NULL, which is functionally equivalent
