@@ -65,11 +65,11 @@ class Converter {
 
   // converter is passed as self to outlive the scope of Converter::Convert()
   SEXP ScheduleConvertTasks(RTasks& tasks, std::shared_ptr<Converter> self) {
-  // try altrep first
-  SEXP alt = altrep::MakeAltrepVector(chunked_array_);
-  if (!Rf_isNull(alt)) {
-    return alt;
-  }
+    // try altrep first
+    SEXP alt = altrep::MakeAltrepVector(chunked_array_);
+    if (!Rf_isNull(alt)) {
+      return alt;
+    }
 
     // otherwise use the Converter api:
 
@@ -121,8 +121,7 @@ class Converter {
     return Convert(std::make_shared<ChunkedArray>(array), false);
   }
 
-
-SEXP MaybeAltrep() { return altrep::MakeAltrepVector(chunked_array_); }
+  SEXP MaybeAltrep() { return altrep::MakeAltrepVector(chunked_array_); }
 
  protected:
   std::shared_ptr<ChunkedArray> chunked_array_;
@@ -787,9 +786,7 @@ class Converter_Struct : public Converter {
  private:
   std::vector<std::shared_ptr<Converter>> converters;
 
-  bool is_altrep(SEXP x) const {
-    return ALTREP(x);
-  }
+  bool is_altrep(SEXP x) const { return ALTREP(x); }
 };
 
 double ms_to_seconds(int64_t ms) { return static_cast<double>(ms) / 1000; }

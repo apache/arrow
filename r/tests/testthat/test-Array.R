@@ -750,8 +750,8 @@ test_that("Handling string data with embedded nuls", {
   # also error on materializing v[3]
   expect_error(v[3],
     paste0(
-     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
-     "to R, set options(arrow.skip_nul = TRUE)"
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+      "to R, set options(arrow.skip_nul = TRUE)"
     ),
     fixed = TRUE
   )
@@ -761,7 +761,8 @@ test_that("Handling string data with embedded nuls", {
     v <- as.vector(array_with_nul)
 
     expect_warning(
-      expect_identical(v[],
+      expect_identical(
+        v[],
         c("person", "woman", "man", "fan", "camera", "tv")
       ),
       "Stripping '\\0' (nul) from character vector",
