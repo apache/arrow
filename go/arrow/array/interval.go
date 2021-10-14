@@ -542,7 +542,7 @@ func (b *DayTimeIntervalBuilder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+		return fmt.Errorf("day_time interval builder must unpack from json array, found %s", delim)
 	}
 
 	return b.unmarshal(dec)
@@ -593,6 +593,28 @@ func (a *MonthDayNanoInterval) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *MonthDayNanoInterval) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i]
+	}
+	return nil
+}
+
+func (a *MonthDayNanoInterval) MarshalJSON() ([]byte, error) {
+	if a.NullN() == 0 {
+		return json.Marshal(a.values)
+	}
+	vals := make([]interface{}, a.Len())
+	for i, v := range a.values {
+		if a.IsValid(i) {
+			vals[i] = v
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualMonthDayNanoInterval(left, right *MonthDayNanoInterval) bool {
@@ -741,6 +763,43 @@ func (b *MonthDayNanoIntervalBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *MonthDayNanoIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+	var v *arrow.MonthDayNanoInterval
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+
+	if v == nil {
+		b.AppendNull()
+	} else {
+		b.Append(*v)
+	}
+	return nil
+}
+
+func (b *MonthDayNanoIntervalBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("month_day_nano interval builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (
