@@ -76,7 +76,7 @@ jobs:
             devscripts \
             gpg \
             rpm
-          sudo gem install apt-dists-merge
+          gem install apt-dists-merge
           (echo "Key-Type: RSA"; \
            echo "Key-Length: 4096"; \
            echo "Name-Real: Test"; \
