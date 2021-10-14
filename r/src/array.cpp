@@ -283,28 +283,6 @@ cpp11::writable::integers LargeListArray__raw_value_offsets(
   return cpp11::writable::integers(offsets, offsets + array->length());
 }
 
-#include <cstdio>  // for snprintf
-
-namespace {
-template <typename T>
-cpp11::strings pointee_address(const std::shared_ptr<T>& p) {
-  char buffer[50];
-  snprintf(buffer, sizeof(buffer), "%p", p.get());
-  return cpp11::writable::strings({buffer});
-}
-}  // namespace
-
-// [[arrow::export]]
-cpp11::strings Array__address(const std::shared_ptr<arrow::Array>& array) {
-  return pointee_address(array);
-}
-
-// [[arrow::export]]
-cpp11::strings ChunkedArray__address(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return pointee_address(chunked_array);
-}
-
 // [[arrow::export]]
 bool Array__Same(const std::shared_ptr<arrow::Array>& x,
                  const std::shared_ptr<arrow::Array>& y) {

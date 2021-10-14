@@ -569,36 +569,6 @@ extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::strings Array__address(const std::shared_ptr<arrow::Array>& array);
-extern "C" SEXP _arrow_Array__address(SEXP array_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	return cpp11::as_sexp(Array__address(array));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Array__address(SEXP array_sexp){
-	Rf_error("Cannot call Array__address(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// array.cpp
-#if defined(ARROW_R_WITH_ARROW)
-cpp11::strings ChunkedArray__address(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-extern "C" SEXP _arrow_ChunkedArray__address(SEXP chunked_array_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	return cpp11::as_sexp(ChunkedArray__address(chunked_array));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ChunkedArray__address(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__address(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// array.cpp
-#if defined(ARROW_R_WITH_ARROW)
 bool Array__Same(const std::shared_ptr<arrow::Array>& x, const std::shared_ptr<arrow::Array>& y);
 extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
 BEGIN_CPP11
@@ -7237,8 +7207,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
-		{ "_arrow_Array__address", (DL_FUNC) &_arrow_Array__address, 1}, 
-		{ "_arrow_ChunkedArray__address", (DL_FUNC) &_arrow_ChunkedArray__address, 1}, 
 		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 

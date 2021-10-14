@@ -144,14 +144,6 @@ LargeListArray__raw_value_offsets <- function(array) {
   .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
 }
 
-Array__address <- function(array) {
-  .Call(`_arrow_Array__address`, array)
-}
-
-ChunkedArray__address <- function(chunked_array) {
-  .Call(`_arrow_ChunkedArray__address`, chunked_array)
-}
-
 Array__Same <- function(x, y) {
   .Call(`_arrow_Array__Same`, x, y)
 }
