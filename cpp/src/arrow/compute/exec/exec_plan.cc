@@ -517,8 +517,7 @@ Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
       MakeIteratorFromReader(reader));
 
   return MakeBackgroundGenerator(std::move(batch_it), io_executor, max_q, q_restart);
-});
+}
 }  // namespace compute
 
-}  // namespace arrow
 }  // namespace arrow
