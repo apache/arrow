@@ -42,16 +42,19 @@ tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
   name <- check_name(name, dplyr::group_vars(x))
 
   if (quo_is_null(enquo(wt))) {
-    out <- dplyr::summarize(x, !!name := dplyr::n())
+    out <- dplyr::summarize(x, !!name := n())
   } else {
     out <- dplyr::summarize(x, !!name := sum({{ wt }}, na.rm = TRUE))
   }
 
   if (sort) {
-    dplyr::arrange(out, dplyr::desc(!!sym(name)))
+    dplyr::arrange(out, desc(!!sym(name)))
   } else {
     out
   }
 }
 
 tally.Dataset <- tally.ArrowTabular <- tally.arrow_dplyr_query
+
+# we don't want to depend on dplyr, but we refrence these above
+utils::globalVariables(c("n", "desc"))
