@@ -1214,17 +1214,21 @@ struct MatchLike {
     std::string pattern;
     bool matched = false;
     if (!original_options.ignore_case) {
-      if ((matched = re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch, &pattern))) {
+      if ((matched = re2::RE2::FullMatch(original_options.pattern,
+                                         kLikePatternIsSubstringMatch, &pattern))) {
         MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
         MatchSubstringState converted_state(converted_options);
         ctx->SetState(&converted_state);
         status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
-      } else if ((matched = re2::RE2::FullMatch(original_options.pattern, kLikePatternIsStartsWith, &pattern))) {
+      } else if ((matched = re2::RE2::FullMatch(original_options.pattern,
+                                                kLikePatternIsStartsWith, &pattern))) {
         MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
         MatchSubstringState converted_state(converted_options);
         ctx->SetState(&converted_state);
-        status = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
-      } else if ((matched = re2::RE2::FullMatch(original_options.pattern, kLikePatternIsEndsWith, &pattern))) {
+        status =
+            MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
+      } else if ((matched = re2::RE2::FullMatch(original_options.pattern,
+                                                kLikePatternIsEndsWith, &pattern))) {
         MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
         MatchSubstringState converted_state(converted_options);
         ctx->SetState(&converted_state);

@@ -150,21 +150,24 @@ TYPED_TEST(TestBinaryBaseKernels, NonUtf8) {
         this->MakeArray({"\xf7\xfc\x40\xab", "\xff\xfc\x40\xc3\xbb"}), &options);
   }
   {
-    for (auto ignore_case : { true, false } ) {
+    for (auto ignore_case : {true, false}) {
       MatchSubstringOptions options{std::string("\xfc\x40", 2), ignore_case};
-      this->CheckUnary("find_substring",
-                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
-                       this->offset_type(), "[0, 2, -1]", &options);
+      this->CheckUnary(
+          "find_substring",
+          this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
+          this->offset_type(), "[0, 2, -1]", &options);
 
       // @ = \x40
       options.pattern = "@";
-      this->CheckUnary("find_substring",
-                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
-                       this->offset_type(), "[1, 3, -1]", &options);
+      this->CheckUnary(
+          "find_substring",
+          this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
+          this->offset_type(), "[1, 3, -1]", &options);
 
       options.pattern = std::string("\xfc\x40", 2);
       this->CheckUnary("count_substring",
-                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
+                       this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
+                                        "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
                        this->offset_type(), "[1, 1, 0, 2]", &options);
 
       options.pattern = "@";
