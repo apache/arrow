@@ -18,7 +18,7 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
-#include "arrow/flight/flight-sql/sql_server.h"
+#include "arrow/flight/flight-sql/server.h"
 
 #include "arrow/buffer.h"
 

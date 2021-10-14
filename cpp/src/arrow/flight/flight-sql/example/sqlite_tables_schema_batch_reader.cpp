@@ -17,7 +17,7 @@
 
 #include "arrow/flight/flight-sql/example/sqlite_tables_schema_batch_reader.h"
 
-#include <arrow/flight/flight-sql/sql_server.h>
+#include <arrow/flight/flight-sql/server.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/record_batch.h>
 #include <sqlite3.h>

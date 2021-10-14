@@ -19,7 +19,7 @@
 #include <arrow/flight/api.h>
 #include <arrow/flight/flight-sql/api.h>
 #include <arrow/flight/flight-sql/example/sqlite_server.h>
-#include <arrow/flight/flight-sql/sql_server.h>
+#include <arrow/flight/flight-sql/server.h>
 #include <arrow/flight/test_util.h>
 #include <arrow/flight/types.h>
 #include <arrow/testing/gtest_util.h>

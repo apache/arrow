@@ -21,9 +21,8 @@
 #pragma once
 
 #include <arrow/flight/flight-sql/FlightSql.pb.h>
+#include <arrow/flight/server.h>
 #include <google/protobuf/any.pb.h>
-
-#include "../server.h"
 
 namespace pb = arrow::flight::protocol;
 
