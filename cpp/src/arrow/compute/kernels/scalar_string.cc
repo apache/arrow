@@ -1032,6 +1032,7 @@ struct MatchSubstring {
   }
 };
 
+#ifdef ARROW_WITH_RE2
 template <typename Type>
 struct MatchSubstring<Type, RegexSubstringMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1043,6 +1044,7 @@ struct MatchSubstring<Type, RegexSubstringMatcher> {
                                                                  matcher.get());
   }
 };
+#endif
 
 template <typename Type>
 struct MatchSubstring<Type, PlainSubstringMatcher> {
@@ -1360,8 +1362,9 @@ struct FindSubstringExec {
           kernel{FindSubstringRegex(options, /*is_utf8=*/InputType::is_utf8,
                                     /*literal=*/true)};
       return kernel.Exec(ctx, batch, out);
-#endif
+#else
       return Status::NotImplemented("ignore_case requires RE2");
+#endif
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
         FindSubstring(PlainSubstringMatcher(options))};
