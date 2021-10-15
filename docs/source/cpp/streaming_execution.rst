@@ -116,7 +116,8 @@ through unchanged::
 
       // ExecNodes may request that their inputs throttle production of batches
       // until they are ready for more, or stop production if no further batches
-      // are required.
+      // are required.  These signals should typically be forwarded to the inputs
+      // of the ExecNode.
       void ResumeProducing(ExecNode* output) override { inputs_[0]->ResumeProducing(this); }
       void PauseProducing(ExecNode* output) override { inputs_[0]->PauseProducing(this); }
       void StopProducing(ExecNode* output) override { inputs_[0]->StopProducing(this); }
