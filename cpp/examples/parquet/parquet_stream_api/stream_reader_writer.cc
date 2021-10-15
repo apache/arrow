@@ -138,12 +138,12 @@ struct TestData {
   }
   static arrow::util::string_view GetStringView(const int i) {
     int length = snprintf(string_, str_buff_size, "StringView #%d", i);
-    snprintf(string_, length+1, "StringView #%d", i);
+    snprintf(string_, length + 1, "StringView #%d", i);
     return arrow::util::string_view(string_);
   }
   static const char* GetCharPtr(const int i) {
     int length = snprintf(string_, str_buff_size, "CharPtr #%d", i);
-    snprintf(string_, length+1, "CharPtr #%d", i);
+    snprintf(string_, length + 1, "CharPtr #%d", i);
     return string_;
   }
   static char GetChar(const int i) { return i & 1 ? 'M' : 'F'; }

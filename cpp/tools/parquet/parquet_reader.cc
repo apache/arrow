@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
       printer.JSONPrint(std::cout, columns, filename.c_str());
     } else {
       printer.DebugPrint(std::cout, columns, print_values, format_dump,
-		         print_key_value_metadata, filename.c_str());
+                         print_key_value_metadata, filename.c_str());
     }
   } catch (const std::exception& e) {
     std::cerr << "Parquet error: " << e.what() << std::endl;
