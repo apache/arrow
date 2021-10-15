@@ -40,6 +40,8 @@ engine with which computations can be formulated and executed.
 
 .. image:: simple_graph.svg
 
+   An example graph of a streaming execution workflow.
+
 :class:`ExecNode` is provided to reify the graph of operations in a query.
 Batches of data (:struct:`ExecBatch`) flow along edges of the graph from
 node to node. Structuring the API around streams of batches allows the
