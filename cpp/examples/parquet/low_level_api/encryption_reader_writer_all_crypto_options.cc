@@ -92,10 +92,10 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 
-const char kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const char kColumnEncryptionKey1 = "1234567890123450";
-const char kColumnEncryptionKey2 = "1234567890123451";
-const char fileName = "tester";
+const char* kFooterEncryptionKey = "0123456789012345";  // 128bit/16
+const char* kColumnEncryptionKey1 = "1234567890123450";
+const char* kColumnEncryptionKey2 = "1234567890123451";
+const char* fileName = "tester";
 
 using FileClass = ::arrow::io::FileOutputStream;
 using parquet::ConvertedType;
