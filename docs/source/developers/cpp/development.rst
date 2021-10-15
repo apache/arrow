@@ -97,12 +97,13 @@ following checks:
   compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
   there are classes of warnings (such as ``-Wdocumentation``, see more
   on this below) that are not caught by ``gcc``.
-* Passes various C++ (and others) style checks, checked with the ``lint``
-  subcommand to :ref:`Archery <archery>`.
 * CMake files pass style checks, can be fixed by running
   ``archery lint --cmake-format --fix``. This requires Python
   3 and `cmake_format <https://github.com/cheshirekow/cmake_format>`_ (note:
   this currently does not work on Windows)
+* Passes various C++ (and others) style checks, checked with the ``lint``
+  subcommand to :ref:`Archery <archery>`. This can also be fixed locally
+  by running ``archery lint --cpplint --fix``.
 
 In order to account for variations in the behavior of ``clang-format`` between
 major versions of LLVM, we pin the version of ``clang-format`` used (current
