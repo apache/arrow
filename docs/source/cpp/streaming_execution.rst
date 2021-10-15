@@ -104,6 +104,8 @@ through unchanged::
       }
 
       // ErrorReceived is called by an input of this node to report an error.
+      // ExecNodes should always forward errors to their outputs unless they
+      // are able to fully handle the error (this is rare).
       void ErrorReceived(ExecNode* input, Status error) override {
         outputs_[0]->ErrorReceived(this, error);
       }
