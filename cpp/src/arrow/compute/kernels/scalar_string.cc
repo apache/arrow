@@ -2948,8 +2948,8 @@ struct ExtractRegexData {
       // No input type specified => propagate shape
       return args[0];
     }
-    // Input type is [Large]Binary or [Large]String and is also the type of each
-    // field in the output struct type.
+    // Input type is either [Large]Binary or [Large]String and is also the type
+    // of each field in the output struct type.
     DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
     fields.reserve(group_names.size());
