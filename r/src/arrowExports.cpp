@@ -1263,6 +1263,22 @@ extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right
 }
 #endif
 
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_ExecNode_ReadFromRecordBatchReader(SEXP plan_sexp, SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(ExecNode_ReadFromRecordBatchReader(plan, reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_ReadFromRecordBatchReader(SEXP plan_sexp, SEXP reader_sexp){
+	Rf_error("Cannot call ExecNode_ReadFromRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
@@ -7231,6 +7247,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 5}, 
 		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 7}, 
+		{ "_arrow_ExecNode_ReadFromRecordBatchReader", (DL_FUNC) &_arrow_ExecNode_ReadFromRecordBatchReader, 2}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 

@@ -63,6 +63,10 @@ ExecPlan <- R6Class("ExecPlan",
     Scan = function(dataset) {
       # Handle arrow_dplyr_query
       if (inherits(dataset, "arrow_dplyr_query")) {
+        if (inherits(dataset$.data, "RecordBatchReader")) {
+          return(ExecNode_ReadFromRecordBatchReader(self, dataset$.data))
+        }
+
         filter <- dataset$filtered_rows
         if (isTRUE(filter)) {
           filter <- Expression$scalar(TRUE)

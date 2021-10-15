@@ -24,8 +24,13 @@ arrow_dplyr_query <- function(.data) {
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
-  gv <- dplyr::group_vars(.data) %||% character()
-  if (!inherits(.data, c("Dataset", "arrow_dplyr_query"))) {
+  if (!inherits(.data, "RecordBatchReader")) {
+    gv <- dplyr::group_vars(.data) %||% character()
+  } else {
+    gv <- character()
+  }
+
+  if (!inherits(.data, c("Dataset", "arrow_dplyr_query", "RecordBatchReader"))) {
     .data <- InMemoryDataset$create(.data)
   }
   # Evaluating expressions on a dataset with duplicated fieldnames will error

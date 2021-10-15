@@ -507,5 +507,17 @@ ExecFactoryRegistry* default_exec_factory_registry() {
   return &instance;
 }
 
+Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+    std::shared_ptr<RecordBatchReader> reader, ::arrow::internal::Executor* io_executor,
+    int max_q, int q_restart) {
+  auto batch_it = MakeMapIterator(
+      [](std::shared_ptr<RecordBatch> batch) {
+        return util::make_optional(ExecBatch(*batch));
+      },
+      MakeIteratorFromReader(reader));
+
+  return MakeBackgroundGenerator(std::move(batch_it), io_executor, max_q, q_restart);
+}
 }  // namespace compute
+
 }  // namespace arrow
