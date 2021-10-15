@@ -180,7 +180,7 @@ Constructing ``ExecPlan``s
 
 None of the concrete implementations of :class:`ExecNode` are exposed
 in headers, so they can't be constructed directly outside the
-Translation Unit where they are defined. Instead, factories to
+translation unit where they are defined. Instead, factories to
 create them are provided in an extensible registry. This structure
 provides a number of benefits:
 
