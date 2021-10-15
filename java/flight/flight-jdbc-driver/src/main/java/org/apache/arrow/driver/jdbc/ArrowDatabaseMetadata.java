@@ -59,7 +59,7 @@ import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlJoinsSupportLevel;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedGroupBy;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedPositionedCommands;
@@ -367,13 +367,13 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   @Override
   public boolean supportsFullOuterJoins() throws SQLException {
     return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
-        SqlJoinsSupportLevel.SQL_FULL_OUTER_JOINS);
+        SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS);
   }
 
   @Override
   public boolean supportsLimitedOuterJoins() throws SQLException {
     return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
-        SqlJoinsSupportLevel.SQL_LIMITED_OUTER_JOINS);
+        SqlOuterJoinsSupportLevel.SQL_LIMITED_OUTER_JOINS);
   }
 
   @Override
