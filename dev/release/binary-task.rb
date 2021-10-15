@@ -1666,7 +1666,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               :python,
                               "#{rc_dir}/python/#{full_version}",
                               "#{release_dir}/python/#{full_version}",
-                              "{conda-*,wheel-*,python-sdist}/**/*")
+                              "{python-sdist,wheel-*}/**/*")
   end
 
   def define_nuget_tasks
