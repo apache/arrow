@@ -197,6 +197,13 @@ table LiteralRelation {
 table Source {
   base: RelBase (required);
   name: string (required);
+  /// An optional list of field indices indicating which columns should be read
+  /// from the source.
+  ///
+  /// A missing value indicates all columns should be read.
+  ///
+  /// The behavior of an empty list is undefined.
+  projection: [FieldIndex];
   schema: org.apache.arrow.flatbuf.Schema (required);
 }
 
