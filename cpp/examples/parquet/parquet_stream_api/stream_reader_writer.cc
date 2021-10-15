@@ -43,7 +43,7 @@ class UserTimestamp {
  public:
   UserTimestamp() = default;
 
-  UserTimestamp(const std::chrono::microseconds v) : ts_{v} {}
+  explicit UserTimestamp(const std::chrono::microseconds v) : ts_{v} {}
 
   bool operator==(const UserTimestamp& x) const { return ts_ == x.ts_; }
 
@@ -163,12 +163,12 @@ struct TestData {
 
  private:
   static std::time_t ts_offset_;
-  static std::string string_;
+  static char* string_;
 };
 
 char TestData::char4_array[] = "XYZ";
 std::time_t TestData::ts_offset_;
-std::string TestData::string_;
+char* TestData::string_;
 
 void WriteParquetFile() {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;

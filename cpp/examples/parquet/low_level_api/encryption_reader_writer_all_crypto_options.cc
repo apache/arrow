@@ -92,10 +92,10 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 
-const std::string kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const std::string kColumnEncryptionKey1 = "1234567890123450";
-const std::string kColumnEncryptionKey2 = "1234567890123451";
-const std::string fileName = "tester";
+const char kFooterEncryptionKey = "0123456789012345";  // 128bit/16
+const char kColumnEncryptionKey1 = "1234567890123450";
+const char kColumnEncryptionKey2 = "1234567890123451";
+const char fileName = "tester";
 
 using FileClass = ::arrow::io::FileOutputStream;
 using parquet::ConvertedType;
@@ -557,17 +557,17 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
 
 void PrintDecryptionConfiguration(int configuration) {
   std::cout << "\n\nDecryption configuration ";
-  if (configuration == 1)
+  if (configuration == 1) {
     std::cout << "1: \n\nDecrypt using key retriever that holds"
                  " the keys of two encrypted columns and the footer key."
               << std::endl;
-  else if (configuration == 2)
+  } else if (configuration == 2) {
     std::cout << "2: \n\nDecrypt using key retriever that holds"
                  " the keys of two encrypted columns and the footer key. Pass aad_prefix."
               << std::endl;
-  else if (configuration == 3)
+  } else if (configuration == 3) {
     std::cout << "3: \n\nDecrypt using explicit column and footer keys." << std::endl;
-  else {
+  } else {
     std::cout << "Unknown configuration" << std::endl;
     exit(-1);
   }
@@ -649,8 +649,8 @@ int main(int argc, char** argv) {
 
   if (operation == write) {
     InteropTestWriteEncryptedParquetFiles(root_path);
-  } else
+  } else {
     InteropTestReadEncryptedParquetFiles(root_path);
-
+  }
   return 0;
 }

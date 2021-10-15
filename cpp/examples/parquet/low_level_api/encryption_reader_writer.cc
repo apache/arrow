@@ -39,9 +39,9 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 const char PARQUET_FILENAME[] = "parquet_cpp_example.parquet.encrypted";
-const std::string kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const std::string kColumnEncryptionKey1 = "1234567890123450";
-const std::string kColumnEncryptionKey2 = "1234567890123451";
+const char kFooterEncryptionKey = "0123456789012345";  // 128bit/16
+const char kColumnEncryptionKey1 = "1234567890123450";
+const char kColumnEncryptionKey2 = "1234567890123451";
 
 int main(int argc, char** argv) {
   /**********************************************************************************
