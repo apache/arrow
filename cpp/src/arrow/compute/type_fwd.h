@@ -42,6 +42,7 @@ struct KernelState;
 
 class Expression;
 class ExecNode;
+class DataHolder;
 class ExecPlan;
 class ExecNodeOptions;
 class ExecFactoryRegistry;
