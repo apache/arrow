@@ -106,10 +106,12 @@ repositories="/host/repositories"
 package_initial=$(echo "${PACKAGE}" | sed -e 's/\(.\).*/\1/')
 pool_dir="${repositories}/${distribution}/pool/${code_name}/${component}/${package_initial}/${PACKAGE}"
 run mkdir -p "${pool_dir}/"
-run cp \
-  *.*deb \
-  *.dsc \
-  *.tar.* \
-  "${pool_dir}/"
+run \
+  find . \
+  -maxdepth 1 \
+  -type f \
+  -not -path '*.build' \
+  -not -path '*.buildinfo' \
+  -exec cp '{}' "${pool_dir}/" ';'
 
 run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"
