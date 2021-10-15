@@ -19,6 +19,7 @@
 
 #include <google/cloud/storage/client.h>
 
+#include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
@@ -27,6 +28,8 @@
 namespace arrow {
 namespace fs {
 namespace {
+
+namespace gcs = google::cloud::storage;
 
 auto constexpr kSep = '/';
 
@@ -58,9 +61,48 @@ struct GcsPath {
   }
 };
 
-}  // namespace
+class GcsInputStream : public arrow::io::InputStream {
+ public:
+  explicit GcsInputStream(gcs::ObjectReadStream stream) : stream_(std::move(stream)) {}
 
-namespace gcs = google::cloud::storage;
+  ~GcsInputStream() override = default;
+
+  Status Close() override {
+    stream_.Close();
+    return Status::OK();
+  }
+
+  Result<int64_t> Tell() const override {
+    if (!stream_) {
+      return Status::IOError("invalid stream");
+    }
+    return stream_.tellg();
+  }
+
+  bool closed() const override { return !stream_.IsOpen(); }
+
+  Result<int64_t> Read(int64_t nbytes, void* out) override {
+    stream_.read(static_cast<char*>(out), nbytes);
+    if (!stream_.status().ok()) {
+      return internal::ToArrowStatus(stream_.status());
+    }
+    return stream_.gcount();
+  }
+
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateResizableBuffer(nbytes));
+    stream_.read(reinterpret_cast<char*>(buffer->mutable_data()), nbytes);
+    if (!stream_.status().ok()) {
+      return internal::ToArrowStatus(stream_.status());
+    }
+    return arrow::SliceMutableBufferSafe(std::move(buffer), 0, stream_.gcount());
+  }
+
+ private:
+  mutable gcs::ObjectReadStream stream_;
+};
+
+}  // namespace
 
 google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   auto options = google::cloud::Options{};
@@ -93,6 +135,14 @@ class GcsFileSystem::Impl {
     }
     auto meta = client_.GetBucketMetadata(path.bucket);
     return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
+  }
+
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const GcsPath& path) {
+    auto stream = client_.ReadObject(path.bucket, path.object);
+    if (!stream.status().ok()) {
+      return internal::ToArrowStatus(stream.status());
+    }
+    return std::make_shared<GcsInputStream>(std::move(stream));
   }
 
  private:
@@ -169,12 +219,17 @@ Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) 
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->OpenInputStream(p);
 }
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const FileInfo& info) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  if (!info.IsFile()) {
+    return Status::IOError("Only files can be opened as input streams");
+  }
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
+  return impl_->OpenInputStream(p);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
