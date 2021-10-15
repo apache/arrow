@@ -128,6 +128,7 @@ std::shared_ptr<parquet::schema::GroupNode> GetSchema() {
 
 struct TestData {
   static const int num_rows = 2000;
+  static const size_t str_buff_size = 100;
 
   static void init() { std::time(&ts_offset_); }
 
@@ -136,12 +137,14 @@ struct TestData {
     return "Str #" + std::to_string(i);
   }
   static arrow::util::string_view GetStringView(const int i) {
-    string_ = "StringView #" + std::to_string(i);
+    int length = snprintf(string_, str_buff_size, "StringView #%d", i);
+    snprintf(string_, length+1, "StringView #%d", i);
     return arrow::util::string_view(string_);
   }
   static const char* GetCharPtr(const int i) {
-    snprintf(string_, "CharPtr #%d", i);
-    return string_.c_str();
+    int length = snprintf(string_, str_buff_size, "CharPtr #%d", i);
+    snprintf(string_, length+1, "CharPtr #%d", i);
+    return string_;
   }
   static char GetChar(const int i) { return i & 1 ? 'M' : 'F'; }
   static int8_t GetInt8(const int i) { return static_cast<int8_t>((i % 256) - 128); }
@@ -163,12 +166,12 @@ struct TestData {
 
  private:
   static std::time_t ts_offset_;
-  static char* string_;
+  static char string_[str_buff_size];
 };
 
 char TestData::char4_array[] = "XYZ";
 std::time_t TestData::ts_offset_;
-char* TestData::string_;
+char TestData::string_[];
 
 void WriteParquetFile() {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
