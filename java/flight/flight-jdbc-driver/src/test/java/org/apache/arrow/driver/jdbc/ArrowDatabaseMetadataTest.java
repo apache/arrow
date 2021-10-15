@@ -19,7 +19,9 @@ package org.apache.arrow.driver.jdbc;
 
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
-import static java.sql.Types.*;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.BIT;
+import static java.sql.Types.INTEGER;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -600,14 +602,14 @@ public class ArrowDatabaseMetadataTest {
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedGrammarProvider =
         (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_GRAMMAR,
-            (int) (createBitmaskFromEnums(SupportedSqlGrammar.SQL_CORE_GRAMMAR) |
-                (createBitmaskFromEnums(SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR))));
+            (int) (createBitmaskFromEnums(SupportedSqlGrammar.SQL_CORE_GRAMMAR,
+                SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_GRAMMAR, flightSqlSupportedGrammarProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlANSI92EntryLevelProvider =
         (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-            (int) (createBitmaskFromEnums(SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL) |
-                (createBitmaskFromEnums(SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL))));
+            (int) (createBitmaskFromEnums(SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL,
+                SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL, flightSqlANSI92EntryLevelProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsIntegrityEnhancementFacilityProvider =
@@ -636,8 +638,8 @@ public class ArrowDatabaseMetadataTest {
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSchemasSupportedActionsProvider =
         (root, index) ->
             setDataForIntField(root, index, SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
-                (int) (createBitmaskFromEnums(SqlSupportedElementActions.SQL_ELEMENT_IN_PROCEDURE_CALLS) |
-                    (createBitmaskFromEnums(SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS))));
+                (int) (createBitmaskFromEnums(SqlSupportedElementActions.SQL_ELEMENT_IN_PROCEDURE_CALLS,
+                    SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS, flightSqlSchemasSupportedActionsProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlCatalogSupportedActionsProvider =
@@ -793,8 +795,7 @@ public class ArrowDatabaseMetadataTest {
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedTransactionsIsolationLevelsProvider =
         (root, index) ->
             setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS,
-                (int) (createBitmaskFromEnums(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE) |
-                    (createBitmaskFromEnums(SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED))));
+                (int) (createBitmaskFromEnums(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE, SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS,
         flightSqlSupportedTransactionsIsolationLevelsProvider);
 
@@ -813,7 +814,7 @@ public class ArrowDatabaseMetadataTest {
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedResultSetTypesProvider =
         (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES,
             (int) (createBitmaskFromEnums(
-                SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY) | createBitmaskFromEnums(
+                SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY,
                 SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES, flightSqlSupportedResultSetTypesProvider);
 
