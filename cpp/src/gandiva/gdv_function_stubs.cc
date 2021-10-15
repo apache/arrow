@@ -799,7 +799,6 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 GANDIVA_EXPORT
 const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
                             int32_t data_len, int32_t* out_len) {
-  auto null = std::nullptr_t();
   if (pos < 1) {
     *out_len = 0;
     return "";
@@ -833,13 +832,13 @@ const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
 
   *out_len = static_cast<int32_t>(word.size());
 
-  const char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
-  out = word.c_str();
+  memcpy(out, word.c_str(), *out_len);
   return out;
 }
 }
