@@ -31,6 +31,7 @@
 #include <arrow-glib/datum.h>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.h>
+#include <arrow-glib/expression.h>
 #include <arrow-glib/field.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/scalar.h>
