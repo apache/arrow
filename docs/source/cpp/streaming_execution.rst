@@ -191,7 +191,7 @@ provides a number of benefits:
    checking whether grouping keys are provided)
 - This expedites integration with out-of-library extensions. For example
   "scan" nodes are implemented in the separate ``libarrow_dataset.so`` library.
-- Since the class is not referencable outside the Translation Unit in which it
+- Since the class is not referencable outside the translation unit in which it
   is defined, compilers can optimize more aggressively.
 
 Factories of :class:`ExecNode` can be retrieved by name from the registry.
