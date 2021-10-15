@@ -23,7 +23,6 @@ import static java.sql.Types.*;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-//import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.*;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForBooleanField;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
@@ -507,28 +506,28 @@ public class ArrowDatabaseMetadataTest {
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, flightSqlServerReadOnlyProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlKeywordsProvider =
-        (root, index) -> setDataVarCharListField(root, index, 0, SqlInfo.SQL_KEYWORDS,
+        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_KEYWORDS,
             EXPECTED_SQL_KEYWORDS.split("\\s*,\\s*"));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_KEYWORDS, flightSqlKeywordsProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlNumericFunctionsProvider =
-        (root, index) -> setDataVarCharListField(root, index, 1, SqlInfo.SQL_NUMERIC_FUNCTIONS,
+        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_NUMERIC_FUNCTIONS,
             EXPECTED_NUMERIC_FUNCTIONS.split("\\s*,\\s*"));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_NUMERIC_FUNCTIONS, flightSqlNumericFunctionsProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlStringFunctionsProvider =
-        (root, index) -> setDataVarCharListField(root, index, 2, SqlInfo.SQL_STRING_FUNCTIONS,
+        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_STRING_FUNCTIONS,
             EXPECTED_STRING_FUNCTIONS.split("\\s*,\\s*"));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_STRING_FUNCTIONS, flightSqlStringFunctionsProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSystemFunctionsProvider =
-        (root, index) -> setDataVarCharListField(root, index, 3, SqlInfo.SQL_SYSTEM_FUNCTIONS,
+        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_SYSTEM_FUNCTIONS,
             EXPECTED_SYSTEM_FUNCTIONS.split("\\s*,\\s*"));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SYSTEM_FUNCTIONS, flightSqlSystemFunctionsProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlTimeDateFunctionsProvider =
         (root, index) ->
-            setDataVarCharListField(root, index, 4, SqlInfo.SQL_DATETIME_FUNCTIONS,
+            setDataVarCharListField(root, index, SqlInfo.SQL_DATETIME_FUNCTIONS,
                 EXPECTED_TIME_DATE_FUNCTIONS.split("\\s*,\\s*"));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_DATETIME_FUNCTIONS, flightSqlTimeDateFunctionsProvider);
 
@@ -553,7 +552,7 @@ public class ArrowDatabaseMetadataTest {
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_NULL_PLUS_NULL_IS_NULL, flightSqlNullPlusNullIsNullProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsConvertProvider =
-        (root, index) -> setIntToIntListMapField(root, index, 0, SqlInfo.SQL_SUPPORTS_CONVERT,
+        (root, index) -> setIntToIntListMapField(root, index, SqlInfo.SQL_SUPPORTS_CONVERT,
             SqlSupportsConvert.SQL_CONVERT_BIT_VALUE,
             new int[] {SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE, SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE});
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_CONVERT, flightSqlSupportsConvertProvider);

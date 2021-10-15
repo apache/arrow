@@ -186,10 +186,11 @@ public final class DatabaseMetadataDenseUnionUtils {
    * @param sqlInfo the {@link SqlInfo} to use.
    * @param values  the input value.
    */
-  public static void setDataVarCharListField(final VectorSchemaRoot root, final int index, final int listIndex,
+  public static void setDataVarCharListField(final VectorSchemaRoot root, final int index,
                                              final SqlInfo sqlInfo, final String[] values) {
     final DenseUnionVector denseUnion = (DenseUnionVector) root.getVector("value");
     final ListVector listVector = denseUnion.getList((byte) 4);
+    final int listIndex = listVector.getValueCount();
     final int denseUnionValueCount = index + 1;
     final int listVectorValueCount = listIndex + 1;
     denseUnion.setValueCount(denseUnionValueCount);
@@ -220,14 +221,14 @@ public final class DatabaseMetadataDenseUnionUtils {
    *
    * @param root     the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
    * @param index    the index to use for {@link DenseUnionVector#setSafe}
-   * @param mapIndex the index to use for {@link UnionMapWriter#setPosition}
    * @param sqlInfo  the {@link SqlInfo} to use.
    * @param values   the input value.
    */
-  public static void setIntToIntListMapField(final VectorSchemaRoot root, final int index, final int mapIndex,
+  public static void setIntToIntListMapField(final VectorSchemaRoot root, final int index,
                                              final SqlInfo sqlInfo, final int key, int[] values) {
     final DenseUnionVector denseUnion = (DenseUnionVector) root.getVector("value");
     final MapVector mapVector = denseUnion.getMap((byte) 5);
+    final int mapIndex = mapVector.getValueCount();
     final int denseUnionValueCount = index + 1;
     final int mapVectorValueCount = mapIndex + 1;
     denseUnion.setValueCount(denseUnionValueCount);
