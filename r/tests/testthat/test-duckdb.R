@@ -121,7 +121,7 @@ dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 # write one table to the connection so it is kept open
-DBI::dbWriteTable(con, "mtcars", mtcars)
+# DBI::dbWriteTable(con, "mtcars", mtcars)
 
 test_that("Joining, auto-cleanup enabled", {
   ds <- InMemoryDataset$create(example_data)
@@ -142,6 +142,9 @@ test_that("Joining, auto-cleanup enabled", {
   expect_identical(dim(res), c(9L, 14L))
 
   # clean up cleans up the tables
+  print(c(table_one_name, table_two_name))
+  print(DBI::dbListTables(con))
+  print(DBI::dbListObjects(con))
   expect_true(all(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
   rm(table_one, table_two)
   gc()
