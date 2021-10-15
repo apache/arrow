@@ -195,7 +195,7 @@ read_delim_arrow <- function(file,
   tryCatch(
     tab <- reader$Read(),
     error = function(e) {
-      handle_csv_read_error(e)
+      handle_csv_read_error(e, schema)
     }
   )
 

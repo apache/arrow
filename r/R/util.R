@@ -194,7 +194,15 @@ repeat_value_as_array <- function(object, n) {
   return(Scalar$create(object)$as_array(n))
 }
 
-handle_csv_read_error <- function(e) {
+handle_csv_read_error <- function(e, schema) {
   msg <- conditionMessage(e)
-  abort(c(msg, i = "Did you check your CSV file doesn't have a header row?"))
+
+  if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
+    abort(c(
+      msg,
+      i = "Did you check your CSV file doesn't have a header row?"
+    ))
+  }
+
+  abort(e)
 }
