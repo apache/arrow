@@ -140,7 +140,7 @@ struct TestData {
     return arrow::util::string_view(string_);
   }
   static const char* GetCharPtr(const int i) {
-    string_ = "CharPtr #" + std::to_string(i);
+    sprintf(string_, "CharPtr #%d",i);
     return string_.c_str();
   }
   static char GetChar(const int i) { return i & 1 ? 'M' : 'F'; }
