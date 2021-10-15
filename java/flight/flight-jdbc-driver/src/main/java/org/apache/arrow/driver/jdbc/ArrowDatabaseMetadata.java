@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static com.sun.org.apache.xerces.internal.util.PropertyState.is;
 import static java.sql.Types.BIGINT;
 import static java.sql.Types.BINARY;
 import static java.sql.Types.BIT;
