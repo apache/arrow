@@ -269,16 +269,17 @@ test_that("Mix of guessing and declaring types", {
 test_that("more informative error when reading a CSV with headers and schema", {
   tf <- tempfile()
   on.exit(unlink(tf))
-  share_data <- tibble::tibble(
-    company = c("AMZN", "GOOG", "BKNG", "TSLA"),
-    price = c(3463.12, 2884.38, 2300.46, 732.39)
-  )
 
-  readr::write_csv(share_data, tf)
+  write.csv(example_data, tf, row.names = FALSE)
 
   share_schema <- schema(
-    company = utf8(),
-    price = float64()
+    int = int32(),
+    dbl = float64(),
+    dbl2 = float64(),
+    lgl = boolean(),
+    false = boolean(),
+    chr = utf8(),
+    fct = utf8()
   )
 
   expect_error(
