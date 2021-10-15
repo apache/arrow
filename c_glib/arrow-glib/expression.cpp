@@ -225,7 +225,7 @@ garrow_call_expression_new(const gchar *function,
   for (GList *node = arguments; node; node = node->next) {
     auto argument = GARROW_EXPRESSION(node->data);
     auto arrow_argument = garrow_expression_get_raw(argument);
-    arrow_arguments.push_back(std::move(*arrow_argument));
+    arrow_arguments.push_back(*arrow_argument);
   }
   std::shared_ptr<arrow::compute::FunctionOptions> arrow_options;
   if (options) {
