@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static com.sun.org.apache.xerces.internal.util.PropertyState.is;
 import static java.sql.Types.BIGINT;
 import static java.sql.Types.BINARY;
 import static java.sql.Types.BIT;
@@ -34,6 +35,7 @@ import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.TINYINT;
 import static java.sql.Types.VARCHAR;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.doesBitmaskTranslateToEnum;
+import static org.hamcrest.Matchers.hasItem;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -298,14 +300,24 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsMinimumSQLGrammar() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-        SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR);
+    List<Boolean> supportsSqlGrammar =
+        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+                SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+                SupportedSqlGrammar.SQL_CORE_GRAMMAR),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+                SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR));
+    return supportsSqlGrammar.stream().anyMatch(e -> e);
   }
 
   @Override
   public boolean supportsCoreSQLGrammar() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-        SupportedSqlGrammar.SQL_CORE_GRAMMAR);
+    List<Boolean> supportsSqlGrammar =
+        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+                SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
+                SupportedSqlGrammar.SQL_CORE_GRAMMAR));
+    return supportsSqlGrammar.stream().anyMatch(e -> e);
   }
 
   @Override
@@ -316,14 +328,24 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsANSI92EntryLevelSQL() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-        SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL);
+    List<Boolean> supportsANSI92 =
+        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+                SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+                SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+                SupportedAnsi92SqlGrammarLevel.ANSI92_FULL_SQL));
+    return supportsANSI92.stream().anyMatch(e -> e);
   }
 
   @Override
   public boolean supportsANSI92IntermediateSQL() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-        SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL);
+    List<Boolean> supportsANSI92 =
+        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+                SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+                SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL));
+    return supportsANSI92.stream().anyMatch(e -> e);
   }
 
   @Override
@@ -339,19 +361,19 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsOuterJoins() throws SQLException {
-    final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_JOINS_SUPPORT_LEVEL, Integer.class);
+    final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL, Integer.class);
     return bitmask != 0;
   }
 
   @Override
   public boolean supportsFullOuterJoins() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_JOINS_SUPPORT_LEVEL,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
         SqlJoinsSupportLevel.SQL_FULL_OUTER_JOINS);
   }
 
   @Override
   public boolean supportsLimitedOuterJoins() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_JOINS_SUPPORT_LEVEL,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
         SqlJoinsSupportLevel.SQL_LIMITED_OUTER_JOINS);
   }
 
