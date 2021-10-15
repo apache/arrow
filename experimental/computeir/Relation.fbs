@@ -186,6 +186,15 @@ table Source {
   filter: Expression;
   /// Schemas are explicitly optional
   schema: org.apache.arrow.flatbuf.Schema;
+  /// An optional list of field indices indicating which columns should be read
+  /// from the source. Columns excluded from this listing will instead be replaced
+  /// with all-null placeholders to guarantee that the schema of the source is
+  /// unaffected by this projection.
+  ///
+  /// A missing value indicates all columns should be read.
+  ///
+  /// The behavior of an empty list is undefined.
+  projection: [FieldIndex];
 }
 
 /// The varieties of relations
