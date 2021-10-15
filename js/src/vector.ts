@@ -215,6 +215,8 @@ export class Vector<T extends DataType = any> {
         }));
     }
 
+    public toJSON() { return [...this]; }
+
     /**
      * @summary Return a JavaScript Array or TypedArray of the Vector's elements.
      *
