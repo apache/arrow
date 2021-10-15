@@ -139,7 +139,8 @@ through unchanged::
       using ExecNode::outputs;
 
       // StartProducing() and StopProducing() are invoked by an ExecPlan to
-      // coordinate the graph-wide execution state.
+      // coordinate the graph-wide execution state.  These do not need to be
+      // forwarded to inputs or outputs.
       Status StartProducing() override { return Status::OK(); }
       void StopProducing() override {}
       Future<> finished() override { return inputs_[0]->finished(); }
