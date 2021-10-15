@@ -141,7 +141,7 @@ garrow_literal_expression_class_init(GArrowLiteralExpressionClass *klass)
 GArrowLiteralExpression *
 garrow_literal_expression_new(GArrowDatum *datum)
 {
-  auto arrow_datum = std::move(garrow_datum_get_raw(datum));
+  auto arrow_datum = garrow_datum_get_raw(datum);
   auto arrow_expression = arrow::compute::literal(arrow_datum);
   return GARROW_LITERAL_EXPRESSION(garrow_expression_new_raw(arrow_expression));
 }
