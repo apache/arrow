@@ -196,13 +196,5 @@ repeat_value_as_array <- function(object, n) {
 
 handle_csv_read_error <- function(e) {
   msg <- conditionMessage(e)
-  if (grepl("conversion error", msg)) {
-    # If length(format) > 1, that means it is (almost certainly) the default/not specified value
-    # so let the user know that they should specify the actual (not parquet) format
-    abort(c(
-      msg,
-      i = "Did you check your CSV file doesn't have a header row?"
-    ))
-  }
-  abort(e)
+  abort(c(msg, i = "Did you check your CSV file doesn't have a header row?"))
 }
