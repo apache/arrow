@@ -810,17 +810,15 @@ const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
     return "";
   }
 
-  std::vector<char*> words;
-  char tokenizable_data[strlen(data)];
-  strcpy(tokenizable_data, data);
-  char* token;
+  std::string data_str(data, data_len);
+  std::vector<std::string> words;
 
-  token = std::strtok(tokenizable_data, ",");
-
-  while (token != null) {
-    //    ARROW_LOG(INFO) << token;
+  size_t pos_str = 0;
+  std::string token;
+  while ((pos_str = data_str.find(',')) != std::string::npos) {
+    token = data_str.substr(0, pos_str);
     words.push_back(token);
-    token = strtok(null, ",");
+    data_str.erase(0, pos_str + 1);
   }
 
   if (static_cast<int32_t>(words.size()) < pos) {
@@ -828,32 +826,20 @@ const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
     return "";
   }
 
-  char* word = words.at(pos - 1);
+  std::string word = words.at(pos - 1);
 
-  // start trim whitespaces
-  char* end;
+  // trim whitespace
+  word.erase(std::remove(word.begin(),word.end(),' '),word.end());
 
-  // trim leading space
-  while (isspace((unsigned char)*word)) word++;
+  *out_len = static_cast<int32_t>(word.size());
 
-  if (*word != 0) {
-    // trim trailing space
-    end = word + strlen(word) - 1;
-    while (end > word && isspace((unsigned char)*end)) end--;
-    // write new null terminator character
-    end[1] = '\0';
-  }
-  // finish trim whitespaces
-
-  *out_len = static_cast<int32_t>(strlen(word));
-
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  const char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
-  strcpy(out, word);
+  out = word.c_str();
   return out;
 }
 }
