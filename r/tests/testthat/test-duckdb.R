@@ -20,8 +20,8 @@ skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
 skip_on_cran()
 
-library(duckdb)
-library(dplyr)
+library(duckdb, quietly = TRUE)
+library(dplyr, warn.conflicts = FALSE)
 
 test_that("to_duckdb", {
   ds <- InMemoryDataset$create(example_data)

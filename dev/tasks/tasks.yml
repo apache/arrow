@@ -54,7 +54,6 @@ groups:
     - almalinux-*
     - amazon-linux-*
     - centos-*
-    - conda-*
     - debian-*
     - java-jars
     - nuget

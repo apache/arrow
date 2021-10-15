@@ -219,7 +219,8 @@ test_that("Row-level metadata (does not by default) roundtrip", {
   # metadata should be handled separately ARROW-14020, ARROW-12542
   df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
   tab <- Table$create(df)
-  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
+  r_metadata <- tab$r_metadata
+  expect_type(r_metadata, "list")
   expect_null(r_metadata$columns$x$columns)
 
   # But we can re-enable this / read data that has already been written with
@@ -239,8 +240,7 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
-  local_edition(3)
-  library(dplyr)
+  library(dplyr, warn.conflicts = FALSE)
 
   df <- tibble::tibble(
     metadata = list(
@@ -358,4 +358,12 @@ test_that("dplyr with metadata", {
       collect(),
     example_with_metadata
   )
+})
+
+test_that("grouped_df metadata is recorded (efficiently)", {
+  grouped <- group_by(tibble(a = 1:2, b = 3:4), a)
+  expect_s3_class(grouped, "grouped_df")
+  grouped_tab <- Table$create(grouped)
+  expect_r6_class(grouped_tab, "Table")
+  expect_equal(grouped_tab$r_metadata$attributes$.group_vars, "a")
 })

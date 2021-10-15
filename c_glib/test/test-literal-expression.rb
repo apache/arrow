@@ -15,15 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_parquet_roundtrip <- function(tab, ...) {
-  expect_equal(parquet_roundtrip(tab, ...), tab)
-}
+class TestLiteralExpression < Test::Unit::TestCase
+  def setup
+    @scalar = Arrow::BooleanScalar.new(true)
+    @datum = Arrow::ScalarDatum.new(@scalar)
+    @expression = Arrow::LiteralExpression.new(@datum)
+  end
 
-parquet_roundtrip <- function(x, ..., as_data_frame = FALSE) {
-  # write/read parquet, returns Table
-  tf <- tempfile()
-  on.exit(unlink(tf))
+  sub_test_case("==") do
+    def test_true
+      assert_equal(Arrow::LiteralExpression.new(@datum),
+                   Arrow::LiteralExpression.new(@datum))
+    end
 
-  write_parquet(x, tf, ...)
-  read_parquet(tf, as_data_frame = as_data_frame)
-}
+    def test_false
+      assert_not_equal(@expression,
+                       Arrow::FieldExpression.new("visible"))
+    end
+  end
+
+  def test_to_string
+    assert_equal("true", @expression.to_s)
+  end
+end

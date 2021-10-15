@@ -15,15 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_parquet_roundtrip <- function(tab, ...) {
-  expect_equal(parquet_roundtrip(tab, ...), tab)
-}
+class TestExpression < Test::Unit::TestCase
+  sub_test_case(".try_convert") do
+    test("Symbol") do
+      assert_equal(Arrow::FieldExpression.new("visible"),
+                   Arrow::Expression.try_convert(:visible))
+    end
 
-parquet_roundtrip <- function(x, ..., as_data_frame = FALSE) {
-  # write/read parquet, returns Table
-  tf <- tempfile()
-  on.exit(unlink(tf))
+    test("[String]") do
+      assert_equal(Arrow::CallExpression.new("func", []),
+                   Arrow::Expression.try_convert(["func"]))
+    end
 
-  write_parquet(x, tf, ...)
-  read_parquet(tf, as_data_frame = as_data_frame)
-}
+    test("[Symbol]") do
+      assert_equal(Arrow::CallExpression.new("func", []),
+                   Arrow::Expression.try_convert([:func]))
+    end
+
+    test("[String, String]") do
+      assert_equal(Arrow::CallExpression.new("func", ["argument1"]),
+                   Arrow::Expression.try_convert(["func", "argument1"]))
+    end
+  end
+end

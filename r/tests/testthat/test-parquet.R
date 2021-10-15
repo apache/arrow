@@ -104,6 +104,13 @@ test_that("write_parquet() accepts RecordBatch too", {
   expect_equal(tab, Table$create(batch))
 })
 
+test_that("write_parquet() handles grouped_df", {
+  library(dplyr, warn.conflicts = FALSE)
+  df <- tibble::tibble(a = 1:4, b = 5) %>% group_by(b)
+  # Since `df` is a "grouped_df", this test asserts that we get a grouped_df back
+  expect_parquet_roundtrip(df, as_data_frame = TRUE)
+})
+
 test_that("write_parquet() with invalid input type", {
   bad_input <- Array$create(1:5)
   expect_error(

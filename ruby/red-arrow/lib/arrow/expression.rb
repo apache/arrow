@@ -15,15 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_parquet_roundtrip <- function(tab, ...) {
-  expect_equal(parquet_roundtrip(tab, ...), tab)
-}
-
-parquet_roundtrip <- function(x, ..., as_data_frame = FALSE) {
-  # write/read parquet, returns Table
-  tf <- tempfile()
-  on.exit(unlink(tf))
-
-  write_parquet(x, tf, ...)
-  read_parquet(tf, as_data_frame = as_data_frame)
-}
+module Arrow
+  class Expression
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when Symbol
+          FieldExpression.new(value.to_s)
+        when ::Array
+          function_name, *arguments = value
+          case function_name
+          when String, Symbol
+            function_name = function_name.to_s
+          else
+            return nil
+          end
+          if arguments.last.is_a?(FunctionOptions)
+            options = arguments.pop
+          else
+            options = nil
+          end
+          CallExpression.new(function_name, arguments, options)
+        else
+          datum = Datum.try_convert(value)
+          return nil if datum.nil?
+          LiteralExpression.new(datum)
+        end
+      end
+    end
+  end
+end

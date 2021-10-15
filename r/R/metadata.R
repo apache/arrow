@@ -99,6 +99,10 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
           # of class data.frame, remove the extraneous attribute
           attr(x, "row.names") <- NULL
         }
+        if (!is.null(attr(x, ".group_vars")) && requireNamespace("dplyr", quietly = TRUE)) {
+          x <- dplyr::group_by(x, !!!syms(attr(x, ".group_vars")))
+          attr(x, ".group_vars") <- NULL
+        }
       }
     },
     error = function(e) {
@@ -129,6 +133,19 @@ remove_attributes <- function(x) {
 }
 
 arrow_attributes <- function(x, only_top_level = FALSE) {
+  if (inherits(x, "grouped_df")) {
+    # Keep only the group var names, not the rest of the cached data that dplyr
+    # uses, which may be large
+    if (requireNamespace("dplyr", quietly = TRUE)) {
+      gv <- dplyr::group_vars(x)
+      x <- dplyr::ungroup(x)
+      # ungroup() first, then set attribute, bc ungroup() would erase it
+      attr(x, ".group_vars") <- gv
+    } else {
+      # Regardless, we shouldn't keep groups around
+      attr(x, "groups") <- NULL
+    }
+  }
   att <- attributes(x)
 
   removed_attributes <- remove_attributes(x)
