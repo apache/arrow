@@ -31,7 +31,7 @@ Streaming execution engine
 Motivation
 ----------
 
-For many complex computations, successive direct `invocation of
+For many complex computations, successive direct :ref:`invocation of
 compute functions <invoking-compute-functions>` is not feasible
 in either memory or computation time. Doing so causes all intermediate
 data to be fully materialized. To facilitate arbitrarily large inputs
@@ -49,7 +49,12 @@ as they are pushed to it along an edge of the graph by upstream nodes
 (its inputs), and pushes batches along an edge of the graph to downstream
 nodes (its outputs) as they are finalized.
 
-.. [shaikhha et al] SHAIKHHA, A., DASHTI, M., & KOCH, C. (2018). Push versus pull-based loop fusion in query engines. Journal of Functional Programming, 28. https://doi.org/10.1017/s0956796818000102
+..seealso::
+
+  `SHAIKHHA, A., DASHTI, M., & KOCH, C.
+  (2018). Push versus pull-based loop fusion in query engines.
+  Journal of Functional Programming, 28.
+  <https://doi.org/10.1017/s0956796818000102>`_
 
 Overview
 --------
@@ -241,7 +246,7 @@ writes to disk::
     MakeExecNode("write", plan.get(), {project_node},
                  WriteNodeOptions{/*base_dir=*/"/dat", /*...*/});
 
-:struct:`Declaration` is a `dplyr <https://dplyr.tidyverse.org>`-inspired
+:struct:`Declaration` is a `dplyr <https://dplyr.tidyverse.org>`_-inspired
 helper which further decreases the boilerplate associated with populating
 an :class:`ExecPlan` from C++::
 
@@ -261,8 +266,8 @@ an :class:`ExecPlan` from C++::
                   .AddToPlan(plan.get()));
 
 Note that a source node can wrap anything which resembles a stream of batches.
-For example, `PR#11032 <https://github.com/apache/arrow/pull/11032>` adds
-support for use of a `DuckDB <https://duckdb.org>` query as a source node.
+For example, `PR#11032 <https://github.com/apache/arrow/pull/11032>`_ adds
+support for use of a `DuckDB <https://duckdb.org>`_ query as a source node.
 Similarly, a sink node can wrap anything which absorbs a stream of batches.
 In the example above we're writing completed
 batches to disk. However we can also collect these in memory into a :class:`Table`
