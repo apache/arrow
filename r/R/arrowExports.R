@@ -288,8 +288,8 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
+ExecPlan_run <- function(plan, final_node, sort_options, head) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, head)
 }
 
 ExecPlan_StopProducing <- function(plan) {

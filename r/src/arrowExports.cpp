@@ -1126,17 +1126,18 @@ extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options);
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp){
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, int64_t head);
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP head_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
 	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
-	return cpp11::as_sexp(ExecPlan_run(plan, final_node, sort_options));
+	arrow::r::Input<int64_t>::type head(head_sexp);
+	return cpp11::as_sexp(ExecPlan_run(plan, final_node, sort_options, head));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp){
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP head_sexp){
 	Rf_error("Cannot call ExecPlan_run(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -7239,7 +7240,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
-		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 3}, 
+		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 4}, 
 		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
