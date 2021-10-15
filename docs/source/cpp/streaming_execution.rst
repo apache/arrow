@@ -162,10 +162,10 @@ and for querying/awaiting their completion::
     // start all nodes in the graph
     ARROW_RETURN_NOT_OK(plan->StartProducing());
 
-    if (need_stop) {
+    SetUserCancellationCallback([plan] {
       // stop all nodes in the graph
       plan->StopProducing();
-    }
+    });
 
     // Complete will be marked finished when all nodes have run to completion
     // or acknowledged a StopProducing() signal. The ExecPlan should be kept
@@ -245,12 +245,15 @@ writes to disk::
                                              {"score + 1"}
                                            });
 
+    arrow::dataset::internal::Initialize();
     MakeExecNode("write", plan.get(), {project_node},
                  WriteNodeOptions{/*base_dir=*/"/dat", /*...*/});
 
 :struct:`Declaration` is a `dplyr <https://dplyr.tidyverse.org>`_-inspired
 helper which further decreases the boilerplate associated with populating
 an :class:`ExecPlan` from C++::
+
+    arrow::dataset::internal::Initialize();
 
     std::shared_ptr<RecordBatchReader> reader = GetStreamOfBatches();
     ASSERT_OK(Declaration::Sequence(
