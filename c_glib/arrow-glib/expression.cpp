@@ -92,7 +92,7 @@ gchar *
 garrow_expression_to_string(GArrowExpression *expression)
 {
   auto priv = GARROW_EXPRESSION_GET_PRIVATE(expression);
-  auto string = std::move(priv->expression.ToString());
+  auto string = priv->expression.ToString();
   return g_strndup(string.data(), string.size());
 }
 
