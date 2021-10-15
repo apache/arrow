@@ -197,6 +197,13 @@ table LiteralRelation {
 table Source {
   base: RelBase (required);
   name: string (required);
+  /// An optional expression used to filter out rows directly from the source.
+  ///
+  /// Useful for consumers that implement predicate pushdown.
+  ///
+  /// A missing filter value indicates no filter, i.e., all rows are
+  /// returned from the source.
+  filter: Expression;
   schema: org.apache.arrow.flatbuf.Schema (required);
 }
 
