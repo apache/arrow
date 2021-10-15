@@ -151,8 +151,8 @@ the inputs of a node, while ``ResumeProducing``, ``PauseProducing``, ``StopProdu
 may only be invoked by outputs of a node.
 
 :class:`ExecPlan` contains the associated instances of :class:`ExecNode`
-and provides convenience methods for starting and stopping execution of all nodes
-and for querying/awaiting their completion::
+and is used to start and stop execution of all nodes and for querying/awaiting
+their completion::
 
     // construct an ExecPlan first to hold your nodes
     ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(default_exec_context()));
