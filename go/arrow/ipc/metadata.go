@@ -370,6 +370,12 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitDAY_TIME)
 		fv.offset = flatbuf.IntervalEnd(fv.b)
 
+	case *arrow.MonthDayNanoIntervalType:
+		fv.dtype = flatbuf.TypeInterval
+		flatbuf.IntervalStart(fv.b)
+		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitMONTH_DAY_NANO)
+		fv.offset = flatbuf.IntervalEnd(fv.b)
+
 	case *arrow.DurationType:
 		fv.dtype = flatbuf.TypeDuration
 		unit := unitToFB(dt.Unit)
@@ -806,6 +812,8 @@ func intervalFromFB(data flatbuf.Interval) (arrow.DataType, error) {
 		return arrow.FixedWidthTypes.MonthInterval, nil
 	case flatbuf.IntervalUnitDAY_TIME:
 		return arrow.FixedWidthTypes.DayTimeInterval, nil
+	case flatbuf.IntervalUnitMONTH_DAY_NANO:
+		return arrow.FixedWidthTypes.MonthDayNanoInterval, nil
 	}
 	return nil, xerrors.Errorf("arrow/ipc: Interval type with %d unit not implemented", data.Unit())
 }

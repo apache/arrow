@@ -464,6 +464,48 @@ func NewDayTimeIntervalScalar(val arrow.DayTimeInterval) *DayTimeInterval {
 	return &DayTimeInterval{scalar{arrow.FixedWidthTypes.DayTimeInterval, true}, val}
 }
 
+type MonthDayNanoInterval struct {
+	scalar
+	Value arrow.MonthDayNanoInterval
+}
+
+func (MonthDayNanoInterval) temporal()             {}
+func (MonthDayNanoInterval) interval()             {}
+func (s *MonthDayNanoInterval) value() interface{} { return s.Value }
+func (s *MonthDayNanoInterval) Data() []byte {
+	return (*[arrow.MonthDayNanoIntervalSizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
+}
+func (s *MonthDayNanoInterval) String() string {
+	if !s.Valid {
+		return "null"
+	}
+	val, err := s.CastTo(arrow.BinaryTypes.String)
+	if err != nil {
+		return "..."
+	}
+	return string(val.(*String).Value.Bytes())
+}
+
+func (s *MonthDayNanoInterval) CastTo(to arrow.DataType) (Scalar, error) {
+	if !s.Valid {
+		return MakeNullScalar(to), nil
+	}
+
+	if !arrow.TypeEqual(s.DataType(), to) {
+		return nil, xerrors.Errorf("non-null month_day_nano_interval scalar cannot be cast to anything other than monthinterval")
+	}
+
+	return s, nil
+}
+
+func (s *MonthDayNanoInterval) equals(rhs Scalar) bool {
+	return s.Value == rhs.(*MonthDayNanoInterval).Value
+}
+
+func NewMonthDayNanoIntervalScalar(val arrow.MonthDayNanoInterval) *MonthDayNanoInterval {
+	return &MonthDayNanoInterval{scalar{arrow.FixedWidthTypes.MonthDayNanoInterval, true}, val}
+}
+
 var (
 	_ Scalar = (*Date32)(nil)
 )

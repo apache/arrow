@@ -133,6 +133,23 @@ Schema <- R6Class("Schema",
         self$set_pointer(out$pointer())
         self
       }
+    },
+    r_metadata = function(new) {
+      # Helper for the R metadata that handles the serialization
+      # See also method on ArrowTabular
+      if (missing(new)) {
+        out <- self$metadata$r
+        if (!is.null(out)) {
+          # Can't unserialize NULL
+          out <- .unserialize_arrow_r_metadata(out)
+        }
+        # Returns either NULL or a named list
+        out
+      } else {
+        # Set the R metadata
+        self$metadata$r <- .serialize_arrow_r_metadata(new)
+        self
+      }
     }
   )
 )

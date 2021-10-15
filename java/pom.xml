@@ -697,6 +697,14 @@
     </profile>
 
     <profile>
+      <!-- C data interface depends on building a native library -->
+      <id>arrow-c-data</id>
+      <modules>
+        <module>c</module>
+      </modules>
+    </profile>
+
+    <profile>
       <!-- orc java depends on arrow cpp, and arrow cpp isn't enabled by default yet -->
       <id>arrow-jni</id>
       <modules>

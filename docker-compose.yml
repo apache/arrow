@@ -875,6 +875,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery &&
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java/dist &&
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
 
   ##############################  Integration #################################
@@ -1308,7 +1309,7 @@ services:
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
   debian-java-jni:
-    # Includes plasma test and jni for gandiva and orc.
+    # Includes plasma test, jni for gandiva and orc, and C data interface.
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose build debian-java-jni
@@ -1332,6 +1333,7 @@ services:
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 

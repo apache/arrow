@@ -493,6 +493,31 @@ func TestDayTimeIntervalScalarBasics(t *testing.T) {
 	assert.False(t, scalar.Equals(tsNull, tsVal2))
 }
 
+func TestMonthDayNanoIntervalScalarBasics(t *testing.T) {
+	typ := arrow.FixedWidthTypes.MonthDayNanoInterval
+
+	val1 := arrow.MonthDayNanoInterval{Months: 1, Days: 2, Nanoseconds: 3000}
+	val2 := arrow.MonthDayNanoInterval{Months: 2, Days: 3, Nanoseconds: 4000}
+	tsVal1 := scalar.NewMonthDayNanoIntervalScalar(val1)
+	tsVal2 := scalar.NewMonthDayNanoIntervalScalar(val2)
+	tsNull := scalar.MakeNullScalar(typ)
+	assert.NoError(t, tsVal1.ValidateFull())
+	assert.NoError(t, tsVal2.ValidateFull())
+	assert.NoError(t, tsNull.ValidateFull())
+
+	assert.Equal(t, val1, tsVal1.Value)
+
+	assert.True(t, arrow.TypeEqual(tsVal1.Type, typ))
+	assert.True(t, arrow.TypeEqual(tsVal2.DataType(), typ))
+	assert.True(t, tsVal1.Valid)
+	assert.False(t, tsNull.IsValid())
+	assert.True(t, arrow.TypeEqual(typ, tsNull.DataType()))
+
+	assert.False(t, scalar.Equals(tsVal1, tsVal2))
+	assert.False(t, scalar.Equals(tsVal1, tsNull))
+	assert.False(t, scalar.Equals(tsNull, tsVal2))
+}
+
 func TestNumericScalarCasts(t *testing.T) {
 	tests := []arrow.DataType{
 		arrow.PrimitiveTypes.Int8,
@@ -793,6 +818,7 @@ func TestStructScalarValidateErrors(t *testing.T) {
 func getScalars(mem memory.Allocator) []scalar.Scalar {
 	hello := memory.NewBufferBytes([]byte("hello"))
 	daytime := arrow.DayTimeInterval{Days: 1, Milliseconds: 100}
+	monthdaynano := arrow.MonthDayNanoInterval{Months: 5, Days: 4, Nanoseconds: 100}
 
 	int8Bldr := array.NewInt8Builder(mem)
 	defer int8Bldr.Release()
@@ -828,6 +854,7 @@ func getScalars(mem memory.Allocator) []scalar.Scalar {
 		scalar.NewTimestampScalar(111, arrow.FixedWidthTypes.Timestamp_ms),
 		scalar.NewMonthIntervalScalar(1),
 		scalar.NewDayTimeIntervalScalar(daytime),
+		scalar.NewMonthDayNanoIntervalScalar(monthdaynano),
 		scalar.NewDurationScalar(60, arrow.FixedWidthTypes.Duration_s),
 		scalar.NewBinaryScalar(hello, arrow.BinaryTypes.Binary),
 		scalar.NewFixedSizeBinaryScalar(hello, &arrow.FixedSizeBinaryType{ByteWidth: hello.Len()}),
