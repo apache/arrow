@@ -222,8 +222,8 @@ some environment variables.
 
 .. _filesystem-fsspec:
 
-Using fsspec-compatible filesystems
------------------------------------
+Using fsspec-compatible filesystems with Arrow
+----------------------------------------------
 
 The filesystems mentioned above are natively supported by Arrow C++ / PyArrow.
 The Python ecosystem, however, also has several filesystem packages. Those
@@ -272,8 +272,8 @@ Then all the functionalities of :class:`FileSystem` are accessible::
    ds.dataset("data/", filesystem=pa_fs)
 
 
-An fsspec interface to Arrow's filesystems
-------------------------------------------
+Using Arrow filesystems with fsspec
+-----------------------------------
 
 The Arrow FileSystem interface has a limited, developer-oriented API surface.
 This is sufficient for basic interactions and for using this with
