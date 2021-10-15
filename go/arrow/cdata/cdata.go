@@ -87,6 +87,7 @@ var formatToSimpleType = map[string]arrow.DataType{
 	"tDn": arrow.FixedWidthTypes.Duration_ns,
 	"tiM": arrow.FixedWidthTypes.MonthInterval,
 	"tiD": arrow.FixedWidthTypes.DayTimeInterval,
+	"tin": arrow.FixedWidthTypes.MonthDayNanoInterval,
 }
 
 // decode metadata from C which is encoded as

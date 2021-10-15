@@ -2851,6 +2851,56 @@ def test_array_masked():
     assert arr.type == pa.int64()
 
 
+def test_array_supported_masks():
+    # ARROW-13883
+    arr = pa.array([4, None, 4, 3.],
+                   mask=np.array([False, True, False, True]))
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, None, 4, 3],
+                   mask=pa.array([False, True, False, True]))
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, None, 4, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, 3, None, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, None, None]
+
+    # Non boolean values
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([1.0, 2.0, 3.0, 4.0]))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=[1.0, 2.0, 3.0, 4.0])
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=np.array([1.0, 2.0, 3.0, 4.0]))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([False, True, False, True],
+                                     mask=pa.array([True, True, True, True])))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([False, None, False, True]))
+
+    # Numpy arrays only accepts numpy masks
+    with pytest.raises(TypeError):
+        arr = pa.array(np.array([4, None, 4, 3.]),
+                       mask=[True, False, True, False])
+
+    with pytest.raises(TypeError):
+        arr = pa.array(np.array([4, None, 4, 3.]),
+                       mask=pa.array([True, False, True, False]))
+
+
 def test_binary_array_masked():
     # ARROW-12431
     masked_basic = pa.array([b'\x05'], type=pa.binary(1),
@@ -2900,7 +2950,7 @@ def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
         ([1, 2], np.array([False, False], dtype="O"),
-         pa.ArrowInvalid, "must be boolean dtype"),
+         TypeError, "must be boolean dtype"),
 
         ([1, 2], np.array([[False], [False]]),
          pa.ArrowInvalid, "must be 1D array"),

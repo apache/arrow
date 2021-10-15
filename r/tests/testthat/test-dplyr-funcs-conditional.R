@@ -268,14 +268,15 @@ test_that("case_when()", {
       collect(),
     tbl
   )
-  skip("ARROW-13799: factor() should error but instead we get a string error message in its place")
+
   expect_dplyr_equal(
     input %>%
       mutate(
         cw = case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct)
       ) %>%
       collect(),
-    tbl
+    tbl,
+    warning = TRUE
   )
 })
 

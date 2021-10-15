@@ -48,9 +48,15 @@
       'R/%s R (%s)',
       getRversion(),
       paste(getRversion(), R.version$platform, R.version$arch, R.version$os)
-    ),
-    warnPartialMatchAttr = TRUE,
-    warnPartialMatchDollar = TRUE,
-    warnPartialMatchArgs = TRUE
+    )
   )
+
+  # there's a bug in 3.5 that will warn/error on these, so only set it around that
+  if (getRversion() >= "3.6.0" || getRversion() < "3.5.0") {
+    options(
+      warnPartialMatchAttr = TRUE,
+      warnPartialMatchDollar = TRUE,
+      warnPartialMatchArgs = TRUE
+    )
+  }
 })

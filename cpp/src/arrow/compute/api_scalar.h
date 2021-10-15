@@ -876,7 +876,7 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// will be output.
 ///
 /// For example given values = [99, 42, 3, null] and
-/// value_set = [3, 3, 99], the output will be = [1, null, 0, null]
+/// value_set = [3, 3, 99], the output will be = [2, null, 0, null]
 ///
 /// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///

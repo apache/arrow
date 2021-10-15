@@ -19,19 +19,20 @@
 
 set -e
 
-arrow_dir=${1}
-cpp_lib_dir=${2}
-java_dist_dir=${3}
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <arch> <storage-testbench version>"
+  exit 1
+fi
 
-export ARROW_TEST_DATA=${arrow_dir}/testing/data
+arch=$1
+if [ "${arch}" != "amd64" ]; then
+  echo "GCS testbench won't install on non-x86 architecture"
+  exit 0
+fi
 
-pushd ${arrow_dir}/java
+version=$2
+if [[ "${version}" -eq "default" ]]; then
+  version="v0.7.0"
+fi
 
-# build the entire project
-mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_lib_dir
-
-# copy all jars and pom files to the distribution folder
-find . -name "*.jar" -exec echo {} \; -exec cp {} $java_dist_dir \;
-find . -name "*.pom" -exec echo {} \; -exec cp {} $java_dist_dir \;
-
-popd
+pip install "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"

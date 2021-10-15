@@ -161,6 +161,9 @@ func ArrayEqual(left, right Interface) bool {
 	case *DayTimeInterval:
 		r := right.(*DayTimeInterval)
 		return arrayEqualDayTimeInterval(l, r)
+	case *MonthDayNanoInterval:
+		r := right.(*MonthDayNanoInterval)
+		return arrayEqualMonthDayNanoInterval(l, r)
 	case *Duration:
 		r := right.(*Duration)
 		return arrayEqualDuration(l, r)
@@ -355,6 +358,9 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *DayTimeInterval:
 		r := right.(*DayTimeInterval)
 		return arrayEqualDayTimeInterval(l, r)
+	case *MonthDayNanoInterval:
+		r := right.(*MonthDayNanoInterval)
+		return arrayEqualMonthDayNanoInterval(l, r)
 	case *Duration:
 		r := right.(*Duration)
 		return arrayEqualDuration(l, r)

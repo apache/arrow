@@ -332,18 +332,17 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 		Offset: 0,
 	})
 
+	if arr.DataType().ID() == arrow.NULL {
+		return nil
+	}
+
 	switch arr.NullN() {
 	case 0:
 		p.body = append(p.body, nil)
 	default:
-		switch arr.DataType().ID() {
-		case arrow.NULL:
-			// Null type has no validity bitmap
-		default:
-			data := arr.Data()
-			bitmap := newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
-			p.body = append(p.body, bitmap)
-		}
+		data := arr.Data()
+		bitmap := newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
+		p.body = append(p.body, bitmap)
 	}
 
 	switch dtype := arr.DataType().(type) {
