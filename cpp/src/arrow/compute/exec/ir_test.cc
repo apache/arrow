@@ -55,6 +55,13 @@ int main(int argc, char** argv) {
 namespace arrow {
 namespace compute {
 
+bool HaveFlatbufferCompiler() {
+  if (int err = std::system("flatc --version")) {
+    return false;
+  }
+  return true;
+}
+
 std::shared_ptr<Buffer> FlatbufferFromJSON(std::string root_type,
                                            util::string_view json) {
   static std::unique_ptr<arrow::internal::TemporaryDir> dir;
@@ -106,6 +113,8 @@ auto ConvertJSON(util::string_view json) -> decltype(Convert(std::declval<Ir>())
 }
 
 TEST(Literal, Int64) {
+  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
+
   ASSERT_THAT(ConvertJSON<ir::Literal>(R"({
     type: {
       type_type: "Int",
@@ -126,6 +135,8 @@ TEST(Literal, Int64) {
 }
 
 TEST(Expression, Comparison) {
+  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
+
   ASSERT_THAT(ConvertJSON<ir::Expression>(R"({
     impl_type: "Call",
     impl: {
@@ -158,6 +169,8 @@ TEST(Expression, Comparison) {
 }
 
 TEST(Relation, Filter) {
+  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
+
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
     impl_type: "Filter",
@@ -249,6 +262,8 @@ TEST(Relation, Filter) {
 }
 
 TEST(Relation, AggregateSimple) {
+  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
+
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
@@ -375,6 +390,8 @@ TEST(Relation, AggregateSimple) {
 }
 
 TEST(Relation, AggregateWithHaving) {
+  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
+
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
@@ -591,6 +608,8 @@ TEST(Relation, AggregateWithHaving) {
 }
 
 TEST(Relation, ProjectionWithFilter) {
+  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
+
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
@@ -720,6 +739,8 @@ TEST(Relation, ProjectionWithFilter) {
 }
 
 TEST(Relation, ProjectionWithSort) {
+  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
+
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
