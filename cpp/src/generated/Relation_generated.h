@@ -1327,13 +1327,23 @@ struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BASE = 4,
     VT_NAME = 6,
-    VT_SCHEMA = 8
+    VT_FILTER = 8,
+    VT_SCHEMA = 10
   };
   const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
   }
   const flatbuffers::String *name() const {
     return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
+  /// An optional expression used to filter out rows directly from the source.
+  ///
+  /// Useful for consumers that implement predicate pushdown.
+  ///
+  /// A missing filter value indicates no filter, i.e., all rows are
+  /// returned from the source.
+  const org::apache::arrow::computeir::flatbuf::Expression *filter() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_FILTER);
   }
   const org::apache::arrow::flatbuf::Schema *schema() const {
     return GetPointer<const org::apache::arrow::flatbuf::Schema *>(VT_SCHEMA);
@@ -1344,6 +1354,8 @@ struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(base()) &&
            VerifyOffsetRequired(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_FILTER) &&
+           verifier.VerifyTable(filter()) &&
            VerifyOffsetRequired(verifier, VT_SCHEMA) &&
            verifier.VerifyTable(schema()) &&
            verifier.EndTable();
@@ -1359,6 +1371,9 @@ struct SourceBuilder {
   }
   void add_name(flatbuffers::Offset<flatbuffers::String> name) {
     fbb_.AddOffset(Source::VT_NAME, name);
+  }
+  void add_filter(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter) {
+    fbb_.AddOffset(Source::VT_FILTER, filter);
   }
   void add_schema(flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema) {
     fbb_.AddOffset(Source::VT_SCHEMA, schema);
@@ -1382,9 +1397,11 @@ inline flatbuffers::Offset<Source> CreateSource(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
     flatbuffers::Offset<flatbuffers::String> name = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
   SourceBuilder builder_(_fbb);
   builder_.add_schema(schema);
+  builder_.add_filter(filter);
   builder_.add_name(name);
   builder_.add_base(base);
   return builder_.Finish();
@@ -1394,12 +1411,14 @@ inline flatbuffers::Offset<Source> CreateSourceDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
     const char *name = nullptr,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateSource(
       _fbb,
       base,
       name__,
+      filter,
       schema);
 }
 
