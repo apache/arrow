@@ -334,12 +334,15 @@ round trip conversion for those:
    dtype: object
 
 This roundtrip conversion works because metadata about the original pandas
-DataFrame gets stored in the Arrow table. However, if you have Arrow data (or e.g. a Parquet file) not
-originating from a pandas DataFrame with nullable data types, the default conversion to pandas will not use those nullable dtypes.
+DataFrame gets stored in the Arrow table. However, if you have Arrow data (or
+e.g. a Parquet file) not originating from a pandas DataFrame with nullable
+data types, the default conversion to pandas will not use those nullable
+dtypes.
 
-The :meth:`Table.to_pandas` method has a ``types_mapper`` keyword that can be used
-to override the default data type used for the resulting pandas DataFrame. This way,
-you can instruct Arrow to create a pandas DataFrame using nullable dtypes.
+The :meth:`Table.to_pandas` method has a ``types_mapper`` keyword that can be
+used to override the default data type used for the resulting pandas
+DataFrame. This way, you can instruct Arrow to create a pandas DataFrame
+using nullable dtypes.
 
 .. code-block:: python
 
