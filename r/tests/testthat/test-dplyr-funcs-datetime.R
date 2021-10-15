@@ -28,15 +28,19 @@ withr::local_timezone("UTC")
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
 if (tolower(Sys.info()[["sysname"]]) == "windows") {
-  test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
+  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "")
 } else {
-  test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
+  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 }
 
-skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13588
 
 test_df <- tibble::tibble(
-  datetime = c(test_date, NA),
+  # test_date + 1 turns the tzone = "" to NULL, which is functionally equivalent
+  # so we can run some tests on Windows, but this skirts around
+  # https://issues.apache.org/jira/browse/ARROW-13588
+  # That issue is tough because in C++, "" is the "no timezone" value
+  # due to static typing, so we can't distinguish a literal "" from NULL
+  datetime = c(test_date, NA) + 1,
   date = c(as.Date("2021-09-09"), NA)
 )
 

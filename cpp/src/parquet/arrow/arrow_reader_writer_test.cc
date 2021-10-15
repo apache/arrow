@@ -4196,6 +4196,12 @@ struct NestedFilterTestCase {
   std::shared_ptr<::arrow::DataType> expected_schema;
   std::string write_data;
   std::string read_data;
+
+  // For Valgrind
+  friend std::ostream& operator<<(std::ostream& os, const NestedFilterTestCase& param) {
+    os << "NestedFilterTestCase{write_schema = " << param.write_schema->ToString() << "}";
+    return os;
+  }
 };
 class TestNestedSchemaFilteredReader
     : public ::testing::TestWithParam<NestedFilterTestCase> {};

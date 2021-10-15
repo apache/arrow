@@ -69,6 +69,12 @@ skip_on_valgrind <- function() {
   }
 }
 
+skip_if_r_version <- function(r_version) {
+  if (getRversion() <= r_version) {
+    skip(paste("R version:", getRversion()))
+  }
+}
+
 process_is_running <- function(x) {
   cmd <- sprintf("ps aux | grep '%s' | grep -v grep", x)
   tryCatch(system(cmd, ignore.stdout = TRUE) == 0, error = function(e) FALSE)

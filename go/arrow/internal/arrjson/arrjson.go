@@ -169,6 +169,8 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 		typ = unitZoneJSON{Name: "interval", Unit: "YEAR_MONTH"}
 	case *arrow.DayTimeIntervalType:
 		typ = unitZoneJSON{Name: "interval", Unit: "DAY_TIME"}
+	case *arrow.MonthDayNanoIntervalType:
+		typ = unitZoneJSON{Name: "interval", Unit: "MONTH_DAY_NANO"}
 	case *arrow.DurationType:
 		switch dt.Unit {
 		case arrow.Second:
@@ -388,6 +390,8 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			f.arrowType = arrow.FixedWidthTypes.MonthInterval
 		case "DAY_TIME":
 			f.arrowType = arrow.FixedWidthTypes.DayTimeInterval
+		case "MONTH_DAY_NANO":
+			f.arrowType = arrow.FixedWidthTypes.MonthDayNanoInterval
 		}
 	case "duration":
 		t := unitZoneJSON{}
@@ -889,6 +893,14 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		bldr.AppendValues(data, valids)
 		return bldr.NewArray()
 
+	case *arrow.MonthDayNanoIntervalType:
+		bldr := array.NewMonthDayNanoIntervalBuilder(mem)
+		defer bldr.Release()
+		data := monthDayNanointervalFromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return bldr.NewArray()
+
 	case *arrow.DurationType:
 		bldr := array.NewDurationBuilder(mem, dt)
 		defer bldr.Release()
@@ -1153,6 +1165,13 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 			Name:   field.Name,
 			Count:  arr.Len(),
 			Data:   daytimeintervalToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+	case *array.MonthDayNanoInterval:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   monthDayNanointervalToJSON(arr),
 			Valids: validsToJSON(arr),
 		}
 	case *array.Duration:
@@ -1665,6 +1684,35 @@ func daytimeintervalFromJSON(vs []interface{}) []arrow.DayTimeInterval {
 }
 
 func daytimeintervalToJSON(arr *array.DayTimeInterval) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.Value(i)
+	}
+	return o
+}
+
+func monthDayNanointervalFromJSON(vs []interface{}) []arrow.MonthDayNanoInterval {
+	o := make([]arrow.MonthDayNanoInterval, len(vs))
+	for i, vv := range vs {
+		v := vv.(map[string]interface{})
+		months, err := v["months"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		days, err := v["days"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		ns, err := v["nanoseconds"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		o[i] = arrow.MonthDayNanoInterval{Months: int32(months), Days: int32(days), Nanoseconds: ns}
+	}
+	return o
+}
+
+func monthDayNanointervalToJSON(arr *array.MonthDayNanoInterval) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
 		o[i] = arr.Value(i)

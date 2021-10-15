@@ -37,9 +37,8 @@ do_exec_plan <- function(.data) {
     original_schema <- source_data(.data)$schema
     # TODO: do we care about other (non-R) metadata preservation?
     # How would we know if it were meaningful?
-    r_meta <- original_schema$metadata$r
+    r_meta <- original_schema$r_metadata
     if (!is.null(r_meta)) {
-      r_meta <- .unserialize_arrow_r_metadata(r_meta)
       # Filter r_metadata$columns on columns with name _and_ type match
       new_schema <- tab$schema
       common_names <- intersect(names(r_meta$columns), names(tab))
@@ -51,7 +50,7 @@ do_exec_plan <- function(.data) {
         # dplyr drops top-level attributes if you do summarize
         r_meta$attributes <- NULL
       }
-      tab$metadata$r <- .serialize_arrow_r_metadata(r_meta)
+      tab$r_metadata <- r_meta
     }
   }
 
