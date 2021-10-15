@@ -174,8 +174,7 @@ void WriteParquetFile() {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
 
   PARQUET_ASSIGN_OR_THROW(
-      outfile,
-      arrow::io::FileOutputStream::Open("parquet-stream-api-example.parquet"));
+      outfile, arrow::io::FileOutputStream::Open("parquet-stream-api-example.parquet"));
 
   parquet::WriterProperties::Builder builder;
 
@@ -233,8 +232,7 @@ void ReadParquetFile() {
   std::shared_ptr<arrow::io::ReadableFile> infile;
 
   PARQUET_ASSIGN_OR_THROW(
-      infile,
-      arrow::io::ReadableFile::Open("parquet-stream-api-example.parquet"));
+      infile, arrow::io::ReadableFile::Open("parquet-stream-api-example.parquet"));
 
   parquet::StreamReader os{parquet::ParquetFileReader::Open(infile)};
 
