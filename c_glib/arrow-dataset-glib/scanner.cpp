@@ -174,7 +174,9 @@ gadataset_scanner_builder_set_property(GObject *object,
         g_value_get_pointer(value));
     break;
   case PROP_USE_ASYNC:
-    priv->scanner_builder->UseAsync(g_value_get_boolean(value));
+    garrow::check(nullptr,
+                  priv->scanner_builder->UseAsync(g_value_get_boolean(value)),
+                  "[scanner-builder][use-async][set]");
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -283,7 +285,7 @@ gadataset_scanner_builder_set_filter(GADatasetScannerBuilder *builder,
   auto arrow_expression = garrow_expression_get_raw(expression);
   return garrow::check(error,
                        arrow_builder->Filter(*arrow_expression),
-                       "[scanner-builder][use-async]");
+                       "[scanner-builder][filter][set]");
 }
 
 /**
