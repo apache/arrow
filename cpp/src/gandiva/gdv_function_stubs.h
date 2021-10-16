@@ -18,7 +18,6 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
 #include "gandiva/visibility.h"
 
