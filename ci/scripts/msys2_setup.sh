@@ -60,7 +60,7 @@ case "${target}" in
     ;;
 esac
 
-case "${target}" in 
+case "${target}" in
   cgo)
     packages+=(${MINGW_PACKAGE_PREFIX}-arrow)
     packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
@@ -74,5 +74,11 @@ pacman \
   --sync \
   "${packages[@]}"
 
-"$(dirname $0)/ccache_setup.sh"
-echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+# https://issues.apache.org/jira/browse/ARROW-14308
+# https://github.com/msys2/MINGW-packages/issues/9771
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100486
+# Disabled ccache on mingw-w64-i686 temporary because it's crashed.
+if [ "${MINGW_PACKAGE_PREFIX}" != "mingw-w64-i686" ]; then
+  "$(dirname $0)/ccache_setup.sh"
+  echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+fi
