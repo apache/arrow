@@ -191,6 +191,11 @@ struct ARROW_EXPORT Datum {
     return util::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
+  /// \brief Estimate the size (in bytes) of all buffers
+  /// Note: Scalars report a size of 0
+  /// \see arrow::util::EstimateBufferSize for caveats
+  int64_t EstimateBufferSize() const;
+
   ArrayData* mutable_array() const { return this->array().get(); }
 
   std::shared_ptr<Array> make_array() const;

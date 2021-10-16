@@ -212,6 +212,15 @@ struct ARROW_EXPORT ExecBatch {
   /// by ExecBatchIterator which by design does not yield length-0 batches.
   int64_t length;
 
+  /// \brief Estimate the size of the batch (in bytes)
+  ///
+  /// Note: Scalars are not counted
+  /// Note: If any values share buffers then this method
+  ///       will overestimate the size. (ARROW-14357)
+  /// Note: If any values have an offset then this method
+  ///       will overestimate the size. (ARROW-14356)
+  int64_t EstimateBufferSize() const;
+
   /// \brief Return the value at the i-th index
   template <typename index_type>
   inline const Datum& operator[](index_type i) const {
