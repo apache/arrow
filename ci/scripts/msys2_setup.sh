@@ -79,13 +79,16 @@ pacman \
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100486
 # Use old gcc-libs as workaround.
 if [ "${MINGW_PACKAGE_PREFIX}" == "mingw-w64-i686" ]; then
-  curl \
-    --location \
-    --remote-name \
-    --show-error \
-    --silent \
-    https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-gcc-libs-10.3.0-5-any.pkg.tar.zst
-  pacman --noconfirm --upgrade mingw-w64-i686-gcc-libs-10.3.0-5-any.pkg.tar.zst
+  for package in gcc gcc-libs gcc-libgfortran; do
+    curl \
+      --location \
+      --remote-name \
+      --show-error \
+      --silent \
+      https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-${package}-10.3.0-5-any.pkg.tar.zst
+  done
+  pacman --noconfirm --upgrade *.pkg.tar.zst
+  rm *.pkg.tar.zst
 fi
 "$(dirname $0)/ccache_setup.sh"
 echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
