@@ -55,12 +55,7 @@ int main(int argc, char** argv) {
 namespace arrow {
 namespace compute {
 
-bool HaveFlatbufferCompiler() {
-  if (int err = std::system("flatc --version")) {
-    return false;
-  }
-  return true;
-}
+bool HaveFlatbufferCompiler() { return std::system("flatc --version") == 0; }
 
 std::shared_ptr<Buffer> FlatbufferFromJSON(std::string root_type,
                                            util::string_view json) {
