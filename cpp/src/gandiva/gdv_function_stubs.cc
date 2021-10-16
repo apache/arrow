@@ -819,6 +819,8 @@ const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
     words.push_back(token);
     data_str.erase(0, pos_str + 1);
   }
+  // Add last word to vector
+  words.push_back(data_str);
 
   if (static_cast<int32_t>(words.size()) < pos) {
     *out_len = 0;
