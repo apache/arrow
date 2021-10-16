@@ -1661,17 +1661,17 @@ TEST_F(TestProjector, TestConcatWsFunction) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 1;
+  int num_records = 2;
 
-  std::string string0 = "john, doe";
-  std::string string1 = "mary, montero";
+  std::string string0 = "john, doe, mary";
+  std::string string1 = "hello, world, harry";
 
 
-  auto array0 = MakeArrowArrayUtf8({"-"}, {true});
-  auto array1 = MakeArrowArrayUtf8({string0}, {true});
+  auto array0 = MakeArrowArrayUtf8({"-", "<>"}, {true, true});
+  auto array1 = MakeArrowArrayUtf8({string0, string1}, {true, true});
   auto in_batch0 = arrow::RecordBatch::Make(schema0, num_records, {array0, array1});
 
-  auto expected_out0 = MakeArrowArrayUtf8({"john-doe"}, {true});
+  auto expected_out0 = MakeArrowArrayUtf8({"john-doe-mary", "hello<>world<>harry"}, {true, true});
 
   arrow::ArrayVector outputs;
 

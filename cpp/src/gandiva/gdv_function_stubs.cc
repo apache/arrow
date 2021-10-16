@@ -805,28 +805,24 @@ const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
     return "";
   }
 
-  // Make const char* to vector
   std::string concat = "";
-  char tokenizable_data[strlen(data)];
-  strcpy(tokenizable_data, data);
-  char* word;
-  word = std::strtok(tokenizable_data, ",");
-  while (word != NULL) {
-    // start trim whitespaces
-    char* end;
-    // trim leading space
-    while (isspace((unsigned char)*word)) word++;
-    if (*word != 0) {
-      // trim trailing space
-      end = word + strlen(word) - 1;
-      while (end > word && isspace((unsigned char)*end)) end--;
-      end[1] = '\0';
-    }
-    // finish trim whitespaces
-    concat.append(word);
-    concat.append(separator);
-    word = strtok(NULL, ",");
+  std::string data_str(data, data_len);
+  std::string sep(separator, separator_len);
+
+  size_t pos_str = 0;
+  std::string token;
+  while ((pos_str = data_str.find(',')) != std::string::npos) {
+    token = data_str.substr(0, pos_str);
+    token.erase(std::remove(token.begin(),token.end(),' '),token.end());
+    concat.append(token);
+    concat.append(sep);
+    data_str.erase(0, pos_str + 1);
   }
+
+  //Get last word to be concatenated
+  data_str.erase(std::remove(data_str.begin(),data_str.end(),' '),data_str.end());
+  concat.append(data_str);
+  concat.append(sep);
 
   std::string result = "";
   if (separator_len > 0) {
@@ -845,7 +841,7 @@ const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
     return "";
   }
 
-  strcpy(out, result.c_str());
+  memcpy(out, result.c_str(), *out_len);
   return out;
 }
 }
