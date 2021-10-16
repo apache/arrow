@@ -83,7 +83,7 @@ if [ "${MINGW_PACKAGE_PREFIX}" == "mingw-w64-i686" ]; then
     --location \
     --remote-name \
     --show-error \
-    --silient \
+    --silent \
     https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-gcc-libs-10.3.0-5-any.pkg.tar.zst
   pacman --noconfirm --upgrade mingw-w64-i686-gcc-libs-10.3.0-5-any.pkg.tar.zst
 fi
