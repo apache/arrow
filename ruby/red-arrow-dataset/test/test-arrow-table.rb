@@ -74,7 +74,7 @@ class TestArrowTable < Test::Unit::TestCase
       assert_equal(Arrow::Table.new(visible: [true, true, true],
                                     point: [1, 3, 10]),
                    Arrow::Table.load(@dir,
-                                     filter: ["equal", :visible, true])
+                                     filter: ["equal", :visible, true]))
     end
   end
 end
