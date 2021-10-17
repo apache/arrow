@@ -372,7 +372,7 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			// non-zero offset: slice the buffer
 			offset := int64(data.Offset()) * typeWidth
 			// send padding if available
-			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(data.Len())-offset)
+			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len())-offset)
 			values = memory.NewBufferBytes(values.Bytes()[offset : offset+len])
 		default:
 			if values != nil {
@@ -564,7 +564,7 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.B
 		shiftedOffsets.Resize(arrow.Int32Traits.BytesRequired(data.Len() + 1))
 
 		dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
-		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Len()+2]
+		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
 
 		startOffset := offsets[0]
 		for i, o := range offsets {
