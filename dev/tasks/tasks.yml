@@ -924,7 +924,7 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
-      flags: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD={{ cpp_standard }}"
+      flags: "--no-cache -e CMAKE_ARGS=-DCMAKE_CXX_STANDARD={{ cpp_standard }}"
       image: ubuntu-cpp
 {% endfor %}
 
