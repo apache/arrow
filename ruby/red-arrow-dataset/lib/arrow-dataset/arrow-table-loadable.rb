@@ -40,7 +40,16 @@ module ArrowDataset
       dataset = FileSystemDataset.build(format) do |factory|
         factory.file_system_uri = uri
       end
-      dataset.to_table
+      scanner_builder = dataset.begin_scan
+      @options.each do |key, value|
+        next if key == :format
+        next if value.nil?
+        setter = "#{key}="
+        next unless scanner_builder.respond_to?(setter)
+        scanner_builder.public_send(setter, value)
+      end
+      scanner = scanner_builder.finish
+      scanner.to_table
     end
   end
 end
