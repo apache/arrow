@@ -210,7 +210,7 @@ boolean flags to ``cmake``.
 * ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2 
   library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``
 * ``-DARROW_WITH_UTF8PROC=ON``: Build with support for Unicode properties using
-  the utf8proc library, on by default and used when ARROW_COMPUTE or ARROW_GANDIVA
+  the utf8proc library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA``
   is ON
 * ``-DARROW_TENSORFLOW=ON``: Build Arrow with TensorFlow support enabled
 
