@@ -208,7 +208,7 @@ boolean flags to ``cmake``.
   ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
 * ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2 
-  library, on by default and used when ARROW_COMPUTE or ARROW_GANDIVA is ON
+  library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``
 * ``-DARROW_WITH_UTF8PROC=ON``: Build with support for Unicode properties using
   the utf8proc library, on by default and used when ARROW_COMPUTE or ARROW_GANDIVA
   is ON
