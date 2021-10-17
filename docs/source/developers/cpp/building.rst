@@ -287,17 +287,17 @@ Build Dependency Management
 
 The build system supports a number of third-party dependencies
 
-  * ``AWSSDK``: for S3 support, requires system cURL even we use the
-    ``BUNDLE`` method described below
+  * ``AWSSDK``: for S3 support, requires system cURL and can use the
+    ``BUNDLED`` method described below
   * ``benchmark``: Google benchmark, for testing
   * ``Boost``: for cross-platform support
   * ``Brotli``: for data compression
   * ``BZip2``: for data compression
   * ``c-ares``: a dependency of gRPC
-  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires system cURL even we use the
-    ``BUNDLE`` method described below
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``GLOG``: for logging
+  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires 
+    system cURL and can use the ``BUNDLED`` method described below
   * ``gRPC``: for remote procedure calls
   * ``GTest``: Googletest, for testing
   * ``LLVM``: a dependency of Gandiva
