@@ -30,7 +30,7 @@ test_that("to_duckdb", {
     ds %>%
       to_duckdb() %>%
       collect() %>%
-      # factors don't roundtrip
+      # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(!fct),
     select(example_data, !fct)
   )
@@ -62,6 +62,53 @@ test_that("to_duckdb", {
       mean_int = c(3, 6.25, 8.5),
       mean_dbl = c(3.1, 6.35, 6.1)
     )
+  )
+})
+
+test_that("to_duckdb then to_arrow", {
+  ds <- InMemoryDataset$create(example_data)
+
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct) %>%
+    to_arrow()
+
+  expect_identical(
+    collect(ds_rt),
+    ds %>%
+      select(-fct) %>%
+      collect()
+  )
+
+  # And we can continue the pipeline
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct) %>%
+    to_arrow() %>%
+    filter(int > 5)
+
+  expect_identical(
+    collect(ds_rt),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5) %>%
+      collect()
+  )
+
+  # Now check errors
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct)
+
+  # alter the class of ds_rt's connection to simulate some other database
+  class(ds_rt$src$con) <- "some_other_connection"
+
+  expect_error(
+    to_arrow(ds_rt),
+    "to_arrow\\(\\) currently only supports Arrow tables, Arrow datasets,"
   )
 })
 

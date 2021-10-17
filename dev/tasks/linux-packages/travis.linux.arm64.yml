@@ -131,6 +131,7 @@ script:
       rake docker:push || :
   - popd
   # Test built packages
+  - sudo gem install apt-dists-merge
   - |
       (echo "Key-Type: RSA"; \
        echo "Key-Length: 4096"; \

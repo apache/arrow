@@ -206,18 +206,27 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
     int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
     uint64(), float32(), float64(), timestamp("ns"), binary(),
     large_binary(), fixed_size_binary(32), date32(), date64(),
-    decimal(4, 2)
+    decimal(4, 2), dictionary(), struct(x = int32())
   )
 
   empty_filter <- ChunkedArray$create(type = bool())
   for (type in types) {
     one_empty_chunk <- ChunkedArray$create(type = type)
     expect_type_equal(one_empty_chunk$type, type)
-    expect_identical(length(one_empty_chunk), length(as.vector(one_empty_chunk)))
+    if (type != struct(x = int32())) {
+      expect_identical(length(one_empty_chunk), length(as.vector(one_empty_chunk)))
+    } else {
+      # struct -> tbl and length(tbl) is num_columns instead of num_rows
+      expect_identical(length(as.vector(one_empty_chunk)), 1L)
+    }
     zero_empty_chunks <- one_empty_chunk$Filter(empty_filter)
     expect_equal(zero_empty_chunks$num_chunks, 0)
     expect_type_equal(zero_empty_chunks$type, type)
-    expect_identical(length(zero_empty_chunks), length(as.vector(zero_empty_chunks)))
+    if (type != struct(x = int32())) {
+      expect_identical(length(zero_empty_chunks), length(as.vector(zero_empty_chunks)))
+    } else {
+      expect_identical(length(as.vector(zero_empty_chunks)), 1L)
+    }
   }
 })
 

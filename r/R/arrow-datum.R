@@ -232,6 +232,7 @@ is.sliceable <- function(i) {
   is.numeric(i) &&
     length(i) > 0 &&
     all(i > 0) &&
+    i[1] <= i[length(i)] &&
     identical(as.integer(i), i[1]:i[length(i)])
 }
 
