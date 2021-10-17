@@ -195,7 +195,7 @@ boolean flags to ``cmake``.
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
-* ``ARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
+* ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
 * ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
