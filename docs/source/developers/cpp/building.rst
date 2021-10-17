@@ -176,7 +176,6 @@ By default, the C++ build system creates a fairly minimal build. We have
 several optional system components which you can opt into building by passing
 boolean flags to ``cmake``.
 
-
 * ``-DARROW_BUILD_UTILITIES=ON`` : Build Arrow commandline utilities
 * ``-DARROW_COMPUTE=ON``: Computational kernel functions and other support
 * ``-DARROW_CSV=ON``: CSV reader module
