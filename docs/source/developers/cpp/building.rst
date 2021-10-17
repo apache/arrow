@@ -191,13 +191,13 @@ boolean flags to ``cmake``.
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
 * ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java
-* ``-DARROW_GCS=ON`` : Build Arrow with GCS support (requires the GCloud SDK for C++)
+* ``-DARROW_GCS=ON``: Build Arrow with GCS support (requires the GCloud SDK for C++)
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
-* ``ARROW_JEMALLOC=ON`` : Build the Arrow jemalloc-based allocator, on by default 
+* ``ARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
 * ``-DARROW_JSON=ON``: JSON reader module
-* ``-DARROW_MIMALLOC=ON`` : Build the Arrow mimalloc-based allocator
+* ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
 * ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
@@ -210,10 +210,10 @@ boolean flags to ``cmake``.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
 * ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2 
   library, on by default and used when ARROW_COMPUTE or ARROW_GANDIVA is ON
-* ``-DARROW_WITH_UTF8PROC=ON`` : Build with support for Unicode properties using
+* ``-DARROW_WITH_UTF8PROC=ON``: Build with support for Unicode properties using
   the utf8proc library, on by default and used when ARROW_COMPUTE or ARROW_GANDIVA
   is ON
-* ``-DARROW_TENSORFLOW=ON`` : Build Arrow with TensorFlow support enabled
+* ``-DARROW_TENSORFLOW=ON``: Build Arrow with TensorFlow support enabled
 
 Compression options available in Arrow are:
 
@@ -295,6 +295,7 @@ The build system supports a number of third-party dependencies
   * ``Brotli``: for data compression
   * ``BZip2``: for data compression
   * ``c-ares``: a dependency of gRPC
+  * ``GCloud SDK``: C++ SDK for Google cloud storage support
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``GLOG``: for logging
   * ``gRPC``: for remote procedure calls
