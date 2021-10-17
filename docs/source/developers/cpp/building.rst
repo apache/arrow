@@ -294,7 +294,8 @@ The build system supports a number of third-party dependencies
   * ``Brotli``: for data compression
   * ``BZip2``: for data compression
   * ``c-ares``: a dependency of gRPC
-  * ``GCloud SDK``: C++ SDK for Google cloud storage support
+  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires system cURL even we use the
+    ``BUNDLE`` method described below
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``GLOG``: for logging
   * ``gRPC``: for remote procedure calls
