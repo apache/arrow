@@ -211,7 +211,7 @@ boolean flags to ``cmake``.
   library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``
 * ``-DARROW_WITH_UTF8PROC=ON``: Build with support for Unicode properties using
   the utf8proc library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA``
-  is ON
+  is ``ON``
 * ``-DARROW_TENSORFLOW=ON``: Build Arrow with TensorFlow support enabled
 
 Compression options available in Arrow are:
