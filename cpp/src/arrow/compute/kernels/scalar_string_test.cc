@@ -154,8 +154,7 @@ TYPED_TEST(TestBinaryKernels, NonUtf8) {
         this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
         this->offset_type(), "[0, 2, -1]", &options);
 
-    // @ = \x40
-    options.pattern = "@";
+    options.pattern = "\x40";
     this->CheckUnary(
         "find_substring",
         this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
@@ -166,12 +165,6 @@ TYPED_TEST(TestBinaryKernels, NonUtf8) {
                      this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
                                       "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
                      this->offset_type(), "[1, 1, 0, 2]", &options);
-
-    options.pattern = "@";
-    this->CheckUnary("count_substring",
-                     this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab",
-                                      "\x01\xfc\x41", "\x01\xfc\x40\x40\xfc\x40\xab"}),
-                     this->offset_type(), "[1, 1, 0, 3]", &options);
 
     options.pattern = "\xfc\x40";
     this->CheckUnary("match_substring",
@@ -280,26 +273,17 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNull) {
 TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
   for (auto ignore_case : {true, false}) {
     MatchSubstringOptions options("\xfc\x40", ignore_case);
-    // @ = \x40
-    options.pattern = "@+";
+    options.pattern = "\x40+";
     this->CheckUnary(
         "find_substring_regex",
         this->MakeArray({"\xfc\x40\xab", "\xff\x9b\xfc\x40\xab", "\x01\xfc\x41"}),
         this->offset_type(), "[1, 3, -1]", &options);
 
-    // @ = \x40, A = \x41
-    options.pattern = "@*A";
+    options.pattern = "\x40*\x41";
     this->CheckUnary("count_substring_regex",
                      this->MakeArray({"\xfc\x42\xab", "\xff\x9b\x40\x41\xab",
                                       "\x01\x41\x41", "\x01\x40\x41\x40\x40\x41\xab"}),
                      this->offset_type(), "[0, 1, 2, 2]", &options);
-
-    // options.pattern = "@*A";
-    options.pattern = "\x40*\x41";
-    this->CheckUnary("match_substring_regex",
-                     this->MakeArray({"\xfc\x42\xab", "\xff\x9b\x40\x41\xab",
-                                      "\x01\x41\x41", "\x01\x40\x41\x40\x40\x41\xab"}),
-                     boolean(), "[false, true, true, true]", &options);
 
     options.pattern = "\xfc*\xab";
     this->CheckUnary("match_substring_regex",
