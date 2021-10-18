@@ -1286,6 +1286,33 @@ def test_compressed_input_bz2(tmpdir):
         pytest.skip(str(e))
 
 
+@pytest.mark.gzip
+def test_compressed_input_openfile(tmpdir):
+    if not Codec.is_available("gzip"):
+        pytest.skip("gzip support is not built")
+
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "test_compressed_input_openfile.gz")
+    with gzip.open(fn, "wb") as f:
+        f.write(data)
+
+    with pa.CompressedInputStream(fn, "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert compressed.closed
+
+    with pa.CompressedInputStream(pathlib.Path(fn), "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert compressed.closed
+
+    f = open(fn, "rb")
+    with pa.CompressedInputStream(f, "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert f.closed
+
+
 def check_compressed_concatenated(data, fn, compression):
     raw = pa.OSFile(fn, mode="rb")
     with pa.CompressedInputStream(raw, compression) as compressed:

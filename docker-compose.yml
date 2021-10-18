@@ -754,7 +754,7 @@ services:
       args:
         arch_alias: ${ARCH_ALIAS}
         arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2020-12-03-912b0de
+        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
@@ -777,7 +777,7 @@ services:
       args:
         arch_alias: ${ARCH_ALIAS}
         arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2020-11-11-bc8ce45
+        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .

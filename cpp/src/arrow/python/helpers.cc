@@ -162,11 +162,40 @@ Status IntegerOverflowStatus(PyObject* obj, const std::string& overflow_message)
   }
 }
 
+Result<OwnedRef> PyObjectToPyInt(PyObject* obj) {
+  // Try to call __index__ or __int__ on `obj`
+  // (starting from Python 3.10, the latter isn't done anymore by PyLong_AsLong*).
+  OwnedRef ref(PyNumber_Index(obj));
+  if (ref) {
+    return ref;
+  }
+  PyErr_Clear();
+  const auto nb = Py_TYPE(obj)->tp_as_number;
+  if (nb && nb->nb_int) {
+    ref.reset(nb->nb_int(obj));
+    if (!ref) {
+      RETURN_IF_PYERROR();
+    }
+    DCHECK(ref);
+    return ref;
+  }
+  return Status::TypeError(
+      "object of type ",
+      PyObject_StdStringRepr(reinterpret_cast<PyObject*>(Py_TYPE(obj))),
+      " cannot be converted to int");
+}
+
 // Extract C signed int from Python object
 template <typename Int, enable_if_t<std::is_signed<Int>::value, Int> = 0>
 Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
   static_assert(sizeof(Int) <= sizeof(long long),  // NOLINT
                 "integer type larger than long long");
+
+  OwnedRef ref;
+  if (!PyLong_Check(obj)) {
+    ARROW_ASSIGN_OR_RAISE(ref, PyObjectToPyInt(obj));
+    obj = ref.obj();
+  }
 
   if (sizeof(Int) > sizeof(long)) {  // NOLINT
     const auto value = PyLong_AsLongLong(obj);
@@ -199,15 +228,11 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
                 "integer type larger than unsigned long long");
 
   OwnedRef ref;
-  // PyLong_AsUnsignedLong() and PyLong_AsUnsignedLongLong() don't handle
-  // conversion from non-ints (e.g. np.uint64), so do it ourselves
   if (!PyLong_Check(obj)) {
-    ref.reset(PyNumber_Index(obj));
-    if (!ref) {
-      RETURN_IF_PYERROR();
-    }
+    ARROW_ASSIGN_OR_RAISE(ref, PyObjectToPyInt(obj));
     obj = ref.obj();
   }
+
   if (sizeof(Int) > sizeof(unsigned long)) {  // NOLINT
     const auto value = PyLong_AsUnsignedLongLong(obj);
     if (ARROW_PREDICT_FALSE(value == static_cast<decltype(value)>(-1))) {
