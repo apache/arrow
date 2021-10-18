@@ -426,7 +426,7 @@ public class FlightSqlClient implements AutoCloseable {
    * @param parentCatalog     The catalog name where the parent table is.
    * @param parentSchema      The Schema name where the parent table is.
    * @param parentTable       The parent table name. It cannot be null.
-   * @param foreignCatalog    The calalog name where the foreign table is.
+   * @param foreignCatalog    The catalog name where the foreign table is.
    * @param foreignSchema     The schema name where the foreign table is.
    * @param foreignTable      The foreign table name. It cannot be null.
    * @param options           RPC-layer hints for this call.
