@@ -63,7 +63,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -646,7 +645,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                     Field.notNullable(KEY_NAME, INT.getType()),
                     new Field(
                         VALUE_NAME, FieldType.nullable(LIST.getType()),
-                        singletonList(Field.nullable("int_32_data", INT.getType()))))))));
+                        singletonList(Field.nullable(ListVector.DATA_VECTOR_NAME, INT.getType()))))))));
     public static final Schema GET_SQL_INFO_SCHEMA =
         new Schema(asList(
             Field.notNullable("info_name", UINT4.getType()),

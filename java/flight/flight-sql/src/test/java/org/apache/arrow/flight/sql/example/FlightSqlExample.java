@@ -28,6 +28,12 @@ import static java.util.stream.StreamSupport.stream;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
 import static org.apache.arrow.util.Preconditions.checkState;
+import static org.apache.arrow.vector.complex.MapVector.DATA_VECTOR_NAME;
+import static org.apache.arrow.vector.complex.MapVector.KEY_NAME;
+import static org.apache.arrow.vector.complex.MapVector.VALUE_NAME;
+import static org.apache.arrow.vector.types.Types.MinorType.INT;
+import static org.apache.arrow.vector.types.Types.MinorType.LIST;
+import static org.apache.arrow.vector.types.Types.MinorType.STRUCT;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.ByteArrayOutputStream;
@@ -136,6 +142,7 @@ import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
@@ -588,7 +595,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             new Field(
                 "string_list",
                 FieldType.nullable(MinorType.LIST.getType()),
-                singletonList(Field.nullable("string_data", MinorType.VARCHAR.getType())))));
+                singletonList(Field.nullable(ListVector.DATA_VECTOR_NAME, MinorType.VARCHAR.getType()))),
+            new Field(
+                "int32_to_int32_list_map", FieldType.nullable(new ArrowType.Map(false)),
+                singletonList(new Field(DATA_VECTOR_NAME, new FieldType(false, STRUCT.getType(), null),
+                    ImmutableList.of(
+                        Field.notNullable(KEY_NAME, INT.getType()),
+                        new Field(
+                            VALUE_NAME, FieldType.nullable(LIST.getType()),
+                            singletonList(Field.nullable(ListVector.DATA_VECTOR_NAME, INT.getType())))))))));
+
     final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
     final byte stringValueId = 0;
     final byte boolValueId = 1;
@@ -668,7 +684,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
         final ArrowVectorIterator iterator = sqlToArrowVectorIterator(resultSet, rootAllocator);
         while (iterator.hasNext()) {
-          final VectorUnloader unloader = new VectorUnloader(iterator.next());
+          final VectorSchemaRoot batch = iterator.next();
+          if (batch.getRowCount() == 0) {
+            break;
+          }
+          final VectorUnloader unloader = new VectorUnloader(batch);
           loader.load(unloader.getRecordBatch());
           listener.putNext();
           vectorSchemaRoot.clear();
@@ -704,7 +724,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     try {
       // Ownership of the connection will be passed to the context. Do NOT close!
       final Connection connection = dataSource.getConnection();
-      final Statement statement = connection.createStatement();
+      final Statement statement = connection.createStatement(
+          ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
       final String query = request.getQuery();
       final StatementContext<Statement> statementContext = new StatementContext<>(statement, query);
 
@@ -776,7 +797,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
       // Ownership of the connection will be passed to the context. Do NOT close!
       final Connection connection = dataSource.getConnection();
-      final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery());
+      final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
+          ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
       final StatementContext<PreparedStatement> preparedStatementContext =
           new StatementContext<>(preparedStatement, request.getQuery());
 
@@ -1639,7 +1661,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final String pkCatalog = command.hasPkCatalog() ? command.getPkCatalog() : null;
     final String pkSchema = command.hasPkSchema() ? command.getPkSchema() : null;
     final String fkCatalog = command.hasFkCatalog() ? command.getFkCatalog() : null;
-    final String fkSchema = command.hasFkSchema() ? command.getFkSchema() : null ;
+    final String fkSchema = command.hasFkSchema() ? command.getFkSchema() : null;
     final String pkTable = command.getPkTable();
     final String fkTable = command.getFkTable();
 
