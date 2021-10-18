@@ -562,6 +562,35 @@ public class TestFlightSql {
   }
 
   @Test
+  public void testGetCommandCrossReference() {
+    final FlightInfo flightInfo = sqlClient.getCrossReference(null, null,
+        "FOREIGNTABLE", null, null, "INTTABLE");
+    final FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
+
+    final List<List<String>> results = getResults(stream);
+
+    final List<Matcher<String>> matchers = asList(
+        nullValue(String.class), // pk_catalog_name
+        is("APP"), // pk_schema_name
+        is("FOREIGNTABLE"), // pk_table_name
+        is("ID"), // pk_column_name
+        nullValue(String.class), // fk_catalog_name
+        is("APP"), // fk_schema_name
+        is("INTTABLE"), // fk_table_name
+        is("FOREIGNID"), // fk_column_name
+        is("1"), // key_sequence
+        containsString("SQL"), // fk_key_name
+        containsString("SQL"), // pk_key_name
+        is("3"), // update_rule
+        is("3")); // delete_rule
+
+    Assert.assertEquals(1, results.size());
+    for (int i = 0; i < matchers.size(); i++) {
+      collector.checkThat(results.get(0).get(i), matchers.get(i));
+    }
+  }
+
+  @Test
   public void testCreateStatementSchema() throws Exception {
     final FlightInfo info = sqlClient.execute("SELECT * FROM intTable");
     collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
