@@ -2423,12 +2423,15 @@ macro(build_absl_once)
   if(NOT TARGET absl_ep)
     message(STATUS "Building Abseil-cpp from source")
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+    set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
     set(ABSL_CMAKE_ARGS
         "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}" 
         "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
     set(ABSL_BUILD_BYPRODUCTS)
     set(ABSL_LIBRARIES)
+    # Create include directory so that GRPC does not fail to build
+    file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
 
     # Abseil produces the following libraries, each is fairly small, but there
     # are (as you can see), many of them. We need to add the libraries first,
