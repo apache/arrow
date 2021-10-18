@@ -157,9 +157,12 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
       return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
-    } else if (command.is(CommandGetImportedKeys.class) || command.is(CommandGetExportedKeys.class) ||
-        command.is(CommandGetCrossReference.class)) {
-      return new SchemaResult(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
+    } else if (command.is(CommandGetImportedKeys.class)) {
+      return new SchemaResult(Schemas.getImportedKeysSchema());
+    } else if (command.is(CommandGetExportedKeys.class)) {
+      return new SchemaResult(Schemas.getExportedKeysSchema());
+    } else if (command.is(CommandGetCrossReference.class)) {
+      return new SchemaResult(Schemas.getCrossReferenceSchema());
     }
 
     throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid command provided.").toRuntimeException();
@@ -610,7 +613,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         new Schema(asList(
             Field.nullable("catalog_name", VARCHAR.getType()),
             Field.notNullable("schema_name", VARCHAR.getType())));
-    public static final Schema GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA =
+    private static final Schema GET_IMPORTED_EXPORTED_AND_CROSS_REFERENCE_KEYS_SCHEMA =
         new Schema(asList(
             Field.nullable("pk_catalog_name", VARCHAR.getType()),
             Field.nullable("pk_schema_name", VARCHAR.getType()),
@@ -659,6 +662,30 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
     private Schemas() {
       // Prevent instantiation.
+    }
+
+    /**
+     * Return the imported keys schema.
+     * @return Imported Keys Schema.
+     */
+    public static Schema getImportedKeysSchema() {
+      return GET_IMPORTED_EXPORTED_AND_CROSS_REFERENCE_KEYS_SCHEMA;
+    }
+
+    /**
+     * Return the exported keys schema.
+     * @return Exported Keys Schema.
+     */
+    public static Schema getExportedKeysSchema() {
+      return GET_IMPORTED_EXPORTED_AND_CROSS_REFERENCE_KEYS_SCHEMA;
+    }
+
+    /**
+     * Return the cross-reference schema.
+     * @return Imported Keys Schema.
+     */
+    public static Schema getCrossReferenceSchema() {
+      return GET_IMPORTED_EXPORTED_AND_CROSS_REFERENCE_KEYS_SCHEMA;
     }
   }
 }
