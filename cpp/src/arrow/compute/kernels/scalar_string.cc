@@ -2827,13 +2827,6 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
-  // TODO(edponce): Should we validate nrepeats (it will fail when trying to allocate
-  // output data)? It is not an option, so do other compute functions validate their
-  // inputs or let them fail when they fail? Or should inputs be validated in PreExec,
-  // but then need to validate methods (Scalar/Array)?
-  //
-  // Current approach returns empty string if nrepeats is negative.
-
   int64_t MaxCodeunits(const int64_t input1_ncodeunits, const int64_t nrepeats) override {
     return std::max(input1_ncodeunits * nrepeats, (int64_t)0);
   }
@@ -2859,31 +2852,59 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     return std::max(total_codeunits, (int64_t)0);
   }
 
-  int64_t Transform(const uint8_t* input, const int64_t input_string_ncodeunits,
-                    const int64_t nrepeats, uint8_t* output) {
+  std::function<int64_t(const uint8_t*, const int64_t, const int64_t, uint8_t*)>
+      Transform;
+
+  static int64_t TransformSimple(const uint8_t* input,
+                                 const int64_t input_string_ncodeunits,
+                                 const int64_t nrepeats, uint8_t* output) {
     uint8_t* output_start = output;
-    if (nrepeats < 4) {
-      for (int64_t i = 0; i < nrepeats; ++i) {
-        std::memcpy(output, input, input_string_ncodeunits);
-        output += input_string_ncodeunits;
-      }
-    } else {
-      // Repeated doubling of string
+    for (int64_t i = 0; i < nrepeats; ++i) {
       std::memcpy(output, input, input_string_ncodeunits);
       output += input_string_ncodeunits;
-      int64_t i = 1;
-      for (int64_t ilen = input_string_ncodeunits; i <= (nrepeats / 2);
-           i *= 2, ilen *= 2) {
-        std::memcpy(output, output_start, ilen);
-        output += ilen;
-      }
-
-      // Epilogue remainder
-      int64_t rem = (nrepeats ^ i) * input_string_ncodeunits;
-      std::memcpy(output, output_start, rem);
-      output += rem;
     }
     return output - output_start;
+  }
+
+  static int64_t TransformDoubling(const uint8_t* input,
+                                   const int64_t input_string_ncodeunits,
+                                   const int64_t nrepeats, uint8_t* output) {
+    uint8_t* output_start = output;
+    // Repeated doubling of string
+    std::memcpy(output, input, input_string_ncodeunits);
+    output += input_string_ncodeunits;
+    int64_t i = 1;
+    for (int64_t ilen = input_string_ncodeunits; i <= (nrepeats / 2); i *= 2, ilen *= 2) {
+      std::memcpy(output, output_start, ilen);
+      output += ilen;
+    }
+
+    // Epilogue remainder
+    int64_t rem = (nrepeats ^ i) * input_string_ncodeunits;
+    std::memcpy(output, output_start, rem);
+    output += rem;
+    return output - output_start;
+  }
+
+  static int64_t TransformWrapper(const uint8_t* input,
+                                  const int64_t input_string_ncodeunits,
+                                  const int64_t nrepeats, uint8_t* output) {
+    auto transform = (nrepeats < 4) ? TransformSimple : TransformDoubling;
+    return transform(input, input_string_ncodeunits, nrepeats, output);
+  }
+
+  // For input shape ArrayScalar, we cache the repeat implementation to use
+  // based on repeat count. Otherwise, use TransformWrapper which checks repeat
+  // count for each pair of processing values.
+  Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
+    if (batch[0].is_array() && batch[1].is_scalar()) {
+      auto scalar = batch[1].scalar();
+      auto nrepeats = UnboxScalar<Type2>::Unbox(*scalar);
+      Transform = (nrepeats < 4) ? TransformSimple : TransformDoubling;
+    } else {
+      Transform = TransformWrapper;
+    }
+    return Status::OK();
   }
 };
 
