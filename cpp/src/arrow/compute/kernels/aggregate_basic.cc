@@ -742,8 +742,14 @@ struct IndexInit {
     if (!args.options) {
       return Status::Invalid("Must provide IndexOptions for index kernel");
     }
-    IndexInit visitor(ctx, static_cast<const IndexOptions&>(*args.options),
-                      *args.inputs[0].type);
+    const auto& options = static_cast<const IndexOptions&>(*args.options);
+    if (!options.value) {
+      return Status::Invalid("Must provide IndexOptions.value for index kernel");
+    } else if (!options.value->type->Equals(*args.inputs[0].type)) {
+      return Status::TypeError("Expected IndexOptions.value to be of type ",
+                               *args.inputs[0].type, ", but got ", *options.value->type);
+    }
+    IndexInit visitor(ctx, options, *args.inputs[0].type);
     return visitor.Create();
   }
 };

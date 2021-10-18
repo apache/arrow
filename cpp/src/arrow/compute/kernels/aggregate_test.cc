@@ -2311,6 +2311,25 @@ TEST(TestIndexKernel, Null) {
   CheckIndex(ArrayFromJSON(ty, R"([null, null, null, null])"), value, -1);
 }
 
+TEST(TestIndexKernel, Errors) {
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "Expected IndexOptions.value to be of type string, but got int32"),
+      Index(ArrayFromJSON(utf8(), R"(["a"])"),
+            IndexOptions(ScalarFromJSON(int32(), "1"))));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Expected IndexOptions.value to be of type timestamp[ns], "
+                           "but got timestamp[ms]"),
+      Index(ArrayFromJSON(timestamp(TimeUnit::NANO), R"(["2020-01-01"])"),
+            IndexOptions(ScalarFromJSON(timestamp(TimeUnit::MILLI), R"("2020-01-01")"))));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Must provide IndexOptions.value"),
+      Index(ArrayFromJSON(utf8(), R"(["a"])"), IndexOptions(nullptr)));
+}
+
 //
 // Mode
 //
