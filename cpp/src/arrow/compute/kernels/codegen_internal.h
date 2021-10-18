@@ -1234,7 +1234,7 @@ ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
 }
 
 // Generate a kernel given a templated functor for base binary types. Generates
-// a single kernel for [Large]BinaryType and [Large]StringType. If your kernel
+// a single kernel for binary/string and large binary/large string. If your kernel
 // implementation needs access to the specific type at compile time, please use
 // BaseBinarySpecific.
 //
