@@ -61,9 +61,10 @@ gadataset_scanner_builder_new_record_batch_reader(
   GArrowRecordBatchReader *reader);
 
 GARROW_AVAILABLE_IN_6_0
-void
-gadataset_scanner_builder_use_async(
-  GADatasetScannerBuilder *builder, gboolean use_async, GError **error);				    
+gboolean
+gadataset_scanner_builder_set_filter(GADatasetScannerBuilder *builder,
+                                     GArrowExpression *expression,
+                                     GError **error);
 
 GARROW_AVAILABLE_IN_5_0
 GADatasetScanner *
