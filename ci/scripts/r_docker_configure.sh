@@ -54,6 +54,19 @@ if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
   fi
 fi
 
+# temporarily install cmake
+if [ "`which dnf`" ]; then
+  dnf install -y cmake
+elif [ "`which yum`" ]; then
+  yum install -y cmake
+elif [ "`which zypper`" ]; then
+  zypper install -y cmake
+else
+  apt-get update
+  apt-get install -y cmake
+fi
+
+
 # Install openssl for S3 support
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   if [ "`which dnf`" ]; then
