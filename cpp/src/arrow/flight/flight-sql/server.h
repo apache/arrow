@@ -315,8 +315,20 @@ class FlightSqlServerBase : public FlightServerBase {
   /// \param[in] context  The call context.
   /// \param[in] reader   A sequence of uploaded record batches.
   /// \param[in] writer   Send metadata back to the client.
-  virtual Status DoPutPreparedStatement(
+  virtual Status DoPutPreparedStatementQuery(
       const pb::sql::CommandPreparedStatementQuery& command,
+      const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+      std::unique_ptr<FlightMetadataWriter>& writer);
+
+  /// \brief Executes an update SQL prepared statement.
+  /// \param[in] command  The CommandPreparedStatementUpdate object containing the
+  ///                     prepared statement handle.
+  /// \param[in] context  The call context.
+  /// \param[in] reader   a sequence of uploaded record batches.
+  /// \param[in] writer   send metadata back to the client.
+  /// \return             Status.
+  virtual Status DoPutPreparedStatementUpdate(
+      const pb::sql::CommandPreparedStatementUpdate& command,
       const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
       std::unique_ptr<FlightMetadataWriter>& writer);
 };

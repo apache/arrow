@@ -94,6 +94,62 @@ std::string PrepareQueryForGetTables(const pb::sql::CommandGetTables& command) {
   return table_query.str();
 }
 
+Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt,
+                                      std::unique_ptr<FlightMessageReader>& reader) {
+  FlightStreamChunk chunk;
+  while (true) {
+    RETURN_NOT_OK(reader->Next(&chunk));
+    std::shared_ptr<RecordBatch>& record_batch = chunk.data;
+    if (record_batch == nullptr) break;
+
+    const int64_t num_rows = record_batch->num_rows();
+    const int& num_columns = record_batch->num_columns();
+
+    for (int i = 0; i < num_rows; ++i) {
+      for (int c = 0; c < num_columns; ++c) {
+        const std::shared_ptr<Array>& column = record_batch->column(c);
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(i));
+
+        auto& holder = reinterpret_cast<DenseUnionScalar&>(*scalar).value;
+
+        switch (holder->type->id()) {
+          case Type::INT64: {
+            int64_t value = reinterpret_cast<Int64Scalar&>(*holder).value;
+            sqlite3_bind_int64(stmt, c + 1, value);
+            break;
+          }
+          case Type::FLOAT: {
+            double value = reinterpret_cast<FloatScalar&>(*holder).value;
+            sqlite3_bind_double(stmt, c + 1, value);
+            break;
+          }
+          case Type::STRING: {
+            std::shared_ptr<Buffer> buffer =
+                reinterpret_cast<StringScalar&>(*holder).value;
+            const std::string string = buffer->ToString();
+            const char* value = string.c_str();
+            sqlite3_bind_text(stmt, c + 1, value, static_cast<int>(strlen(value)),
+                              SQLITE_TRANSIENT);
+            break;
+          }
+          case Type::BINARY: {
+            std::shared_ptr<Buffer> buffer =
+                reinterpret_cast<BinaryScalar&>(*holder).value;
+            sqlite3_bind_blob(stmt, c + 1, buffer->data(),
+                              static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
+            break;
+          }
+          default:
+            return Status::Invalid("Received unsupported data type: ",
+                                   holder->type->ToString());
+        }
+      }
+    }
+  }
+
+  return Status::OK();
+}
+
 SQLiteFlightSqlServer::SQLiteFlightSqlServer() {
   db_ = NULLPTR;
   if (sqlite3_open(":memory:", &db_)) {
@@ -439,11 +495,8 @@ Status SQLiteFlightSqlServer::DoGetPreparedStatement(
   return Status::OK();
 }
 
-Status SQLiteFlightSqlServer::DoPutPreparedStatement(
-    const pb::sql::CommandPreparedStatementQuery& command,
-    const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
-    std::unique_ptr<FlightMetadataWriter>& writer) {
-  const std::string& prepared_statement_handle = command.prepared_statement_handle();
+Status SQLiteFlightSqlServer::GetStatementByHandle(
+        const std::string& prepared_statement_handle, std::shared_ptr<SqliteStatement>* result) {
   const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(prepared_statement_handle);
 
   auto search = prepared_statements_.find(uuid);
@@ -451,61 +504,44 @@ Status SQLiteFlightSqlServer::DoPutPreparedStatement(
     return Status::Invalid("Prepared statement not found");
   }
 
-  std::shared_ptr<SqliteStatement> statement = search->second;
+  *result = search->second;
+  return Status::OK();
+}
+
+Status SQLiteFlightSqlServer::DoPutPreparedStatementQuery(
+    const pb::sql::CommandPreparedStatementQuery& command,
+    const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+    std::unique_ptr<FlightMetadataWriter>& writer) {
+  const std::string& prepared_statement_handle = command.prepared_statement_handle();
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(GetStatementByHandle(prepared_statement_handle, &statement));
 
   sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
+  ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
 
-  // Loading parameters received from the RecordBatches on the underlying sqlite3_stmt.
-  FlightStreamChunk chunk;
-  while (true) {
-    RETURN_NOT_OK(reader->Next(&chunk));
-    std::shared_ptr<RecordBatch>& record_batch = chunk.data;
-    if (record_batch == nullptr) break;
+  return Status::OK();
+}
 
-    const int64_t num_rows = record_batch->num_rows();
-    const int& num_columns = record_batch->num_columns();
+Status SQLiteFlightSqlServer::DoPutPreparedStatementUpdate(
+    const pb::sql::CommandPreparedStatementUpdate& command,
+    const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+    std::unique_ptr<FlightMetadataWriter>& writer) {
+  const std::string& prepared_statement_handle = command.prepared_statement_handle();
 
-    for (int i = 0; i < num_rows; ++i) {
-      for (int c = 0; c < num_columns; ++c) {
-        const std::shared_ptr<Array>& column = record_batch->column(c);
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(i));
+  std::shared_ptr<SqliteStatement> statement;
+  ARROW_RETURN_NOT_OK(GetStatementByHandle(prepared_statement_handle, &statement));
 
-        auto& holder = reinterpret_cast<DenseUnionScalar&>(*scalar).value;
+  sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
+  ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
 
-        switch (holder->type->id()) {
-          case Type::INT64: {
-            int64_t value = reinterpret_cast<Int64Scalar&>(*holder).value;
-            sqlite3_bind_int64(stmt, c + 1, value);
-            break;
-          }
-          case Type::FLOAT: {
-            double value = reinterpret_cast<FloatScalar&>(*holder).value;
-            sqlite3_bind_double(stmt, c + 1, value);
-            break;
-          }
-          case Type::STRING: {
-            std::shared_ptr<Buffer> buffer =
-                reinterpret_cast<StringScalar&>(*holder).value;
-            const std::string string = buffer->ToString();
-            const char* value = string.c_str();
-            sqlite3_bind_text(stmt, c + 1, value, static_cast<int>(strlen(value)),
-                              SQLITE_TRANSIENT);
-            break;
-          }
-          case Type::BINARY: {
-            std::shared_ptr<Buffer> buffer =
-                reinterpret_cast<BinaryScalar&>(*holder).value;
-            sqlite3_bind_blob(stmt, c + 1, buffer->data(),
-                              static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
-            break;
-          }
-          default:
-            return Status::Invalid("Received unsupported data type: ",
-                                   holder->type->ToString());
-        }
-      }
-    }
-  }
+  int64_t record_count;
+  ARROW_RETURN_NOT_OK(statement->ExecuteUpdate(&record_count));
+
+  pb::sql::DoPutUpdateResult result;
+  result.set_record_count(record_count);
+
+  const std::shared_ptr<Buffer>& buffer = Buffer::FromString(result.SerializeAsString());
+  ARROW_RETURN_NOT_OK(writer->WriteMetadata(*buffer));
 
   return Status::OK();
 }

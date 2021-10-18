@@ -424,6 +424,105 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
+Status ExecuteCountQuery(const std::string& query, int64_t* result) {
+  std::unique_ptr<FlightInfo> flight_info;
+  ARROW_RETURN_NOT_OK(sql_client->Execute({}, query, &flight_info));
+
+  std::unique_ptr<FlightStreamReader> stream;
+  ARROW_RETURN_NOT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+
+  std::shared_ptr<Table> table;
+  ARROW_RETURN_NOT_OK(stream->ReadAll(&table));
+
+  const std::shared_ptr<Array>& result_array = table->column(0)->chunk(0);
+  ARROW_ASSIGN_OR_RAISE(auto count_scalar, result_array->GetScalar(0));
+
+  *result = reinterpret_cast<Int64Scalar&>(*count_scalar).value;
+
+  return Status::OK();
+}
+
+TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding) {
+  std::shared_ptr<PreparedStatement> prepared_statement;
+  ASSERT_OK(sql_client->Prepare(
+      {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', ?)",
+      &prepared_statement));
+
+  std::shared_ptr<Schema> parameter_schema;
+  ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
+
+  const std::shared_ptr<Schema>& expected_parameter_schema =
+      arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
+
+  ASSERT_TRUE(expected_parameter_schema->Equals(*parameter_schema));
+
+  std::shared_ptr<Array> type_ids;
+  ArrayFromVector<Int8Type>({2}, &type_ids);
+  std::shared_ptr<Array> offsets;
+  ArrayFromVector<Int32Type>({0}, &offsets);
+
+  std::shared_ptr<Array> string_array;
+  ArrayFromVector<StringType, std::string>({}, &string_array);
+  std::shared_ptr<Array> bytes_array;
+  ArrayFromVector<BinaryType, std::string>({}, &bytes_array);
+  std::shared_ptr<Array> bigint_array;
+  ArrayFromVector<Int64Type>({999}, &bigint_array);
+  std::shared_ptr<Array> double_array;
+  ArrayFromVector<FloatType>({}, &double_array);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto parameter_1_array,
+      DenseUnionArray::Make(*type_ids, *offsets,
+                            {string_array, bytes_array, bigint_array, double_array},
+                            {"string", "bytes", "bigint", "double"}, {0, 1, 2, 3}));
+
+  const std::shared_ptr<RecordBatch>& record_batch =
+      RecordBatch::Make(parameter_schema, 1, {parameter_1_array});
+
+  ASSERT_OK(prepared_statement->SetParameters(record_batch));
+
+  int64_t result;
+  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_EQ(3, result);
+
+  ASSERT_OK(prepared_statement->ExecuteUpdate(&result));
+  ASSERT_EQ(1, result);
+
+  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_EQ(4, result);
+
+  ASSERT_OK(sql_client->ExecuteUpdate(
+      {}, "DELETE FROM intTable WHERE keyName = 'new_value'", &result));
+  ASSERT_EQ(1, result);
+
+  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_EQ(3, result);
+}
+
+TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
+  std::shared_ptr<PreparedStatement> prepared_statement;
+  ASSERT_OK(sql_client->Prepare(
+      {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)",
+      &prepared_statement));
+
+  int64_t result;
+  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_EQ(3, result);
+
+  ASSERT_OK(prepared_statement->ExecuteUpdate(&result));
+  ASSERT_EQ(1, result);
+
+  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_EQ(4, result);
+
+  ASSERT_OK(sql_client->ExecuteUpdate(
+      {}, "DELETE FROM intTable WHERE keyName = 'new_value'", &result));
+  ASSERT_EQ(1, result);
+
+  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_EQ(3, result);
+}
+
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;

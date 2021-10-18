@@ -97,10 +97,14 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   Status DoGetPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
                                 const ServerCallContext& context,
                                 std::unique_ptr<FlightDataStream>* result) override;
-  Status DoPutPreparedStatement(const pb::sql::CommandPreparedStatementQuery& command,
-                                const ServerCallContext& context,
-                                std::unique_ptr<FlightMessageReader>& reader,
-                                std::unique_ptr<FlightMetadataWriter>& writer) override;
+  Status DoPutPreparedStatementQuery(
+      const pb::sql::CommandPreparedStatementQuery& command,
+      const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+      std::unique_ptr<FlightMetadataWriter>& writer) override;
+  Status DoPutPreparedStatementUpdate(
+      const pb::sql::CommandPreparedStatementUpdate& command,
+      const ServerCallContext& context, std::unique_ptr<FlightMessageReader>& reader,
+      std::unique_ptr<FlightMetadataWriter>& writer) override;
 
   Status GetFlightInfoTables(const pb::sql::CommandGetTables& command,
                              const ServerCallContext& context,
@@ -143,6 +147,8 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   sqlite3* db_;
   boost::uuids::random_generator uuid_generator_;
   std::map<boost::uuids::uuid, std::shared_ptr<SqliteStatement>> prepared_statements_;
+
+  Status GetStatementByHandle(const std::string& prepared_statement_handle, std::shared_ptr<SqliteStatement>* result);
 };
 
 }  // namespace example
