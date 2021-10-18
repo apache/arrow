@@ -25,8 +25,13 @@ import static java.sql.Types.INTEGER;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.*;
+import static org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer.serializeSchema;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForBigIntField;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForBooleanField;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForIntField;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForUtf8Field;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataVarCharListField;
+import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setIntToIntListMapField;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -75,8 +80,8 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.message.IpcOption;
-import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -98,6 +103,7 @@ import com.google.protobuf.Message;
  * Class containing the tests from the {@link ArrowDatabaseMetadata}.
  */
 public class ArrowDatabaseMetadataTest {
+  public static final boolean EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS = false;
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
@@ -164,7 +170,6 @@ public class ArrowDatabaseMetadataTest {
               format("key_name #%d", i)})
           .map(Arrays::asList)
           .collect(toList());
-
   private static final List<String> FIELDS_GET_IMPORTED_EXPORTED_KEYS = ImmutableList.of(
       "PKTABLE_CAT", "PKTABLE_SCHEM", "PKTABLE_NAME",
       "PKCOLUMN_NAME", "FKTABLE_CAT", "FKTABLE_SCHEM",
@@ -240,7 +245,6 @@ public class ArrowDatabaseMetadataTest {
   private static final int EXPECTED_MAX_PROCEDURE_NAME_LENGTH = 0;
   private static final int EXPECTED_MAX_CATALOG_NAME_LENGTH = 1024;
   private static final int EXPECTED_MAX_ROW_SIZE = 0;
-  public static final boolean EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS = false;
   private static final int EXPECTED_MAX_STATEMENT_LENGTH = 0;
   private static final int EXPECTED_MAX_STATEMENTS = 0;
   private static final int EXPECTED_MAX_TABLE_NAME_LENGTH = 1024;
@@ -365,11 +369,10 @@ public class ArrowDatabaseMetadataTest {
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA, allocator)) {
         final byte[] filledTableSchemaBytes =
             copyFrom(
-                MessageSerializer.serializeMetadata(new Schema(Arrays.asList(
-                        Field.nullable("column_1", ArrowType.Decimal.createDecimal(5, 2, 128)),
-                        Field.nullable("column_2", new ArrowType.Timestamp(TimeUnit.NANOSECOND, "UTC")),
-                        Field.notNullable("column_3", Types.MinorType.INT.getType()))),
-                    IpcOption.DEFAULT))
+                serializeSchema(new Schema(Arrays.asList(
+                    Field.nullable("column_1", ArrowType.Decimal.createDecimal(5, 2, 128)),
+                    Field.nullable("column_2", new ArrowType.Timestamp(TimeUnit.NANOSECOND, "UTC")),
+                    Field.notNullable("column_3", Types.MinorType.INT.getType())))))
                 .toByteArray();
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
         final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
@@ -795,7 +798,8 @@ public class ArrowDatabaseMetadataTest {
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedTransactionsIsolationLevelsProvider =
         (root, index) ->
             setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS,
-                (int) (createBitmaskFromEnums(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE, SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED)));
+                (int) (createBitmaskFromEnums(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE,
+                    SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS,
         flightSqlSupportedTransactionsIsolationLevelsProvider);
 
@@ -1569,5 +1573,83 @@ public class ArrowDatabaseMetadataTest {
     for (final Map.Entry<Integer, String> entry : expectedResultSetSchema.entrySet()) {
       Assert.assertEquals(entry.getValue(), resultSetMetaData.getColumnLabel(entry.getKey()));
     }
+  }
+
+  @Test
+  public void testGetColumnSize() {
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_BYTE),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Byte.SIZE, true)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_SHORT),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Short.SIZE, true)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_INT),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Integer.SIZE, true)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_LONG),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Long.SIZE, true)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_VARCHAR_AND_BINARY),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Utf8()));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_VARCHAR_AND_BINARY),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Binary()));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_SECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.SECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_MILLISECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_MICROSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_NANOSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MILLISECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MICROSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_NANOSECONDS),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_DATE),
+        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Date(DateUnit.DAY)));
+
+    Assert.assertNull(ArrowDatabaseMetadata.getColumnSize(new ArrowType.FloatingPoint(
+        FloatingPointPrecision.DOUBLE)));
+  }
+
+  @Test
+  public void testGetDecimalDigits() {
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Int(Byte.SIZE, true)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.SECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
+
+    Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
+        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Date(DateUnit.DAY)));
+
+    Assert.assertNull(ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Utf8()));
+  }
+
+  @Test
+  public void testSqlToRegexLike() {
+    Assert.assertEquals(".*", ArrowDatabaseMetadata.sqlToRegexLike("%"));
+    Assert.assertEquals(".", ArrowDatabaseMetadata.sqlToRegexLike("_"));
+    Assert.assertEquals("\\*", ArrowDatabaseMetadata.sqlToRegexLike("*"));
+    Assert.assertEquals("T\\*E.S.*T", ArrowDatabaseMetadata.sqlToRegexLike("T*E_S%T"));
   }
 }

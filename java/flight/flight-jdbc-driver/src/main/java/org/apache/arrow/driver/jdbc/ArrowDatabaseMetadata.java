@@ -94,7 +94,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   private static final Charset CHARSET = StandardCharsets.UTF_8;
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
   static final int NO_DECIMAL_DIGITS = 0;
-  static final int BASE10_RADIX = 10;
+  private static final int BASE10_RADIX = 10;
   static final int COLUMN_SIZE_BYTE = (int) Math.ceil((Byte.SIZE - 1) * Math.log(2) / Math.log(10));
   static final int COLUMN_SIZE_SHORT = (int) Math.ceil((Short.SIZE - 1) * Math.log(2) / Math.log(10));
   static final int COLUMN_SIZE_INT = (int) Math.ceil((Integer.SIZE - 1) * Math.log(2) / Math.log(10));
@@ -112,7 +112,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
   static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
   static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
-  static final Schema GET_COLUMNS_SCHEMA = new Schema(
+  private static final Schema GET_COLUMNS_SCHEMA = new Schema(
       Arrays.asList(
           Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
           Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
@@ -241,7 +241,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   @Override
-  public boolean supportsConvert(int fromType, int toType) throws SQLException {
+  public boolean supportsConvert(final int fromType, final int toType) throws SQLException {
     final Map<Integer, List<Integer>> sqlSupportsConvert =
         getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_CONVERT, Map.class);
 
@@ -714,19 +714,19 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     return desiredType.cast(cachedSqlInfo.get(sqlInfoCommand));
   }
 
-  private String convertListSqlInfoToString(List<Text> sqlInfoList) {
+  private String convertListSqlInfoToString(final List<?> sqlInfoList) {
     return sqlInfoList.stream().map(Object::toString).collect(Collectors.joining(", "));
   }
 
   private boolean getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
       final SqlInfo sqlInfoCommand,
-      ProtocolMessageEnum enumInstance
+      final ProtocolMessageEnum enumInstance
   ) throws SQLException {
     final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(sqlInfoCommand, Integer.class);
     return doesBitmaskTranslateToEnum(enumInstance, bitmask);
   }
 
-  private boolean checkEnumLevel(List<Boolean> toCheck) throws SQLException {
+  private boolean checkEnumLevel(final List<Boolean> toCheck) {
     return toCheck.stream().anyMatch(e -> e);
   }
 
