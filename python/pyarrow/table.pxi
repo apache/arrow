@@ -571,6 +571,10 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     if metadata is not None:
         c_meta = KeyValueMetadata(metadata).unwrap()
 
+    if len(names) != K:
+        raise ValueError('Length of names ({}) does not match '
+                         'length of arrays ({})'.format(len(names), K))
+
     if K == 0:
         schema.reset(new CSchema(c_fields, c_meta))
         return arrays
@@ -580,10 +584,6 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     if names is None:
         raise ValueError('Must pass names or schema when constructing '
                          'Table or RecordBatch.')
-
-    if len(names) != K:
-        raise ValueError('Length of names ({}) does not match '
-                         'length of arrays ({})'.format(len(names), K))
 
     converted_arrays = []
     for i in range(K):

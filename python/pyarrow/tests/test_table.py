@@ -1021,6 +1021,13 @@ def test_table_remove_column_empty():
     t3.validate()
     assert t3.equals(table)
 
+def test_empty_table_with_names():
+    # ARROW-13784
+    data = []
+    names = ["a", "b"]
+    message = ('Length of names [(]2[)] does not match length of arrays [(]0[)]')
+    with pytest.raises(ValueError, match=message):
+        table = pa.Table.from_arrays(data, names=names)
 
 def test_table_rename_columns():
     data = [
