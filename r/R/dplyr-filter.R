@@ -34,7 +34,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
     # This is similar to abandon_ship() except that the filter eval is
     # vectorized, and we apply filters that _did_ work before abandoning ship
     # with the rest
-    expr_labs <- map_chr(filts[bad_filters], as_label)
+    expr_labs <- map_chr(filts[bad_filters], format_expr)
     if (query_on_dataset(.data)) {
       # Abort. We don't want to auto-collect if this is a Dataset because that
       # could blow up, too big.

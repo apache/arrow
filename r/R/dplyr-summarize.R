@@ -145,7 +145,7 @@ arrow_eval_or_stop <- function(expr, mask) {
   # TODO: change arrow_eval error handling behavior?
   out <- arrow_eval(expr, mask)
   if (inherits(out, "try-error")) {
-    msg <- handle_arrow_not_supported(out, as_label(expr))
+    msg <- handle_arrow_not_supported(out, format_expr(expr))
     stop(msg, call. = FALSE)
   }
   out
@@ -231,10 +231,7 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
   # Backstop for any other odd cases, like fun(x, y) (i.e. no aggregation),
   # or aggregation functions that aren't supported in Arrow (not in agg_funcs)
   stop(
-    handle_arrow_not_supported(
-      quo_get_expr(quosure),
-      as_label(quo_get_expr(quosure))
-    ),
+    handle_arrow_not_supported(quo_get_expr(quosure), format_expr(quosure)),
     call. = FALSE
   )
 }
@@ -261,7 +258,7 @@ extract_aggregations <- function(expr, ctx) {
       # TODO: this message could also say "not supported in summarize()"
       #       since some of these expressions may be legal elsewhere
       stop(
-        handle_arrow_not_supported(original_expr, as_label(original_expr)),
+        handle_arrow_not_supported(original_expr, format_expr(original_expr)),
         call. = FALSE
       )
     }
