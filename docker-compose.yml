@@ -1065,26 +1065,9 @@ services:
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-only-r:
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-r.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
-      args:
-        arch: ${ARCH}
-        r: ${R}
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        gcc_version: ${GCC_VERSION}
-        tz: ${TZ}
-    shm_size: *shm-size
     environment:
-      <<: *ccache
-      ARROW_R_CXXFLAGS: '-Werror'
-      LIBARROW_BUILD: 'false'
-      NOT_CRAN: 'true'
-      ARROW_R_DEV: ${ARROW_R_DEV}
-    volumes: *ubuntu-volumes
+      ARROW_DEPENDENCY_SOURCE: ''
+    extends: ubuntu-r
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_test.sh /arrow"
