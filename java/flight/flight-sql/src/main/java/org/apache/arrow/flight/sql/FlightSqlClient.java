@@ -420,6 +420,50 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Retrieves a description of the foreign key columns that reference the given table's
+   * primary key columns (the foreign keys exported by a table).
+   *
+   * @param parentCatalog     The catalog name where the parent table is.
+   * @param parentSchema      The Schema name where the parent table is.
+   * @param parentTable       The parent table name. It cannot be null.
+   * @param foreignCatalog    The calalog name where the foreign table is.
+   * @param foreignSchema     The schema name where the foreign table is.
+   * @param foreignTable      The foreign table name. It cannot be null.
+   * @param options           RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getCrossReference(final String parentCatalog, final String parentSchema, final String parentTable,
+                                      final String foreignCatalog, final String foreignSchema,
+                                      final String foreignTable, final CallOption... options) {
+    Objects.requireNonNull(parentTable, "Parent Table cannot be null.");
+    Objects.requireNonNull(foreignTable, "Foreign Table cannot be null.");
+
+    final FlightSql.CommandGetCrossReference.Builder builder = FlightSql.CommandGetCrossReference.newBuilder();
+
+    if (parentCatalog != null) {
+      builder.setParentCatalog(parentCatalog);
+    }
+
+    if (parentSchema != null) {
+      builder.setParentSchema(parentSchema);
+    }
+
+    if (foreignCatalog != null) {
+      builder.setForeignCatalog(foreignCatalog);
+    }
+
+    if (foreignSchema != null) {
+      builder.setForeignSchema(foreignSchema);
+    }
+
+    builder.setParentTable(parentTable);
+    builder.setForeignTable(foreignTable);
+
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor, options);
+  }
+
+  /**
    * Request a list of table types.
    *
    * @param options RPC-layer hints for this call.
