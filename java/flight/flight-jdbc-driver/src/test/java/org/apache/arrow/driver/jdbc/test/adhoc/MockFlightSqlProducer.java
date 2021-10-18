@@ -55,6 +55,7 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
@@ -101,6 +102,31 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   private final Set<SqlInfo> defaultInfo = EnumSet.noneOf(SqlInfo.class);
   private final Map<SqlInfo, ObjIntConsumer<VectorSchemaRoot>> sqlInfoResultProviders =
       new EnumMap<>(SqlInfo.class);
+
+  private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
+                                                                final FlightDescriptor descriptor) {
+    return getFlightInfo(message, Schemas.GET_IMPORTED_KEYS_SCHEMA, descriptor);
+  }
+
+  private static FlightInfo getFlightInfo(final Message message, final Schema schema,
+                                          final FlightDescriptor descriptor) {
+    return new FlightInfo(
+        schema,
+        descriptor,
+        Collections.singletonList(new FlightEndpoint(new Ticket(Any.pack(message).toByteArray()))),
+        -1, -1);
+  }
+
+  public static ByteBuffer serializeSchema(final Schema schema) {
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    try {
+      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(outputStream)), schema);
+
+      return ByteBuffer.wrap(outputStream.toByteArray());
+    } catch (final IOException e) {
+      throw new RuntimeException("Failed to serialize schema", e);
+    }
+  }
 
   /**
    * Registers the provided {@link SqlInfo}s as the default for when no info is required.
@@ -222,8 +248,8 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public void closePreparedStatement(ActionClosePreparedStatementRequest actionClosePreparedStatementRequest,
-                                     CallContext callContext, StreamListener<Result> streamListener) {
+  public void closePreparedStatement(final ActionClosePreparedStatementRequest actionClosePreparedStatementRequest,
+                                     final CallContext callContext, final StreamListener<Result> streamListener) {
     // TODO Implement this method.
     streamListener.onCompleted();
   }
@@ -245,8 +271,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public FlightInfo getFlightInfoPreparedStatement(CommandPreparedStatementQuery commandPreparedStatementQuery,
-                                                   CallContext callContext, FlightDescriptor flightDescriptor) {
+  public FlightInfo getFlightInfoPreparedStatement(final CommandPreparedStatementQuery commandPreparedStatementQuery,
+                                                   final CallContext callContext,
+                                                   final FlightDescriptor flightDescriptor) {
     final ByteString preparedStatementHandle = commandPreparedStatementQuery.getPreparedStatementHandle();
 
     final String query = Preconditions.checkNotNull(
@@ -264,8 +291,8 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public SchemaResult getSchemaStatement(CommandStatementQuery commandStatementQuery,
-                                         CallContext callContext, FlightDescriptor flightDescriptor) {
+  public SchemaResult getSchemaStatement(final CommandStatementQuery commandStatementQuery,
+                                         final CallContext callContext, final FlightDescriptor flightDescriptor) {
     final String query = commandStatementQuery.getQuery();
     final Entry<Schema, List<UUID>> queryInfo =
         Preconditions.checkNotNull(queryResults.get(query), format("Query not registered: <%s>.", query));
@@ -284,9 +311,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public void getStreamPreparedStatement(CommandPreparedStatementQuery commandPreparedStatementQuery,
-                                         CallContext callContext,
-                                         ServerStreamListener serverStreamListener) {
+  public void getStreamPreparedStatement(final CommandPreparedStatementQuery commandPreparedStatementQuery,
+                                         final CallContext callContext,
+                                         final ServerStreamListener serverStreamListener) {
     final UUID uuid = UUID.fromString(commandPreparedStatementQuery.getPreparedStatementHandle().toStringUtf8());
     Preconditions.checkNotNull(
             selectResultProviders.get(uuid),
@@ -320,9 +347,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery commandPreparedStatementQuery,
-                                                  CallContext callContext, FlightStream flightStream,
-                                                  StreamListener<PutResult> streamListener) {
+  public Runnable acceptPutPreparedStatementQuery(final CommandPreparedStatementQuery commandPreparedStatementQuery,
+                                                  final CallContext callContext, final FlightStream flightStream,
+                                                  final StreamListener<PutResult> streamListener) {
     // TODO Implement this method.
     throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
@@ -435,6 +462,14 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
+  public FlightInfo getFlightInfoCrossReference(final FlightSql.CommandGetCrossReference commandGetCrossReference,
+                                                final CallContext callContext,
+                                                final FlightDescriptor flightDescriptor) {
+    // TODO: Implement this
+    return null;
+  }
+
+  @Override
   public void getStreamExportedKeys(final CommandGetExportedKeys commandGetExportedKeys, final CallContext callContext,
                                     final ServerStreamListener serverStreamListener) {
     getStreamCatalogFunctions(commandGetExportedKeys, serverStreamListener);
@@ -444,6 +479,12 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   public void getStreamImportedKeys(final CommandGetImportedKeys commandGetImportedKeys, final CallContext callContext,
                                     final ServerStreamListener serverStreamListener) {
     getStreamCatalogFunctions(commandGetImportedKeys, serverStreamListener);
+  }
+
+  @Override
+  public void getStreamCrossReference(final FlightSql.CommandGetCrossReference commandGetCrossReference,
+                                      final CallContext callContext, final ServerStreamListener serverStreamListener) {
+    // TODO: Implement this
   }
 
   @Override
@@ -465,20 +506,6 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
         .accept(serverStreamListener);
   }
 
-  private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
-                                                                final FlightDescriptor descriptor) {
-    return getFlightInfo(message, Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA, descriptor);
-  }
-
-  private static FlightInfo getFlightInfo(final Message message, final Schema schema,
-                                          final FlightDescriptor descriptor) {
-    return new FlightInfo(
-        schema,
-        descriptor,
-        Collections.singletonList(new FlightEndpoint(new Ticket(Any.pack(message).toByteArray()))),
-        -1, -1);
-  }
-
   private static final class TicketConversionUtils {
     private TicketConversionUtils() {
       // Prevent instantiation.
@@ -498,17 +525,6 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
 
     private static FlightEndpoint getEndpointFromMessage(final Message message) {
       return new FlightEndpoint(new Ticket(Any.pack(message).toByteArray()));
-    }
-  }
-
-  public static ByteBuffer serializeSchema(final Schema schema) {
-    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    try {
-      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(outputStream)), schema);
-
-      return ByteBuffer.wrap(outputStream.toByteArray());
-    } catch (final IOException e) {
-      throw new RuntimeException("Failed to serialize schema", e);
     }
   }
 }

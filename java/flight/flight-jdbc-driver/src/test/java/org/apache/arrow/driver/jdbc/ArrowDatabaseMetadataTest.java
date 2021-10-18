@@ -322,7 +322,7 @@ public class ArrowDatabaseMetadataTest {
     final Message commandGetImportedKeys = CommandGetImportedKeys.newBuilder().setTable(TARGET_TABLE).build();
     final Consumer<ServerStreamListener> commandGetExportedAndImportedKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA,
+           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_IMPORTED_KEYS_SCHEMA,
                allocator)) {
         final VarCharVector pkCatalogName = (VarCharVector) root.getVector("pk_catalog_name");
         final VarCharVector pkSchemaName = (VarCharVector) root.getVector("pk_schema_name");
