@@ -19,8 +19,8 @@ package org.apache.arrow.driver.jdbc.client;
 
 import java.sql.SQLException;
 import java.util.Collection;
-
 import java.util.List;
+
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;

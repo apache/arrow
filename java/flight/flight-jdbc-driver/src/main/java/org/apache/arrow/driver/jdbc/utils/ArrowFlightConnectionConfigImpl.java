@@ -20,8 +20,6 @@ package org.apache.arrow.driver.jdbc.utils;
 import static java.lang.String.format;
 
 import java.io.File;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
@@ -113,21 +111,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    */
   public CallOption toCallOption() {
     final CallHeaders headers = new FlightCallHeaders();
-    properties.forEach(
-        (key, val) -> headers.insert(key == null ? null : key.toString(), val == null ? null : val.toString()));
+    properties.forEach((key, val) -> headers.insert(key.toString(), val.toString()));
     return new HeaderCallOption(headers);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(properties);
-  }
-
-  @Override
-  public boolean equals(final Object o) {
-    return o != null &&
-        o.getClass().isInstance(o) &&
-        properties.equals(((ArrowFlightConnectionConfigImpl) o).properties);
   }
 
   /**
@@ -196,31 +181,6 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     @Override
     public Class<?> valueClass() {
       return type.defaultValueClass();
-    }
-  }
-
-  /**
-   * Utility class for {@link Properties} instances.
-   */
-  public static final class PropertiesUtils {
-    private PropertiesUtils() {
-      // Prevent instantiation.
-    }
-
-    /**
-     * Creates a copy of the provided {@code target} properties with the provided {@code replacements}.
-     *
-     * @param replacements the replacements to make.
-     * @return a copy of the provided {@link Properties}, with the provided {@code replacements}.
-     */
-    public static Properties copyReplace(final Properties target,
-                                         final Map<? extends ConnectionProperty, ?> replacements) {
-      final Properties properties = new Properties();
-      properties.putAll(target);
-      replacements.forEach(
-          (property, value) ->
-              properties.replace(property.camelName(), value == null ? property.defaultValue() : value));
-      return properties;
     }
   }
 }

@@ -585,6 +585,11 @@
         <scope>provided</scope>
       </dependency>
       <dependency>
+        <groupId>org.hamcrest</groupId>
+        <artifactId>hamcrest</artifactId>
+        <version>2.2</version>
+      </dependency>
+      <dependency>
         <groupId>org.apache.calcite.avatica</groupId>
         <artifactId>avatica</artifactId>
         <version>1.18.0</version>

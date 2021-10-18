@@ -26,6 +26,8 @@ import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.junit.After;
+import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -62,15 +64,31 @@ public final class ArrowFlightConnectionPropertyTest {
 
   @Test
   public void testWrapIsUnsupported() {
-    collector.checkThrows(UnsupportedOperationException.class, () -> arrowFlightConnectionProperty.wrap(properties));
+    collector.checkThrows(UnsupportedOperationException.class,
+        () -> arrowFlightConnectionProperty.wrap(properties));
+  }
+
+  @Test
+  public void testRequiredPropertyThrows() {
+    Assume.assumeTrue(arrowFlightConnectionProperty.required());
+    Assert.assertThrows(IllegalStateException.class,
+        () -> arrowFlightConnectionProperty.get(new Properties()));
+  }
+
+  @Test
+  public void testOptionalPropertyReturnsDefault() {
+    Assume.assumeTrue(!arrowFlightConnectionProperty.required());
+    Assert.assertEquals(arrowFlightConnectionProperty.defaultValue(),
+        arrowFlightConnectionProperty.get(new Properties()));
   }
 
   @Parameters
   public static List<Object[]> provideParameters() {
-    final ArrowFlightConnectionProperty[] arrowFlightConnectionProperties = ArrowFlightConnectionProperty.values();
+    final ArrowFlightConnectionProperty[] arrowFlightConnectionProperties =
+        ArrowFlightConnectionProperty.values();
     final List<Object[]> parameters = new ArrayList<>(arrowFlightConnectionProperties.length);
     for (final ArrowFlightConnectionProperty arrowFlightConnectionProperty : arrowFlightConnectionProperties) {
-      parameters.add(new Object[]{arrowFlightConnectionProperty});
+      parameters.add(new Object[] {arrowFlightConnectionProperty});
     }
     return parameters;
   }
