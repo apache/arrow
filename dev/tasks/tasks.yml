@@ -392,7 +392,7 @@ tasks:
   # The python 3.8 universal2 installer has been built with macos deployment
   # target 11.0, so we cannot build binaries with earlier deployment target
   # otherwise distutils will raise a deployment target version mismatch error.
-  wheel-macos-big-sur-py38-arm64:
+  wheel-macos-big-sur-cp38-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:
