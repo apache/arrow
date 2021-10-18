@@ -4240,8 +4240,7 @@ using StringPredicate =
 
 template <typename Type, typename Predicate>
 struct StringPredicateFunctor {
-  static Status ApplyPredicate(KernelContext* ctx, const ExecBatch& batch,
-                               StringPredicate predicate, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     Status st = Status::OK();
     EnsureLookupTablesFilled();
     if (batch[0].kind() == Datum::ARRAY) {
@@ -4252,14 +4251,14 @@ struct StringPredicateFunctor {
           out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
           [&]() -> bool {
             util::string_view val = input_it();
-            return predicate(ctx, reinterpret_cast<const uint8_t*>(val.data()),
-                             val.size(), &st);
+            return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
+                                   val.size(), &st);
           });
     } else {
       const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
       if (input.is_valid) {
-        bool boolean_result = predicate(ctx, input.value->data(),
-                                        static_cast<size_t>(input.value->size()), &st);
+        bool boolean_result = Predicate::Call(
+            ctx, input.value->data(), static_cast<size_t>(input.value->size()), &st);
         // UTF decoding can lead to issues
         if (st.ok()) {
           out->value = std::make_shared<BooleanScalar>(boolean_result);
@@ -4267,10 +4266,6 @@ struct StringPredicateFunctor {
       }
     }
     return st;
-  }
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ApplyPredicate(ctx, batch, Predicate::Call, out);
   }
 };
 
