@@ -2829,10 +2829,13 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
 
   // TODO(edponce): Should we validate nrepeats (it will fail when trying to allocate
   // output data)? It is not an option, so do other compute functions validate their
-  // inputs or let them fail when they fail?
+  // inputs or let them fail when they fail? Or should inputs be validated in PreExec,
+  // but then need to validate methods (Scalar/Array)?
+  //
+  // Current approach returns empty string if nrepeats is negative.
 
   int64_t MaxCodeunits(const int64_t input1_ncodeunits, const int64_t nrepeats) override {
-    return input1_ncodeunits * nrepeats;
+    return std::max(input1_ncodeunits * nrepeats, (int64_t)0);
   }
 
   int64_t MaxCodeunits(const int64_t input1_ncodeunits,
@@ -2841,11 +2844,11 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     for (int64_t i = 0; i < input2.length(); ++i) {
       total_nrepeats += input2.GetView(i);
     }
-    return input1_ncodeunits * total_nrepeats;
+    return std::max(input1_ncodeunits * total_nrepeats, (int64_t)0);
   }
 
   int64_t MaxCodeunits(const ArrayType1& input1, const int64_t nrepeats) override {
-    return input1.total_values_length() * nrepeats;
+    return std::max(input1.total_values_length() * nrepeats, (int64_t)0);
   }
 
   int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) override {
@@ -2853,7 +2856,7 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     for (int64_t i = 0; i < input2.length(); ++i) {
       total_codeunits += input1.GetView(i).length() * input2.GetView(i);
     }
-    return total_codeunits;
+    return std::max(total_codeunits, (int64_t)0);
   }
 
   int64_t Transform(const uint8_t* input, const int64_t input_string_ncodeunits,
