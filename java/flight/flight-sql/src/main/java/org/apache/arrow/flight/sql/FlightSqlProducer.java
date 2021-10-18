@@ -715,24 +715,4 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       // Prevent instantiation.
     }
   }
-
-  /**
-   * Reserved options for the SQL command `GetSqlInfo` used by {@link FlightSqlProducer}.
-   */
-  final class SqlInfo {
-    public static final int FLIGHT_SQL_SERVER_NAME = 0;
-    public static final int FLIGHT_SQL_SERVER_VERSION = 1;
-    public static final int FLIGHT_SQL_SERVER_ARROW_VERSION = 2;
-    public static final int FLIGHT_SQL_SERVER_READ_ONLY = 3;
-    public static final int SQL_DDL_CATALOG = 500;
-    public static final int SQL_DDL_SCHEMA = 501;
-    public static final int SQL_DDL_TABLE = 502;
-    public static final int SQL_IDENTIFIER_CASE = 503;
-    public static final int SQL_IDENTIFIER_QUOTE_CHAR = 504;
-    public static final int SQL_QUOTED_IDENTIFIER_CASE = 505;
-
-    private SqlInfo() {
-      // Prevent instantiation.
-    }
-  }
 }
