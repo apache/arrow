@@ -438,6 +438,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           return DECIMAL_DIGITS_TIME_MICROSECONDS;
         case NANOSECOND:
           return DECIMAL_DIGITS_TIME_NANOSECONDS;
+        default:
+          break;
       }
     } else if (fieldType instanceof ArrowType.Time) {
       switch (((ArrowType.Time) fieldType).getUnit()) {
@@ -449,6 +451,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           return DECIMAL_DIGITS_TIME_MICROSECONDS;
         case NANOSECOND:
           return DECIMAL_DIGITS_TIME_NANOSECONDS;
+        default:
+          break;
       }
     } else if (fieldType instanceof ArrowType.Date) {
       return NO_DECIMAL_DIGITS;
@@ -474,6 +478,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           return COLUMN_SIZE_INT;
         case Long.SIZE:
           return COLUMN_SIZE_LONG;
+        default:
+          break;
       }
     } else if (fieldType instanceof ArrowType.Utf8 || fieldType instanceof ArrowType.Binary) {
       return COLUMN_SIZE_VARCHAR_AND_BINARY;
@@ -487,6 +493,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           return COLUMN_SIZE_TIMESTAMP_MICROSECONDS;
         case NANOSECOND:
           return COLUMN_SIZE_TIMESTAMP_NANOSECONDS;
+        default:
+          break;
       }
     } else if (fieldType instanceof ArrowType.Time) {
       switch (((ArrowType.Time) fieldType).getUnit()) {
@@ -498,6 +506,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           return COLUMN_SIZE_TIME_MICROSECONDS;
         case NANOSECOND:
           return COLUMN_SIZE_TIME_NANOSECONDS;
+        default:
+          break;
       }
     } else if (fieldType instanceof ArrowType.Date) {
       return COLUMN_SIZE_DATE;

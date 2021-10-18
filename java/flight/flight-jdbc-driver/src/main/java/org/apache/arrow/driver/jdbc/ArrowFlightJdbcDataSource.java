@@ -28,10 +28,7 @@ import java.util.logging.Logger;
 import javax.sql.DataSource;
 
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
-import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.PropertiesUtils;
 import org.apache.arrow.util.Preconditions;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * {@link DataSource} implementation for Arrow Flight JDBC Driver.
@@ -65,11 +62,15 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * @return the {@link Properties} for this data source.
    */
   protected final Properties getProperties(final String username, final String password) {
-    return PropertiesUtils.copyReplace(
-        properties,
-        ImmutableMap.of(
-            ArrowFlightConnectionProperty.USER, username,
-            ArrowFlightConnectionProperty.PASSWORD, password));
+    final Properties newProperties = new Properties();
+    newProperties.putAll(this.properties);
+    if (username != null) {
+      newProperties.replace(ArrowFlightConnectionProperty.USER.camelName(), username);
+    }
+    if (password != null) {
+      newProperties.replace(ArrowFlightConnectionProperty.PASSWORD.camelName(), password);
+    }
+    return newProperties;
   }
 
   /**
@@ -89,10 +90,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
 
   @Override
   public ArrowFlightConnection getConnection(final String username, final String password) throws SQLException {
-    final Properties properties = new Properties();
-    properties.putAll(this.properties);
-    properties.put(ArrowFlightConnectionProperty.USER.camelName(), username);
-    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), password);
+    final Properties properties = getProperties(username, password);
     return new ArrowFlightJdbcDriver().connect(config.url(), properties);
   }
 

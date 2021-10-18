@@ -21,10 +21,10 @@ import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
@@ -226,9 +226,9 @@ public class ConnectionTlsTest {
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
 
-    try (Connection connection = DriverManager
-        .getConnection(serverUrl, properties)) {
-
+    final ArrowFlightJdbcDataSource dataSource =
+        ArrowFlightJdbcDataSource.createNewDataSource(properties);
+    try (final Connection connection = dataSource.getConnection()) {
       assert connection.isValid(300);
     }
   }
@@ -251,8 +251,9 @@ public class ConnectionTlsTest {
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), "badpassword");
 
-    try (Connection connection = DriverManager
-        .getConnection(serverUrl, properties)) {
+    final ArrowFlightJdbcDataSource dataSource =
+        ArrowFlightJdbcDataSource.createNewDataSource(properties);
+    try (final Connection connection = dataSource.getConnection()) {
       Assert.fail();
     }
   }
@@ -272,9 +273,9 @@ public class ConnectionTlsTest {
     properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
     properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
 
-    try (Connection connection = DriverManager.getConnection(serverUrl,
-        properties)) {
-
+    final ArrowFlightJdbcDataSource dataSource =
+        ArrowFlightJdbcDataSource.createNewDataSource(properties);
+    try (final Connection connection = dataSource.getConnection()) {
       assert connection.isValid(300);
     }
   }

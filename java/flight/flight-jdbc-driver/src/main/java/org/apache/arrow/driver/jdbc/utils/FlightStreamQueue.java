@@ -84,6 +84,9 @@ public class FlightStreamQueue implements AutoCloseable {
     return closed.get();
   }
 
+  /**
+   * Auxiliary functional interface for getting ready-to-consume FlightStreams.
+   */
   @FunctionalInterface
   interface FlightStreamSupplier {
     Future<FlightStream> get() throws SQLTimeoutException;
