@@ -329,7 +329,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   if (selection_vector_mode != SelectionVector::MODE_NONE) {
     position_var = builder->CreateIntCast(
         CreateLoad(builder, CreateGEP(builder, arg_selection_vector, loop_var),
-                            "uncasted_position_var"),
+                   "uncasted_position_var"),
         types()->i64_type(), true, "position_var");
   }
 
