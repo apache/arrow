@@ -42,6 +42,7 @@
 #pragma warning(pop)
 #endif
 
+// Workaround for deprecated builder methods as of LLVM 13: ARROW-14363
 inline llvm::Value* CreateGEP(llvm::IRBuilder<>* builder, llvm::Value* Ptr,
                               llvm::ArrayRef<llvm::Value*> IdxList,
                               const llvm::Twine& Name = "") {
