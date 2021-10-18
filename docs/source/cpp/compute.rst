@@ -828,9 +828,9 @@ String transforms
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
 | binary_replace_slice    | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(4)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring       | Unary | String-like            | String-like            | :struct:`ReplaceSubstringOptions` | \(5)  |
+| replace_substring       | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(5)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring_regex | Unary | String-like            | String-like            | :struct:`ReplaceSubstringOptions` | \(6)  |
+| replace_substring_regex | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(6)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
 | utf8_capitalize         | Unary | String-like            | String-like            |                                   | \(8)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
@@ -1049,11 +1049,11 @@ Containment tests
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
 +=======================+=======+===================================+================+=================================+=======+
-| count_substring       | Unary | String-like                       | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
+| count_substring       | Unary | Binary- or String-like            | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| count_substring_regex | Unary | String-like                       | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
+| count_substring_regex | Unary | Binary- or String-like            | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| ends_with             | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
+| ends_with             | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | find_substring        | Unary | Binary- and String-like           | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(3)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
@@ -1065,13 +1065,13 @@ Containment tests
 | is_in                 | Unary | Boolean, Null, Numeric, Temporal, | Boolean        | :struct:`SetLookupOptions`      | \(5)  |
 |                       |       | Binary- and String-like           |                |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_like            | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(6)  |
+| match_like            | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(6)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_substring       | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(7)  |
+| match_substring       | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(7)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_substring_regex | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(8)  |
+| match_substring_regex | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(8)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| starts_with           | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
+| starts_with           | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 * \(1) Output is the number of occurrences of
