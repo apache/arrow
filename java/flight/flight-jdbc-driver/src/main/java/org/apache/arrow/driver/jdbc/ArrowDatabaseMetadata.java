@@ -298,24 +298,22 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsMinimumSQLGrammar() throws SQLException {
-    List<Boolean> supportsSqlGrammar =
+    return checkEnumLevel(
         Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
                 SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
             getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
                 SupportedSqlGrammar.SQL_CORE_GRAMMAR),
             getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-                SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR));
-    return supportsSqlGrammar.stream().anyMatch(e -> e);
+                SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR)));
   }
 
   @Override
   public boolean supportsCoreSQLGrammar() throws SQLException {
-    List<Boolean> supportsSqlGrammar =
+    return checkEnumLevel(
         Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
                 SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
             getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-                SupportedSqlGrammar.SQL_CORE_GRAMMAR));
-    return supportsSqlGrammar.stream().anyMatch(e -> e);
+                SupportedSqlGrammar.SQL_CORE_GRAMMAR)));
   }
 
   @Override
@@ -326,24 +324,22 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsANSI92EntryLevelSQL() throws SQLException {
-    List<Boolean> supportsANSI92 =
+    return checkEnumLevel(
         Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL),
             getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL),
             getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-                SupportedAnsi92SqlGrammarLevel.ANSI92_FULL_SQL));
-    return supportsANSI92.stream().anyMatch(e -> e);
+                SupportedAnsi92SqlGrammarLevel.ANSI92_FULL_SQL)));
   }
 
   @Override
   public boolean supportsANSI92IntermediateSQL() throws SQLException {
-    List<Boolean> supportsANSI92 =
+    return checkEnumLevel(
         Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL),
             getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-                SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL));
-    return supportsANSI92.stream().anyMatch(e -> e);
+                SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL)));
   }
 
   @Override
@@ -728,6 +724,10 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   ) throws SQLException {
     final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(sqlInfoCommand, Integer.class);
     return doesBitmaskTranslateToEnum(enumInstance, bitmask);
+  }
+
+  private boolean checkEnumLevel(List<Boolean> toCheck) throws SQLException {
+    return toCheck.stream().anyMatch(e -> e);
   }
 
   @Override
