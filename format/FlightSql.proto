@@ -1476,17 +1476,6 @@ message CommandStatementQuery {
 
 /**
  * Represents a ticket resulting from GetFlightInfo with a CommandStatementQuery.
- * This should be treated as an opaque value, that is, clients should not attempt to parse this.
- */
-message TicketStatementQuery {
-  option (experimental) = true;
-
-  // Unique identifier for the instance of the statement to execute.
-  bytes statement_handle = 1;
-}
-
-/**
- * Represents a ticket resulting from GetFlightInfo with a CommandStatementQuery.
  * This should be used only once and treated as an opaque value, that is, clients should not attempt to parse this.
  */
 message TicketStatementQuery {

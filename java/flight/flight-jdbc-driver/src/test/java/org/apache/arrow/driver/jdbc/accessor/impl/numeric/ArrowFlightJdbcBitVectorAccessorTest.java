@@ -39,16 +39,13 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
-
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor> accessorSupplier =
+      (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBitVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
   private BitVector vector;
   private BitVector vectorWithNull;
   private boolean[] arrayToAssert;
-
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
-
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBitVectorAccessor> accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
   public void setup() {
@@ -63,8 +60,8 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(Function<ArrowFlightJdbcBitVectorAccessor, T> function, T result, T resultIfFalse,
-                           BitVector vector) throws Exception {
+  private <T> void iterate(final Function<ArrowFlightJdbcBitVectorAccessor, T> function, final T result,
+                           final T resultIfFalse, final BitVector vector) throws Exception {
     accessorIterator.assertAccessorGetter(vector, function,
         ((accessor, currentRow) -> is(arrayToAssert[currentRow] ? result : resultIfFalse))
     );

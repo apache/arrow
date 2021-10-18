@@ -36,7 +36,6 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter;
-import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -219,10 +218,10 @@ public final class DatabaseMetadataDenseUnionUtils {
   /**
    * Sets the data {@code values} for a {@code Map} field.
    *
-   * @param root     the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
-   * @param index    the index to use for {@link DenseUnionVector#setSafe}
-   * @param sqlInfo  the {@link SqlInfo} to use.
-   * @param values   the input value.
+   * @param root    the {@link VectorSchemaRoot} from which to fetch the {@link DenseUnionVector}.
+   * @param index   the index to use for {@link DenseUnionVector#setSafe}
+   * @param sqlInfo the {@link SqlInfo} to use.
+   * @param values  the input value.
    */
   public static void setIntToIntListMapField(final VectorSchemaRoot root, final int index,
                                              final SqlInfo sqlInfo, final int key, int[] values) {
