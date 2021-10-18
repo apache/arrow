@@ -118,3 +118,48 @@ duckdb_disconnector <- function(con, tbl_name) {
   })
   environment()
 }
+
+#' Create an Arrow object from others
+#'
+#' This can be used in pipelines that pass data back and forth between Arrow and
+#' other processes (like DuckDB).
+#'
+#' @param .data the object to be converted
+#'
+#' @return an `arrow_dplyr_query` object, to be used in dplyr pipelines.
+#' @export
+#'
+#' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
+#' library(dplyr)
+#'
+#' ds <- InMemoryDataset$create(mtcars)
+#'
+#' ds %>%
+#'   filter(mpg < 30) %>%
+#'   to_duckdb() %>%
+#'   group_by(cyl) %>%
+#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
+#'   to_arrow() %>%
+#'   collect()
+to_arrow <- function(.data) {
+  # If this is an Arrow object already, return quickly since we're already Arrow
+  if (inherits(.data, c("arrow_dplyr_query", "ArrowObject"))) {
+    return(.data)
+  }
+
+  # For now, we only handle .data from duckdb, so check that it is that if we've
+  # gotten this far
+  if (!inherits(dbplyr::remote_con(.data), "duckdb_connection")) {
+    stop(
+      "to_arrow() currently only supports Arrow tables, Arrow datasets, ",
+      "Arrow queries, or dbplyr tbls from duckdb connections",
+      call. = FALSE
+    )
+  }
+
+  # Run the query
+  res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
+
+  # TODO: we shouldn't need $read_table(), but we get segfaults when we do.
+  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res)$read_table())
+}

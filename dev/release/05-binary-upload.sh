@@ -65,16 +65,12 @@ fi
 # To explicitly select one category, set UPLOAD_DEFAULT=0 UPLOAD_X=1.
 : ${UPLOAD_DEFAULT:=1}
 : ${UPLOAD_ALMALINUX:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_AMAZON_LINUX_RPM:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_AMAZON_LINUX_YUM:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_CENTOS_RPM:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_CENTOS_YUM:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_DEBIAN_APT:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_DEBIAN_DEB:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_AMAZON_LINUX:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_CENTOS:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_DEBIAN:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_NUGET:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_UBUNTU_APT:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_UBUNTU_DEB:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
 
 rake_tasks=()
 apt_targets=()
@@ -83,27 +79,15 @@ if [ ${UPLOAD_ALMALINUX} -gt 0 ]; then
   rake_tasks+=(yum:rc)
   yum_targets+=(almalinux)
 fi
-if [ ${UPLOAD_AMAZON_LINUX_RPM} -gt 0 ]; then
-  rake_tasks+=(rpm)
-  yum_targets+=(amazon-linux)
-fi
-if [ ${UPLOAD_AMAZON_LINUX_YUM} -gt 0 ]; then
+if [ ${UPLOAD_AMAZON_LINUX} -gt 0 ]; then
   rake_tasks+=(yum:rc)
   yum_targets+=(amazon-linux)
 fi
-if [ ${UPLOAD_CENTOS_RPM} -gt 0 ]; then
-  rake_tasks+=(rpm)
-  yum_targets+=(centos)
-fi
-if [ ${UPLOAD_CENTOS_YUM} -gt 0 ]; then
+if [ ${UPLOAD_CENTOS} -gt 0 ]; then
   rake_tasks+=(yum:rc)
   yum_targets+=(centos)
 fi
-if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
-  rake_tasks+=(deb)
-  apt_targets+=(debian)
-fi
-if [ ${UPLOAD_DEBIAN_APT} -gt 0 ]; then
+if [ ${UPLOAD_DEBIAN} -gt 0 ]; then
   rake_tasks+=(apt:rc)
   apt_targets+=(debian)
 fi
@@ -113,11 +97,7 @@ fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)
 fi
-if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
-  rake_tasks+=(deb)
-  apt_targets+=(ubuntu)
-fi
-if [ ${UPLOAD_UBUNTU_APT} -gt 0 ]; then
+if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
   rake_tasks+=(apt:rc)
   apt_targets+=(ubuntu)
 fi
@@ -137,5 +117,6 @@ docker_run \
     ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
     RC=${rc} \
+    STAGING=${STAGING:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
