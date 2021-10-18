@@ -61,4 +61,3 @@ auto ConvertRoot(const Buffer& buf) -> decltype(Convert(std::declval<Ir>())) {
 
 }  // namespace compute
 }  // namespace arrow
-
