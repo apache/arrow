@@ -422,42 +422,6 @@ def test_scanner(dataset, dataset_reader):
     assert table.num_rows == scanner.count_rows()
 
 
-def test_scanner_backpressure():
-    batch = pa.record_batch([pa.array([1, 2, 3])], names=['data'])
-    num_read = 0
-    min_read = 64  # From kDefaultBackpressureHigh in scanner.h
-    end = 200
-
-    def counting_generator():
-        nonlocal num_read
-        while num_read < end:
-            time.sleep(0.01)
-            num_read += 1
-            yield batch
-
-    scanner = ds.Scanner.from_batches(
-        counting_generator(), batch.schema, use_threads=True, use_async=True)
-
-    _batch_iter = scanner.to_batches()  # This line starts the scan
-
-    start = time.time()
-
-    def duration():
-        return time.time() - start
-
-    last_num_read = 0
-    backpressure_probably_hit = False
-    while duration() < 10:
-        if num_read > min_read and num_read == last_num_read:
-            backpressure_probably_hit = True
-            break
-        last_num_read = num_read
-        time.sleep(0.5)
-
-    assert backpressure_probably_hit
-    assert len(list(_batch_iter)) == end
-
-
 def test_head(dataset, dataset_reader):
     result = dataset_reader.head(dataset, 0)
     assert result == pa.Table.from_batches([], schema=dataset.schema)
