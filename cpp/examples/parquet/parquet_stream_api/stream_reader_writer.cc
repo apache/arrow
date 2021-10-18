@@ -169,7 +169,6 @@ struct TestData {
 
 char TestData::char4_array[] = "XYZ";
 std::time_t TestData::ts_offset_;
-char TestData::string_[];
 
 void WriteParquetFile() {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
