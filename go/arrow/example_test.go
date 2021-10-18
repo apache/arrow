@@ -162,7 +162,7 @@ func Example_listArray() {
 	arr := lb.NewArray().(*array.List)
 	defer arr.Release()
 
-	arr.DataType().(*arrow.ListType).NullableElem = false
+	arr.DataType().(*arrow.ListType).SetElemNullable(false)
 	fmt.Printf("NullN()   = %d\n", arr.NullN())
 	fmt.Printf("Len()     = %d\n", arr.Len())
 	fmt.Printf("Offsets() = %v\n", arr.Offsets())
