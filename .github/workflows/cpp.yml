@@ -252,7 +252,7 @@ jobs:
       ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
-      ARROW_GANDIVA: OFF
+      ARROW_GANDIVA: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
