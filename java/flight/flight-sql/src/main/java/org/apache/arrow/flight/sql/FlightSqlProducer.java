@@ -21,6 +21,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import static org.apache.arrow.vector.complex.MapVector.DATA_VECTOR_NAME;
@@ -122,6 +123,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandGetImportedKeys.class)) {
       return getFlightInfoImportedKeys(
           FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class), context, descriptor);
+    } else if (command.is(CommandGetCrossReference.class)) {
+      return getFlightInfoCrossReference(
+          FlightSqlUtils.unpackOrThrow(command, CommandGetCrossReference.class), context, descriptor);
     }
 
     throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
@@ -153,7 +157,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
       return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
-    } else if (command.is(CommandGetImportedKeys.class) || command.is(CommandGetExportedKeys.class)) {
+    } else if (command.is(CommandGetImportedKeys.class) || command.is(CommandGetExportedKeys.class) ||
+        command.is(CommandGetCrossReference.class)) {
       return new SchemaResult(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
     }
 
@@ -202,6 +207,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       getStreamExportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetExportedKeys.class), context, listener);
     } else if (command.is(CommandGetImportedKeys.class)) {
       getStreamImportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class), context, listener);
+    } else if (command.is(CommandGetCrossReference.class)) {
+      getStreamCrossReference(FlightSqlUtils.unpackOrThrow(command, CommandGetCrossReference.class), context, listener);
     } else {
       throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
     }
@@ -538,6 +545,18 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                        FlightDescriptor descriptor);
 
   /**
+   * Retrieve a description of the foreign key columns that reference the given table's primary key columns
+   * {@link CommandGetCrossReference} objects in {@link Result} objects.
+   *
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  FlightInfo getFlightInfoCrossReference(CommandGetCrossReference request, CallContext context,
+                                         FlightDescriptor descriptor);
+
+  /**
    * Returns data for foreign keys based data stream.
    *
    * @param command  The command to generate the data stream.
@@ -556,6 +575,17 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   void getStreamImportedKeys(CommandGetImportedKeys command, CallContext context,
                              ServerStreamListener listener);
+
+  /**
+   * Returns data for cross reference based data stream.
+   *
+   * @param command  The command to generate the data stream.
+   * @param context  Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  void getStreamCrossReference(CommandGetCrossReference command, CallContext context,
+                             ServerStreamListener listener);
+
 
   /**
    * Default schema templates for the {@link FlightSqlProducer}.
