@@ -183,38 +183,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
 Status FlightSqlServerBase::GetFlightInfoCatalogs(const ServerCallContext& context,
                                                   const FlightDescriptor& descriptor,
                                                   std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("GetFlightInfoCatalogs not Implemented");
-}
-
-Status FlightSqlServerBase::DoGetImportedKeys(
-    const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
-    std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("DoGetImportedKeys not implemented");
-}
-
-Status FlightSqlServerBase::GetFlightInfoStatement(
-    const pb::sql::CommandStatementQuery& command, const ServerCallContext& context,
-    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetImportedKeys not implemented");
-}
-
-Status FlightSqlServerBase::DoGetStatement(const pb::sql::TicketStatementQuery& command,
-                                           const ServerCallContext& context,
-                                           std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("GetFlightInfoStatement not implemented");
-}
-
-Status FlightSqlServerBase::GetFlightInfoPreparedStatement(
-    const pb::sql::CommandPreparedStatementQuery& command,
-    const ServerCallContext& context, const FlightDescriptor& descriptor,
-    std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetStatement not implemented");
-}
-
-Status FlightSqlServerBase::DoGetPreparedStatement(
-    const pb::sql::CommandPreparedStatementQuery& command,
-    const ServerCallContext& context, std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("GetFlightInfoPreparedStatement not implemented");
+  return Status::NotImplemented("GetFlightInfoCatalogs not implemented");
 }
 
 Status FlightSqlServerBase::DoGetCatalogs(const ServerCallContext& context,
@@ -222,47 +191,72 @@ Status FlightSqlServerBase::DoGetCatalogs(const ServerCallContext& context,
   return Status::NotImplemented("DoGetCatalogs not implemented");
 }
 
+Status FlightSqlServerBase::GetFlightInfoStatement(
+    const pb::sql::CommandStatementQuery& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+  return Status::NotImplemented("GetFlightInfoStatement not implemented");
+}
+
+Status FlightSqlServerBase::DoGetStatement(const pb::sql::TicketStatementQuery& command,
+                                           const ServerCallContext& context,
+                                           std::unique_ptr<FlightDataStream>* result) {
+  return Status::NotImplemented("DoGetStatement not implemented");
+}
+
+Status FlightSqlServerBase::GetFlightInfoPreparedStatement(
+    const pb::sql::CommandPreparedStatementQuery& command,
+    const ServerCallContext& context, const FlightDescriptor& descriptor,
+    std::unique_ptr<FlightInfo>* info) {
+  return Status::NotImplemented("GetFlightInfoPreparedStatement not implemented");
+}
+
+Status FlightSqlServerBase::DoGetPreparedStatement(
+    const pb::sql::CommandPreparedStatementQuery& command,
+    const ServerCallContext& context, std::unique_ptr<FlightDataStream>* result) {
+  return Status::NotImplemented("DoGetPreparedStatement not implemented");
+}
+
 Status FlightSqlServerBase::GetFlightInfoSqlInfo(
     const pb::sql::CommandGetSqlInfo& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetPreparedStatement not implemented");
+  return Status::NotImplemented("GetFlightInfoSqlInfo not implemented");
 }
 
 Status FlightSqlServerBase::DoGetSqlInfo(const pb::sql::CommandGetSqlInfo& command,
                                          const ServerCallContext& context,
                                          std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("GetFlightInfoSqlInfo not implemented");
+  return Status::NotImplemented("DoGetSqlInfo not implemented");
 }
 
 Status FlightSqlServerBase::GetFlightInfoSchemas(
     const pb::sql::CommandGetSchemas& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetSqlInfo not implemented");
+  return Status::NotImplemented("GetFlightInfoSchemas not implemented");
 }
 
 Status FlightSqlServerBase::DoGetSchemas(const pb::sql::CommandGetSchemas& command,
                                          const ServerCallContext& context,
                                          std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("GetFlightInfoSchemas not implemented");
+  return Status::NotImplemented("DoGetSchemas not implemented");
 }
 
 Status FlightSqlServerBase::GetFlightInfoTables(const pb::sql::CommandGetTables& command,
                                                 const ServerCallContext& context,
                                                 const FlightDescriptor& descriptor,
                                                 std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetSchemas not implemented");
+  return Status::NotImplemented("GetFlightInfoTables not implemented");
 }
 
 Status FlightSqlServerBase::DoGetTables(const pb::sql::CommandGetTables& command,
                                         const ServerCallContext& context,
                                         std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("GetFlightInfoTables not implemented");
+  return Status::NotImplemented("DoGetTables not implemented");
 }
 
 Status FlightSqlServerBase::GetFlightInfoTableTypes(const ServerCallContext& context,
                                                     const FlightDescriptor& descriptor,
                                                     std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetTables not implemented");
+  return Status::NotImplemented("GetFlightInfoTableTypes not implemented");
 }
 
 Status FlightSqlServerBase::DoGetTableTypes(const ServerCallContext& context,
@@ -273,31 +267,37 @@ Status FlightSqlServerBase::DoGetTableTypes(const ServerCallContext& context,
 Status FlightSqlServerBase::GetFlightInfoPrimaryKeys(
     const pb::sql::CommandGetPrimaryKeys& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("GetFlightInfoTableTypes not implemented");
+  return Status::NotImplemented("GetFlightInfoPrimaryKeys not implemented");
 }
 
 Status FlightSqlServerBase::DoGetPrimaryKeys(
     const pb::sql::CommandGetPrimaryKeys& command, const ServerCallContext& context,
     std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("GetFlightInfoPrimaryKeys not implemented");
+  return Status::NotImplemented("DoGetPrimaryKeys not implemented");
 }
 
 Status FlightSqlServerBase::GetFlightInfoExportedKeys(
     const pb::sql::CommandGetExportedKeys& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetPrimaryKeys not implemented");
+  return Status::NotImplemented("GetFlightInfoExportedKeys not implemented");
 }
 
 Status FlightSqlServerBase::DoGetExportedKeys(
     const pb::sql::CommandGetExportedKeys& command, const ServerCallContext& context,
     std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("GetFlightInfoExportedKeys not implemented");
+  return Status::NotImplemented("DoGetExportedKeys not implemented");
 }
 
 Status FlightSqlServerBase::GetFlightInfoImportedKeys(
     const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("DoGetExportedKeys not implemented");
+  return Status::NotImplemented("GetFlightInfoImportedKeys not implemented");
+}
+
+Status FlightSqlServerBase::DoGetImportedKeys(
+    const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
+    std::unique_ptr<FlightDataStream>* result) {
+  return Status::NotImplemented("DoGetImportedKeys not implemented");
 }
 
 Status FlightSqlServerBase::CreatePreparedStatement(
