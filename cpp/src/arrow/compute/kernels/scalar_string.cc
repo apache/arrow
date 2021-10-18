@@ -31,7 +31,6 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/buffer_builder.h"
-
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
@@ -539,45 +538,61 @@ struct FixedSizeBinaryTransformExecWithState
   }
 };
 
+template <typename Type1, typename Type2>
 struct StringBinaryTransformBase {
+  using ViewType2 = typename GetViewType<Type2>::T;
+  using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
+  using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+
+  // Not all combinations of input shapes are meaningful to string binary transforms, so
+  // these flags serve as toggles for enabling/disabling the corresponding ones. These
+  // flags should be set in the PreExec() method.
+  //
+  // This is an example of a StringTransform that disables argument shapes with mixed
+  // scalar/array.
+  //
+  // template <typename Type1, typename Type2>
+  // struct MyStringTransform : public StringBinaryTransformBase<Type1, Type2> {
+  //   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  //     EnableScalarArray = false;
+  //     EnableArrayScalar = false;
+  //     return StringBinaryTransformBase::PreExec(ctx, batch, out);
+  //   }
+  //   ...
+  // };
+  bool EnableScalarScalar = true;
+  bool EnableScalarArray = true;
+  bool EnableArrayScalar = true;
+  bool EnableArrayArray = true;
+
   virtual ~StringBinaryTransformBase() = default;
 
   virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Status::OK();
   }
 
-  virtual Status InvalidStatus() const {
+  virtual Status InvalidStatus() {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
 
-  // Not all combinations of input shapes are meaningful to string binary transforms, so
-  // these flags serve as toggles for enabling/disabling the corresponding ones. These
-  // flags should be set in the PreExec() method.
-  bool EnableScalarScalar = true;
-  bool EnableScalarArray = true;
-  bool EnableArrayScalar = true;
-  bool EnableArrayArray = true;
-
-  // Derived classes need to define all the MaxCodeunits methods even if they are not used
-  // due to disabling the corresponding "EnableXXX" flag. Unfortunately, these methods
-  // cannot be virtual predefined in this base class because C++ does not supports
-  // creating vtables from templetized methods. using ViewType2 = typename
-  // GetViewType<Type2>::T; using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
-  // using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
-
   // Return the maximum total size of the output in codeunits (i.e. bytes)
   // given input characteristics for Scalar-Scalar, Scalar-Array, Array-Scalar, and
-  // Array-Array inputs. int64_t MaxCodeunits(const int64_t input1_ncodeunits, const
-  // ViewType2 value2) const { return 0; }
-  //
-  // int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2& input2) const
-  // { return 0; }
-  //
-  // int64_t MaxCodeunits(const ArrayType1& input1, const ViewType2 value2) const { return
-  // 0; }
-  //
-  // int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) const {
-  // return 0; }
+  // Array-Array inputs.
+  virtual int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ViewType2) {
+    return input1_ncodeunits;
+  }
+
+  virtual int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2&) {
+    return input1_ncodeunits;
+  }
+
+  virtual int64_t MaxCodeunits(const ArrayType1& input1, const ViewType2) {
+    return input1.total_values_length();
+  }
+
+  virtual int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2&) {
+    return input1.total_values_length();
+  }
 };
 
 /// Kernel exec generator for binary string transforms.  The first parameter is expected
@@ -2808,7 +2823,7 @@ void AddSplit(FunctionRegistry* registry) {
 }
 
 template <typename Type1, typename Type2>
-struct StringRepeatTransform : public StringBinaryTransformBase {
+struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
@@ -2816,21 +2831,12 @@ struct StringRepeatTransform : public StringBinaryTransformBase {
   // output data)? It is not an option, so do other compute functions validate their
   // inputs or let them fail when they fail?
 
-  // TODO(edponce): This is just an example of how to disable function arguments of
-  // specific input shapes. Status PreExec(KernelContext* ctx, const ExecBatch& batch,
-  // Datum* out) override {
-  //   EnableScalarArray = false;
-  //   return StringBinaryTransformBase::PreExec(ctx, batch, out);
-  // }
-  //
-  // int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2& input2) const
-  // { return 0; }
-
-  int64_t MaxCodeunits(const int64_t input1_ncodeunits, const int64_t nrepeats) const {
+  int64_t MaxCodeunits(const int64_t input1_ncodeunits, const int64_t nrepeats) override {
     return input1_ncodeunits * nrepeats;
   }
 
-  int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2& input2) const {
+  int64_t MaxCodeunits(const int64_t input1_ncodeunits,
+                       const ArrayType2& input2) override {
     int64_t total_nrepeats = 0;
     for (int64_t i = 0; i < input2.length(); ++i) {
       total_nrepeats += input2.GetView(i);
@@ -2838,11 +2844,11 @@ struct StringRepeatTransform : public StringBinaryTransformBase {
     return input1_ncodeunits * total_nrepeats;
   }
 
-  int64_t MaxCodeunits(const ArrayType1& input1, const int64_t nrepeats) const {
+  int64_t MaxCodeunits(const ArrayType1& input1, const int64_t nrepeats) override {
     return input1.total_values_length() * nrepeats;
   }
 
-  int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) const {
+  int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) override {
     int64_t total_codeunits = 0;
     for (int64_t i = 0; i < input2.length(); ++i) {
       total_codeunits += input1.GetView(i).length() * input2.GetView(i);
@@ -2882,23 +2888,36 @@ template <typename Type1, typename Type2>
 using StringRepeat =
     StringBinaryTransformExec<Type1, Type2, StringRepeatTransform<Type1, Type2>>;
 
-template <template <typename...> class ExecFunctor>
-void MakeStringRepeatBatchKernel(std::string name, FunctionRegistry* registry,
-                              const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
-  {
-    for (const auto& ty : IntTypes()) {
-      auto exec = GenerateInteger<ExecFunctor, StringType>(ty);
-      ScalarKernel kernel{{utf8(), ty}, utf8(), exec};
-      DCHECK_OK(func->AddKernel(std::move(kernel)));
+/// An ScalarFunction that promotes integer arguments to Int64.
+struct ScalarUpcastToInt64Function : public ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
+
+    for (auto& descr : *values) {
+      if (is_integer(descr.type->id())) {
+        descr.type = int64();
+      }
     }
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
   }
-  {
-    for (const auto& ty : IntTypes()) {
-      auto exec = GenerateInteger<ExecFunctor, LargeStringType>(ty);
-      ScalarKernel kernel{{large_utf8(), ty}, large_utf8(), exec};
-      DCHECK_OK(func->AddKernel(std::move(kernel)));
-    }
+};
+
+void AddStringRepeat(std::string name, FunctionRegistry* registry,
+                     const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarUpcastToInt64Function>(name, Arity::Binary(), doc);
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<StringRepeat, Int64Type>(ty);
+    ScalarKernel kernel{{ty, int64()}, ty, exec};
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -4926,7 +4945,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSplit(registry);
   AddStrptime(registry);
   AddBinaryJoin(registry);
-  MakeStringRepeatBatchKernel<StringRepeat>("string_repeat", registry, &string_repeat_doc);
+  AddStringRepeat("string_repeat", registry, &string_repeat_doc);
 }
 
 }  // namespace internal
