@@ -84,7 +84,7 @@ arrow::Status RadosConn::Connect() {
       rados->init2(ctx->ceph_user_name.c_str(), ctx->ceph_cluster_name.c_str(), 0));
   ARROW_RETURN_NOT_OK(rados->conf_read_file(ctx->ceph_config_path.c_str()));
   ARROW_RETURN_NOT_OK(rados->connect());
-  ARROW_RETURN_NOT_OK(rados->ioctx_create(ctx->ceph_data_pool.c_str(), io_ctx));
+  ARROW_RETURN_NOT_OK(rados->ioctx_create(ctx->ceph_data_pool.c_str(), io_ctx.get()));
   return arrow::Status::OK();
 }
 
