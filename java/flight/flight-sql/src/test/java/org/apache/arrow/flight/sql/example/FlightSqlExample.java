@@ -1636,16 +1636,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamCrossReference(FlightSql.CommandGetCrossReference command, CallContext context,
                                       ServerStreamListener listener) {
-    final String parentCatalog = command.hasParentCatalog() ? command.getParentCatalog() : null;
-    final String parentSchema = command.hasParentSchema() ? command.getParentSchema() : null;
-    final String foreignCatalog = command.hasForeignCatalog() ? command.getForeignCatalog() : null;
-    final String foreignSchema = command.hasForeignSchema() ? command.getForeignSchema() : null ;
-    final String parentTable = command.getParentTable();
-    final String foreignTable = command.getForeignTable();
+    final String pkCatalog = command.hasPkCatalog() ? command.getPkCatalog() : null;
+    final String pkSchema = command.hasPkSchema() ? command.getPkSchema() : null;
+    final String fkCatalog = command.hasFkCatalog() ? command.getFkCatalog() : null;
+    final String fkSchema = command.hasFkSchema() ? command.getFkSchema() : null ;
+    final String pkTable = command.getPkTable();
+    final String fkTable = command.getFkTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI);
          ResultSet keys = connection.getMetaData()
-             .getCrossReference(parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable);
+             .getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable);
          VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
       listener.start(vectorSchemaRoot);
       listener.putNext();

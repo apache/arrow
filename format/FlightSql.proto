@@ -1163,38 +1163,38 @@ message CommandGetCrossReference {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  optional string parent_catalog = 1;
+  optional string pk_catalog = 1;
 
   /**
    * The Schema name where the parent table is.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  optional string parent_schema = 2;
+  optional string pk_schema = 2;
 
   /**
    * The parent table name. It cannot be null.
    */
-  string parent_table = 3;
+  string pk_table = 3;
 
   /**
    * The catalog name where the foreign table is.
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  optional string foreign_catalog = 4;
+  optional string fk_catalog = 4;
 
   /**
    * The schema name where the foreign table is.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  optional string foreign_schema = 5;
+  optional string fk_schema = 5;
 
   /**
    * The foreign table name. It cannot be null.
    */
-  string foreign_table = 6;
+  string fk_table = 6;
 }
 
 // SQL Execution Action Messages
