@@ -1627,6 +1627,35 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
   }
 
+  @Override
+  public FlightInfo getFlightInfoCrossReference(FlightSql.CommandGetCrossReference request, CallContext context,
+                                                FlightDescriptor descriptor) {
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
+  }
+
+  @Override
+  public void getStreamCrossReference(FlightSql.CommandGetCrossReference command, CallContext context,
+                                      ServerStreamListener listener) {
+    final String parentCatalog = command.hasParentCatalog() ? command.getParentCatalog() : null;
+    final String parentSchema = command.hasParentSchema() ? command.getParentSchema() : null;
+    final String foreignCatalog = command.hasForeignCatalog() ? command.getForeignCatalog() : null;
+    final String foreignSchema = command.hasForeignSchema() ? command.getForeignSchema() : null ;
+    final String parentTable = command.getParentTable();
+    final String foreignTable = command.getForeignTable();
+
+    try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+         ResultSet keys = connection.getMetaData()
+             .getCrossReference(parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable);
+         VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
+    } catch (final SQLException e) {
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
+  }
+
   private VectorSchemaRoot createVectors(ResultSet keys) throws SQLException {
     final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", rootAllocator);
     final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", rootAllocator);
