@@ -26,7 +26,7 @@ jobs:
   {% if env is defined %}
     env:
     {% for key, value in env.items() %}
-      {{ key }}: {{ value }}
+      {{ key }}: "{{ value }}"
     {% endfor %}
   {% endif %}
     steps:
