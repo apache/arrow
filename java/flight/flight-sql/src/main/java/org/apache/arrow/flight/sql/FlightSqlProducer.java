@@ -161,12 +161,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return new SchemaResult(Schemas.GET_TYPE_INFO_SCHEMA);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
       return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
-    } else if (command.is(CommandGetImportedKeys.class)) {
-      return new SchemaResult(Schemas.GET_IMPORTED_KEYS_SCHEMA);
-    } else if (command.is(CommandGetExportedKeys.class)) {
-      return new SchemaResult(Schemas.GET_EXPORTED_KEYS_SCHEMA);
-    } else if (command.is(CommandGetCrossReference.class)) {
-      return new SchemaResult(Schemas.GET_CROSS_REFERENCE_SCHEMA);
+    } else if (command.is(CommandGetImportedKeys.class) || command.is(CommandGetExportedKeys.class) ||
+        command.is(CommandGetCrossReference.class)) {
+      return new SchemaResult(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
     }
 
     throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid command provided.").toRuntimeException();
