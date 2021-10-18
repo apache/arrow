@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDatasetScanner < Test::Unit::TestCase
+class TestDatasetScannerBuilder < Test::Unit::TestCase
   include Helper::Buildable
   include Helper::Writable
 
@@ -36,13 +36,40 @@ class TestDatasetScanner < Test::Unit::TestCase
       factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
       factory.file_system_uri = build_file_uri(path)
       @dataset = factory.finish
-      builder = @dataset.begin_scan
-      @scanner = builder.finish
+      @builder = @dataset.begin_scan
       yield
     end
   end
 
-  def test_to_table
-    assert_equal(@table, @scanner.to_table)
+  def test_new_record_batch_reader
+    reader = Arrow::TableBatchReader.new(@table)
+    builder = ArrowDataset::ScannerBuilder.new(reader)
+    scanner = builder.finish
+    assert_equal(@table, scanner.to_table)
+  end
+
+  def test_filter
+    visible = Arrow::FieldExpression.new("visible")
+    true_scalar = Arrow::BooleanScalar.new(true)
+    true_datum = Arrow::ScalarDatum.new(true_scalar)
+    true_literal = Arrow::LiteralExpression.new(true_datum)
+    filter = Arrow::CallExpression.new("equal", [visible, true_literal])
+    @builder.filter = filter
+    scanner = @builder.finish
+    assert_equal(build_table(visible: [
+                               build_boolean_array([true, true]),
+                               build_boolean_array([true, true]),
+                             ],
+                             point: [
+                               build_int32_array([1, 3]),
+                               build_int32_array([-2, -4]),
+                             ]),
+                 scanner.to_table)
+  end
+
+  def test_use_async
+    @builder.use_async = true
+    scanner = @builder.finish
+    assert_equal(@table, scanner.to_table)
   end
 end
