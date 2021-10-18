@@ -191,7 +191,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   private VectorSchemaRootTransformer getImportedExportedKeysTransformer(final BufferAllocator allocator) {
-    return new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA,
+    return new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_KEYS_SCHEMA,
         allocator)
         .renameFieldVector("pk_catalog_name", "PKTABLE_CAT")
         .renameFieldVector("pk_schema_name", "PKTABLE_SCHEM")
@@ -387,7 +387,6 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
       // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
       if (fieldType instanceof ArrowType.Decimal) {
-        final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
       } else if (fieldType instanceof ArrowType.Int) {
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
