@@ -203,8 +203,9 @@ enum SqlInfo {
    */
   SQL_NULL_PLUS_NULL_IS_NULL = 516;
 
-  // Retrieves a UTF-8 string list with values of the supported conversion functions.
-  SQL_SUPPORTED_CONVERSION_FUNCTIONS = 517;
+  // Retrieves a map where the key is the type to convert from and the value is the type to convert to, indicating
+  // the supported conversions.
+  SQL_SUPPORTS_CONVERT = 517;
 
   /*
    * Retrieves a boolean value indicating whether, when table correlation names are supported,
@@ -326,12 +327,12 @@ enum SqlInfo {
   SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY = 527;
 
   /*
-   * Retrieves the support level for SQL JOINs.
+   * Retrieves the support level for SQL OUTER JOINs.
    *
    * Returns a uint3 uint32 ordinal for the SQL ordering being used, as described in
-   * `arrow.flight.protocol.sql.SqlJoinsSupportLevel`.
+   * `arrow.flight.protocol.sql.SqlOuterJoinsSupportLevel`.
    */
-  SQL_JOINS_SUPPORT_LEVEL = 528;
+  SQL_OUTER_JOINS_SUPPORT_LEVEL = 528;
 
   // Retrieves a UTF-8 string with the preferred term for "schema".
   SQL_SCHEMA_TERM = 529;
@@ -777,9 +778,9 @@ enum SupportedAnsi92SqlGrammarLevel {
   ANSI92_FULL_SQL = 2;
 }
 
-enum SqlJoinsSupportLevel {
+enum SqlOuterJoinsSupportLevel {
   SQL_JOINS_UNSUPPORTED = 0;
-  SQL_LIMITED_JOINS = 1;
+  SQL_LIMITED_OUTER_JOINS = 1;
   SQL_FULL_OUTER_JOINS = 2;
 }
 
@@ -836,6 +837,29 @@ enum SqlSupportedResultSetConcurrency {
   SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED = 0;
   SQL_RESULT_SET_CONCURRENCY_READ_ONLY = 1;
   SQL_RESULT_SET_CONCURRENCY_UPDATABLE = 2;
+}
+
+enum SqlSupportsConvert {
+  SQL_CONVERT_BIGINT = 0;
+  SQL_CONVERT_BINARY = 1;
+  SQL_CONVERT_BIT = 2;
+  SQL_CONVERT_CHAR = 3;
+  SQL_CONVERT_DATE = 4;
+  SQL_CONVERT_DECIMAL = 5;
+  SQL_CONVERT_FLOAT = 6;
+  SQL_CONVERT_INTEGER = 7;
+  SQL_CONVERT_INTERVAL_DAY_TIME = 8;
+  SQL_CONVERT_INTERVAL_YEAR_MONTH = 9;
+  SQL_CONVERT_LONGVARBINARY = 10;
+  SQL_CONVERT_LONGVARCHAR = 11;
+  SQL_CONVERT_NUMERIC = 12;
+  SQL_CONVERT_REAL = 13;
+  SQL_CONVERT_SMALLINT = 14;
+  SQL_CONVERT_TIME = 15;
+  SQL_CONVERT_TIMESTAMP = 16;
+  SQL_CONVERT_TINYINT = 17;
+  SQL_CONVERT_VARBINARY = 18;
+  SQL_CONVERT_VARCHAR = 19;
 }
 
 /*

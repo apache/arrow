@@ -23,10 +23,14 @@ import static java.util.stream.IntStream.range;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
+import static org.apache.arrow.vector.complex.MapVector.DATA_VECTOR_NAME;
+import static org.apache.arrow.vector.complex.MapVector.KEY_NAME;
+import static org.apache.arrow.vector.complex.MapVector.VALUE_NAME;
 import static org.apache.arrow.vector.types.Types.MinorType.BIGINT;
 import static org.apache.arrow.vector.types.Types.MinorType.BIT;
 import static org.apache.arrow.vector.types.Types.MinorType.INT;
 import static org.apache.arrow.vector.types.Types.MinorType.LIST;
+import static org.apache.arrow.vector.types.Types.MinorType.STRUCT;
 import static org.apache.arrow.vector.types.Types.MinorType.UINT4;
 import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
 
@@ -57,13 +61,17 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -324,8 +332,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
   /**
    * Returns data for a SQL query based data stream.
-   *
-   * @param ticket   Ticket message containing the statement handle
+   * @param ticket   Ticket message containing the statement handle.
    * @param context  Per-call context.
    * @param listener An interface for sending data back to the client.
    */
@@ -401,8 +408,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param context  Per-call context.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamSqlInfo(CommandGetSqlInfo command, CallContext context,
-                        ServerStreamListener listener);
+  void getStreamSqlInfo(CommandGetSqlInfo command, CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available catalogs by returning a stream of
@@ -596,7 +602,15 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         Field.nullable("int32_bitmask", INT.getType()),
         new Field(
             "string_list", FieldType.nullable(LIST.getType()),
-            singletonList(Field.nullable("string_data", VARCHAR.getType()))));
+            singletonList(Field.nullable(ListVector.DATA_VECTOR_NAME, VARCHAR.getType()))),
+        new Field(
+            "int32_to_int32_list_map", FieldType.nullable(new ArrowType.Map(false)),
+            singletonList(new Field(DATA_VECTOR_NAME, new FieldType(false, STRUCT.getType(), null),
+                ImmutableList.of(
+                    Field.notNullable(KEY_NAME, INT.getType()),
+                    new Field(
+                        VALUE_NAME, FieldType.nullable(LIST.getType()),
+                        singletonList(Field.nullable("int_32_data", INT.getType()))))))));
     public static final Schema GET_SQL_INFO_SCHEMA =
         new Schema(asList(
             Field.notNullable("info_name", UINT4.getType()),
