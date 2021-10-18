@@ -392,14 +392,17 @@ tasks:
   # The python 3.8 universal2 installer has been built with macos deployment
   # target 11.0, so we cannot build binaries with earlier deployment target
   # otherwise distutils will raise a deployment target version mismatch error.
-  wheel-macos-big-sur-py38-arm64:
+  wheel-macos-big-sur-cp38-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
+      # SSE4_2 is the default but cmake will use NEON instead
+      arrow_simd_level: "SSE4_2"
       vcpkg_version: "2021.04.30"
       python_version: "3.8"
       macos_deployment_target: "11.0"
+
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_11_0_arm64.whl
 
@@ -409,6 +412,8 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
+      # SSE4_2 is the default but cmake will use NEON instead
+      arrow_simd_level: "SSE4_2"
       vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
@@ -420,6 +425,9 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: universal2
+      # Universal2 builds for both rosetta and native, but we currently can't
+      # configure SIMD for both architectures at the same time
+      arrow_simd_level: "NONE"
       vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
