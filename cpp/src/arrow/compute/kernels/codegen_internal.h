@@ -1215,7 +1215,7 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   }
 }
 
-// similar to GenerateTypeAgnosticPrimitive, but for variable binary and string types
+// Generate a kernel given a templated functor for binary and string types
 template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
@@ -1234,9 +1234,9 @@ ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
 }
 
 // Generate a kernel given a templated functor for base binary types. Generates
-// a single kernel for binary/string and large binary / large string. If your
-// kernel implementation needs access to the specific type at compile time,
-// please use BaseBinarySpecific.
+// a single kernel for [Large]BinaryType and [Large]StringType. If your kernel
+// implementation needs access to the specific type at compile time, please use
+// BaseBinarySpecific.
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>

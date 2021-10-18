@@ -2846,7 +2846,7 @@ struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
           return kTransformError;
         }
       } else {
-        // zero-length slice
+        // Zero-length slice
         end_sliced = begin_sliced;
       }
     }
