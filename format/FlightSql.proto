@@ -1017,6 +1017,14 @@ message CommandGetPrimaryKeys {
   string table = 3;
 }
 
+enum UpdateDeleteRules {
+  CASCADE = 0;
+  RESTRICT = 1;
+  SET_NULL = 2;
+  NO_ACTION = 3;
+  SET_DEFAULT = 4;
+}
+
 /*
  * Represents a request to retrieve a description of the foreign key columns that reference the given table's
  * primary key columns (the foreign keys exported by a table) of a table on a Flight SQL enabled backend.
@@ -1062,14 +1070,6 @@ message CommandGetExportedKeys {
 
   // Specifies the foreign key table to get the foreign keys for.
   string table = 3;
-}
-
-enum UpdateDeleteRules {
-  CASCADE = 0;
-  RESTRICT = 1;
-  SET_NULL = 2;
-  NO_ACTION = 3;
-  SET_DEFAULT = 4;
 }
 
 /*
@@ -1121,6 +1121,54 @@ message CommandGetImportedKeys {
 
   // Specifies the primary key table to get the foreign keys for.
   string table = 3;
+}
+
+/*
+ * Represents a request to retrieves a description of the foreign key columns in the given foreign key table that 
+ * reference the primary key or the columns representing a unique constraint of the parent table (could be the same
+ * or a different table). on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  pk_catalog_name: utf8,
+ *  pk_schema_name: utf8,
+ *  pk_table_name: utf8 not null,
+ *  pk_column_name: utf8 not null,
+ *  fk_catalog_name: utf8,
+ *  fk_schema_name: utf8,
+ *  fk_table_name: utf8 not null,
+ *  fk_column_name: utf8 not null,
+ *  key_sequence: int not null,
+ *  fk_key_name: utf8,
+ *  pk_key_name: utf8,
+ *  update_rule: uint1 not null,
+ *  delete_rule: uint1 not null
+ * >
+ * The returned data should be ordered by pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, then key_sequence.
+ * update_rule and delete_rule returns a byte that is equivalent to actions:
+ *    - 0 = CASCADE
+ *    - 1 = RESTRICT
+ *    - 2 = SET NULL
+ *    - 3 = NO ACTION
+ *    - 4 = SET DEFAULT
+ */
+message CommandGetCrossReference {
+  option (experimental) = true;
+
+  optional string parent_catalog = 1;
+
+  optional string parent_schema = 2;
+
+  string parent_table = 3;
+
+  optional string foreign_catalog = 4;
+
+  optional string foreign_schema = 5;
+
+  string foreign_table = 6;
 }
 
 // SQL Execution Action Messages
