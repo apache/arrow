@@ -1192,7 +1192,7 @@ Result<AsyncGenerator<T>> MakeSequencedMergedGenerator(
     return Status::Invalid("max_subscriptions must be a positive integer");
   }
   if (max_subscriptions == 1) {
-    return Status::Invalid("Use MakeConcatenatedGenerator is max_subscriptions is 1");
+    return Status::Invalid("Use MakeConcatenatedGenerator if max_subscriptions is 1");
   }
   AsyncGenerator<AsyncGenerator<T>> autostarting_source = MakeMappedGenerator(
       std::move(source),
