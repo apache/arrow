@@ -1580,7 +1580,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoExportedKeys(final FlightSql.CommandGetExportedKeys request, final CallContext context,
                                               final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, Schemas.getExportedKeysSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_EXPORTED_KEYS_SCHEMA);
   }
 
   @Override
@@ -1605,7 +1605,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoImportedKeys(final FlightSql.CommandGetImportedKeys request, final CallContext context,
                                               final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, Schemas.getImportedKeysSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_IMPORTED_KEYS_SCHEMA);
   }
 
   @Override
@@ -1630,7 +1630,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoCrossReference(FlightSql.CommandGetCrossReference request, CallContext context,
                                                 FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, Schemas.getCrossReferenceSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_CROSS_REFERENCE_SCHEMA);
   }
 
   @Override
