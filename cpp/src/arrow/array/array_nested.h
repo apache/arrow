@@ -370,6 +370,12 @@ class ARROW_EXPORT StructArray : public Array {
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   Result<ArrayVector> Flatten(MemoryPool* pool = default_memory_pool()) const;
 
+  /// \brief Get one of the child arrays, with the null bitmap adjusted if necessary.
+  ///
+  /// \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> Flatten(int index,
+                                         MemoryPool* pool = default_memory_pool()) const;
+
  private:
   // For caching boxed child data
   // XXX This is not handled in a thread-safe manner.
