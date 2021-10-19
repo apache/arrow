@@ -3,7 +3,7 @@
 jobs:
 - job: linux
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-latest
   timeoutInMinutes: 360
 
   variables:
