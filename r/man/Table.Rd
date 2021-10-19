@@ -3,25 +3,25 @@
 \docType{class}
 \name{Table}
 \alias{Table}
+\alias{arrow_table}
 \title{Table class}
+\usage{
+arrow_table(..., schema = NULL)
+}
+\arguments{
+\item{...}{A \code{data.frame} or a named set of Arrays or vectors. If given a
+mixture of data.frames and named vectors, the inputs will be autospliced together
+(see examples). Alternatively, you can provide a single Arrow IPC
+\code{InputStream}, \code{Message}, \code{Buffer}, or R \code{raw} object containing a \code{Buffer}.}
+
+\item{schema}{a \link{Schema}, or \code{NULL} (the default) to infer the schema from
+the data in \code{...}. When providing an Arrow IPC buffer, \code{schema} is required.}
+}
 \description{
 A Table is a sequence of \link[=ChunkedArray]{chunked arrays}. They
 have a similar interface to \link[=RecordBatch]{record batches}, but they can be
 composed from multiple record batches or chunked arrays.
 }
-\section{Factory}{
-
-
-The \code{Table$create()} function takes the following arguments:
-\itemize{
-\item \code{...} arrays, chunked arrays, or R vectors, with names; alternatively,
-an unnamed series of \link[=RecordBatch]{record batches} may also be provided,
-which will be stacked as rows in the table.
-\item \code{schema} a \link{Schema}, or \code{NULL} (the default) to infer the schema from
-the data in \code{...}
-}
-}
-
 \section{S3 Methods and Usage}{
 
 Tables are data-frame-like, and many methods you expect to work on
@@ -81,12 +81,12 @@ All list elements are coerced to string. See \code{schema()} for more informatio
 
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-tab <- Table$create(name = rownames(mtcars), mtcars)
-dim(tab)
-dim(head(tab))
-names(tab)
-tab$mpg
-tab[["cyl"]]
-as.data.frame(tab[4:8, c("gear", "hp", "wt")])
+tbl <- arrow_table(name = rownames(mtcars), mtcars)
+dim(tbl)
+dim(head(tbl))
+names(tbl)
+tbl$mpg
+tbl[["cyl"]]
+as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
 \dontshow{\}) # examplesIf}
 }
