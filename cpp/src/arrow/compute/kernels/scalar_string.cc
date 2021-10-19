@@ -395,7 +395,7 @@ struct StringTransformExecBase {
     }
     DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
 
-    // Trim the codepoint buffer, since we allocated too much
+    // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
@@ -604,10 +604,6 @@ struct StringBinaryTransformBase {
 ///
 /// int64_t Transform(const uint8_t* input, const int64_t input_string_ncodeunits,
 ///                   const ViewType2 value2, uint8_t* output);
-
-// TODO(edponce): Refactor common parts out and make use VisitorArrayValuesInline from
-// codegen_internal.h (assuming LogicalValue always matches the type returned by GetView()
-// which seems the case).
 template <typename Type1, typename Type2, typename StringTransform>
 struct StringBinaryTransformExecBase {
   using offset_type = typename Type1::offset_type;
@@ -654,31 +650,31 @@ struct StringBinaryTransformExecBase {
     if (!scalar1->is_valid || !scalar2->is_valid) {
       return Status::OK();
     }
+    const auto& binary_scalar1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
+    const auto input_string = binary_scalar1.value->data();
+    const auto input_ncodeunits = binary_scalar1.value->size();
+    const auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
 
-    const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
-    auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
-    auto input_ncodeunits = input1.value->size();
-    auto output_ncodeunits_max = transform->MaxCodeunits(input_ncodeunits, value2);
-    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-      return Status::CapacityError(
-          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-    }
+    // Calculate max number of output codeunits
+    const auto max_output_ncodeunits = transform->MaxCodeunits(input_ncodeunits, value2);
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
-    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
-    auto result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-    result->is_valid = true;
-    result->value = value_buffer;
-    auto output_str = value_buffer->mutable_data();
+    // Allocate output string
+    const auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    output->is_valid = true;
+    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(max_output_ncodeunits));
+    output->value = value_buffer;
+    auto output_string = output->value->mutable_data();
 
-    auto input1_string = input1.value->data();
-    offset_type encoded_nbytes =
-        transform->Transform(input1_string, input_ncodeunits, value2, output_str);
+    // Apply transform
+    auto encoded_nbytes = static_cast<offset_type>(
+        transform->Transform(input_string, input_ncodeunits, value2, output_string));
     if (encoded_nbytes < 0) {
       return transform->InvalidStatus();
     }
-    DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
+    DCHECK_LE(encoded_nbytes, max_output_ncodeunits);
 
-    // Trim the codepoint buffer, since we allocated too much
+    // Trim the codepoint buffer, since we may have allocated too much
     return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
   }
 
@@ -688,16 +684,12 @@ struct StringBinaryTransformExecBase {
     if (!scalar2->is_valid) {
       return Status::OK();
     }
+    const ArrayType1 array1(data1);
+    const auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
 
-    // Calculate/check max number of output codeunits
-    auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
-    auto max_output_ncodeunits =
-        transform->MaxCodeunits(static_cast<ArrayType1>(data1), value2);
-    if (max_output_ncodeunits > std::numeric_limits<offset_type>::max()) {
-      return Status::CapacityError(
-          "Result might not fit in requested binary/string array. If possible, convert "
-          "to a large binary/string.");
-    }
+    // Calculate max number of output codeunits
+    const auto max_output_ncodeunits = transform->MaxCodeunits(array1, value2);
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output strings
     const auto output = out->mutable_array();
@@ -710,7 +702,8 @@ struct StringBinaryTransformExecBase {
     output_offsets[0] = 0;
     offset_type output_ncodeunits = 0;
 
-    ARROW_RETURN_NOT_OK(arrow::internal::ArrayDataInlineVisitor<Type1>::VisitStatus(
+    // Apply transform
+    ARROW_RETURN_NOT_OK(VisitArrayDataInline<Type1>(
         *data1,
         [&](util::string_view input_string_view) {
           auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
@@ -730,6 +723,7 @@ struct StringBinaryTransformExecBase {
         }));
     DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
 
+    // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
@@ -739,91 +733,126 @@ struct StringBinaryTransformExecBase {
     if (!scalar1->is_valid) {
       return Status::OK();
     }
+    const auto& binary_scalar1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
+    const auto input_string = binary_scalar1.value->data();
+    const auto input_ncodeunits = binary_scalar1.value->size();
+    const ArrayType2 array2(data2);
 
-    const auto& input1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
-    auto input1_string = input1.value->data();
-    auto input1_ncodeunits = input1.value->size();
+    // Calculate max number of output codeunits
+    const auto max_output_ncodeunits = transform->MaxCodeunits(input_ncodeunits, array2);
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
-    ArrayType2 input2(data2);
-
-    auto output_ncodeunits_max = transform->MaxCodeunits(input1_ncodeunits, input2);
-    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-      return Status::CapacityError(
-          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-    }
-
-    ArrayData* output = out->mutable_array();
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
+    // Allocate output strings
+    const auto output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
+    const auto output_string = output->buffers[2]->mutable_data();
 
     // String offsets are preallocated
-    auto output_string_offsets = output->GetMutableValues<offset_type>(1);
-    auto output_str = output->buffers[2]->mutable_data();
+    auto output_offsets = output->GetMutableValues<offset_type>(1);
+    output_offsets[0] = 0;
     offset_type output_ncodeunits = 0;
-    output_string_offsets[0] = output_ncodeunits;
-    for (int64_t i = 0; i < input2.length(); ++i) {
-      if (!input2.IsNull(i)) {
-        auto value2 = input2.GetView(i);
-        offset_type encoded_nbytes = transform->Transform(
-            input1_string, input1_ncodeunits, value2, output_str + output_ncodeunits);
-        if (encoded_nbytes < 0) {
-          return transform->InvalidStatus();
-        }
-        output_ncodeunits += encoded_nbytes;
-      }
-      output_string_offsets[i + 1] = output_ncodeunits;
-    }
-    DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
 
-    // Trim the codepoint buffer, since we allocated too much
+    // XXX C++11 does not supports generic lambdas, so we cannot iterate
+    // through the unknown-typed Array in a generic way. C++14 provides support
+    // for generic lambdas.
+    // ARROW_RETURN_NOT_OK(VisitArrayDataInline<Type1>(
+    //     *data2,
+    //     [&](auto value2) {
+    //       auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
+    //           input_string, input_ncodeunits, value2, output_string +
+    //           output_ncodeunits));
+    //       if (encoded_nbytes < 0) {
+    //         return transform->InvalidStatus();
+    //       }
+    //       output_ncodeunits += encoded_nbytes;
+    //       *(++output_offsets) = output_ncodeunits;
+    //       return Status::OK();
+    //     },
+    //     [&]() {
+    //       *(++output_offsets) = output_ncodeunits;
+    //       return Status::OK();
+    //     }));
+
+    // Apply transform
+    ARROW_RETURN_NOT_OK(arrow::internal::VisitBitBlocks(
+        data2->buffers[0], data2->offset, data2->length,
+        [&](int64_t i) {
+          auto value2 = array2.GetView(i);
+          auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
+              input_string, input_ncodeunits, value2, output_string + output_ncodeunits));
+          if (encoded_nbytes < 0) {
+            return transform->InvalidStatus();
+          }
+          output_ncodeunits += encoded_nbytes;
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        },
+        [&]() {
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        }));
+    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+
+    // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
   static Status ExecArrayArray(KernelContext* ctx, StringTransform* transform,
                                const std::shared_ptr<ArrayData>& data1,
                                const std::shared_ptr<ArrayData>& data2, Datum* out) {
-    ArrayType1 input1(data1);
-    ArrayType2 input2(data2);
+    const ArrayType1 array1(data1);
+    const ArrayType2 array2(data2);
 
-    auto output_ncodeunits_max = transform->MaxCodeunits(input1, input2);
-    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-      return Status::CapacityError(
-          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-    }
+    // Calculate max number of output codeunits
+    const auto max_output_ncodeunits = transform->MaxCodeunits(array1, array2);
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
-    ArrayData* output = out->mutable_array();
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
+    // Allocate output strings
+    const auto output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
+    const auto output_string = output->buffers[2]->mutable_data();
 
     // String offsets are preallocated
-    auto output_string_offsets = output->GetMutableValues<offset_type>(1);
-    auto output_str = output->buffers[2]->mutable_data();
+    auto output_offsets = output->GetMutableValues<offset_type>(1);
+    output_offsets[0] = 0;
     offset_type output_ncodeunits = 0;
-    output_string_offsets[0] = output_ncodeunits;
-    for (int64_t i = 0; i < input1.length(); ++i) {
-      if (!input1.IsNull(i) || !input2.IsNull(i)) {
-        // NB: Using GetValue() for first input does not provides support
-        // for FixedSizeBinaryArray because its GetValue() method does not
-        // returns the string size. Instead, we use GetView() which returns a
-        // string_view and get its length via str.length() method.
-        auto input1_string_view = input1.GetView(i);
-        offset_type input1_string_ncodeunits = input1_string_view.length();
-        auto input1_string = reinterpret_cast<const uint8_t*>(input1_string_view.data());
-        auto value2 = input2.GetView(i);
-        offset_type encoded_nbytes =
-            transform->Transform(input1_string, input1_string_ncodeunits, value2,
-                                 output_str + output_ncodeunits);
-        if (encoded_nbytes < 0) {
-          return transform->InvalidStatus();
-        }
-        output_ncodeunits += encoded_nbytes;
-      }
-      output_string_offsets[i + 1] = output_ncodeunits;
-    }
-    DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
 
-    // Trim the codepoint buffer, since we allocated too much
+    // Apply transform
+    ARROW_RETURN_NOT_OK(arrow::internal::VisitTwoBitBlocks(
+        data1->buffers[0], data1->offset, data2->buffers[0], data2->offset, data1->length,
+        [&](int64_t i) {
+          auto input_string_view = array1.GetView(i);
+          offset_type input_ncodeunits = input_string_view.length();
+          auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
+          auto value2 = array2.GetView(i);
+          auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
+              input_string, input_ncodeunits, value2, output_string + output_ncodeunits));
+          if (encoded_nbytes < 0) {
+            return transform->InvalidStatus();
+          }
+          output_ncodeunits += encoded_nbytes;
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        },
+        [&]() {
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        }));
+    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+
+    // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
+  }
+
+  static Status CheckOutputCapacity(int64_t ncodeunits) {
+    if (ncodeunits > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result might not fit in requested binary/string array. If possible, convert "
+          "to a large binary/string.");
+    }
+    return Status::OK();
   }
 };
 
