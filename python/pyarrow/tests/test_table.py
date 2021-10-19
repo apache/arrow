@@ -1032,6 +1032,13 @@ def test_empty_table_with_names():
         pa.Table.from_arrays(data, names=names)
 
 
+def test_empty_table():
+    table = pa.table([])
+
+    assert table.column_names == []
+    assert table.equals(pa.Table.from_arrays([], []))
+
+
 def test_table_rename_columns():
     data = [
         pa.array(range(5)),
