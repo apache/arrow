@@ -286,10 +286,10 @@ file:
    make || exit /B
    popd
 
-Building on Windows/ARM64 using Ninja and Clang-cl
+Building on Windows/ARM64 using Ninja and Clang
 ===============================================
 
-Ninja and clang-cl can be used for building library on windows/arm64 platform.
+Ninja and clang can be used for building library on windows/arm64 platform.
 
 .. code-block:: batch
 
