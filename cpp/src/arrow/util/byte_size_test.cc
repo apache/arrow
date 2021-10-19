@@ -28,21 +28,21 @@ namespace arrow {
 namespace util {
 
 TEST(TestBufferSize, Arrays) {
-  auto pool = default_memory_pool();
+  MemoryPool* pool = default_memory_pool();
   // null buffer isn't counted but shouldn't interfere
   std::shared_ptr<Buffer> buf1 = std::make_shared<Buffer>(nullptr, 0);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf2, AllocateBuffer(1000, pool));
-  auto field_one_data =
+  std::shared_ptr<ArrayData> field_one_data =
       ArrayData::Make(int32(), 250, {buf1, buf2}, {}, kUnknownNullCount, 0);
   ASSERT_EQ(1000, EstimateBufferSize(*field_one_data));
   std::shared_ptr<Array> field_one_array = MakeArray(field_one_data);
   ASSERT_EQ(1000, EstimateBufferSize(*field_one_array));
 
-  auto field_two_data =
+  std::shared_ptr<ArrayData> field_two_data =
       ArrayData::Make(int32(), 250, {buf1, buf2}, {}, kUnknownNullCount, 0);
   std::shared_ptr<DataType> struct_type =
       struct_({field("a", int32()), field("b", int32())});
-  auto with_children_data =
+  std::shared_ptr<ArrayData> with_children_data =
       ArrayData::Make(struct_type, 250, {std::make_shared<Buffer>(NULLPTR, 0)},
                       {field_one_data, field_two_data}, kUnknownNullCount, 0);
 
@@ -53,12 +53,18 @@ TEST(TestBufferSize, Arrays) {
 }
 
 TEST(TestBufferSize, ArrayWithOffset) {
-  auto pool = default_memory_pool();
+  MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Buffer> buf1 = std::make_shared<Buffer>(nullptr, 0);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf2, AllocateBuffer(1000, pool));
-  auto data = ArrayData::Make(int32(), 200, {buf1, buf2}, {}, kUnknownNullCount, 200);
+  std::shared_ptr<ArrayData> data =
+      ArrayData::Make(int32(), 200, {buf1, buf2}, {}, kUnknownNullCount, 200);
   // Offsets are not handled currently
   ASSERT_EQ(1000, EstimateBufferSize(*data));
+}
+
+TEST(TestBufferSize, ArrayWithDict) {
+  std::shared_ptr<Array> arr = ArrayFromJSON(dictionary(int32(), int8()), "[0, 0, 0]");
+  ASSERT_EQ(13, EstimateBufferSize(*arr));
 }
 
 TEST(TestBufferSize, ChunkedArray) {

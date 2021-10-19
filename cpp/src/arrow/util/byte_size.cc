@@ -31,6 +31,9 @@ int64_t EstimateBufferSize(const ArrayData& array_data) {
   for (const auto& child : array_data.child_data) {
     sum += EstimateBufferSize(*child);
   }
+  if (array_data.dictionary) {
+    sum += EstimateBufferSize(*array_data.dictionary);
+  }
   return sum;
 }
 
