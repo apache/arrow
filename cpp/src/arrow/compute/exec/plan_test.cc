@@ -26,6 +26,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
@@ -235,6 +236,56 @@ TEST(ExecPlanExecution, SourceSink) {
                   Finishes(ResultWith(UnorderedElementsAreArray(basic_data.batches))));
     }
   }
+}
+
+TEST(ExecPlanExecution, SinkNodeBackpressure) {
+  constexpr uint32_t kPauseIfAbove = 4;
+  constexpr uint32_t kResumeIfBelow = 2;
+  EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
+  PushGenerator<util::optional<ExecBatch>> batch_producer;
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  util::BackpressureOptions backpressure_options =
+      util::BackpressureOptions::Make(kResumeIfBelow, kPauseIfAbove);
+  std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
+  ARROW_EXPECT_OK(compute::Declaration::Sequence(
+                      {
+                          {"source", SourceNodeOptions(schema_, batch_producer)},
+                          {"sink", SinkNodeOptions{&sink_gen, backpressure_options}},
+                      })
+                      .AddToPlan(plan.get()));
+  ARROW_EXPECT_OK(plan->StartProducing());
+
+  EXPECT_OK_AND_ASSIGN(util::optional<ExecBatch> batch, ExecBatch::Make({MakeScalar(0)}));
+  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+
+  // Should be able to push kPauseIfAbove batches without triggering back pressure
+  for (uint32_t i = 0; i < kPauseIfAbove; i++) {
+    batch_producer.producer().Push(batch);
+  }
+  SleepABit();
+  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+
+  // One more batch should trigger back pressure
+  batch_producer.producer().Push(batch);
+  BusyWait(10, [&] { return !backpressure_options.toggle->IsOpen(); });
+  ASSERT_FALSE(backpressure_options.toggle->IsOpen());
+
+  // Reading as much as we can while keeping it paused
+  for (uint32_t i = kPauseIfAbove; i >= kResumeIfBelow; i--) {
+    ASSERT_FINISHES_OK(sink_gen());
+  }
+  SleepABit();
+  ASSERT_FALSE(backpressure_options.toggle->IsOpen());
+
+  // Reading one more item should open up backpressure
+  ASSERT_FINISHES_OK(sink_gen());
+  BusyWait(10, [&] { return backpressure_options.toggle->IsOpen(); });
+  ASSERT_TRUE(backpressure_options.toggle->IsOpen());
+
+  // Cleanup
+  batch_producer.producer().Push(IterationEnd<util::optional<ExecBatch>>());
+  plan->StopProducing();
+  ASSERT_FINISHES_OK(plan->finished());
 }
 
 TEST(ExecPlan, ToString) {
@@ -1003,7 +1054,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
             [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
-            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"], 
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
             [12, "alfa", -2, "alfa"], [12, "alfa", -8, "alfa"],
             [-1, "gama", -1, "gama"], [5, "gama", -1, "gama"]])")};
 
@@ -1060,13 +1111,45 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
             [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
-            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"], 
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
             [12, "alfa", -2, "alfa"], [12, "alfa", -8, "alfa"],
             [3,  "beta", null, null], [7,  "beta", null, null],
             [-1, "gama", -1, "gama"], [5, "gama", -1, "gama"]])")};
 
     AssertExecBatchesEqual(hashjoin->output_schema(), result, expected);
   }
+}
+
+TEST(ExecPlan, RecordBatchReaderSourceSink) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  // set up a RecordBatchReader:
+  auto input = MakeBasicBatches();
+
+  RecordBatchVector batches;
+  for (const ExecBatch& exec_batch : input.batches) {
+    ASSERT_OK_AND_ASSIGN(auto batch, exec_batch.ToRecordBatch(input.schema));
+    batches.push_back(batch);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+  std::shared_ptr<RecordBatchReader> reader = std::make_shared<TableBatchReader>(*table);
+
+  // Map the RecordBatchReader to a SourceNode
+  ASSERT_OK_AND_ASSIGN(
+      auto batch_gen,
+      MakeReaderGenerator(std::move(reader), arrow::io::internal::GetIOThreadPool()));
+
+  ASSERT_OK(
+      Declaration::Sequence({
+                                {"source", SourceNodeOptions{table->schema(), batch_gen}},
+                                {"sink", SinkNodeOptions{&sink_gen}},
+                            })
+          .AddToPlan(plan.get()));
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray(input.batches))));
 }
 
 }  // namespace compute

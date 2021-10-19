@@ -51,6 +51,13 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
+      - name: Build C Data Interface lib
+        run: |
+          set -e
+          arrow/ci/scripts/java_cdata_build.sh \
+            $GITHUB_WORKSPACE/arrow \
+            $GITHUB_WORKSPACE/arrow/java-native-build \
+            $GITHUB_WORKSPACE/arrow/java/dist
       - name: Build C++ Libs
         run: |
           set -e
@@ -86,17 +93,18 @@ jobs:
           tar -xvzf arrow-shared-libs-linux.tar.gz
       - name: Test that Shared Libraries Exist
         run: |
+          test -f arrow/java/dist/libarrow_cdata_jni.dylib  
           test -f arrow/java/dist/libarrow_dataset_jni.dylib
           test -f arrow/java/dist/libgandiva_jni.dylib
           test -f arrow/java/dist/libarrow_orc_jni.dylib
+          test -f arrow/java/dist/libarrow_cdata_jni.so  
           test -f arrow/java/dist/libarrow_dataset_jni.so
           test -f arrow/java/dist/libarrow_orc_jni.so
           test -f arrow/java/dist/libgandiva_jni.so
       - name: Build Bundled Jar
         run: |
           set -e
-          arrow/ci/scripts/java_jni_build.sh \
+          arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/java/dist \
             $GITHUB_WORKSPACE/arrow/java/dist
       {{ macros.github_upload_releases(["arrow/java/dist/*.jar", "arrow/java/dist/*.pom"])|indent }}

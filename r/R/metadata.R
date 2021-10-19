@@ -99,6 +99,10 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
           # of class data.frame, remove the extraneous attribute
           attr(x, "row.names") <- NULL
         }
+        if (!is.null(attr(x, ".group_vars")) && requireNamespace("dplyr", quietly = TRUE)) {
+          x <- dplyr::group_by(x, !!!syms(attr(x, ".group_vars")))
+          attr(x, ".group_vars") <- NULL
+        }
       }
     },
     error = function(e) {
@@ -108,9 +112,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
   x
 }
 
-arrow_attributes <- function(x, only_top_level = FALSE) {
-  att <- attributes(x)
-
+remove_attributes <- function(x) {
   removed_attributes <- character()
   if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
     removed_attributes <- c("class", "row.names", "names")
@@ -127,6 +129,26 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   } else if (inherits(x, "hms") || inherits(x, "difftime")) {
     removed_attributes <- c("class", "units")
   }
+  removed_attributes
+}
+
+arrow_attributes <- function(x, only_top_level = FALSE) {
+  if (inherits(x, "grouped_df")) {
+    # Keep only the group var names, not the rest of the cached data that dplyr
+    # uses, which may be large
+    if (requireNamespace("dplyr", quietly = TRUE)) {
+      gv <- dplyr::group_vars(x)
+      x <- dplyr::ungroup(x)
+      # ungroup() first, then set attribute, bc ungroup() would erase it
+      attr(x, ".group_vars") <- gv
+    } else {
+      # Regardless, we shouldn't keep groups around
+      attr(x, "groups") <- NULL
+    }
+  }
+  att <- attributes(x)
+
+  removed_attributes <- remove_attributes(x)
 
   att <- att[setdiff(names(att), removed_attributes)]
   if (isTRUE(only_top_level)) {
@@ -166,6 +188,18 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     if (all(map_lgl(columns, is.null))) {
       columns <- NULL
     }
+  } else if (inherits(x, c("sfc", "sf"))) {
+    # Check if there are any columns that look like sf columns, warn that we will
+    # not be saving this data for now (but only if arrow.preserve_row_level_metadata
+    # is set to FALSE)
+    warning(
+      "One of the columns given appears to be an `sfc` SF column. Due to their unique ",
+      "nature, these columns do not convert to Arrow well. We are working on ",
+      "better ways to do this, but in the interim we recommend converting any `sfc` ",
+      "columns to WKB (well-known binary) columns before using them with Arrow ",
+      "(for example, with `sf::st_as_binary(col)`).",
+      call. = FALSE
+    )
   }
 
   if (length(att) || !is.null(columns)) {

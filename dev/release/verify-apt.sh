@@ -21,10 +21,14 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
+  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
+  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
-  echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
+  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
+  echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -43,15 +47,19 @@ APT_INSTALL="apt install -y -V --no-install-recommends"
 
 apt update
 ${APT_INSTALL} \
+  ca-certificates \
   curl \
   lsb-release
 
 code_name="$(lsb_release --codename --short)"
 distribution="$(lsb_release --id --short | tr 'A-Z' 'a-z')"
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/${distribution}"
-if [ "${TYPE}" = "rc" ]; then
-  artifactory_base_url+="-rc"
-fi
+case "${TYPE}" in
+  rc|staging-rc|staging-release)
+    suffix=${TYPE%-release}
+    artifactory_base_url+="-${suffix}"
+    ;;
+esac
 
 have_flight=yes
 have_plasma=yes
@@ -108,12 +116,15 @@ if [ "${TYPE}" = "local" ]; then
       --import "${keys}"
   fi
 else
-  if [ "${TYPE}" = "rc" ]; then
-    sed \
-      -i"" \
-      -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
-      /etc/apt/sources.list.d/apache-arrow.sources
-  fi
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
+      sed \
+        -i"" \
+        -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
+        /etc/apt/sources.list.d/apache-arrow.sources
+      ;;
+  esac
 fi
 
 apt update

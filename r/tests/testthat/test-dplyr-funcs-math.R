@@ -288,3 +288,22 @@ test_that("trig functions", {
     df
   )
 })
+
+test_that("arith functions ", {
+  df <- tibble(x = c(1:5, NA))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        int_div = x %/% 2,
+        addition = x + 1,
+        multiplication = x * 3,
+        subtraction = x - 5,
+        division = x / 2,
+        power = x ^ 3,
+        modulo = x %% 3
+      ) %>%
+      collect(),
+    df
+  )
+})

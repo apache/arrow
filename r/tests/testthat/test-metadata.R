@@ -219,16 +219,18 @@ test_that("Row-level metadata (does not by default) roundtrip", {
   # metadata should be handled separately ARROW-14020, ARROW-12542
   df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
   tab <- Table$create(df)
-  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
+  r_metadata <- tab$r_metadata
+  expect_type(r_metadata, "list")
   expect_null(r_metadata$columns$x$columns)
 
   # But we can re-enable this / read data that has already been written with
   # row-level metadata
-  withr::local_options(list("arrow.preserve_row_level_metadata" = TRUE))
-
-  tab <- Table$create(df)
-  expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
-  expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
+  withr::with_options(
+    list("arrow.preserve_row_level_metadata" = TRUE), {
+      tab <- Table$create(df)
+      expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
+      expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
+    })
 })
 
 
@@ -238,8 +240,7 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
-  local_edition(3)
-  library(dplyr)
+  library(dplyr, warn.conflicts = FALSE)
 
   df <- tibble::tibble(
     metadata = list(
@@ -254,36 +255,61 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   dst_dir <- make_temp_dir()
 
-  withr::local_options(list("arrow.preserve_row_level_metadata" = TRUE))
+  withr::with_options(
+    list("arrow.preserve_row_level_metadata" = TRUE), {
+      expect_warning(
+        write_dataset(df, dst_dir, partitioning = "part"),
+        "Row-level metadata is not compatible with datasets and will be discarded"
+      )
+
+      # Reset directory as previous write will have created some files and the default
+      # behavior is to error on existing
+      dst_dir <- make_temp_dir()
+      # but we need to write a dataset with row-level metadata to make sure when
+      # reading ones that have been written with them we warn appropriately
+      fake_func_name <- write_dataset
+      fake_func_name(df, dst_dir, partitioning = "part")
+
+      ds <- open_dataset(dst_dir)
+      expect_warning(
+        df_from_ds <- collect(ds),
+        "Row-level metadata is not compatible with this operation and has been ignored"
+      )
+      expect_equal(
+        arrange(df_from_ds, int),
+        arrange(df, int),
+        ignore_attr = TRUE
+      )
+
+      # however there is *no* warning if we don't select the metadata column
+      expect_warning(
+        df_from_ds <- ds %>% select(int) %>% collect(),
+        NA
+      )
+    })
+})
+
+test_that("When we encounter SF cols, we warn", {
+  df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
+  class(df$x) <- c("sfc_MULTIPOLYGON", "sfc", "list")
+
   expect_warning(
-    write_dataset(df, dst_dir, partitioning = "part"),
-    "Row-level metadata is not compatible with datasets and will be discarded"
+    tab <- Table$create(df),
+    "One of the columns given appears to be an"
   )
 
-  # Reset directory as previous write will have created some files and the default
-  # behavior is to error on existing
-  dst_dir <- make_temp_dir()
-  # but we need to write a dataset with row-level metadata to make sure when
-  # reading ones that have been written with them we warn appropriately
-  fake_func_name <- write_dataset
-  fake_func_name(df, dst_dir, partitioning = "part")
+  # but the table was read fine, just sans (row-level) metadata
+  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
+  expect_null(r_metadata$columns$x$columns)
 
-  ds <- open_dataset(dst_dir)
-  expect_warning(
-    df_from_ds <- collect(ds),
-    "Row-level metadata is not compatible with this operation and has been ignored"
-  )
-  expect_equal(
-    arrange(df_from_ds, int),
-    arrange(df, int),
-    ignore_attr = TRUE
-  )
-
-  # however there is *no* warning if we don't select the metadata column
-  expect_warning(
-    df_from_ds <- ds %>% select(int) %>% collect(),
-    NA
-  )
+  # But we can re-enable this / read data that has already been written with
+  # row-level metadata without a warning
+  withr::with_options(
+    list("arrow.preserve_row_level_metadata" = TRUE), {
+      expect_warning(tab <- Table$create(df), NA)
+      expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
+      expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
+    })
 })
 
 test_that("dplyr with metadata", {
@@ -332,4 +358,12 @@ test_that("dplyr with metadata", {
       collect(),
     example_with_metadata
   )
+})
+
+test_that("grouped_df metadata is recorded (efficiently)", {
+  grouped <- group_by(tibble(a = 1:2, b = 3:4), a)
+  expect_s3_class(grouped, "grouped_df")
+  grouped_tab <- Table$create(grouped)
+  expect_r6_class(grouped_tab, "Table")
+  expect_equal(grouped_tab$r_metadata$attributes$.group_vars, "a")
 })

@@ -108,6 +108,9 @@ Table <- R6Class("Table",
     RemoveColumn = function(i) Table__RemoveColumn(self, i),
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
+    ReplaceSchemaMetadata = function(new) {
+      Table__ReplaceSchemaMetadata(self, new)
+    },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
     to_data_frame = function() {
@@ -141,20 +144,6 @@ Table <- R6Class("Table",
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() Table__schema(self),
-    metadata = function(new) {
-      if (missing(new)) {
-        # Get the metadata (from the schema)
-        self$schema$metadata
-      } else {
-        # Set the metadata
-        new <- prepare_key_value_metadata(new)
-        out <- Table__ReplaceSchemaMetadata(self, new)
-        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
-        # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out$pointer())
-        self
-      }
-    },
     columns = function() Table__columns(self)
   )
 )
@@ -174,13 +163,7 @@ Table$create <- function(..., schema = NULL) {
   # If any arrays are length 1, recycle them
   dots <- recycle_scalars(dots)
 
-  out <- Table__from_dots(dots, schema, option_use_threads())
-
-  # Preserve any grouping
-  if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
-    out <- dplyr::group_by(out, !!!dplyr::groups(dots[[1]]))
-  }
-  out
+  Table__from_dots(dots, schema, option_use_threads())
 }
 
 #' @export

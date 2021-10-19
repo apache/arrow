@@ -54,7 +54,6 @@ groups:
     - almalinux-*
     - amazon-linux-*
     - centos-*
-    - conda-*
     - debian-*
     - java-jars
     - nuget
@@ -335,7 +334,8 @@ tasks:
 {% for python_version, python_tag, abi_tag in [("3.6", "cp36", "cp36m"),
                                                ("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),
-                                               ("3.9", "cp39", "cp39")] %}
+                                               ("3.9", "cp39", "cp39"),
+                                               ("3.10", "cp310", "cp310")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -348,7 +348,7 @@ tasks:
     ci: {{ ci }}
     template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
-      python_version: {{ python_version }}
+      python_version: "{{ python_version }}"
       manylinux_version: {{ manylinux }}
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
@@ -367,7 +367,7 @@ tasks:
     template: python-wheels/github.osx.amd64.yml
     params:
       vcpkg_version: "2021.04.30"
-      python_version: {{ python_version }}
+      python_version: "{{ python_version }}"
       macos_deployment_target: {{ macos_version }}
       arrow_s3: {{ arrow_s3 }}
     artifacts:
@@ -381,7 +381,7 @@ tasks:
     ci: github
     template: python-wheels/github.windows.yml
     params:
-      python_version: {{ python_version }}
+      python_version: "{{ python_version }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
@@ -392,23 +392,26 @@ tasks:
   # The python 3.8 universal2 installer has been built with macos deployment
   # target 11.0, so we cannot build binaries with earlier deployment target
   # otherwise distutils will raise a deployment target version mismatch error.
-  wheel-macos-big-sur-py38-arm64:
+  wheel-macos-big-sur-cp38-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
+      arrow_simd_level: "DEFAULT"
       vcpkg_version: "2021.04.30"
       python_version: "3.8"
       macos_deployment_target: "11.0"
+
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_11_0_arm64.whl
 
-{% for python_version, python_tag in [("3.9", "cp39")] %}
+{% for python_version, python_tag in [("3.9", "cp39"), ("3.10", "cp310")] %}
   wheel-macos-big-sur-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
+      arrow_simd_level: "DEFAULT"
       vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
@@ -420,6 +423,9 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: universal2
+      # Universal2 builds for both rosetta and native, but we currently can't
+      # configure SIMD for both architectures at the same time
+      arrow_simd_level: "NONE"
       vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
@@ -941,13 +947,13 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
 
-{% for python_version in ["3.6", "3.7", "3.8", "3.9"] %}
+{% for python_version in ["3.6", "3.7", "3.8", "3.9", "3.10"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: {{ python_version }}
+        PYTHON: "{{ python_version }}"
       image: conda-python
 {% endfor %}
 

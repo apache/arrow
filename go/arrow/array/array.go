@@ -207,10 +207,10 @@ func init() {
 		arrow.LARGE_STRING:            unsupportedArrayType,
 		arrow.LARGE_BINARY:            unsupportedArrayType,
 		arrow.LARGE_LIST:              unsupportedArrayType,
-		arrow.INTERVAL_MONTH_DAY_NANO: unsupportedArrayType,
 		arrow.INTERVAL:                func(data *Data) Interface { return NewIntervalData(data) },
+		arrow.INTERVAL_MONTH_DAY_NANO: func(data *Data) Interface { return NewMonthDayNanoIntervalData(data) },
 
-		// invalid data types to fill out array size 2⁵-1
+		// invalid data types to fill out array to size 2^6 - 1
 		63: invalidDataType,
 	}
 }

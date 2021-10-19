@@ -38,12 +38,14 @@ deps:
 
 # Note: files in tools are available at build time, but not at run time. The thirdparty
 # cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one level up from cpp/
+# we must rename .env to dotenv and then replace references to it in cpp/CMakeLists.txt
 sync-cpp:
 	cp ../NOTICE.txt inst/NOTICE.txt
 	rsync --archive --delete --exclude 'build' --exclude 'build-support/boost_*' --exclude 'submodules' ../cpp tools/
-	cp -p ../.env tools/
+	cp -p ../.env tools/dotenv
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/
+	sed -i .bak "s/\.env/dotenv/g" tools/cpp/CMakeLists.txt
 
 build: doc sync-cpp
 	R CMD build ${args} .

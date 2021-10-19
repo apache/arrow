@@ -370,6 +370,12 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitDAY_TIME)
 		fv.offset = flatbuf.IntervalEnd(fv.b)
 
+	case *arrow.MonthDayNanoIntervalType:
+		fv.dtype = flatbuf.TypeInterval
+		flatbuf.IntervalStart(fv.b)
+		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitMONTH_DAY_NANO)
+		fv.offset = flatbuf.IntervalEnd(fv.b)
+
 	case *arrow.DurationType:
 		fv.dtype = flatbuf.TypeDuration
 		unit := unitToFB(dt.Unit)
@@ -605,9 +611,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
-		dt := arrow.ListOf(children[0].Type)
-		dt.Meta = children[0].Metadata
-		dt.NullableElem = children[0].Nullable
+		dt := arrow.ListOfField(children[0])
 		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:
@@ -616,9 +620,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
 		}
-		ret := arrow.FixedSizeListOf(dt.ListSize(), children[0].Type)
-		ret.Meta = children[0].Metadata
-		ret.NullableElem = children[0].Nullable
+		ret := arrow.FixedSizeListOfField(dt.ListSize(), children[0])
 		return ret, nil
 
 	case flatbuf.TypeStruct_:
@@ -806,6 +808,8 @@ func intervalFromFB(data flatbuf.Interval) (arrow.DataType, error) {
 		return arrow.FixedWidthTypes.MonthInterval, nil
 	case flatbuf.IntervalUnitDAY_TIME:
 		return arrow.FixedWidthTypes.DayTimeInterval, nil
+	case flatbuf.IntervalUnitMONTH_DAY_NANO:
+		return arrow.FixedWidthTypes.MonthDayNanoInterval, nil
 	}
 	return nil, xerrors.Errorf("arrow/ipc: Interval type with %d unit not implemented", data.Unit())
 }

@@ -18,7 +18,12 @@
 do_exec_plan <- function(.data) {
   plan <- ExecPlan$create()
   final_node <- plan$Build(.data)
-  tab <- plan$Run(final_node)$read_table()
+  tab <- plan$Run(final_node)
+
+  # TODO (ARROW-14289): make the head/tail methods return RBR not Table
+  if (inherits(tab, "RecordBatchReader")) {
+    tab <- tab$read_table()
+  }
 
   # If arrange() created $temp_columns, make sure to omit them from the result
   # We can't currently handle this in the ExecPlan itself because sorting
@@ -32,9 +37,8 @@ do_exec_plan <- function(.data) {
     original_schema <- source_data(.data)$schema
     # TODO: do we care about other (non-R) metadata preservation?
     # How would we know if it were meaningful?
-    r_meta <- original_schema$metadata$r
+    r_meta <- original_schema$r_metadata
     if (!is.null(r_meta)) {
-      r_meta <- .unserialize_arrow_r_metadata(r_meta)
       # Filter r_metadata$columns on columns with name _and_ type match
       new_schema <- tab$schema
       common_names <- intersect(names(r_meta$columns), names(tab))
@@ -46,7 +50,7 @@ do_exec_plan <- function(.data) {
         # dplyr drops top-level attributes if you do summarize
         r_meta$attributes <- NULL
       }
-      tab$metadata$r <- .serialize_arrow_r_metadata(r_meta)
+      tab$r_metadata <- r_meta
     }
   }
 
@@ -59,6 +63,10 @@ ExecPlan <- R6Class("ExecPlan",
     Scan = function(dataset) {
       # Handle arrow_dplyr_query
       if (inherits(dataset, "arrow_dplyr_query")) {
+        if (inherits(dataset$.data, "RecordBatchReader")) {
+          return(ExecNode_ReadFromRecordBatchReader(self, dataset$.data))
+        }
+
         filter <- dataset$filtered_rows
         if (isTRUE(filter)) {
           filter <- Expression$scalar(TRUE)
@@ -171,16 +179,64 @@ ExecPlan <- R6Class("ExecPlan",
       if (length(.data$arrange_vars)) {
         node$sort <- list(
           names = names(.data$arrange_vars),
-          orders = as.integer(.data$arrange_desc),
+          orders = .data$arrange_desc,
           temp_columns = names(.data$temp_columns)
         )
       }
+
+      # This is only safe because we are going to evaluate queries that end
+      # with head/tail first, then evaluate any subsequent query as a new query
+      if (!is.null(.data$head)) {
+        node$head <- .data$head
+      }
+      if (!is.null(.data$tail)) {
+        node$tail <- .data$tail
+      }
+
       node
     },
     Run = function(node) {
       assert_is(node, "ExecNode")
-      ExecPlan_run(self, node, node$sort %||% list())
-    }
+
+      # Sorting and head/tail (if sorted) are handled in the SinkNode,
+      # created in ExecPlan_run
+      sorting <- node$sort %||% list()
+      select_k <- node$head %||% -1L
+      has_sorting <- length(sorting) > 0
+      if (has_sorting) {
+        if (!is.null(node$tail)) {
+          # Reverse the sort order and take the top K, then after we'll reverse
+          # the resulting rows so that it is ordered as expected
+          sorting$orders <- !sorting$orders
+          select_k <- node$tail
+        }
+        sorting$orders <- as.integer(sorting$orders)
+      }
+
+      out <- ExecPlan_run(self, node, sorting, select_k)
+
+      if (!has_sorting) {
+        # Since ExecPlans don't scan in deterministic order, head/tail are both
+        # essentially taking a random slice from somewhere in the dataset.
+        # And since the head() implementation is way more efficient than tail(),
+        # just use it to take the random slice
+        slice_size <- node$head %||% node$tail
+        if (!is.null(slice_size)) {
+          # TODO (ARROW-14289): make the head methods return RBR not Table
+          out <- head(out, slice_size)
+        }
+        # Can we now tell `self$Stop()` to StopProducing? We already have
+        # everything we need for the head (but it seems to segfault: ARROW-14329)
+      } else if (!is.null(node$tail)) {
+        # Reverse the row order to get back what we expect
+        # TODO: don't return Table, return RecordBatchReader
+        out <- out$read_table()
+        out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
+      }
+
+      out
+    },
+    Stop = function() ExecPlan_StopProducing(self)
   )
 )
 ExecPlan$create <- function(use_threads = option_use_threads()) {
@@ -194,8 +250,13 @@ ExecNode <- R6Class("ExecNode",
     # which don't currently yield their own ExecNode but rather are consumed
     # in the SinkNode (in ExecPlan$run())
     sort = NULL,
+    # Similar hacks for head and tail
+    head = NULL,
+    tail = NULL,
     preserve_sort = function(new_node) {
       new_node$sort <- self$sort
+      new_node$head <- self$head
+      new_node$tail <- self$tail
       new_node
     },
     Project = function(cols) {

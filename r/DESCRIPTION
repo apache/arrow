@@ -86,7 +86,7 @@ Collate:
     'dictionary.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
-    'dplyr-count-tally.R'
+    'dplyr-count.R'
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'

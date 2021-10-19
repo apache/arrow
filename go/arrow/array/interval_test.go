@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -271,6 +272,136 @@ func TestDayTimeIntervalBuilder_Empty(t *testing.T) {
 	b.AppendValues(want, nil)
 	b.AppendValues([]arrow.DayTimeInterval{}, nil)
 	arr = b.NewDayTimeIntervalArray()
+	assert.Equal(t, want, dtValues(arr))
+	arr.Release()
+}
+
+func TestMonthDayNanoArray(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		want = []arrow.MonthDayNanoInterval{
+			{1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000},
+			{0, 0, 0}, {-1, -2, -300}, {math.MaxInt32, math.MinInt32, math.MaxInt64},
+			{math.MinInt32, math.MaxInt32, math.MinInt64},
+		}
+		valids = []bool{true, true, false, true, true, true, false, true}
+	)
+
+	b := array.NewMonthDayNanoIntervalBuilder(mem)
+	defer b.Release()
+
+	b.Retain()
+	b.Release()
+
+	b.AppendValues(want[:2], nil)
+	b.AppendNull()
+	b.Append(want[3])
+	b.AppendValues(want[4:], valids[4:])
+
+	if got, want := b.Len(), len(want); got != want {
+		t.Fatalf("invalid len: got=%d, want=%d", got, want)
+	}
+
+	if got, want := b.NullN(), 2; got != want {
+		t.Fatalf("invalid nulls: got=%d, want=%d", got, want)
+	}
+
+	arr := b.NewMonthDayNanoIntervalArray()
+	defer arr.Release()
+
+	arr.Retain()
+	arr.Release()
+
+	if got, want := arr.Len(), len(want); got != want {
+		t.Fatalf("invalid len: got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.NullN(), 2; got != want {
+		t.Fatalf("invalid nulls: got=%d, want=%d", got, want)
+	}
+
+	for i := range want {
+		if arr.IsNull(i) != !valids[i] {
+			t.Fatalf("arr[%d]-validity: got=%v want=%v", i, !arr.IsNull(i), valids[i])
+		}
+		switch {
+		case arr.IsNull(i):
+		default:
+			got := arr.Value(i)
+			if got != want[i] {
+				t.Fatalf("arr[%d]: got=%q, want=%q", i, got, want[i])
+			}
+		}
+	}
+
+	sub := array.MakeFromData(arr.Data())
+	defer sub.Release()
+
+	if sub.DataType().ID() != arrow.INTERVAL_MONTH_DAY_NANO {
+		t.Fatalf("invalid type: got=%q, want=interval", sub.DataType().Name())
+	}
+
+	if _, ok := sub.(*array.MonthDayNanoInterval); !ok {
+		t.Fatalf("could not type-assert to array.MonthDayNanoInterval")
+	}
+
+	if got, want := arr.String(), `[{1 1 1000} {2 2 2000} (null) {4 4 4000} {0 0 0} {-1 -2 -300} (null) {-2147483648 2147483647 -9223372036854775808}]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+	slice := array.NewSliceData(arr.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.MonthDayNanoInterval)
+	if !ok {
+		t.Fatalf("could not type-assert to array.MonthDayNanoInterval")
+	}
+
+	if got, want := v.String(), `[(null) {4 4 4000}]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+}
+
+func TestMonthDayNanoIntervalBuilder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	want := []arrow.MonthDayNanoInterval{{1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000}}
+
+	b := array.NewMonthDayNanoIntervalBuilder(mem)
+	defer b.Release()
+
+	dtValues := func(a *array.MonthDayNanoInterval) []arrow.MonthDayNanoInterval {
+		vs := make([]arrow.MonthDayNanoInterval, a.Len())
+		for i := range vs {
+			vs[i] = a.Value(i)
+		}
+		return vs
+	}
+
+	b.AppendValues([]arrow.MonthDayNanoInterval{}, nil)
+	arr := b.NewMonthDayNanoIntervalArray()
+	assert.Zero(t, arr.Len())
+	arr.Release()
+
+	b.AppendValues(nil, nil)
+	arr = b.NewMonthDayNanoIntervalArray()
+	assert.Zero(t, arr.Len())
+	arr.Release()
+
+	b.AppendValues([]arrow.MonthDayNanoInterval{}, nil)
+	b.AppendValues(want, nil)
+	arr = b.NewMonthDayNanoIntervalArray()
+	assert.Equal(t, want, dtValues(arr))
+	arr.Release()
+
+	b.AppendValues(want, nil)
+	b.AppendValues([]arrow.MonthDayNanoInterval{}, nil)
+	arr = b.NewMonthDayNanoIntervalArray()
 	assert.Equal(t, want, dtValues(arr))
 	arr.Release()
 }

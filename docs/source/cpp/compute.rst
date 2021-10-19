@@ -50,6 +50,8 @@ both array (chunked or not) and scalar inputs, however some will mandate
 either.  For example, while ``sort_indices`` requires its first and only
 input to be an array.
 
+.. _invoking-compute-functions:
+
 Invoking functions
 ------------------
 

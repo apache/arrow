@@ -94,7 +94,7 @@
   "+" = "add_checked",
   "-" = "subtract_checked",
   "*" = "multiply_checked",
-  "/" = "divide_checked",
+  "/" = "divide",
   "%/%" = "divide_checked",
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
   # use `%/%` above.

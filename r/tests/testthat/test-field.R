@@ -20,8 +20,17 @@ test_that("field() factory", {
   x <- field("x", int32())
   expect_equal(x$type, int32())
   expect_equal(x$name, "x")
+  expect_true(x$nullable)
   expect_true(x == x)
   expect_false(x == field("x", int64()))
+})
+
+test_that("Field with nullable values", {
+  x <- field("x", int32(), nullable = FALSE)
+  expect_equal(x$type, int32())
+  expect_false(x$nullable)
+  expect_true(x == x)
+  expect_false(x == field("x", int32()))
 })
 
 test_that("Field validation", {
@@ -34,6 +43,12 @@ test_that("Print method for field", {
     print(field("zz", dictionary())),
     "Field\nzz: dictionary<values=string, indices=int32>"
   )
+
+  expect_output(
+    print(field("x", int32(), nullable = FALSE)),
+    "Field\nx: int32 not null"
+  )
+
 })
 
 test_that("Field to C-interface", {

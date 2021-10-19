@@ -70,6 +70,7 @@ module Arrow
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
       require "arrow/equal-options"
+      require "arrow/expression"
       require "arrow/field"
       require "arrow/file-output-stream"
       require "arrow/file-system"

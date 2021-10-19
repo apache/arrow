@@ -1529,7 +1529,11 @@ coerce_int96_timestamp_unit : str, default None.
     @property
     def partitions(self):
         warnings.warn(
-            _DEPR_MSG.format("ParquetDataset.partitions", ""),
+            _DEPR_MSG.format(
+                "ParquetDataset.partitions",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.partitioning' attribute "
+                "instead."),
             DeprecationWarning, stacklevel=2)
         return self._partitions
 
@@ -1810,6 +1814,13 @@ class _ParquetDatasetV2:
     @property
     def filesystem(self):
         return self._dataset.filesystem
+
+    @property
+    def partitioning(self):
+        """
+        The partitioning of the Dataset source, if discovered.
+        """
+        return self._dataset.partitioning
 
 
 _read_table_docstring = """

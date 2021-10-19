@@ -288,8 +288,12 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
+ExecPlan_run <- function(plan, final_node, sort_options, head) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, head)
+}
+
+ExecPlan_StopProducing <- function(plan) {
+  invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
 }
 
 ExecNode_output_schema <- function(node) {
@@ -314,6 +318,10 @@ ExecNode_Aggregate <- function(input, options, target_names, out_field_names, ke
 
 ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output) {
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
+}
+
+ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
+  .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -566,6 +574,10 @@ dataset___ScannerBuilder__schema <- function(sb) {
 
 dataset___ScannerBuilder__Finish <- function(sb) {
   .Call(`_arrow_dataset___ScannerBuilder__Finish`, sb)
+}
+
+dataset___ScannerBuilder__FromRecordBatchReader <- function(reader) {
+  .Call(`_arrow_dataset___ScannerBuilder__FromRecordBatchReader`, reader)
 }
 
 dataset___Scanner__ToTable <- function(scanner) {
@@ -1787,4 +1799,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

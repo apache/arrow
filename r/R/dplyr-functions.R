@@ -915,6 +915,9 @@ nse_funcs$case_when <- function(...) {
     if (!nse_funcs$is.logical(query[[i]])) {
       abort("Left side of each formula in case_when() must be a logical expression")
     }
+    if (inherits(value[[i]], "try-error")) {
+      abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
+    }
   }
   build_expr(
     "case_when",
@@ -938,24 +941,24 @@ nse_funcs$case_when <- function(...) {
 # So to see a list of available hash aggregation functions,
 # you can use list_compute_functions("^hash_")
 agg_funcs <- list()
-agg_funcs$sum <- function(x, na.rm = FALSE) {
+agg_funcs$sum <- function(..., na.rm = FALSE) {
   list(
     fun = "sum",
-    data = x,
+    data = ensure_one_arg(list2(...), "sum"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-agg_funcs$any <- function(x, na.rm = FALSE) {
+agg_funcs$any <- function(..., na.rm = FALSE) {
   list(
     fun = "any",
-    data = x,
+    data = ensure_one_arg(list2(...), "any"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-agg_funcs$all <- function(x, na.rm = FALSE) {
+agg_funcs$all <- function(..., na.rm = FALSE) {
   list(
     fun = "all",
-    data = x,
+    data = ensure_one_arg(list2(...), "all"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
@@ -1011,10 +1014,10 @@ agg_funcs$median <- function(x, na.rm = FALSE) {
     options = list(skip_nulls = na.rm)
   )
 }
-agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+agg_funcs$n_distinct <- function(..., na.rm = FALSE) {
   list(
     fun = "count_distinct",
-    data = x,
+    data = ensure_one_arg(list2(...), "n_distinct"),
     options = list(na.rm = na.rm)
   )
 }
@@ -1026,26 +1029,27 @@ agg_funcs$n <- function() {
   )
 }
 agg_funcs$min <- function(..., na.rm = FALSE) {
-  args <- list2(...)
-  if (length(args) > 1) {
-    arrow_not_supported("Multiple arguments to min()")
-  }
   list(
     fun = "min",
-    data = args[[1]],
+    data = ensure_one_arg(list2(...), "min"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$max <- function(..., na.rm = FALSE) {
-  args <- list2(...)
-  if (length(args) > 1) {
-    arrow_not_supported("Multiple arguments to max()")
-  }
   list(
     fun = "max",
-    data = args[[1]],
+    data = ensure_one_arg(list2(...), "max"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
+}
+
+ensure_one_arg <- function(args, fun) {
+  if (length(args) == 0) {
+    arrow_not_supported(paste0(fun, "() with 0 arguments"))
+  } else if (length(args) > 1) {
+    arrow_not_supported(paste0("Multiple arguments to ", fun, "()"))
+  }
+  args[[1]]
 }
 
 output_type <- function(fun, input_type, hash) {
