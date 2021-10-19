@@ -168,3 +168,6 @@ Table$create <- function(..., schema = NULL) {
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
+
+#' @export
+arrow_table <- Table$create
