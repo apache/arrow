@@ -1801,7 +1801,11 @@ struct GroupedMinMaxImpl<Type,
       if (BitUtil::GetBit(null_bitmap, i)) {
         total_length += values[i]->size();
       }
-      offsets[i] = total_length;
+      if (total_length > std::numeric_limits<offset_type>::max()) {
+        return Status::Invalid("Result is too large to fit in ", *array->type,
+                               " cast to large_ variant of type");
+      }
+      offsets[i] = static_cast<offset_type>(total_length);
     }
     ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
     int64_t offset = 0;
