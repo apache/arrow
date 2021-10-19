@@ -2236,28 +2236,3 @@ def test_count_distinct_options():
     assert pc.count_distinct(arr, mode='only_valid').as_py() == 3
     assert pc.count_distinct(arr, mode='only_null').as_py() == 1
     assert pc.count_distinct(arr, mode='all').as_py() == 4
-
-
-def test_string_repeat():
-    # Test with single value for number of repeats
-    values = ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"]
-    repeat_and_expected = [
-        [0, ["", None, "", "", "", "", ""]],
-        [1, ["æÆ&", None, "", "b", "ɑɽⱤoW", "ıI", "$. 3"]],
-        [2, ["æÆ&æÆ&", None, "", "bb", "ɑɽⱤoWɑɽⱤoW", "ıIıI", "$. 3$. 3"]],
-    ]
-    for repeat, expected in repeat_and_expected:
-        result = pc.string_repeat(values, repeat)
-        assert result.equals(pa.array(expected))
-
-    # Test with multiple values for number of repeats
-    values = ["a", "b"]
-    repeat_and_expected = [
-        [[5, 2], ["aaaaa", "bb"]],
-        [[0, 2], ["", "bb"]],
-        [3, ["aaa", "bbb"]],
-        [[0, 0], ["", ""]],
-    ]
-    for repeat, expected in repeat_and_expected:
-        result = pc.string_repeat(values, repeat)
-        assert result.equals(pa.array(expected))
