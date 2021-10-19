@@ -370,8 +370,9 @@ class ARROW_EXPORT StructArray : public Array {
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   Result<ArrayVector> Flatten(MemoryPool* pool = default_memory_pool()) const;
 
-  /// \brief Get one of the child arrays, with the null bitmap adjusted if necessary.
+  /// \brief Get one of the child arrays, adjusting the null bitmap if necessary.
   ///
+  /// \param[in] index Which child array to get
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   Result<std::shared_ptr<Array>> Flatten(int index,
                                          MemoryPool* pool = default_memory_pool()) const;
