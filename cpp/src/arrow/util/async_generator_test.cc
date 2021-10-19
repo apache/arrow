@@ -827,6 +827,8 @@ TEST_F(SeqMergedGeneratorTestFixture, ErrorItem) {
   EmitItem(0, 0);
   AssertRead({0});
   FinishSub(0);
+  FinishSub(1);
+  FinishSubs();
   AssertFailed();
 }
 
