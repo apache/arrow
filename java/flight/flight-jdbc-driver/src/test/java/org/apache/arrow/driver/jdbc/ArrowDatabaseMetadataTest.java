@@ -22,6 +22,7 @@ import static java.lang.String.format;
 import static java.sql.Types.BIGINT;
 import static java.sql.Types.BIT;
 import static java.sql.Types.INTEGER;
+import static java.sql.Types.JAVA_OBJECT;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -1058,6 +1059,9 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(
         metaData.supportsConvert(BIGINT, INTEGER),
         is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
+    collector.checkThat(
+        metaData.supportsConvert(JAVA_OBJECT, INTEGER),
+        is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
     collector.checkThat(metaData.supportsTableCorrelationNames(), is(EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES));
     collector.checkThat(metaData.supportsDifferentTableCorrelationNames(),
         is(EXPECTED_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES));
@@ -1093,6 +1097,7 @@ public class ArrowDatabaseMetadataTest {
         is(EXPECTED_TYPE_SCROLL_INSENSITIVE));
     collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_SENSITIVE),
         is(EXPECTED_TYPE_SCROLL_SENSITIVE));
+    collector.checkThrows(SQLException.class, () -> metaData.supportsResultSetType(ResultSet.HOLD_CURSORS_OVER_COMMIT));
     collector.checkThat(metaData.supportsSelectForUpdate(), is(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED));
     collector.checkThat(metaData.supportsStoredProcedures(), is(EXPECTED_STORED_PROCEDURES_SUPPORTED));
     collector.checkThat(metaData.supportsSubqueriesInComparisons(), is(EXPECTED_SUBQUERIES_IN_COMPARISON));
@@ -1132,6 +1137,8 @@ public class ArrowDatabaseMetadataTest {
         is(EXPECTED_TRANSACTION_REPEATABLE_READ));
     collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE),
         is(EXPECTED_TRANSACTION_SERIALIZABLE));
+    collector.checkThrows(SQLException.class,
+        () -> metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE + 1));
     collector.checkThat(metaData.supportsTransactions(), is(EXPECTED_TRANSACTIONS_SUPPORTED));
     collector.checkThat(metaData.supportsSubqueriesInComparisons(), is(EXPECTED_SUBQUERIES_IN_COMPARISON));
     collector.checkThat(metaData.dataDefinitionCausesTransactionCommit(),
