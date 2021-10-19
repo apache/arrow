@@ -270,7 +270,7 @@ String Transforms
    binary_replace_slice
    replace_substring
    replace_substring_regex
-   str_repeat
+   string_repeat
    utf8_capitalize
    utf8_length
    utf8_lower
