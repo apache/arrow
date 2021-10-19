@@ -55,14 +55,6 @@ class BaseTestStringKernels : public ::testing::Test {
     CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
   }
 
-  void CheckBinaryScalar(std::string func_name, std::string json_left_input,
-                         std::string json_right_scalar, std::shared_ptr<DataType> out_ty,
-                         std::string json_expected,
-                         const FunctionOptions* options = nullptr) {
-    CheckScalarBinaryScalar(func_name, type(), json_left_input, json_right_scalar, out_ty,
-                            json_expected, options);
-  }
-
   void CheckVarArgsScalar(std::string func_name, std::string json_input,
                           std::shared_ptr<DataType> out_ty, std::string json_expected,
                           const FunctionOptions* options = nullptr) {
@@ -1096,6 +1088,21 @@ TYPED_TEST(TestStringKernels, StringRepeat) {
   //     }
   //   }
   // }
+  {
+    std::vector<std::pair<bool, std::string>> nrepeats_and_expected{{
+        {false, R"(["", null, "", "", "", "", "", "", "", ""])"},
+        {true,
+         R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])"},
+    }};
+
+    for (const auto& pair : nrepeats_and_expected) {
+      auto num_repeat = pair.first;
+      auto expected = pair.second;
+      this->CheckVarArgs("string_repeat",
+                         {values, Datum(*arrow::MakeScalar(boolean(), num_repeat))},
+                         this->type(), expected);
+    }
+  }
 }
 
 TYPED_TEST(TestStringKernels, StringRepeats) {
