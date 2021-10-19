@@ -280,6 +280,30 @@ class FlightSqlServerBase : public FlightServerBase {
                                    const ServerCallContext& context,
                                    std::unique_ptr<FlightDataStream>* result);
 
+  /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
+  /// \param[in] command      The CommandGetCrossReference object with necessary information
+  ///                         to execute the request.
+  /// \param[in] context      Per-call context.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \param[out] info        The FlightInfo describing where to access the
+  ///                         dataset.
+  /// \return                 Status.
+  virtual Status GetFlightInfoCrossReference(const pb::sql::CommandGetCrossReference& command,
+                                             const ServerCallContext& context,
+                                             const FlightDescriptor& descriptor,
+                                             std::unique_ptr<FlightInfo>* info);
+
+  /// \brief Gets a FlightDataStream containing the data related to the foreign and
+  ///        primary keys.
+  /// \param[in] command  The CommandGetCrossReference object with necessary information
+  ///                     to execute the request.
+  /// \param[in] context  Per-call context.
+  /// \param[out] result  The FlightDataStream containing the results.
+  /// \return             Status.
+  virtual Status DoGetCrossReference(const pb::sql::CommandGetCrossReference& command,
+                                     const ServerCallContext& context,
+                                     std::unique_ptr<FlightDataStream>* result);
+
   /// \brief Executes an update SQL statement.
   /// \param[in] command  The CommandStatementUpdate object containing the SQL statement.
   /// \param[in] context  The call context.
@@ -363,10 +387,17 @@ class SqlSchema {
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetPrimaryKeysSchema();
 
-  /// \brief Gets the Schema used on CommandGetImportedKeys and CommandGetExportedKeys
-  /// response.
+  /// \brief Gets the Schema used on CommandGetImportedKeys response.
   /// \return The default schema template.
-  static std::shared_ptr<Schema> GetImportedAndExportedKeysSchema();
+  static std::shared_ptr<Schema> GetExportedKeysSchema();
+
+  /// \brief Gets the Schema used on CommandGetImportedKeys response.
+  /// \return The default schema template.
+  static std::shared_ptr<Schema> GetImportedKeysSchema();
+
+  /// \brief Gets the Schema used on CommandGetCrossReference response.
+  /// \return The default schema template.
+  static std::shared_ptr<Schema> GetCrossReferenceSchema();
 };
 }  // namespace sql
 }  // namespace flight

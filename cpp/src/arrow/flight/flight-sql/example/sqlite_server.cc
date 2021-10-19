@@ -633,7 +633,7 @@ Status SQLiteFlightSqlServer::GetFlightInfoImportedKeys(
     const pb::sql::CommandGetImportedKeys& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
   return GetFlightInfoForCommand(descriptor, info, command,
-                                 SqlSchema::GetImportedAndExportedKeysSchema());
+                                 SqlSchema::GetImportedKeysSchema());
 }
 
 Status SQLiteFlightSqlServer::DoGetImportedKeys(
@@ -648,15 +648,14 @@ Status SQLiteFlightSqlServer::DoGetImportedKeys(
   }
   std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
 
-  return DoGetSQLiteQuery(db_, query, SqlSchema::GetImportedAndExportedKeysSchema(),
-                          result);
+  return DoGetSQLiteQuery(db_, query, SqlSchema::GetImportedKeysSchema(), result);
 }
 
 Status SQLiteFlightSqlServer::GetFlightInfoExportedKeys(
     const pb::sql::CommandGetExportedKeys& command, const ServerCallContext& context,
     const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
   return GetFlightInfoForCommand(descriptor, info, command,
-                                 SqlSchema::GetImportedAndExportedKeysSchema());
+                                 SqlSchema::GetExportedKeysSchema());
 }
 
 Status SQLiteFlightSqlServer::DoGetExportedKeys(
@@ -671,8 +670,37 @@ Status SQLiteFlightSqlServer::DoGetExportedKeys(
   }
   std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
 
-  return DoGetSQLiteQuery(db_, query, SqlSchema::GetImportedAndExportedKeysSchema(),
-                          result);
+  return DoGetSQLiteQuery(db_, query, SqlSchema::GetExportedKeysSchema(), result);
+}
+
+Status SQLiteFlightSqlServer::GetFlightInfoCrossReference(
+    const pb::sql::CommandGetCrossReference& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+  return GetFlightInfoForCommand(descriptor, info, command,
+                                 SqlSchema::GetCrossReferenceSchema());
+}
+
+Status SQLiteFlightSqlServer::DoGetCrossReference(
+    const pb::sql::CommandGetCrossReference& command, const ServerCallContext& context,
+    std::unique_ptr<FlightDataStream>* result) {
+  std::string filter = "pk_table_name = '" + command.pk_table() + "'";
+  if (command.has_pk_catalog()) {
+    filter += " AND pk_catalog_name = '" + command.pk_catalog() + "'";
+  }
+  if (command.has_pk_schema()) {
+    filter += " AND pk_schema_name = '" + command.pk_schema() + "'";
+  }
+
+  filter += " AND fk_table_name = '" + command.fk_table() + "'";
+  if (command.has_fk_catalog()) {
+    filter += " AND fk_catalog_name = '" + command.fk_catalog() + "'";
+  }
+  if (command.has_fk_schema()) {
+    filter += " AND fk_schema_name = '" + command.fk_schema() + "'";
+  }
+  std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
+
+  return DoGetSQLiteQuery(db_, query, SqlSchema::GetCrossReferenceSchema(), result);
 }
 
 }  // namespace example

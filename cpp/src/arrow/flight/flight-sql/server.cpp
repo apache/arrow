@@ -71,6 +71,10 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
     pb::sql::CommandGetImportedKeys command;
     any.UnpackTo(&command);
     return GetFlightInfoImportedKeys(command, context, request, info);
+  } else if (any.Is<pb::sql::CommandGetCrossReference>()) {
+    pb::sql::CommandGetCrossReference command;
+    any.UnpackTo(&command);
+    return GetFlightInfoCrossReference(command, context, request, info);
   }
 
   return Status::Invalid("The defined request is invalid.");
@@ -123,6 +127,10 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
     pb::sql::CommandGetImportedKeys command;
     anyCommand.UnpackTo(&command);
     return DoGetImportedKeys(command, context, stream);
+  } else if (anyCommand.Is<pb::sql::CommandGetCrossReference>()) {
+    pb::sql::CommandGetCrossReference command;
+    anyCommand.UnpackTo(&command);
+    return DoGetCrossReference(command, context, stream);
   }
 
   return Status::Invalid("The defined request is invalid.");
@@ -304,6 +312,18 @@ Status FlightSqlServerBase::DoGetImportedKeys(
   return Status::NotImplemented("DoGetImportedKeys not implemented");
 }
 
+Status FlightSqlServerBase::GetFlightInfoCrossReference(
+    const pb::sql::CommandGetCrossReference& command, const ServerCallContext& context,
+    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+  return Status::NotImplemented("GetFlightInfoCrossReference not implemented");
+}
+
+Status FlightSqlServerBase::DoGetCrossReference(
+    const pb::sql::CommandGetCrossReference& command, const ServerCallContext& context,
+    std::unique_ptr<FlightDataStream>* result) {
+  return Status::NotImplemented("DoGetCrossReference not implemented");
+}
+
 Status FlightSqlServerBase::CreatePreparedStatement(
     const pb::sql::ActionCreatePreparedStatementRequest& request,
     const ServerCallContext& context, std::unique_ptr<ResultStream>* p_ptr) {
@@ -367,7 +387,7 @@ std::shared_ptr<Schema> SqlSchema::GetPrimaryKeysSchema() {
                         field("key_sequence", int64()), field("key_name", utf8())});
 }
 
-std::shared_ptr<Schema> SqlSchema::GetImportedAndExportedKeysSchema() {
+std::shared_ptr<Schema> GetImportedExportedKeysAndCrossReferenceSchema() {
   return arrow::schema(
       {field("pk_catalog_name", utf8(), true), field("pk_schema_name", utf8(), true),
        field("pk_table_name", utf8(), false), field("pk_column_name", utf8(), false),
@@ -376,6 +396,18 @@ std::shared_ptr<Schema> SqlSchema::GetImportedAndExportedKeysSchema() {
        field("key_sequence", int32(), false), field("fk_key_name", utf8(), true),
        field("pk_key_name", utf8(), true), field("update_rule", uint8(), false),
        field("delete_rule", uint8(), false)});
+}
+
+std::shared_ptr<Schema> SqlSchema::GetImportedKeysSchema() {
+  return GetImportedExportedKeysAndCrossReferenceSchema();
+}
+
+std::shared_ptr<Schema> SqlSchema::GetExportedKeysSchema() {
+  return GetImportedExportedKeysAndCrossReferenceSchema();
+}
+
+std::shared_ptr<Schema> SqlSchema::GetCrossReferenceSchema() {
+  return GetImportedExportedKeysAndCrossReferenceSchema();
 }
 
 }  // namespace sql

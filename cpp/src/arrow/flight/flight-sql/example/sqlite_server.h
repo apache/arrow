@@ -133,6 +133,13 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   Status DoGetExportedKeys(const pb::sql::CommandGetExportedKeys& command,
                            const ServerCallContext& context,
                            std::unique_ptr<FlightDataStream>* result) override;
+  Status GetFlightInfoCrossReference(const pb::sql::CommandGetCrossReference& command,
+                                     const ServerCallContext& context,
+                                     const FlightDescriptor& descriptor,
+                                     std::unique_ptr<FlightInfo>* info) override;
+  Status DoGetCrossReference(const pb::sql::CommandGetCrossReference& command,
+                             const ServerCallContext& context,
+                             std::unique_ptr<FlightDataStream>* result) override;
 
   Status GetFlightInfoPrimaryKeys(const pb::sql::CommandGetPrimaryKeys& command,
                                   const ServerCallContext& context,

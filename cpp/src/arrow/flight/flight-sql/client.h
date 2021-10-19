@@ -192,6 +192,24 @@ class FlightSqlClientT {
                          const std::string* schema, const std::string& table,
                          std::unique_ptr<FlightInfo>* flight_info) const;
 
+  /// \brief Retrieves a description of the foreign key columns in the given foreign key
+  ///        table that reference the primary key or the columns representing a unique
+  ///        constraint of the parent table (could be the same or a different table).
+  /// \param[in] options        RPC-layer hints for this call.
+  /// \param[in] pk_catalog     The catalog of the table that exports the key.
+  /// \param[in] pk_schema      The schema of the table that exports the key.
+  /// \param[in] pk_table       The table that exports the key.
+  /// \param[in] fk_catalog     The catalog of the table that imports the key.
+  /// \param[in] fk_schema      The schema of the table that imports the key.
+  /// \param[in] fk_table       The table that imports the key.
+  /// \param[out] flight_info   The FlightInfo describing where to access the dataset.
+  /// \return Status.
+  Status GetCrossReference(
+      const FlightCallOptions& options, const std::string* pk_catalog,
+      const std::string* pk_schema, const std::string& pk_table,
+      const std::string* fk_catalog, const std::string* fk_schema,
+      const std::string& fk_table, std::unique_ptr<FlightInfo>* flight_info) const;
+
   /// \brief Request a list of table types.
   /// \param[in] options          RPC-layer hints for this call.
   /// \param[out] flight_info     The FlightInfo describing where to access the dataset.

@@ -250,6 +250,36 @@ TEST(TestFlightSqlClient, TestGetPrimary) {
   (void)sqlClient.GetPrimaryKeys(call_options, &catalog, &schema, table, &flight_info);
 }
 
+TEST(TestFlightSqlClient, TestGetCrossReference) {
+  auto* client_mock = new FlightClientMock();
+  std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
+  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightCallOptions call_options;
+
+  std::string pk_catalog = "pk_catalog";
+  std::string pk_schema = "pk_schema";
+  std::string pk_table = "pk_table";
+  std::string fk_catalog = "fk_catalog";
+  std::string fk_schema = "fk_schema";
+  std::string fk_table = "fk_table";
+
+  pb::sql::CommandGetCrossReference command;
+  command.set_pk_catalog(pk_catalog);
+  command.set_pk_schema(pk_schema);
+  command.set_pk_table(pk_table);
+  command.set_fk_catalog(fk_catalog);
+  command.set_fk_schema(fk_schema);
+  command.set_fk_table(fk_table);
+  FlightDescriptor descriptor = getDescriptor(command);
+
+  std::unique_ptr<FlightInfo> flight_info;
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+
+  (void)sqlClient.GetCrossReference(call_options, &pk_catalog, &pk_schema,
+                                    pk_table, &fk_catalog, &fk_schema,
+                                    fk_table, &flight_info);
+}
+
 TEST(TestFlightSqlClient, TestExecute) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);

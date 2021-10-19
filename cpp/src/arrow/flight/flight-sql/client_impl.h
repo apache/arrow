@@ -231,6 +231,33 @@ Status FlightSqlClientT<T>::GetImportedKeys(
 }
 
 template <class T>
+Status FlightSqlClientT<T>::GetCrossReference(
+    const FlightCallOptions& options, const std::string* pk_catalog,
+    const std::string* pk_schema, const std::string& pk_table,
+    const std::string* fk_catalog, const std::string* fk_schema,
+    const std::string& fk_table, std::unique_ptr<FlightInfo>* flight_info) const {
+  pb::sql::CommandGetCrossReference command;
+
+  if (pk_catalog != NULLPTR) {
+    command.set_pk_catalog(*pk_catalog);
+  }
+  if (pk_schema != NULLPTR) {
+    command.set_pk_schema(*pk_schema);
+  }
+  command.set_pk_table(pk_table);
+
+  if (fk_catalog != NULLPTR) {
+    command.set_fk_catalog(*fk_catalog);
+  }
+  if (fk_schema != NULLPTR) {
+    command.set_fk_schema(*fk_schema);
+  }
+  command.set_fk_table(fk_table);
+
+  return GetFlightInfoForCommand(client, options, flight_info, command);
+}
+
+template <class T>
 Status FlightSqlClientT<T>::GetTableTypes(
     const FlightCallOptions& options, std::unique_ptr<FlightInfo>* flight_info) const {
   pb::sql::CommandGetTableTypes command;
