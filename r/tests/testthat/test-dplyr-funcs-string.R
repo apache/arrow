@@ -1336,3 +1336,36 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     df
   )
 })
+
+test_that("str_count", {
+  df <- tibble(fruit = c("apple", "banana", "pear", "pineapple"))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(a_count = str_count(fruit, pattern = "a")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(p_count = str_count(fruit, pattern = "p")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(e_count = str_count(fruit, pattern = "e")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(let_count = str_count(fruit, pattern = c("a", "b", "p", "n"))) %>%
+      collect(),
+    df
+  )
+
+})
