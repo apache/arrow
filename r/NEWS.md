@@ -29,7 +29,7 @@ Along with `summarize()`, you can also call `count()`, `tally()`, and `distinct(
 
 This enhancement does change the behavior of `summarize()` and `collect()` in some cases: see "Breaking changes" below for details.
 
-In addition to `summarize()`, equality joins (`left_join()`, `inner_join()`, `semi_join()`, et al.) are also supported natively in Arrow.
+In addition to `summarize()`, mutating and filtering equality joins (`inner_join()`, `left_join()`, `right_join()`, `full_join()`, `semi_join()`, and `anti_join()`) with are also supported natively in Arrow.
 
 Grouped aggregation and (especially) joins should be considered somewhat experimental in this release. We expect them to work, but they may not be well optimized for all workloads. To help us focus our efforts on improving them in the next release, please let us know if you encounter unexpected behavior or poor performance.
 
