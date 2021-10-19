@@ -25,9 +25,9 @@ access to the Arrow C++ library API and higher-level access through a
     interoperability
 -   Analyze, process, and write **multi-file, larger-than-memory
     datasets** (`open_dataset()`, `write_dataset()`)
--   Read **large CSV and JSON files** with excellent **speed and
-    efficiency** (`read_csv_arrow()`, `read_json_arrow()`)
--   Write CSV files (`write_csv_arrow()`)
+-   Read **large CSV and JSON files** (`read_csv_arrow()`,
+    `read_json_arrow()`) and write CSV files (`write_csv_arrow()`)
+    with excellent **speed and efficiency** 
 -   Manipulate and analyze Arrow data with **`dplyr` verbs**
 -   Read and write files in **Amazon S3** buckets with no additional
     function calls
