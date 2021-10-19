@@ -101,3 +101,27 @@ The final output is located under ``docs/_build/html``.
 .. seealso::
 
    :ref:`docker-builds`.
+
+Building a single directory for dev purposes without all the pre-requisites
+----------------------------------------------------------
+
+You can build documentation in a single directory without needing to install
+all of the pre-requisites by first installing `sphinx`:
+
+.. code-block:: shell
+
+   pip install sphinx
+
+and then navigating to the appropriate directory and running:
+
+.. code-block:: shell
+
+   sphinx-quickstart
+
+Follow the prompts (enter any random text for 'Project name' etc), and once this is complete, run:
+
+.. code-block:: shell
+
+   make html
+
+This will build the HTML docs.
