@@ -34,6 +34,7 @@
 
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
+#include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
@@ -169,6 +170,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   const bool coerce = arrow_properties.coerce_timestamps_enabled();
   const auto target_unit =
       coerce ? arrow_properties.coerce_timestamps_unit() : type.unit();
+  const auto version = properties.version();
 
   // The user is explicitly asking for Impala int96 encoding, there is no
   // logical type.
@@ -183,16 +185,18 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // The user is explicitly asking for timestamp data to be converted to the
   // specified units (target_unit).
   if (coerce) {
-    if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0) {
+    if (version == ::parquet::ParquetVersion::PARQUET_1_0 ||
+        version == ::parquet::ParquetVersion::PARQUET_2_4) {
       switch (target_unit) {
         case ::arrow::TimeUnit::MILLI:
         case ::arrow::TimeUnit::MICRO:
           break;
         case ::arrow::TimeUnit::NANO:
         case ::arrow::TimeUnit::SECOND:
-          return Status::NotImplemented(
-              "For Parquet version 1.0 files, can only coerce Arrow timestamps to "
-              "milliseconds or microseconds");
+          return Status::NotImplemented("For Parquet version ",
+                                        ::parquet::ParquetVersionToString(version),
+                                        ", can only coerce Arrow timestamps to "
+                                        "milliseconds or microseconds");
       }
     } else {
       switch (target_unit) {
@@ -201,9 +205,10 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
         case ::arrow::TimeUnit::NANO:
           break;
         case ::arrow::TimeUnit::SECOND:
-          return Status::NotImplemented(
-              "For Parquet files, can only coerce Arrow timestamps to milliseconds, "
-              "microseconds, or nanoseconds");
+          return Status::NotImplemented("For Parquet version ",
+                                        ::parquet::ParquetVersionToString(version),
+                                        ", can only coerce Arrow timestamps to "
+                                        "milliseconds, microseconds, or nanoseconds");
       }
     }
     return Status::OK();
@@ -211,9 +216,10 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
 
   // The user implicitly wants timestamp data to retain its original time units,
   // however the ConvertedType field used to indicate logical types for Parquet
-  // version 1.0 fields does not allow for nanosecond time units and so nanoseconds
+  // version <= 2.4 fields does not allow for nanosecond time units and so nanoseconds
   // must be coerced to microseconds.
-  if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0 &&
+  if ((version == ::parquet::ParquetVersion::PARQUET_1_0 ||
+       version == ::parquet::ParquetVersion::PARQUET_2_4) &&
       type.unit() == ::arrow::TimeUnit::NANO) {
     *logical_type =
         TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);

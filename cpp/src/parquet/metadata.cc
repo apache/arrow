@@ -62,8 +62,14 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
   switch (ver) {
     case ParquetVersion::PARQUET_1_0:
       return "1.0";
+      ARROW_SUPPRESS_DEPRECATION_WARNING
     case ParquetVersion::PARQUET_2_0:
-      return "2.0";
+      return "pseudo-2.0";
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    case ParquetVersion::PARQUET_2_4:
+      return "2.4";
+    case ParquetVersion::PARQUET_2_6:
+      return "2.6";
   }
 
   // This should be unreachable
@@ -647,11 +653,13 @@ class FileMetaData::FileMetaDataImpl {
       throw ParquetException("AppendRowGroups requires equal schemas.");
     }
 
-    format::RowGroup other_rg;
-    for (int i = 0; i < other->num_row_groups(); i++) {
-      other_rg = other->row_group(i);
-      metadata_->row_groups.push_back(other_rg);
+    // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
+    const int n = other->num_row_groups();
+    metadata_->row_groups.reserve(metadata_->row_groups.size() + n);
+    for (int i = 0; i < n; i++) {
+      format::RowGroup other_rg = other->row_group(i);
       metadata_->num_rows += other_rg.num_rows;
+      metadata_->row_groups.push_back(std::move(other_rg));
     }
   }
 
@@ -815,7 +823,7 @@ ParquetVersion::type FileMetaData::version() const {
     case 1:
       return ParquetVersion::PARQUET_1_0;
     case 2:
-      return ParquetVersion::PARQUET_2_0;
+      return ParquetVersion::PARQUET_2_LATEST;
     default:
       // Improperly set version, assuming Parquet 1.0
       break;
@@ -1559,7 +1567,15 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
         throw ParquetException(ss.str());
       }
       if (i == 0) {
-        file_offset = row_group_->columns[0].file_offset;
+        const format::ColumnMetaData& first_col = row_group_->columns[0].meta_data;
+        // As per spec, file_offset for the row group points to the first
+        // dictionary or data page of the column.
+        if (first_col.__isset.dictionary_page_offset &&
+            first_col.dictionary_page_offset > 0) {
+          file_offset = first_col.dictionary_page_offset;
+        } else {
+          file_offset = first_col.data_page_offset;
+        }
       }
       // sometimes column metadata is encrypted and not available to read,
       // so we must get total_compressed_size from column builder
@@ -1670,10 +1686,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       case ParquetVersion::PARQUET_1_0:
         file_version = 1;
         break;
-      case ParquetVersion::PARQUET_2_0:
-        file_version = 2;
-        break;
       default:
+        file_version = 2;
         break;
     }
     metadata_->__set_version(file_version);

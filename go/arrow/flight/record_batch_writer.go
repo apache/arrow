@@ -58,23 +58,20 @@ func (f *flightPayloadWriter) Close() error { return nil }
 // are written.
 type Writer struct {
 	*ipc.Writer
-	pw   *flightPayloadWriter
-	desc *FlightDescriptor
+	pw *flightPayloadWriter
 }
 
 // SetFlightDescriptor sets the flight descriptor into the next payload that will
 // be written by the flight writer. It will only be put into the very next payload
 // and afterwards the writer will no longer keep it's pointer to the descriptor.
 func (w *Writer) SetFlightDescriptor(descr *FlightDescriptor) {
-	w.desc = descr
+	w.pw.fd.FlightDescriptor = descr
 }
 
 // Write writes a recordbatch payload and returns any error, implementing the arrio.Writer interface
 func (w *Writer) Write(rec array.Record) error {
-	if w.desc != nil {
-		w.pw.fd.FlightDescriptor = w.desc
+	if w.pw.fd.FlightDescriptor != nil {
 		defer func() {
-			w.desc = nil
 			w.pw.fd.FlightDescriptor = nil
 		}()
 	}

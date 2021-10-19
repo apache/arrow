@@ -43,9 +43,19 @@ struct _GArrowRecordBatchReaderClass
 
 GARROW_AVAILABLE_IN_6_0
 GArrowRecordBatchReader *
+garrow_record_batch_reader_import(gpointer c_abi_array_stream,
+                                  GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+GArrowRecordBatchReader *
 garrow_record_batch_reader_new(GList *record_batches,
                                GArrowSchema *schema,
                                GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+gpointer
+garrow_record_batch_reader_export(GArrowRecordBatchReader *reader,
+                                  GError **error);
 
 GArrowSchema *garrow_record_batch_reader_get_schema(
   GArrowRecordBatchReader *reader);

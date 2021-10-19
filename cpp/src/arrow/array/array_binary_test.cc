@@ -43,11 +43,6 @@ namespace arrow {
 
 using internal::checked_cast;
 
-using StringTypes =
-    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
-
-using UTF8Types = ::testing::Types<StringType, LargeStringType>;
-
 // ----------------------------------------------------------------------
 // String / Binary tests
 
@@ -329,7 +324,7 @@ class TestStringArray : public ::testing::Test {
   std::shared_ptr<ArrayType> strings_;
 };
 
-TYPED_TEST_SUITE(TestStringArray, StringTypes);
+TYPED_TEST_SUITE(TestStringArray, BinaryArrowTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
 
@@ -386,7 +381,7 @@ class TestUTF8Array : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestUTF8Array, UTF8Types);
+TYPED_TEST_SUITE(TestUTF8Array, StringArrowTypes);
 
 TYPED_TEST(TestUTF8Array, TestValidateUTF8) { this->TestValidateUTF8(); }
 
@@ -666,7 +661,7 @@ class TestStringBuilder : public TestBuilder {
   std::shared_ptr<ArrayType> result_;
 };
 
-TYPED_TEST_SUITE(TestStringBuilder, StringTypes);
+TYPED_TEST_SUITE(TestStringBuilder, BinaryArrowTypes);
 
 TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
@@ -896,7 +891,7 @@ class TestBinaryDataVisitor : public ::testing::Test {
   std::shared_ptr<DataType> type_;
 };
 
-TYPED_TEST_SUITE(TestBinaryDataVisitor, StringTypes);
+TYPED_TEST_SUITE(TestBinaryDataVisitor, BinaryArrowTypes);
 
 TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
 

@@ -88,15 +88,17 @@ RUN apt-get update -y -q && \
         ninja-build \
         pkg-config \
         protobuf-compiler \
+        python3-pip \
         rapidjson-dev \
         tzdata \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
@@ -110,6 +112,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=ON \
+    ARROW_GCS=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
@@ -129,6 +132,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_ZSTD=ON \
     ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
+    google_cloud_cpp_storage_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \

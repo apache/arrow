@@ -34,7 +34,17 @@ struct _GArrowSchemaClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+GArrowSchema *
+garrow_schema_import(gpointer c_abi_schema,
+                     GError **error);
+
 GArrowSchema    *garrow_schema_new              (GList *fields);
+
+GARROW_AVAILABLE_IN_6_0
+gpointer
+garrow_schema_export(GArrowSchema *schema,
+                     GError **error);
 
 gboolean         garrow_schema_equal            (GArrowSchema *schema,
                                                  GArrowSchema *other_schema);

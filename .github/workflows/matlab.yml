@@ -1,0 +1,67 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: MATLAB
+
+on:
+  push:
+    paths:
+      - '.github/workflows/matlab.yml'
+      - 'ci/scripts/matlab*.sh'
+      - 'matlab/**'
+      - 'cpp/src/arrow/**'
+  pull_request:
+    paths:
+      - '.github/workflows/matlab.yml'
+      - 'ci/scripts/matlab*.sh'
+      - 'matlab/**'
+      - 'cpp/src/arrow/**'
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+
+  matlab:
+    name: AMD64 Ubuntu 20.04 MATLAB 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Install ninja-build
+        run: sudo apt-get install ninja-build
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v0
+      - name: Build MATLAB Interface
+        run: ci/scripts/matlab_build.sh $(pwd)
+      - name: Run MATLAB Tests
+        env: 
+          # libarrow.so requires a more recent version of libstdc++.so
+          # than is bundled with MATLAB under <matlabroot>/sys/os/glnxa64.
+          # Therefore, if a MEX function that depends on libarrow.so
+          # is executed within the MATLAB address space, runtime linking
+          # errors will occur. To work around this issue, we can explicitly
+          # force MATLAB to use the system libstdc++.so via LD_PRELOAD.
+          LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+        uses: matlab-actions/run-tests@v1
+        with:
+          select-by-folder: matlab/test

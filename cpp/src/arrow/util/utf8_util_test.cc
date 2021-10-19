@@ -438,8 +438,8 @@ TEST(UTF8FindIf, Basics) {
     const uint8_t* end = begin + s.length();
     std::reverse_iterator<const uint8_t*> rbegin(end);
     std::reverse_iterator<const uint8_t*> rend(begin);
-    const uint8_t* left;
-    const uint8_t* right;
+    const uint8_t* left = nullptr;
+    const uint8_t* right = nullptr;
     auto predicate = [&](uint32_t c) { return c == test; };
     EXPECT_TRUE(UTF8FindIf(begin, end, predicate, &left));
     EXPECT_TRUE(UTF8FindIfReverse(begin, end, predicate, &right));
@@ -454,8 +454,8 @@ TEST(UTF8FindIf, Basics) {
     const uint8_t* end = begin + s.length();
     std::reverse_iterator<const uint8_t*> rbegin(end);
     std::reverse_iterator<const uint8_t*> rend(begin);
-    const uint8_t* left;
-    const uint8_t* right;
+    const uint8_t* left = nullptr;
+    const uint8_t* right = nullptr;
     auto predicate = [&](uint32_t c) { return c == test; };
     EXPECT_TRUE(UTF8FindIf(begin, end, predicate, &left));
     EXPECT_TRUE(UTF8FindIfReverse(begin, end, predicate, &right));

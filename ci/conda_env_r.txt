@@ -21,7 +21,8 @@ r-bit64
 r-dplyr
 r-purrr
 r-r6
-r-cpp11
+# We are currently vendoring cpp11; restore in ARROW-13610
+# r-cpp11
 r-rlang
 r-tidyselect
 r-vctrs

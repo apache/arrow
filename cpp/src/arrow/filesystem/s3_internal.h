@@ -29,6 +29,7 @@
 #include <aws/core/utils/StringUtils.h>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/s3fs.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/print.h"
@@ -190,7 +191,7 @@ class ConnectRetryStrategy : public Aws::Client::RetryStrategy {
       : retry_interval_(retry_interval), max_retry_duration_(max_retry_duration) {}
 
   bool ShouldRetry(const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
-                   long attempted_retries) const override {  // NOLINT
+                   long attempted_retries) const override {  // NOLINT runtime/int
     if (!IsConnectError(error)) {
       // Not a connect error, don't retry
       return false;
@@ -198,9 +199,9 @@ class ConnectRetryStrategy : public Aws::Client::RetryStrategy {
     return attempted_retries * retry_interval_ < max_retry_duration_;
   }
 
-  long CalculateDelayBeforeNextRetry(  // NOLINT
+  long CalculateDelayBeforeNextRetry(  // NOLINT runtime/int
       const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
-      long attempted_retries) const override {  // NOLINT
+      long attempted_retries) const override {  // NOLINT runtime/int
     return retry_interval_;
   }
 

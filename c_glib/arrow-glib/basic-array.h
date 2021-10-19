@@ -54,6 +54,19 @@ struct _GArrowArrayClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+GArrowArray *
+garrow_array_import(gpointer c_abi_array,
+                    GArrowDataType *data_type,
+                    GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+gboolean
+garrow_array_export(GArrowArray *array,
+                    gpointer *c_abi_array,
+                    gpointer *c_abi_schema,
+                    GError **error);
+
 gboolean       garrow_array_equal       (GArrowArray *array,
                                          GArrowArray *other_array);
 GARROW_AVAILABLE_IN_5_0

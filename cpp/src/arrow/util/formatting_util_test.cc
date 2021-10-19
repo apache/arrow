@@ -427,4 +427,42 @@ TEST(Formatting, Timestamp) {
   }
 }
 
+TEST(Formatting, Interval) {
+  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+
+  const int32_t max_int32 = std::numeric_limits<int32_t>::max();
+  const int32_t min_int32 = std::numeric_limits<int32_t>::min();
+  const int64_t max_int64 = std::numeric_limits<int64_t>::max();
+  const int64_t min_int64 = std::numeric_limits<int64_t>::min();
+  {
+    StringFormatter<MonthIntervalType> formatter(month_interval());
+
+    AssertFormatting(formatter, 0, "0M");
+    AssertFormatting(formatter, -1, "-1M");
+    AssertFormatting(formatter, min_int32, "-2147483648M");
+    AssertFormatting(formatter, max_int32, "2147483647M");
+  }
+  {
+    StringFormatter<DayTimeIntervalType> formatter(day_time_interval());
+
+    AssertFormatting(formatter, DayMilliseconds{0, 0}, "0d0ms");
+    AssertFormatting(formatter, DayMilliseconds{-1, -1}, "-1d-1ms");
+    AssertFormatting(formatter, DayMilliseconds{min_int32, min_int32},
+                     "-2147483648d-2147483648ms");
+    AssertFormatting(formatter, DayMilliseconds{max_int32, max_int32},
+                     "2147483647d2147483647ms");
+  }
+  {
+    StringFormatter<MonthDayNanoIntervalType> formatter(month_day_nano_interval());
+
+    AssertFormatting(formatter, MonthDayNanos{0, 0, 0}, "0M0d0ns");
+    AssertFormatting(formatter, MonthDayNanos{-1, -1, -1}, "-1M-1d-1ns");
+    AssertFormatting(formatter, MonthDayNanos{min_int32, min_int32, min_int64},
+                     "-2147483648M-2147483648d-9223372036854775808ns");
+    AssertFormatting(formatter, MonthDayNanos{max_int32, max_int32, max_int64},
+                     "2147483647M2147483647d9223372036854775807ns");
+  }
+}
+
 }  // namespace arrow

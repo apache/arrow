@@ -604,7 +604,7 @@ public class TestComplexWriter {
 
   @Test
   public void simpleUnion() {
-    UnionVector vector = new UnionVector("union", allocator, null);
+    UnionVector vector = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
     UnionWriter unionWriter = new UnionWriter(vector);
     unionWriter.allocate();
     for (int i = 0; i < COUNT; i++) {

@@ -28,11 +28,10 @@ pushd ${source_dir}
 export CMAKE_UNITY_BUILD=OFF
 # Make installation verbose so that the CI job doesn't time out due to silence
 export ARROW_R_DEV=TRUE
-${R_BIN} CMD INSTALL .
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
 # But unset the env var so that it doesn't cause us to run extra dev tests
 unset ARROW_R_DEV
 
-export TEST_R_WITH_ARROW=TRUE
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
 
 pushd tests

@@ -55,6 +55,16 @@ target environment.**
    Rust <https://docs.rs/crate/arrow/>
    status
 
+.. _toc.cookbook:
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Cookbooks
+
+   C++ <https://arrow.apache.org/cookbook/cpp/>
+   Python <https://arrow.apache.org/cookbook/py/>
+   R <https://arrow.apache.org/cookbook/r/>
+
 .. _toc.columnar:
 
 .. toctree::
@@ -83,3 +93,4 @@ target environment.**
    developers/docker
    developers/benchmarks
    developers/documentation
+   developers/computeir

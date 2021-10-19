@@ -20,6 +20,7 @@
 #pragma once
 
 #include <string.h>
+
 #include <algorithm>
 #include <cstdint>
 
@@ -76,6 +77,15 @@ class BitWriter {
 
   // Writes an int zigzag encoded.
   bool PutZigZagVlqInt(int32_t v);
+
+  /// Write a Vlq encoded int64 to the buffer.  Returns false if there was not enough
+  /// room.  The value is written byte aligned.
+  /// For more details on vlq:
+  /// en.wikipedia.org/wiki/Variable-length_quantity
+  bool PutVlqInt(uint64_t v);
+
+  // Writes an int64 zigzag encoded.
+  bool PutZigZagVlqInt(int64_t v);
 
   /// Get a pointer to the next aligned byte and advance the underlying buffer
   /// by num_bytes.
@@ -155,6 +165,14 @@ class BitReader {
   // Reads a zigzag encoded int `into` v.
   bool GetZigZagVlqInt(int32_t* v);
 
+  /// Reads a vlq encoded int64 from the stream.  The encoded int must start at
+  /// the beginning of a byte. Return false if there were not enough bytes in
+  /// the buffer.
+  bool GetVlqInt(uint64_t* v);
+
+  // Reads a zigzag encoded int64 `into` v.
+  bool GetZigZagVlqInt(int64_t* v);
+
   /// Returns the number of bytes left in the stream, not including the current
   /// byte (i.e., there may be an additional fraction of a byte).
   int bytes_left() {
@@ -164,6 +182,9 @@ class BitReader {
 
   /// Maximum byte length of a vlq encoded int
   static constexpr int kMaxVlqByteLength = 5;
+
+  /// Maximum byte length of a vlq encoded int64
+  static constexpr int kMaxVlqByteLengthForInt64 = 10;
 
  private:
   const uint8_t* buffer_;
@@ -263,8 +284,13 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
 #pragma warning(disable : 4800 4805)
 #endif
     // Read bits of v that crossed into new buffered_values_
-    *v = *v | static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset)
-                             << (num_bits - *bit_offset));
+    if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < static_cast<int>(8 * sizeof(T)))) {
+      // if shift exponent(num_bits - *bit_offset) is not less than sizeof(T), *v will not
+      // change and the following code may cause a runtime error that the shift exponent
+      // is too large
+      *v = *v | static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset)
+                               << (num_bits - *bit_offset));
+    }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -282,8 +308,6 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   DCHECK(buffer_ != NULL);
-  // TODO: revisit this limit if necessary
-  DCHECK_LE(num_bits, 32);
   DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8));
 
   int bit_offset = bit_offset_;
@@ -313,7 +337,18 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
                            reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
+  } else if (sizeof(T) == 8 && num_bits > 32) {
+    // Use unpack64 only if num_bits is larger than 32
+    // TODO (ARROW-13677): improve the performance of internal::unpack64
+    // and remove the restriction of num_bits
+    int num_unpacked =
+        internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
+                           batch_size - i, num_bits);
+    i += num_unpacked;
+    byte_offset += num_unpacked * num_bits / 8;
   } else {
+    // TODO: revisit this limit if necessary
+    DCHECK_LE(num_bits, 32);
     const int buffer_size = 1024;
     uint32_t unpack_buffer[buffer_size];
     while (i < batch_size) {
@@ -418,14 +453,59 @@ inline bool BitReader::GetVlqInt(uint32_t* v) {
 }
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
-  auto u_v = ::arrow::util::SafeCopy<uint32_t>(v);
-  return PutVlqInt((u_v << 1) ^ (u_v >> 31));
+  uint32_t u_v = ::arrow::util::SafeCopy<uint32_t>(v);
+  u_v = (u_v << 1) ^ static_cast<uint32_t>(v >> 31);
+  return PutVlqInt(u_v);
 }
 
 inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
   uint32_t u;
   if (!GetVlqInt(&u)) return false;
-  *v = ::arrow::util::SafeCopy<int32_t>((u >> 1) ^ (u << 31));
+  u = (u >> 1) ^ (~(u & 1) + 1);
+  *v = ::arrow::util::SafeCopy<int32_t>(u);
+  return true;
+}
+
+inline bool BitWriter::PutVlqInt(uint64_t v) {
+  bool result = true;
+  while ((v & 0xFFFFFFFFFFFFFF80ULL) != 0ULL) {
+    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
+    v >>= 7;
+  }
+  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
+  return result;
+}
+
+inline bool BitReader::GetVlqInt(uint64_t* v) {
+  uint64_t tmp = 0;
+
+  for (int i = 0; i < kMaxVlqByteLengthForInt64; i++) {
+    uint8_t byte = 0;
+    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
+      return false;
+    }
+    tmp |= static_cast<uint64_t>(byte & 0x7F) << (7 * i);
+
+    if ((byte & 0x80) == 0) {
+      *v = tmp;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+inline bool BitWriter::PutZigZagVlqInt(int64_t v) {
+  uint64_t u_v = ::arrow::util::SafeCopy<uint64_t>(v);
+  u_v = (u_v << 1) ^ static_cast<uint64_t>(v >> 63);
+  return PutVlqInt(u_v);
+}
+
+inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
+  uint64_t u;
+  if (!GetVlqInt(&u)) return false;
+  u = (u >> 1) ^ (~(u & 1) + 1);
+  *v = ::arrow::util::SafeCopy<int64_t>(u);
   return true;
 }
 

@@ -25,6 +25,7 @@ import tempfile
 import threading
 import time
 import traceback
+import json
 
 import numpy as np
 import pytest
@@ -377,6 +378,21 @@ class ErrorFlightServer(FlightServerBase):
             -1, -1
         )
         raise flight.FlightInternalError("foo")
+
+    def do_put(self, context, descriptor, reader, writer):
+        if descriptor.command == b"internal":
+            raise flight.FlightInternalError("foo")
+        elif descriptor.command == b"timedout":
+            raise flight.FlightTimedOutError("foo")
+        elif descriptor.command == b"cancel":
+            raise flight.FlightCancelledError("foo")
+        elif descriptor.command == b"unauthenticated":
+            raise flight.FlightUnauthenticatedError("foo")
+        elif descriptor.command == b"unauthorized":
+            raise flight.FlightUnauthorizedError("foo")
+        elif descriptor.command == b"protobuf":
+            err_msg = b'this is an error message'
+            raise flight.FlightUnauthorizedError("foo", err_msg)
 
 
 class ExchangeFlightServer(FlightServerBase):
@@ -1532,6 +1548,7 @@ def test_roundtrip_errors():
     """Ensure that Flight errors propagate from server to client."""
     with ErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
+
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.do_action(flight.Action("internal", b"")))
         with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
@@ -1544,6 +1561,32 @@ def test_roundtrip_errors():
             list(client.do_action(flight.Action("unauthorized", b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
+
+        data = [pa.array([-10, -5, 0, 5, 10])]
+        table = pa.Table.from_arrays(data, names=['a'])
+
+        exceptions = {
+            'internal': flight.FlightInternalError,
+            'timedout': flight.FlightTimedOutError,
+            'cancel': flight.FlightCancelledError,
+            'unauthenticated': flight.FlightUnauthenticatedError,
+            'unauthorized': flight.FlightUnauthorizedError,
+        }
+
+        for command, exception in exceptions.items():
+
+            with pytest.raises(exception, match=".*foo.*"):
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(command),
+                    table.schema)
+                writer.write_table(table)
+                writer.close()
+
+            with pytest.raises(exception, match=".*foo.*"):
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(command),
+                    table.schema)
+                writer.close()
 
 
 def test_do_put_independent_read_write():
@@ -1976,3 +2019,29 @@ def test_large_metadata_client():
             writer, reader = client.do_exchange(descriptor)
             with writer:
                 reader.read_all()
+
+
+class ActionNoneFlightServer(EchoFlightServer):
+    """A server that implements a side effect to a non iterable action."""
+    VALUES = []
+
+    def do_action(self, context, action):
+        if action.type == "get_value":
+            return [json.dumps(self.VALUES).encode('utf-8')]
+        elif action.type == "append":
+            self.VALUES.append(True)
+            return None
+        raise NotImplementedError
+
+
+def test_none_action_side_effect():
+    """Ensure that actions are executed even when we don't consume iterator.
+
+    See https://issues.apache.org/jira/browse/ARROW-14255
+    """
+
+    with ActionNoneFlightServer() as server:
+        client = FlightClient(('localhost', server.port))
+        client.do_action(flight.Action("append", b""))
+        r = client.do_action(flight.Action("get_value", b""))
+        assert json.loads(next(r).body.to_pybytes()) == [True]

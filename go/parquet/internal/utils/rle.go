@@ -492,14 +492,14 @@ func (r *RleEncoder) Flush() int {
 	return r.w.Written()
 }
 
-func (r *RleEncoder) flushBuffered(done bool) {
+func (r *RleEncoder) flushBuffered(done bool) (err error) {
 	if r.repCount >= 8 {
 		// clear buffered values. they are part of the repeated run now and we
 		// don't want to flush them as literals
 		r.buffer = r.buffer[:0]
 		if r.litCount != 0 {
 			// there was  current literal run. all values flushed but need to update the indicator
-			r.flushLiteral(true)
+			err = r.flushLiteral(true)
 		}
 		return
 	}
@@ -509,20 +509,23 @@ func (r *RleEncoder) flushBuffered(done bool) {
 	if ngroups+1 >= (1 << 6) {
 		// we need to start a new literal run because the indicator byte we've reserved
 		// cannot store any more values
-		r.flushLiteral(true)
+		err = r.flushLiteral(true)
 	} else {
-		r.flushLiteral(done)
+		err = r.flushLiteral(done)
 	}
 	r.repCount = 0
+	return
 }
 
-func (r *RleEncoder) flushLiteral(updateIndicator bool) {
+func (r *RleEncoder) flushLiteral(updateIndicator bool) (err error) {
 	if r.literalIndicatorOffset == -1 {
 		r.literalIndicatorOffset = r.w.ReserveBytes(1)
 	}
 
 	for _, val := range r.buffer {
-		r.w.WriteValue(val, uint(r.BitWidth))
+		if err = r.w.WriteValue(val, uint(r.BitWidth)); err != nil {
+			return
+		}
 	}
 	r.buffer = r.buffer[:0]
 
@@ -532,35 +535,39 @@ func (r *RleEncoder) flushLiteral(updateIndicator bool) {
 		// the logic makes sure we flush literal runs often enough to not overrun the 1 byte.
 		ngroups := r.litCount / 8
 		r.indicatorBuffer[0] = byte((ngroups << 1) | 1)
-		r.w.WriteAt(r.indicatorBuffer[:], int64(r.literalIndicatorOffset))
+		_, err = r.w.WriteAt(r.indicatorBuffer[:], int64(r.literalIndicatorOffset))
 		r.literalIndicatorOffset = -1
 		r.litCount = 0
 	}
+	return
 }
 
-func (r *RleEncoder) flushRepeated() {
+func (r *RleEncoder) flushRepeated() (ret bool) {
 	indicator := r.repCount << 1
-	r.w.WriteVlqInt(uint64(indicator))
-	r.w.WriteAligned(r.curVal, int(bitutil.BytesForBits(int64(r.BitWidth))))
+
+	ret = r.w.WriteVlqInt(uint64(indicator))
+	ret = ret && r.w.WriteAligned(r.curVal, int(bitutil.BytesForBits(int64(r.BitWidth))))
 
 	r.repCount = 0
 	r.buffer = r.buffer[:0]
+	return
 }
 
 // Put buffers input values 8 at a time. after seeing all 8 values,
 // it decides whether they should be encoded as a literal or repeated run.
-func (r *RleEncoder) Put(value uint64) bool {
-
+func (r *RleEncoder) Put(value uint64) error {
 	if r.curVal == value {
 		r.repCount++
 		if r.repCount > 8 {
 			// this is just a continuation of the current run, no need to buffer the values
 			// NOTE this is the fast path for long repeated runs
-			return true
+			return nil
 		}
 	} else {
 		if r.repCount >= 8 {
-			r.flushRepeated()
+			if !r.flushRepeated() {
+				return xerrors.New("failed to flush repeated value")
+			}
 		}
 		r.repCount = 1
 		r.curVal = value
@@ -568,9 +575,9 @@ func (r *RleEncoder) Put(value uint64) bool {
 
 	r.buffer = append(r.buffer, value)
 	if len(r.buffer) == 8 {
-		r.flushBuffered(false)
+		return r.flushBuffered(false)
 	}
-	return true
+	return nil
 }
 
 func (r *RleEncoder) Clear() {

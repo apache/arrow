@@ -74,6 +74,9 @@ type int32EncoderTraits struct{}
 // Encoder returns an encoder for int32 type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
 func (int32EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		return &DictInt32Encoder{newDictEncoderBase(descr, NewInt32Dictionary(), mem)}
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:
@@ -126,11 +129,6 @@ type DictInt32Encoder struct {
 // Type returns the underlying physical type that can be encoded with this encoder
 func (enc *DictInt32Encoder) Type() parquet.Type {
 	return parquet.Types.Int32
-}
-
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictInt32Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Int32Traits.CastFromBytes(out))
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -287,6 +285,9 @@ type int64EncoderTraits struct{}
 // Encoder returns an encoder for int64 type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
 func (int64EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		return &DictInt64Encoder{newDictEncoderBase(descr, NewInt64Dictionary(), mem)}
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:
@@ -339,11 +340,6 @@ type DictInt64Encoder struct {
 // Type returns the underlying physical type that can be encoded with this encoder
 func (enc *DictInt64Encoder) Type() parquet.Type {
 	return parquet.Types.Int64
-}
-
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictInt64Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Int64Traits.CastFromBytes(out))
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -501,6 +497,9 @@ type int96EncoderTraits struct{}
 // it should be dictionary encoded.
 // dictionary encoding does not exist for this type and Encoder will panic if useDict is true
 func (int96EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		panic("parquet: no parquet.Int96 dictionary encoding")
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:
@@ -555,6 +554,9 @@ type float32EncoderTraits struct{}
 // Encoder returns an encoder for float32 type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
 func (float32EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		return &DictFloat32Encoder{newDictEncoderBase(descr, NewFloat32Dictionary(), mem)}
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:
@@ -595,11 +597,6 @@ type DictFloat32Encoder struct {
 // Type returns the underlying physical type that can be encoded with this encoder
 func (enc *DictFloat32Encoder) Type() parquet.Type {
 	return parquet.Types.Float
-}
-
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictFloat32Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Float32Traits.CastFromBytes(out))
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -756,6 +753,9 @@ type float64EncoderTraits struct{}
 // Encoder returns an encoder for float64 type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
 func (float64EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		return &DictFloat64Encoder{newDictEncoderBase(descr, NewFloat64Dictionary(), mem)}
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:
@@ -796,11 +796,6 @@ type DictFloat64Encoder struct {
 // Type returns the underlying physical type that can be encoded with this encoder
 func (enc *DictFloat64Encoder) Type() parquet.Type {
 	return parquet.Types.Double
-}
-
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictFloat64Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Float64Traits.CastFromBytes(out))
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -958,6 +953,9 @@ type boolEncoderTraits struct{}
 // it should be dictionary encoded.
 // dictionary encoding does not exist for this type and Encoder will panic if useDict is true
 func (boolEncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		panic("parquet: no bool dictionary encoding")
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:
@@ -1012,6 +1010,9 @@ type byteArrayEncoderTraits struct{}
 // Encoder returns an encoder for byteArray type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
 func (byteArrayEncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		return &DictByteArrayEncoder{newDictEncoderBase(descr, NewBinaryDictionary(mem), mem)}
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:
@@ -1217,6 +1218,9 @@ type fixedLenByteArrayEncoderTraits struct{}
 // Encoder returns an encoder for fixedLenByteArray type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
 func (fixedLenByteArrayEncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
+	if useDict {
+		return &DictFixedLenByteArrayEncoder{newDictEncoderBase(descr, NewBinaryDictionary(mem), mem)}
+	}
 
 	switch e {
 	case format.Encoding_PLAIN:

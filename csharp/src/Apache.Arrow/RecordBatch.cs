@@ -28,8 +28,10 @@ namespace Apache.Arrow
         public IEnumerable<IArrowArray> Arrays => _arrays;
         public int Length { get; }
 
+        internal IReadOnlyList<IArrowArray> ArrayList => _arrays;
+
         private readonly IMemoryOwner<byte> _memoryOwner;
-        private readonly IList<IArrowArray> _arrays;
+        private readonly List<IArrowArray> _arrays;
 
         public IArrowArray Column(int i)
         {

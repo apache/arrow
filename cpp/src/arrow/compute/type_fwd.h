@@ -43,6 +43,8 @@ struct KernelState;
 class Expression;
 class ExecNode;
 class ExecPlan;
+class ExecNodeOptions;
+class ExecFactoryRegistry;
 
 }  // namespace compute
 }  // namespace arrow

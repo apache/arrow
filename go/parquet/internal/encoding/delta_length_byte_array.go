@@ -71,9 +71,13 @@ func (DeltaLengthByteArrayEncoder) Type() parquet.Type {
 	return parquet.Types.ByteArray
 }
 
-// FlushValues flushes any remaining data and returns the final encoded buffer of data.
-func (enc *DeltaLengthByteArrayEncoder) FlushValues() Buffer {
-	ret := enc.lengthEncoder.FlushValues()
+// FlushValues flushes any remaining data and returns the final encoded buffer of data
+// or returns nil and any error encountered.
+func (enc *DeltaLengthByteArrayEncoder) FlushValues() (Buffer, error) {
+	ret, err := enc.lengthEncoder.FlushValues()
+	if err != nil {
+		return nil, err
+	}
 	defer ret.Release()
 
 	data := enc.sink.Finish()
@@ -83,7 +87,7 @@ func (enc *DeltaLengthByteArrayEncoder) FlushValues() Buffer {
 	output.ResizeNoShrink(ret.Len() + data.Len())
 	copy(output.Bytes(), ret.Bytes())
 	copy(output.Bytes()[ret.Len():], data.Bytes())
-	return poolBuffer{output}
+	return poolBuffer{output}, nil
 }
 
 // DeltaLengthByteArrayDecoder is a decoder for handling data produced by the corresponding

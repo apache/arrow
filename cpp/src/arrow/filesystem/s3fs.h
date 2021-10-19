@@ -69,6 +69,29 @@ enum class S3CredentialsKind : int8_t {
   WebIdentity
 };
 
+/// Pure virtual class for describing custom S3 retry strategies
+class S3RetryStrategy {
+ public:
+  virtual ~S3RetryStrategy() = default;
+
+  /// Simple struct where each field corresponds to a field in Aws::Client::AWSError
+  struct AWSErrorDetail {
+    /// Corresponds to AWSError::GetErrorType()
+    int error_type;
+    /// Corresponds to AWSError::GetMessage()
+    std::string message;
+    /// Corresponds to AWSError::GetExceptionName()
+    std::string exception_name;
+    /// Corresponds to AWSError::ShouldRetry()
+    bool should_retry;
+  };
+  /// Returns true if the S3 request resulting in the provided error should be retried.
+  virtual bool ShouldRetry(const AWSErrorDetail& error, int64_t attempted_retries) = 0;
+  /// Returns the time in milliseconds the S3 client should sleep for until retrying.
+  virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
+                                                int64_t attempted_retries) = 0;
+};
+
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
   /// \brief AWS region to connect to.
@@ -111,6 +134,10 @@ struct ARROW_EXPORT S3Options {
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
+
+  /// Optional retry strategy to determine which error types should be retried, and the
+  /// delay between retries.
+  std::shared_ptr<S3RetryStrategy> retry_strategy;
 
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();

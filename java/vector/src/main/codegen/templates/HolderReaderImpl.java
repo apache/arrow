@@ -120,6 +120,9 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     return Duration.ofDays(holder.days).plusMillis(holder.milliseconds);
   <#elseif minor.class == "IntervalYear">
     return Period.ofMonths(holder.value);
+  <#elseif minor.class == "IntervalMonthDayNano">
+    return new PeriodDuration(Period.ofMonths(holder.months).plusDays(holder.days),
+        Duration.ofNanos(holder.nanoseconds));
   <#elseif minor.class == "Duration">
     return DurationVector.toDuration(holder.value, holder.unit);
   <#elseif minor.class == "Bit" >

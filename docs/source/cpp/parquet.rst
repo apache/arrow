@@ -99,7 +99,7 @@ Encodings
 * \(1) Only supported for encoding definition and repetition levels, not values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
-  2.0 (or potentially greater) is selected in :func:`WriterProperties::version`.
+  2.4 or greater is selected in :func:`WriterProperties::version`.
 
 *Unsupported encodings:* DELTA_BINARY_PACKED, DELTA_LENGTH_BYTE_ARRAY,
 DELTA_BYTE_ARRAY.
@@ -224,7 +224,7 @@ and will recreate the original Arrow data, converting the Parquet data as
 required (for example, a LargeList will be recreated from the Parquet LIST
 type).
 
-As an exemple, when serializing an Arrow LargeList to Parquet:
+As an example, when serializing an Arrow LargeList to Parquet:
 
 * The data is written out as a Parquet LIST
 

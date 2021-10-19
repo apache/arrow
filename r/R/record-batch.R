@@ -99,6 +99,9 @@ RecordBatch <- R6Class("RecordBatch",
       RecordBatch__SetColumn(self, i, new_field, value)
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
+    ReplaceSchemaMetadata = function(new) {
+      RecordBatch__ReplaceSchemaMetadata(self, new)
+    },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         RecordBatch__Slice1(self, offset)
@@ -128,20 +131,6 @@ RecordBatch <- R6Class("RecordBatch",
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() RecordBatch__schema(self),
-    metadata = function(new) {
-      if (missing(new)) {
-        # Get the metadata (from the schema)
-        self$schema$metadata
-      } else {
-        # Set the metadata
-        new <- prepare_key_value_metadata(new)
-        out <- RecordBatch__ReplaceSchemaMetadata(self, new)
-        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
-        # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out$pointer())
-        self
-      }
-    },
     columns = function() RecordBatch__columns(self)
   )
 )
@@ -158,12 +147,6 @@ RecordBatch$create <- function(..., schema = NULL) {
     names(arrays) <- rep_len("", length(arrays))
   }
   stopifnot(length(arrays) > 0)
-
-  # Preserve any grouping
-  if (length(arrays) == 1 && inherits(arrays[[1]], "grouped_df")) {
-    out <- RecordBatch__from_arrays(schema, arrays)
-    return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
-  }
 
   # If any arrays are length 1, recycle them
   arrays <- recycle_scalars(arrays)

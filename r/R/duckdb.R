@@ -23,10 +23,12 @@
 #'
 #' The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
 #'
-#' Alternatively, one can pass the argument `.engine = "duckdb"` to `summarise()`
-#' that starts with an Arrow object to use DuckDB to calculate the summarization
-#' step. Internally, this calls `to_duckdb()` with all of the default argument
-#' values.
+#' If `auto_disconnect = TRUE`, the DuckDB table that is created will be configured
+#' to be unregistered when the `tbl` object is garbage collected. This is helpful
+#' if you don't want to have extra table objects in DuckDB after you've finished
+#' using them. Currently, this cleanup can, however, sometimes lead to hangs if
+#' tables are created and deleted in quick succession, hence the default value
+#' of `FALSE`
 #'
 #' @param .data the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
 #' @param con a DuckDB connection to use (default will create one and store it
@@ -34,7 +36,7 @@
 #' @param table_name a name to use in DuckDB for this object. The default is a
 #' unique string `"arrow_"` followed by numbers.
 #' @param auto_disconnect should the table be automatically cleaned up when the
-#' resulting object is removed (and garbage collected)? Default: `TRUE`
+#' resulting object is removed (and garbage collected)? Default: `FALSE`
 #'
 #' @return A `tbl` of the new table in DuckDB
 #'
@@ -50,17 +52,11 @@
 #'   to_duckdb() %>%
 #'   group_by(cyl) %>%
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE))
-#'
-#' # the same query can be simplified using .engine = "duckdb"
-#' ds %>%
-#'   filter(mpg < 30) %>%
-#'   group_by(cyl) %>%
-#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),
-                      auto_disconnect = TRUE) {
-  .data <- arrow_dplyr_query(.data)
+                      auto_disconnect = FALSE) {
+  .data <- as_adq(.data)
   duckdb::duckdb_register_arrow(con, table_name, .data)
 
   tbl <- tbl(con, table_name)
@@ -96,9 +92,7 @@ run_duckdb_examples <- function() {
     requireNamespace("duckdb", quietly = TRUE) &&
     packageVersion("duckdb") > "0.2.7" &&
     requireNamespace("dplyr", quietly = TRUE) &&
-    requireNamespace("dbplyr", quietly = TRUE) &&
-    # These examples are flaking: https://github.com/duckdb/duckdb/issues/2100
-    FALSE
+    requireNamespace("dbplyr", quietly = TRUE)
 }
 
 # Adapted from dbplyr
@@ -123,4 +117,49 @@ duckdb_disconnector <- function(con, tbl_name) {
     }
   })
   environment()
+}
+
+#' Create an Arrow object from others
+#'
+#' This can be used in pipelines that pass data back and forth between Arrow and
+#' other processes (like DuckDB).
+#'
+#' @param .data the object to be converted
+#'
+#' @return an `arrow_dplyr_query` object, to be used in dplyr pipelines.
+#' @export
+#'
+#' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
+#' library(dplyr)
+#'
+#' ds <- InMemoryDataset$create(mtcars)
+#'
+#' ds %>%
+#'   filter(mpg < 30) %>%
+#'   to_duckdb() %>%
+#'   group_by(cyl) %>%
+#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
+#'   to_arrow() %>%
+#'   collect()
+to_arrow <- function(.data) {
+  # If this is an Arrow object already, return quickly since we're already Arrow
+  if (inherits(.data, c("arrow_dplyr_query", "ArrowObject"))) {
+    return(.data)
+  }
+
+  # For now, we only handle .data from duckdb, so check that it is that if we've
+  # gotten this far
+  if (!inherits(dbplyr::remote_con(.data), "duckdb_connection")) {
+    stop(
+      "to_arrow() currently only supports Arrow tables, Arrow datasets, ",
+      "Arrow queries, or dbplyr tbls from duckdb connections",
+      call. = FALSE
+    )
+  }
+
+  # Run the query
+  res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
+
+  # TODO: we shouldn't need $read_table(), but we get segfaults when we do.
+  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res)$read_table())
 }

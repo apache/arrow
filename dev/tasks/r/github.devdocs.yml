@@ -15,36 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   devdocs:
-    name: 'R devdocs {{ "${{ matrix.os }}" }} system install: {{ "${{ matrix.system-install }}" }}'
+    name: 'R devdocs {{ "${{ matrix.os }}" }}'
     runs-on: {{ "${{ matrix.os }}" }}
     strategy:
       fail-fast: false
       matrix:
         os: [macOS-latest, ubuntu-20.04]
-        # should the install method install libarrow into a system directory
-        # or a temporary directory. old is the same as a temporary
-        # directory, but an old version of libarrow will be installed
-        # into a system directory first (to make sure we can link correctly when building)
-        system-install: [true, false]
 
     steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
+      {{ macros.github_checkout_arrow()|indent }}
+
       - uses: r-lib/actions/setup-r@v1
       - uses: r-lib/actions/setup-pandoc@v1
       - name: Install knitr, rmarkdown
@@ -64,8 +50,6 @@ jobs:
           RUN_DEVDOCS: TRUE
           DEVDOCS_MACOS: {{ "${{contains(matrix.os, 'macOS')}}" }}
           DEVDOCS_UBUNTU: {{ "${{contains(matrix.os, 'ubuntu')}}" }}
-          DEVDOCS_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'true')}}" }}
-          DEVDOCS_PRIOR_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'old')}}" }}
         run: |
           # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh
           # which can be sourced to install arrow.

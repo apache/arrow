@@ -44,8 +44,7 @@
 // Technically any OS may use the mapping process but currently only Windows does use it.
 
 // NOTE(ARROW): If this is not set, then the library will attempt to
-// use libcurl to obtain a timezone database, and we do not yet have
-// curl in our build toolchain
+// use libcurl to obtain a timezone database, and we probably do not want this.
 #ifndef _WIN32
 #define USE_OS_TZDB 1
 #endif
@@ -93,15 +92,6 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
 #  ifdef _WIN32
 #    error "USE_OS_TZDB can not be used on Windows"
 #  endif
-#  ifndef MISSING_LEAP_SECONDS
-#    ifdef __APPLE__
-#      define MISSING_LEAP_SECONDS 1
-#    else
-#      define MISSING_LEAP_SECONDS 0
-#    endif
-#  endif
-#else
-#  define MISSING_LEAP_SECONDS 0
 #endif
 
 #ifndef HAS_DEDUCTION_GUIDES
@@ -712,6 +702,11 @@ public:
 
 private:
     template <class D, class T> friend class zoned_time;
+
+    template <class TimeZonePtr2>
+    static
+    TimeZonePtr2&&
+    check(TimeZonePtr2&& p);
 };
 
 using zoned_seconds = zoned_time<std::chrono::seconds>;
@@ -999,8 +994,6 @@ inline bool operator>=(const time_zone_link& x, const time_zone_link& y) {return
 
 #endif  // !USE_OS_TZDB
 
-#if !MISSING_LEAP_SECONDS
-
 class leap_second
 {
 private:
@@ -1124,8 +1117,6 @@ operator>=(const sys_time<Duration>& x, const leap_second& y)
 
 using leap = leap_second;
 
-#endif  // !MISSING_LEAP_SECONDS
-
 #ifdef _WIN32
 
 namespace detail
@@ -1171,9 +1162,7 @@ struct tzdb
 #if !USE_OS_TZDB
     std::vector<time_zone_link> links;
 #endif
-#if !MISSING_LEAP_SECONDS
     std::vector<leap_second>    leap_seconds;
-#endif
 #if !USE_OS_TZDB
     std::vector<detail::Rule>   rules;
 #endif
@@ -1230,31 +1219,31 @@ class tzdb_list
 public:
     ~tzdb_list();
     tzdb_list() = default;
-    tzdb_list(tzdb_list&& x) noexcept;
+    tzdb_list(tzdb_list&& x) NOEXCEPT;
 
-    const tzdb& front() const noexcept {return *head_;}
-          tzdb& front()       noexcept {return *head_;}
+    const tzdb& front() const NOEXCEPT {return *head_;}
+          tzdb& front()       NOEXCEPT {return *head_;}
 
     class const_iterator;
 
-    const_iterator begin() const noexcept;
-    const_iterator end() const noexcept;
+    const_iterator begin() const NOEXCEPT;
+    const_iterator end() const NOEXCEPT;
 
-    const_iterator cbegin() const noexcept;
-    const_iterator cend() const noexcept;
+    const_iterator cbegin() const NOEXCEPT;
+    const_iterator cend() const NOEXCEPT;
 
-    const_iterator erase_after(const_iterator p) noexcept;
+    const_iterator erase_after(const_iterator p) NOEXCEPT;
 
     struct undocumented_helper;
 private:
-    void push_front(tzdb* tzdb) noexcept;
+    void push_front(tzdb* tzdb) NOEXCEPT;
 };
 
 class tzdb_list::const_iterator
 {
     tzdb* p_ = nullptr;
 
-    explicit const_iterator(tzdb* p) noexcept : p_{p} {}
+    explicit const_iterator(tzdb* p) NOEXCEPT : p_{p} {}
 public:
     const_iterator() = default;
 
@@ -1264,20 +1253,20 @@ public:
     using pointer           = const value_type*;
     using difference_type   = std::ptrdiff_t;
 
-    reference operator*() const noexcept {return *p_;}
-    pointer  operator->() const noexcept {return p_;}
+    reference operator*() const NOEXCEPT {return *p_;}
+    pointer  operator->() const NOEXCEPT {return p_;}
 
-    const_iterator& operator++() noexcept {p_ = p_->next; return *this;}
-    const_iterator  operator++(int) noexcept {auto t = *this; ++(*this); return t;}
+    const_iterator& operator++() NOEXCEPT {p_ = p_->next; return *this;}
+    const_iterator  operator++(int) NOEXCEPT {auto t = *this; ++(*this); return t;}
 
     friend
     bool
-    operator==(const const_iterator& x, const const_iterator& y) noexcept
+    operator==(const const_iterator& x, const const_iterator& y) NOEXCEPT
         {return x.p_ == y.p_;}
 
     friend
     bool
-    operator!=(const const_iterator& x, const const_iterator& y) noexcept
+    operator!=(const const_iterator& x, const const_iterator& y) NOEXCEPT
         {return !(x == y);}
 
     friend class tzdb_list;
@@ -1285,28 +1274,28 @@ public:
 
 inline
 tzdb_list::const_iterator
-tzdb_list::begin() const noexcept
+tzdb_list::begin() const NOEXCEPT
 {
     return const_iterator{head_};
 }
 
 inline
 tzdb_list::const_iterator
-tzdb_list::end() const noexcept
+tzdb_list::end() const NOEXCEPT
 {
     return const_iterator{nullptr};
 }
 
 inline
 tzdb_list::const_iterator
-tzdb_list::cbegin() const noexcept
+tzdb_list::cbegin() const NOEXCEPT
 {
     return begin();
 }
 
 inline
 tzdb_list::const_iterator
-tzdb_list::cend() const noexcept
+tzdb_list::cend() const NOEXCEPT
 {
     return end();
 }
@@ -1337,7 +1326,7 @@ namespace detail
 template <class T>
 inline
 T*
-to_raw_pointer(T* p) noexcept
+to_raw_pointer(T* p) NOEXCEPT
 {
     return p;
 }
@@ -1345,7 +1334,7 @@ to_raw_pointer(T* p) noexcept
 template <class Pointer>
 inline
 auto
-to_raw_pointer(Pointer p) noexcept
+to_raw_pointer(Pointer p) NOEXCEPT
     -> decltype(detail::to_raw_pointer(p.operator->()))
 {
     return detail::to_raw_pointer(p.operator->());
@@ -1354,12 +1343,24 @@ to_raw_pointer(Pointer p) noexcept
 }  // namespace detail
 
 template <class Duration, class TimeZonePtr>
+template <class TimeZonePtr2>
+inline
+TimeZonePtr2&&
+zoned_time<Duration, TimeZonePtr>::check(TimeZonePtr2&& p)
+{
+    if (detail::to_raw_pointer(p) == nullptr)
+        throw std::runtime_error(
+            "zoned_time constructed with a time zone pointer == nullptr");
+    return std::forward<TimeZonePtr2>(p);
+}
+
+template <class Duration, class TimeZonePtr>
 #if !defined(_MSC_VER) || (_MSC_VER > 1916)
 template <class T, class>
 #endif
 inline
 zoned_time<Duration, TimeZonePtr>::zoned_time()
-    : zone_(zoned_traits<TimeZonePtr>::default_zone())
+    : zone_(check(zoned_traits<TimeZonePtr>::default_zone()))
     {}
 
 template <class Duration, class TimeZonePtr>
@@ -1368,15 +1369,15 @@ template <class T, class>
 #endif
 inline
 zoned_time<Duration, TimeZonePtr>::zoned_time(const sys_time<Duration>& st)
-    : zone_(zoned_traits<TimeZonePtr>::default_zone())
+    : zone_(check(zoned_traits<TimeZonePtr>::default_zone()))
     , tp_(st)
     {}
 
 template <class Duration, class TimeZonePtr>
 inline
 zoned_time<Duration, TimeZonePtr>::zoned_time(TimeZonePtr z)
-    : zone_(std::move(z))
-    {assert(detail::to_raw_pointer(zone_) != nullptr);}
+    : zone_(check(std::move(z)))
+    {}
 
 #if HAS_STRING_VIEW
 
@@ -1411,7 +1412,7 @@ zoned_time<Duration, TimeZonePtr>::zoned_time(const zoned_time<Duration2, TimeZo
 template <class Duration, class TimeZonePtr>
 inline
 zoned_time<Duration, TimeZonePtr>::zoned_time(TimeZonePtr z, const sys_time<Duration>& st)
-    : zone_(std::move(z))
+    : zone_(check(std::move(z)))
     , tp_(st)
     {}
 
@@ -1421,7 +1422,7 @@ template <class T, class>
 #endif
 inline
 zoned_time<Duration, TimeZonePtr>::zoned_time(TimeZonePtr z, const local_time<Duration>& t)
-    : zone_(std::move(z))
+    : zone_(check(std::move(z)))
     , tp_(zone_->to_sys(t))
     {}
 
@@ -1432,7 +1433,7 @@ template <class T, class>
 inline
 zoned_time<Duration, TimeZonePtr>::zoned_time(TimeZonePtr z, const local_time<Duration>& t,
                                               choose c)
-    : zone_(std::move(z))
+    : zone_(check(std::move(z)))
     , tp_(zone_->to_sys(t, c))
     {}
 
@@ -1441,7 +1442,7 @@ template <class Duration2, class TimeZonePtr2, class>
 inline
 zoned_time<Duration, TimeZonePtr>::zoned_time(TimeZonePtr z,
                                               const zoned_time<Duration2, TimeZonePtr2>& zt)
-    : zone_(std::move(z))
+    : zone_(check(std::move(z)))
     , tp_(zt.tp_)
     {}
 
@@ -1855,8 +1856,6 @@ operator<<(std::basic_ostream<CharT, Traits>& os, const zoned_time<Duration, Tim
     const CharT fmt[] = {'%', 'F', ' ', '%', 'T', ' ', '%', 'Z', CharT{}};
     return to_stream(os, fmt, t);
 }
-
-#if !MISSING_LEAP_SECONDS
 
 class utc_clock
 {
@@ -2795,8 +2794,6 @@ to_gps_time(const tai_time<Duration>& t)
 {
     return gps_clock::from_utc(tai_clock::to_utc(t));
 }
-
-#endif  // !MISSING_LEAP_SECONDS
 
 }  // namespace date
 }  // namespace arrow_vendored

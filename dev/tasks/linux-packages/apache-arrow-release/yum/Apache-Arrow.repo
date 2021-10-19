@@ -15,6 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+[apache-arrow-almalinux]
+name=Apache Arrow for AlmaLinux $releasever - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/almalinux/$releasever/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+
 [apache-arrow-amazon-linux]
 name=Apache Arrow for Amazon Linux $releasever - $basearch
 baseurl=https://apache.jfrog.io/artifactory/arrow/amazon-linux/$releasever/$basearch/

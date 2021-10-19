@@ -100,6 +100,7 @@ namespace red_arrow {
       // VISIT(Interval)
       VISIT(List)
       VISIT(Struct)
+      VISIT(Map)
       VISIT(SparseUnion)
       VISIT(DenseUnion)
       VISIT(Dictionary)

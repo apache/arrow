@@ -21,48 +21,24 @@ module Arrow
   # TODO: Almost codes should be implemented in Apache Arrow C++.
   class TableTableFormatter < TableFormatter
     private
-    def format_header(text, columns)
-      columns.each do |column|
+    def format_header(text, column_formatters)
+      column_formatters.each do |column_formatter|
         text << "\t"
-        text << format_column_name(column)
+        text << column_formatter.aligned_name
       end
       text << "\n"
     end
 
-    FLOAT_N_DIGITS = 10
-    def format_column_name(column)
-      case column.data_type
-      when TimestampDataType
-        "%*s" % [::Time.now.iso8601.size, column.name]
-      when FloatDataType, DoubleDataType
-        "%*s" % [FLOAT_N_DIGITS, column.name]
-      else
-        column.name
-      end
-    end
-
-    def format_rows(text, columns, rows, n_digits, start_offset)
+    def format_rows(text, column_formatters, rows, n_digits, start_offset)
       rows.each_with_index do |row, nth_row|
         text << ("%*d" % [n_digits, start_offset + nth_row])
         row.each_with_index do |column_value, nth_column|
           text << "\t"
-          column = columns[nth_column]
-          text << format_column_value(column, column_value)
+          column_formatter = column_formatters[nth_column]
+          aligned_name = column_formatter.aligned_name
+          text << column_formatter.format_value(column_value, aligned_name.size)
         end
         text << "\n"
-      end
-    end
-
-    def format_column_value(column, value)
-      case value
-      when ::Time
-        value.iso8601
-      when Float
-        "%*f" % [[column.name.size, FLOAT_N_DIGITS].max, value]
-      when Integer
-        "%*d" % [column.name.size, value]
-      else
-        "%-*s" % [column.name.size, value.to_s]
       end
     end
 

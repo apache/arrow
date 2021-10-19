@@ -30,6 +30,8 @@
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 
+#include <arrow/c/bridge.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -145,6 +147,34 @@ garrow_record_batch_reader_class_init(GArrowRecordBatchReaderClass *klass)
 }
 
 /**
+ * garrow_record_batch_reader_import:
+ * @c_abi_array_stream: (not nullable): A `struct ArrowArrayStream *`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported
+ *   #GArrowRecordBatchReader on success, %NULL on error.
+ *
+ *   You don't need to release the passed `struct ArrowArrayStream *`,
+ *   even if this function reports an error.
+ *
+ * Since: 6.0.0
+ */
+GArrowRecordBatchReader *
+garrow_record_batch_reader_import(gpointer c_abi_array_stream, GError **error)
+{
+  auto arrow_reader_result =
+    arrow::ImportRecordBatchReader(
+      static_cast<ArrowArrayStream *>(c_abi_array_stream));
+  if (garrow::check(error,
+                    arrow_reader_result,
+                    "[record-batch-reader][import]")) {
+    return garrow_record_batch_reader_new_raw(&(*arrow_reader_result));
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_record_batch_reader_new:
  * @record_batches: (element-type GArrowRecordBatch):
  *   A list of #GArrowRecordBatch.
@@ -176,6 +206,36 @@ garrow_record_batch_reader_new(GList *record_batches,
                     "[record-batch-stream-reader][new]")) {
     return garrow_record_batch_reader_new_raw(&*arrow_reader_result);
   } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_record_batch_reader_export:
+ * @reader: A #GArrowRecordBatchReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An exported
+ *   #GArrowRecordBatchReader as `struct ArrowArrayStream *` on
+ *   success, %NULL on error.
+ *
+ *   It should be freed with the `ArrowArrayStream::release` callback then
+ *   g_free() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gpointer
+garrow_record_batch_reader_export(GArrowRecordBatchReader *reader,
+                                  GError **error)
+{
+  auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
+  auto c_abi_array_stream = g_new(ArrowArrayStream, 1);
+  auto status = arrow::ExportRecordBatchReader(arrow_reader,
+                                               c_abi_array_stream);
+  if (garrow::check(error, status, "[record-batch-reader][export]")) {
+    return c_abi_array_stream;
+  } else {
+    g_free(c_abi_array_stream);
     return NULL;
   }
 }
@@ -1300,10 +1360,13 @@ garrow_csv_read_options_set_null_values(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_null_values:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The values to be processed as null. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as null.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.14.0
  */
@@ -1365,10 +1428,13 @@ garrow_csv_read_options_set_true_values(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_true_values:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The values to be processed as true. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as true.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.14.0
  */
@@ -1430,10 +1496,13 @@ garrow_csv_read_options_set_false_values(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_false_values:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The values to be processed as false. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The values to be processed as false.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.14.0
  */
@@ -1496,10 +1565,13 @@ garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
  * garrow_csv_read_options_get_column_names:
  * @options: A #GArrowCSVReadOptions.
  *
- * Return: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
- *   The column names. It's a %NULL-terminated string array.
+ * Returns: (nullable) (array zero-terminated=1) (element-type utf8) (transfer full):
+ *   The column names.
+ *
  *   If the number of values is zero, this returns %NULL.
- *   It must be freed with g_strfreev() when no longer needed.
+ *
+ *   It's a %NULL-terminated string array. It must be freed with
+ *   g_strfreev() when no longer needed.
  *
  * Since: 0.15.0
  */

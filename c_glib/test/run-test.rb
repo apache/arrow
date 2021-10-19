@@ -84,6 +84,7 @@ rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
 require "fileutils"
+require "find"
 require "rbconfig"
 require "stringio"
 require "tempfile"
@@ -97,6 +98,7 @@ if defined?(ArrowFlight)
 end
 require_relative "helper/omittable"
 require_relative "helper/plasma-store"
+require_relative "helper/readable"
 require_relative "helper/writable"
 
 exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))

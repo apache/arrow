@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/filesystem/hdfs.h"
+
+#include <gtest/gtest.h>
+
 #include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
 
-#include <gtest/gtest.h>
-
-#include "arrow/filesystem/hdfs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
@@ -37,7 +38,7 @@ namespace fs {
 
 TEST(TestHdfsOptions, FromUri) {
   HdfsOptions options;
-  internal::Uri uri;
+  Uri uri;
 
   ASSERT_OK(uri.Parse("hdfs://localhost"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));

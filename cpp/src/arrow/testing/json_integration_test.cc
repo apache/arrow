@@ -197,8 +197,7 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
                   const std::string& command) {
   // Make sure the required extension types are registered, as they will be
   // referenced in test data.
-  ExtensionTypeGuard uuid_ext_guard(uuid());
-  ExtensionTypeGuard dict_ext_guard(dict_extension_type());
+  ExtensionTypeGuard ext_guard({uuid(), dict_extension_type()});
 
   if (json_path == "") {
     return Status::Invalid("Must specify json file name");
@@ -1105,8 +1104,7 @@ class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
 };
 
 void CheckRoundtrip(const RecordBatch& batch) {
-  ExtensionTypeGuard uuid_ext_guard(uuid());
-  ExtensionTypeGuard dict_ext_guard(dict_extension_type());
+  ExtensionTypeGuard guard({uuid(), dict_extension_type(), complex128()});
 
   TestSchemaRoundTrip(*batch.schema());
 
@@ -1160,6 +1158,7 @@ const std::vector<ipc::test::MakeRecordBatch*> kBatchCases = {
     &MakeFloatBatch,
     &MakeIntervals,
     &MakeUuid,
+    &MakeComplex128,
     &MakeDictExtension};
 
 INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip,

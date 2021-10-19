@@ -190,6 +190,7 @@ set(ARROW_SRCS
     io/slow.cc
     io/stdio.cc
     io/transform.cc
+    util/async_util.cc
     util/basic_decimal.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc
@@ -200,6 +201,7 @@ set(ARROW_SRCS
     util/bpacking.cc
     util/cancel.cc
     util/compression.cc
+    util/counting_semaphore.cc
     util/cpu_info.cc
     util/decimal.cc
     util/delimiting.cc
@@ -370,8 +372,14 @@ if(ARROW_COMPUTE)
        compute/api_vector.cc
        compute/cast.cc
        compute/exec.cc
+       compute/exec/aggregate_node.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
+       compute/exec/filter_node.cc
+       compute/exec/project_node.cc
+       compute/exec/source_node.cc
+       compute/exec/sink_node.cc
+       compute/exec/order_by_impl.cc
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
@@ -396,21 +404,27 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_nested.cc
        compute/kernels/scalar_set_lookup.cc
        compute/kernels/scalar_string.cc
-       compute/kernels/scalar_temporal.cc
+       compute/kernels/scalar_temporal_binary.cc
+       compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
-       compute/kernels/scalar_fill_null.cc
        compute/kernels/scalar_if_else.cc
        compute/kernels/util_internal.cc
+       compute/kernels/vector_array_sort.cc
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
+       compute/kernels/row_encoder.cc
+       compute/exec/union_node.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
-       compute/exec/util.cc)
+       compute/exec/util.cc
+       compute/exec/hash_join.cc
+       compute/exec/hash_join_node.cc
+       compute/exec/task_util.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
@@ -437,6 +451,12 @@ if(ARROW_FILESYSTEM)
        filesystem/path_util.cc
        filesystem/util_internal.cc)
 
+  if(ARROW_GCS)
+    list(APPEND ARROW_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
+    set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                           SKIP_UNITY_BUILD_INCLUSION ON)
+  endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
   endif()

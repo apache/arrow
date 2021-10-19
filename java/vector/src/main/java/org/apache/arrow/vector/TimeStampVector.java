@@ -31,7 +31,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * maintained to track which elements in the vector are null.
  */
 public abstract class TimeStampVector extends BaseFixedWidthVector {
-  protected static final byte TYPE_WIDTH = 8;
+  public static final byte TYPE_WIDTH = 8;
 
   /**
    * Instantiate a TimeStampVector. This doesn't allocate any memory for

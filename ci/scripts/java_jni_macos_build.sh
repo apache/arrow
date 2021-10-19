@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -29,7 +29,7 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
-: ${ARROW_BUILD_TESTS:=ON}
+: ${ARROW_BUILD_TESTS:=OFF}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FILESYSTEM:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}

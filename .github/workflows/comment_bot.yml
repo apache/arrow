@@ -95,8 +95,8 @@ jobs:
           set -ex
           export PATH=/home/runner/.local/bin:$PATH
           python3 -m pip install --upgrade pip setuptools wheel
-          python3 -m pip install -r dev/archery/requirements-lint.txt
-          python3 run-cmake-format.py
+          python3 -m pip install -e dev/archery[lint]
+          archery lint --cmake-format --fix
       - name: Run clang-format on cpp
         if: env.CLANG_FORMAT_CPP == 'true' || endsWith(github.event.comment.body, 'everything')
         run: |

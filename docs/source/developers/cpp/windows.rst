@@ -33,13 +33,7 @@ Microsoft provides the free Visual Studio Community edition. When doing
 development in the shell, you must initialize the development environment
 each time you open the shell.
 
-For Visual Studio 2015, execute the following batch script:
-
-.. code-block:: shell
-
-   "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
-
-For Visual Studio 2017, the script is:
+For Visual Studio 2017, execute the following batch script:
 
 .. code-block:: shell
 
@@ -176,12 +170,13 @@ an out of source build by generating a MSVC solution:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 14 2015" -A x64 ^
+   cmake .. -G "Visual Studio 15 2017" -A x64 ^
          -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
 
 For newer versions of Visual Studio, specify the generator
-``Visual Studio 15 2017`` or ``Visual Studio 16 2019``.
+``Visual Studio 16 2019`` or see ``cmake --help`` for available
+generators.
 
 Building with Ninja and clcache
 ===============================
@@ -310,7 +305,7 @@ The command line to build Arrow in Debug mode will look something like this:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 14 2015" -A x64 ^
+   cmake .. -G "Visual Studio 15 2017" -A x64 ^
          -DARROW_BOOST_USE_SHARED=OFF ^
          -DCMAKE_BUILD_TYPE=Debug ^
          -DBOOST_ROOT=C:/local/boost_1_63_0  ^

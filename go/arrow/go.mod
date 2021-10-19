@@ -26,9 +26,11 @@ require (
 	github.com/klauspost/compress v1.13.1
 	github.com/pierrec/lz4/v4 v4.1.8
 	github.com/stretchr/testify v1.7.0
+	golang.org/x/exp v0.0.0-20191002040644-a1355ae1e2c3
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+	gonum.org/v1/gonum v0.9.3
 	google.golang.org/genproto v0.0.0-20210630183607-d20f26d13c79 // indirect
 	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.27.1

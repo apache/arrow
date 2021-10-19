@@ -79,9 +79,9 @@
 #' @name Schema
 #' @examplesIf arrow_available()
 #' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
-#' tab1 <- Table$create(df)
+#' tab1 <- arrow_table(df)
 #' tab1$schema
-#' tab2 <- Table$create(df, schema = schema(col1 = int8(), col2 = float32()))
+#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
 #' tab2$schema
 #' @export
 Schema <- R6Class("Schema",
@@ -133,10 +133,34 @@ Schema <- R6Class("Schema",
         self$set_pointer(out$pointer())
         self
       }
+    },
+    r_metadata = function(new) {
+      # Helper for the R metadata that handles the serialization
+      # See also method on ArrowTabular
+      if (missing(new)) {
+        out <- self$metadata$r
+        if (!is.null(out)) {
+          # Can't unserialize NULL
+          out <- .unserialize_arrow_r_metadata(out)
+        }
+        # Returns either NULL or a named list
+        out
+      } else {
+        # Set the R metadata
+        self$metadata$r <- .serialize_arrow_r_metadata(new)
+        self
+      }
     }
   )
 )
-Schema$create <- function(...) schema_(.fields(list2(...)))
+Schema$create <- function(...) {
+  .list <- list2(...)
+  if (all(map_lgl(.list, ~ inherits(., "Field")))) {
+    schema_(.list)
+  } else {
+    schema_(.fields(.list))
+  }
+}
 #' @include arrowExports.R
 Schema$import_from_c <- ImportSchema
 
@@ -161,7 +185,8 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... named list of [data types][data-type]
+#' @param ... named list containing [data types][data-type] or
+#'   a list of [fields][field] containing the fields for the schema
 #' @export
 #' @rdname Schema
 schema <- Schema$create

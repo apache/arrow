@@ -100,7 +100,7 @@ func TestOneWordWithOffsets(t *testing.T) {
 		assert.EqualValues(t, 63, block.Popcnt)
 
 		// Set the next word to all false
-		utils.SetBitsTo(buf.Bytes(), 2*kWordSize+offset, kWordSize, false)
+		bitutil.SetBitsTo(buf.Bytes(), 2*kWordSize+offset, kWordSize, false)
 
 		block = counter.NextWord()
 		assert.EqualValues(t, 64, block.Len)
@@ -150,7 +150,7 @@ func TestFourWordsWithOffsets(t *testing.T) {
 		assert.EqualValues(t, 253, block.Popcnt)
 
 		// set the next two words to all false
-		utils.SetBitsTo(buf.Bytes(), 8*kWordSize+offset, 2*kWordSize, false)
+		bitutil.SetBitsTo(buf.Bytes(), 8*kWordSize+offset, 2*kWordSize, false)
 
 		// block is half set
 		block = counter.NextFourWords()

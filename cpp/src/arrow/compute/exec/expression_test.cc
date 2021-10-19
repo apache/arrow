@@ -30,6 +30,7 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/make_unique.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
@@ -216,6 +217,33 @@ TEST(ExpressionUtils, MakeExecBatch) {
   ASSERT_RAISES(Invalid, MakeExecBatch(*kBoringSchema, duplicated_names));
 }
 
+class WidgetifyOptions : public compute::FunctionOptions {
+ public:
+  explicit WidgetifyOptions(bool really = true);
+  bool really;
+};
+class WidgetifyOptionsType : public FunctionOptionsType {
+ public:
+  static const FunctionOptionsType* GetInstance() {
+    static std::unique_ptr<FunctionOptionsType> instance(new WidgetifyOptionsType());
+    return instance.get();
+  }
+  const char* type_name() const override { return "widgetify"; }
+  std::string Stringify(const FunctionOptions& options) const override {
+    return type_name();
+  }
+  bool Compare(const FunctionOptions& options,
+               const FunctionOptions& other) const override {
+    return true;
+  }
+  std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
+    const auto& opts = static_cast<const WidgetifyOptions&>(options);
+    return arrow::internal::make_unique<WidgetifyOptions>(opts.really);
+  }
+};
+WidgetifyOptions::WidgetifyOptions(bool really)
+    : FunctionOptions(WidgetifyOptionsType::GetInstance()), really(really) {}
+
 TEST(Expression, ToString) {
   EXPECT_EQ(field_ref("alpha").ToString(), "alpha");
 
@@ -252,28 +280,6 @@ TEST(Expression, ToString) {
       "cast(a, {to_type=<NULLPTR>, allow_int_overflow=false, allow_time_truncate=false, "
       "allow_time_overflow=false, allow_decimal_truncate=false, "
       "allow_float_truncate=false, allow_invalid_utf8=false})");
-
-  class WidgetifyOptionsType : public FunctionOptionsType {
-   public:
-    static const FunctionOptionsType* GetInstance() {
-      static std::unique_ptr<FunctionOptionsType> instance(new WidgetifyOptionsType());
-      return instance.get();
-    }
-    const char* type_name() const override { return "widgetify"; }
-    std::string Stringify(const FunctionOptions& options) const override {
-      return type_name();
-    }
-    bool Compare(const FunctionOptions& options,
-                 const FunctionOptions& other) const override {
-      return true;
-    }
-  };
-  class WidgetifyOptions : public compute::FunctionOptions {
-   public:
-    explicit WidgetifyOptions(bool really = true)
-        : FunctionOptions(WidgetifyOptionsType::GetInstance()), really(really) {}
-    bool really;
-  };
 
   // NB: corrupted for nullary functions but we don't have any of those
   EXPECT_EQ(call("widgetify", {}).ToString(), "widgetif)");

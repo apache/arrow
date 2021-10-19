@@ -44,7 +44,7 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
     const esmSourceMapsGlob = `${targetDir(`es2015`, `esm`)}/**/*.map`;
     const es2015UmdSourceMapsGlob = `${targetDir(`es2015`, `umd`)}/*.map`;
     const esnextUmdSourceMapsGlob = `${targetDir(`esnext`, `umd`)}/*.map`;
-    return ObservableForkJoin(
+    return ObservableForkJoin([
         observableFromStreams(gulp.src(dtsGlob),                 gulp.dest(out)), // copy d.ts files
         observableFromStreams(gulp.src(cjsGlob),                 gulp.dest(out)), // copy es2015 cjs files
         observableFromStreams(gulp.src(cjsSourceMapsGlob),       gulp.dest(out)), // copy es2015 cjs sourcemaps
@@ -54,7 +54,7 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
         observableFromStreams(gulp.src(esmGlob),       gulpRename((p) => { p.extname = '.mjs'; }),          gulp.dest(out)), // copy es2015 esm files and rename to `.mjs`
         observableFromStreams(gulp.src(es2015UmdGlob), gulpRename((p) => { p.basename += `.es2015.min`; }), gulp.dest(out)), // copy es2015 umd files and add `.es2015.min`
         observableFromStreams(gulp.src(esnextUmdGlob), gulpRename((p) => { p.basename += `.esnext.min`; }), gulp.dest(out)), // copy esnext umd files and add `.esnext.min`
-    ).pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }));
+    ]).pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }));
 }))({});
 
 const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {

@@ -210,7 +210,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
                                  ArrayVector dictionaries = {},
                                  KeyValuePartitioningOptions options = {});
 
-  std::string type_name() const override { return "schema"; }
+  std::string type_name() const override { return "directory"; }
 
   /// \brief Create a factory for a directory partitioning.
   ///

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 namespace arrow {
 
 [[noreturn]] void Unreachable(const char* message = "Unreachable");

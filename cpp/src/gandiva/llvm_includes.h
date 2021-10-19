@@ -41,3 +41,16 @@
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
+
+// Workaround for deprecated builder methods as of LLVM 13: ARROW-14363
+inline llvm::Value* CreateGEP(llvm::IRBuilder<>* builder, llvm::Value* Ptr,
+                              llvm::ArrayRef<llvm::Value*> IdxList,
+                              const llvm::Twine& Name = "") {
+  return builder->CreateGEP(Ptr->getType()->getScalarType()->getPointerElementType(), Ptr,
+                            IdxList, Name);
+}
+
+inline llvm::LoadInst* CreateLoad(llvm::IRBuilder<>* builder, llvm::Value* Ptr,
+                                  const llvm::Twine& Name = "") {
+  return builder->CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
+}

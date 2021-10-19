@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("String encoding")
 
 test_that("We handle non-UTF strings", {
   # Move the code with non-UTF strings to a separate file so that we don't

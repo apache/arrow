@@ -45,27 +45,6 @@
     </dependency>
   </dependencies>
 
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0-M3</version>
-        <configuration>
-          <enableAssertions>true</enableAssertions>
-          <childDelegation>true</childDelegation>
-          <forkCount>${forkCount}</forkCount>
-          <reuseForks>true</reuseForks>
-          <systemPropertyVariables>
-            <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-            <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
-            <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
-            <user.timezone>UTC</user.timezone>
-          </systemPropertyVariables>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
-
   <profiles>
     <profile>
       <!-- This profile turns on integration testing. It activates the failsafe plugin and will run any tests
@@ -77,14 +56,6 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
-            <configuration>
-              <systemPropertyVariables>
-                <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-                <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
-                <user.timezone>UTC</user.timezone>
-              </systemPropertyVariables>
-              <argLine />
-            </configuration>
             <executions>
               <execution>
                 <goals>

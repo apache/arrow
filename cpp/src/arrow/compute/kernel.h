@@ -134,6 +134,9 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> BinaryLike();
 // Match types using 64-bit varbinary representation
 ARROW_EXPORT std::shared_ptr<TypeMatcher> LargeBinaryLike();
 
+// Match any fixed binary type
+ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
+
 // \brief Match any primitive type (boolean or any type representable as a C
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
@@ -290,9 +293,11 @@ class ARROW_EXPORT OutputType {
   enum ResolveKind { FIXED, COMPUTED };
 
   /// Type resolution function. Given input types and shapes, return output
-  /// type and shape. This function SHOULD _not_ be used to check for arity,
-  /// that is to be performed one or more layers above. May make use of kernel
-  /// state to know what type to output in some cases.
+  /// type and shape.  This function MAY may use the kernel state to decide
+  /// the output type based on the functionoptions.
+  ///
+  /// This function SHOULD _not_ be used to check for arity, that is to be
+  /// performed one or more layers above.
   using Resolver =
       std::function<Result<ValueDescr>(KernelContext*, const std::vector<ValueDescr>&)>;
 
@@ -304,7 +309,8 @@ class ARROW_EXPORT OutputType {
   /// \brief Output the exact type and shape provided by a ValueDescr
   OutputType(ValueDescr descr);  // NOLINT implicit construction
 
-  explicit OutputType(Resolver resolver)
+  /// \brief Output a computed type depending on actual input types
+  OutputType(Resolver resolver)  // NOLINT implicit construction
       : kind_(COMPUTED), resolver_(std::move(resolver)) {}
 
   OutputType(const OutputType& other) {

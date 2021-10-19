@@ -28,6 +28,13 @@ class ArrayBuilderTest < Test::Unit::TestCase
                      ["Hello", nil, "World"])
       end
 
+      test("symbols") do
+        array = Arrow::ArrayBuilder.build([:hello, nil, :world])
+        expected_builder = Arrow::StringDictionaryArrayBuilder.new
+        assert_equal(expected_builder.build(["hello", nil, "world"]),
+                     array)
+      end
+
       test("boolean") do
         assert_build(Arrow::ArrayBuilder,
                      [true, nil, false])

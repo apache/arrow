@@ -47,10 +47,10 @@ class ARROW_EXPORT TDigest {
   void Reset();
 
   // validate data integrity
-  Status Validate();
+  Status Validate() const;
 
   // dump internal data, only for debug
-  void Dump();
+  void Dump() const;
 
   // buffer a single data point, consume internal buffer if full
   // this function is intensively called and performance critical
@@ -75,24 +75,25 @@ class ARROW_EXPORT TDigest {
   }
 
   // merge with other t-digests, called infrequently
-  void Merge(std::vector<TDigest>* tdigests);
+  void Merge(const std::vector<TDigest>& others);
+  void Merge(const TDigest& other);
 
   // calculate quantile
-  double Quantile(double q);
+  double Quantile(double q) const;
 
-  double Min() { return Quantile(0); }
-  double Max() { return Quantile(1); }
-  double Mean();
+  double Min() const { return Quantile(0); }
+  double Max() const { return Quantile(1); }
+  double Mean() const;
 
   // check if this tdigest contains no valid data points
   bool is_empty() const;
 
  private:
   // merge input data with current tdigest
-  void MergeInput();
+  void MergeInput() const;
 
   // input buffer, size = buffer_size * sizeof(double)
-  std::vector<double> input_;
+  mutable std::vector<double> input_;
 
   // hide other members with pimpl
   class TDigestImpl;

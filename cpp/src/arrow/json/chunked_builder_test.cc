@@ -438,15 +438,11 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkList) {
                                     struct_({}), &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder,
-                 {
-                     "{}\n",
-                     "{\"a\": []}\n",
-                     "{\"a\": [1, 2]}\n",
-                 },
+  AssertBuilding(builder, {"{}\n", "{\"a\": []}\n", "{\"a\": [1, 2]}\n", "{}\n"},
                  &actual);
 
-  auto expected = ChunkedArrayFromJSON(list(int64()), {"[null]", "[[]]", "[[1, 2]]"});
+  auto expected =
+      ChunkedArrayFromJSON(list(int64()), {"[null]", "[[]]", "[[1, 2]]", "[null]"});
   AssertFieldEqual({"a"}, actual, *expected);
 }
 

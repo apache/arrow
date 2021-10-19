@@ -36,7 +36,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeNanoVector extends BaseFixedWidthVector {
-  private static final byte TYPE_WIDTH = 8;
+  public static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**

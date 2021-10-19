@@ -613,7 +613,7 @@ TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion1_0) {
 }
 
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion2_0) {
-  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_0);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4);
 }
 
 TEST(TestWriter, NullValuesBuffer) {

@@ -66,20 +66,14 @@ Status RegexStatus(const RE2& regex) {
 }
 #endif
 
-// Code units in the range [a-z] can only be an encoding of an ascii
-// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
-// codepoint. This guaranteed by non-overlap design of the unicode standard. (see
-// section 2.5 of Unicode Standard Core Specification v13.0)
+// Code units in the range [a-z] can only be an encoding of an ASCII
+// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of a different
+// codepoint. This is guaranteed by the non-overlap design of the Unicode
+// standard. (see section 2.5 of Unicode Standard Core Specification v13.0)
 
-static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
-  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
-                                                              : utf8_code_unit;
-}
+// IsAlpha/Digit etc
 
-static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
-  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
-                                                              : utf8_code_unit;
-}
+static inline bool IsAsciiCharacter(uint8_t character) { return character < 128; }
 
 static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
   return (ascii_character >= 'a') && (ascii_character <= 'z');
@@ -90,12 +84,13 @@ static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
 }
 
 static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
+  // Note: Non-ASCII characters are seen as uncased.
   return IsLowerCaseCharacterAscii(ascii_character) ||
          IsUpperCaseCharacterAscii(ascii_character);
 }
 
 static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
-  return IsCasedCharacterAscii(ascii_character);  // same
+  return IsCasedCharacterAscii(ascii_character);
 }
 
 static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
@@ -109,32 +104,30 @@ static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
 }
 
 static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
-         (ascii_character == ' ');
+  return ((ascii_character >= 9) && (ascii_character <= 13)) || (ascii_character == ' ');
 }
 
 static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
   return ((ascii_character >= ' ') && (ascii_character <= '~'));
 }
 
-static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
-  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit -= 32;
-  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit += 32;
-  }
-  return utf8_code_unit;
-}
-
-template <typename T>
-static inline bool IsAsciiCharacter(T character) {
-  return character < 128;
-}
-
 struct BinaryLength {
   template <typename OutValue, typename Arg0Value = util::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     return static_cast<OutValue>(val.size());
+  }
+
+  static Status FixedSizeExec(KernelContext*, const ExecBatch& batch, Datum* out) {
+    // Output is preallocated and validity buffer is precomputed
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(*batch[0].type()).byte_width();
+    if (batch.values[0].is_array()) {
+      int32_t* buffer = out->mutable_array()->GetMutableValues<int32_t>(1);
+      std::fill(buffer, buffer + batch.length, width);
+    } else {
+      checked_cast<Int32Scalar*>(out->scalar().get())->value = width;
+    }
+    return Status::OK();
   }
 };
 
@@ -146,6 +139,25 @@ struct Utf8Length {
     return static_cast<OutValue>(util::UTF8Length(str, str + strlen));
   }
 };
+
+static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
+                                                              : utf8_code_unit;
+}
+
+static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
+                                                              : utf8_code_unit;
+}
+
+static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
+  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit -= 32;
+  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit += 32;
+  }
+  return utf8_code_unit;
+}
 
 #ifdef ARROW_WITH_UTF8PROC
 
@@ -291,6 +303,7 @@ void EnsureLookupTablesFilled() {}
 constexpr int64_t kTransformError = -1;
 
 struct StringTransformBase {
+  virtual ~StringTransformBase() = default;
   virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Status::OK();
   }
@@ -418,19 +431,117 @@ struct StringTransformExecWithState
   }
 };
 
+template <typename StringTransform>
+struct FixedSizeBinaryTransformExecBase {
+  static Status Execute(KernelContext* ctx, StringTransform* transform,
+                        const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      return ExecArray(ctx, transform, batch[0].array(), out);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
+    return ExecScalar(ctx, transform, batch[0].scalar(), out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, StringTransform* transform,
+                          const std::shared_ptr<ArrayData>& data, Datum* out) {
+    FixedSizeBinaryArray input(data);
+    ArrayData* output = out->mutable_array();
+
+    const int32_t input_width =
+        checked_cast<const FixedSizeBinaryType&>(*data->type).byte_width();
+    const int32_t output_width =
+        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
+    const int64_t input_nstrings = input.length();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          ctx->Allocate(output_width * input_nstrings));
+    uint8_t* output_str = values_buffer->mutable_data();
+
+    for (int64_t i = 0; i < input_nstrings; i++) {
+      if (!input.IsNull(i)) {
+        const uint8_t* input_string = input.GetValue(i);
+        auto encoded_nbytes = static_cast<int32_t>(
+            transform->Transform(input_string, input_width, output_str));
+        if (encoded_nbytes != output_width) {
+          return transform->InvalidStatus();
+        }
+      } else {
+        std::memset(output_str, 0x00, output_width);
+      }
+      output_str += output_width;
+    }
+
+    output->buffers[1] = std::move(values_buffer);
+    return Status::OK();
+  }
+
+  static Status ExecScalar(KernelContext* ctx, StringTransform* transform,
+                           const std::shared_ptr<Scalar>& scalar, Datum* out) {
+    const auto& input = checked_cast<const BaseBinaryScalar&>(*scalar);
+    if (!input.is_valid) {
+      return Status::OK();
+    }
+    const int32_t out_width =
+        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
+    auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+
+    const int32_t data_nbytes = static_cast<int32_t>(input.value->size());
+    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(out_width));
+    auto encoded_nbytes = static_cast<int32_t>(transform->Transform(
+        input.value->data(), data_nbytes, value_buffer->mutable_data()));
+    if (encoded_nbytes != out_width) {
+      return transform->InvalidStatus();
+    }
+
+    result->is_valid = true;
+    result->value = std::move(value_buffer);
+    return Status::OK();
+  }
+};
+
+template <typename StringTransform>
+struct FixedSizeBinaryTransformExecWithState
+    : public FixedSizeBinaryTransformExecBase<StringTransform> {
+  using State = typename StringTransform::State;
+  using FixedSizeBinaryTransformExecBase<StringTransform>::Execute;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    StringTransform transform(State::Get(ctx));
+    RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
+    return Execute(ctx, &transform, batch, out);
+  }
+
+  static Result<ValueDescr> OutputType(KernelContext* ctx,
+                                       const std::vector<ValueDescr>& descrs) {
+    DCHECK_EQ(1, descrs.size());
+    const auto& options = State::Get(ctx);
+    const int32_t input_width =
+        checked_cast<const FixedSizeBinaryType&>(*descrs[0].type).byte_width();
+    const int32_t output_width = StringTransform::FixedOutputSize(options, input_width);
+    return ValueDescr(fixed_size_binary(output_width), descrs[0].shape);
+  }
+};
+
 #ifdef ARROW_WITH_UTF8PROC
 
-template <typename CodepointTransform>
-struct StringTransformCodepoint : public StringTransformBase {
+struct FunctionalCaseMappingTransform : public StringTransformBase {
   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
     EnsureLookupTablesFilled();
     return Status::OK();
   }
 
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    return CodepointTransform::MaxCodeunits(ninputs, input_ncodeunits);
+    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
+    // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
+    // However, since we don't support all casings (SpecialCasing.txt) the growth
+    // in bytes is actually only at max 3/2 (as covered by the unittest).
+    // Note that rounding down the 3/2 is ok, since only codepoints encoded by
+    // two code units (even) can grow to 3 code units.
+    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
   }
+};
 
+template <typename CodepointTransform>
+struct StringTransformCodepoint : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
@@ -443,20 +554,7 @@ struct StringTransformCodepoint : public StringTransformBase {
   }
 };
 
-// struct CaseMappingMixin {
-struct CaseMappingTransform {
-  static int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
-    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
-    // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
-    // However, since we don't support all casings (SpecialCasing.txt) the growth
-    // in bytes is actually only at max 3/2 (as covered by the unittest).
-    // Note that rounding down the 3/2 is ok, since only codepoints encoded by
-    // two code units (even) can grow to 3 code units.
-    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
-  }
-};
-
-struct UTF8UpperTransform : public CaseMappingTransform {
+struct UTF8UpperTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
                                             : utf8proc_toupper(codepoint);
@@ -466,7 +564,7 @@ struct UTF8UpperTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8Upper = StringTransformExec<Type, StringTransformCodepoint<UTF8UpperTransform>>;
 
-struct UTF8LowerTransform : public CaseMappingTransform {
+struct UTF8LowerTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
@@ -476,7 +574,7 @@ struct UTF8LowerTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8Lower = StringTransformExec<Type, StringTransformCodepoint<UTF8LowerTransform>>;
 
-struct UTF8SwapCaseTransform : public CaseMappingTransform {
+struct UTF8SwapCaseTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     if (codepoint <= kMaxCodepointLookup) {
       return lut_swapcase_codepoint[codepoint];
@@ -496,27 +594,22 @@ template <typename Type>
 using UTF8SwapCase =
     StringTransformExec<Type, StringTransformCodepoint<UTF8SwapCaseTransform>>;
 
-struct Utf8CapitalizeTransform : public StringTransformBase {
+struct Utf8CapitalizeTransform : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
     if (input_string_ncodeunits > 0) {
-      // Get number of code units in first code point
-      uint32_t codepoint = 0;
-      const uint8_t* i = input;
-      if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&i, &codepoint))) {
-        return kTransformError;
-      }
-      int64_t codepoint_ncodeunits =
-          std::min(static_cast<int64_t>(i - input), input_string_ncodeunits);
-      if (ARROW_PREDICT_FALSE(
-              !util::UTF8Transform(input, input + codepoint_ncodeunits, &output,
-                                   UTF8UpperTransform::TransformCodepoint))) {
+      if (ARROW_PREDICT_FALSE(!util::UTF8AdvanceCodepoints(input, end, &next, 1))) {
         return kTransformError;
       }
       if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
-              input + codepoint_ncodeunits, input + input_string_ncodeunits, &output,
-              UTF8LowerTransform::TransformCodepoint))) {
+              input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
+        return kTransformError;
+      }
+      if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
+              next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
         return kTransformError;
       }
     }
@@ -526,6 +619,42 @@ struct Utf8CapitalizeTransform : public StringTransformBase {
 
 template <typename Type>
 using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
+
+struct Utf8TitleTransform : public FunctionalCaseMappingTransform {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    uint8_t* output_start = output;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
+    bool is_next_upper = true;
+    while ((input = next) < end) {
+      uint32_t codepoint;
+      if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&next, &codepoint))) {
+        return kTransformError;
+      }
+      if (IsCasedCharacterUnicode(codepoint)) {
+        // Lower/uppercase current codepoint and
+        // prepare to lowercase next consecutive cased codepoints
+        output = is_next_upper
+                     ? util::UTF8Encode(output,
+                                        UTF8UpperTransform::TransformCodepoint(codepoint))
+                     : util::UTF8Encode(
+                           output, UTF8LowerTransform::TransformCodepoint(codepoint));
+        is_next_upper = false;
+      } else {
+        // Copy current uncased codepoint and
+        // prepare to uppercase next cased codepoint
+        std::memcpy(output, input, next - input);
+        output += next - input;
+        is_next_upper = true;
+      }
+    }
+    return output - output_start;
+  }
+};
+
+template <typename Type>
+using Utf8Title = StringTransformExec<Type, Utf8TitleTransform>;
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -667,8 +796,8 @@ struct AsciiCapitalizeTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     if (input_string_ncodeunits > 0) {
-      *output = ascii_toupper(*input);
-      TransformAsciiLower(input + 1, input_string_ncodeunits - 1, output + 1);
+      *output++ = ascii_toupper(*input++);
+      TransformAsciiLower(input, input_string_ncodeunits - 1, output);
     }
     return input_string_ncodeunits;
   }
@@ -676,6 +805,32 @@ struct AsciiCapitalizeTransform : public StringTransformBase {
 
 template <typename Type>
 using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
+
+struct AsciiTitleTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
+    bool is_next_upper = true;
+    while ((input = next++) < end) {
+      if (IsCasedCharacterAscii(*input)) {
+        // Lower/uppercase current character and
+        // prepare to lowercase next consecutive cased characters
+        *output++ = is_next_upper ? ascii_toupper(*input) : ascii_tolower(*input);
+        is_next_upper = false;
+      } else {
+        // Copy current uncased character and
+        // prepare to uppercase next cased character
+        *output++ = *input;
+        is_next_upper = true;
+      }
+    }
+    return input_string_ncodeunits;
+  }
+};
+
+template <typename Type>
+using AsciiTitle = StringTransformExec<Type, AsciiTitleTransform>;
 
 // ----------------------------------------------------------------------
 // exact pattern detection
@@ -1226,6 +1381,9 @@ void AddFindSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              FindSubstringExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1239,6 +1397,9 @@ void AddFindSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              FindSubstringRegexExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1366,6 +1527,9 @@ void AddCountSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              CountSubstringExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1379,6 +1543,9 @@ void AddCountSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              CountSubstringRegexExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1692,8 +1859,7 @@ struct IsNumericUnicode : CharacterPredicateUnicode<IsNumericUnicode> {
 struct IsAscii {
   static bool Call(KernelContext*, const uint8_t* input,
                    size_t input_string_nascii_characters, Status*) {
-    return std::all_of(input, input + input_string_nascii_characters,
-                       IsAsciiCharacter<uint8_t>);
+    return std::all_of(input, input + input_string_nascii_characters, IsAsciiCharacter);
   }
 };
 
@@ -1755,9 +1921,9 @@ struct IsTitleUnicode {
   static bool Call(KernelContext*, const uint8_t* input, size_t input_string_ncodeunits,
                    Status* st) {
     // rules:
-    // * 1: lower case follows cased
-    // * 2: upper case follows uncased
-    // * 3: at least 1 cased character (which logically should be upper/title)
+    //   1. lower case follows cased
+    //   2. upper case follows uncased
+    //   3. at least 1 cased character (which logically should be upper/title)
     bool rules_1_and_2;
     bool previous_cased = false;  // in LL, LU or LT
     bool rule_3 = false;
@@ -1766,6 +1932,7 @@ struct IsTitleUnicode {
                                [&previous_cased, &rule_3](uint32_t codepoint) {
                                  if (IsLowerCaseCharacterUnicode(codepoint)) {
                                    if (!previous_cased) return false;  // rule 1 broken
+                                   // next should be more lower case or uncased
                                    previous_cased = true;
                                  } else if (IsCasedCharacterUnicode(codepoint)) {
                                    if (previous_cased) return false;  // rule 2 broken
@@ -1773,7 +1940,7 @@ struct IsTitleUnicode {
                                    previous_cased = true;
                                    rule_3 = true;  // rule 3 obeyed
                                  } else {
-                                   // a non-cased char, like _ or 1
+                                   // an uncased char, like _ or 1
                                    // next should be upper case or more uncased
                                    previous_cased = false;
                                  }
@@ -1791,14 +1958,13 @@ struct IsTitleUnicode {
 struct IsTitleAscii {
   static bool Call(KernelContext*, const uint8_t* input, size_t input_string_ncodeunits,
                    Status*) {
-    // rules:
-    // * 1: lower case follows cased
-    // * 2: upper case follows uncased
-    // * 3: at least 1 cased character (which logically should be upper/title)
+    // Rules:
+    //   1. lower case follows cased
+    //   2. upper case follows uncased
+    //   3. at least 1 cased character (which logically should be upper/title)
     bool rules_1_and_2 = true;
     bool previous_cased = false;  // in LL, LU or LT
     bool rule_3 = false;
-    // we cannot rely on std::all_of because we need guaranteed order
     for (const uint8_t* c = input; c < input + input_string_ncodeunits; ++c) {
       if (IsLowerCaseCharacterAscii(*c)) {
         if (!previous_cased) {
@@ -1806,6 +1972,7 @@ struct IsTitleAscii {
           rules_1_and_2 = false;
           break;
         }
+        // next should be more lower case or uncased
         previous_cased = true;
       } else if (IsCasedCharacterAscii(*c)) {
         if (previous_cased) {
@@ -1817,7 +1984,7 @@ struct IsTitleAscii {
         previous_cased = true;
         rule_3 = true;  // rule 3 obeyed
       } else {
-        // a non-cased char, like _ or 1
+        // an uncased character, like _ or 1
         // next should be upper case or more uncased
         previous_cased = false;
       }
@@ -1853,6 +2020,7 @@ struct IsUpperAscii : CharacterPredicateAscii<IsUpperAscii> {
 
 template <typename Options>
 struct SplitFinderBase {
+  virtual ~SplitFinderBase() = default;
   virtual Status PreExec(const Options& options) { return Status::OK(); }
 
   // Derived classes should also define these methods:
@@ -2557,6 +2725,29 @@ struct BinaryReplaceSliceTransform : ReplaceSliceTransformBase {
     output = std::copy(input + after_slice, input + input_string_ncodeunits, output);
     return output - output_start;
   }
+
+  static int32_t FixedOutputSize(const ReplaceSliceOptions& opts, int32_t input_width) {
+    int32_t before_slice = 0;
+    int32_t after_slice = 0;
+    const int32_t start = static_cast<int32_t>(opts.start);
+    const int32_t stop = static_cast<int32_t>(opts.stop);
+    if (opts.start >= 0) {
+      // Count from left
+      before_slice = std::min<int32_t>(input_width, start);
+    } else {
+      // Count from right
+      before_slice = std::max<int32_t>(0, input_width + start);
+    }
+    if (opts.stop >= 0) {
+      // Count from left
+      after_slice = std::min<int32_t>(input_width, std::max<int32_t>(before_slice, stop));
+    } else {
+      // Count from right
+      after_slice = std::max<int32_t>(before_slice, input_width + stop);
+    }
+    return static_cast<int32_t>(before_slice + opts.replacement.size() +
+                                (input_width - after_slice));
+  }
 };
 
 struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
@@ -2655,6 +2846,11 @@ void AddReplaceSlice(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
                                 ReplaceSliceTransformBase::State::Init));
     }
+    using TransformExec =
+        FixedSizeBinaryTransformExecWithState<BinaryReplaceSliceTransform>;
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
+                              OutputType(TransformExec::OutputType), TransformExec::Exec,
+                              ReplaceSliceTransformBase::State::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -3388,6 +3584,8 @@ void AddBinaryLength(FunctionRegistry* registry) {
   for (const auto& input_type : {large_binary(), large_utf8()}) {
     DCHECK_OK(func->AddKernel({input_type}, int64(), exec_offset_64));
   }
+  DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                            BinaryLength::FixedSizeExec));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -3684,14 +3882,15 @@ struct BinaryJoinElementWise {
     const size_t num_args = batch.values.size();
     if (num_args == 1) {
       // Only separator, no values
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(0));
       output->is_valid = batch.values[0].scalar()->is_valid;
+      if (output->is_valid) {
+        ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(0));
+      }
       return Status::OK();
     }
 
     int64_t final_size = CalculateRowSize(options, batch, 0);
     if (final_size < 0) {
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(0));
       output->is_valid = false;
       return Status::OK();
     }
@@ -4069,7 +4268,7 @@ const auto ascii_is_title_doc = StringPredicateDoc(
     "Classify strings as ASCII titlecase",
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
-     "follows a non-cased character, and each lowercase character follows\n"
+     "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character.\n"));
 
 const auto utf8_is_alnum_doc =
@@ -4094,7 +4293,7 @@ const auto utf8_is_title_doc = StringPredicateDoc(
     "Classify strings as titlecase",
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
-     "follows a non-cased character, and each lowercase character follows\n"
+     "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character.\n"));
 
 const FunctionDoc ascii_upper_doc(
@@ -4126,6 +4325,15 @@ const FunctionDoc ascii_capitalize_doc(
      "non-ASCII characters, use \"utf8_capitalize\" instead."),
     {"strings"});
 
+const FunctionDoc ascii_title_doc(
+    "Titlecase each word of ASCII input",
+    ("For each string in `strings`, return a titlecased version.\n"
+     "Each word in the output will start with an uppercase character and its\n"
+     "remaining characters will be lowercase.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_title\" instead."),
+    {"strings"});
+
 const FunctionDoc ascii_reverse_doc(
     "Reverse ASCII input",
     ("For each ASCII string in `strings`, return a reversed version.\n\n"
@@ -4152,6 +4360,13 @@ const FunctionDoc utf8_capitalize_doc(
      "with the first character uppercased and the others lowercased."),
     {"strings"});
 
+const FunctionDoc utf8_title_doc(
+    "Titlecase each word of input",
+    ("For each string in `strings`, return a titlecased version.\n"
+     "Each word in the output will start with an uppercase character and its\n"
+     "remaining characters will be lowercase."),
+    {"strings"});
+
 const FunctionDoc utf8_reverse_doc(
     "Reverse input",
     ("For each string in `strings`, return a reversed version.\n\n"
@@ -4163,8 +4378,9 @@ const FunctionDoc utf8_reverse_doc(
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
-  // ascii_upper and ascii_lower are able to reuse the original offsets buffer,
-  // so don't preallocate them in the output.
+  // Some kernels are able to reuse the original offsets buffer, so don't
+  // preallocate them in the output. Only kernels that invoke
+  // "StringDataTransform" support no preallocation.
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
@@ -4173,6 +4389,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
       "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiCapitalize>("ascii_capitalize", registry,
                                               &ascii_capitalize_doc);
+  MakeUnaryStringBatchKernel<AsciiTitle>("ascii_title", registry, &ascii_title_doc);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
                                                   &ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
@@ -4220,6 +4437,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &utf8_swapcase_doc);
   MakeUnaryStringBatchKernel<Utf8Capitalize>("utf8_capitalize", registry,
                                              &utf8_capitalize_doc);
+  MakeUnaryStringBatchKernel<Utf8Title>("utf8_title", registry, &utf8_title_doc);
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  &utf8_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,

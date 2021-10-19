@@ -175,18 +175,36 @@ func TestMixedValues(t *testing.T) {
 }
 
 func TestZigZag(t *testing.T) {
-	testvals := []int64{0, 1, 1234, -1, -1234, math.MaxInt32, -math.MaxInt32}
+	testvals := []struct {
+		val int64
+		exp [10]byte
+	}{
+		{0, [...]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+		{1, [...]byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+		{1234, [...]byte{164, 19, 0, 0, 0, 0, 0, 0, 0, 0}},
+		{-1, [...]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+		{-1234, [...]byte{163, 19, 0, 0, 0, 0, 0, 0, 0, 0}},
+		{math.MaxInt32, [...]byte{254, 255, 255, 255, 15, 0, 0, 0, 0, 0}},
+		{-math.MaxInt32, [...]byte{253, 255, 255, 255, 15, 0, 0, 0, 0, 0}},
+		{math.MinInt32, [...]byte{255, 255, 255, 255, 15, 0, 0, 0, 0, 0}},
+		{math.MaxInt64, [...]byte{254, 255, 255, 255, 255, 255, 255, 255, 255, 1}},
+		{-math.MaxInt64, [...]byte{253, 255, 255, 255, 255, 255, 255, 255, 255, 1}},
+		{math.MinInt64, [...]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 1}},
+	}
+
 	for _, v := range testvals {
-		t.Run(strconv.Itoa(int(v)), func(t *testing.T) {
+		t.Run(strconv.Itoa(int(v.val)), func(t *testing.T) {
 			var buf [binary.MaxVarintLen64]byte
 			wrtr := utils.NewBitWriter(utils.NewWriterAtBuffer(buf[:]))
-			assert.True(t, wrtr.WriteZigZagVlqInt(v))
+			assert.True(t, wrtr.WriteZigZagVlqInt(v.val))
 			wrtr.Flush(false)
+
+			assert.Equal(t, v.exp, buf)
 
 			rdr := utils.NewBitReader(bytes.NewReader(buf[:]))
 			val, ok := rdr.GetZigZagVlqInt()
 			assert.True(t, ok)
-			assert.EqualValues(t, v, val)
+			assert.EqualValues(t, v.val, val)
 		})
 	}
 }
@@ -221,7 +239,7 @@ func (r *RLETestSuite) ValidateRle(vals []uint64, width int, expected []byte, ex
 
 		enc := utils.NewRleEncoder(utils.NewWriterAtBuffer(buf), width)
 		for _, val := range vals {
-			r.True(enc.Put(val))
+			r.NoError(enc.Put(val))
 		}
 		encoded := enc.Flush()
 		if explen != -1 {
@@ -450,7 +468,7 @@ func (r *RLERandomSuite) checkRoundTrip(vals []uint64, width int) bool {
 	res := r.Run("encode values", func() {
 		enc := utils.NewRleEncoder(utils.NewWriterAtBuffer(buf), width)
 		for idx, val := range vals {
-			r.Require().Truef(enc.Put(val), "encoding idx: %d", idx)
+			r.Require().NoErrorf(enc.Put(val), "encoding idx: %d", idx)
 		}
 		encoded = enc.Flush()
 	})
@@ -485,7 +503,7 @@ func (r *RLERandomSuite) checkRoundTripSpaced(vals array.Interface, width int) {
 	case *array.Int32:
 		for i := 0; i < v.Len(); i++ {
 			if v.IsValid(i) {
-				r.Require().True(encoder.Put(uint64(v.Value(i))))
+				r.Require().NoError(encoder.Put(uint64(v.Value(i))))
 			}
 		}
 	}

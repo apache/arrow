@@ -36,6 +36,7 @@
 #include "arrow/util/range.h"
 
 namespace arrow {
+
 using internal::checked_pointer_cast;
 
 namespace dataset {
@@ -319,8 +320,8 @@ TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
   AssertInspect({"/a", "/b", "/a", "/b", "/c", "/a"}, {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
-  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
-      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+  auto expected_dictionary =
+      checked_pointer_cast<StringArray>(ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
 
   for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
     DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
@@ -481,8 +482,8 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
                 {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
-  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
-      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+  auto expected_dictionary =
+      checked_pointer_cast<StringArray>(ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
 
   for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
     DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),

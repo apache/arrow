@@ -428,7 +428,8 @@ func (enc *deltaBitPackEncoder) putInternal(data interface{}) {
 }
 
 // FlushValues flushes any remaining data and returns the finished encoded buffer
-func (enc *deltaBitPackEncoder) FlushValues() Buffer {
+// or returns nil and any error encountered during flushing.
+func (enc *deltaBitPackEncoder) FlushValues() (Buffer, error) {
 	if enc.bitWriter != nil {
 		// write any remaining values
 		enc.flushBlock()
@@ -457,7 +458,7 @@ func (enc *deltaBitPackEncoder) FlushValues() Buffer {
 
 		buffer = append(buffer, flushed.Buf()[:enc.bitWriter.Written()]...)
 	}
-	return poolBuffer{memory.NewBufferBytes(buffer)}
+	return poolBuffer{memory.NewBufferBytes(buffer)}, nil
 }
 
 // EstimatedDataEncodedSize returns the current amount of data actually flushed out and written

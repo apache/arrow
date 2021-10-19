@@ -16,7 +16,8 @@ It takes the following arguments:
 \itemize{
 \item \code{dataset}: A \code{Dataset} or \code{arrow_dplyr_query} object, as returned by the
 \code{dplyr} methods on \code{Dataset}.
-\item \code{projection}: A character vector of column names to select
+\item \code{projection}: A character vector of column names to select columns or a
+named list of expressions
 \item \code{filter}: A \code{Expression} to filter the scanned rows by, or \code{TRUE} (default)
 to keep all rows.
 \item \code{use_threads}: logical: should scanning use multithreading? Default \code{TRUE}

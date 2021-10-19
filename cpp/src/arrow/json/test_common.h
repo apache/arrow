@@ -114,6 +114,8 @@ struct GenerateImpl {
 
   Status Visit(const DayTimeIntervalType& t) { return NotImplemented(t); }
 
+  Status Visit(const MonthDayNanoIntervalType& t) { return NotImplemented(t); }
+
   Status Visit(const DictionaryType& t) { return NotImplemented(t); }
 
   Status Visit(const ExtensionType& t) { return NotImplemented(t); }

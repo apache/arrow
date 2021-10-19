@@ -37,7 +37,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class DateDayVector extends BaseFixedWidthVector {
 
-  private static final byte TYPE_WIDTH = 4;
+  public static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   /**

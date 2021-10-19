@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -40,7 +40,7 @@ echo "=== Building Arrow C++ libraries ==="
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_PLASMA_JAVA_CLIENT:=ON}
 : ${ARROW_PYTHON:=OFF}
-: ${ARROW_BUILD_TESTS:=ON}
+: ${ARROW_BUILD_TESTS:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
@@ -99,7 +99,11 @@ cmake \
 ninja install
 
 if [ $ARROW_BUILD_TESTS = "ON" ]; then
-  CTEST_OUTPUT_ON_FAILURE=1 ninja test
+    ctest \
+        --label-regex unittest \
+        --output-on-failure \
+        --parallel $(nproc) \
+        --timeout 300
 fi
 
 popd

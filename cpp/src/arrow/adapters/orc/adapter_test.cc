@@ -237,13 +237,12 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
-  std::unique_ptr<adapters::orc::ORCFileReader> reader;
-  ARROW_EXPECT_OK(
-      adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
-  std::shared_ptr<Table> actual_output_table;
-  ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+  EXPECT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
+
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
@@ -323,9 +322,8 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
       std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
                                static_cast<int64_t>(mem_stream.getLength()))));
 
-  std::unique_ptr<adapters::orc::ORCFileReader> reader;
-  ASSERT_TRUE(
-      adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   EXPECT_OK_AND_ASSIGN(auto metadata, reader->ReadMetadata());
   auto expected_metadata = std::const_pointer_cast<const KeyValueMetadata>(
@@ -334,8 +332,7 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
   ASSERT_EQ(stripe_count, reader->NumberOfStripes());
   accumulated = 0;
-  std::shared_ptr<RecordBatchReader> stripe_reader;
-  EXPECT_TRUE(reader->NextStripeReader(reader_batch_size, &stripe_reader).ok());
+  EXPECT_OK_AND_ASSIGN(auto stripe_reader, reader->NextStripeReader(reader_batch_size));
   while (stripe_reader) {
     std::shared_ptr<RecordBatch> record_batch;
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
@@ -350,14 +347,14 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
       }
       EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
     }
-    EXPECT_TRUE(reader->NextStripeReader(reader_batch_size, &stripe_reader).ok());
+    EXPECT_OK_AND_ASSIGN(stripe_reader, reader->NextStripeReader(reader_batch_size));
   }
 
   // test seek operation
   int64_t start_offset = 830;
   EXPECT_TRUE(reader->Seek(stripe_row_count + start_offset).ok());
 
-  EXPECT_TRUE(reader->NextStripeReader(reader_batch_size, &stripe_reader).ok());
+  EXPECT_OK_AND_ASSIGN(stripe_reader, reader->NextStripeReader(reader_batch_size));
   std::shared_ptr<RecordBatch> record_batch;
   EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
   while (record_batch) {

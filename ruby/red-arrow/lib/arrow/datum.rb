@@ -21,6 +21,8 @@ module Arrow
       # @api private
       def try_convert(value)
         case value
+        when Table
+          TableDatum.new(value)
         when Array
           ArrayDatum.new(value)
         when ChunkedArray

@@ -255,7 +255,7 @@ ARROW_EXPORT Expression greater(Expression lhs, Expression rhs);
 
 ARROW_EXPORT Expression greater_equal(Expression lhs, Expression rhs);
 
-ARROW_EXPORT Expression is_null(Expression lhs);
+ARROW_EXPORT Expression is_null(Expression lhs, bool nan_is_null = false);
 
 ARROW_EXPORT Expression is_valid(Expression lhs);
 

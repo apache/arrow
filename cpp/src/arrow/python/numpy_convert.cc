@@ -322,7 +322,8 @@ Status SparseCOOTensorToNdarray(const std::shared_ptr<SparseCOOTensor>& sparse_t
   // Wrap tensor data
   OwnedRef result_data;
   RETURN_NOT_OK(SparseTensorDataToNdarray(
-      *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
+      *sparse_tensor, {static_cast<npy_intp>(sparse_tensor->non_zero_length()), 1}, base,
+      result_data.ref()));
 
   // Wrap indices
   PyObject* result_coords;
@@ -362,7 +363,8 @@ Status SparseCSXMatrixToNdarray(const std::shared_ptr<SparseTensor>& sparse_tens
   // Wrap tensor data
   OwnedRef result_data;
   RETURN_NOT_OK(SparseTensorDataToNdarray(
-      *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
+      *sparse_tensor, {static_cast<npy_intp>(sparse_tensor->non_zero_length()), 1}, base,
+      result_data.ref()));
 
   *out_data = result_data.detach();
   *out_indptr = result_indptr.detach();
@@ -391,7 +393,8 @@ Status SparseCSFTensorToNdarray(const std::shared_ptr<SparseCSFTensor>& sparse_t
   // Wrap tensor data
   OwnedRef result_data;
   RETURN_NOT_OK(SparseTensorDataToNdarray(
-      *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
+      *sparse_tensor, {static_cast<npy_intp>(sparse_tensor->non_zero_length()), 1}, base,
+      result_data.ref()));
 
   // Wrap indices
   int ndim = static_cast<int>(sparse_index.indices().size());

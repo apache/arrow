@@ -378,6 +378,21 @@ module ValuesStructArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_map
+    values = [
+      {"field" => {"key1" => true, "key2" => nil}},
+      nil,
+      {"field" => nil},
+    ]
+    target = build({
+                     type: :map,
+                     key: :string,
+                     item: :boolean,
+                   },
+                   values)
+    assert_equal(values, target.values)
+  end
+
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [

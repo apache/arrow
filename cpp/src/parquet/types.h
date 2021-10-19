@@ -678,7 +678,8 @@ struct type_traits<Type::INT64> {
   using value_type = int64_t;
 
   static constexpr int value_byte_size = 8;
-  static constexpr const char* printf_code = "ld";
+  static constexpr const char* printf_code =
+      (sizeof(long) == 64) ? "ld" : "lld";  // NOLINT: runtime/int
 };
 
 template <>

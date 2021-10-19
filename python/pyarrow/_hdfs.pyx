@@ -34,9 +34,10 @@ cdef class HadoopFileSystem(FileSystem):
     Parameters
     ----------
     host : str
-        HDFS host to connect to.
+        HDFS host to connect to. Set to "default" for fs.defaultFS from
+        core-site.xml.
     port : int, default 8020
-        HDFS port to connect to.
+        HDFS port to connect to. Set to 0 for default or logical (HA) nodes.
     user : str, default None
         Username when connecting to HDFS; None implies login user.
     replication : int, default 3
@@ -65,7 +66,7 @@ cdef class HadoopFileSystem(FileSystem):
             CHdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped
 
-        if not host.startswith(('hdfs://', 'viewfs://')):
+        if not host.startswith(('hdfs://', 'viewfs://')) and host != "default":
             # TODO(kszucs): do more sanitization
             host = 'hdfs://{}'.format(host)
 

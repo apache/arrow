@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("DataType")
-
 test_that("null type works as expected", {
   x <- null()
   expect_equal(x$id, 0L)
@@ -331,8 +329,8 @@ test_that("list type works as expected", {
   expect_false(x == null())
   expect_equal(x$num_fields, 1L)
   expect_equal(
-    x$fields(),
-    list(field("item", int32()))
+    x$fields()[[1]],
+    field("item", int32())
   )
   expect_equal(x$value_type, int32())
   expect_equal(x$value_field, field("item", int32()))
@@ -347,8 +345,12 @@ test_that("struct type works as expected", {
   expect_false(x == null())
   expect_equal(x$num_fields, 2L)
   expect_equal(
-    x$fields(),
-    list(field("x", int32()), field("y", boolean()))
+    x$fields()[[1]],
+    field("x", int32())
+  )
+  expect_equal(
+    x$fields()[[2]],
+    field("y", boolean())
   )
   expect_equal(x$GetFieldIndex("x"), 0L)
   expect_equal(x$GetFieldIndex("y"), 1L)

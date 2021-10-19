@@ -34,10 +34,12 @@
 #include "arrow/util/io_util.h"
 
 namespace arrow {
+
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using fs::internal::GetAbstractPathExtension;
-using internal::TemporaryDir;
 using testing::ContainerEq;
 
 TEST(FileSource, PathBased) {
@@ -317,6 +319,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   ASSERT_OK(scanner_builder->Project(
       {compute::call("add", {compute::field_ref("a"), compute::literal(1)})},
       {"a_plus_one"}));
+  ASSERT_OK(scanner_builder->UseAsync(true));
   ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
   ASSERT_OK(FileSystemDataset::Write(write_options, scanner));

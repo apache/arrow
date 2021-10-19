@@ -220,10 +220,37 @@ const (
 	AesCtr
 )
 
-// Constants for the parquet Version
+// Constants for the parquet Version which governs which data types are allowed
+// and how they are represented. For example, uint32 data will be written differently
+// depending on this value (as INT64 for V1_0, as UINT32 for other versions).
+//
+// However, some features - such as compression algorithms, encryption,
+// or the improved v2 data page format must be enabled separately in writer
+// properties.
 const (
-	V1 Version = 1
-	V2 Version = 2
+	// Enable only pre-2.2 parquet format features when writing.
+	//
+	// This is useful for maximum compatibility with legacy readers.
+	// Note that logical types may still be emitted, as long as they have
+	// a corresponding converted type.
+	V1_0 Version = iota
+	// Enable parquet format 2.4 and earlier features when writing.
+	//
+	// This enables uint32 as well as logical types which don't have a
+	// corresponding converted type.
+	//
+	// Note: Parquet format 2.4.0 was released in October 2017
+	V2_4
+	// Enable Parquet format 2.6 and earlier features when writing.
+	//
+	// This enables the nanos time unit in addition to the V2_4 features.
+	//
+	// Note: Parquet format 2.6.0 was released in September 2018
+	V2_6
+	// Enable the latest parquet format 2.x features.
+	//
+	// This is equal to the greatest 2.x version supported by this library.
+	V2_LATEST = V2_6
 )
 
 // constants for the parquet DataPage Version to use

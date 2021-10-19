@@ -25,6 +25,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/basic_decimal.h"
 #include "arrow/util/string_view.h"
 
@@ -287,5 +288,27 @@ struct Decimal256::ToRealConversion<double> {
     return dec.ToDouble(scale);
   }
 };
+
+/// For an integer type, return the max number of decimal digits
+/// (=minimal decimal precision) it can represent.
+inline Result<int32_t> MaxDecimalDigitsForInteger(Type::type type_id) {
+  switch (type_id) {
+    case Type::INT8:
+    case Type::UINT8:
+      return 3;
+    case Type::INT16:
+    case Type::UINT16:
+      return 5;
+    case Type::INT32:
+    case Type::UINT32:
+      return 10;
+    case Type::INT64:
+    case Type::UINT64:
+      return 19;
+    default:
+      break;
+  }
+  return Status::Invalid("Not an integer type: ", type_id);
+}
 
 }  // namespace arrow

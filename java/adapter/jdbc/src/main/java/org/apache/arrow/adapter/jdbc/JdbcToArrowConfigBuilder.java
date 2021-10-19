@@ -34,6 +34,7 @@ public class JdbcToArrowConfigBuilder {
   private Calendar calendar;
   private BufferAllocator allocator;
   private boolean includeMetadata;
+  private boolean reuseVectorSchemaRoot;
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
@@ -49,6 +50,7 @@ public class JdbcToArrowConfigBuilder {
     this.allocator = null;
     this.calendar = null;
     this.includeMetadata = false;
+    this.reuseVectorSchemaRoot = false;
     this.arraySubTypesByColumnIndex = null;
     this.arraySubTypesByColumnName = null;
   }
@@ -76,6 +78,7 @@ public class JdbcToArrowConfigBuilder {
     this.allocator = allocator;
     this.calendar = calendar;
     this.includeMetadata = false;
+    this.reuseVectorSchemaRoot = false;
     this.targetBatchSize = DEFAULT_TARGET_BATCH_SIZE;
   }
 
@@ -172,6 +175,11 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  public JdbcToArrowConfigBuilder setReuseVectorSchemaRoot(boolean reuseVectorSchemaRoot) {
+    this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
+    return this;
+  }
+
   /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BufferAllocator} and {@link Calendar}.
@@ -184,6 +192,7 @@ public class JdbcToArrowConfigBuilder {
         allocator,
         calendar,
         includeMetadata,
+        reuseVectorSchemaRoot,
         arraySubTypesByColumnIndex,
         arraySubTypesByColumnName,
         targetBatchSize,

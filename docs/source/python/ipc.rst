@@ -65,20 +65,19 @@ this one can be created with :func:`~pyarrow.ipc.new_stream`:
 .. ipython:: python
 
    sink = pa.BufferOutputStream()
-   writer = pa.ipc.new_stream(sink, batch.schema)
+   
+   with pa.ipc.new_stream(sink, batch.schema) as writer:
+      for i in range(5):
+         writer.write_batch(batch)
 
-Here we used an in-memory Arrow buffer stream, but this could have been a
-socket or some other IO sink.
+Here we used an in-memory Arrow buffer stream (``sink``), 
+but this could have been a socket or some other IO sink.
 
 When creating the ``StreamWriter``, we pass the schema, since the schema
 (column names and types) must be the same for all of the batches sent in this
 particular stream. Now we can do:
 
 .. ipython:: python
-
-   for i in range(5):
-      writer.write_batch(batch)
-   writer.close()
 
    buf = sink.getvalue()
    buf.size
@@ -89,10 +88,11 @@ convenience function ``pyarrow.ipc.open_stream``:
 
 .. ipython:: python
 
-   reader = pa.ipc.open_stream(buf)
-   reader.schema
-
-   batches = [b for b in reader]
+   with pa.ipc.open_stream(buf) as reader:
+         schema = reader.schema
+         batches = [b for b in reader]
+   
+   schema
    len(batches)
 
 We can check the returned batches are the same as the original input:
@@ -115,11 +115,10 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
 .. ipython:: python
 
    sink = pa.BufferOutputStream()
-   writer = pa.ipc.new_file(sink, batch.schema)
-
-   for i in range(10):
-      writer.write_batch(batch)
-   writer.close()
+   
+   with pa.ipc.new_file(sink, batch.schema) as writer:
+      for i in range(10):
+         writer.write_batch(batch)
 
    buf = sink.getvalue()
    buf.size
@@ -131,15 +130,16 @@ operations. We can also use the :func:`~pyarrow.ipc.open_file` method to open a 
 
 .. ipython:: python
 
-   reader = pa.ipc.open_file(buf)
+   with pa.ipc.open_file(buf) as reader:
+      num_record_batches = reader.num_record_batches
+      b = reader.get_batch(3)
 
 Because we have access to the entire payload, we know the number of record
-batches in the file, and can read any at random:
+batches in the file, and can read any at random.
 
 .. ipython:: python
 
-   reader.num_record_batches
-   b = reader.get_batch(3)
+   num_record_batches
    b.equals(batch)
 
 Reading from Stream and File Format for pandas
@@ -151,7 +151,9 @@ DataFrame output:
 
 .. ipython:: python
 
-   df = pa.ipc.open_file(buf).read_pandas()
+   with pa.ipc.open_file(buf) as reader:
+      df = reader.read_pandas()
+   
    df[:5]
 
 Efficiently Writing and Reading Arrow Data

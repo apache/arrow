@@ -776,13 +776,7 @@ class ScalarEqualsVisitor {
 
   Status Visit(const UnionScalar& left) {
     const auto& right = checked_cast<const UnionScalar&>(right_);
-    if (left.is_valid && right.is_valid) {
-      result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
-    } else if (!left.is_valid && !right.is_valid) {
-      result_ = true;
-    } else {
-      result_ = false;
-    }
+    result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
     return Status::OK();
   }
 
@@ -796,7 +790,9 @@ class ScalarEqualsVisitor {
   }
 
   Status Visit(const ExtensionScalar& left) {
-    return Status::NotImplemented("extension");
+    const auto& right = checked_cast<const ExtensionScalar&>(right_);
+    result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
+    return Status::OK();
   }
 
   bool result() const { return result_; }

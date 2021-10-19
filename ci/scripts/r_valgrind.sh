@@ -24,10 +24,8 @@ source_dir=${1}/r
 
 export CMAKE_BUILD_TYPE=RelWithDebInfo
 
-${R_BIN} CMD INSTALL ${source_dir}
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} ${source_dir}
 pushd ${source_dir}/tests
-
-export TEST_R_WITH_ARROW=TRUE
 
 # to generate suppression files run:
 # ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --gen-suppressions=all --log-file=memcheck.log" -f testtthat.supp

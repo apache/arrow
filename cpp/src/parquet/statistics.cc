@@ -514,6 +514,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
 
+  void IncrementNullCount(int64_t n) override {
+    statistics_.null_count += n;
+    has_null_count_ = true;
+  }
+
+  void IncrementNumValues(int64_t n) override { num_values_ += n; }
+
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
 
@@ -553,12 +560,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
-  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-                    int64_t num_not_null, int64_t num_null) override;
+  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_offset,
+                    int64_t num_spaced_values, int64_t num_not_null,
+                    int64_t num_null) override;
 
-  void Update(const ::arrow::Array& values) override {
-    IncrementNullCount(values.null_count());
-    IncrementNumValues(values.length() - values.null_count());
+  void Update(const ::arrow::Array& values, bool update_counts) override {
+    if (update_counts) {
+      IncrementNullCount(values.null_count());
+      IncrementNumValues(values.length() - values.null_count());
+    }
 
     if (values.null_count() == values.length()) {
       return;
@@ -620,13 +630,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void PlainDecode(const std::string& src, T* dst) const;
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
-
-  void IncrementNullCount(int64_t n) {
-    statistics_.null_count += n;
-    has_null_count_ = true;
-  }
-
-  void IncrementNumValues(int64_t n) { num_values_ += n; }
 
   void IncrementDistinctCount(int64_t n) {
     statistics_.distinct_count += n;
@@ -707,6 +710,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
 template <typename DType>
 void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* valid_bits,
                                               int64_t valid_bits_offset,
+                                              int64_t num_spaced_values,
                                               int64_t num_not_null, int64_t num_null) {
   DCHECK_GE(num_not_null, 0);
   DCHECK_GE(num_null, 0);
@@ -715,10 +719,8 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNumValues(num_not_null);
 
   if (num_not_null == 0) return;
-
-  int64_t length = num_null + num_not_null;
-  SetMinMaxPair(
-      comparator_->GetMinMaxSpaced(values, length, valid_bits, valid_bits_offset));
+  SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                             valid_bits_offset));
 }
 
 template <typename DType>
