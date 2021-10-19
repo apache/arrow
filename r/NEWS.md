@@ -66,7 +66,7 @@ You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's
 * `write_parquet()` no longer errors when used with a grouped data.frame
 * Improved error messages when using `case_when()`
 * `open_dataset()` now works on CSVs without header rows
-* Fixed a minor issue where the short readr-style types `T` and `t` were reversed when reading with Arrow
+* Fixed a minor issue where the short readr-style types `T` and `t` were reversed in `read_csv_arrow()`
 * Bindings for `log(..., base = b)` where b is something other than 2, e, or 10
 * Bindings for extracting date parts (e.g. year, month) from dates
 * A number of updates and expansions to our vignettes
