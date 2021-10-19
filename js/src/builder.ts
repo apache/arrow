@@ -365,18 +365,13 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         let valueOffsets = undefined;
         const { type, length, nullCount } = this;
 
-        // Unions
-        if (typeIds = this._typeIds?.flush(length)) {
+        if (typeIds = this._typeIds?.flush(length)) { // Unions
             // DenseUnions
             valueOffsets = this._offsets?.flush(length);
-        }
-        // Variable-width primitives (Binary, Utf8) and Lists
-        else if (valueOffsets = this._offsets?.flush(length)) {
+        } else if (valueOffsets = this._offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
             // Binary, Utf8
             data = this._values?.flush(this._offsets.last());
-        }
-        // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
-        else {
+        } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
             data = this._values?.flush(length);
         }
 

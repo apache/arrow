@@ -29,9 +29,9 @@ console.time('Prepare Data');
 const LENGTH = 100000;
 const NUM_BATCHES = 10;
 
-const values = Arrow.Utf8Vector.from(['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC']);
+const values = Arrow.vectorFromArray(['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC']);
 
-const batches = Array.from({length: NUM_BATCHES}).map(() => {
+const batches = Array.from({ length: NUM_BATCHES }).map(() => {
     const lat = Float32Array.from(
         { length: LENGTH },
         () => ((random() - 0.5) * 2 * 90));
@@ -49,15 +49,15 @@ const batches = Array.from({length: NUM_BATCHES}).map(() => {
     const originType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
     const destinationType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
 
-    return Arrow.RecordBatch.new({
-        'lat': Arrow.Float32Vector.from(lat),
-        'lng': Arrow.Float32Vector.from(lng),
-        'origin': Arrow.Vector.new(Arrow.Data.Dictionary(originType, 0, origin.length, 0, null, origin, values)),
-        'destination': Arrow.Vector.new(Arrow.Data.Dictionary(destinationType, 0, destination.length, 0, null, destination, values)),
+    return new Arrow.RecordBatch({
+        'lat': Arrow.makeData({ type: new Arrow.Float32, data: lat }),
+        'lng': Arrow.makeData({ type: new Arrow.Float32, data: lng }),
+        'origin': Arrow.makeData({ type: originType, length: origin.length, nullCount: 0, data: origin, dictionary: values }),
+        'destination': Arrow.makeData({ type: destinationType, length: destination.length, nullCount: 0, data: destination, dictionary: values }),
     });
 });
 
-const tracks = new Arrow.DataFrame(batches[0].schema, batches);
+const tracks = new Arrow.Table(batches[0].schema, batches);
 
 console.timeEnd('Prepare Data');
 
@@ -65,12 +65,12 @@ export default [
     {
         name: 'tracks',
         df: tracks,
-        ipc: tracks.serialize(),
+        ipc: Arrow.RecordBatchStreamWriter.writeAll(tracks).toUint8Array(true),
         countBys: ['origin', 'destination'],
         counts: [
-            {column: 'lat',    test: 'gt' as 'gt' | 'eq', value: 0        },
-            {column: 'lng',    test: 'gt' as 'gt' | 'eq', value: 0        },
-            {column: 'origin', test: 'eq' as 'gt' | 'eq', value: 'Seattle'},
+            { column: 'lat', test: 'gt' as 'gt' | 'eq', value: 0 },
+            { column: 'lng', test: 'gt' as 'gt' | 'eq', value: 0 },
+            { column: 'origin', test: 'eq' as 'gt' | 'eq', value: 'Seattle' },
         ],
     }
 ];

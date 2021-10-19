@@ -10,6 +10,7 @@
     "noEmit": true,
     "esModuleInterop": true,
     "baseUrl": "./",
+    "rootDir": "./",
     "paths": {
       "apache-arrow": ["src/Arrow.node"],
       "apache-arrow/*": ["src/*"]

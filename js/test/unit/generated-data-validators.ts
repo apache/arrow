@@ -35,7 +35,7 @@ export function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBat
                     keys: keyBatches[i], rows: rowBatches[i], cols: colBatches[i],
                     recordBatch: new RecordBatch(new Schema(data.type.children), data)
                 });
-            })
+            });
         });
         table.schema.fields.forEach((field, i) => {
             describe(`column ${i}: ${field}`, () => {
@@ -72,7 +72,7 @@ export function validateVector({ values: createTestValues, vector, keys }: Gener
 
     describe(`Vector<${vector.type}>`, () => {
         // test no slice
-        describe(`sliced=false`, () => vectorTests(values, vector, keys));
+        describe(`sliced=false`, () => { vectorTests(values, vector, keys); });
         // test slice with no args
         describe(`sliced=true, begin=, end=`, () => {
             vectorTests(
