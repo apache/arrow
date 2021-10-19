@@ -689,45 +689,47 @@ struct StringBinaryTransformExecBase {
       return Status::OK();
     }
 
-    ArrayType1 input1(data1);
+    // Calculate/check max number of output codeunits
     auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
-    auto output_ncodeunits_max = transform->MaxCodeunits(input1, value2);
-    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+    auto max_output_ncodeunits =
+        transform->MaxCodeunits(static_cast<ArrayType1>(data1), value2);
+    if (max_output_ncodeunits > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
-          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+          "Result might not fit in requested binary/string array. If possible, convert "
+          "to a large binary/string.");
     }
 
-    ArrayData* output = out->mutable_array();
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
+    // Allocate output strings
+    const auto output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
+    const auto output_string = output->buffers[2]->mutable_data();
 
     // String offsets are preallocated
-    auto output_string_offsets = output->GetMutableValues<offset_type>(1);
-    auto output_str = output->buffers[2]->mutable_data();
+    auto output_offsets = output->GetMutableValues<offset_type>(1);
+    output_offsets[0] = 0;
     offset_type output_ncodeunits = 0;
-    output_string_offsets[0] = output_ncodeunits;
-    for (int64_t i = 0; i < input1.length(); ++i) {
-      if (!input1.IsNull(i)) {
-        // NB: Using GetValue() for first input does not provides support
-        // for FixedSizeBinaryArray because its GetValue() method does not
-        // returns the string size. Instead, we use GetView() which returns a
-        // string_view and get its length via str.length() method.
-        auto input1_string_view = input1.GetView(i);
-        offset_type input1_string_ncodeunits = input1_string_view.length();
-        auto input1_string = reinterpret_cast<const uint8_t*>(input1_string_view.data());
-        offset_type encoded_nbytes =
-            transform->Transform(input1_string, input1_string_ncodeunits, value2,
-                                 output_str + output_ncodeunits);
-        if (encoded_nbytes < 0) {
-          return transform->InvalidStatus();
-        }
-        output_ncodeunits += encoded_nbytes;
-      }
-      output_string_offsets[i + 1] = output_ncodeunits;
-    }
-    DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
 
-    // Trim the codepoint buffer, since we allocated too much
+    ARROW_RETURN_NOT_OK(arrow::internal::ArrayDataInlineVisitor<Type1>::VisitStatus(
+        *data1,
+        [&](util::string_view input_string_view) {
+          auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
+          auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
+          auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
+              input_string, input_ncodeunits, value2, output_string + output_ncodeunits));
+          if (encoded_nbytes < 0) {
+            return transform->InvalidStatus();
+          }
+          output_ncodeunits += encoded_nbytes;
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        },
+        [&]() {
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        }));
+    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
@@ -743,7 +745,6 @@ struct StringBinaryTransformExecBase {
     auto input1_ncodeunits = input1.value->size();
 
     ArrayType2 input2(data2);
-    auto input2_nvalues = input2.length();
 
     auto output_ncodeunits_max = transform->MaxCodeunits(input1_ncodeunits, input2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
@@ -756,13 +757,11 @@ struct StringBinaryTransformExecBase {
     output->buffers[2] = values_buffer;
 
     // String offsets are preallocated
-    // TODO(edponce): Check that string offsets have been preallocated
-    // because the input string is a Scalar.
     auto output_string_offsets = output->GetMutableValues<offset_type>(1);
     auto output_str = output->buffers[2]->mutable_data();
     offset_type output_ncodeunits = 0;
     output_string_offsets[0] = output_ncodeunits;
-    for (int64_t i = 0; i < input2_nvalues; ++i) {
+    for (int64_t i = 0; i < input2.length(); ++i) {
       if (!input2.IsNull(i)) {
         auto value2 = input2.GetView(i);
         offset_type encoded_nbytes = transform->Transform(
