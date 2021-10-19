@@ -688,6 +688,13 @@ writer_engine_version : unused
         return False
 
     def write(self, table_or_batch):
+        """
+        Write RecordBatch or Table to stream.
+
+        Parameters
+        ----------
+        table_or_batch : {RecordBatch, Table}
+        """
         if isinstance(table_or_batch, pa.RecordBatch):
             self.write_batch(table_or_batch)
         elif isinstance(table_or_batch, pa.Table):
@@ -696,10 +703,27 @@ writer_engine_version : unused
             raise ValueError(type(table_or_batch))
 
     def write_batch(self, batch):
+        """
+        Write RecordBatch to stream.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        """
         table = pa.Table.from_batches([batch], batch.schema)
         self.write_table(table)
 
     def write_table(self, table, row_group_size=None):
+        """
+        Write Table to stream in (contiguous) RecordBatch objects.
+
+        Parameters
+        ----------
+        table : Table
+        max_chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns.
+        """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
         assert self.is_open
