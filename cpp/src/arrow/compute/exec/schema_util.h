@@ -32,6 +32,18 @@ using internal::checked_cast;
 
 namespace compute {
 
+struct SchemaProjectionMap {
+  static constexpr int kMissingField = -1;
+  int num_cols;
+  const int* source_to_base;
+  const int* base_to_target;
+  inline int get(int i) const {
+    ARROW_DCHECK(i >= 0 && i < num_cols);
+    ARROW_DCHECK(source_to_base[i] != kMissingField);
+    return base_to_target[source_to_base[i]];
+  }
+};
+
 /// Helper class for managing different projections of the same row schema.
 /// Used to efficiently map any field in one projection to a corresponding field in
 /// another projection.
@@ -74,20 +86,14 @@ class SchemaProjectionMaps {
     return field(schema_handle, field_id).data_type;
   }
 
-  const int* map(ProjectionIdEnum from, ProjectionIdEnum to) {
+  SchemaProjectionMap map(ProjectionIdEnum from, ProjectionIdEnum to) {
     int id_from = schema_id(from);
     int id_to = schema_id(to);
-    int num_schemas = static_cast<int>(schemas_.size());
-    int pos = id_from * num_schemas + id_to;
-    const int* ptr = mapping_ptrs_[pos];
-    if (!ptr) {
-      auto guard = mutex_.Lock();  // acquire the lock
-      if (!ptr) {
-        GenerateMap(id_from, id_to);
-      }
-      ptr = mapping_ptrs_[pos];
-    }
-    return ptr;
+    SchemaProjectionMap result;
+    result.num_cols = num_cols(from);
+    result.source_to_base = mappings_[id_from].data();
+    result.base_to_target = inverse_mappings_[id_to].data();
+    return result;
   }
 
  protected:
@@ -135,8 +141,12 @@ class SchemaProjectionMaps {
 
   void RegisterEnd() {
     size_t size = schemas_.size();
-    mapping_ptrs_.resize(size * size);
-    mapping_bufs_.resize(size * size);
+    mappings_.resize(size);
+    inverse_mappings_.resize(size);
+    int id_base = 0;
+    for (size_t i = 0; i < size; ++i) {
+      GenerateMapForProjection(static_cast<int>(i), id_base);
+    }
   }
 
   KeyEncoder::KeyColumnMetadata ColumnMetadataFromDataType(
@@ -175,35 +185,46 @@ class SchemaProjectionMaps {
     return field_infos[field_id];
   }
 
-  void GenerateMap(int id_from, int id_to) {
-    int num_schemas = static_cast<int>(schemas_.size());
-    int pos = id_from * num_schemas + id_to;
+  void GenerateMapForProjection(int id_proj, int id_base) {
+    int num_cols_proj = static_cast<int>(schemas_[id_proj].second.size());
+    int num_cols_base = static_cast<int>(schemas_[id_base].second.size());
 
-    int num_cols_from = static_cast<int>(schemas_[id_from].second.size());
-    int num_cols_to = static_cast<int>(schemas_[id_to].second.size());
-    mapping_bufs_[pos].resize(num_cols_from);
-    const std::vector<FieldInfo>& fields_from = schemas_[id_from].second;
-    const std::vector<FieldInfo>& fields_to = schemas_[id_to].second;
-    for (int i = 0; i < num_cols_from; ++i) {
-      int field_id = kMissingField;
-      for (int j = 0; j < num_cols_to; ++j) {
-        if (fields_from[i].field_path == fields_to[j].field_path) {
-          field_id = j;
-          // If there are multiple matches for the same input field,
-          // it will be mapped to the first match.
-          break;
-        }
+    std::vector<int>& mapping = mappings_[id_proj];
+    std::vector<int>& inverse_mapping = inverse_mappings_[id_proj];
+    mapping.resize(num_cols_proj);
+    inverse_mapping.resize(num_cols_base);
+
+    if (id_proj == id_base) {
+      for (int i = 0; i < num_cols_base; ++i) {
+        mapping[i] = inverse_mapping[i] = i;
       }
-      mapping_bufs_[pos][i] = field_id;
+    } else {
+      const std::vector<FieldInfo>& fields_proj = schemas_[id_proj].second;
+      const std::vector<FieldInfo>& fields_base = schemas_[id_base].second;
+      for (int i = 0; i < num_cols_base; ++i) {
+        inverse_mapping[i] = SchemaProjectionMap::kMissingField;
+      }
+      for (int i = 0; i < num_cols_proj; ++i) {
+        int field_id = SchemaProjectionMap::kMissingField;
+        for (int j = 0; j < num_cols_base; ++j) {
+          if (fields_proj[i].field_path == fields_base[j].field_path) {
+            field_id = j;
+            // If there are multiple matches for the same input field,
+            // it will be mapped to the first match.
+            break;
+          }
+        }
+        ARROW_DCHECK(field_id != SchemaProjectionMap::kMissingField);
+        mapping[i] = field_id;
+        inverse_mapping[field_id] = i;
+      }
     }
-    mapping_ptrs_[pos] = mapping_bufs_[pos].data();
   }
 
-  std::vector<int*> mapping_ptrs_;
-  std::vector<std::vector<int>> mapping_bufs_;
   // vector used as a mapping from ProjectionIdEnum to fields
   std::vector<std::pair<ProjectionIdEnum, std::vector<FieldInfo>>> schemas_;
-  util::Mutex mutex_;
+  std::vector<std::vector<int>> mappings_;
+  std::vector<std::vector<int>> inverse_mappings_;
 };
 
 }  // namespace compute
