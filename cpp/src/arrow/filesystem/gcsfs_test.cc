@@ -213,11 +213,11 @@ TEST_F(GcsIntegrationTest, ReadObjectStringBuffers) {
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream(PreexistingObjectPath()));
 
   std::string contents;
-  for (Result<std::shared_ptr<Buffer>> r = stream->Read(16); r.ok() && (*r)->size() != 0;
-       r = stream->Read(16)) {
-    auto buffer = *r;
+  std::shared_ptr<Buffer> buffer;
+  do {
+    ASSERT_OK_AND_ASSIGN(buffer, stream->Read(16));
     contents.append(buffer->ToString());
-  }
+  } while (buffer && buffer->size() != 0);
 
   EXPECT_EQ(contents, kLoremIpsum);
 }
