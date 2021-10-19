@@ -52,7 +52,7 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Install Dependencies
-        run: brew install llvm@12
+        run: brew bundle --file=arrow/cpp/Brewfile
       - name: Build C Data Interface lib
         run: |
           set -e
