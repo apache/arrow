@@ -1045,53 +1045,77 @@ TYPED_TEST(TestStringKernels, StringRepeat) {
          R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb", "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])"},
     }};
 
-    for (const auto& pair : repeats_and_expected) {
-      auto repeat = pair.first;
+    for (const auto& pair : nrepeats_and_expected) {
+      auto num_repeat = pair.first;
       auto expected = pair.second;
-      for (const auto& ty : IntTypes()) {
+      for (const auto& ty : NumericTypes()) {
         this->CheckVarArgs("string_repeat",
-                           {values, Datum(*arrow::MakeScalar(ty, repeat))}, this->type(),
-                           expected);
+                           {values, Datum(*arrow::MakeScalar(ty, num_repeat))},
+                           this->type(), expected);
       }
     }
   }
   {
     // Negative repeat count
-    std::vector<std::pair<int, std::string>> repeats_and_expected{{
+    std::vector<std::pair<int, std::string>> nrepeats_and_expected{{
         {-1, R"(["", null, "", "", "", "", "", "", "", ""])"},
         {-4, R"(["", null, "", "", "", "", "", "", "", ""])"},
     }};
 
-    for (const auto& pair : repeats_and_expected) {
-      auto repeat = pair.first;
+    for (const auto& pair : nrepeats_and_expected) {
+      auto num_repeat = pair.first;
       auto expected = pair.second;
       for (const auto& ty : SignedIntTypes()) {
         this->CheckVarArgs("string_repeat",
-                           {values, Datum(*arrow::MakeScalar(ty, repeat))}, this->type(),
-                           expected);
+                           {values, Datum(*arrow::MakeScalar(ty, num_repeat))},
+                           this->type(), expected);
       }
     }
   }
+  // {
+  //   // Truncated floating point repeat count
+  //   std::vector<std::pair<double, std::string>> nrepeats_and_expected{{
+  //       {0.9, R"(["", null, "", "", "", "", "", "", "", ""])"},
+  //       {1.8,
+  //        R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$.
+  //        A3", "!ɑⱤⱤow"])"},
+  //       {4.4,
+  //        R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb",
+  //        "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ", "hEllO, WoRld!hEllO,
+  //        WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3$. A3$. A3",
+  //        "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])"},
+  //   }};
+  //
+  //   for (const auto& pair : nrepeats_and_expected) {
+  //     auto num_repeat = pair.first;
+  //     auto expected = pair.second;
+  //     for (const auto& ty : FloatingPointTypes()) {
+  //       this->CheckVarArgs("string_repeat",
+  //                          {values, Datum(*arrow::MakeScalar(ty, num_repeat))},
+  //                          this->type(), expected);
+  //     }
+  //   }
+  // }
 }
 
 TYPED_TEST(TestStringKernels, StringRepeats) {
-  for (const auto& ty : IntTypes()) {
-    auto repeats = ArrayFromJSON(ty, R"([100, 1, 2, 5, 2, 0, 1, 3, 2, 3])");
+  for (const auto& ty : NumericTypes()) {
+    auto num_repeats = ArrayFromJSON(ty, R"([100, 1, 2, 5, 2, 0, 1, 3, 2, 3])");
     auto values = ArrayFromJSON(
         this->type(),
         R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
     std::string expected =
         R"([null, "aAazZæÆ&", "", "bbbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
-    this->CheckVarArgs("string_repeat", {values, repeats}, this->type(), expected);
+    this->CheckVarArgs("string_repeat", {values, num_repeats}, this->type(), expected);
   }
 
   for (const auto& ty : SignedIntTypes()) {
-    auto repeats = ArrayFromJSON(ty, R"([-100, -1, -2, -5, -2, -1, -3, -2, -3])");
+    auto num_repeats = ArrayFromJSON(ty, R"([-100, -1, -2, -5, -2, -1, -3, -2, -3])");
     auto values = ArrayFromJSON(
         this->type(),
         R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
     std::string expected = R"([null, "", "", "", "", "", "", "", ""])";
-    this->CheckVarArgs("string_repeat", {values, repeats}, this->type(), expected);
+    this->CheckVarArgs("string_repeat", {values, num_repeats}, this->type(), expected);
   }
 }
 

@@ -2862,21 +2862,22 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
-  int64_t MaxCodeunits(const int64_t input1_ncodeunits, const int64_t nrepeats) override {
-    return std::max(input1_ncodeunits * nrepeats, (int64_t)0);
+  int64_t MaxCodeunits(const int64_t input1_ncodeunits,
+                       const int64_t num_repeats) override {
+    return std::max(input1_ncodeunits * num_repeats, (int64_t)0);
   }
 
   int64_t MaxCodeunits(const int64_t input1_ncodeunits,
                        const ArrayType2& input2) override {
-    int64_t total_nrepeats = 0;
+    int64_t total_num_repeats = 0;
     for (int64_t i = 0; i < input2.length(); ++i) {
-      total_nrepeats += input2.GetView(i);
+      total_num_repeats += input2.GetView(i);
     }
-    return std::max(input1_ncodeunits * total_nrepeats, (int64_t)0);
+    return std::max(input1_ncodeunits * total_num_repeats, (int64_t)0);
   }
 
-  int64_t MaxCodeunits(const ArrayType1& input1, const int64_t nrepeats) override {
-    return std::max(input1.total_values_length() * nrepeats, (int64_t)0);
+  int64_t MaxCodeunits(const ArrayType1& input1, const int64_t num_repeats) override {
+    return std::max(input1.total_values_length() * num_repeats, (int64_t)0);
   }
 
   int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) override {
@@ -2892,9 +2893,9 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
 
   static int64_t TransformSimple(const uint8_t* input,
                                  const int64_t input_string_ncodeunits,
-                                 const int64_t nrepeats, uint8_t* output) {
+                                 const int64_t num_repeats, uint8_t* output) {
     uint8_t* output_start = output;
-    for (int64_t i = 0; i < nrepeats; ++i) {
+    for (int64_t i = 0; i < num_repeats; ++i) {
       std::memcpy(output, input, input_string_ncodeunits);
       output += input_string_ncodeunits;
     }
@@ -2903,19 +2904,20 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
 
   static int64_t TransformDoubling(const uint8_t* input,
                                    const int64_t input_string_ncodeunits,
-                                   const int64_t nrepeats, uint8_t* output) {
+                                   const int64_t num_repeats, uint8_t* output) {
     uint8_t* output_start = output;
     // Repeated doubling of string
     std::memcpy(output, input, input_string_ncodeunits);
     output += input_string_ncodeunits;
     int64_t i = 1;
-    for (int64_t ilen = input_string_ncodeunits; i <= (nrepeats / 2); i *= 2, ilen *= 2) {
+    for (int64_t ilen = input_string_ncodeunits; i <= (num_repeats / 2);
+         i *= 2, ilen *= 2) {
       std::memcpy(output, output_start, ilen);
       output += ilen;
     }
 
     // Epilogue remainder
-    int64_t rem = (nrepeats ^ i) * input_string_ncodeunits;
+    int64_t rem = (num_repeats ^ i) * input_string_ncodeunits;
     std::memcpy(output, output_start, rem);
     output += rem;
     return output - output_start;
@@ -2923,9 +2925,9 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
 
   static int64_t TransformWrapper(const uint8_t* input,
                                   const int64_t input_string_ncodeunits,
-                                  const int64_t nrepeats, uint8_t* output) {
-    auto transform = (nrepeats < 4) ? TransformSimple : TransformDoubling;
-    return transform(input, input_string_ncodeunits, nrepeats, output);
+                                  const int64_t num_repeats, uint8_t* output) {
+    auto transform = (num_repeats < 4) ? TransformSimple : TransformDoubling;
+    return transform(input, input_string_ncodeunits, num_repeats, output);
   }
 
   // For input shape ArrayScalar, we cache the repeat implementation to use
@@ -2934,8 +2936,8 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
     if (batch[0].is_array() && batch[1].is_scalar()) {
       auto scalar = batch[1].scalar();
-      auto nrepeats = UnboxScalar<Type2>::Unbox(*scalar);
-      Transform = (nrepeats < 4) ? TransformSimple : TransformDoubling;
+      auto num_repeats = UnboxScalar<Type2>::Unbox(*scalar);
+      Transform = (num_repeats < 4) ? TransformSimple : TransformDoubling;
     } else {
       Transform = TransformWrapper;
     }
@@ -2948,7 +2950,7 @@ using StringRepeat =
     StringBinaryTransformExec<Type1, Type2, StringRepeatTransform<Type1, Type2>>;
 
 /// An ScalarFunction that promotes integer arguments to Int64.
-struct ScalarUpcastToInt64Function : public ScalarFunction {
+struct ScalarCTypeToInt64Function : public ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
@@ -2960,7 +2962,8 @@ struct ScalarUpcastToInt64Function : public ScalarFunction {
     EnsureDictionaryDecoded(values);
 
     for (auto& descr : *values) {
-      if (is_integer(descr.type->id())) {
+      if (is_integer(descr.type->id()) || is_floating(descr.type->id()) ||
+          descr.type->id() == Type::BOOL) {
         descr.type = int64();
       }
     }
@@ -2970,9 +2973,13 @@ struct ScalarUpcastToInt64Function : public ScalarFunction {
   }
 };
 
-void AddStringRepeat(std::string name, FunctionRegistry* registry,
-                     const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarUpcastToInt64Function>(name, Arity::Binary(), doc);
+const FunctionDoc string_repeat_doc(
+    "Repeat a string", ("For each string in `strings`, return a replicated version."),
+    {"strings", "repeats"});
+
+void AddStringRepeat(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarCTypeToInt64Function>(
+      "string_repeat", Arity::Binary(), &string_repeat_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<StringRepeat, Int64Type>(ty);
     ScalarKernel kernel{{ty, int64()}, ty, exec};
@@ -4898,10 +4905,6 @@ const FunctionDoc utf8_reverse_doc(
      "clusters. Hence, it will not correctly reverse grapheme clusters\n"
      "composed of multiple codepoints."),
     {"strings"});
-
-const FunctionDoc string_repeat_doc(
-    "Repeat a string", ("For each string in `strings`, return a replicated version."),
-    {"strings", "repeats"});
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
@@ -5004,7 +5007,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSplit(registry);
   AddStrptime(registry);
   AddBinaryJoin(registry);
-  AddStringRepeat("string_repeat", registry, &string_repeat_doc);
+  AddStringRepeat(registry);
 }
 
 }  // namespace internal
