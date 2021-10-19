@@ -37,7 +37,7 @@ New non-aggregating compute functions include string functions like `str_to_titl
 
 We've also worked to fill in support for all data types, such as `Decimal`, for functions added in previous releases. All type limitations mentioned in previous release notes should be no longer valid, and if you find a function that is not implemented for a certain data type, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
 
-## 2. duckdb integration
+## 2. DuckDB integration
 
 If you have the [duckdb](https://duckdb.org/) package installed, you can hand off an Arrow Dataset or query object to duckdb for further querying using the `to_duckdb()` function. This allows you to use duckdb's `dbplyr` methods, as well as its SQL interface, to aggregate data. Filtering and column projection done before `to_duckdb()` is evaluated in Arrow, and duckdb can push down some predicates to Arrow as well. This handoff *does not* copy the data, instead it uses Arrow's C-interface (just like passing arrow data between R and Python). This means there is no serialization or data copying costs are incurred.
 
