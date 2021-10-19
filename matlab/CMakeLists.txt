@@ -181,7 +181,9 @@ macro(build_gtest)
   add_dependencies(GTest::gtest_main arrow_ep)
 endmacro()
 
-set(CMAKE_CXX_STANDARD 11)
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
 
 set(MLARROW_VERSION "6.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
