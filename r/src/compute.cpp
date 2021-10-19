@@ -373,11 +373,6 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      first_week_is_fully_in_year);
   }
 
-  if (func_name == "str_repeat") {
-    using Options = arrow::compute::RepeatOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<std::vector<int>>(options["repeats"]));
-  }
-
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
     return std::make_shared<Options>(
