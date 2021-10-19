@@ -687,6 +687,18 @@ writer_engine_version : unused
         # return false since we want to propagate exceptions
         return False
 
+    def write(self, table_or_batch):
+        if isinstance(table_or_batch, pa.RecordBatch):
+            self.write_batch(table_or_batch)
+        elif isinstance(table_or_batch, pa.Table):
+            self.write_table(table_or_batch)
+        else:
+            raise ValueError(type(table_or_batch))
+
+    def write_batch(self, batch):
+        table = pa.Table.from_batches([batch], batch.schema)
+        self.write_table(table)
+
     def write_table(self, table, row_group_size=None):
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
