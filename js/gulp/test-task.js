@@ -18,7 +18,6 @@
 const del = require('del');
 const path = require('path');
 const mkdirp = require('mkdirp');
-const cpy = require('cpy');
 const { argv } = require('./argv');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
@@ -94,7 +93,7 @@ module.exports.createTestData = createTestData;
 const ARROW_HOME = process.env.ARROW_HOME || path.resolve('../');
 const ARROW_JAVA_DIR = process.env.ARROW_JAVA_DIR || path.join(ARROW_HOME, 'java');
 const CPP_EXE_PATH = process.env.ARROW_CPP_EXE_PATH || path.join(ARROW_HOME, 'cpp/build/debug');
-const ARROW_INTEGRATION_DIR = process.env.ARROW_INTEGRATION_DIR || path.join(ARROW_HOME, 'integration');
+const ARROW_ARCHERY_DIR = process.env.ARROW_ARCHERY_DIR || path.join(ARROW_HOME, 'dev/archery');
 const CPP_JSON_TO_ARROW = path.join(CPP_EXE_PATH, 'arrow-json-integration-test');
 const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'arrow-file-to-stream');
 
@@ -115,8 +114,12 @@ async function cleanTestData() {
 
 async function createTestJSON() {
     await mkdirp(jsonFilesDir);
-    await cpy(`cp ${ARROW_INTEGRATION_DIR}/data/*.json`, jsonFilesDir);
-    await exec(`python3 ${ARROW_INTEGRATION_DIR}/integration_test.py --write_generated_json ${jsonFilesDir}`);
+    await exec(`python3 -B -c '\
+import sys\n\
+sys.path.append("${ARROW_ARCHERY_DIR}")\n\
+sys.argv.append("--write_generated_json=${jsonFilesDir}")\n\
+from archery.cli import integration\n\
+integration()'`);
 }
 
 async function createTestData() {
