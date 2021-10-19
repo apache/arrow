@@ -668,6 +668,180 @@ TEST_P(MergedGeneratorTestFixture, MergedRecursion) {
 INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
                          ::testing::Values(false, true));
 
+class AutoStartingGeneratorTestFixture : public GeneratorTestFixture {};
+
+TEST_P(AutoStartingGeneratorTestFixture, Basic) {
+  AsyncGenerator<TestInt> source = MakeSource({1, 2, 3});
+  util::TrackingGenerator<TestInt> tracked(source);
+  AsyncGenerator<TestInt> gen =
+      MakeAutoStartingGenerator(static_cast<AsyncGenerator<TestInt>>(tracked));
+  ASSERT_EQ(1, tracked.num_read());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), gen());
+  ASSERT_EQ(1, tracked.num_read());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(2), gen());
+  ASSERT_EQ(2, tracked.num_read());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(3), gen());
+  ASSERT_EQ(3, tracked.num_read());
+  AssertGeneratorExhausted(gen);
+}
+
+TEST_P(AutoStartingGeneratorTestFixture, CopySafe) {
+  AsyncGenerator<TestInt> source = MakeSource({1, 2, 3});
+  AsyncGenerator<TestInt> gen = MakeAutoStartingGenerator(std::move(source));
+  AsyncGenerator<TestInt> copy = gen;
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), gen());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(2), copy());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(3), gen());
+  AssertGeneratorExhausted(gen);
+  AssertGeneratorExhausted(copy);
+}
+
+INSTANTIATE_TEST_SUITE_P(AutoStartingGeneratorTests, AutoStartingGeneratorTestFixture,
+                         ::testing::Values(false, true));
+
+class SeqMergedGeneratorTestFixture : public ::testing::Test {
+ protected:
+  SeqMergedGeneratorTestFixture() : tracked_source_(push_source_) {}
+
+  void BeginCaptureOutput(AsyncGenerator<TestInt> gen) {
+    finished_ = VisitAsyncGenerator(std::move(gen), [this](TestInt val) {
+      sink_.push_back(val.value);
+      return Status::OK();
+    });
+  }
+
+  void EmitItem(int sub_index, int value) {
+    EXPECT_LT(sub_index, push_subs_.size());
+    push_subs_[sub_index].producer().Push(value);
+  }
+
+  void EmitErrorItem(int sub_index) {
+    EXPECT_LT(sub_index, push_subs_.size());
+    push_subs_[sub_index].producer().Push(Status::Invalid("XYZ"));
+  }
+
+  void EmitSub() {
+    PushGenerator<TestInt> sub;
+    util::TrackingGenerator<TestInt> tracked_sub(sub);
+    tracked_subs_.push_back(tracked_sub);
+    push_subs_.push_back(std::move(sub));
+    push_source_.producer().Push(std::move(tracked_sub));
+  }
+
+  void EmitErrorSub() { push_source_.producer().Push(Status::Invalid("XYZ")); }
+
+  void FinishSub(int sub_index) {
+    EXPECT_LT(sub_index, tracked_subs_.size());
+    push_subs_[sub_index].producer().Close();
+  }
+
+  void FinishSubs() { push_source_.producer().Close(); }
+
+  void AssertFinishedOk() { ASSERT_FINISHES_OK(finished_); }
+
+  void AssertFailed() { ASSERT_FINISHES_AND_RAISES(Invalid, finished_); }
+
+  int NumItemsAskedFor(int sub_index) {
+    EXPECT_LT(sub_index, tracked_subs_.size());
+    return tracked_subs_[sub_index].num_read();
+  }
+
+  int NumSubsAskedFor() { return tracked_source_.num_read(); }
+
+  void AssertRead(std::vector<int> values) {
+    ASSERT_EQ(values.size(), sink_.size());
+    for (std::size_t i = 0; i < sink_.size(); i++) {
+      ASSERT_EQ(values[i], sink_[i]);
+    }
+  }
+
+  PushGenerator<AsyncGenerator<TestInt>> push_source_;
+  std::vector<PushGenerator<TestInt>> push_subs_;
+  std::vector<util::TrackingGenerator<TestInt>> tracked_subs_;
+  util::TrackingGenerator<AsyncGenerator<TestInt>> tracked_source_;
+  Future<> finished_;
+  std::vector<int> sink_;
+};
+
+TEST_F(SeqMergedGeneratorTestFixture, Basic) {
+  ASSERT_OK_AND_ASSIGN(
+      AsyncGenerator<TestInt> gen,
+      MakeSequencedMergedGenerator(
+          static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
+  // Should not initially ask for anything
+  ASSERT_EQ(0, NumSubsAskedFor());
+  BeginCaptureOutput(gen);
+  // Should not read ahead async-reentrantly from source
+  ASSERT_EQ(1, NumSubsAskedFor());
+  EmitSub();
+  ASSERT_EQ(2, NumSubsAskedFor());
+  // Should immediately start polling
+  ASSERT_EQ(1, NumItemsAskedFor(0));
+  EmitSub();
+  EmitSub();
+  EmitSub();
+  EmitSub();
+  // Should limit how many subs it reads ahead
+  ASSERT_EQ(4, NumSubsAskedFor());
+  // Should immediately start polling subs even if they aren't yet active
+  ASSERT_EQ(1, NumItemsAskedFor(1));
+  ASSERT_EQ(1, NumItemsAskedFor(2));
+  ASSERT_EQ(1, NumItemsAskedFor(3));
+  // Items emitted on non-active subs should not be delivered and should not trigger
+  // further polling on the inactive sub
+  EmitItem(1, 0);
+  ASSERT_EQ(1, NumItemsAskedFor(1));
+  AssertRead({});
+  EmitItem(0, 1);
+  AssertRead({1});
+  ASSERT_EQ(2, NumItemsAskedFor(0));
+  EmitItem(0, 2);
+  AssertRead({1, 2});
+  ASSERT_EQ(3, NumItemsAskedFor(0));
+  // On finish it should move to the next sub and pull 1 item
+  FinishSub(0);
+  ASSERT_EQ(5, NumSubsAskedFor());
+  ASSERT_EQ(2, NumItemsAskedFor(1));
+  AssertRead({1, 2, 0});
+  // Now finish all the subs and make sure an empty sub is ok
+  FinishSub(1);
+  FinishSub(2);
+  FinishSub(3);
+  FinishSub(4);
+  ASSERT_EQ(6, NumSubsAskedFor());
+  FinishSubs();
+  AssertFinishedOk();
+}
+
+TEST_F(SeqMergedGeneratorTestFixture, ErrorItem) {
+  ASSERT_OK_AND_ASSIGN(
+      AsyncGenerator<TestInt> gen,
+      MakeSequencedMergedGenerator(
+          static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
+  BeginCaptureOutput(gen);
+  EmitSub();
+  EmitSub();
+  EmitErrorItem(1);
+  // It will still read from the active sub and won't notice the error until it switches
+  // to the failing sub
+  EmitItem(0, 0);
+  AssertRead({0});
+  FinishSub(0);
+  AssertFailed();
+}
+
+TEST_F(SeqMergedGeneratorTestFixture, ErrorSub) {
+  ASSERT_OK_AND_ASSIGN(
+      AsyncGenerator<TestInt> gen,
+      MakeSequencedMergedGenerator(
+          static_cast<AsyncGenerator<AsyncGenerator<TestInt>>>(tracked_source_), 4));
+  BeginCaptureOutput(gen);
+  EmitSub();
+  EmitErrorSub();
+  FinishSub(0);
+  AssertFailed();
+}
+
 TEST(TestAsyncUtil, FromVector) {
   AsyncGenerator<TestInt> gen;
   {

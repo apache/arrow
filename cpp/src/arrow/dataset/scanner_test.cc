@@ -1027,12 +1027,12 @@ class TestBackpressure : public ::testing::Test {
     return sum;
   }
 
-  void Finish(AsyncGenerator<EnumeratedRecordBatch> gen) {
+  template <typename T>
+  void Finish(AsyncGenerator<T> gen) {
     for (const auto& controlled_fragment : controlled_fragments_) {
       controlled_fragment->Finish();
     }
-    ASSERT_FINISHES_OK(VisitAsyncGenerator(
-        gen, [](EnumeratedRecordBatch batch) { return Status::OK(); }));
+    ASSERT_FINISHES_OK(VisitAsyncGenerator(gen, [](T batch) { return Status::OK(); }));
   }
 
   std::shared_ptr<Schema> schema_ = schema({field("values", int32())});
@@ -1060,6 +1060,24 @@ TEST_F(TestBackpressure, ScanBatchesUnordered) {
   // Worst case we read in the entire set of initial batches
   ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
 
+  Finish(std::move(gen));
+}
+
+TEST_F(TestBackpressure, ScanBatchesOrdered) {
+  std::shared_ptr<Scanner> scanner = MakeScanner();
+  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen,
+                       scanner->ScanBatchesAsync());
+  // This future never actually finishes because we only emit the first batch so far and
+  // the scanner delays by one batch.  It is enough to start the system pumping though so
+  // we don't need it to finish.
+  Future<TaggedRecordBatch> fut = gen();
+
+  // See note on other test
+  GetCpuThreadPool()->WaitForIdle();
+  // Worst case we read in the entire set of initial batches
+  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
+
+  DeliverAdditionalBatches();
   Finish(std::move(gen));
 }
 
