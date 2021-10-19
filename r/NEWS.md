@@ -64,7 +64,7 @@ You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's
 * `Field` objects can now be created as non-nullable, and `schema()` now optionally accepts a list of `Field`s
 * Numeric division by zero now matches R's behavior and no longer raises an error
 * `write_parquet()` no longer errors when used with a grouped data.frame
-* Improved error messages when using `case_when()`
+* `case_when()` now errors cleanly if an expression is not supported in Arrow
 * `open_dataset()` now works on CSVs without header rows
 * Fixed a minor issue where the short readr-style types `T` and `t` were reversed in `read_csv_arrow()`
 * Bindings for `log(..., base = b)` where b is something other than 2, e, or 10
