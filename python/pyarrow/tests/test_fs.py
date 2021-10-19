@@ -588,13 +588,13 @@ def test_subtree_filesystem():
     assert subfs.base_path == '/base/'
     assert subfs.base_fs == localfs
     assert str(subfs) == 'SubTreeFileSystem: file:/base/'
-    assert repr(subfs) == f'SubTreeFileSystem(base_path=/base/, base_fs={subfs.base_fs})'
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/base/, base_fs=<pyarrow._fs.LocalFileSystem object at')
 
     subfs = SubTreeFileSystem('/another/base/', LocalFileSystem())
     assert subfs.base_path == '/another/base/'
     assert subfs.base_fs == localfs
     assert str(subfs) == 'SubTreeFileSystem: file:/another/base/'
-    assert repr(subfs) == f'SubTreeFileSystem(base_path=/another/base/, base_fs={subfs.base_fs})'
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/another/base/, base_fs=<pyarrow._fs.LocalFileSystem object at')
 
 def test_filesystem_pickling(fs):
     if fs.type_name.split('::')[-1] == 'mock':
