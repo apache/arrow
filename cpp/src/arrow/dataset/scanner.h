@@ -421,14 +421,17 @@ class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(
       std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
-      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR,
+      bool require_sequenced_output = false)
       : dataset(std::move(dataset)),
         scan_options(std::move(scan_options)),
-        backpressure_toggle(std::move(backpressure_toggle)) {}
+        backpressure_toggle(std::move(backpressure_toggle)),
+        require_sequenced_output(require_sequenced_output) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
   std::shared_ptr<util::AsyncToggle> backpressure_toggle;
+  bool require_sequenced_output;
 };
 
 /// @}

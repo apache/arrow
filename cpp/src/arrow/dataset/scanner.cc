@@ -441,7 +441,8 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   Result<TaggedRecordBatchGenerator> ScanBatchesAsync(Executor* executor);
   Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
                              Executor* executor);
-  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(Executor* executor);
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
+      Executor* executor, bool sequence_fragments = false);
   Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
 
   Result<FragmentGenerator> GetFragments() const;
@@ -587,7 +588,7 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
-    Executor* cpu_executor) {
+    Executor* cpu_executor, bool sequence_fragments) {
   if (!scan_options_->use_threads) {
     cpu_executor = nullptr;
   }
@@ -608,7 +609,8 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
           {
-              {"scan", ScanNodeOptions{dataset_, scan_options_, backpressure.toggle}},
+              {"scan", ScanNodeOptions{dataset_, scan_options_, backpressure.toggle,
+                                       sequence_fragments}},
               {"filter", compute::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
@@ -649,7 +651,8 @@ Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     Executor* cpu_executor) {
-  ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(cpu_executor));
+  ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(
+                                            cpu_executor, /*sequence_fragments=*/true));
   // We need an initial value sentinel, so we use one with fragment.index < 0
   auto is_before_any = [](const EnumeratedRecordBatch& batch) {
     return batch.fragment.index < 0;
@@ -1143,6 +1146,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   const auto& backpressure_toggle = scan_node_options.backpressure_toggle;
+  bool require_sequenced_output = scan_node_options.require_sequenced_output;
 
   if (!scan_options->use_async) {
     return Status::NotImplemented("ScanNodes without asynchrony");
@@ -1175,8 +1179,15 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
                         FragmentsToBatches(std::move(fragment_gen), scan_options));
 
-  auto merged_batch_gen =
-      MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);
+  AsyncGenerator<EnumeratedRecordBatch> merged_batch_gen;
+  if (require_sequenced_output) {
+    ARROW_ASSIGN_OR_RAISE(merged_batch_gen,
+                          MakeSequencedMergedGenerator(std::move(batch_gen_gen),
+                                                       scan_options->fragment_readahead));
+  } else {
+    merged_batch_gen =
+        MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);
+  }
 
   auto batch_gen = MakeReadaheadGenerator(std::move(merged_batch_gen),
                                           scan_options->fragment_readahead);

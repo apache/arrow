@@ -921,24 +921,31 @@ void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
-  Declaration join{"hashjoin", join_options};
-
   // add left source
   BatchesWithSchema l_batches = TableToBatches(rng, num_batches_l, l, "l_");
-  join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
-                                                                  /*slow=*/false)}});
+  ASSERT_OK_AND_ASSIGN(
+      ExecNode * l_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
+                                                                     /*slow=*/false)}));
+
   // add right source
   BatchesWithSchema r_batches = TableToBatches(rng, num_batches_r, r, "r_");
-  join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
-                                                                  /*slow=*/false)}});
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  ASSERT_OK_AND_ASSIGN(
+      ExecNode * r_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
+                                                                     /*slow=*/false)}));
 
-  ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
-                .AddToPlan(plan.get()));
+  ASSERT_OK_AND_ASSIGN(ExecNode * join, MakeExecNode("hashjoin", plan.get(),
+                                                     {l_source, r_source}, join_options));
+
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  ASSERT_OK_AND_ASSIGN(
+      std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+
   ASSERT_OK_AND_ASSIGN(*output, TableFromExecBatches(output_schema, res));
 }
 
@@ -1056,6 +1063,10 @@ TEST(HashJoin, Random) {
     // print num_rows, batch_size, join_type, join_cmp
     std::cout << join_type_name << " " << key_cmp_str << " ";
     key_types.Print();
+    std::cout << " payload_l: ";
+    payload_types[0].Print();
+    std::cout << " payload_r: ";
+    payload_types[1].Print();
     std::cout << " num_rows_l = " << num_rows_l << " num_rows_r = " << num_rows_r
               << " batch size = " << batch_size
               << " parallel = " << (parallel ? "true" : "false");

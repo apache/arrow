@@ -21,8 +21,8 @@ extra-tests/files
 
 # C++ sources for an offline build. They're copied from the ../cpp directory, so ignore them here.
 /tools/cpp/
-# cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one level up
+# cmake expects dotenv, NOTICE.txt, and LICENSE.txt to be available one level up
 # from cpp/, but again, they're just copies
-/tools/.env
+/tools/dotenv
 /tools/LICENSE.txt
 /tools/NOTICE.txt

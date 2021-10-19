@@ -33,6 +33,9 @@ namespace compute {
 using internal::RowEncoder;
 
 class HashJoinBasicImpl : public HashJoinImpl {
+ private:
+  struct ThreadLocalState;
+
  public:
   Status InputReceived(size_t thread_index, int side, ExecBatch batch) override {
     if (cancelled_) {
@@ -91,6 +94,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     local_states_.resize(num_threads);
     for (size_t i = 0; i < local_states_.size(); ++i) {
       local_states_[i].is_initialized = false;
+      local_states_[i].is_has_match_initialized = false;
     }
 
     has_hash_table_ = false;
@@ -150,16 +154,16 @@ class HashJoinBasicImpl : public HashJoinImpl {
     int num_cols = schema_mgr_->proj_maps[side].num_cols(projection_handle);
     projected.values.resize(num_cols);
 
-    const int* to_input =
+    auto to_input =
         schema_mgr_->proj_maps[side].map(projection_handle, HashJoinProjection::INPUT);
     for (int icol = 0; icol < num_cols; ++icol) {
-      projected.values[icol] = batch.values[to_input[icol]];
+      projected.values[icol] = batch.values[to_input.get(icol)];
     }
 
     return encoder->EncodeAndAppend(projected);
   }
 
-  void ProbeBatch_Lookup(const RowEncoder& exec_batch_keys,
+  void ProbeBatch_Lookup(ThreadLocalState* local_state, const RowEncoder& exec_batch_keys,
                          const std::vector<const uint8_t*>& non_null_bit_vectors,
                          const std::vector<int64_t>& non_null_bit_vector_offsets,
                          std::vector<int32_t>* output_match,
@@ -167,6 +171,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
                          std::vector<int32_t>* output_match_left,
                          std::vector<int32_t>* output_match_right) {
     ARROW_DCHECK(has_hash_table_);
+
+    InitHasMatchIfNeeded(local_state);
+
     int num_cols = static_cast<int>(non_null_bit_vectors.size());
     for (int32_t irow = 0; irow < exec_batch_keys.num_rows(); ++irow) {
       // Apply null key filtering
@@ -191,7 +198,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       for (auto it = range.first; it != range.second; ++it) {
         output_match_left->push_back(irow);
         output_match_right->push_back(it->second);
-        has_match_[it->second] = 0xFF;
+        // Mark row in hash table as having a match
+        BitUtil::SetBit(local_state->has_match.data(), it->second);
         has_match = true;
       }
       if (!has_match) {
@@ -215,46 +223,47 @@ class HashJoinBasicImpl : public HashJoinImpl {
     ARROW_DCHECK((opt_right_payload == nullptr) ==
                  (schema_mgr_->proj_maps[1].num_cols(HashJoinProjection::PAYLOAD) == 0));
     result.values.resize(num_out_cols_left + num_out_cols_right);
-    const int* from_key = schema_mgr_->proj_maps[0].map(HashJoinProjection::OUTPUT,
-                                                        HashJoinProjection::KEY);
-    const int* from_payload = schema_mgr_->proj_maps[0].map(HashJoinProjection::OUTPUT,
-                                                            HashJoinProjection::PAYLOAD);
+    auto from_key = schema_mgr_->proj_maps[0].map(HashJoinProjection::OUTPUT,
+                                                  HashJoinProjection::KEY);
+    auto from_payload = schema_mgr_->proj_maps[0].map(HashJoinProjection::OUTPUT,
+                                                      HashJoinProjection::PAYLOAD);
     for (int icol = 0; icol < num_out_cols_left; ++icol) {
-      bool is_from_key = (from_key[icol] != HashJoinSchema::kMissingField());
-      bool is_from_payload = (from_payload[icol] != HashJoinSchema::kMissingField());
+      bool is_from_key = (from_key.get(icol) != HashJoinSchema::kMissingField());
+      bool is_from_payload = (from_payload.get(icol) != HashJoinSchema::kMissingField());
       ARROW_DCHECK(is_from_key != is_from_payload);
       ARROW_DCHECK(!is_from_key ||
                    (opt_left_key &&
-                    from_key[icol] < static_cast<int>(opt_left_key->values.size()) &&
+                    from_key.get(icol) < static_cast<int>(opt_left_key->values.size()) &&
                     opt_left_key->length == batch_size_next));
       ARROW_DCHECK(
           !is_from_payload ||
           (opt_left_payload &&
-           from_payload[icol] < static_cast<int>(opt_left_payload->values.size()) &&
+           from_payload.get(icol) < static_cast<int>(opt_left_payload->values.size()) &&
            opt_left_payload->length == batch_size_next));
-      result.values[icol] = is_from_key ? opt_left_key->values[from_key[icol]]
-                                        : opt_left_payload->values[from_payload[icol]];
+      result.values[icol] = is_from_key
+                                ? opt_left_key->values[from_key.get(icol)]
+                                : opt_left_payload->values[from_payload.get(icol)];
     }
     from_key = schema_mgr_->proj_maps[1].map(HashJoinProjection::OUTPUT,
                                              HashJoinProjection::KEY);
     from_payload = schema_mgr_->proj_maps[1].map(HashJoinProjection::OUTPUT,
                                                  HashJoinProjection::PAYLOAD);
     for (int icol = 0; icol < num_out_cols_right; ++icol) {
-      bool is_from_key = (from_key[icol] != HashJoinSchema::kMissingField());
-      bool is_from_payload = (from_payload[icol] != HashJoinSchema::kMissingField());
+      bool is_from_key = (from_key.get(icol) != HashJoinSchema::kMissingField());
+      bool is_from_payload = (from_payload.get(icol) != HashJoinSchema::kMissingField());
       ARROW_DCHECK(is_from_key != is_from_payload);
       ARROW_DCHECK(!is_from_key ||
                    (opt_right_key &&
-                    from_key[icol] < static_cast<int>(opt_right_key->values.size()) &&
+                    from_key.get(icol) < static_cast<int>(opt_right_key->values.size()) &&
                     opt_right_key->length == batch_size_next));
       ARROW_DCHECK(
           !is_from_payload ||
           (opt_right_payload &&
-           from_payload[icol] < static_cast<int>(opt_right_payload->values.size()) &&
+           from_payload.get(icol) < static_cast<int>(opt_right_payload->values.size()) &&
            opt_right_payload->length == batch_size_next));
       result.values[num_out_cols_left + icol] =
-          is_from_key ? opt_right_key->values[from_key[icol]]
-                      : opt_right_payload->values[from_payload[icol]];
+          is_from_key ? opt_right_key->values[from_key.get(icol)]
+                      : opt_right_payload->values[from_payload.get(icol)];
     }
 
     output_batch_callback_(std::move(result));
@@ -384,10 +393,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
     int num_key_cols = schema_mgr_->proj_maps[0].num_cols(HashJoinProjection::KEY);
     non_null_bit_vectors.resize(num_key_cols);
     non_null_bit_vector_offsets.resize(num_key_cols);
-    const int* from_batch =
+    auto from_batch =
         schema_mgr_->proj_maps[0].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
     for (int i = 0; i < num_key_cols; ++i) {
-      int input_col_id = from_batch[i];
+      int input_col_id = from_batch.get(i);
       const uint8_t* non_nulls = nullptr;
       int64_t offset = 0;
       if (batch[input_col_id].array()->buffers[0] != NULLPTR) {
@@ -398,7 +407,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
       non_null_bit_vector_offsets[i] = offset;
     }
 
-    ProbeBatch_Lookup(local_state.exec_batch_keys, non_null_bit_vectors,
+    ProbeBatch_Lookup(&local_state, local_state.exec_batch_keys, non_null_bit_vectors,
                       non_null_bit_vector_offsets, &local_state.match,
                       &local_state.no_match, &local_state.match_left,
                       &local_state.match_right);
@@ -445,11 +454,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
         for (int32_t irow = num_rows_before; irow < num_rows_after; ++irow) {
           hash_table_.insert(std::make_pair(hash_table_keys_.encoded_row(irow), irow));
         }
-      }
-      if (!hash_table_empty_) {
-        int32_t num_rows = hash_table_keys_.num_rows();
-        has_match_.resize(num_rows);
-        memset(has_match_.data(), 0, num_rows);
       }
     }
     return Status::OK();
@@ -563,9 +567,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     id_right.clear();
     bool use_left = false;
 
-    uint8_t match_search_value = (join_type_ == JoinType::RIGHT_SEMI) ? 0xFF : 0x00;
+    bool match_search_value = (join_type_ == JoinType::RIGHT_SEMI);
     for (int32_t row_id = start_row_id; row_id < end_row_id; ++row_id) {
-      if (has_match_[row_id] == match_search_value) {
+      if (BitUtil::GetBit(has_match_.data(), row_id) == match_search_value) {
         id_right.push_back(row_id);
       }
     }
@@ -607,16 +611,13 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   Status ScanHashTable(size_t thread_index) {
+    MergeHasMatch();
     return scheduler_->StartTaskGroup(thread_index, task_group_scan_,
                                       ScanHashTable_num_tasks());
   }
 
   bool QueueBatchIfNeeded(int side, ExecBatch batch) {
     if (side == 0) {
-      if (has_hash_table_) {
-        return false;
-      }
-
       std::lock_guard<std::mutex> lock(left_batches_mutex_);
       if (has_hash_table_) {
         return false;
@@ -634,6 +635,39 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status OnLeftSideAndQueueFinished(size_t thread_index) {
     return ScanHashTable(thread_index);
+  }
+
+  void InitHasMatchIfNeeded(ThreadLocalState* local_state) {
+    if (local_state->is_has_match_initialized) {
+      return;
+    }
+    if (!hash_table_empty_) {
+      int32_t num_rows = hash_table_keys_.num_rows();
+      local_state->has_match.resize(BitUtil::BytesForBits(num_rows));
+      memset(local_state->has_match.data(), 0, BitUtil::BytesForBits(num_rows));
+    }
+    local_state->is_has_match_initialized = true;
+  }
+
+  void MergeHasMatch() {
+    if (hash_table_empty_) {
+      return;
+    }
+
+    int32_t num_rows = hash_table_keys_.num_rows();
+    has_match_.resize(BitUtil::BytesForBits(num_rows));
+    memset(has_match_.data(), 0, BitUtil::BytesForBits(num_rows));
+
+    for (size_t tid = 0; tid < local_states_.size(); ++tid) {
+      if (!local_states_[tid].is_initialized) {
+        continue;
+      }
+      if (!local_states_[tid].is_has_match_initialized) {
+        continue;
+      }
+      arrow::internal::BitmapOr(has_match_.data(), 0, local_states_[tid].has_match.data(),
+                                0, num_rows, 0, has_match_.data());
+    }
   }
 
   static constexpr int64_t hash_table_scan_unit_ = 32 * 1024;
@@ -666,6 +700,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     std::vector<int32_t> no_match;
     std::vector<int32_t> match_left;
     std::vector<int32_t> match_right;
+    bool is_has_match_initialized;
+    std::vector<uint8_t> has_match;
   };
   std::vector<ThreadLocalState> local_states_;
 

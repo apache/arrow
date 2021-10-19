@@ -45,7 +45,7 @@ TEST(FieldMap, Trivial) {
 
   auto i =
       schema_mgr.proj_maps[0].map(HashJoinProjection::INPUT, HashJoinProjection::OUTPUT);
-  EXPECT_EQ(i[0], 0);
+  EXPECT_EQ(i.get(0), 0);
 }
 
 TEST(FieldMap, TrivialDuplicates) {
@@ -64,7 +64,7 @@ TEST(FieldMap, TrivialDuplicates) {
 
   auto i =
       schema_mgr.proj_maps[0].map(HashJoinProjection::INPUT, HashJoinProjection::OUTPUT);
-  EXPECT_EQ(i[0], 0);
+  EXPECT_EQ(i.get(0), 0);
 }
 
 TEST(FieldMap, SingleKeyField) {
@@ -93,7 +93,7 @@ TEST(FieldMap, SingleKeyField) {
 
   auto i =
       schema_mgr.proj_maps[0].map(HashJoinProjection::INPUT, HashJoinProjection::OUTPUT);
-  EXPECT_EQ(i[0], 0);
+  EXPECT_EQ(i.get(0), 0);
 }
 
 TEST(FieldMap, TwoKeyFields) {

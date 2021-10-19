@@ -397,8 +397,7 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
-      # SSE4_2 is the default but cmake will use NEON instead
-      arrow_simd_level: "SSE4_2"
+      arrow_simd_level: "DEFAULT"
       vcpkg_version: "2021.04.30"
       python_version: "3.8"
       macos_deployment_target: "11.0"
@@ -412,8 +411,7 @@ tasks:
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
-      # SSE4_2 is the default but cmake will use NEON instead
-      arrow_simd_level: "SSE4_2"
+      arrow_simd_level: "DEFAULT"
       vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
