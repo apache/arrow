@@ -259,8 +259,8 @@ result %>% collect()
 #> 10 R5-D4                   38.2     70.5
 ```
 
-The `arrow` package works with most single-table `dplyr` verbs including those
-that compute aggregates, such as `summarise()` and `mutate()` after
+The `arrow` package works with most single-table `dplyr` verbs, including those
+that compute aggregates.
 `group_by()`.  Additionally, equality-join (e.g. `inner_join()`) are supported
 for joining multiple tables. Window functions (e.g. `ntile()`) are not yet
 supported. Inside `dplyr` verbs, Arrow offers support for many functions and
