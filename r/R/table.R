@@ -24,16 +24,6 @@
 #' @format NULL
 #' @docType class
 #'
-#' @section Factory:
-#'
-#' The `Table$create()` function takes the following arguments:
-#'
-#' * `...` arrays, chunked arrays, or R vectors, with names; alternatively,
-#'    an unnamed series of [record batches][RecordBatch] may also be provided,
-#'    which will be stacked as rows in the table.
-#' * `schema` a [Schema], or `NULL` (the default) to infer the schema from
-#'    the data in `...`
-#'
 #' @section S3 Methods and Usage:
 #' Tables are data-frame-like, and many methods you expect to work on
 #' a `data.frame` are implemented for `Table`. This includes `[`, `[[`,
