@@ -334,6 +334,12 @@ struct StringTransformBase {
   }
 };
 
+/// Kernel exec generator for unary string transforms. Types of template
+/// parameter StringTransform need to define a transform method with the
+/// following signature:
+///
+/// int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+///                   uint8_t* output);
 template <typename Type, typename StringTransform>
 struct StringTransformExecBase {
   using offset_type = typename Type::offset_type;
@@ -373,7 +379,7 @@ struct StringTransformExecBase {
     offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
     uint8_t* output_str = output->buffers[2]->mutable_data();
     offset_type output_ncodeunits = 0;
-    output_string_offsets[0] = 0;
+    output_string_offsets[0] = output_ncodeunits;
     for (int64_t i = 0; i < input_nstrings; i++) {
       if (!input.IsNull(i)) {
         offset_type input_string_ncodeunits;
@@ -418,10 +424,6 @@ struct StringTransformExecBase {
     DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
     return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
   }
-
-  // StringTransform type should define this method:
-  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-  //                     uint8_t* output);
 };
 
 template <typename Type, typename StringTransform>
@@ -595,12 +597,14 @@ struct StringBinaryTransformBase {
   }
 };
 
-/// Kernel exec generator for binary string transforms.  The first parameter is expected
-/// to always be a string type while the second parameter is generic.
-// TODO(edponce): This approach currently does not works for FixedSizeBinaryArray:
-//   * because its GetValue() does not return the string size. To circumvent, we could use
-//   GetView() on first input (always a util::string_view) and get its length via
-//   str.length() method.
+/// Kernel exec generator for binary (two parameters) string transforms.
+/// The first parameter is expected to always be a Binary/StringType while the
+/// second parameter is generic. Types of template parameter StringTransform
+/// need to define a transform method with the following signature:
+///
+/// int64_t Transform(const uint8_t* input, const int64_t input_string_ncodeunits,
+///                   const ViewType2 value2, uint8_t* output);
+
 // TODO(edponce): Refactor common parts out and make use VisitorArrayValuesInline from
 // codegen_internal.h (assuming LogicalValue always matches the type returned by GetView()
 // which seems the case).
@@ -667,12 +671,14 @@ struct StringBinaryTransformExecBase {
     auto output_str = value_buffer->mutable_data();
 
     auto input1_string = input1.value->data();
-    auto encoded_nbytes = static_cast<offset_type>(
-        transform->Transform(input1_string, input_ncodeunits, value2, output_str));
+    offset_type encoded_nbytes =
+        transform->Transform(input1_string, input_ncodeunits, value2, output_str);
     if (encoded_nbytes < 0) {
       return transform->InvalidStatus();
     }
     DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
+
+    // Trim the codepoint buffer, since we allocated too much
     return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
   }
 
@@ -698,17 +704,20 @@ struct StringBinaryTransformExecBase {
     // String offsets are preallocated
     auto output_string_offsets = output->GetMutableValues<offset_type>(1);
     auto output_str = output->buffers[2]->mutable_data();
-    output_string_offsets[0] = 0;
-
-    auto input1_nstrings = input1.length();
     offset_type output_ncodeunits = 0;
-    for (int64_t i = 0; i < input1_nstrings; ++i) {
+    output_string_offsets[0] = output_ncodeunits;
+    for (int64_t i = 0; i < input1.length(); ++i) {
       if (!input1.IsNull(i)) {
-        offset_type input1_string_ncodeunits;
-        auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
-        auto encoded_nbytes = static_cast<offset_type>(
+        // NB: Using GetValue() for first input does not provides support
+        // for FixedSizeBinaryArray because its GetValue() method does not
+        // returns the string size. Instead, we use GetView() which returns a
+        // string_view and get its length via str.length() method.
+        auto input1_string_view = input1.GetView(i);
+        offset_type input1_string_ncodeunits = input1_string_view.length();
+        auto input1_string = reinterpret_cast<const uint8_t*>(input1_string_view.data());
+        offset_type encoded_nbytes =
             transform->Transform(input1_string, input1_string_ncodeunits, value2,
-                                 output_str + output_ncodeunits));
+                                 output_str + output_ncodeunits);
         if (encoded_nbytes < 0) {
           return transform->InvalidStatus();
         }
@@ -751,14 +760,13 @@ struct StringBinaryTransformExecBase {
     // because the input string is a Scalar.
     auto output_string_offsets = output->GetMutableValues<offset_type>(1);
     auto output_str = output->buffers[2]->mutable_data();
-    output_string_offsets[0] = 0;
-
     offset_type output_ncodeunits = 0;
+    output_string_offsets[0] = output_ncodeunits;
     for (int64_t i = 0; i < input2_nvalues; ++i) {
       if (!input2.IsNull(i)) {
         auto value2 = input2.GetView(i);
-        auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
-            input1_string, input1_ncodeunits, value2, output_str + output_ncodeunits));
+        offset_type encoded_nbytes = transform->Transform(
+            input1_string, input1_ncodeunits, value2, output_str + output_ncodeunits);
         if (encoded_nbytes < 0) {
           return transform->InvalidStatus();
         }
@@ -778,7 +786,6 @@ struct StringBinaryTransformExecBase {
     ArrayType1 input1(data1);
     ArrayType2 input2(data2);
 
-    auto input1_nstrings = input1.length();
     auto output_ncodeunits_max = transform->MaxCodeunits(input1, input2);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
@@ -792,17 +799,21 @@ struct StringBinaryTransformExecBase {
     // String offsets are preallocated
     auto output_string_offsets = output->GetMutableValues<offset_type>(1);
     auto output_str = output->buffers[2]->mutable_data();
-    output_string_offsets[0] = 0;
-
     offset_type output_ncodeunits = 0;
-    for (int64_t i = 0; i < input1_nstrings; ++i) {
+    output_string_offsets[0] = output_ncodeunits;
+    for (int64_t i = 0; i < input1.length(); ++i) {
       if (!input1.IsNull(i) || !input2.IsNull(i)) {
-        offset_type input1_string_ncodeunits;
-        auto input1_string = input1.GetValue(i, &input1_string_ncodeunits);
+        // NB: Using GetValue() for first input does not provides support
+        // for FixedSizeBinaryArray because its GetValue() method does not
+        // returns the string size. Instead, we use GetView() which returns a
+        // string_view and get its length via str.length() method.
+        auto input1_string_view = input1.GetView(i);
+        offset_type input1_string_ncodeunits = input1_string_view.length();
+        auto input1_string = reinterpret_cast<const uint8_t*>(input1_string_view.data());
         auto value2 = input2.GetView(i);
-        auto encoded_nbytes = static_cast<offset_type>(
+        offset_type encoded_nbytes =
             transform->Transform(input1_string, input1_string_ncodeunits, value2,
-                                 output_str + output_ncodeunits));
+                                 output_str + output_ncodeunits);
         if (encoded_nbytes < 0) {
           return transform->InvalidStatus();
         }
@@ -815,10 +826,6 @@ struct StringBinaryTransformExecBase {
     // Trim the codepoint buffer, since we allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
-
-  // StringTransform type should define this method:
-  //   int64_t Transform(const uint8_t* input, const int64_t input_string_ncodeunits,
-  //   const ViewType2 value2, uint8_t* output) const;
 };
 
 template <typename Type1, typename Type2, typename StringTransform>
