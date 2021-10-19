@@ -753,27 +753,6 @@ struct StringBinaryTransformExecBase {
     output_offsets[0] = 0;
     offset_type output_ncodeunits = 0;
 
-    // XXX C++11 does not supports generic lambdas, so we cannot iterate
-    // through the unknown-typed Array in a generic way. C++14 provides support
-    // for generic lambdas.
-    // ARROW_RETURN_NOT_OK(VisitArrayDataInline<Type1>(
-    //     *data2,
-    //     [&](auto value2) {
-    //       auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
-    //           input_string, input_ncodeunits, value2, output_string +
-    //           output_ncodeunits));
-    //       if (encoded_nbytes < 0) {
-    //         return transform->InvalidStatus();
-    //       }
-    //       output_ncodeunits += encoded_nbytes;
-    //       *(++output_offsets) = output_ncodeunits;
-    //       return Status::OK();
-    //     },
-    //     [&]() {
-    //       *(++output_offsets) = output_ncodeunits;
-    //       return Status::OK();
-    //     }));
-
     // Apply transform
     ARROW_RETURN_NOT_OK(arrow::internal::VisitBitBlocks(
         data2->buffers[0], data2->offset, data2->length,
