@@ -29,6 +29,7 @@ const argv = require(`command-line-args`)(cliOpts(), { partial: true });
 const {
     Table,
     RecordBatchReader,
+    RecordBatchStreamWriter,
     util: { createElementComparator }
 } = require('../targets/apache-arrow/');
 
@@ -52,20 +53,29 @@ const exists = async (p) => {
 
     if (!jsonPaths.length) { return print_usage(); }
 
+    let threw = false;
+
     switch (mode) {
         case 'VALIDATE':
             for (let [jsonPath, arrowPath] of zip(jsonPaths, arrowPaths)) {
-                await validate(jsonPath, arrowPath);
+                try {
+                    await validate(jsonPath, arrowPath);
+                } catch (e) {
+                    threw = true;
+                    e && process.stderr.write(`${e?.stack || e}\n`);
+                }
             }
             break;
         default:
             return print_usage();
     }
+
+    return threw ? 1 : 0;
 })()
-.then((x) => +x || 0, (e) => {
-    e && process.stderr.write(`${e?.stack || e}\n`);
-    return process.exitCode || 1;
-}).then((code) => process.exit(code));
+    .then((x) => +x || 0, (e) => {
+        e && process.stderr.write(`${e?.stack || e}\n`);
+        return process.exitCode || 1;
+    }).then((code) => process.exit(code));
 
 function cliOpts() {
     return [
@@ -125,6 +135,10 @@ async function validate(jsonPath, arrowPath) {
     const arrowData = files[0];
     const jsonData = bignumJSONParse(files[1]);
 
+    process.stdout.write(`\n`);
+    process.stdout.write(` json: ${jsonPath}\n`);
+    process.stdout.write(`arrow: ${arrowPath}\n`);
+
     validateReaderIntegration(jsonData, arrowData);
     validateTableFromBuffersIntegration(jsonData, arrowData);
     validateTableToBuffersIntegration('json', 'file')(jsonData, arrowData);
@@ -148,8 +162,8 @@ function validateReaderIntegration(jsonData, arrowBuffer) {
 function validateTableFromBuffersIntegration(jsonData, arrowBuffer) {
     const msg = `json and arrow tables report the same values`;
     try {
-        const jsonTable = Table.from(jsonData);
-        const binaryTable = Table.from(arrowBuffer);
+        const jsonTable = new Table(RecordBatchReader.from(jsonData));
+        const binaryTable = new Table(RecordBatchReader.from(arrowBuffer));
         compareTableIsh(jsonTable, binaryTable);
     } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
     process.stdout.write(`${msg}: pass\n`);
@@ -160,9 +174,9 @@ function validateTableToBuffersIntegration(srcFormat, arrowFormat) {
     return function testTableToBuffersIntegration(jsonData, arrowBuffer) {
         const msg = `serialized ${srcFormat} ${arrowFormat} reports the same values as the ${refFormat} ${arrowFormat}`;
         try {
-            const refTable = Table.from(refFormat === `json` ? jsonData : arrowBuffer);
-            const srcTable = Table.from(srcFormat === `json` ? jsonData : arrowBuffer);
-            const dstTable = Table.from(srcTable.serialize(`binary`, arrowFormat === `stream`));
+            const refTable = new Table(RecordBatchReader.from(refFormat === `json` ? jsonData : arrowBuffer));
+            const srcTable = new Table(RecordBatchReader.from(srcFormat === `json` ? jsonData : arrowBuffer));
+            const dstTable = new Table(RecordBatchReader.from(RecordBatchStreamWriter.writeAll(srcTable).toUint8Array(true)));
             compareTableIsh(dstTable, refTable);
         } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
         process.stdout.write(`${msg}: pass\n`);
@@ -177,10 +191,9 @@ function compareTableIsh(actual, expected) {
         throw new Error(`numCols: ${actual.numCols} !== ${expected.numCols}`);
     }
     (() => {
-        const getChildAtFn = expected instanceof Table ? 'getColumnAt' : 'getChildAt';
         for (let i = -1, n = actual.numCols; ++i < n;) {
-            const v1 = actual[getChildAtFn](i);
-            const v2 = expected[getChildAtFn](i);
+            const v1 = actual.getChildAt(i);
+            const v2 = expected.getChildAt(i);
             compareVectors(v1, v2);
         }
     })();
