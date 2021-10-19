@@ -1,3 +1,9 @@
+apache-arrow (6.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Tue, 19 Oct 2021 23:33:07 -0000
+
 apache-arrow (3.0.0-1) unstable; urgency=low
 
   * New upstream release.
