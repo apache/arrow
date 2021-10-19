@@ -70,6 +70,7 @@ You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's
 * Bindings for `log(..., base = b)` where b is something other than 2, e, or 10
 * Bindings for extracting date parts (e.g. year, month) from dates
 * A number of updates and expansions to our vignettes
+* Fix segfaults in converting length-0 ChunkedArrays to R vectors
 
 ## Internals
 
