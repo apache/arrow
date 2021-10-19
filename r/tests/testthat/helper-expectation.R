@@ -68,7 +68,7 @@ verify_output <- function(...) {
 #' Compare dplyr binding
 #'
 #' This function compares the output of running a dplyr expression on a tibble or data.frame object against the output of the same expression run on Arrow equivalent objects ([Table] and [RecordBatch]).
-#' expression run on Arrow Tables and RecordBatches.
+#'
 #'
 #' @param expr A dplyr pipeline which must have `.input` as its start
 #' @param tbl A tibble or data.frame which will be substituted for `.input`
