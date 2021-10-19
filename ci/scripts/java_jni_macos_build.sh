@@ -82,6 +82,7 @@ cmake \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \
+  -Dre2_SOURCE=BUNDLED \
   ${arrow_dir}/cpp
 cmake --build . --target install
 
