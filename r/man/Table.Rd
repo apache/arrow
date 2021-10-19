@@ -3,7 +3,20 @@
 \docType{class}
 \name{Table}
 \alias{Table}
+\alias{arrow_table}
 \title{Table class}
+\usage{
+arrow_table(..., schema = NULL)
+}
+\arguments{
+\item{...}{A \code{data.frame} or a named set of Arrays or vectors. If given a
+mixture of data.frames and named vectors, the inputs will be autospliced together
+(see examples). Alternatively, you can provide a single Arrow IPC
+\code{InputStream}, \code{Message}, \code{Buffer}, or R \code{raw} object containing a \code{Buffer}.}
+
+\item{schema}{a \link{Schema}, or \code{NULL} (the default) to infer the schema from
+the data in \code{...}. When providing an Arrow IPC buffer, \code{schema} is required.}
+}
 \description{
 A Table is a sequence of \link[=ChunkedArray]{chunked arrays}. They
 have a similar interface to \link[=RecordBatch]{record batches}, but they can be
@@ -88,5 +101,14 @@ names(tab)
 tab$mpg
 tab[["cyl"]]
 as.data.frame(tab[4:8, c("gear", "hp", "wt")])
+\dontshow{\}) # examplesIf}
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+tbl <- arrow_table(name = rownames(mtcars), mtcars)
+dim(tbl)
+dim(head(tbl))
+names(tbl)
+tbl$mpg
+tbl[["cyl"]]
+as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
 \dontshow{\}) # examplesIf}
 }
