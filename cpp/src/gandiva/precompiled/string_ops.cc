@@ -16,8 +16,6 @@
 // under the License.
 
 // String functions
-#include <openssl/conf.h>
-#include <openssl/evp.h>
 
 #include "arrow/util/value_parsing.h"
 
