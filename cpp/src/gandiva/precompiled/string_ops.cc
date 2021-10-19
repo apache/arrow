@@ -16,6 +16,9 @@
 // under the License.
 
 // String functions
+#include <openssl/conf.h>
+#include <openssl/evp.h>
+
 #include "arrow/util/value_parsing.h"
 
 extern "C" {
@@ -2236,4 +2239,45 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
   memcpy(ret, text + startPos, *out_len);
   return ret;
 }
+
+FORCE_INLINE
+gdv_int32 levenshtein(gdv_int64 ctx, const char* text1, gdv_int32 text1_len,
+                      const char* text2, gdv_int32 text2_len) {
+  if (text1_len < 0 || text2_len < 0) {
+    gdv_fn_context_set_error_msg(ctx, "Invalid length for input");
+    return -1;
+  }
+
+  if ((text1_len == 0)&& text2_len == 0) {
+    return 0;
+  }
+
+  if (text1_len == 0 && text2_len > 0) {
+    return text2_len;
+  }
+
+  if (text1_len > 0 && text2_len == 0) {
+    return text1_len;
+  }
+
+  int a, b, c;
+
+  if (text1[text1_len - 1] == text2[text2_len - 1]) {
+    return levenshtein(ctx, text1, text1_len - 1, text2, text2_len - 1);
+  }
+
+  a = levenshtein(ctx, text1, text1_len - 1, text2, text2_len - 1);
+  b = levenshtein(ctx, text1, text1_len, text2, text2_len - 1);
+  c = levenshtein(ctx, text1, text1_len - 1, text2, text2_len);
+
+  if (a > b) {
+    a = b;
+  }
+  if (a > c) {
+    a = c;
+  }
+
+  return a + 1;
+}
+
 }  // extern "C"
