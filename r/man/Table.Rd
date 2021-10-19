@@ -22,19 +22,6 @@ A Table is a sequence of \link[=ChunkedArray]{chunked arrays}. They
 have a similar interface to \link[=RecordBatch]{record batches}, but they can be
 composed from multiple record batches or chunked arrays.
 }
-\section{Factory}{
-
-
-The \code{Table$create()} function takes the following arguments:
-\itemize{
-\item \code{...} arrays, chunked arrays, or R vectors, with names; alternatively,
-an unnamed series of \link[=RecordBatch]{record batches} may also be provided,
-which will be stacked as rows in the table.
-\item \code{schema} a \link{Schema}, or \code{NULL} (the default) to infer the schema from
-the data in \code{...}
-}
-}
-
 \section{S3 Methods and Usage}{
 
 Tables are data-frame-like, and many methods you expect to work on
