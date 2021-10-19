@@ -41,7 +41,7 @@ We've also worked to fill in support for all data types, such as `Decimal`, for 
 
 If you have the [duckdb package](https://CRAN.R-project.org/package=duckdb) installed, you can hand off an Arrow Dataset or query object to [DuckDB](https://duckdb.org/) for further querying using the `to_duckdb()` function. This allows you to use duckdb's `dbplyr` methods, as well as its SQL interface, to aggregate data. Filtering and column projection done before `to_duckdb()` is evaluated in Arrow, and duckdb can push down some predicates to Arrow as well. This handoff *does not* copy the data, instead it uses Arrow's C-interface (just like passing arrow data between R and Python). This means there is no serialization or data copying costs are incurred.
 
-You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's query engine. This means that in a single dplyr pipeline, you could start with an Arrow Dataset, evaulate some steps in duckdb, then evaluate the rest in arrow.
+You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's query engine. This means that in a single dplyr pipeline, you could start with an Arrow Dataset, evaluate some steps in DuckDB, then evaluate the rest in Arrow.
 
 ## Breaking changes
 
