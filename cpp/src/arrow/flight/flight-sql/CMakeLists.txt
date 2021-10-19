@@ -46,7 +46,7 @@ set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
 string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-set(ARROW_FLIGHT_SQL_SRCS server.cpp)
+set(ARROW_FLIGHT_SQL_SRCS server.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -100,7 +100,7 @@ find_package(SQLite3)
 include_directories(${SQLite3_INCLUDE_DIRS})
 
 add_executable(flight_sql_test_server
-               server.cpp
+               server.cc
                test_server_cli.cc
                example/sqlite_statement.cc
                example/sqlite_statement_batch_reader.cc
