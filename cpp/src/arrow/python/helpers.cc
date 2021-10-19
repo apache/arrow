@@ -167,7 +167,7 @@ Result<OwnedRef> PyObjectToPyInt(PyObject* obj) {
   // (starting from Python 3.10, the latter isn't done anymore by PyLong_AsLong*).
   OwnedRef ref(PyNumber_Index(obj));
   if (ref) {
-    return ref;
+    return std::move(ref);
   }
   PyErr_Clear();
   const auto nb = Py_TYPE(obj)->tp_as_number;
@@ -177,7 +177,7 @@ Result<OwnedRef> PyObjectToPyInt(PyObject* obj) {
       RETURN_IF_PYERROR();
     }
     DCHECK(ref);
-    return ref;
+    return std::move(ref);
   }
   return Status::TypeError(
       "object of type ",
