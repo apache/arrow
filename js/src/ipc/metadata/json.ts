@@ -146,12 +146,12 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
     const typeId = f['type']['name'];
 
     switch (typeId) {
-        case 'NONE':   return new Null();
-        case 'null':   return new Null();
+        case 'NONE': return new Null();
+        case 'null': return new Null();
         case 'binary': return new Binary();
-        case 'utf8':   return new Utf8();
-        case 'bool':   return new Bool();
-        case 'list':   return new List((children || [])[0]);
+        case 'utf8': return new Utf8();
+        case 'bool': return new Bool();
+        case 'list': return new List((children || [])[0]);
         case 'struct': return new Struct(children || []);
         case 'struct_': return new Struct(children || []);
     }
@@ -167,7 +167,7 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
         }
         case 'decimal': {
             const t = f['type'];
-            return new Decimal(t['scale'], t['precision']);
+            return new Decimal(t['scale'], t['precision'], t['bitWidth']);
         }
         case 'date': {
             const t = f['type'];

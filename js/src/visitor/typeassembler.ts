@@ -84,6 +84,7 @@ export class TypeAssembler extends Visitor {
         Decimal.startDecimal(b);
         Decimal.addScale(b, node.scale);
         Decimal.addPrecision(b, node.precision);
+        Decimal.addBitWidth(b, node.bitWidth);
         return Decimal.endDecimal(b);
     }
     public visitDate<T extends type.Date_>(node: T, b: Builder) {

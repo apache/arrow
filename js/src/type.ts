@@ -286,7 +286,8 @@ export interface Decimal extends DataType<Type.Decimal> { TArray: Uint32Array; T
 /** @ignore */
 export class Decimal extends DataType<Type.Decimal> {
     constructor(public readonly scale: number,
-        public readonly precision: number) {
+        public readonly precision: number,
+        public readonly bitWidth: number) {
         super();
     }
     public get typeId() { return Type.Decimal as Type.Decimal; }
@@ -659,7 +660,7 @@ export type IntArray = Int8Array | Int16Array | Int32Array | Uint8Array | Uint16
 export function strideForType(type: DataType) {
     const t: any = type;
     switch (type.typeId) {
-        case Type.Decimal: return 4;
+        case Type.Decimal: return (type as Decimal).bitWidth / 32;
         case Type.Timestamp: return 2;
         case Type.Date: return 1 + (t as Date_).unit;
         case Type.Interval: return 1 + (t as Interval_).unit;

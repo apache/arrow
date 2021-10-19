@@ -222,7 +222,7 @@ export const timeSecond = (length = 100, nullCount = length * 0.2 | 0) => vector
 export const timeMillisecond = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new TimeMillisecond(), length, nullCount);
 export const timeMicrosecond = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new TimeMicrosecond(), length, nullCount);
 export const timeNanosecond = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new TimeNanosecond(), length, nullCount);
-export const decimal = (length = 100, nullCount = length * 0.2 | 0, scale = 2, precision = 9) => vectorGenerator.visit(new Decimal(scale, precision), length, nullCount);
+export const decimal = (length = 100, nullCount = length * 0.2 | 0, scale = 2, precision = 9, bitWidth = 128) => vectorGenerator.visit(new Decimal(scale, precision, bitWidth), length, nullCount);
 export const list = (length = 100, nullCount = length * 0.2 | 0, child = defaultListChild) => vectorGenerator.visit(new List(child), length, nullCount);
 export const struct = <T extends { [key: string]: DataType } = any>(length = 100, nullCount = length * 0.2 | 0, children: Field<T[keyof T]>[] = <any>defaultStructChildren()) => vectorGenerator.visit(new Struct<T>(children), length, nullCount);
 export const denseUnion = (length = 100, nullCount = length * 0.2 | 0, children: Field[] = defaultUnionChildren()) => vectorGenerator.visit(new DenseUnion(children.map((f) => f.typeId), children), length, nullCount);
@@ -573,7 +573,7 @@ function generateMap<T extends Map_>(this: TestDataVectorGenerator,
     const stride = childVec.length / (length - nullCount);
     const valueOffsets = createVariableWidthOffsets(length, nullBitmap, childVec.length, stride);
     const values = memoize(() => {
-        const childValues: { key: K, value: V }[] = <any>child.values();
+        const childValues: { key: K; value: V }[] = <any>child.values();
         const values: (Record<K, V> | null)[] = [...valueOffsets.slice(1)]
             .map((offset, i) => isValid(nullBitmap, i) ? offset : null)
             .map((o, i) => o == null ? null : (() => {

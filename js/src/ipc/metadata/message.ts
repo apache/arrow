@@ -450,7 +450,7 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
         }
         case Type['Decimal']: {
             const t = f.type(new _Decimal())!;
-            return new Decimal(t.scale(), t.precision());
+            return new Decimal(t.scale(), t.precision(), t.bitWidth());
         }
         case Type['Date']: {
             const t = f.type(new _Date())!;

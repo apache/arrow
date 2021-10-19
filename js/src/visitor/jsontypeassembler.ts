@@ -48,8 +48,8 @@ export class JSONTypeAssembler extends Visitor {
     public visitUtf8<T extends type.Utf8>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }
-    public visitDecimal<T extends type.Decimal>({ typeId, scale, precision }: T) {
-        return { 'name': ArrowType[typeId].toLowerCase(), 'scale': scale, 'precision': precision };
+    public visitDecimal<T extends type.Decimal>({ typeId, scale, precision, bitWidth }: T) {
+        return { 'name': ArrowType[typeId].toLowerCase(), 'scale': scale, 'precision': precision, 'bitWidth': bitWidth };
     }
     public visitDate<T extends type.Date_>({ typeId, unit }: T) {
         return { 'name': ArrowType[typeId].toLowerCase(), 'unit': DateUnit[unit] };

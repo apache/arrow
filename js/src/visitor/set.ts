@@ -209,7 +209,7 @@ export const setTime = <T extends Time>(data: Data<T>, index: number, value: T['
 };
 
 /** @ignore */
-export const setDecimal = <T extends Decimal>({ values }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, 4), 4 * index); };
+export const setDecimal = <T extends Decimal>({ values, stride }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 
 /** @ignore */
 const setList = <T extends List>(data: Data<T>, index: number, value: T['TValue']): void => {
