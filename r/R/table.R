@@ -85,14 +85,6 @@
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
-#' @examplesIf arrow_available()
-#' tab <- Table$create(name = rownames(mtcars), mtcars)
-#' dim(tab)
-#' dim(head(tab))
-#' names(tab)
-#' tab$mpg
-#' tab[["cyl"]]
-#' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 #' @export
 Table <- R6Class("Table",
   inherit = ArrowTabular,
