@@ -138,7 +138,7 @@ returns an R `data.frame`. To return an Arrow `Table`, set argument
 -   `read_json_arrow()`: read a JSON data file
 
 For writing data to single files, the `arrow` package provides the
-functions `write_parquet()`, `write_feather()`, `write_csv_arrow()`. 
+functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`. 
 These can be used with R `data.frame` and Arrow `Table` objects.
 
 For example, let’s write the Star Wars characters data that’s included
