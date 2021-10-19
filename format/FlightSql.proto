@@ -37,7 +37,7 @@ package arrow.flight.protocol.sql;
  *              bigint_value: int64,
  *              int32_bitmask: int32,
  *              string_list: list<string_data: utf8>
- *              int32_to_int32_list_map: map<key: int32, value: list<$data$: int_32>>
+ *              int32_to_int32_list_map: map<key: int32, value: list<$data$: int32>>
  * >
  * where there is one row per requested piece of metadata information.
  */
@@ -208,7 +208,7 @@ enum SqlInfo {
    * Retrieves a map where the key is the type to convert from and the value is a list with the types to convert to,
    * indicating the supported conversions. Each key and each item on the list value is a value to a predefined type on
    * SqlSupportsConvert enum.
-   * The returned map will be:  map<key: int32, value: list<int_32>>
+   * The returned map will be:  map<int32, list<int32>>
    */
   SQL_SUPPORTS_CONVERT = 517;
 
