@@ -228,9 +228,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
     elif _is_array_like(obj):
-        if mask is not None and not _is_array_like(mask):
-            raise TypeError("Mask must be a numpy array "
-                            "when converting numpy arrays")
+        if mask is not None:
+            mask = get_values(mask, &is_pandas_object)
 
         values = get_values(obj, &is_pandas_object)
         if is_pandas_object and from_pandas is None:
