@@ -246,7 +246,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   void AddTrace(const std::string& msg, llvm::Value* value = NULLPTR);
 
   std::unique_ptr<Engine> engine_;
-  std::vector<std::shared_ptr<CompiledExpr>> compiled_exprs_;
+  std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
   FunctionRegistry function_registry_;
   Annotator annotator_;
   SelectionVector::Mode selection_vector_mode_;
