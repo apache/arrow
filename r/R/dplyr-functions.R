@@ -341,6 +341,7 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 #   str_to_lower
 #   str_to_upper
 #   str_to_title
+#   str_to_sentence
 #
 # Arrow locale will be supported with ARROW-14126
 stop_if_locale_provided <- function(locale) {

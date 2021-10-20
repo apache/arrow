@@ -53,6 +53,7 @@
   # str_to_lower is defined in dplyr-functions.R
   # str_to_title is defined in dplyr-functions.R
   # str_to_upper is defined in dplyr-functions.R
+  # str_to_sentence is defined in dplyr-functions.R
   # str_trim is defined in dplyr-functions.R
   "stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R
