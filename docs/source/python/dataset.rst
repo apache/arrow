@@ -592,13 +592,13 @@ call.  For simple datasets it may be possible to know which files will be create
 larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used 
 to supply a visitor that will be called as each file is created:
 
-.. code-block:: python
+.. ipython:: python
 
     def file_visitor(written_file):
         print(f"path={written_file.path}")
         print(f"metadata={written_file.metadata}")
 
-    ds.write_dataset(table, dataset_root, format="parquet", partitioning=part,
+    ds.write_dataset(table, base / "dataset_visited", format="parquet", partitioning=part,
                     file_visitor=file_visitor)
 
 This will allow you to collect the filenames that belong to the dataset and store them elsewhere
