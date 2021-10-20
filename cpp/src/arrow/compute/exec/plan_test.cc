@@ -26,6 +26,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
@@ -1053,7 +1054,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
             [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
-            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"], 
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
             [12, "alfa", -2, "alfa"], [12, "alfa", -8, "alfa"],
             [-1, "gama", -1, "gama"], [5, "gama", -1, "gama"]])")};
 
@@ -1110,13 +1111,45 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
     std::vector<ExecBatch> expected = {
         ExecBatchFromJSON({int32(), utf8(), int32(), utf8()}, R"([
             [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
-            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"], 
+            [3, "alfa", -2, "alfa"], [3, "alfa", -8, "alfa"],
             [12, "alfa", -2, "alfa"], [12, "alfa", -8, "alfa"],
             [3,  "beta", null, null], [7,  "beta", null, null],
             [-1, "gama", -1, "gama"], [5, "gama", -1, "gama"]])")};
 
     AssertExecBatchesEqual(hashjoin->output_schema(), result, expected);
   }
+}
+
+TEST(ExecPlan, RecordBatchReaderSourceSink) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  // set up a RecordBatchReader:
+  auto input = MakeBasicBatches();
+
+  RecordBatchVector batches;
+  for (const ExecBatch& exec_batch : input.batches) {
+    ASSERT_OK_AND_ASSIGN(auto batch, exec_batch.ToRecordBatch(input.schema));
+    batches.push_back(batch);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+  std::shared_ptr<RecordBatchReader> reader = std::make_shared<TableBatchReader>(*table);
+
+  // Map the RecordBatchReader to a SourceNode
+  ASSERT_OK_AND_ASSIGN(
+      auto batch_gen,
+      MakeReaderGenerator(std::move(reader), arrow::io::internal::GetIOThreadPool()));
+
+  ASSERT_OK(
+      Declaration::Sequence({
+                                {"source", SourceNodeOptions{table->schema(), batch_gen}},
+                                {"sink", SinkNodeOptions{&sink_gen}},
+                            })
+          .AddToPlan(plan.get()));
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray(input.batches))));
 }
 
 }  // namespace compute

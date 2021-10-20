@@ -158,6 +158,15 @@ Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
   return IngestSome(array, n, std::forward<SetNonNull>(set_non_null), nothing);
 }
 
+std::shared_ptr<Array> CreateEmptyArray(const std::shared_ptr<DataType>& array_type) {
+  std::unique_ptr<arrow::ArrayBuilder> builder;
+  StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), array_type, &builder));
+
+  std::shared_ptr<arrow::Array> array;
+  StopIfNotOk(builder->Finish(&array));
+  return array;
+}
+
 template <typename Type>
 class Converter_Int : public Converter {
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
@@ -545,9 +554,7 @@ class Converter_Dictionary : public Converter {
   explicit Converter_Dictionary(const std::shared_ptr<ChunkedArray>& chunked_array)
       : Converter(chunked_array), need_unification_(NeedUnification()) {
     if (need_unification_) {
-      const auto& arr_first =
-          checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
-      const auto& arr_type = checked_cast<const DictionaryType&>(*arr_first.type());
+      const auto& arr_type = checked_cast<const DictionaryType&>(*chunked_array->type());
       unifier_ = ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
 
       size_t n_arrays = chunked_array->num_chunks();
@@ -561,11 +568,10 @@ class Converter_Dictionary : public Converter {
 
       StopIfNotOk(unifier_->GetResult(&out_type_, &dictionary_));
     } else {
-      const auto& dict_array =
-          checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+      const auto& dict_type = checked_cast<const DictionaryType&>(*chunked_array->type());
 
-      auto indices = dict_array.indices();
-      switch (indices->type_id()) {
+      const auto& indices_type = *dict_type.index_type();
+      switch (indices_type.id()) {
         case Type::UINT8:
         case Type::INT8:
         case Type::UINT16:
@@ -575,10 +581,18 @@ class Converter_Dictionary : public Converter {
           break;
         default:
           cpp11::stop("Cannot convert Dictionary Array of type `%s` to R",
-                      dict_array.type()->ToString().c_str());
+                      dict_type.ToString().c_str());
       }
 
-      dictionary_ = dict_array.dictionary();
+      if (chunked_array->num_chunks() > 0) {
+        // NeedUnification() returned false so we can safely assume the
+        // dictionary of the first chunk applies everywhere
+        const auto& dict_array =
+            checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+        dictionary_ = dict_array.dictionary();
+      } else {
+        dictionary_ = CreateEmptyArray(dict_type.value_type());
+      }
     }
   }
 
@@ -680,9 +694,7 @@ class Converter_Dictionary : public Converter {
   }
 
   bool GetOrdered() const {
-    return checked_cast<const DictionaryArray&>(*chunked_array_->chunk(0))
-        .dict_type()
-        ->ordered();
+    return checked_cast<const DictionaryType&>(*chunked_array_->type()).ordered();
   }
 
   SEXP GetLevels() const {
@@ -705,13 +717,15 @@ class Converter_Struct : public Converter {
  public:
   explicit Converter_Struct(const std::shared_ptr<ChunkedArray>& chunked_array)
       : Converter(chunked_array), converters() {
-    auto first_array =
-        checked_cast<const arrow::StructArray*>(this->chunked_array_->chunk(0).get());
-    int nf = chunked_array->type()->num_fields();
+    const auto& struct_type =
+        checked_cast<const arrow::StructType&>(*chunked_array->type());
 
+    int nf = struct_type.num_fields();
+
+    std::shared_ptr<arrow::Table> array_as_table =
+        ValueOrStop(arrow::Table::FromChunkedStructArray(chunked_array));
     for (int i = 0; i < nf; i++) {
-      converters.push_back(
-          Converter::Make(std::make_shared<ChunkedArray>(first_array->field(i))));
+      converters.push_back(Converter::Make(array_as_table->column(i)));
     }
   }
 
@@ -943,12 +957,7 @@ class Converter_List : public Converter {
                                   ? arrow::r::data::classes_arrow_list
                                   : arrow::r::data::classes_arrow_large_list;
 
-    // Build an empty array to match value_type
-    std::unique_ptr<arrow::ArrayBuilder> builder;
-    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), value_type_, &builder));
-
-    std::shared_ptr<arrow::Array> array;
-    StopIfNotOk(builder->Finish(&array));
+    std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
     // convert to an R object to store as the list' ptype
     res.attr(arrow::r::symbols::ptype) = Converter::Convert(array);
@@ -994,12 +1003,7 @@ class Converter_FixedSizeList : public Converter {
     Rf_classgets(res, arrow::r::data::classes_arrow_fixed_size_list);
     res.attr(arrow::r::symbols::list_size) = Rf_ScalarInteger(list_size_);
 
-    // Build an empty array to match value_type
-    std::unique_ptr<arrow::ArrayBuilder> builder;
-    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), value_type_, &builder));
-
-    std::shared_ptr<arrow::Array> array;
-    StopIfNotOk(builder->Finish(&array));
+    std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
     // convert to an R object to store as the list' ptype
     res.attr(arrow::r::symbols::ptype) = Converter::Convert(array);

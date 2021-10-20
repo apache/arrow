@@ -224,16 +224,14 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 	if f[0] == '+' { // types with children
 		switch f[1] {
 		case 'l': // list
-			dt = arrow.ListOf(childFields[0].Type)
-			dt.(*arrow.ListType).NullableElem = childFields[0].Nullable
+			dt = arrow.ListOfField(childFields[0])
 		case 'w': // fixed size list is w:# where # is the list size.
 			listSize, err := strconv.Atoi(strings.Split(f, ":")[1])
 			if err != nil {
 				return ret, err
 			}
 
-			dt = arrow.FixedSizeListOf(int32(listSize), childFields[0].Type)
-			dt.(*arrow.FixedSizeListType).NullableElem = childFields[0].Nullable
+			dt = arrow.FixedSizeListOfField(int32(listSize), childFields[0])
 		case 's': // struct
 			dt = arrow.StructOf(childFields...)
 		case 'm': // map type is basically a list of structs.

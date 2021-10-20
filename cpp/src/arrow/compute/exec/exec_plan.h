@@ -407,5 +407,16 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
     MemoryPool*);
 
+constexpr int kDefaultBackgroundMaxQ = 32;
+constexpr int kDefaultBackgroundQRestart = 16;
+
+/// \brief Make a generator of RecordBatchReaders
+///
+/// Useful as a source node for an Exec plan
+ARROW_EXPORT
+Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+    std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
+    int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
+
 }  // namespace compute
 }  // namespace arrow

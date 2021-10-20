@@ -111,6 +111,7 @@ set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSIONS
+    "13.0"
     "12.0"
     "11.1"
     "11.0"
@@ -240,7 +241,7 @@ add_custom_target(lint
                   --exclude_globs
                   ${LINT_EXCLUSIONS_FILE}
                   --source_dir
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src
+                  ${CMAKE_CURRENT_SOURCE_DIR}
                   ${ARROW_LINT_QUIET})
 
 #
@@ -256,7 +257,7 @@ if(${CLANG_FORMAT_FOUND})
                     --exclude_globs
                     ${LINT_EXCLUSIONS_FILE}
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -269,7 +270,7 @@ if(${CLANG_FORMAT_FOUND})
                     --exclude_globs
                     ${LINT_EXCLUSIONS_FILE}
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -298,7 +299,7 @@ if(${CLANG_TIDY_FOUND})
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -313,7 +314,7 @@ if(${CLANG_TIDY_FOUND})
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     ${ARROW_LINT_QUIET})
 endif()
 

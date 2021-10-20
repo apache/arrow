@@ -163,8 +163,11 @@ std::vector<std::pair<int, int64_t>> TaskSchedulerImpl::PickTasks(int num_tasks,
     int task_group_id = static_cast<int>((start_task_group + i) % (task_groups_.size()));
     TaskGroup& task_group = task_groups_[task_group_id];
 
-    if (task_group.state_ != TaskGroupState::READY) {
-      continue;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (task_group.state_ != TaskGroupState::READY) {
+        continue;
+      }
     }
 
     int num_tasks_remaining = num_tasks - static_cast<int>(result.size());

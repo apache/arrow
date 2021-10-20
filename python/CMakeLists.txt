@@ -103,9 +103,21 @@ set(BUILD_WARNING_LEVEL "PRODUCTION")
 
 # This must be synchronized with the definition in
 # cpp/cmake_modules/DefineOptions.cmake.
-set(ARROW_ARMV8_ARCH
-    "armv8-a"
-    CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
+if(NOT DEFINED ARROW_SIMD_LEVEL)
+  set(ARROW_SIMD_LEVEL
+      "DEFAULT"
+      CACHE STRING "Compile time SIMD optimization level")
+endif()
+if(NOT DEFINED ARROW_RUNTIME_SIMD_LEVEL)
+  set(ARROW_RUNTIME_SIMD_LEVEL
+      "MAX"
+      CACHE STRING "Max runtime SIMD optimization level")
+endif()
+if(NOT DEFINED ARROW_ARMV8_ARCH)
+  set(ARROW_ARMV8_ARCH
+      "armv8-a"
+      CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
+endif()
 include(SetupCxxFlags)
 
 # Add common flags

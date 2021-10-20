@@ -186,7 +186,14 @@ class LocalBinaryTask < BinaryTask
           next unless File.exist?(universe_dir)
           mv(universe_dir, "#{code_name_dir}/main")
         end
-        apt_update(repositories_dir)
+        base_dir = "nonexistent"
+        merged_dir = "apt/merged"
+        apt_update(base_dir, repositories_dir, merged_dir)
+        Dir.glob("#{merged_dir}/*/dists/*") do |dists_code_name_dir|
+          prefix = dists_code_name_dir.split("/")[-3..-1].join("/")
+          mv(Dir.glob("#{dists_code_name_dir}/*Release*"),
+             "#{repositories_dir}/#{prefix}")
+        end
         apt_test_targets.each do |target|
           verify(target)
         end
@@ -224,7 +231,8 @@ class LocalBinaryTask < BinaryTask
           sh("rsync", "-a", "#{package_repositories}/", repositories_dir)
         end
         rpm_sign(repositories_dir)
-        yum_update(repositories_dir)
+        base_dir = "nonexistent"
+        yum_update(base_dir, repositories_dir)
         yum_test_targets.each do |target|
           verify(target)
         end

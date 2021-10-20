@@ -197,6 +197,7 @@ See $.data for the source Arrow object",
     q %>% head(1) %>% collect(),
     tibble::tibble(lgl = FALSE, total = 8L, extra = 40)
   )
+  skip("TODO (ARROW-1XXXX): implement sorting option about where NAs go")
   expect_equal(
     q %>% tail(1) %>% collect(),
     tibble::tibble(lgl = NA, total = 25L, extra = 125)
