@@ -17,8 +17,8 @@ write_dataset(
 \arguments{
 \item{dataset}{\link{Dataset}, \link{RecordBatch}, \link{Table}, \code{arrow_dplyr_query}, or
 \code{data.frame}. If an \code{arrow_dplyr_query}, the query will be evaluated and
-the result will be written, so you can \code{select()}, \code{filter()}, \code{mutate()},
-etc. to transform the data.}
+the result will be written. This means that you can \code{select()}, \code{filter()}, \code{mutate()},
+etc. to transform the data before it is written if you need to.}
 
 \item{path}{string path, URI, or \code{SubTreeFileSystem} referencing a directory
 to write to (directory will be created if it does not exist)}
