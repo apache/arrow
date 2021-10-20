@@ -1,4 +1,605 @@
 
+# Apache Arrow 6.0.0 (2021-10-20)
+
+## Bug Fixes
+
+* [ARROW-6946](https://issues.apache.org/jira/browse/ARROW-6946) - [Go] Run tests with assert build tag enabled
+* [ARROW-8452](https://issues.apache.org/jira/browse/ARROW-8452) - [Go][Integration] Go JSON producer generates incorrect nullable flag for nested types
+* [ARROW-8453](https://issues.apache.org/jira/browse/ARROW-8453) - [Integration][Go] Recursive nested types unsupported
+* [ARROW-8999](https://issues.apache.org/jira/browse/ARROW-8999) - [Python][C++] Non-deterministic segfault in "AMD64 MacOS 10.15 Python 3.7" build
+* [ARROW-9948](https://issues.apache.org/jira/browse/ARROW-9948) - [C++] Decimal128 does not check scale range when rescaling; can cause buffer overflow
+* [ARROW-10213](https://issues.apache.org/jira/browse/ARROW-10213) - [C++] Temporal cast from timestamp to date rounds instead of extracting date component
+* [ARROW-10373](https://issues.apache.org/jira/browse/ARROW-10373) - [C++] ValidateFull() does not validate null\_count
+* [ARROW-10773](https://issues.apache.org/jira/browse/ARROW-10773) - [R] parallel as.data.frame.Table hangs indefinitely on Windows
+* [ARROW-11518](https://issues.apache.org/jira/browse/ARROW-11518) - [C++] [Parquet] Parquet reader crashes when reading boolean columns
+* [ARROW-11579](https://issues.apache.org/jira/browse/ARROW-11579) - [R] read\_feather hanging on Windows
+* [ARROW-11634](https://issues.apache.org/jira/browse/ARROW-11634) - [C++][Parquet] Parquet statistics (min/max) for dictionary columns are incorrect
+* [ARROW-11729](https://issues.apache.org/jira/browse/ARROW-11729) - [R] Add examples to the datasets documentation
+* [ARROW-12011](https://issues.apache.org/jira/browse/ARROW-12011) - [C++][Python] Crashes and incorrect results when converting large integers to dates
+* [ARROW-12072](https://issues.apache.org/jira/browse/ARROW-12072) - (ipc.Writer).Write panics with \`arrow/array: index out of range\`
+* [ARROW-12087](https://issues.apache.org/jira/browse/ARROW-12087) - [C++] Fix sort\_indices, array\_sort\_indices timestamp support discrepancy
+* [ARROW-12513](https://issues.apache.org/jira/browse/ARROW-12513) - [C++][Parquet] Parquet Writer always puts null\_count=0 in Parquet statistics for dictionary-encoded array with nulls
+* [ARROW-12540](https://issues.apache.org/jira/browse/ARROW-12540) - [C++] Implement cast from date32[day] to utf8 
+* [ARROW-12636](https://issues.apache.org/jira/browse/ARROW-12636) - [JS] ESM Tree-Shaking produces broken code
+* [ARROW-12700](https://issues.apache.org/jira/browse/ARROW-12700) - [R] Read/Write\_feather stuck forever after bad write, R, Win32
+* [ARROW-12837](https://issues.apache.org/jira/browse/ARROW-12837) - [C++] Array::ToString() segfaults with null buffer.
+* [ARROW-13134](https://issues.apache.org/jira/browse/ARROW-13134) - [C++] SSL-related arrow-s3fs-test failures with aws-sdk-cpp 1.9.51
+* [ARROW-13151](https://issues.apache.org/jira/browse/ARROW-13151) - [Python] Unable to read single child field of struct column from Parquet
+* [ARROW-13198](https://issues.apache.org/jira/browse/ARROW-13198) - [C++][Dataset] Async scanner occasionally segfaulting in CI
+* [ARROW-13293](https://issues.apache.org/jira/browse/ARROW-13293) - [R] open\_dataset followed by collect hangs (while compute works)
+* [ARROW-13304](https://issues.apache.org/jira/browse/ARROW-13304) - [C++] Unable to install nightly on Ubuntu 21.04 due to day of week options
+* [ARROW-13336](https://issues.apache.org/jira/browse/ARROW-13336) - [Doc][Python] make clean doesn't clean up "generated" documentation
+* [ARROW-13422](https://issues.apache.org/jira/browse/ARROW-13422) - [R] Clarify README about S3 support on Windows
+* [ARROW-13424](https://issues.apache.org/jira/browse/ARROW-13424) - [C++] conda-forge benchmark library rejected
+* [ARROW-13425](https://issues.apache.org/jira/browse/ARROW-13425) - [Dev][Archery] Archery import pandas which imports pyarrow
+* [ARROW-13429](https://issues.apache.org/jira/browse/ARROW-13429) - [C++][Gandiva] Gandiva crashes when compiling If-else expression with binary type
+* [ARROW-13430](https://issues.apache.org/jira/browse/ARROW-13430) - [Integration][Go] Various errors in the integration tests
+* [ARROW-13436](https://issues.apache.org/jira/browse/ARROW-13436) - [Python][Doc] Clarify what should be expected if read\_table is passed an empty list of columns
+* [ARROW-13437](https://issues.apache.org/jira/browse/ARROW-13437) - [C++] Slice of FixedSizeList fails ValidateFull
+* [ARROW-13441](https://issues.apache.org/jira/browse/ARROW-13441) - [CSV] Streaming reader conversion should skip empty blocks
+* [ARROW-13443](https://issues.apache.org/jira/browse/ARROW-13443) - [C++] Fix the incorrect mapping from flatbuf::MetadataVersion to arrow::ipc::MetadataVersion
+* [ARROW-13445](https://issues.apache.org/jira/browse/ARROW-13445) - [Java][Packaging] Fix artifact patterns for the Java jars
+* [ARROW-13446](https://issues.apache.org/jira/browse/ARROW-13446) - [Release] Fix verification on amazon linux 
+* [ARROW-13447](https://issues.apache.org/jira/browse/ARROW-13447) - [Release] Verification script for arm64 and universal2 macOS wheels
+* [ARROW-13450](https://issues.apache.org/jira/browse/ARROW-13450) - [Python][Packaging] Set deployment target to 10.13 for universal2 wheels
+* [ARROW-13469](https://issues.apache.org/jira/browse/ARROW-13469) - [C++] Suppress -Wmissing-field-initializers in DayMilliseconds arrow/type.h
+* [ARROW-13474](https://issues.apache.org/jira/browse/ARROW-13474) - [C++][Python] PyArrow crash when filter/take empty Extension array
+* [ARROW-13477](https://issues.apache.org/jira/browse/ARROW-13477) - [Release] Pass ARTIFACTORY\_API\_KEY to the upload script
+* [ARROW-13484](https://issues.apache.org/jira/browse/ARROW-13484) - [Release] Packages not available for Amazon Linux 2
+* [ARROW-13490](https://issues.apache.org/jira/browse/ARROW-13490) - [R] [CI] Need to gate duckdb examples on duckdb version
+* [ARROW-13492](https://issues.apache.org/jira/browse/ARROW-13492) - [R] [CI] Move r tools 35 build back to per-commit/pre-PR
+* [ARROW-13493](https://issues.apache.org/jira/browse/ARROW-13493) - [C++] Anonymous structs in an anonymous union are a GNU extension
+* [ARROW-13495](https://issues.apache.org/jira/browse/ARROW-13495) - [C++] UBSAN error in BitUtil when writing dataset
+* [ARROW-13496](https://issues.apache.org/jira/browse/ARROW-13496) - [CI][R] Repair r-sanitizer job
+* [ARROW-13497](https://issues.apache.org/jira/browse/ARROW-13497) - [C++][R] FunctionOptions not used by aggregation nodes
+* [ARROW-13499](https://issues.apache.org/jira/browse/ARROW-13499) - [R] Aggregation on expression doesn't NSE correctly
+* [ARROW-13500](https://issues.apache.org/jira/browse/ARROW-13500) - [C++] warning: unrecognized command line option '-Wno-unknown-warning-option' when building with gcc 9.3
+* [ARROW-13504](https://issues.apache.org/jira/browse/ARROW-13504) - [Python] It is impossible to skip s3 or hdfs tests with pytest markers
+* [ARROW-13507](https://issues.apache.org/jira/browse/ARROW-13507) - [R] LTO job on CRAN fails
+* [ARROW-13509](https://issues.apache.org/jira/browse/ARROW-13509) - [C++] Take compute function should pass through ChunkedArray type to handle empty input arrays
+* [ARROW-13522](https://issues.apache.org/jira/browse/ARROW-13522) - [C++] Regression with compute \`utf8\_\*trim\` functions on macOS.
+* [ARROW-13523](https://issues.apache.org/jira/browse/ARROW-13523) - Unified the test case name
+* [ARROW-13524](https://issues.apache.org/jira/browse/ARROW-13524) - [C++] Fix description for ApplicationVersion::VersionEq
+* [ARROW-13529](https://issues.apache.org/jira/browse/ARROW-13529) - Too many releases in IPC writer when writing slices
+* [ARROW-13538](https://issues.apache.org/jira/browse/ARROW-13538) - [R] [CI] Don't test DuckDB in the minimal build
+* [ARROW-13543](https://issues.apache.org/jira/browse/ARROW-13543) - [R] Handle summarize() with 0 arguments or no aggregate functions
+* [ARROW-13556](https://issues.apache.org/jira/browse/ARROW-13556) - [C++] on Ubuntu 21.04 with system libs flight is not linked against libprotobuf
+* [ARROW-13559](https://issues.apache.org/jira/browse/ARROW-13559) - [CI][C++] test-conda-cpp-valgrind nightly build failure
+* [ARROW-13560](https://issues.apache.org/jira/browse/ARROW-13560) - [R] Allow Scanner$create() to accept filter / project even with arrow\_dplyr\_querys
+* [ARROW-13580](https://issues.apache.org/jira/browse/ARROW-13580) - [C++] quoted\_strings\_can\_be\_null only applied to string columns
+* [ARROW-13597](https://issues.apache.org/jira/browse/ARROW-13597) - [C++] [R] ExecNode factory named source not present in registry
+* [ARROW-13600](https://issues.apache.org/jira/browse/ARROW-13600) - [C++] Maybe uninitialized warnings
+* [ARROW-13602](https://issues.apache.org/jira/browse/ARROW-13602) - [C++] Tests dereferencing type-punned pointer compiler warnings
+* [ARROW-13603](https://issues.apache.org/jira/browse/ARROW-13603) - [GLib] GARROW\_VERSION\_CHECK() always returns false
+* [ARROW-13605](https://issues.apache.org/jira/browse/ARROW-13605) - [C++] Data race in GroupByNode found by ThreadSanitizer
+* [ARROW-13608](https://issues.apache.org/jira/browse/ARROW-13608) - [R] symbol initialization appears to be depending on undefined behavior
+* [ARROW-13611](https://issues.apache.org/jira/browse/ARROW-13611) - [C++] Scanning datasets does not enforce back pressure
+* [ARROW-13624](https://issues.apache.org/jira/browse/ARROW-13624) - [R] readr short type mapping has T and t backwards
+* [ARROW-13628](https://issues.apache.org/jira/browse/ARROW-13628) - [Format] Add MonthDayNano interval type.
+* [ARROW-13630](https://issues.apache.org/jira/browse/ARROW-13630) - [CI][C++] Travis s390x CI job is failing and blocks endianness related code verification
+* [ARROW-13632](https://issues.apache.org/jira/browse/ARROW-13632) - [Python] Filter mask is always applied to elements at the start of FixedSizeListArray when filtering a slice
+* [ARROW-13638](https://issues.apache.org/jira/browse/ARROW-13638) - [C++][R] GroupByNode accesses FunctionOptions after Init/ExecNode\_Aggregate keep\_alives aren't kept alive
+* [ARROW-13639](https://issues.apache.org/jira/browse/ARROW-13639) - [C++] Concatenate with an empty dictionary segfaults (ASan failure in TestFilterKernelWithString/0.FilterDictionary)
+* [ARROW-13654](https://issues.apache.org/jira/browse/ARROW-13654) - [C++][Parquet] Appending a FileMetaData object to itselfs explodes memory
+* [ARROW-13655](https://issues.apache.org/jira/browse/ARROW-13655) - [C++][Parquet] Reading large Parquet file can give "MaxMessageSize reached" error with Thrift 0.14
+* [ARROW-13662](https://issues.apache.org/jira/browse/ARROW-13662) - [CI] Failing test test\_extract\_datetime\_components with pandas 0.24
+* [ARROW-13662](https://issues.apache.org/jira/browse/ARROW-13662) - [CI] Failing test test\_extract\_datetime\_components with pandas 0.24
+* [ARROW-13669](https://issues.apache.org/jira/browse/ARROW-13669) - [C++] Variant emplace methods appear to be missing curly braces.
+* [ARROW-13671](https://issues.apache.org/jira/browse/ARROW-13671) - [Dev] Fix conda recipe on Arm 64K page system
+* [ARROW-13676](https://issues.apache.org/jira/browse/ARROW-13676) - [C++] Coredump writing Arrow table to Parquet file
+* [ARROW-13681](https://issues.apache.org/jira/browse/ARROW-13681) - [C++] list\_parent\_indices only computes for first chunk
+* [ARROW-13685](https://issues.apache.org/jira/browse/ARROW-13685) - [C++] Cannot write dataset to S3FileSystem if bucket already exists
+* [ARROW-13689](https://issues.apache.org/jira/browse/ARROW-13689) - [C\#] Initial C\# Integration Tests
+* [ARROW-13694](https://issues.apache.org/jira/browse/ARROW-13694) - [R] Arrow filter crashes (R aborted session)
+* [ARROW-13743](https://issues.apache.org/jira/browse/ARROW-13743) - [CI] OSX job fails due to incompatible git and libcurl
+* [ARROW-13744](https://issues.apache.org/jira/browse/ARROW-13744) - [CI] c++14 and 17 nightly job fails
+* [ARROW-13747](https://issues.apache.org/jira/browse/ARROW-13747) - [CI][C++] s3fs test failed in conda-python-pandas nightly job
+* [ARROW-13755](https://issues.apache.org/jira/browse/ARROW-13755) - [Python] Allow usage of field\_names in partitioning when saving datasets
+* [ARROW-13761](https://issues.apache.org/jira/browse/ARROW-13761) - [R] arrow::filter() crashes (aborts R session)
+* [ARROW-13784](https://issues.apache.org/jira/browse/ARROW-13784) - [Python] Table.from\_arrays should raise an error when array is empty but names is not
+* [ARROW-13786](https://issues.apache.org/jira/browse/ARROW-13786) - [R] [CI] Don't fail the RCHK build if arrow doesn't build
+* [ARROW-13788](https://issues.apache.org/jira/browse/ARROW-13788) - [C++] Temporal component extraction functions don't support date32/64
+* [ARROW-13792](https://issues.apache.org/jira/browse/ARROW-13792) - [Java] The toString representation is incorrect for unsigned integer vectors
+* [ARROW-13799](https://issues.apache.org/jira/browse/ARROW-13799) - [R] case\_when error handling is capturing strings
+* [ARROW-13800](https://issues.apache.org/jira/browse/ARROW-13800) - [R] Use divide instead of divide\_checked
+* [ARROW-13812](https://issues.apache.org/jira/browse/ARROW-13812) - [C++] Valgrind failure in Grouper.BooleanKey (uninitialized values)
+* [ARROW-13814](https://issues.apache.org/jira/browse/ARROW-13814) - [CI] Nightly integration build with spark master failing to compile spark
+* [ARROW-13819](https://issues.apache.org/jira/browse/ARROW-13819) - [C++] Build fails with "'subseconds' may be used uninitialized in this function"
+* [ARROW-13846](https://issues.apache.org/jira/browse/ARROW-13846) - [C++] Fix crashes on invalid IPC file (OSS-Fuzz)
+* [ARROW-13850](https://issues.apache.org/jira/browse/ARROW-13850) - [C++] Fix crashes on invalid Parquet file (OSS-Fuzz)
+* [ARROW-13860](https://issues.apache.org/jira/browse/ARROW-13860) - [R] arrow 5.0.0 write\_parquet throws error writing grouped data.frame
+* [ARROW-13872](https://issues.apache.org/jira/browse/ARROW-13872) - [Java] ExtensionTypeVector does not work with RangeEqualsVisitor
+* [ARROW-13876](https://issues.apache.org/jira/browse/ARROW-13876) - [C++] Uniform null handling in compute functions
+* [ARROW-13877](https://issues.apache.org/jira/browse/ARROW-13877) - [C++] Added support for fixed sized list to compute functions that process lists
+* [ARROW-13878](https://issues.apache.org/jira/browse/ARROW-13878) - [C++] Add fixed\_size\_binary support to compute functions
+* [ARROW-13880](https://issues.apache.org/jira/browse/ARROW-13880) - [C++] Compute function sort\_indices does not support timestamps with time zones
+* [ARROW-13881](https://issues.apache.org/jira/browse/ARROW-13881) - [Python] Error message says "Please use a release of Arrow Flight built with gRPC 1.27 or higher." although I'm using gRPC 1.39
+* [ARROW-13882](https://issues.apache.org/jira/browse/ARROW-13882) - [C++] Add compute function min\_max support for more types
+* [ARROW-13884](https://issues.apache.org/jira/browse/ARROW-13884) - Arrow 5.0.0 cannot compile with Typescript 4.2.2
+* [ARROW-13912](https://issues.apache.org/jira/browse/ARROW-13912) - [R] TrimOptions implementation breaks test-r-minimal-build due to dependencies
+* [ARROW-13913](https://issues.apache.org/jira/browse/ARROW-13913) - [C++] segfault if compute function index called with no options supplied
+* [ARROW-13915](https://issues.apache.org/jira/browse/ARROW-13915) - [R][CI] R UCRT C++ bundles are incomplete
+* [ARROW-13916](https://issues.apache.org/jira/browse/ARROW-13916) - [C++] Implement strftime on date32/64 types
+* [ARROW-13921](https://issues.apache.org/jira/browse/ARROW-13921) - [Python][Packaging] Pin minimum setuptools version for the macos wheels
+* [ARROW-13940](https://issues.apache.org/jira/browse/ARROW-13940) - [R] Turn on multithreading with Arrow engine queries
+* [ARROW-13961](https://issues.apache.org/jira/browse/ARROW-13961) - [C++] iso\_calendar may be uninitialized
+* [ARROW-13976](https://issues.apache.org/jira/browse/ARROW-13976) - Adapt to arm architecture CPU in hdfs\_internal.cc
+* [ARROW-13978](https://issues.apache.org/jira/browse/ARROW-13978) - [C++] Bump gtest to 1.11 to unbreak builds with recent clang
+* [ARROW-13982](https://issues.apache.org/jira/browse/ARROW-13982) - [C++] Async scanner stalls if a fragment generates no batches
+* [ARROW-13983](https://issues.apache.org/jira/browse/ARROW-13983) - [C++] fcntl(..., F\_RDADVISE, ...) may fail on macOS with NFS mount
+* [ARROW-13996](https://issues.apache.org/jira/browse/ARROW-13996) - [Go][Parquet] Fix file offsets for row groups
+* [ARROW-13997](https://issues.apache.org/jira/browse/ARROW-13997) - [C++] restore exec node based query performance
+* [ARROW-14001](https://issues.apache.org/jira/browse/ARROW-14001) - [Go] AppendBooleans in BitmapWriter is broken
+* [ARROW-14004](https://issues.apache.org/jira/browse/ARROW-14004) - [Python] to\_pandas() converts to float instead of using pandas nullable types
+* [ARROW-14014](https://issues.apache.org/jira/browse/ARROW-14014) - FlightClient.ClientStreamListener not notified on error when parsing invalid trailers
+* [ARROW-14017](https://issues.apache.org/jira/browse/ARROW-14017) - [C++] NULLPTR is not included in type\_fwd.h
+* [ARROW-14020](https://issues.apache.org/jira/browse/ARROW-14020) - [R] Writing datafames with list columns is slow and scales poorly with nesting level
+* [ARROW-14024](https://issues.apache.org/jira/browse/ARROW-14024) - [C++] ScanOptions::batch\_size not respected in parquet/IPC readers
+* [ARROW-14026](https://issues.apache.org/jira/browse/ARROW-14026) - [C++] Batch readahead not working correctly in Parquet scanner
+* [ARROW-14027](https://issues.apache.org/jira/browse/ARROW-14027) - [C++][R] Ensure groupers accept scalar inputs (was: Allow me to group\_by + summarise() with partitioning fields)
+* [ARROW-14040](https://issues.apache.org/jira/browse/ARROW-14040) - [C++] Spurious test failure in ScanNode.MinimalGroupedAggEndToEnd
+* [ARROW-14053](https://issues.apache.org/jira/browse/ARROW-14053) - [C++] AsyncReaderTests.InvalidRowsSkipped is flaky
+* [ARROW-14057](https://issues.apache.org/jira/browse/ARROW-14057) - [C++] Bump aws-c-common version
+* [ARROW-14063](https://issues.apache.org/jira/browse/ARROW-14063) - [R] open\_dataset() does not work on CSVs without header rows
+* [ARROW-14076](https://issues.apache.org/jira/browse/ARROW-14076) - Unable to use \`red-arrow\` gem on Heroku/Ubuntu 20.04 (focal)
+* [ARROW-14090](https://issues.apache.org/jira/browse/ARROW-14090) - [C++][Parquet] rows\_written\_ should be int64\_t instead of int
+* [ARROW-14103](https://issues.apache.org/jira/browse/ARROW-14103) - [R] [C++] Allow min/max in grouped aggregation
+* [ARROW-14109](https://issues.apache.org/jira/browse/ARROW-14109) - Segfault When Reading JSON With Duplicate Keys
+* [ARROW-14124](https://issues.apache.org/jira/browse/ARROW-14124) - [R] Timezone support in R <= 3.4
+* [ARROW-14129](https://issues.apache.org/jira/browse/ARROW-14129) - [C++] An empty dictionary array crashes on \`unique\` and \`value\_counts\`.
+* [ARROW-14139](https://issues.apache.org/jira/browse/ARROW-14139) - [IR] [C++] Table flatbuffer object fails to compile on older GCCs
+* [ARROW-14141](https://issues.apache.org/jira/browse/ARROW-14141) - [IR] [C++] Join missing from RelationImpl
+* [ARROW-14156](https://issues.apache.org/jira/browse/ARROW-14156) - [C++] StructArray::Flatten is incorrect in some cases
+* [ARROW-14162](https://issues.apache.org/jira/browse/ARROW-14162) - [R] Simple arrange %\>% head does not respect ordering
+* [ARROW-14173](https://issues.apache.org/jira/browse/ARROW-14173) - [IR] Allow typed null literals to be represented
+* [ARROW-14179](https://issues.apache.org/jira/browse/ARROW-14179) - [C++] Import/Export of UnionArray in C data interface has wrong buffer count
+* [ARROW-14192](https://issues.apache.org/jira/browse/ARROW-14192) - [C++][Dataset] Backpressure broken on ordered scans
+* [ARROW-14195](https://issues.apache.org/jira/browse/ARROW-14195) - [R] Fix ExecPlan binding annotations
+* [ARROW-14197](https://issues.apache.org/jira/browse/ARROW-14197) - [C++] Hashjoin + datasets hanging
+* [ARROW-14200](https://issues.apache.org/jira/browse/ARROW-14200) - [R] strftime on a date should not use or be confused by timezones
+* [ARROW-14203](https://issues.apache.org/jira/browse/ARROW-14203) - [C++] Fix description of ExecBatch.length for Scalars in aggregate kernels
+* [ARROW-14204](https://issues.apache.org/jira/browse/ARROW-14204) - [C++] Fails to compile Arrow without RE2 due to missing ifdef guard in MatchLike
+* [ARROW-14206](https://issues.apache.org/jira/browse/ARROW-14206) - [Go] Fix Build for ARM and s390x
+* [ARROW-14206](https://issues.apache.org/jira/browse/ARROW-14206) - [Go] Fix Build for ARM and s390x
+* [ARROW-14208](https://issues.apache.org/jira/browse/ARROW-14208) - [C++] Build errors with Visual Studio 2019
+* [ARROW-14210](https://issues.apache.org/jira/browse/ARROW-14210) - [C++] CMAKE\_AR is not passed to bzip2 thirdparty dependency
+* [ARROW-14211](https://issues.apache.org/jira/browse/ARROW-14211) - [C++] Valgrind and TSAN errors in arrow-compute-hash-join-node-test
+* [ARROW-14214](https://issues.apache.org/jira/browse/ARROW-14214) - [Python][CI] wheel-windows-cp36-amd64 nightly build failure
+* [ARROW-14216](https://issues.apache.org/jira/browse/ARROW-14216) - [R] Disable auto-cleaning of duckdb tables
+* [ARROW-14219](https://issues.apache.org/jira/browse/ARROW-14219) - [R] [CI] DuckDB valgrind failure
+* [ARROW-14220](https://issues.apache.org/jira/browse/ARROW-14220) - [C++] Missing ending quote in thirdpartyversions
+* [ARROW-14221](https://issues.apache.org/jira/browse/ARROW-14221) - [R] [CI] DuckDB tests fail on R < 4.0
+* [ARROW-14223](https://issues.apache.org/jira/browse/ARROW-14223) - [C++] Add google\_cloud\_cpp\_storage to ARROW\_THIRDPARTY\_DEPENDENCIES
+* [ARROW-14224](https://issues.apache.org/jira/browse/ARROW-14224) - [R] [CI] R sanitizer build failing
+* [ARROW-14226](https://issues.apache.org/jira/browse/ARROW-14226) - [R] Handle n\_distinct() with args != 1
+* [ARROW-14237](https://issues.apache.org/jira/browse/ARROW-14237) - [R] [CI] Disable altrep in R <= 3.5
+* [ARROW-14240](https://issues.apache.org/jira/browse/ARROW-14240) - [C++] nlohmann\_json\_ep always rebuilt
+* [ARROW-14246](https://issues.apache.org/jira/browse/ARROW-14246) - [C++] find\_package(CURL) in build\_google\_cloud\_cpp\_storage fails
+* [ARROW-14247](https://issues.apache.org/jira/browse/ARROW-14247) - [C++] Valgrind error in parquet-arrow-test
+* [ARROW-14249](https://issues.apache.org/jira/browse/ARROW-14249) - [R] Slow down in dataframe-to-table benchmark
+* [ARROW-14252](https://issues.apache.org/jira/browse/ARROW-14252) - [R] Partial matching of arguments warning
+* [ARROW-14255](https://issues.apache.org/jira/browse/ARROW-14255) - [Python] FlightClient.do\_action is a generator instead of returning one.
+* [ARROW-14257](https://issues.apache.org/jira/browse/ARROW-14257) - [Doc][Python] dataset doc build fails
+* [ARROW-14283](https://issues.apache.org/jira/browse/ARROW-14283) - [C++][CI] LLVM 13 cannot be used on macOS GHA builds
+* [ARROW-14285](https://issues.apache.org/jira/browse/ARROW-14285) - [C++] Fix crashes when pretty-printing data from valid IPC file (OSS-Fuzz)
+* [ARROW-14299](https://issues.apache.org/jira/browse/ARROW-14299) - [Dev][CI] "linux-apt-r" dockerfile reinstalls Minio
+* [ARROW-14300](https://issues.apache.org/jira/browse/ARROW-14300) - [R][CI] "test-r-gcc-11" nightly build failure
+* [ARROW-14301](https://issues.apache.org/jira/browse/ARROW-14301) - [C++][CI] "test-ubuntu-20.04-cpp-17" nightly build crash in GCSFS test
+* [ARROW-14302](https://issues.apache.org/jira/browse/ARROW-14302) - [C++] Valgrind errors
+* [ARROW-14305](https://issues.apache.org/jira/browse/ARROW-14305) - [C++] Valgrind errors in arrow-compute-hash-join-node-test
+* [ARROW-14307](https://issues.apache.org/jira/browse/ARROW-14307) - [R] crashes when reading empty feather with POSIXct column
+* [ARROW-14313](https://issues.apache.org/jira/browse/ARROW-14313) - [Doc][Dev] Installation instructions for Archery incomplete
+* [ARROW-14321](https://issues.apache.org/jira/browse/ARROW-14321) - [R] segfault converting dictionary ChunkedArray with 0 chunks
+* [ARROW-14340](https://issues.apache.org/jira/browse/ARROW-14340) - [C++] Fix xsimd build error on apple m1
+* [ARROW-14370](https://issues.apache.org/jira/browse/ARROW-14370) - [C++] ASAN CI job failed
+* [ARROW-14373](https://issues.apache.org/jira/browse/ARROW-14373) - [Packaging][Java] Missing LLVM dependency in the macOS java-jars build
+* [ARROW-14377](https://issues.apache.org/jira/browse/ARROW-14377) - [Packaging][Python] Python 3.9 installation fails in macOS wheel build
+* [ARROW-14381](https://issues.apache.org/jira/browse/ARROW-14381) - [CI][Python] Spark integration failures
+* [ARROW-14382](https://issues.apache.org/jira/browse/ARROW-14382) - [C++][Compute] Remove duplicate ThreadIndexer definition
+* [ARROW-14392](https://issues.apache.org/jira/browse/ARROW-14392) - [C++] Bundled gRPC misses bundled Abseil include path
+* [ARROW-14393](https://issues.apache.org/jira/browse/ARROW-14393) - [C++] GTest linking errors during the source release verification
+* [ARROW-14397](https://issues.apache.org/jira/browse/ARROW-14397) - [C++] Fix valgrind error in test utility 
+* [PARQUET-2067](https://issues.apache.org/jira/browse/PARQUET-2067) - [C++]  null\_count and num\_nulls incorrect for repeated columns
+* [PARQUET-2089](https://issues.apache.org/jira/browse/PARQUET-2089) - [C++] RowGroupMetaData file\_offset set incorrectly
+
+
+## New Features and Improvements
+
+* [ARROW-1565](https://issues.apache.org/jira/browse/ARROW-1565) - [C++][Compute] Implement TopK/BottomK
+* [ARROW-1568](https://issues.apache.org/jira/browse/ARROW-1568) - [C++] Implement "drop null" kernels that return array without nulls
+* [ARROW-4333](https://issues.apache.org/jira/browse/ARROW-4333) - [C++] Sketch out design for kernels and "query" execution in compute layer
+* [ARROW-4700](https://issues.apache.org/jira/browse/ARROW-4700) - [C++] Add DecimalType support to arrow::json::TableReader
+* [ARROW-5002](https://issues.apache.org/jira/browse/ARROW-5002) - [C++] Implement Hash Aggregation query execution node
+* [ARROW-5244](https://issues.apache.org/jira/browse/ARROW-5244) - [C++] Review experimental / unstable APIs
+* [ARROW-6072](https://issues.apache.org/jira/browse/ARROW-6072) - [C++] Implement casting List <-\> LargeList
+* [ARROW-6607](https://issues.apache.org/jira/browse/ARROW-6607) - [Python] Support for set/list columns when converting from Pandas
+* [ARROW-6626](https://issues.apache.org/jira/browse/ARROW-6626) - [Python] Handle nested "set" values as lists when converting to Arrow
+* [ARROW-6870](https://issues.apache.org/jira/browse/ARROW-6870) - [C\#] Add Support for Dictionary Arrays and Dictionary Encoding
+* [ARROW-7102](https://issues.apache.org/jira/browse/ARROW-7102) - [Python] Make filesystems compatible with fsspec
+* [ARROW-7179](https://issues.apache.org/jira/browse/ARROW-7179) - [C++][Compute] Consolidate fill\_null and coalesce
+* [ARROW-7901](https://issues.apache.org/jira/browse/ARROW-7901) - [Integration][Go] Add null type (and integration test)
+* [ARROW-8022](https://issues.apache.org/jira/browse/ARROW-8022) - [C++] Provide or Vendor a small\_vector implementation
+* [ARROW-8147](https://issues.apache.org/jira/browse/ARROW-8147) - [C++] Add google-cloud-cpp to ThirdpartyToolchain
+* [ARROW-8379](https://issues.apache.org/jira/browse/ARROW-8379) - [R] Investigate/fix thread safety issues (esp. Windows)
+* [ARROW-8621](https://issues.apache.org/jira/browse/ARROW-8621) - [Release][Go] Add Module support by creating tags
+* [ARROW-8780](https://issues.apache.org/jira/browse/ARROW-8780) - [Python] A fsspec-compatible wrapper for pyarrow.fs filesystems
+* [ARROW-8928](https://issues.apache.org/jira/browse/ARROW-8928) - [C++] Measure microperformance associated with ExecBatchIterator
+* [ARROW-9226](https://issues.apache.org/jira/browse/ARROW-9226) - [Python] pyarrow.fs.HadoopFileSystem - retrieve options from core-site.xml or hdfs-site.xml if available
+* [ARROW-9434](https://issues.apache.org/jira/browse/ARROW-9434) - [C++] Store type\_code information in UnionScalar::value
+* [ARROW-9719](https://issues.apache.org/jira/browse/ARROW-9719) - [Doc][Python] Better document the new pa.fs.HadoopFileSystem
+* [ARROW-10094](https://issues.apache.org/jira/browse/ARROW-10094) - [Python][Doc] Update pandas doc
+* [ARROW-10415](https://issues.apache.org/jira/browse/ARROW-10415) - [R] Support for dplyr::distinct()
+* [ARROW-10898](https://issues.apache.org/jira/browse/ARROW-10898) - [C++] Investigate Table sort performance
+* [ARROW-11243](https://issues.apache.org/jira/browse/ARROW-11243) - [C++] Parse time32 from string and infer in CSV reader
+* [ARROW-11460](https://issues.apache.org/jira/browse/ARROW-11460) - [R] Use system libraries if present on Linux
+* [ARROW-11691](https://issues.apache.org/jira/browse/ARROW-11691) - [Developer][CI] Provide a consolidated .env file for benchmark-relevant environment variables
+* [ARROW-11748](https://issues.apache.org/jira/browse/ARROW-11748) - [C++] Ensure Decimal128 and Decimal256's fields are in native endian order
+* [ARROW-11828](https://issues.apache.org/jira/browse/ARROW-11828) - [C++] Expose CSVWriter object in api
+* [ARROW-11885](https://issues.apache.org/jira/browse/ARROW-11885) - [R] Turn off some capabilities when LIBARROW\_MINIMAL=true
+* [ARROW-11981](https://issues.apache.org/jira/browse/ARROW-11981) - [C++][Dataset][Compute] Replace UnionDataset with Union ExecNode
+* [ARROW-12063](https://issues.apache.org/jira/browse/ARROW-12063) - [C++] Add nulls position option to sort functions
+* [ARROW-12181](https://issues.apache.org/jira/browse/ARROW-12181) - [C++][R] The "CSV dataset" in test-dataset.R is failing on RTools 3.5
+* [ARROW-12216](https://issues.apache.org/jira/browse/ARROW-12216) - [R] Proactively disable multithreading on RTools3.5 (32bit?)
+* [ARROW-12359](https://issues.apache.org/jira/browse/ARROW-12359) - [C++] Deprecate or remove FileSystem::OpenAppendStream
+* [ARROW-12388](https://issues.apache.org/jira/browse/ARROW-12388) - [C++][Gandiva] Implement cast numbers from varbinary functions in gandiva
+* [ARROW-12410](https://issues.apache.org/jira/browse/ARROW-12410) - [C++][Gandiva] Implement regexp\_replace function on Gandiva
+* [ARROW-12479](https://issues.apache.org/jira/browse/ARROW-12479) - [C++][Gandiva] Implement castBigInt, castInt, castIntervalDay and castIntervalYear extra functions
+* [ARROW-12615](https://issues.apache.org/jira/browse/ARROW-12615) - [C++] Add options for handling NAs to stddev and variance
+* [ARROW-12650](https://issues.apache.org/jira/browse/ARROW-12650) - [Doc][Python] Improve documentation regarding dealing with memory mapped files
+* [ARROW-12657](https://issues.apache.org/jira/browse/ARROW-12657) - [C++][Python][Compute] String hex to numeric conversion and bit shifting
+* [ARROW-12669](https://issues.apache.org/jira/browse/ARROW-12669) - [C++] Kernel to return Array of elements at index of list in ListArray
+* [ARROW-12673](https://issues.apache.org/jira/browse/ARROW-12673) - [C++] Configure a custom handler for rows with incorrect column counts
+* [ARROW-12688](https://issues.apache.org/jira/browse/ARROW-12688) - [R] Use DuckDB to query an Arrow Dataset
+* [ARROW-12714](https://issues.apache.org/jira/browse/ARROW-12714) - [C++] String title case kernel
+* [ARROW-12725](https://issues.apache.org/jira/browse/ARROW-12725) - [C++][Compute] GroupBy: improve performance by encoding keys in row format only when they are inserted into hash table
+* [ARROW-12728](https://issues.apache.org/jira/browse/ARROW-12728) - [C++][Compute] Implement count\_distinct/distinct hash aggregate kernels 
+* [ARROW-12744](https://issues.apache.org/jira/browse/ARROW-12744) - [C++][Compute] Add rounding kernel
+* [ARROW-12759](https://issues.apache.org/jira/browse/ARROW-12759) - [C++][Compute] Wrap grouped aggregation in an ExecNode
+* [ARROW-12763](https://issues.apache.org/jira/browse/ARROW-12763) - [R] Optimize dplyr queries that use head/tail after arrange
+* [ARROW-12846](https://issues.apache.org/jira/browse/ARROW-12846) - [Release] Improve upload of binaries
+* [ARROW-12866](https://issues.apache.org/jira/browse/ARROW-12866) - [C++][Gandiva] Implement STRPOS function on Gandiva
+* [ARROW-12871](https://issues.apache.org/jira/browse/ARROW-12871) - [R] upgrade to testthat 3e
+* [ARROW-12876](https://issues.apache.org/jira/browse/ARROW-12876) - [R] Fix build flags on Raspberry Pi
+* [ARROW-12944](https://issues.apache.org/jira/browse/ARROW-12944) - [C++] String capitalize kernel
+* [ARROW-12946](https://issues.apache.org/jira/browse/ARROW-12946) - [C++] String swap case kernel
+* [ARROW-12953](https://issues.apache.org/jira/browse/ARROW-12953) - [C++][Compute] Refactor CheckScalar\* to take Datum arguments
+* [ARROW-12959](https://issues.apache.org/jira/browse/ARROW-12959) - [C++][R] Option for is\_null(NaN) to evaluate to true
+* [ARROW-12965](https://issues.apache.org/jira/browse/ARROW-12965) - [Java] Java implementation of Arrow C data interface
+* [ARROW-12980](https://issues.apache.org/jira/browse/ARROW-12980) - [C++] Kernels to extract datetime components should be timezone aware
+* [ARROW-12981](https://issues.apache.org/jira/browse/ARROW-12981) - [R] Install source package from CRAN alone
+* [ARROW-13033](https://issues.apache.org/jira/browse/ARROW-13033) - [C++] Kernel to localize naive timestamps to a timezone (preserving clock-time)
+* [ARROW-13056](https://issues.apache.org/jira/browse/ARROW-13056) - [Dev][MATLAB] Expand PR labeler for supported language
+* [ARROW-13067](https://issues.apache.org/jira/browse/ARROW-13067) - [C++][Compute] Implement integer to decimal cast
+* [ARROW-13089](https://issues.apache.org/jira/browse/ARROW-13089) - [Python] Allow creating RecordBatch from Python dict
+* [ARROW-13112](https://issues.apache.org/jira/browse/ARROW-13112) - [R] altrep vectors for strings and other types
+* [ARROW-13132](https://issues.apache.org/jira/browse/ARROW-13132) - [C++] Add Scalar validation
+* [ARROW-13138](https://issues.apache.org/jira/browse/ARROW-13138) - [C++] Implement kernel to extract datetime components (year, month, day, etc) from date type objects
+* [ARROW-13141](https://issues.apache.org/jira/browse/ARROW-13141) - [C++][Python] HadoopFileSystem: automatically set CLASSPATH based on HADOOP\_HOME env variable?
+* [ARROW-13163](https://issues.apache.org/jira/browse/ARROW-13163) - [C++][Gandiva] Implement REPEAT function on Gandiva
+* [ARROW-13164](https://issues.apache.org/jira/browse/ARROW-13164) - [R] altrep vectors from Array with nulls
+* [ARROW-13172](https://issues.apache.org/jira/browse/ARROW-13172) - [Java] Make TYPE\_WIDTH in Vector public
+* [ARROW-13174](https://issues.apache.org/jira/browse/ARROW-13174) - [C++][Compute] Add strftime kernel
+* [ARROW-13202](https://issues.apache.org/jira/browse/ARROW-13202) - [MATLAB] Enable GitHub Actions CI for MATLAB Interface on Linux
+* [ARROW-13218](https://issues.apache.org/jira/browse/ARROW-13218) - [Doc] Document/clarify conventions for timestamp storage
+* [ARROW-13220](https://issues.apache.org/jira/browse/ARROW-13220) - [C++] Add a 'choose' kernel/scalar compute function
+* [ARROW-13222](https://issues.apache.org/jira/browse/ARROW-13222) - [C++] Support variable-width types in case\_when function
+* [ARROW-13227](https://issues.apache.org/jira/browse/ARROW-13227) - [C++][Compute] Document ExecNode, ExecPlan
+* [ARROW-13257](https://issues.apache.org/jira/browse/ARROW-13257) - [Java][Dataset] Allow passing empty columns for projection
+* [ARROW-13260](https://issues.apache.org/jira/browse/ARROW-13260) - [Doc] Host different released versions of the documentation + version switcher
+* [ARROW-13268](https://issues.apache.org/jira/browse/ARROW-13268) - [C++][Compute] Add ExecNode for semi and anti-semi join
+* [ARROW-13279](https://issues.apache.org/jira/browse/ARROW-13279) - [R] Use C++ DayOfWeekOptions in wday implementation instead of manually calculating via Expression
+* [ARROW-13287](https://issues.apache.org/jira/browse/ARROW-13287) - [C++] [Dataset] FileSystemDataset::Write should use an async scan
+* [ARROW-13295](https://issues.apache.org/jira/browse/ARROW-13295) - [C++] Implement hash\_aggregate mean/stdev/variance kernels
+* [ARROW-13298](https://issues.apache.org/jira/browse/ARROW-13298) - [C++] Implement hash\_aggregate any/all Boolean kernels
+* [ARROW-13307](https://issues.apache.org/jira/browse/ARROW-13307) - [C++] Remove reflection-based enums (was: Use reflection-based enums for compute options)
+* [ARROW-13311](https://issues.apache.org/jira/browse/ARROW-13311) - [C++][Documentation] List hash aggregate kernels somewhere
+* [ARROW-13317](https://issues.apache.org/jira/browse/ARROW-13317) - [Python] Improve documentation on what 'use\_threads' does in 'read\_feather'
+* [ARROW-13326](https://issues.apache.org/jira/browse/ARROW-13326) - [R] [Archery] Add linting to dev CI
+* [ARROW-13327](https://issues.apache.org/jira/browse/ARROW-13327) - [Python] Improve consistency of explicit C++ types in PyArrow files
+* [ARROW-13330](https://issues.apache.org/jira/browse/ARROW-13330) - [Go][Parquet] Add Encoding Package Part 2
+* [ARROW-13344](https://issues.apache.org/jira/browse/ARROW-13344) - [R] Initial bindings for ExecPlan/ExecNode
+* [ARROW-13345](https://issues.apache.org/jira/browse/ARROW-13345) - [C++] Implement logN compute function
+* [ARROW-13358](https://issues.apache.org/jira/browse/ARROW-13358) - [C++] Extend type support for if\_else kernel
+* [ARROW-13379](https://issues.apache.org/jira/browse/ARROW-13379) - [Dev][Docs] Improvements to archery docs
+* [ARROW-13390](https://issues.apache.org/jira/browse/ARROW-13390) - [C++] Improve type support for 'coalesce' kernel
+* [ARROW-13397](https://issues.apache.org/jira/browse/ARROW-13397) - [R] Update arrow.Rmd vignette
+* [ARROW-13399](https://issues.apache.org/jira/browse/ARROW-13399) - [R] Update dataset.Rmd vignette
+* [ARROW-13402](https://issues.apache.org/jira/browse/ARROW-13402) - [R] Update flight.Rmd vignette
+* [ARROW-13403](https://issues.apache.org/jira/browse/ARROW-13403) - [R] Update developing.Rmd vignette
+* [ARROW-13404](https://issues.apache.org/jira/browse/ARROW-13404) - [Python] [Doc] Make Python landing page less coupled to the rest of arrow documentation
+* [ARROW-13405](https://issues.apache.org/jira/browse/ARROW-13405) - [Doc] Make "Libraries" the entry point for the documentation
+* [ARROW-13416](https://issues.apache.org/jira/browse/ARROW-13416) - [C++] Implement mod compute function
+* [ARROW-13420](https://issues.apache.org/jira/browse/ARROW-13420) - [JS] Update dependencies
+* [ARROW-13421](https://issues.apache.org/jira/browse/ARROW-13421) - [C++]  Add functionality for reading in columns as floats from delimited files where a comma has been used as a decimal separator
+* [ARROW-13433](https://issues.apache.org/jira/browse/ARROW-13433) - [R] Remove CLI hack from Valgrind test
+* [ARROW-13434](https://issues.apache.org/jira/browse/ARROW-13434) - [R] group\_by() with an unnammed expression
+* [ARROW-13435](https://issues.apache.org/jira/browse/ARROW-13435) - [R] Add function arrow\_table() as alias for Table$create()
+* [ARROW-13444](https://issues.apache.org/jira/browse/ARROW-13444) - [C++] C++20 compatibility by updating std::result\_of to std::invoke\_result
+* [ARROW-13448](https://issues.apache.org/jira/browse/ARROW-13448) - [R] Bindings for strftime
+* [ARROW-13453](https://issues.apache.org/jira/browse/ARROW-13453) - [R] DuckDB has not yet released 0.2.8
+* [ARROW-13455](https://issues.apache.org/jira/browse/ARROW-13455) - [C++][Docs] Typo in RecordBatch::SetColumn
+* [ARROW-13458](https://issues.apache.org/jira/browse/ARROW-13458) - [C++][Docs] Typo in RecordBatch::schema
+* [ARROW-13459](https://issues.apache.org/jira/browse/ARROW-13459) - [C++][Docs] Missing param docs for RecordBatch::SetColumn
+* [ARROW-13461](https://issues.apache.org/jira/browse/ARROW-13461) - [Python][Packaging] Build M1 wheels for python 3.8
+* [ARROW-13463](https://issues.apache.org/jira/browse/ARROW-13463) - [Release][Python] Verify python 3.8 macOS arm64 wheel
+* [ARROW-13465](https://issues.apache.org/jira/browse/ARROW-13465) - [R] to\_arrow() from duckdb
+* [ARROW-13466](https://issues.apache.org/jira/browse/ARROW-13466) - [R] make installation fail if Arrow C++ dependencies cannot be installed
+* [ARROW-13468](https://issues.apache.org/jira/browse/ARROW-13468) - [Release] Fix binary download/upload failures
+* [ARROW-13472](https://issues.apache.org/jira/browse/ARROW-13472) - [R] Remove .engine = "duckdb" argument
+* [ARROW-13475](https://issues.apache.org/jira/browse/ARROW-13475) - [Release] Don't consider rust tarballs when cleaning up old releases
+* [ARROW-13476](https://issues.apache.org/jira/browse/ARROW-13476) - [Doc][Python] Ensure that ipc/io documentation uses context managers instead of manually closing streams
+* [ARROW-13478](https://issues.apache.org/jira/browse/ARROW-13478) - [Release] Unnecessary rc-number argument for the version bumping post-release script
+* [ARROW-13480](https://issues.apache.org/jira/browse/ARROW-13480) - [C++] [R] [Python] Dataset SyncScanner may freeze on error
+* [ARROW-13482](https://issues.apache.org/jira/browse/ARROW-13482) - [C++][Compute] Provide a registry for ExecNode implementations
+* [ARROW-13485](https://issues.apache.org/jira/browse/ARROW-13485) - [Release] Replace ${PREVIOUS\_RELEASE}.9000 in r/NEWS.md by post-12-bump-versions.sh
+* [ARROW-13488](https://issues.apache.org/jira/browse/ARROW-13488) - [Website] Update Linux packages install information for 5.0.0
+* [ARROW-13489](https://issues.apache.org/jira/browse/ARROW-13489) - [R] Bump CI jobs after 5.0.0
+* [ARROW-13501](https://issues.apache.org/jira/browse/ARROW-13501) - [R] Bindings for count aggregation
+* [ARROW-13502](https://issues.apache.org/jira/browse/ARROW-13502) - [R] Bindings for min/max aggregation
+* [ARROW-13503](https://issues.apache.org/jira/browse/ARROW-13503) - [GLib][Ruby][Flight] Add support for DoGet
+* [ARROW-13506](https://issues.apache.org/jira/browse/ARROW-13506) - Upgrade ORC to 1.6.9
+* [ARROW-13508](https://issues.apache.org/jira/browse/ARROW-13508) - [C++] Allow custom RetryStrategy objects to be passed to S3FileSystem
+* [ARROW-13510](https://issues.apache.org/jira/browse/ARROW-13510) - [CI][R][C++] Add -Wall to fedora-clang-devel as-cran checks
+* [ARROW-13511](https://issues.apache.org/jira/browse/ARROW-13511) - [CI][R] Fail in the docker build step if R deps don't install
+* [ARROW-13516](https://issues.apache.org/jira/browse/ARROW-13516) - [C++] Mingw-w64 + Clang (lld) doesn't support --version-script
+* [ARROW-13519](https://issues.apache.org/jira/browse/ARROW-13519) - [R] Make doc examples less noisy
+* [ARROW-13520](https://issues.apache.org/jira/browse/ARROW-13520) - [C++] Implement hash\_aggregate approximate quantile kernel
+* [ARROW-13521](https://issues.apache.org/jira/browse/ARROW-13521) - [C++][Docs] Add note about tdigest in compute functions docs
+* [ARROW-13525](https://issues.apache.org/jira/browse/ARROW-13525) - [Python] Mention alternatives in deprecation message of ParquetDataset attributes
+* [ARROW-13528](https://issues.apache.org/jira/browse/ARROW-13528) - [R] Bindings for mean, var, sd aggregation
+* [ARROW-13532](https://issues.apache.org/jira/browse/ARROW-13532) - [C++][Compute] Join: add set membership test method to the grouper
+* [ARROW-13534](https://issues.apache.org/jira/browse/ARROW-13534) - [C++] Improve csv chunker
+* [ARROW-13540](https://issues.apache.org/jira/browse/ARROW-13540) - [C++][Compute] Add OrderByNode for ordering of rows in an ExecPlan
+* [ARROW-13541](https://issues.apache.org/jira/browse/ARROW-13541) - [C++][Python] Implement ExtensionScalar
+* [ARROW-13542](https://issues.apache.org/jira/browse/ARROW-13542) - [C++][Compute][Dataset] Add dataset::WriteNode for writing rows from an ExecPlan to disk
+* [ARROW-13544](https://issues.apache.org/jira/browse/ARROW-13544) - [Java] Remove APIs that have been deprecated for long
+* [ARROW-13544](https://issues.apache.org/jira/browse/ARROW-13544) - [Java] Remove APIs that have been deprecated for long
+* [ARROW-13544](https://issues.apache.org/jira/browse/ARROW-13544) - [Java] Remove APIs that have been deprecated for long
+* [ARROW-13548](https://issues.apache.org/jira/browse/ARROW-13548) - [C++] Implement datediff kernel
+* [ARROW-13549](https://issues.apache.org/jira/browse/ARROW-13549) - [C++] Implement timestamp to date/time cast that extracts value
+* [ARROW-13550](https://issues.apache.org/jira/browse/ARROW-13550) - [R] Support .groups argument to dplyr::summarize()
+* [ARROW-13552](https://issues.apache.org/jira/browse/ARROW-13552) - [C++] Remove deprecated APIs
+* [ARROW-13557](https://issues.apache.org/jira/browse/ARROW-13557) - [Packaging][Python] Skip test\_cancellation test case on M1
+* [ARROW-13561](https://issues.apache.org/jira/browse/ARROW-13561) - [C++] Implement week kernel that accepts WeekOptions
+* [ARROW-13562](https://issues.apache.org/jira/browse/ARROW-13562) - [R] Styler followups
+* [ARROW-13565](https://issues.apache.org/jira/browse/ARROW-13565) - [Packaging][Ubuntu] Drop support for 20.10
+* [ARROW-13572](https://issues.apache.org/jira/browse/ARROW-13572) - [C++][Python] Add basic ORC support to the pyarrow.datasets API
+* [ARROW-13573](https://issues.apache.org/jira/browse/ARROW-13573) - [C++] Support dictionaries directly in case\_when kernel
+* [ARROW-13574](https://issues.apache.org/jira/browse/ARROW-13574) - [C++] Add 'count all' option to count (hash) aggregate kernel
+* [ARROW-13575](https://issues.apache.org/jira/browse/ARROW-13575) - [C++] Implement product aggregate & hash aggregate kernels
+* [ARROW-13576](https://issues.apache.org/jira/browse/ARROW-13576) - [C++][Compute] Replace ExecNode::InputReceived with ::MakeTask
+* [ARROW-13577](https://issues.apache.org/jira/browse/ARROW-13577) - [Python][FlightRPC] pyarrow client do\_put close method after write\_table did not throw flight error
+* [ARROW-13585](https://issues.apache.org/jira/browse/ARROW-13585) - [GLib] Add support for C ABI interface
+* [ARROW-13587](https://issues.apache.org/jira/browse/ARROW-13587) - [R] Handle --use-LTO override
+* [ARROW-13595](https://issues.apache.org/jira/browse/ARROW-13595) - [C++] Add debug mode check for compute kernel output type
+* [ARROW-13604](https://issues.apache.org/jira/browse/ARROW-13604) - [Java] Remove deprecation annotations for APIs representing unsupported operations
+* [ARROW-13606](https://issues.apache.org/jira/browse/ARROW-13606) - [R] Actually disable LTO
+* [ARROW-13613](https://issues.apache.org/jira/browse/ARROW-13613) - [C++] Implement sum/mean aggregations over decimals
+* [ARROW-13614](https://issues.apache.org/jira/browse/ARROW-13614) - [C++] Implement min\_max aggregation over decimal
+* [ARROW-13618](https://issues.apache.org/jira/browse/ARROW-13618) - [R] Use Arrow engine for summarize() by default  
+* [ARROW-13620](https://issues.apache.org/jira/browse/ARROW-13620) - [R] Binding for n\_distinct()
+* [ARROW-13626](https://issues.apache.org/jira/browse/ARROW-13626) - [R] Bindings for log base b
+* [ARROW-13627](https://issues.apache.org/jira/browse/ARROW-13627) - [C++] ScalarAggregateOptions don't make sense (in hash aggregation)
+* [ARROW-13629](https://issues.apache.org/jira/browse/ARROW-13629) - [Ruby] Add support for building/converting map
+* [ARROW-13633](https://issues.apache.org/jira/browse/ARROW-13633) - [Packaging][Debian] Add support for bookworm
+* [ARROW-13634](https://issues.apache.org/jira/browse/ARROW-13634) - [R] Update distro() in nixlibs.R to map from "bookworm" to 12
+* [ARROW-13635](https://issues.apache.org/jira/browse/ARROW-13635) - [Packaging][Python] Define --with-lg-page for jemalloc in the arm manylinux builds
+* [ARROW-13637](https://issues.apache.org/jira/browse/ARROW-13637) - [Python][Doc] Make docstrings conform to same style
+* [ARROW-13642](https://issues.apache.org/jira/browse/ARROW-13642) - [C++][Compute] Implement many-to-many inner hash join
+* [ARROW-13645](https://issues.apache.org/jira/browse/ARROW-13645) - [Java] Allow NullVectors to have distinct field names
+* [ARROW-13646](https://issues.apache.org/jira/browse/ARROW-13646) - [Go][Parquet] Add Metadata Package
+* [ARROW-13648](https://issues.apache.org/jira/browse/ARROW-13648) - [Dev] Use \#!/usr/bin/env instead of \#!/bin where possible
+* [ARROW-13650](https://issues.apache.org/jira/browse/ARROW-13650) - [C++] Create dataset writer to encapsulate dataset writer logic
+* [ARROW-13651](https://issues.apache.org/jira/browse/ARROW-13651) - [Ruby] Add support for converting [Symbol] to Arrow array
+* [ARROW-13652](https://issues.apache.org/jira/browse/ARROW-13652) - [Python] Expose the CopyFiles utility in Python
+* [ARROW-13660](https://issues.apache.org/jira/browse/ARROW-13660) - [C++][Compute] Remove \`seq\` as a parameter of ExecNode::InputReceived
+* [ARROW-13670](https://issues.apache.org/jira/browse/ARROW-13670) - [C++] Do a round of compiler warning cleanups
+* [ARROW-13674](https://issues.apache.org/jira/browse/ARROW-13674) - [Dev][CI] PR checks workflow should check for JIRA components
+* [ARROW-13675](https://issues.apache.org/jira/browse/ARROW-13675) - [Doc][Python] Add a recipe on how to save partitioned datasets to the Cookbook
+* [ARROW-13679](https://issues.apache.org/jira/browse/ARROW-13679) - [GLib][Ruby] Add support for group aggregation
+* [ARROW-13680](https://issues.apache.org/jira/browse/ARROW-13680) - [C++] Create an asynchronous nursery to simplify capture logic
+* [ARROW-13682](https://issues.apache.org/jira/browse/ARROW-13682) - [C++] Add TDigest::Merge(const TDigest&)
+* [ARROW-13684](https://issues.apache.org/jira/browse/ARROW-13684) - [C++][Compute] Strftime kernel follow-up
+* [ARROW-13686](https://issues.apache.org/jira/browse/ARROW-13686) - [Python] Update deprecated pytest yield\_fixture functions
+* [ARROW-13687](https://issues.apache.org/jira/browse/ARROW-13687) - [Ruby] Add support for loading table by Arrow Dataset
+* [ARROW-13691](https://issues.apache.org/jira/browse/ARROW-13691) - [C++] Add option to handle NAs to VarianceOptions
+* [ARROW-13693](https://issues.apache.org/jira/browse/ARROW-13693) - [Website] arrow-site should pin down a specific Ruby version and leverage toolings like rbenv
+* [ARROW-13696](https://issues.apache.org/jira/browse/ARROW-13696) - [Python] Support for MapType with Fields
+* [ARROW-13699](https://issues.apache.org/jira/browse/ARROW-13699) - [Python][Doc] Refactor the FileSystem Interface documentation
+* [ARROW-13700](https://issues.apache.org/jira/browse/ARROW-13700) - [Docs][C++] Clarify DayOfWeekOptions args
+* [ARROW-13702](https://issues.apache.org/jira/browse/ARROW-13702) - [Python] test\_parquet\_dataset\_deprecated\_properties missing a dataset mark
+* [ARROW-13704](https://issues.apache.org/jira/browse/ARROW-13704) - [C\#] Add support for reading streaming format delta dictionaries
+* [ARROW-13705](https://issues.apache.org/jira/browse/ARROW-13705) - [Website] Pin node version
+* [ARROW-13721](https://issues.apache.org/jira/browse/ARROW-13721) - [Doc][Cookbook] Specifying Schemas - Python
+* [ARROW-13733](https://issues.apache.org/jira/browse/ARROW-13733) - [Java] Allow JDBC adapters to reuse vector schema roots
+* [ARROW-13734](https://issues.apache.org/jira/browse/ARROW-13734) - [Format] Clarify allowed values for time types
+* [ARROW-13736](https://issues.apache.org/jira/browse/ARROW-13736) - [C++] Reconcile PrettyPrint and StringFormatter
+* [ARROW-13737](https://issues.apache.org/jira/browse/ARROW-13737) - [C++] Support scalar columns in hash aggregations (was: hash\_sum on scalar column segfaults)
+* [ARROW-13739](https://issues.apache.org/jira/browse/ARROW-13739) - [R] Support dplyr::count() and tally()
+* [ARROW-13740](https://issues.apache.org/jira/browse/ARROW-13740) - [R] summarize() should not eagerly evaluate
+* [ARROW-13757](https://issues.apache.org/jira/browse/ARROW-13757) - [R] Fix download of C++ source for CRAN patch releases
+* [ARROW-13759](https://issues.apache.org/jira/browse/ARROW-13759) - [C++] Update linting and formatting scripts to specify python3 in shebang line
+* [ARROW-13760](https://issues.apache.org/jira/browse/ARROW-13760) - [C++] Bump Protobuf version to 3.15 when Flight is enabled
+* [ARROW-13764](https://issues.apache.org/jira/browse/ARROW-13764) - [C++] Implement ScalarAggregateOptions for count\_distinct (grouped) 
+* [ARROW-13768](https://issues.apache.org/jira/browse/ARROW-13768) - [R] Allow JSON to be an optional component
+* [ARROW-13772](https://issues.apache.org/jira/browse/ARROW-13772) - [R] Binding for median() and quantile() aggregation functions
+* [ARROW-13776](https://issues.apache.org/jira/browse/ARROW-13776) - [C++] Offline thirdparty versions.txt is missing extensions for some files
+* [ARROW-13777](https://issues.apache.org/jira/browse/ARROW-13777) - [R] mutate after group\_by should be ok as long as there are only scalar functions
+* [ARROW-13778](https://issues.apache.org/jira/browse/ARROW-13778) - [R] Handle complex summarize expressions
+* [ARROW-13782](https://issues.apache.org/jira/browse/ARROW-13782) - [C++] Add option to handle NAs to TDigest, Index, Mode, Quantile aggregates
+* [ARROW-13783](https://issues.apache.org/jira/browse/ARROW-13783) - [Python] Improve Table.to\_string (and maybe \_\_repr\_\_) to also preview data of the table
+* [ARROW-13785](https://issues.apache.org/jira/browse/ARROW-13785) - [C++] Print methods for ExecPlan and ExecNode
+* [ARROW-13787](https://issues.apache.org/jira/browse/ARROW-13787) - [C++] Verify third-party downloads
+* [ARROW-13789](https://issues.apache.org/jira/browse/ARROW-13789) - [Go] Implement Arrow Scalar Values for Go
+* [ARROW-13793](https://issues.apache.org/jira/browse/ARROW-13793) - [C++] Migrate ORCFileReader to Result<T\>
+* [ARROW-13794](https://issues.apache.org/jira/browse/ARROW-13794) - [C++] Deprecate Parquet pseudo-version "2.0"
+* [ARROW-13797](https://issues.apache.org/jira/browse/ARROW-13797) - [C++] Implement column projection pushdown to ORC reader in Datasets API
+* [ARROW-13803](https://issues.apache.org/jira/browse/ARROW-13803) - [C++] Segfault on filtering taxi dataset
+* [ARROW-13804](https://issues.apache.org/jira/browse/ARROW-13804) - [Go] Add Support for Interval Type Month, Day, Nano
+* [ARROW-13806](https://issues.apache.org/jira/browse/ARROW-13806) - [Python] Add conversion to/from Pandas/Python for Month, Day Nano Interval Type
+* [ARROW-13809](https://issues.apache.org/jira/browse/ARROW-13809) - [C ABI] Add support for Month, Day, Nanosecond interval type to C-ABI
+* [ARROW-13810](https://issues.apache.org/jira/browse/ARROW-13810) - [C++][Compute] Predicate IsAsciiCharacter allows invalid types and values
+* [ARROW-13815](https://issues.apache.org/jira/browse/ARROW-13815) - [R] Adapt to new callstack changes in rlang
+* [ARROW-13816](https://issues.apache.org/jira/browse/ARROW-13816) - [Go] Implement Consumer APIs for C Data Interface
+* [ARROW-13820](https://issues.apache.org/jira/browse/ARROW-13820) - [R] Rename na.min\_count to min\_count and na.rm to skip\_nulls
+* [ARROW-13821](https://issues.apache.org/jira/browse/ARROW-13821) - [R] Handle na.rm in sd, var bindings
+* [ARROW-13823](https://issues.apache.org/jira/browse/ARROW-13823) - Exclude .factorypath from git and RAT plugin
+* [ARROW-13824](https://issues.apache.org/jira/browse/ARROW-13824) - [C++][Compute] Make constexpr BooleanToNumber kernel
+* [ARROW-13831](https://issues.apache.org/jira/browse/ARROW-13831) - [GLib][Ruby] Add support for writing by Arrow Dataset
+* [ARROW-13835](https://issues.apache.org/jira/browse/ARROW-13835) - [Python] Document utility to unify schemas
+* [ARROW-13842](https://issues.apache.org/jira/browse/ARROW-13842) - [C++] Bump vendored date library version
+* [ARROW-13843](https://issues.apache.org/jira/browse/ARROW-13843) - [C++][CI] Exercise ToString / PrettyPrint in fuzzing setup
+* [ARROW-13845](https://issues.apache.org/jira/browse/ARROW-13845) - [C++] Reconcile RandomArrayGenerator::ArrayOf variants
+* [ARROW-13847](https://issues.apache.org/jira/browse/ARROW-13847) - Avoid unnecessary copies of collection
+* [ARROW-13849](https://issues.apache.org/jira/browse/ARROW-13849) - [C++] Add min and max aggregation functions
+* [ARROW-13852](https://issues.apache.org/jira/browse/ARROW-13852) - [R] Handle Dataset schema metadata in ExecPlan
+* [ARROW-13853](https://issues.apache.org/jira/browse/ARROW-13853) - [R] String to\_title, to\_lower, to\_upper kernels
+* [ARROW-13855](https://issues.apache.org/jira/browse/ARROW-13855) - [C++] [Python] Add support for exporting extension types
+* [ARROW-13857](https://issues.apache.org/jira/browse/ARROW-13857) - [R][CI] Remove checkbashisms download
+* [ARROW-13859](https://issues.apache.org/jira/browse/ARROW-13859) - [Java] Add code coverage support
+* [ARROW-13866](https://issues.apache.org/jira/browse/ARROW-13866) - [R] Implement Options for all compute kernels available via list\_compute\_functions
+* [ARROW-13869](https://issues.apache.org/jira/browse/ARROW-13869) - [R] Implement options for non-bound MatchSubstringOptions kernels
+* [ARROW-13871](https://issues.apache.org/jira/browse/ARROW-13871) - [C++] JSON reader can fail if a list array key is present in one chunk but not in a later chunk
+* [ARROW-13874](https://issues.apache.org/jira/browse/ARROW-13874) - [R] Implement TrimOptions
+* [ARROW-13883](https://issues.apache.org/jira/browse/ARROW-13883) - [Python] Allow more than numpy.array as masks when creating arrays 
+* [ARROW-13890](https://issues.apache.org/jira/browse/ARROW-13890) - [R] Split up test-dataset.R and test-dplyr.R
+* [ARROW-13893](https://issues.apache.org/jira/browse/ARROW-13893) - [R] Make head/tail lazy on datasets and queries
+* [ARROW-13897](https://issues.apache.org/jira/browse/ARROW-13897) - [Python] TimestampScalar.as\_py() and DurationScalar.as\_py() docs inaccurately describe return types
+* [ARROW-13898](https://issues.apache.org/jira/browse/ARROW-13898) - [C++][Compute] Add support for string binary transforms
+* [ARROW-13899](https://issues.apache.org/jira/browse/ARROW-13899) - [Ruby] Implement slicer by compute kernels
+* [ARROW-13901](https://issues.apache.org/jira/browse/ARROW-13901) - [R] Implement IndexOptions
+* [ARROW-13904](https://issues.apache.org/jira/browse/ARROW-13904) - [R] Implement ModeOptions
+* [ARROW-13905](https://issues.apache.org/jira/browse/ARROW-13905) - [R] Implement ReplaceSliceOptions
+* [ARROW-13906](https://issues.apache.org/jira/browse/ARROW-13906) - [R] Implement PartitionNthOptions
+* [ARROW-13908](https://issues.apache.org/jira/browse/ARROW-13908) - [R] Implement ExtractRegexOptions
+* [ARROW-13909](https://issues.apache.org/jira/browse/ARROW-13909) - [GLib] Add GArrowVarianceOptions
+* [ARROW-13909](https://issues.apache.org/jira/browse/ARROW-13909) - [GLib] Add GArrowVarianceOptions
+* [ARROW-13910](https://issues.apache.org/jira/browse/ARROW-13910) - [Ruby] Arrow::Table\#[]/Arrow::RecordBatch\#[] accepts Range and selectors
+* [ARROW-13919](https://issues.apache.org/jira/browse/ARROW-13919) - [GLib] Add GArrowFunctionDoc
+* [ARROW-13924](https://issues.apache.org/jira/browse/ARROW-13924) - [R] Bindings for stringr::str\_starts, stringr::str\_ends, base::startsWith and base::endsWith
+* [ARROW-13925](https://issues.apache.org/jira/browse/ARROW-13925) - [R] Remove system installation devdocs jobs
+* [ARROW-13927](https://issues.apache.org/jira/browse/ARROW-13927) - [R] Add Karl to the contributors list for the pacakge
+* [ARROW-13928](https://issues.apache.org/jira/browse/ARROW-13928) - [R] Rename the version(s) tasks so that it's clearer which is which
+* [ARROW-13937](https://issues.apache.org/jira/browse/ARROW-13937) - [C++][Compute] Add explicit output values to sign function and fix unary type checks
+* [ARROW-13942](https://issues.apache.org/jira/browse/ARROW-13942) - [Dev] cmake\_format autotune doesn't work
+* [ARROW-13944](https://issues.apache.org/jira/browse/ARROW-13944) - [C++] Bump xsimd to latest version
+* [ARROW-13958](https://issues.apache.org/jira/browse/ARROW-13958) - [Python] Migrate Python ORC bindings to use new Result-based APIs
+* [ARROW-13959](https://issues.apache.org/jira/browse/ARROW-13959) - [R] Update tests for extracting components from date32 objects 
+* [ARROW-13962](https://issues.apache.org/jira/browse/ARROW-13962) - [R] Catch up on the NEWS
+* [ARROW-13963](https://issues.apache.org/jira/browse/ARROW-13963) - [Go] Shift Bitmap Reader/Writer implementations from Parquet to Arrow bituil package
+* [ARROW-13964](https://issues.apache.org/jira/browse/ARROW-13964) - [Go] Remove Parquet bitmap reader/writer implementations and use the shared arrow bitutils versions
+* [ARROW-13965](https://issues.apache.org/jira/browse/ARROW-13965) - [C++] dynamic\_casts in parquet TypedColumnWriterImpl impacting performance
+* [ARROW-13966](https://issues.apache.org/jira/browse/ARROW-13966) - [C++] Comparison kernel(s) for decimals
+* [ARROW-13967](https://issues.apache.org/jira/browse/ARROW-13967) - [Go] Implement Concatenate function for Arrays
+* [ARROW-13973](https://issues.apache.org/jira/browse/ARROW-13973) - [C++] Add a SelectKSinkNode
+* [ARROW-13974](https://issues.apache.org/jira/browse/ARROW-13974) - [C++] Resolve follow-up reviews for TopK/BottomK
+* [ARROW-13975](https://issues.apache.org/jira/browse/ARROW-13975) - [C++][Compute] Add decimal support to round functions
+* [ARROW-13977](https://issues.apache.org/jira/browse/ARROW-13977) - [Format] Clarify leap seconds and leap days for interval type
+* [ARROW-13979](https://issues.apache.org/jira/browse/ARROW-13979) - [Go] Enable -race argument for Go tests
+* [ARROW-13990](https://issues.apache.org/jira/browse/ARROW-13990) - [R] Bindings for round kernels
+* [ARROW-13994](https://issues.apache.org/jira/browse/ARROW-13994) - [Doc][C++] Build document misses git submodule update
+* [ARROW-13995](https://issues.apache.org/jira/browse/ARROW-13995) - [R] Bindings for join node
+* [ARROW-13999](https://issues.apache.org/jira/browse/ARROW-13999) - [C++][CI] Make must be installed to build LZ4 on MinGW
+* [ARROW-14002](https://issues.apache.org/jira/browse/ARROW-14002) - [Python] unify\_schema should accept tuples too
+* [ARROW-14003](https://issues.apache.org/jira/browse/ARROW-14003) - [C++][Python] Not providing a sort\_key in the "select\_k\_unstable" kernel crashes
+* [ARROW-14005](https://issues.apache.org/jira/browse/ARROW-14005) - [R] Fix tests for PartitionNthOptions so that can run on various platforms
+* [ARROW-14006](https://issues.apache.org/jira/browse/ARROW-14006) - [C++][Python] Support cast of naive timestamps to strings
+* [ARROW-14007](https://issues.apache.org/jira/browse/ARROW-14007) - [C++] Fix compiler warnings in decimal promotion machinery
+* [ARROW-14008](https://issues.apache.org/jira/browse/ARROW-14008) - [R][Compute] ExecPlan\_run should return RecordBatchReader instead of Table
+* [ARROW-14009](https://issues.apache.org/jira/browse/ARROW-14009) - [C++] Ensure SourceNode truly feeds batches to plan in parallel
+* [ARROW-14012](https://issues.apache.org/jira/browse/ARROW-14012) - [Python] Update kernel categories in compute doc to match C++
+* [ARROW-14013](https://issues.apache.org/jira/browse/ARROW-14013) - [C++][Docs] Instructions on installing on Fedora Linux
+* [ARROW-14016](https://issues.apache.org/jira/browse/ARROW-14016) - [C++] Wrong type\_name used for directory partitioning
+* [ARROW-14019](https://issues.apache.org/jira/browse/ARROW-14019) - [R] expect\_dplyr\_equal() test helper function ignores grouping
+* [ARROW-14023](https://issues.apache.org/jira/browse/ARROW-14023) - [Ruby] Arrow::Table\#slice accepts Hash
+* [ARROW-14025](https://issues.apache.org/jira/browse/ARROW-14025) - [R][C++] PreBuffer is not enabled when scanning parquet via exec nodes
+* [ARROW-14030](https://issues.apache.org/jira/browse/ARROW-14030) - [GLib] Use arrow::Result based ORC API
+* [ARROW-14031](https://issues.apache.org/jira/browse/ARROW-14031) - [Ruby] Use min and max separately
+* [ARROW-14033](https://issues.apache.org/jira/browse/ARROW-14033) - [Ruby][Doc] Add macOS development guide for Red Arrow
+* [ARROW-14033](https://issues.apache.org/jira/browse/ARROW-14033) - [Ruby][Doc] Add macOS development guide for Red Arrow
+* [ARROW-14035](https://issues.apache.org/jira/browse/ARROW-14035) - [C++][Compute] Implement non-hash count\_distinct aggregate kernel
+* [ARROW-14036](https://issues.apache.org/jira/browse/ARROW-14036) - [R] Binding for n\_distinct() with no grouping
+* [ARROW-14043](https://issues.apache.org/jira/browse/ARROW-14043) - [Python] Add support for unsigned indexes in dictionary array?
+* [ARROW-14044](https://issues.apache.org/jira/browse/ARROW-14044) - [R] Handle group\_by .drop parameter in summarize
+* [ARROW-14049](https://issues.apache.org/jira/browse/ARROW-14049) - [C++][Java] Upgrade ORC to 1.7.0
+* [ARROW-14050](https://issues.apache.org/jira/browse/ARROW-14050) - [C++] tdigest, quantile return empty arrays when nulls not skipped
+* [ARROW-14052](https://issues.apache.org/jira/browse/ARROW-14052) - [C++] Add appx\_median, hash\_appx\_median functions
+* [ARROW-14054](https://issues.apache.org/jira/browse/ARROW-14054) - [C++][Docs] Improve clarity of row\_conversion\_example.cpp
+* [ARROW-14055](https://issues.apache.org/jira/browse/ARROW-14055) - [Docs] Add canonical url to the docs 
+* [ARROW-14056](https://issues.apache.org/jira/browse/ARROW-14056) - [C++][Doc] Mention ArrayData
+* [ARROW-14061](https://issues.apache.org/jira/browse/ARROW-14061) - [Go] Add Cgo Arrow Memory Pool Allocator
+* [ARROW-14062](https://issues.apache.org/jira/browse/ARROW-14062) - [Format] Initial arrow-internal specification of compute IR
+* [ARROW-14064](https://issues.apache.org/jira/browse/ARROW-14064) - [CI] Use Debian 11
+* [ARROW-14069](https://issues.apache.org/jira/browse/ARROW-14069) - [R] By default, filter out hash functions in list\_compute\_functions()
+* [ARROW-14070](https://issues.apache.org/jira/browse/ARROW-14070) - [C++][CI] Remove support for VisualStudio 2015
+* [ARROW-14072](https://issues.apache.org/jira/browse/ARROW-14072) - [GLib][Parquet] Add support for getting number of rows through metadata
+* [ARROW-14073](https://issues.apache.org/jira/browse/ARROW-14073) - [C++] De-duplicate sort keys
+* [ARROW-14084](https://issues.apache.org/jira/browse/ARROW-14084) - [GLib][Ruby][Dataset] Add support for scanning from directory
+* [ARROW-14088](https://issues.apache.org/jira/browse/ARROW-14088) - [GLib][Ruby][Dataset] Add support for filter
+* [ARROW-14106](https://issues.apache.org/jira/browse/ARROW-14106) - [Go][C] Implement Exporting the C data interface
+* [ARROW-14107](https://issues.apache.org/jira/browse/ARROW-14107) - [R][CI] Parallelize Windows CI jobs
+* [ARROW-14111](https://issues.apache.org/jira/browse/ARROW-14111) - [C++] Add extraction function support for time32/time64
+* [ARROW-14116](https://issues.apache.org/jira/browse/ARROW-14116) - [C++][Docs] Consistent variable names in WriteCSV example
+* [ARROW-14127](https://issues.apache.org/jira/browse/ARROW-14127) - [C++][Docs] Example of using compute function and output
+* [ARROW-14128](https://issues.apache.org/jira/browse/ARROW-14128) - [Go] Implement MakeArrayFromScalar for nested types
+* [ARROW-14132](https://issues.apache.org/jira/browse/ARROW-14132) - [C++] Test mixed quoting and escaping in CSV chunker test
+* [ARROW-14135](https://issues.apache.org/jira/browse/ARROW-14135) - [Python] Missing Python tests for compute kernels
+* [ARROW-14140](https://issues.apache.org/jira/browse/ARROW-14140) - [R] skip arrow\_binary/arrow\_large\_binary class from R metadata
+* [ARROW-14143](https://issues.apache.org/jira/browse/ARROW-14143) - [IR] [C++] Add explicit cast node to IR
+* [ARROW-14146](https://issues.apache.org/jira/browse/ARROW-14146) - [Dev] Update merge script to specify python3 in shebang line
+* [ARROW-14150](https://issues.apache.org/jira/browse/ARROW-14150) - [C++] Skip delimiter checking in CSV chunker if quoting is false
+* [ARROW-14155](https://issues.apache.org/jira/browse/ARROW-14155) - [Go] Add functions for creating fingerprints/hashes of data types and scalars
+* [ARROW-14157](https://issues.apache.org/jira/browse/ARROW-14157) - [C++] Refactor Abseil build in ThirdpartyToolchain
+* [ARROW-14165](https://issues.apache.org/jira/browse/ARROW-14165) - [C++] Improve table sort performance \#2
+* [ARROW-14178](https://issues.apache.org/jira/browse/ARROW-14178) - [C++] Boost download location has moved
+* [ARROW-14180](https://issues.apache.org/jira/browse/ARROW-14180) - [Packaging] Add support for AlmaLinux 8
+* [ARROW-14189](https://issues.apache.org/jira/browse/ARROW-14189) - [Docs] Add version dropdown to the sphinx docs
+* [ARROW-14191](https://issues.apache.org/jira/browse/ARROW-14191) - [C++][Dataset] Dataset writes should respect backpressure
+* [ARROW-14194](https://issues.apache.org/jira/browse/ARROW-14194) - [Docs] Improve vertical spacing in the sphinx API docs
+* [ARROW-14198](https://issues.apache.org/jira/browse/ARROW-14198) - [Java] Upgrade Netty and gRPC dependencies
+* [ARROW-14207](https://issues.apache.org/jira/browse/ARROW-14207) - [C++] Add missing dependencies for bundled Boost targets
+* [ARROW-14212](https://issues.apache.org/jira/browse/ARROW-14212) - [GLib][Ruby] Add GArrowTableConcatenateOptions
+* [ARROW-14217](https://issues.apache.org/jira/browse/ARROW-14217) - [Python][CI] Add support for python 3.10 
+* [ARROW-14222](https://issues.apache.org/jira/browse/ARROW-14222) - [C++] Create GcsFileSystem skeleton
+* [ARROW-14228](https://issues.apache.org/jira/browse/ARROW-14228) - [R] Allow for creation of nullable fields
+* [ARROW-14230](https://issues.apache.org/jira/browse/ARROW-14230) - [C++] Deprecate ArrayBuilder::Advance
+* [ARROW-14232](https://issues.apache.org/jira/browse/ARROW-14232) - [C++] Update crc32c dependency to 1.1.2
+* [ARROW-14235](https://issues.apache.org/jira/browse/ARROW-14235) - [C++][Compute] Use a node counter as the label if no label is supplied
+* [ARROW-14236](https://issues.apache.org/jira/browse/ARROW-14236) - [C++] Install GCS testbench for CI builds
+* [ARROW-14239](https://issues.apache.org/jira/browse/ARROW-14239) - [R] Don't use rlang::as\_label
+* [ARROW-14241](https://issues.apache.org/jira/browse/ARROW-14241) - [C++] Dataset ORC build failing in java-jars nightly build
+* [ARROW-14243](https://issues.apache.org/jira/browse/ARROW-14243) - [C++] Split up vector\_sort.cc
+* [ARROW-14244](https://issues.apache.org/jira/browse/ARROW-14244) - [C++] Investigate scalar\_temporal.cc compilation speed
+* [ARROW-14258](https://issues.apache.org/jira/browse/ARROW-14258) - [R] Warn if an SF column is made into a table
+* [ARROW-14259](https://issues.apache.org/jira/browse/ARROW-14259) - [R] converting from R vector to Array when the R vector is altrep
+* [ARROW-14261](https://issues.apache.org/jira/browse/ARROW-14261) - [C++] Includes should be in alphabetical order
+* [ARROW-14269](https://issues.apache.org/jira/browse/ARROW-14269) - [C++] Consolidate utf8 benchmark
+* [ARROW-14274](https://issues.apache.org/jira/browse/ARROW-14274) - [C++] Upgrade vendored base64 code
+* [ARROW-14284](https://issues.apache.org/jira/browse/ARROW-14284) - [C++][Python] Improve error message when trying use SyncScanner when requiring async
+* [ARROW-14291](https://issues.apache.org/jira/browse/ARROW-14291) - [CI][C++] Add cpp/examples/ files to lint targets
+* [ARROW-14295](https://issues.apache.org/jira/browse/ARROW-14295) - [Doc] Indicate location of archery
+* [ARROW-14296](https://issues.apache.org/jira/browse/ARROW-14296) - [Go] Update flatbuf generated code
+* [ARROW-14304](https://issues.apache.org/jira/browse/ARROW-14304) - [R] Update news for 6.0.0
+* [ARROW-14309](https://issues.apache.org/jira/browse/ARROW-14309) - [Python] CompressedInputStream doesn't support str or file objects
+* [ARROW-14317](https://issues.apache.org/jira/browse/ARROW-14317) - [Doc] Update implementation status
+* [ARROW-14326](https://issues.apache.org/jira/browse/ARROW-14326) - [Docs] Add C/GLib and Ruby to C Data/Stream interface supported libraries
+* [ARROW-14327](https://issues.apache.org/jira/browse/ARROW-14327) - [Release] Remove conda-\* from packaging group
+* [ARROW-14335](https://issues.apache.org/jira/browse/ARROW-14335) - [GLib][Ruby] Add support for expression
+* [ARROW-14337](https://issues.apache.org/jira/browse/ARROW-14337) - [C++] Arrow doesn't build on M1 when SIMD acceleration is enabled
+* [ARROW-14341](https://issues.apache.org/jira/browse/ARROW-14341) - [C++] Refine decimal benchmark
+* [ARROW-14343](https://issues.apache.org/jira/browse/ARROW-14343) - [Packaging][Python] Enable NEON SIMD optimization for M1 wheels
+* [ARROW-14348](https://issues.apache.org/jira/browse/ARROW-14348) - [R] add group\_vars.RecordBatchReader method
+* [ARROW-14358](https://issues.apache.org/jira/browse/ARROW-14358) - Update CMake options in documentation
+* [ARROW-14361](https://issues.apache.org/jira/browse/ARROW-14361) - [C++] Define a DEFAULT value for ARROW\_SIMD\_LEVEL
+* [ARROW-14364](https://issues.apache.org/jira/browse/ARROW-14364) - [CI][C++] Support LLVM 13
+* [ARROW-14368](https://issues.apache.org/jira/browse/ARROW-14368) - [CI] ubuntu-16.04 isn't available on Azure Pipelines
+* [ARROW-14369](https://issues.apache.org/jira/browse/ARROW-14369) - [C++][Python] Failed to build with g++ 4.8.5
+* [ARROW-14386](https://issues.apache.org/jira/browse/ARROW-14386) - [Packaging][Java] devtoolset is upgraded to 10 in the manylinux2014 image
+* [ARROW-14387](https://issues.apache.org/jira/browse/ARROW-14387) - [Release][Ruby] Check Homebrew/MSYS2 package version before releasing
+* [PARQUET-490](https://issues.apache.org/jira/browse/PARQUET-490) - [C++] Incorporate DELTA\_BINARY\_PACKED value encoder into library and add unit tests
+
+
+
 # Apache Arrow 3.0.0 (2021-01-18)
 
 ## New Features and Improvements
