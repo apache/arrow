@@ -301,4 +301,16 @@ func TestFieldRefRecord(t *testing.T) {
 	arrs, err = compute.FieldRefName("delta").GetAllColumns(rec)
 	assert.NoError(t, err)
 	assert.Len(t, arrs, 0)
+
+	arr, err = compute.FieldRefName("delta").GetOneColumnOrNone(rec)
+	assert.NoError(t, err)
+	assert.Nil(t, arr)
+
+	arr, err = compute.FieldRefName("alpha").GetOneColumnOrNone(rec)
+	assert.ErrorIs(t, err, compute.ErrMultipleMatches)
+	assert.Nil(t, arr)
+
+	arr, err = compute.FieldRefList("alpha", "beta").GetOneColumnOrNone(rec)
+	assert.NoError(t, err)
+	assert.Same(t, gamma.Field(1), arr)
 }
