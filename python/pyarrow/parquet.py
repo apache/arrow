@@ -687,42 +687,49 @@ writer_engine_version : unused
         # return false since we want to propagate exceptions
         return False
 
-    def write(self, table_or_batch):
+    def write(self, table_or_batch, row_group_size=None):
         """
-        Write RecordBatch or Table to stream.
+        Write RecordBatch or Table to the Parquet file.
 
         Parameters
         ----------
         table_or_batch : {RecordBatch, Table}
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the same size as the input
+            table or batch.
         """
         if isinstance(table_or_batch, pa.RecordBatch):
-            self.write_batch(table_or_batch)
+            self.write_batch(table_or_batch, row_group_size)
         elif isinstance(table_or_batch, pa.Table):
-            self.write_table(table_or_batch)
+            self.write_table(table_or_batch, row_group_size)
         else:
-            raise ValueError(type(table_or_batch))
+            raise TypeError(type(table_or_batch))
 
-    def write_batch(self, batch):
+    def write_batch(self, batch, row_group_size=None):
         """
-        Write RecordBatch to stream.
+        Write RecordBatch to the Parquet file.
 
         Parameters
         ----------
         batch : RecordBatch
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the same size as the RecordBatch.
         """
         table = pa.Table.from_batches([batch], batch.schema)
-        self.write_table(table)
+        self.write_table(table, row_group_size)
 
     def write_table(self, table, row_group_size=None):
         """
-        Write Table to stream in (contiguous) RecordBatch objects.
+        Write Table to the Parquet file.
 
         Parameters
         ----------
         table : Table
-        max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the same size as the Table.
         """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
