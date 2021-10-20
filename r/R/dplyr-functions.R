@@ -650,23 +650,12 @@ nse_funcs$str_count <- function(string, pattern) {
   if (!is.string(pattern)) {
     arrow_not_supported("`pattern` must be a length 1 character vector; other values")
   }
-  if (opts$fixed) {
-    return(
-      Expression$create(
-        "count_substring",
-        string,
-        options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
-      )
-    )
-  } else {
-    return(
-      Expression$create(
-        "count_substring_regex",
-        string,
-        options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
-      )
-    )
-  }
+  arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
+  Expression$create(
+    arrow_fun,
+    string,
+    options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+  )
 }
 
 # String function helpers
