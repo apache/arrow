@@ -334,6 +334,7 @@ services:
     command: *cpp-command
 
   ubuntu-cpp-bundled:
+    # Arrow build with BUNDLED dependencies
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
     build:
       context: .
