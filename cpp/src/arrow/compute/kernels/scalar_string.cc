@@ -2836,6 +2836,29 @@ void AddSplit(FunctionRegistry* registry) {
 #endif
 }
 
+/// An ScalarFunction that promotes integer arguments to Int64.
+struct ScalarCTypeToInt64Function : public ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
+
+    for (auto& descr : *values) {
+      if (is_integer(descr.type->id())) {
+        descr.type = int64();
+      }
+    }
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
 template <typename Type1, typename Type2>
 struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
@@ -2843,7 +2866,7 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
 
   int64_t MaxCodeunits(const int64_t input1_ncodeunits,
                        const int64_t num_repeats) override {
-    return std::max(input1_ncodeunits * num_repeats, (int64_t)0);
+    return input1_ncodeunits * num_repeats;
   }
 
   int64_t MaxCodeunits(const int64_t input1_ncodeunits,
@@ -2852,11 +2875,11 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     for (int64_t i = 0; i < input2.length(); ++i) {
       total_num_repeats += input2.GetView(i);
     }
-    return std::max(input1_ncodeunits * total_num_repeats, (int64_t)0);
+    return input1_ncodeunits * total_num_repeats;
   }
 
   int64_t MaxCodeunits(const ArrayType1& input1, const int64_t num_repeats) override {
-    return std::max(input1.total_values_length() * num_repeats, (int64_t)0);
+    return input1.total_values_length() * num_repeats;
   }
 
   int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) override {
@@ -2864,7 +2887,7 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     for (int64_t i = 0; i < input2.length(); ++i) {
       total_codeunits += input1.GetView(i).length() * input2.GetView(i);
     }
-    return std::max(total_codeunits, (int64_t)0);
+    return total_codeunits;
   }
 
   std::function<int64_t(const uint8_t*, const int64_t, const int64_t, uint8_t*)>
@@ -2909,13 +2932,19 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     return transform(input, input_string_ncodeunits, num_repeats, output);
   }
 
-  // For input shape ArrayScalar, we cache the repeat implementation to use
-  // based on repeat count. Otherwise, use TransformWrapper which checks repeat
-  // count for each pair of processing values.
   Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
-    if (batch[0].is_array() && batch[1].is_scalar()) {
+    // For cases with a scalar repeat count, select the best implementation once
+    // before execution. Otherwise, use TransformWrapper to select implementation
+    // when processing each value.
+    if (batch[1].is_scalar()) {
       auto scalar = batch[1].scalar();
       auto num_repeats = UnboxScalar<Type2>::Unbox(*scalar);
+      // Validate repeat count. For array shape, repeat count is not explicitly
+      // validated as an optimization. The output buffer allocation should fail
+      // via MaxCodeunits.
+      if (num_repeats < 0) {
+        return Status::Invalid("Repeat count must be a non-negative integer");
+      }
       Transform = (num_repeats < 4) ? TransformSimple : TransformDoubling;
     } else {
       Transform = TransformWrapper;
@@ -2927,30 +2956,6 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
 template <typename Type1, typename Type2>
 using StringRepeat =
     StringBinaryTransformExec<Type1, Type2, StringRepeatTransform<Type1, Type2>>;
-
-/// An ScalarFunction that promotes integer arguments to Int64.
-struct ScalarCTypeToInt64Function : public ScalarFunction {
-  using ScalarFunction::ScalarFunction;
-
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
-
-    using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-
-    EnsureDictionaryDecoded(values);
-
-    for (auto& descr : *values) {
-      if (is_integer(descr.type->id()) || is_floating(descr.type->id()) ||
-          descr.type->id() == Type::BOOL) {
-        descr.type = int64();
-      }
-    }
-
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
-  }
-};
 
 const FunctionDoc string_repeat_doc(
     "Repeat a string", ("For each string in `strings`, return a replicated version."),
