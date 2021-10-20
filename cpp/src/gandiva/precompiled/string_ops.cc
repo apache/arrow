@@ -1644,33 +1644,43 @@ const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len
 
 // Calculate the levenshtein distance between two string values
 FORCE_INLINE
-gdv_int32 levenshtein_utf8_utf8(int64_t context, const char* in1, int32_t in1_len,
-                                const char* in2, int32_t in2_len) {
-  if (in1_len < 0 || in2_len < 0) {
-    gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
+gdv_int32 levenshtein_utf8_utf8(int64_t ctx, const char* text1, int32_t text1_len,
+                                const char* text2, int32_t text2_len) {
+  if (text1_len < 0 || text2_len < 0) {
+    gdv_fn_context_set_error_msg(ctx, "String length must be greater than 0");
     return 0;
   }
-  int a, b, c, aux;
-  int len_dist_1 = in1_len + 1;
-  int len_dist_2 = in2_len + 1;
-  // dist[i][j] represents the Levenstein distance between the strings
-  int dist[len_dist_1][len_dist_2];
-  for (int i = 0; i <= in1_len; i++) dist[i][0] = i;
-  for (int j = 1; j <= in2_len; j++) dist[0][j] = j;
-  for (int j = 0; j < in2_len; j++) {
-    for (int i = 0; i < in1_len; i++) {
-      if (in1[i] == in2[j]) {
-        dist[i + 1][j + 1] = dist[i][j];
-      } else {
-        a = dist[i][j + 1] + 1;
-        b = dist[i + 1][j] + 1;
-        c = dist[i][j] + 1;
-        aux = (a < b ? a : b);
-        dist[i + 1][j + 1] = (aux < c ? aux : c);
-      }
-    }
+
+  if ((text1_len == 0) && text2_len == 0) {
+    return 0;
   }
-  return dist[in1_len][in2_len];
+
+  if (text1_len == 0 && text2_len > 0) {
+    return text2_len;
+  }
+
+  if (text1_len > 0 && text2_len == 0) {
+    return text1_len;
+  }
+
+  int a, b, c;
+
+  if (text1[text1_len - 1] == text2[text2_len - 1]) {
+    return levenshtein_utf8_utf8(ctx, text1, text1_len - 1, text2, text2_len - 1);
+  }
+
+  a = levenshtein_utf8_utf8(ctx, text1, text1_len - 1, text2, text2_len - 1);
+  b = levenshtein_utf8_utf8(ctx, text1, text1_len, text2, text2_len - 1);
+  c = levenshtein_utf8_utf8(ctx, text1, text1_len - 1, text2, text2_len);
+
+  if (a > b) {
+    a = b;
+  }
+  if (a > c) {
+    a = c;
+  }
+
+  return a + 1;
 }
 
 // Search for a string within another string
