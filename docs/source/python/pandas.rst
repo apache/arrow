@@ -201,8 +201,8 @@ use the ``datetime64[ns]`` type in Pandas and are converted to an Arrow
    table
    table[0]
 
-On this example the Pandas Timestamp is time zone aware
-(``UTC`` on this case) information that is used to create the Arrow
+In this example the Pandas Timestamp is time zone aware
+(``UTC`` on this case), and this information is used to create the Arrow
 :class:`~.TimestampArray`.
 
 Date types
