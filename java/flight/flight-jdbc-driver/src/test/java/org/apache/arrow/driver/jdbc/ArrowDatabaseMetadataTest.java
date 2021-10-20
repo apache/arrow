@@ -211,6 +211,9 @@ public class ArrowDatabaseMetadataTest {
   private static final String EXPECTED_PROCEDURE_TERM = "procedure";
   private static final String EXPECTED_CATALOG_TERM = "catalog";
   private static final boolean EXPECTED_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY = true;
+  private static final boolean EXPECTED_SUPPORTS_OUTER_JOINS = true;
+  private static final boolean EXPECTED_SUPPORTS_FULL_OUTER_JOINS = true;
+  private static final boolean EXPECTED_SUPPORTS_LIMITED_JOINS = false;
   private static final boolean EXPECTED_CATALOG_AT_START = true;
   private static final boolean EXPECTED_SCHEMAS_IN_PROCEDURE_CALLS = true;
   private static final boolean EXPECTED_SCHEMAS_IN_INDEX_DEFINITIONS = true;
@@ -622,6 +625,11 @@ public class ArrowDatabaseMetadataTest {
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY,
         flightSqlSupportsIntegrityEnhancementFacilityProvider);
 
+    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsOuterJoins =
+        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
+            (int) (createBitmaskFromEnums(FlightSql.SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS)));
+    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL, flightSqlSupportsOuterJoins);
+
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSchemaTermProvider =
         (root, index) -> setDataForUtf8Field(root, index, SqlInfo.SQL_SCHEMA_TERM, EXPECTED_SCHEMA_TERM);
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SCHEMA_TERM, flightSqlSchemaTermProvider);
@@ -859,9 +867,9 @@ public class ArrowDatabaseMetadataTest {
             SqlInfo.SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY, SqlInfo.SQL_SUPPORTS_ORDER_BY_UNRELATED,
             SqlInfo.SQL_SUPPORTED_GROUP_BY,
             SqlInfo.SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE, SqlInfo.SQL_SUPPORTS_NON_NULLABLE_COLUMNS,
-            SqlInfo.SQL_SUPPORTED_GRAMMAR,
-            SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-            SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY, SqlInfo.SQL_SCHEMA_TERM, SqlInfo.SQL_CATALOG_TERM,
+            SqlInfo.SQL_SUPPORTED_GRAMMAR, SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+            SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY, SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
+            SqlInfo.SQL_SCHEMA_TERM, SqlInfo.SQL_CATALOG_TERM,
             SqlInfo.SQL_PROCEDURE_TERM, SqlInfo.SQL_CATALOG_AT_START, SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
             SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS, SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
             SqlInfo.SQL_SELECT_FOR_UPDATE_SUPPORTED,
@@ -1050,6 +1058,7 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.getTimeDateFunctions(), is(EXPECTED_TIME_DATE_FUNCTIONS));
     collector.checkThat(metaData.getSearchStringEscape(), is(EXPECTED_SEARCH_STRING_ESCAPE));
     collector.checkThat(metaData.getExtraNameCharacters(), is(EXPECTED_EXTRA_NAME_CHARACTERS));
+    collector.checkThat(metaData.supportsConvert(), is(EXPECTED_SQL_SUPPORTS_CONVERT));
     collector.checkThat(
         metaData.supportsConvert(BIT, INTEGER),
         is(EXPECTED_SQL_SUPPORTS_CONVERT));
@@ -1079,6 +1088,9 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.supportsANSI92FullSQL(), is(EXPECTED_ANSI92_FULL_SQL));
     collector.checkThat(metaData.supportsIntegrityEnhancementFacility(),
         is(EXPECTED_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY));
+    collector.checkThat(metaData.supportsOuterJoins(), is(EXPECTED_SUPPORTS_OUTER_JOINS));
+    collector.checkThat(metaData.supportsFullOuterJoins(), is(EXPECTED_SUPPORTS_FULL_OUTER_JOINS));
+    collector.checkThat(metaData.supportsLimitedOuterJoins(), is(EXPECTED_SUPPORTS_LIMITED_JOINS));
     collector.checkThat(metaData.getSchemaTerm(), is(EXPECTED_SCHEMA_TERM));
     collector.checkThat(metaData.getProcedureTerm(), is(EXPECTED_PROCEDURE_TERM));
     collector.checkThat(metaData.getCatalogTerm(), is(EXPECTED_CATALOG_TERM));
