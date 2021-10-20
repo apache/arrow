@@ -276,6 +276,123 @@ When converting to pandas, arrays of ``datetime.time`` objects are returned:
 
    arr.to_pandas()
 
+Nullable types
+--------------
+
+In Arrow all data types are nullable, meaning they support storing missing
+values. In pandas, however, not all data types have support for missing data.
+Most notably, the default integer data types do not, and will get casted
+to float when missing values are introduced. Therefore, when an Arrow array
+or table gets converted to pandas, integer columns will become float when
+missing values are present:
+
+.. code-block:: python
+
+   >>> arr = pa.array([1, 2, None])
+   >>> arr
+   <pyarrow.lib.Int64Array object at 0x7f07d467c640>
+   [
+     1,
+     2,
+     null
+   ]
+   >>> arr.to_pandas()
+   0    1.0
+   1    2.0
+   2    NaN
+   dtype: float64
+
+Pandas has experimental nullable data types
+(https://pandas.pydata.org/docs/user_guide/integer_na.html). Arrows supports
+round trip conversion for those:
+
+.. code-block:: python
+
+   >>> df = pd.DataFrame({'a': pd.Series([1, 2, None], dtype="Int64")})
+   >>> df
+         a
+   0     1
+   1     2
+   2  <NA>
+
+   >>> table = pa.table(df)
+   >>> table
+   Out[32]:
+   pyarrow.Table
+   a: int64
+   ----
+   a: [[1,2,null]]
+
+   >>> table.to_pandas()
+         a
+   0     1
+   1     2
+   2  <NA>
+
+   >>> table.to_pandas().dtypes
+   a    Int64
+   dtype: object
+
+This roundtrip conversion works because metadata about the original pandas
+DataFrame gets stored in the Arrow table. However, if you have Arrow data (or
+e.g. a Parquet file) not originating from a pandas DataFrame with nullable
+data types, the default conversion to pandas will not use those nullable
+dtypes.
+
+The :meth:`pyarrow.Table.to_pandas` method has a ``types_mapper`` keyword
+that can be used to override the default data type used for the resulting
+pandas DataFrame. This way, you can instruct Arrow to create a pandas
+DataFrame using nullable dtypes.
+
+.. code-block:: python
+
+   >>> table = pa.table({"a": [1, 2, None]})
+   >>> table.to_pandas()
+        a
+   0  1.0
+   1  2.0
+   2  NaN
+   >>> table.to_pandas(types_mapper={pa.int64(): pd.Int64Dtype()}.get)
+         a
+   0     1
+   1     2
+   2  <NA>
+
+The ``types_mapper`` keyword expects a function that will return the pandas
+data type to use given a pyarrow data type. By using the ``dict.get`` method,
+we can create such a function using a dictionary.
+
+If you want to use all currently supported nullable dtypes by pandas, this
+dictionary becomes:
+
+.. code-block:: python
+
+   dtype_mapping = {
+       pa.int8(): pd.Int8Dtype(),
+       pa.int16(): pd.Int16Dtype(),
+       pa.int32(): pd.Int32Dtype(),
+       pa.int64(): pd.Int64Dtype(),
+       pa.uint8(): pd.UInt8Dtype(),
+       pa.uint16(): pd.UInt16Dtype(),
+       pa.uint32(): pd.UInt32Dtype(),
+       pa.uint64(): pd.UInt64Dtype(),
+       pa.bool_(): pd.BooleanDtype(),
+       pa.float32(): pd.Float32Dtype(),
+       pa.float64(): pd.Float64Dtype(),
+       pa.string(): pd.StringDtype(),
+   }
+
+   df = table.to_pandas(types_mapper=dtype_mapping.get)
+
+
+When using the pandas API for reading Parquet files (``pd.read_parquet(..)``),
+this can also be achieved by passing ``use_nullable_dtypes``:
+
+.. code-block:: python
+
+   df = pd.read_parquet(path, use_nullable_dtypes=True)
+
+
 Memory Usage and Zero Copy
 --------------------------
 
