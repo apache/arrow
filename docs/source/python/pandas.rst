@@ -199,7 +199,6 @@ use the ``datetime64[ns]`` type in Pandas and are converted to an Arrow
 
    table = pa.Table.from_pandas(df)
    table
-   table[0]
 
 In this example the Pandas Timestamp is time zone aware
 (``UTC`` on this case), and this information is used to create the Arrow
