@@ -647,23 +647,26 @@ nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
 
 nse_funcs$str_count <- function(string, pattern) {
   opts <- get_stringr_pattern_options(enexpr(pattern))
-  if !is.string(pattern) {
+  if (!is.string(pattern)) {
     arrow_not_supported("`pattern` must be a length 1 character vector; other values")
   }
   if (opts$fixed) {
-    out <- Expression$create(
-      "count_substring",
-      string,
-      options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+    return(
+      Expression$create(
+        "count_substring",
+        string,
+        options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+      )
     )
   } else {
-    out <- Expression$create(
-      "count_substring_regex",
-      string,
-      options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+    return(
+      Expression$create(
+        "count_substring_regex",
+        string,
+        options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+      )
     )
   }
-  out
 }
 
 # String function helpers
