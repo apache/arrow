@@ -647,8 +647,8 @@ nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
 
 nse_funcs$str_count <- function(string, pattern) {
   opts <- get_stringr_pattern_options(enexpr(pattern))
-  if (length(pattern) > 1) {
-    arrow_not_supported("Pattern argument longer than 1")
+  if !is.string(pattern) {
+    arrow_not_supported("`pattern` must be a length 1 character vector; other values")
   }
   if (opts$fixed) {
     out <- Expression$create(
