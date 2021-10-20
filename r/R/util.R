@@ -200,8 +200,8 @@ handle_csv_read_error <- function(e, schema) {
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     abort(c(
       msg,
-      i = "You are supplying a schema. If your CSV contains a header row,
-      you should skip it by using skip = 1"
+      i = "If your data contains a header row, you should use skip = 1 to
+      prevent reading it in as data."
     ))
   }
 
