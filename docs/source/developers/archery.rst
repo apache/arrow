@@ -21,12 +21,13 @@ Daily Development using Archery
 ===============================
 
 To ease some of the daily development tasks, we developed a Python-written
-utility called Archery.
+utility called Archery. Many operations in Archery make use of docker 
+:ref:`Docker <docker>`.
 
 Installation
 ------------
 
-Archery requires Python 3.6 or later. It is recommended to install archery in
+Archery requires Python 3.6 or later.  It is recommended to install archery in
 *editable* mode with the ``-e`` flag to automatically update the installation
 when pulling the Arrow repository. After cloning the Arrow repository, from
 the top level directory install Archery by using the command
