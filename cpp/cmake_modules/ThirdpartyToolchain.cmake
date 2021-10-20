@@ -3527,6 +3527,7 @@ macro(build_crc32c_once)
     message(STATUS "Building crc32c from source")
     # Build crc32c
     set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
+    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
     set(CRC32C_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_INSTALL_LIBDIR=lib
@@ -3550,12 +3551,12 @@ macro(build_crc32c_once)
                         CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
     # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-    file(MAKE_DIRECTORY "${CRC32C_INCLUDE}/include")
+    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
     add_library(Crc32c::crc32c STATIC IMPORTED)
     set_target_properties(Crc32c::crc32c
                           PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
-                                     "${CRC32C_INCLUDE}/include")
+                                     "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
   endif()
 endmacro()
