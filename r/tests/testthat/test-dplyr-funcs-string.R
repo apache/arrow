@@ -1336,3 +1336,14 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     df
   )
 })
+
+test_that("str_to_sentence", {
+  df <- tibble(x = c("first word", "the second word", "the third word"))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(sentence_case = str_to_sentence(x)) %>%
+      collect(),
+    df
+  )
+})

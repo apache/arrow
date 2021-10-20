@@ -367,6 +367,11 @@ nse_funcs$str_to_title <- function(string, locale = "en") {
   Expression$create("utf8_title", string)
 }
 
+nse_funcs$str_to_sentence <- function(string, locale = "en") {
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_capitalize", string)
+}
+
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
