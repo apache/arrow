@@ -1340,7 +1340,8 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 test_that("str_to_sentence", {
   df <- tibble(
     one_sent = c("first word", "the second word", "the third word"),
-    two_sent = c("first sent. second sent", "second word", "third word")
+    two_sent = c("first word. second word? third word! fourth word",
+                 "second word", "third word")
   )
 
   expect_dplyr_equal(
@@ -1350,7 +1351,9 @@ test_that("str_to_sentence", {
     df
   )
 
-  expect_dplyr_equal(
+  # there is something strange going on with str_to_sentence in stringr where
+  # it doesn't recognise `.` as a sentence end
+  expect_dplyr_error(
     input %>%
       mutate(sentence_case_two = str_to_sentence(two_sent)) %>%
       collect(),
