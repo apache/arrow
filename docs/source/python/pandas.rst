@@ -161,8 +161,8 @@ Categorical types
 ~~~~~~~~~~~~~~~~~
 
 `Pandas categorical <https://pandas.pydata.org/pandas-docs/stable/user_guide/categorical.html>`_
-columns are converted to :ref:`Arrow array dictionaries <data.dictionary>`,
-an special array type optimized to handle repeated, limited, and fixed,
+columns are converted to :ref:`Arrow dictionary arrays <data.dictionary>`,
+a special array type optimized to handle repeated and limited
 number of possible values.
 
 .. ipython:: python
