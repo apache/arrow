@@ -23,7 +23,7 @@
 
 # Do not fail the build if there are warnings
 # SPHINXOPTS    = -j8 -W
-SPHINXOPTS    = -j8
+SPHINXOPTS    =
 
 SPHINXBUILD   = sphinx-build
 PAPER         =
