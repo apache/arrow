@@ -299,6 +299,7 @@ each offset in the selected child array it can be found:
    union_arr.type
    union_arr
 
+.. _data.dictionary:
 
 Dictionary Arrays
 ~~~~~~~~~~~~~~~~~

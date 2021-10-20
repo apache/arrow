@@ -160,12 +160,49 @@ Arrow -> pandas Conversion
 Categorical types
 ~~~~~~~~~~~~~~~~~
 
-TODO
+`Pandas categorical <https://pandas.pydata.org/pandas-docs/stable/user_guide/categorical.html>`_
+columns are converted to :ref:`Arrow dictionary arrays <data.dictionary>`,
+a special array type optimized to handle repeated and limited
+number of possible values.
+
+.. ipython:: python
+
+   df = pd.DataFrame({"cat": pd.Categorical(["a", "b", "c", "a", "b", "c"])})
+   df.cat.dtype.categories
+   df
+
+   table = pa.Table.from_pandas(df)
+   table
+
+We can inspect the :class:`~.ChunkedArray` of the created table and see the
+same categories of the Pandas DataFrame.
+
+.. ipython:: python
+
+   column = table[0]
+   chunk = column.chunk(0)
+   chunk.dictionary
+   chunk.indices
 
 Datetime (Timestamp) types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-TODO
+`Pandas Timestamps <https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html>`_
+use the ``datetime64[ns]`` type in Pandas and are converted to an Arrow
+:class:`~.TimestampArray`.
+
+.. ipython:: python
+
+   df = pd.DataFrame({"datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=3)})
+   df.dtypes
+   df
+
+   table = pa.Table.from_pandas(df)
+   table
+
+In this example the Pandas Timestamp is time zone aware
+(``UTC`` on this case), and this information is used to create the Arrow
+:class:`~.TimestampArray`.
 
 Date types
 ~~~~~~~~~~
@@ -220,7 +257,24 @@ If you want to use NumPy's ``datetime64`` dtype instead, pass
 Time types
 ~~~~~~~~~~
 
-TODO
+The builtin ``datetime.time`` objects inside Pandas data structures will be
+converted to an Arrow ``time64`` and :class:`~.Time64Array` respectively.
+
+.. ipython:: python
+
+   from datetime import time
+   s = pd.Series([time(1, 1, 1), time(2, 2, 2)])
+   s
+
+   arr = pa.array(s)
+   arr.type
+   arr
+
+When converting to pandas, arrays of ``datetime.time`` objects are returned:
+
+.. ipython:: python
+
+   arr.to_pandas()
 
 Memory Usage and Zero Copy
 --------------------------
