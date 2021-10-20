@@ -80,6 +80,13 @@ data will be as quick as possible
 
     reloaded_birthdays
 
+.. ipython:: python
+   :suppress:
+
+   import os
+
+   os.remove("birthdays.parquet")
+
 Saving and loading back data in arrow is usually done through
 :ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`), 
 :ref:`CSV <csv>` or :ref:`Line-Delimited JSON <json>` formats.
@@ -133,6 +140,14 @@ and will lazily load chunks of data only when iterating over them
     current_year = datetime.datetime.utcnow().year
     for table_chunk in birthdays_dataset.to_batches():
         print("AGES", pc.subtract(current_year, table_chunk["years"]))
+
+.. ipython:: python
+   :suppress:
+
+   import shutil
+
+   shutil.rmtree("savedir")
+
 
 For further details on how to work with big datasets, how to filter them,
 how to project them, etc., refer to :ref:`dataset` documentation.

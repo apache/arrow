@@ -223,6 +223,14 @@ allowing to more easily read arrays bigger than the total memory.
    ``memory_map`` option. But in those cases, the memory mapping can't help with
    reducing resident memory consumption. See :ref:`parquet_mmap` for details.
 
+.. ipython:: python
+   :suppress:
+
+   import os
+
+   os.remove("bigfile.arrow")
+
+
 Arbitrary Object Serialization
 ------------------------------
 

@@ -513,7 +513,7 @@ instead of a filename.
 
 .. ipython:: python
 
-    base = pathlib.Path(tempfile.gettempdir())
+    base = pathlib.Path(tempfile.mkdtemp(prefix="pyarrow-"))
     dataset_root = base / "sample_dataset"
     dataset_root.mkdir(exist_ok=True)
 
