@@ -126,7 +126,7 @@ test_that("paste, paste0, and str_c", {
   )
   # emits null in str_c() (consistent with stringr::str_c())
   expect_dplyr_equal(
-    df %>%
+    input %>%
       transmute(str_c(x, y, sep = NA_character_)) %>%
       collect(),
     df
