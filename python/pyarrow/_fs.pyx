@@ -834,8 +834,8 @@ cdef class SubTreeFileSystem(FileSystem):
         self.subtreefs = <CSubTreeFileSystem*> wrapped.get()
 
     def __repr__(self):
-        txt = 'SubTreeFileSystem(base_path={}, base_fs={}'
-        return txt.format(self.base_path, self.base_fs)
+        return ("SubTreeFileSystem(base_path={}, base_fs={}"
+                .format(self.base_path, self.base_fs))
 
     def __reduce__(self):
         return SubTreeFileSystem, (
