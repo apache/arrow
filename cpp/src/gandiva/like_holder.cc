@@ -25,7 +25,7 @@ namespace gandiva {
 
 RE2 LikeHolder::starts_with_regex_(R"((\w|\s)*\.\*)");
 RE2 LikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
-RE2 LikeHolder::is_substr_regex_(R"(\.\*(\w|\s)*\.\*)");
+RE2 LikeHolder::is_substr_regex_(R"(\.\*(\w|\s|\W)*\.\*)");
 
 // Short-circuit pattern matches for the following common sub cases :
 // - starts_with, ends_with and is_substr
