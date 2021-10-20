@@ -334,12 +334,6 @@ services:
     command: *cpp-command
 
   ubuntu-cpp-bundled:
-    # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose run --rm ubuntu-cpp
-    # Parameters:
-    #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
     build:
       context: .
