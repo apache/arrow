@@ -306,8 +306,13 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
               help='Just display process, don\'t download anything')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
+@click.option('--task-filter', default=None,
+              help='Glob pattern for filtering relevant tasks')
+@click.option('--validate-patterns/--skip-pattern-validation', default=True,
+              help='Whether to validate artifact name patterns or not')
 @click.pass_obj
-def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
+def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
+                       validate_patterns, task_filter):
     """Download build artifacts from GitHub releases"""
     output = obj['output']
 
@@ -335,8 +340,12 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
     click.echo('Destination directory is {}'.format(target_dir))
     click.echo()
 
-    report = ConsoleReport(job)
-    report.show(output, asset_callback=asset_callback)
+    report = ConsoleReport(job, task_filter=task_filter)
+    report.show(
+        output,
+        asset_callback=asset_callback,
+        validate_patterns=validate_patterns
+    )
 
 
 @crossbow.command()
