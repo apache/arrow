@@ -31,18 +31,17 @@
 
 #include <chrono>
 
+#include "expression_cache_key.h"
 #include "gandiva/cache.h"
 
 namespace gandiva {
 /// Class that enables the LLVM to use a custom rule to deal with the object code.
-template <class CacheKey>
 class GandivaObjectCache : public llvm::ObjectCache {
  public:
-  GandivaObjectCache(
-      std::shared_ptr<Cache<CacheKey, std::shared_ptr<llvm::MemoryBuffer>>>& cache,
-      std::shared_ptr<CacheKey>& key) {
+  explicit GandivaObjectCache(
+      std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>& cache,
+      ExpressionCacheKey key) : cache_key_(key) {
     cache_ = cache;
-    cache_key_ = key;
     // Start measuring code gen time
     begin_time_ = std::chrono::high_resolution_clock::now();
   }
@@ -63,24 +62,23 @@ class GandivaObjectCache : public llvm::ObjectCache {
     ValueCacheObject<std::shared_ptr<llvm::MemoryBuffer>> value_cache(
         obj_code, elapsed_time, obj_code->getBufferSize());
 
-    cache_->PutObjectCode(*cache_key_.get(), value_cache);
+    cache_->PutObjectCode(cache_key_, value_cache);
   }
 
   std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
     std::shared_ptr<llvm::MemoryBuffer> cached_obj =
-        cache_->GetObjectCode(*cache_key_.get());
-    auto null = std::nullptr_t();
-    if (cached_obj != null) {
+        cache_->GetObjectCode(cache_key_);
+    if (cached_obj != nullptr) {
       std::unique_ptr<llvm::MemoryBuffer> cached_buffer = cached_obj->getMemBufferCopy(
           cached_obj->getBuffer(), cached_obj->getBufferIdentifier());
       return cached_buffer;
     }
-    return null;
+    return nullptr;
   }
 
  private:
-  std::shared_ptr<CacheKey> cache_key_;
-  std::shared_ptr<Cache<CacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_;
+  ExpressionCacheKey cache_key_;
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_;
   std::chrono::high_resolution_clock::time_point begin_time_;
 };
 }  // namespace gandiva

@@ -63,29 +63,23 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                   Status::Invalid("Configuration cannot be null"));
 
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
-      shared_cache = LLVMGenerator::GetCache();
+      cache = LLVMGenerator::GetCache();
 
-  //  ProjectorCacheKey projector_key(schema, configuration, exprs,
-  //  selection_vector_mode); ExpressionCacheKey cache_key(projector_key, "projector");
-  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode,
-                               "projector");
-  std::unique_ptr<ExpressionCacheKey> base_cache_key =
-      std::make_unique<ExpressionCacheKey>(cache_key);
-  std::shared_ptr<ExpressionCacheKey> shared_base_cache_key = std::move(base_cache_key);
+  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
 
   bool llvm_flag = false;
 
   std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
-  prev_cached_obj = shared_cache->GetObjectCode(*shared_base_cache_key);
+  prev_cached_obj = cache->GetObjectCode(cache_key);
 
   // Verify if previous projector obj code was cached
   if (prev_cached_obj != nullptr) {
     ARROW_LOG(DEBUG)
-        << "[DEBUG][CACHE-LOG][INFO]: Projector object code WAS already cached";
+        << "[DEBUG][CACHE-LOG]: Projector object code WAS already cached";
     llvm_flag = true;
   }
 
-  GandivaObjectCache<ExpressionCacheKey> obj_cache(shared_cache, shared_base_cache_key);
+  GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
@@ -99,8 +93,11 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
   }
 
+  // Set the object cache for LLVM
+  llvm_gen->SetLLVMObjectCache(obj_cache);
+
   ARROW_RETURN_NOT_OK(llvm_gen->Build(
-      exprs, selection_vector_mode, obj_cache));  // to use when caching only the obj code
+      exprs, selection_vector_mode));  // to use when caching only the obj code
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;

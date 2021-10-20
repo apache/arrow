@@ -54,39 +54,16 @@ class GANDIVA_EXPORT LLVMGenerator {
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
   GetCache();
 
+  /// Set LLVM ObjectCache.
+  void SetLLVMObjectCache(GandivaObjectCache& object_cache);
+
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
-  template <class KeyType>
-  Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode,
-               GandivaObjectCache<KeyType>& obj_cache) {
-    selection_vector_mode_ = mode;
-
-    for (auto& expr : exprs) {
-      auto output = annotator_.AddOutputFieldDescriptor(expr->result());
-      ARROW_RETURN_NOT_OK(Add(expr, output));
-    }
-
-    engine_->SetLLVMObjectCache(obj_cache);
-
-    // Compile and inject into the process' memory the generated function.
-    ARROW_RETURN_NOT_OK(engine_->FinalizeModule());
-
-    // setup the jit functions for each expression.
-    for (auto& compiled_expr : compiled_exprs_) {
-      auto ir_fn = compiled_expr->GetIRFunction(mode);
-      auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_fn));
-      compiled_expr->SetJITFunction(selection_vector_mode_, jit_fn);
-    }
-
-    return Status::OK();
-  }
+  Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);
 
   /// \brief Build the code for the expression trees for default mode. Each
   /// element in the vector represents an expression tree
-  template <class KeyType>
-  Status Build(const ExpressionVector& exprs, GandivaObjectCache<KeyType>& obj_cache) {
-    return Build(exprs, SelectionVector::Mode::MODE_NONE, obj_cache);
-  }
+  Status Build(const ExpressionVector& exprs);
 
   /// \brief Execute the built expression against the provided arguments for
   /// default mode.

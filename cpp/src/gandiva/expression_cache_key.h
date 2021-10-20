@@ -33,10 +33,8 @@ namespace gandiva {
 class ExpressionCacheKey {
  public:
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                     ExpressionVector expression_vector, SelectionVector::Mode mode,
-                     std::string type)
-      : type_(type),
-        schema_(schema),
+                     ExpressionVector expression_vector, SelectionVector::Mode mode)
+      : schema_(schema),
         mode_(mode),
         uniqifier_(0),
         configuration_(configuration) {
@@ -56,8 +54,8 @@ class ExpressionCacheKey {
   }
 
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                     Expression& expression, std::string type)
-      : type_(type), schema_(schema), uniqifier_(0), configuration_(configuration) {
+                     Expression& expression)
+      : schema_(schema), uniqifier_(0), configuration_(configuration) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     expressions_as_strings_.push_back(expression.ToString());
@@ -81,13 +79,7 @@ class ExpressionCacheKey {
 
   size_t Hash() const { return hash_code_; }
 
-  std::string Type() const { return type_; }
-
   bool operator==(const ExpressionCacheKey& other) const {
-    if (type_ != other.type_) {
-      return false;
-    }
-
     if (hash_code_ != other.hash_code_) {
       return false;
     }
@@ -115,7 +107,6 @@ class ExpressionCacheKey {
 
  private:
   size_t hash_code_;
-  std::string type_;
   SchemaPtr schema_;
   std::vector<std::string> expressions_as_strings_;
   SelectionVector::Mode mode_;
