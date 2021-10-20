@@ -572,8 +572,12 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
         c_meta = KeyValueMetadata(metadata).unwrap()
 
     if K == 0:
-        schema.reset(new CSchema(c_fields, c_meta))
-        return arrays
+        if names is None or len(names) == 0:
+            schema.reset(new CSchema(c_fields, c_meta))
+            return arrays
+        else:
+            raise ValueError('Length of names ({}) does not match '
+                             'length of arrays ({})'.format(len(names), K))
 
     c_fields.resize(K)
 
