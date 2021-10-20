@@ -1641,47 +1641,4 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
-TEST_F(TestProjector, TestLevenshtein) {
-  // input fields
-  auto field1 = field("f1", arrow::utf8());
-  auto field2 = field("f2", arrow::utf8());
-  auto schema = arrow::schema({field1, field2});
-
-  // output fields
-  auto res_int32 = field("res", arrow::int32());
-
-  // Build expression
-  auto levenshtein_expr =
-      TreeExprBuilder::MakeExpression("levenshtein", {field1, field2}, res_int32);
-
-  std::shared_ptr<Projector> projector;
-
-  //  {cast_expr_int32, cast_expr_int64, cast_expr_day_interval,
-  //  cast_expr_year_interval}
-  auto status =
-      Projector::Make(schema, {levenshtein_expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok());
-
-  // Create a row-batch with some sample data
-  int num_records = 4;
-
-  // Last validity is false and the cast functions throw error when input is empty. Should
-  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
-  auto array0 =
-      MakeArrowArrayUtf8({"READ", "ANIMATION", "DAY", ""}, {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"DEAR", "MOTION", "", ""}, {true, true, true, true});
-
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
-
-  auto out_int32 = MakeArrowArrayInt32({2, 4, 3, 0}, {true, true, true, true});
-
-  arrow::ArrayVector outputs;
-
-  // Evaluate expression
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
-
-  EXPECT_ARROW_ARRAY_EQUALS(out_int32, outputs.at(0));
-}
-
 }  // namespace gandiva
