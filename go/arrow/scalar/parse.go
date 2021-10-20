@@ -18,6 +18,7 @@ package scalar
 
 import (
 	"math/bits"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -27,6 +28,163 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
 )
+
+type hasTypename interface {
+	TypeName() string
+}
+
+var hasTypenameType = reflect.TypeOf((*hasTypename)(nil)).Elem()
+
+func ToScalar(val interface{}, mem memory.Allocator) (Scalar, error) {
+	if v, ok := val.(arrow.DataType); ok {
+		return MakeScalar(v), nil
+	}
+
+	v := reflect.Indirect(reflect.ValueOf(val))
+	switch v.Kind() {
+	case reflect.Struct:
+		scalars := make([]Scalar, 0, v.Type().NumField())
+		fields := make([]string, 0, v.Type().NumField())
+		for i := 0; i < v.Type().NumField(); i++ {
+			fld := v.Type().Field(i)
+			tag := fld.Tag.Get("compute")
+			if tag == "-" {
+				continue
+			}
+
+			fldVal := v.Field(i)
+			s, err := ToScalar(fldVal.Interface(), mem)
+			if err != nil {
+				return nil, err
+			}
+			scalars = append(scalars, s)
+			fields = append(fields, tag)
+		}
+
+		if v.Type().Implements(hasTypenameType) {
+			t := val.(hasTypename)
+			scalars = append(scalars, NewBinaryScalar(memory.NewBufferBytes([]byte(t.TypeName())), arrow.BinaryTypes.Binary))
+			fields = append(fields, "_type_name")
+		}
+
+		return NewStructScalarWithNames(scalars, fields)
+	case reflect.Slice:
+		return createListScalar(v, mem)
+	default:
+		return MakeScalar(val), nil
+	}
+}
+
+func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, error) {
+	if sliceval.Kind() != reflect.Slice {
+		return nil, xerrors.Errorf("createListScalar only works for slices, not %s", sliceval.Kind())
+	}
+
+	switch sliceval.Type().Elem().Kind() {
+	case reflect.String:
+		bldr := array.NewStringBuilder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]string), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.BinaryTypes.String))
+	case reflect.Bool:
+		bldr := array.NewBooleanBuilder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]bool), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.FixedWidthTypes.Boolean))
+	case reflect.Int8:
+		bldr := array.NewInt8Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]int8), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int8))
+	case reflect.Uint8:
+		bldr := array.NewUint8Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]uint8), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint8))
+	case reflect.Int16:
+		bldr := array.NewInt16Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]int16), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int16))
+	case reflect.Uint16:
+		bldr := array.NewUint16Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]uint16), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint16))
+	case reflect.Int32:
+		bldr := array.NewInt32Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]int32), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int32))
+	case reflect.Uint32:
+		bldr := array.NewUint32Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]uint32), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint32))
+	case reflect.Int64:
+		bldr := array.NewInt64Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]int64), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int64))
+	case reflect.Uint64:
+		bldr := array.NewUint64Builder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(sliceval.Interface().([]uint64), nil)
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint64))
+	case reflect.Int:
+		if bits.UintSize == 32 {
+			bldr := array.NewInt32Builder(mem)
+			defer bldr.Release()
+			for _, v := range sliceval.Interface().([]int) {
+				bldr.Append(int32(v))
+			}
+			return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int32))
+		}
+		bldr := array.NewInt64Builder(mem)
+		defer bldr.Release()
+		for _, v := range sliceval.Interface().([]int) {
+			bldr.Append(int64(v))
+		}
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int64))
+	case reflect.Uint:
+		if bits.UintSize == 32 {
+			bldr := array.NewUint32Builder(mem)
+			defer bldr.Release()
+			for _, v := range sliceval.Interface().([]uint) {
+				bldr.Append(uint32(v))
+			}
+			return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint32))
+		}
+		bldr := array.NewUint64Builder(mem)
+		defer bldr.Release()
+		for _, v := range sliceval.Interface().([]uint) {
+			bldr.Append(uint64(v))
+		}
+		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint64))
+	case reflect.Ptr:
+		meta, ok := sliceval.Interface().([]*arrow.Metadata)
+		if !ok {
+			break
+		}
+
+		bldr := array.NewMapBuilder(mem, arrow.BinaryTypes.Binary, arrow.BinaryTypes.Binary, false)
+		defer bldr.Release()
+
+		kbldr := bldr.KeyBuilder().(*array.BinaryBuilder)
+		ibldr := bldr.ItemBuilder().(*array.BinaryBuilder)
+		for _, md := range meta {
+			bldr.Append(true)
+			if md != nil {
+				kbldr.AppendStringValues(md.Keys(), nil)
+				ibldr.AppendStringValues(md.Values(), nil)
+			}
+		}
+
+		return NewListScalar(bldr.NewMapArray()), nil
+	}
+
+	return nil, xerrors.Errorf("createListScalar not implemented for %s", sliceval.Type())
+}
 
 // MakeScalarParam is for converting a value to a scalar when it requires a
 // parameterized data type such as a time type that needs units, or a fixed
@@ -154,6 +312,11 @@ func MakeScalar(val interface{}) Scalar {
 		return NewMonthDayNanoIntervalScalar(v)
 	case arrow.DataType:
 		return MakeNullScalar(v)
+	default:
+		testval := reflect.ValueOf(v)
+		if testval.Type().ConvertibleTo(reflect.TypeOf(uint32(0))) {
+			return NewUint32Scalar(uint32(testval.Convert(reflect.TypeOf(uint32(0))).Uint()))
+		}
 	}
 
 	panic(xerrors.Errorf("makescalar not implemented for type value %#v", val))
