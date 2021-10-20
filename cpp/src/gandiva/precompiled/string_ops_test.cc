@@ -1806,8 +1806,6 @@ TEST(TestStringOps, TestLevinsteinStrings) {
   EXPECT_EQ(result, -1);
   EXPECT_TRUE(ctx.has_error());
   ctx.Reset();
-
 }
-
 
 }  // namespace gandiva

@@ -1641,13 +1641,11 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
-
 TEST_F(TestProjector, TestLevenshtein) {
   // input fields
   auto field1 = field("f1", arrow::utf8());
   auto field2 = field("f2", arrow::utf8());
   auto schema = arrow::schema({field1, field2});
-
 
   // output fields
   auto res_int32 = field("res", arrow::int32());
@@ -1656,13 +1654,12 @@ TEST_F(TestProjector, TestLevenshtein) {
   auto levenshtein_expr =
       TreeExprBuilder::MakeExpression("levenshtein", {field1, field2}, res_int32);
 
-
   std::shared_ptr<Projector> projector;
 
   //  {cast_expr_int32, cast_expr_int64, cast_expr_day_interval,
   //  cast_expr_year_interval}
-  auto status = Projector::Make(schema, {levenshtein_expr},
-                                TestConfiguration(), &projector);
+  auto status =
+      Projector::Make(schema, {levenshtein_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1670,7 +1667,8 @@ TEST_F(TestProjector, TestLevenshtein) {
 
   // Last validity is false and the cast functions throw error when input is empty. Should
   // not be evaluated due to addition of NativeFunction::kCanReturnErrors
-  auto array0 = MakeArrowArrayUtf8({"READ", "ANIMATION", "DAY", ""}, {true, true, true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"READ", "ANIMATION", "DAY", ""}, {true, true, true, true});
   auto array1 = MakeArrowArrayUtf8({"DEAR", "MOTION", "", ""}, {true, true, true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});

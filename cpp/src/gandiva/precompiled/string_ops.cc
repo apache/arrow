@@ -2246,7 +2246,7 @@ gdv_int32 levenshtein(gdv_int64 ctx, const char* text1, gdv_int32 text1_len,
     return -1;
   }
 
-  if ((text1_len == 0)&& text2_len == 0) {
+  if ((text1_len == 0) && text2_len == 0) {
     return 0;
   }
 
