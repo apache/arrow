@@ -2419,6 +2419,7 @@ macro(build_absl_once)
   if(NOT TARGET absl_ep)
     message(STATUS "Building Abseil-cpp from source")
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+    set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
     set(ABSL_CMAKE_ARGS
         "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
@@ -2573,13 +2574,13 @@ macro(build_absl_once)
       set_target_properties(absl::${_ABSL_LIB}
                             PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
                                        INTERFACE_INCLUDE_DIRECTORIES
-                                       "${ABSL_PREFIX}/include")
+                                       "${ABSL_INCLUDE_DIR}")
       list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
     endforeach()
     foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
       add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
       set_target_properties(absl::${_ABSL_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                          "${ABSL_PREFIX}/include")
+                                                          "${ABSL_INCLUDE_DIR}")
     endforeach()
 
     # Extracted the dependency information using the Abseil pkg-config files:
@@ -3260,6 +3261,9 @@ macro(build_absl_once)
                         URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${ABSL_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
+
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
 
   endif()
 endmacro()
