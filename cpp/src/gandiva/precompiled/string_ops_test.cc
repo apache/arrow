@@ -1784,28 +1784,4 @@ TEST(TestStringOps, TestConvertToBigEndian) {
 #endif
 }
 
-TEST(TestStringOps, TestLevinsteinStrings) {
-  gandiva::ExecutionContext ctx;
-  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
-
-  gdv_int32 result;
-
-  result = levenshtein(ctx_ptr, "arroz", 5, "aro", 3);
-  EXPECT_EQ(result, 2);
-  EXPECT_FALSE(ctx.has_error());
-
-  result = levenshtein(ctx_ptr, "", 0, "", 0);
-  EXPECT_EQ(result, 0);
-  EXPECT_FALSE(ctx.has_error());
-
-  result = levenshtein(ctx_ptr, "", 0, "this", 4);
-  EXPECT_EQ(result, 4);
-  EXPECT_FALSE(ctx.has_error());
-
-  result = levenshtein(ctx_ptr, "", -1, "or", 2);
-  EXPECT_EQ(result, -1);
-  EXPECT_TRUE(ctx.has_error());
-  ctx.Reset();
-}
-
 }  // namespace gandiva
