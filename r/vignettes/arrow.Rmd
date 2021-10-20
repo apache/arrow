@@ -90,14 +90,14 @@ Arrow defines the following classes for representing zero-dimensional (scalar),
 one-dimensional (array/vector-like), and two-dimensional (tabular/data
 frame-like) data:
 
-| Dim | Class          | Description                               | How to create an instance                                                  |
-| --- | -------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
-| 0   | `Scalar`       | single value and its `DataType`           | `Scalar$create(value, type)`                                               |
-| 1   | `Array`        | vector of values and its `DataType`       | `Array$create(vector, type)`                                               | 
-| 1   | `ChunkedArray` | vectors of values and their `DataType`    | `ChunkedArray$create(..., type)` or alias `chunked_array(..., type)`       |
-| 2   | `RecordBatch`  | list of `Array`s with a `Schema`          | `RecordBatch$create(...)` or alias `record_batch(...)`                     |
-| 2   | `Table`        | list of `ChunkedArray` with a `Schema`    | `Table$create(...)` or `arrow::read_*(file, as_data_frame = FALSE)`        |
-| 2   | `Dataset`      | list of `Table`s  with the same `Schema`  | `Dataset$create(sources, schema)` or alias `open_dataset(sources, schema)` |
+| Dim | Class          | Description                               | How to create an instance                                                                             |
+| --- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------|
+| 0   | `Scalar`       | single value and its `DataType`           | `Scalar$create(value, type)`                                                                          |
+| 1   | `Array`        | vector of values and its `DataType`       | `Array$create(vector, type)`                                                                          | 
+| 1   | `ChunkedArray` | vectors of values and their `DataType`    | `ChunkedArray$create(..., type)` or alias `chunked_array(..., type)`                                  |
+| 2   | `RecordBatch`  | list of `Array`s with a `Schema`          | `RecordBatch$create(...)` or alias `record_batch(...)`                                                |
+| 2   | `Table`        | list of `ChunkedArray` with a `Schema`    | `Table$create(...)`, alias `arrow_table(...)`, or `arrow::read_*(file, as_data_frame = FALSE)`        |
+| 2   | `Dataset`      | list of `Table`s  with the same `Schema`  | `Dataset$create(sources, schema)` or alias `open_dataset(sources, schema)`                            |
 
 Each of these is defined as an `R6` class in the `arrow` R package and
 corresponds to a class of the same name in the Arrow C++ library. The `arrow`

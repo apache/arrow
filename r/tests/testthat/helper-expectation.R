@@ -108,7 +108,7 @@ expect_dplyr_equal <- function(expr,
     expect_warning(
       via_table <- rlang::eval_tidy(
         expr,
-        rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+        rlang::new_data_mask(rlang::env(input = arrow_table(tbl)))
       ),
       warning
     )
@@ -166,7 +166,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
   expect_error(
     rlang::eval_tidy(
       expr,
-      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+      rlang::new_data_mask(rlang::env(input = arrow_table(tbl)))
     ),
     msg,
     ...
