@@ -27,6 +27,7 @@ access to the Arrow C++ library API and higher-level access through a
     datasets** (`open_dataset()`, `write_dataset()`)
 -   Read **large CSV and JSON files** with excellent **speed and
     efficiency** (`read_csv_arrow()`, `read_json_arrow()`)
+-   Write CSV files (`write_csv_arrow()`)
 -   Manipulate and analyze Arrow data with **`dplyr` verbs**
 -   Read and write files in **Amazon S3** buckets with no additional
     function calls
@@ -137,8 +138,8 @@ returns an R `data.frame`. To return an Arrow `Table`, set argument
 -   `read_json_arrow()`: read a JSON data file
 
 For writing data to single files, the `arrow` package provides the
-functions `write_parquet()` and `write_feather()`. These can be used
-with R `data.frame` and Arrow `Table` objects.
+functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`. 
+These can be used with R `data.frame` and Arrow `Table` objects.
 
 For example, let’s write the Star Wars characters data that’s included
 in `dplyr` to a Parquet file, then read it back in. Parquet is a popular
@@ -258,15 +259,16 @@ result %>% collect()
 #> 10 R5-D4                   38.2     70.5
 ```
 
-The `arrow` package works with most single-table `dplyr` verbs except those that
-compute aggregates, such as `summarise()` and `mutate()` after
-`group_by()`. Inside `dplyr` verbs, Arrow offers support for many
-functions and operators, with common functions mapped to their base R and
-tidyverse equivalents. The
-[changelog](https://arrow.apache.org/docs/r/news/index.html) lists many of them.
-If there are additional functions you would
-like to see implemented, please file an issue as described in the
-[Getting help](#getting-help) section below.
+The `arrow` package works with most single-table `dplyr` verbs, including those
+that compute aggregates.
+Additionally, equality joins (e.g. `left_join()`, `inner_join()`) are supported
+for joining multiple tables. Window functions (e.g. `ntile()`) are not yet
+supported. Inside `dplyr` verbs, Arrow offers support for many functions and
+operators, with common functions mapped to their base R and tidyverse
+equivalents. The [changelog](https://arrow.apache.org/docs/r/news/index.html)
+lists many of them. If there are additional functions you would like to see
+implemented, please file an issue as described in the [Getting
+help](#getting-help) section below.
 
 For `dplyr` queries on `Table` objects, if the `arrow` package detects
 an unimplemented function within a `dplyr` verb, it automatically calls

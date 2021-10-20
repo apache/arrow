@@ -24,16 +24,6 @@
 #' @format NULL
 #' @docType class
 #'
-#' @section Factory:
-#'
-#' The `Table$create()` function takes the following arguments:
-#'
-#' * `...` arrays, chunked arrays, or R vectors, with names; alternatively,
-#'    an unnamed series of [record batches][RecordBatch] may also be provided,
-#'    which will be stacked as rows in the table.
-#' * `schema` a [Schema], or `NULL` (the default) to infer the schema from
-#'    the data in `...`
-#'
 #' @section S3 Methods and Usage:
 #' Tables are data-frame-like, and many methods you expect to work on
 #' a `data.frame` are implemented for `Table`. This includes `[`, `[[`,
@@ -85,14 +75,6 @@
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
-#' @examplesIf arrow_available()
-#' tab <- Table$create(name = rownames(mtcars), mtcars)
-#' dim(tab)
-#' dim(head(tab))
-#' names(tab)
-#' tab$mpg
-#' tab[["cyl"]]
-#' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 #' @export
 Table <- R6Class("Table",
   inherit = ArrowTabular,
@@ -168,3 +150,21 @@ Table$create <- function(..., schema = NULL) {
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
+
+#' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
+#' mixture of data.frames and named vectors, the inputs will be autospliced together
+#' (see examples). Alternatively, you can provide a single Arrow IPC
+#' `InputStream`, `Message`, `Buffer`, or R `raw` object containing a `Buffer`.
+#' @param schema a [Schema], or `NULL` (the default) to infer the schema from
+#' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
+#' @rdname Table
+#' @examplesIf arrow_available()
+#' tbl <- arrow_table(name = rownames(mtcars), mtcars)
+#' dim(tbl)
+#' dim(head(tbl))
+#' names(tbl)
+#' tbl$mpg
+#' tbl[["cyl"]]
+#' as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
+#' @export
+arrow_table <- Table$create

@@ -1246,8 +1246,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only in [("3.7", "branch-3.0", "true"),
-                                                            ("3.8", "master", "false")] %}
+{% for python_version, spark_version, test_pyarrow_only in [("3.7", "v3.1.2", "false"),
+                                                            ("3.8", "v3.2.0", "false"),
+                                                            ("3.9", "master", "false")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml
