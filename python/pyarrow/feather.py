@@ -206,7 +206,9 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
         Only read a specific set of columns. If not provided, all columns are
         read.
     use_threads : bool, default True
-        Whether to parallelize reading using multiple threads.
+        Whether to parallelize reading using multiple threads. If false the
+        restriction is only used in the conversion to Pandas and not in the
+        reading from Feather format.
     memory_map : boolean, default True
         Use memory mapping when opening file on disk
 

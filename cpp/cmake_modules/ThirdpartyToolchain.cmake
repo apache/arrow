@@ -2419,6 +2419,7 @@ macro(build_absl_once)
   if(NOT TARGET absl_ep)
     message(STATUS "Building Abseil-cpp from source")
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+    set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
     set(ABSL_CMAKE_ARGS
         "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
@@ -2573,13 +2574,13 @@ macro(build_absl_once)
       set_target_properties(absl::${_ABSL_LIB}
                             PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
                                        INTERFACE_INCLUDE_DIRECTORIES
-                                       "${ABSL_PREFIX}/include")
+                                       "${ABSL_INCLUDE_DIR}")
       list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
     endforeach()
     foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
       add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
       set_target_properties(absl::${_ABSL_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                          "${ABSL_PREFIX}/include")
+                                                          "${ABSL_INCLUDE_DIR}")
     endforeach()
 
     # Extracted the dependency information using the Abseil pkg-config files:
@@ -3261,6 +3262,9 @@ macro(build_absl_once)
                         CMAKE_ARGS ${ABSL_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
 
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
+
   endif()
 endmacro()
 
@@ -3545,6 +3549,8 @@ macro(build_crc32c_once)
                         URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY "${CRC32C_INCLUDE}/include")
     add_library(Crc32c::crc32c STATIC IMPORTED)
     set_target_properties(Crc32c::crc32c
                           PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
@@ -3559,6 +3565,7 @@ macro(build_nlohmann_json_once)
     message(STATUS "Building nlohmann-json from source")
     # "Build" nlohmann-json
     set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
+    set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
     set(NLOHMANN_JSON_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
@@ -3572,10 +3579,14 @@ macro(build_nlohmann_json_once)
                         URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+
     add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
     set_target_properties(nlohmann_json::nlohmann_json
                           PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                     "${NLOHMANN_JSON_PREFIX}/include")
+                                     "${NLOHMANN_JSON_INCLUDE_DIR}")
     add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
   endif()
 endmacro()
@@ -3592,6 +3603,7 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_package(CURL 7.47.0 REQUIRED)
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -3659,6 +3671,10 @@ macro(build_google_cloud_cpp_storage)
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
                       DEPENDS google_cloud_cpp_dependencies)
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${GOOGLE_CLOUD_CPP_INCLUDE_DIR})
+
   add_dependencies(toolchain google_cloud_cpp_ep)
 
   add_library(google-cloud-cpp::common STATIC IMPORTED)
