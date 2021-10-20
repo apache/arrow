@@ -106,21 +106,22 @@ TEST_F(TestLikeHolder, TestDot) {
 }
 
 TEST_F(TestLikeHolder, TestMatchSubr) {
-    std::shared_ptr<LikeHolder> like_holder;
+  std::shared_ptr<LikeHolder> like_holder;
 
-    auto status = LikeHolder::Make("%abc%", &like_holder, regex_op);
-    EXPECT_EQ(status.ok(), true) << status.message();
+  auto status = LikeHolder::Make("%abc%", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
 
-    auto& like = *like_holder;
-    EXPECT_TRUE(like("abc"));  // . and * aren't special in sql regex
-    EXPECT_FALSE(like("xxabdc"));
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("abc"));  // . and * aren't special in sql regex
+  EXPECT_FALSE(like("xxabdc"));
 
-    status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c%%", &like_holder, regex_op);
-    EXPECT_EQ(status.ok(), true) << status.message();
+  status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c%%", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
 
-    auto& like_reserved_char = *like_holder;
-    EXPECT_TRUE(like_reserved_char("XXab-.^$*+?()[]{}|—/c%d"));  // . and * aren't special in sql regex
-    EXPECT_FALSE(like_reserved_char("xxad-.^$*+?()[]{}|—/c"));
+  auto& like_reserved_char = *like_holder;
+  EXPECT_TRUE(like_reserved_char(
+      "XXab-.^$*+?()[]{}|—/c%d"));  // . and * aren't special in sql regex
+  EXPECT_FALSE(like_reserved_char("xxad-.^$*+?()[]{}|—/c"));
 }
 
 TEST_F(TestLikeHolder, TestOptimise) {
@@ -139,10 +140,12 @@ TEST_F(TestLikeHolder, TestOptimise) {
   EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
   EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'abc')");
 
-    // optimise for 'is_substr with special characters'
-    fnode = LikeHolder::TryOptimize(BuildLike("%ab-.^$*+?()[]{}|—/c%%"));
-    EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
-    EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) ab\\-\\.\\^\\$\\*\\+\\?\\(\\)\\[\\]\\{\\}\\|—/c.*)");
+  // optimise for 'is_substr with special characters'
+  fnode = LikeHolder::TryOptimize(BuildLike("%ab-.^$*+?()[]{}|—/c%%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
+  EXPECT_EQ(fnode.ToString(),
+            "bool is_substr((string) in, (const string) "
+            "ab\\-\\.\\^\\$\\*\\+\\?\\(\\)\\[\\]\\{\\}\\|—/c.*)");
 
   // no optimisation for others.
   fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
