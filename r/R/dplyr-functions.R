@@ -334,13 +334,6 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
   }
 }
 
-nse_funcs$strrep <- function(string, times) {
-  if (times < 0) {
-    stop("`times` must be a non-negative integer", call. = FALSE)
-  }
-  Expression$create("string_repeat", string, times)
-}
-
 # Currently, Arrow does not supports a locale option for string case conversion
 # functions, contrast to stringr's API, so the 'locale' argument is only valid
 # for stringr's default value ("en"). The following are string functions that

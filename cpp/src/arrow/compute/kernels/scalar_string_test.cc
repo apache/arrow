@@ -55,6 +55,19 @@ class BaseTestStringKernels : public ::testing::Test {
     CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
   }
 
+  void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
+                  std::shared_ptr<DataType> out_ty, std::string json_expected,
+                  const FunctionOptions* options = nullptr) {
+    CheckScalar(func_name, {Datum(input)}, Datum(ArrayFromJSON(out_ty, json_expected)),
+                options);
+  }
+
+  void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
+                  const std::shared_ptr<Array>& expected,
+                  const FunctionOptions* options = nullptr) {
+    CheckScalar(func_name, {Datum(input)}, Datum(expected), options);
+  }
+
   void CheckVarArgsScalar(std::string func_name, std::string json_input,
                           std::shared_ptr<DataType> out_ty, std::string json_expected,
                           const FunctionOptions* options = nullptr) {
