@@ -66,7 +66,7 @@ of a directory with two parquet files:
     import pyarrow.parquet as pq
     import numpy as np
 
-    base = pathlib.Path(tempfile.gettempdir())
+    base = pathlib.Path(tempfile.mkdtemp(prefix="pyarrow-"))
     (base / "parquet_dataset").mkdir(exist_ok=True)
 
     # creating an Arrow Table
