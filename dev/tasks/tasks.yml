@@ -890,6 +890,14 @@ tasks:
       image: ubuntu-cpp
 {% endfor %}
 
+  test-ubuntu-20.04-cpp-bundled:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 20.04
+      image: ubuntu-cpp-bundled
+
   test-debian-11-cpp:
     ci: github
     template: docker-tests/github.linux.yml
