@@ -127,9 +127,9 @@ test_that("Joining, auto-cleanup enabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"
-  table_one <- to_duckdb(ds, con = con, table_name = table_one_name, auto_disconnect = TRUE)
+  table_one <- to_duckdb(ds, con = con, table_name = table_one_name)
   table_two_name <- "my_arrow_table_2"
-  table_two <- to_duckdb(ds, con = con, table_name = table_two_name, auto_disconnect = TRUE)
+  table_two <- to_duckdb(ds, con = con, table_name = table_two_name)
 
   res <- dbGetQuery(
     con,
@@ -142,27 +142,24 @@ test_that("Joining, auto-cleanup enabled", {
   expect_identical(dim(res), c(9L, 14L))
 
   # clean up cleans up the tables
-  print(c(table_one_name, table_two_name))
-  print(DBI::dbListTables(con))
-  print(DBI::dbListObjects(con))
-  expect_true(all(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
+  expect_true(all(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
   rm(table_one, table_two)
   gc()
-  expect_false(any(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
+  expect_false(any(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
 })
 
 test_that("Joining, auto-cleanup disabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_three_name <- "my_arrow_table_3"
-  table_three <- to_duckdb(ds, con = con, table_name = table_three_name)
+  table_three <- to_duckdb(ds, con = con, table_name = table_three_name, auto_disconnect = FALSE)
 
   # clean up does *not* clean these tables
-  expect_true(table_three_name %in% DBI::dbListTables(con))
+  expect_true(table_three_name %in% duckdb::duckdb_list_arrow(con))
   rm(table_three)
   gc()
   # but because we aren't auto_disconnecting then we still have this table.
-  expect_true(table_three_name %in% DBI::dbListTables(con))
+  expect_true(table_three_name %in% duckdb::duckdb_list_arrow(con))
 })
 
 test_that("to_duckdb with a table", {
