@@ -39,10 +39,6 @@ class Cache {
 
   Cache() : Cache(GetCapacity()) {}
 
-  ::std::shared_ptr<Cache> create(size_t capacity) {
-    return ::std::make_shared<Cache>(cache_(capacity));
-  }
-
   ValueType GetObjectCode(KeyType cache_key) {
     arrow::util::optional<ValueCacheObject<ValueType>> result;
     mtx_.lock();
