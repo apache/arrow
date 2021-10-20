@@ -126,7 +126,7 @@ test_that("paste, paste0, and str_c", {
   )
   # emits null in str_c() (consistent with stringr::str_c())
   expect_dplyr_equal(
-    input %>%
+    df %>%
       transmute(str_c(x, y, sep = NA_character_)) %>%
       collect(),
     df
@@ -1338,34 +1338,62 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 })
 
 test_that("str_count", {
-  df <- tibble(fruit = c("apple", "banana", "pear", "pineapple"))
+  df <- tibble(
+    cities = c("Kolkata", "Dar es Salaam", "Tel Aviv", "San Antonio",
+               "Cluj Napoca", "Bern", "Bogota"),
+    dots = c("a.", "...", ".a.a", "a..a.", "ab...", "dse....", ".f..d.."))
 
   expect_dplyr_equal(
     input %>%
-      mutate(a_count = str_count(fruit, pattern = "a")) %>%
+      mutate(a_count = str_count(cities, pattern = "a")) %>%
       collect(),
     df
   )
 
   expect_dplyr_equal(
     input %>%
-      mutate(p_count = str_count(fruit, pattern = "p")) %>%
+      mutate(p_count = str_count(cities, pattern = "d")) %>%
       collect(),
     df
   )
 
   expect_dplyr_equal(
     input %>%
-      mutate(e_count = str_count(fruit, pattern = "e")) %>%
+      mutate(p_count = str_count(cities,
+                                 pattern = regex("d", ignore_case = TRUE))) %>%
       collect(),
     df
   )
 
   expect_dplyr_equal(
     input %>%
-      mutate(let_count = str_count(fruit, pattern = c("a", "b", "p", "n"))) %>%
+      mutate(e_count = str_count(cities, pattern = "u")) %>%
       collect(),
     df
   )
 
+  # nse_funcs$str_count() is not vectorised over pattern
+  expect_dplyr_equal(
+    input %>%
+      mutate(let_count = str_count(
+        cities,
+        pattern = c("a", "b", "e", "g", "p", "n", "s"))) %>%
+      collect(),
+    df,
+    warning = TRUE
+  )
+
+  expect_dplyr_equal(
+   input %>%
+      mutate(dots_count = str_count(dots, ".")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(dots_count = str_count(dots, fixed("."))) %>%
+      collect(),
+    df
+  )
 })
