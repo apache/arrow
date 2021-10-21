@@ -28,11 +28,10 @@ import textwrap
 class Report:
 
     def __init__(self, job, task_filters=None):
-        assert isinstance(task_filters, list)
         self.job = job
 
         tasks = sorted(job.tasks.items())
-        if task_filters:
+        if task_filters is not None:
             filtered = set()
             for pattern in task_filters:
                 filtered |= set(fnmatch.filter(job.tasks.keys(), pattern))

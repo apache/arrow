@@ -220,7 +220,7 @@ def status(obj, job_name, fetch, task_filters):
         queue.fetch()
     job = queue.get(job_name)
 
-    report = ConsoleReport(job, task_filters=list(task_filters))
+    report = ConsoleReport(job, task_filters=task_filters)
     report.show(output)
 
 
@@ -344,7 +344,7 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
     click.echo('Destination directory is {}'.format(target_dir))
     click.echo()
 
-    report = ConsoleReport(job, task_filters=list(task_filters))
+    report = ConsoleReport(job, task_filters=task_filters)
     report.show(
         output,
         asset_callback=asset_callback,
