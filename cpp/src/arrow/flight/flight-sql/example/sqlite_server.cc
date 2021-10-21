@@ -496,7 +496,8 @@ Status SQLiteFlightSqlServer::DoGetPreparedStatement(
 }
 
 Status SQLiteFlightSqlServer::GetStatementByHandle(
-        const std::string& prepared_statement_handle, std::shared_ptr<SqliteStatement>* result) {
+    const std::string& prepared_statement_handle,
+    std::shared_ptr<SqliteStatement>* result) {
   const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(prepared_statement_handle);
 
   auto search = prepared_statements_.find(uuid);

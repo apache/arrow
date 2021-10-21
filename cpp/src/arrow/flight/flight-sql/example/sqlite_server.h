@@ -155,7 +155,8 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   boost::uuids::random_generator uuid_generator_;
   std::map<boost::uuids::uuid, std::shared_ptr<SqliteStatement>> prepared_statements_;
 
-  Status GetStatementByHandle(const std::string& prepared_statement_handle, std::shared_ptr<SqliteStatement>* result);
+  Status GetStatementByHandle(const std::string& prepared_statement_handle,
+                              std::shared_ptr<SqliteStatement>* result);
 };
 
 }  // namespace example

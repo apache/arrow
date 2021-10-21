@@ -615,8 +615,8 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
 
 TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
   std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(
-      sql_client->GetCrossReference({}, NULLPTR, NULLPTR, "foreignTable", NULLPTR, NULLPTR, "intTable", &flight_info));
+  ASSERT_OK(sql_client->GetCrossReference({}, NULLPTR, NULLPTR, "foreignTable", NULLPTR,
+                                          NULLPTR, "intTable", &flight_info));
 
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));

@@ -204,11 +204,11 @@ class FlightSqlClientT {
   /// \param[in] fk_table       The table that imports the key.
   /// \param[out] flight_info   The FlightInfo describing where to access the dataset.
   /// \return Status.
-  Status GetCrossReference(
-      const FlightCallOptions& options, const std::string* pk_catalog,
-      const std::string* pk_schema, const std::string& pk_table,
-      const std::string* fk_catalog, const std::string* fk_schema,
-      const std::string& fk_table, std::unique_ptr<FlightInfo>* flight_info) const;
+  Status GetCrossReference(const FlightCallOptions& options,
+                           const std::string* pk_catalog, const std::string* pk_schema,
+                           const std::string& pk_table, const std::string* fk_catalog,
+                           const std::string* fk_schema, const std::string& fk_table,
+                           std::unique_ptr<FlightInfo>* flight_info) const;
 
   /// \brief Request a list of table types.
   /// \param[in] options          RPC-layer hints for this call.

@@ -281,17 +281,17 @@ class FlightSqlServerBase : public FlightServerBase {
                                    std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
-  /// \param[in] command      The CommandGetCrossReference object with necessary information
+  /// \param[in] command      The CommandGetCrossReference object with necessary
+  /// information
   ///                         to execute the request.
   /// \param[in] context      Per-call context.
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] info        The FlightInfo describing where to access the
   ///                         dataset.
   /// \return                 Status.
-  virtual Status GetFlightInfoCrossReference(const pb::sql::CommandGetCrossReference& command,
-                                             const ServerCallContext& context,
-                                             const FlightDescriptor& descriptor,
-                                             std::unique_ptr<FlightInfo>* info);
+  virtual Status GetFlightInfoCrossReference(
+      const pb::sql::CommandGetCrossReference& command, const ServerCallContext& context,
+      const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the data related to the foreign and
   ///        primary keys.

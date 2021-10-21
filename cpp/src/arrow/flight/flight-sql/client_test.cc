@@ -275,9 +275,8 @@ TEST(TestFlightSqlClient, TestGetCrossReference) {
   std::unique_ptr<FlightInfo> flight_info;
   EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
 
-  (void)sqlClient.GetCrossReference(call_options, &pk_catalog, &pk_schema,
-                                    pk_table, &fk_catalog, &fk_schema,
-                                    fk_table, &flight_info);
+  (void)sqlClient.GetCrossReference(call_options, &pk_catalog, &pk_schema, pk_table,
+                                    &fk_catalog, &fk_schema, fk_table, &flight_info);
 }
 
 TEST(TestFlightSqlClient, TestExecute) {
