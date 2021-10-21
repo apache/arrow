@@ -35,7 +35,7 @@ set ARROW_TEST_DATA=C:\arrow\testing\data
 set PARQUET_TEST_DATA=C:\arrow\submodules\parquet-testing\data
 
 @REM Install testing dependencies
-pip install -r C:\arrow\python\requirements-wheel-test.txt
+pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B
 
 @REM Install the built wheels
 python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B
@@ -52,4 +52,4 @@ python -c "import pyarrow.json"
 python -c "import pyarrow.parquet"
 
 @REM Execute unittest
-pytest -r s --pyargs pyarrow
+pytest -r s --pyargs pyarrow || exit /B
