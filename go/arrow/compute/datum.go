@@ -18,6 +18,7 @@ package compute
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
@@ -159,3 +160,143 @@ func (d *ArrayDatum) Equals(other Datum) bool {
 
 	return array.ArrayEqual(left, right)
 }
+
+type ChunkedDatum struct {
+	Value *array.Chunked
+}
+
+func (ChunkedDatum) Kind() DatumKind              { return KindChunked }
+func (ChunkedDatum) Shape() ValueShape            { return ShapeArray }
+func (d *ChunkedDatum) Type() arrow.DataType      { return d.Value.DataType() }
+func (d *ChunkedDatum) Len() int64                { return int64(d.Value.Len()) }
+func (d *ChunkedDatum) NullN() int64              { return int64(d.Value.NullN()) }
+func (d *ChunkedDatum) Descr() ValueDescr         { return ValueDescr{ShapeArray, d.Value.DataType()} }
+func (d *ChunkedDatum) String() string            { return fmt.Sprintf("Array:{%s}", d.Value.DataType()) }
+func (d *ChunkedDatum) Chunks() []array.Interface { return d.Value.Chunks() }
+
+func (d *ChunkedDatum) Release() {
+	d.Value.Release()
+	d.Value = nil
+}
+
+func (d *ChunkedDatum) Equals(other Datum) bool {
+	if rhs, ok := other.(*ChunkedDatum); ok {
+		return array.ChunkedEqual(d.Value, rhs.Value)
+	}
+	return false
+}
+
+type RecordDatum struct {
+	Value array.Record
+}
+
+func (RecordDatum) Kind() DatumKind          { return KindRecord }
+func (RecordDatum) String() string           { return "RecordBatch" }
+func (r *RecordDatum) Len() int64            { return r.Value.NumRows() }
+func (r *RecordDatum) Schema() *arrow.Schema { return r.Value.Schema() }
+
+func (r *RecordDatum) Release() {
+	r.Value.Release()
+	r.Value = nil
+}
+
+func (r *RecordDatum) Equals(other Datum) bool {
+	if rhs, ok := other.(*RecordDatum); ok {
+		return array.RecordEqual(r.Value, rhs.Value)
+	}
+	return false
+}
+
+type TableDatum struct {
+	Value array.Table
+}
+
+func (TableDatum) Kind() DatumKind          { return KindTable }
+func (TableDatum) String() string           { return "Table" }
+func (d *TableDatum) Len() int64            { return d.Value.NumRows() }
+func (d *TableDatum) Schema() *arrow.Schema { return d.Value.Schema() }
+
+func (d *TableDatum) Release() {
+	d.Value.Release()
+	d.Value = nil
+}
+
+func (d *TableDatum) Equals(other Datum) bool {
+	if rhs, ok := other.(*TableDatum); ok {
+		return array.TableEqual(d.Value, rhs.Value)
+	}
+	return false
+}
+
+type CollectionDatum []Datum
+
+func (CollectionDatum) Kind() DatumKind { return KindCollection }
+func (c CollectionDatum) Len() int64    { return int64(len(c)) }
+func (c CollectionDatum) String() string {
+	var b strings.Builder
+	b.WriteString("Collection(")
+	for i, d := range c {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(d.String())
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
+func (c CollectionDatum) Release() {
+	for _, v := range c {
+		v.Release()
+	}
+}
+
+func (c CollectionDatum) Equals(other Datum) bool {
+	rhs, ok := other.(CollectionDatum)
+	if !ok {
+		return false
+	}
+
+	if len(c) != len(rhs) {
+		return false
+	}
+
+	for i := range c {
+		if !c[i].Equals(rhs[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func NewDatum(value interface{}) Datum {
+	switch v := value.(type) {
+	case array.Interface:
+		v.Data().Retain()
+		return &ArrayDatum{v.Data()}
+	case *array.Chunked:
+		v.Retain()
+		return &ChunkedDatum{v}
+	case array.Record:
+		v.Retain()
+		return &RecordDatum{v}
+	case array.Table:
+		v.Retain()
+		return &TableDatum{v}
+	case []Datum:
+		return CollectionDatum(v)
+	case scalar.Scalar:
+		return &ScalarDatum{v}
+	default:
+		return &ScalarDatum{scalar.MakeScalar(value)}
+	}
+}
+
+var (
+	_ ArrayLikeDatum = (*ScalarDatum)(nil)
+	_ ArrayLikeDatum = (*ArrayDatum)(nil)
+	_ ArrayLikeDatum = (*ChunkedDatum)(nil)
+	_ TableLikeDatum = (*RecordDatum)(nil)
+	_ TableLikeDatum = (*TableDatum)(nil)
+	_ Datum          = (CollectionDatum)(nil)
+)
