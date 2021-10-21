@@ -28,31 +28,19 @@
 
 namespace gandiva {
 
-/**
- * Initialize aes encryption
- *
- * This code is based on the implementation of Saju Pillai found here:
- * https://github.com/saju/misc/blob/master/misc/openssl_aes.c
- **/
-int32_t aes_init(int64_t context, unsigned char* key_data, int key_data_len, unsigned char *salt, EVP_CIPHER_CTX* e_ctx, EVP_CIPHER_CTX* d_ctx);
-
 
 /**
  * Encrypt data using aes algorithm
- *
- * This code is based on the implementation of Saju Pillai found here:
- * https://github.com/saju/misc/blob/master/misc/openssl_aes.c
  **/
-unsigned char* aes_encrypt(int64_t context, EVP_CIPHER_CTX* e, unsigned char* plaintext,
-                           int* len);
+int32_t aes_encrypt(int64_t context, unsigned char* plaintext,
+                    int32_t plaintext_len, unsigned char* key,
+                    unsigned char* cipher);
 
 /**
  * Decrypt data using aes algorithm
- *
- * This code is based on the implementation of Saju Pillai found here:
- * https://github.com/saju/misc/blob/master/misc/openssl_aes.c
  **/
-unsigned char* aes_decrypt(int64_t context, EVP_CIPHER_CTX* e, unsigned char* ciphertext,
-                           int* len);
+int32_t aes_decrypt(int64_t context, unsigned char* ciphertext,
+                    int32_t ciphertext_len, unsigned char* key,
+                    unsigned char* plaintext);
 
 }  // namespace gandiva
