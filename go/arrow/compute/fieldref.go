@@ -64,6 +64,17 @@ func getChildren(arr array.Interface) (ret []array.Interface) {
 	return
 }
 
+// FieldPath represents a path to a nested field using indices of child fields.
+// For example, given the indices {5, 9, 3} the field could be retrieved with:
+// schema.Field(5).Type().(*arrow.StructType).Field(9).Type().(*arrow.StructType).Field(3)
+//
+// Attempting to retrieve a child field using a FieldPath which is not valid for a given
+// schema will get an error such as an out of range index, or an empty path.
+//
+// FieldPaths provide for drilling down to potentially nested children for convenience
+// of accepting a slice of fields, a schema or a datatype (which should contain child fields).
+//
+// A fieldpath can also be used to retrieve a child array.Interface or column from a record batch.
 type FieldPath []int
 
 func (f FieldPath) String() string {
@@ -81,10 +92,14 @@ func (f FieldPath) String() string {
 	return ret[:len(ret)-1] + ")"
 }
 
+// Get retrieves the corresponding nested child field by drilling through the schema's
+// fields as per the field path.
 func (f FieldPath) Get(s *arrow.Schema) (*arrow.Field, error) {
 	return f.GetFieldFromSlice(s.Fields())
 }
 
+// GetFieldFromSlice treats the slice as the top layer of fields, so the first value
+// in the field path will index into the slice, and then drill down from there.
 func (f FieldPath) GetFieldFromSlice(fields []arrow.Field) (*arrow.Field, error) {
 	if len(f) == 0 {
 		return nil, ErrEmpty
@@ -136,14 +151,19 @@ func (f FieldPath) getArray(arrs []array.Interface) (array.Interface, error) {
 	return out, nil
 }
 
+// GetFieldFromType returns the nested field from a datatype by drilling into it's
+// child fields.
 func (f FieldPath) GetFieldFromType(typ arrow.DataType) (*arrow.Field, error) {
 	return f.GetFieldFromSlice(getFields(typ))
 }
 
+// GetField is equivalent to GetFieldFromType(field.Type)
 func (f FieldPath) GetField(field arrow.Field) (*arrow.Field, error) {
 	return f.GetFieldFromType(field.Type)
 }
 
+// GetColumn will return the correct child array by traversing the fieldpath
+// going to the nested arrays of the columns in the record batch.
 func (f FieldPath) GetColumn(batch array.Record) (array.Interface, error) {
 	return f.getArray(batch.Columns())
 }
@@ -171,6 +191,7 @@ func (f FieldPath) findAll(fields []arrow.Field) []FieldPath {
 	return nil
 }
 
+// a nameref represents a FieldRef by name of the field
 type nameRef string
 
 func (ref nameRef) findAll(fields []arrow.Field) []FieldPath {
@@ -200,6 +221,8 @@ func (m *matches) add(prefix, suffix FieldPath, fields []arrow.Field) {
 	m.prefixes = append(m.prefixes, append(prefix, suffix...))
 }
 
+// refList represents a list of references to use to determine which nested
+// field is being referenced. allowing combinations of field indices and names
 type refList []FieldRef
 
 func (ref refList) hash(h *maphash.Hash) {
@@ -235,18 +258,55 @@ type refImpl interface {
 	hash(h *maphash.Hash)
 }
 
+// FieldRef is a descriptor of a (potentially nested) field within a schema.
+//
+// Unlike FieldPath (which is exclusively indices of child fields), FieldRef
+// may reference a field by name. It can be constructed from either
+// a field index, field name, or field path.
+//
+// Nested fields can be referenced as well, given the schema:
+//
+// 		arrow.NewSchema([]arrow.Field{
+//			{Name: "a", Type: arrow.StructOf(arrow.Field{Name: "n", Type: arrow.Null})},
+//  		{Name: "b", Type: arrow.PrimitiveTypes.Int32},
+// 		})
+//
+// the following all indicate the nested field named "n":
+//
+//		FieldRefPath(FieldPath{0, 0})
+//		FieldRefList("a", 0)
+// 		FieldRefList("a", "n")
+// 		FieldRefList(0, "n")
+//		NewFieldRefFromDotPath(".a[0]")
+//
+// FieldPaths matching a FieldRef are retrieved with the FindAll* functions
+// Multiple matches are possible because field names may be duplicated within
+// a schema. For example:
+//
+//		aIsAmbiguous := arrow.NewSchema([]arrow.Field{
+//			{Name: "a", Type: arrow.PrimitiveTypes.Int32},
+//			{Name: "a", Type: arrow.PrimitiveTypes.Float32},
+//		})
+//		matches := FieldRefName("a").FindAll(aIsAmbiguous)
+//		assert.Len(matches, 2)
+//		assert.True(matches[0].Get(aIsAmbiguous).Equals(aIsAmbiguous.Field(0))
+//		assert.True(matches[1].Get(aIsAmbiguous).Equals(aIsAmbiguous.Field(1))
 type FieldRef struct {
 	impl refImpl
 }
 
+// FieldRefPath constructs a FieldRef from a given FieldPath
 func FieldRefPath(p FieldPath) FieldRef {
 	return FieldRef{impl: p}
 }
 
+// FieldRefIndex is a convenience function to construct a FieldPath reference
+// of a single index
 func FieldRefIndex(i int) FieldRef {
 	return FieldRef{impl: FieldPath{i}}
 }
 
+// FieldRefName constructs a FieldRef by name
 func FieldRefName(n string) FieldRef {
 	return FieldRef{impl: nameRef(n)}
 }
@@ -267,6 +327,24 @@ func FieldRefList(elems ...interface{}) FieldRef {
 	return FieldRef{impl: list}
 }
 
+// NewFieldRefFromDotPath parses a dot path into a field ref.
+//
+// dot_path = '.' name
+//			| '[' digit+ ']'
+//			| dot_path+
+//
+// Examples
+//
+// 		".alpha" => FieldRefName("alpha")
+//		"[2]" => FieldRefIndex(2)
+//		".beta[3]" => FieldRefList("beta", 3)
+//		"[5].gamma.delta[7]" => FieldRefList(5, "gamma", "delta", 7)
+//		".hello world" => FieldRefName("hello world")
+//		`.\[y\]\\tho\.\` => FieldRef(`[y]\tho.\`)
+//
+// Note: when parsing a name, a '\' preceding any other character will be
+// dropped from the resulting name. therefore if a name must contain the characters
+// '.', '\', '[' or ']' then they must be escaped with a preceding '\'.
 func NewFieldRefFromDotPath(dotpath string) (out FieldRef, err error) {
 	if len(dotpath) == 0 {
 		return out, fmt.Errorf("%w dotpath was empty", ErrInvalid)
@@ -331,6 +409,8 @@ func NewFieldRefFromDotPath(dotpath string) (out FieldRef, err error) {
 
 func (f FieldRef) hash(h *maphash.Hash) { f.impl.hash(h) }
 
+// Hash produces a hash of this field reference and takes in a seed so that
+// it can maintain consistency across multiple places / processes /etc.
 func (f FieldRef) Hash(seed maphash.Seed) uint64 {
 	h := maphash.Hash{}
 	h.SetSeed(seed)
@@ -338,16 +418,20 @@ func (f FieldRef) Hash(seed maphash.Seed) uint64 {
 	return h.Sum64()
 }
 
+// IsName returns true if this fieldref is a name reference
 func (f *FieldRef) IsName() bool {
 	_, ok := f.impl.(nameRef)
 	return ok
 }
 
+// IsFieldPath returns true if this FieldRef uses a fieldpath
 func (f *FieldRef) IsFieldPath() bool {
 	_, ok := f.impl.(FieldPath)
 	return ok
 }
 
+// IsNested returns true if this FieldRef expects to represent
+// a nested field.
 func (f *FieldRef) IsNested() bool {
 	switch impl := f.impl.(type) {
 	case nameRef:
@@ -359,11 +443,15 @@ func (f *FieldRef) IsNested() bool {
 	}
 }
 
+// Name returns the name of the field this references if it is
+// a Name reference, otherwise the empty string
 func (f *FieldRef) Name() string {
 	n, _ := f.impl.(nameRef)
 	return string(n)
 }
 
+// FieldPath returns the fieldpath that this FieldRef uses, otherwise
+// an empty FieldPath if it's not a FieldPath reference
 func (f *FieldRef) FieldPath() FieldPath {
 	p, _ := f.impl.(FieldPath)
 	return p
@@ -399,14 +487,20 @@ func (f *FieldRef) flatten(children []FieldRef) {
 	}
 }
 
+// FindAll returns all the fieldpaths which this FieldRef matches in the given
+// slice of fields.
 func (f FieldRef) FindAll(fields []arrow.Field) []FieldPath {
 	return f.impl.findAll(fields)
 }
 
+// FindAllField returns all the fieldpaths that this FieldRef matches against
+// the type of the given field.
 func (f FieldRef) FindAllField(field arrow.Field) []FieldPath {
 	return f.impl.findAll(getFields(field.Type))
 }
 
+// FindOneOrNone is a convenience helper that will either return 1 fieldpath,
+// or an empty fieldpath, and will return an error if there are multiple matches.
 func (f FieldRef) FindOneOrNone(schema *arrow.Schema) (FieldPath, error) {
 	matches := f.FindAll(schema.Fields())
 	if len(matches) > 1 {
@@ -418,10 +512,14 @@ func (f FieldRef) FindOneOrNone(schema *arrow.Schema) (FieldPath, error) {
 	return matches[0], nil
 }
 
+// FindOneOrNoneRecord is like FindOneOrNone but for the schema of a record,
+// returning an error only if there are multiple matches.
 func (f FieldRef) FindOneOrNoneRecord(root array.Record) (FieldPath, error) {
 	return f.FindOneOrNone(root.Schema())
 }
 
+// FindOne returns an error if the field isn't matched or if there are multiple matches
+// otherwise it returns the path to the single valid match.
 func (f FieldRef) FindOne(schema *arrow.Schema) (FieldPath, error) {
 	matches := f.FindAll(schema.Fields())
 	if len(matches) == 0 {
@@ -433,6 +531,8 @@ func (f FieldRef) FindOne(schema *arrow.Schema) (FieldPath, error) {
 	return matches[0], nil
 }
 
+// GetAllColumns gets all the matching column arrays from the given record that
+// this FieldRef references.
 func (f FieldRef) GetAllColumns(root array.Record) ([]array.Interface, error) {
 	out := make([]array.Interface, 0)
 	for _, m := range f.FindAll(root.Schema().Fields()) {
@@ -445,6 +545,8 @@ func (f FieldRef) GetAllColumns(root array.Record) ([]array.Interface, error) {
 	return out, nil
 }
 
+// GetOneField will return a pointer to a field or an error if it is not found
+// or if there are multiple matches.
 func (f FieldRef) GetOneField(schema *arrow.Schema) (*arrow.Field, error) {
 	match, err := f.FindOne(schema)
 	if err != nil {
@@ -454,6 +556,8 @@ func (f FieldRef) GetOneField(schema *arrow.Schema) (*arrow.Field, error) {
 	return match.GetFieldFromSlice(schema.Fields())
 }
 
+// GetOneOrNone will return a field or a nil if the field is found or not, and
+// only errors if there are multiple matches.
 func (f FieldRef) GetOneOrNone(schema *arrow.Schema) (*arrow.Field, error) {
 	match, err := f.FindOneOrNone(schema)
 	if err != nil {
@@ -465,6 +569,8 @@ func (f FieldRef) GetOneOrNone(schema *arrow.Schema) (*arrow.Field, error) {
 	return match.GetFieldFromSlice(schema.Fields())
 }
 
+// GetOneColumnOrNone returns either a nil or the referenced array if it can be
+// found, erroring only if there is an ambiguous multiple matches.
 func (f FieldRef) GetOneColumnOrNone(root array.Record) (array.Interface, error) {
 	match, err := f.FindOneOrNoneRecord(root)
 	if err != nil {

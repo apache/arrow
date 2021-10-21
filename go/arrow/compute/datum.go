@@ -28,14 +28,18 @@ import (
 //go:generate go run golang.org/x/tools/cmd/stringer -type=ValueShape -linecomment
 //go:generate go run golang.org/x/tools/cmd/stringer -type=DatumKind -linecomment
 
+// ValueShape is a brief description of the shape of a value (array, scalar or otherwise)
 type ValueShape int8
 
 const (
+	// either Array or Scalar
 	ShapeAny    ValueShape = iota // any
 	ShapeArray                    // array
 	ShapeScalar                   // scalar
 )
 
+// ValueDescr is a descriptor type giving both the shape and the datatype of a value
+// but without the data.
 type ValueDescr struct {
 	Shape ValueShape
 	Type  arrow.DataType
@@ -45,6 +49,7 @@ func (v *ValueDescr) String() string {
 	return fmt.Sprintf("%s [%s]", v.Shape, v.Type)
 }
 
+// DatumKind is an enum used for denoting which kind of type a datum is encapsulating
 type DatumKind int
 
 const (
@@ -59,6 +64,10 @@ const (
 
 const UnknownLength int64 = -1
 
+// Datum is a variant interface for wrapping the various Arrow data structures
+// for now the various Datum types just hold a Value which is the type they
+// are wrapping, but it might make sense in the future for those types
+// to actually be aliases or embed their types instead. Not sure yet.
 type Datum interface {
 	fmt.Stringer
 	Kind() DatumKind
@@ -67,6 +76,10 @@ type Datum interface {
 	Release()
 }
 
+// ArrayLikeDatum is an interface for treating a Datum similarly to an Array,
+// so that it is easy to differentiate between Record/Table/Collection and Scalar,
+// Array/ChunkedArray for ease of use. Chunks will return an empty slice for Scalar,
+// a slice with 1 element for Array, and the slice of chunks for a chunked array.
 type ArrayLikeDatum interface {
 	Datum
 	Shape() ValueShape
@@ -76,11 +89,14 @@ type ArrayLikeDatum interface {
 	Chunks() []array.Interface
 }
 
+// TableLikeDatum is an interface type for specifying either a RecordBatch or a
+// Table as both contain a schema as opposed to just a single data type.
 type TableLikeDatum interface {
 	Datum
 	Schema() *arrow.Schema
 }
 
+// EmptyDatum is the null case, a Datum with nothing in it.
 type EmptyDatum struct{}
 
 func (EmptyDatum) String() string  { return "nullptr" }
@@ -92,6 +108,7 @@ func (EmptyDatum) Equals(other Datum) bool {
 	return ok
 }
 
+// ScalarDatum contains a scalar value
 type ScalarDatum struct {
 	Value scalar.Scalar
 }
@@ -128,6 +145,8 @@ func (d *ScalarDatum) Equals(other Datum) bool {
 	return false
 }
 
+// ArrayDatum references an array.Data object which can be used to create
+// array instances from if needed.
 type ArrayDatum struct {
 	Value *array.Data
 }
@@ -161,6 +180,7 @@ func (d *ArrayDatum) Equals(other Datum) bool {
 	return array.ArrayEqual(left, right)
 }
 
+// ChunkedDatum contains a chunked array for use with expressions and compute.
 type ChunkedDatum struct {
 	Value *array.Chunked
 }
@@ -186,6 +206,8 @@ func (d *ChunkedDatum) Equals(other Datum) bool {
 	return false
 }
 
+// RecordDatum contains an array.Record for passing a full record to an expression
+// or to compute.
 type RecordDatum struct {
 	Value array.Record
 }
@@ -207,6 +229,8 @@ func (r *RecordDatum) Equals(other Datum) bool {
 	return false
 }
 
+// TableDatum contains a table so that multiple record batches can be worked with
+// together as a single table for being passed to compute and expression handling.
 type TableDatum struct {
 	Value array.Table
 }
@@ -228,6 +252,7 @@ func (d *TableDatum) Equals(other Datum) bool {
 	return false
 }
 
+// CollectionDatum is a slice of Datums
 type CollectionDatum []Datum
 
 func (CollectionDatum) Kind() DatumKind { return KindCollection }
@@ -269,6 +294,18 @@ func (c CollectionDatum) Equals(other Datum) bool {
 	return true
 }
 
+// NewDatum will construct the appropriate Datum type based on what is passed in
+// as the argument.
+//
+// An array.Interface gets an ArrayDatum
+// An array.Chunked gets a ChunkedDatum
+// An array.Record gets a RecordDatum
+// an array.Table gets a TableDatum
+// a []Datum gets a CollectionDatum
+// a scalar.Scalar gets a ScalarDatum
+//
+// Anything else is passed to scalar.MakeScalar and recieves a scalar
+// datum of that appropriate type.
 func NewDatum(value interface{}) Datum {
 	switch v := value.(type) {
 	case array.Interface:
