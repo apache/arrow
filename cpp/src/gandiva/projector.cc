@@ -97,7 +97,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   llvm_gen->SetLLVMObjectCache(obj_cache);
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build(
-      exprs, selection_vector_mode));  // to use when caching only the obj code
+      exprs, selection_vector_mode));
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
