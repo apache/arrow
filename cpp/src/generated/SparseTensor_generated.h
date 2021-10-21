@@ -15,12 +15,16 @@ namespace arrow {
 namespace flatbuf {
 
 struct SparseTensorIndexCOO;
+struct SparseTensorIndexCOOBuilder;
 
 struct SparseMatrixIndexCSX;
+struct SparseMatrixIndexCSXBuilder;
 
 struct SparseTensorIndexCSF;
+struct SparseTensorIndexCSFBuilder;
 
 struct SparseTensor;
+struct SparseTensorBuilder;
 
 enum class SparseMatrixCompressedAxis : int16_t {
   Row = 0,
@@ -140,6 +144,7 @@ bool VerifySparseTensorIndexVector(flatbuffers::Verifier &verifier, const flatbu
 /// (row-major order), and it does not have duplicated entries.  Otherwise,
 /// the indices may not be sorted, or may have duplicated entries.
 struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseTensorIndexCOOBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INDICESTYPE = 4,
     VT_INDICESSTRIDES = 6,
@@ -180,6 +185,7 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
 };
 
 struct SparseTensorIndexCOOBuilder {
+  typedef SparseTensorIndexCOO Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_indicesType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType) {
@@ -239,6 +245,7 @@ inline flatbuffers::Offset<SparseTensorIndexCOO> CreateSparseTensorIndexCOODirec
 
 /// Compressed Sparse format, that is matrix-specific.
 struct SparseMatrixIndexCSX FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseMatrixIndexCSXBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COMPRESSEDAXIS = 4,
     VT_INDPTRTYPE = 6,
@@ -310,6 +317,7 @@ struct SparseMatrixIndexCSX FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
 };
 
 struct SparseMatrixIndexCSXBuilder {
+  typedef SparseMatrixIndexCSX Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_compressedAxis(org::apache::arrow::flatbuf::SparseMatrixCompressedAxis compressedAxis) {
@@ -361,6 +369,7 @@ inline flatbuffers::Offset<SparseMatrixIndexCSX> CreateSparseMatrixIndexCSX(
 
 /// Compressed Sparse Fiber (CSF) sparse tensor index.
 struct SparseTensorIndexCSF FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseTensorIndexCSFBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INDPTRTYPE = 4,
     VT_INDPTRBUFFERS = 6,
@@ -463,6 +472,7 @@ struct SparseTensorIndexCSF FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
 };
 
 struct SparseTensorIndexCSFBuilder {
+  typedef SparseTensorIndexCSF Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_indptrType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indptrType) {
@@ -533,6 +543,7 @@ inline flatbuffers::Offset<SparseTensorIndexCSF> CreateSparseTensorIndexCSFDirec
 }
 
 struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseTensorBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE_TYPE = 4,
     VT_TYPE = 6,
@@ -758,6 +769,7 @@ template<> inline const org::apache::arrow::flatbuf::SparseTensorIndexCSF *Spars
 }
 
 struct SparseTensorBuilder {
+  typedef SparseTensor Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_type_type(org::apache::arrow::flatbuf::Type type_type) {

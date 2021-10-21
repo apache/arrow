@@ -79,60 +79,59 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    finished_ = Loop([this, executor, options] {
-                  std::unique_lock<std::mutex> lock(mutex_);
-                  int total_batches = batch_count_++;
-                  if (stop_requested_) {
-                    return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
+    finished_ =
+        Loop([this, executor, options] {
+          std::unique_lock<std::mutex> lock(mutex_);
+          int total_batches = batch_count_++;
+          if (stop_requested_) {
+            return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
+          }
+          lock.unlock();
+
+          return generator_().Then(
+              [=](const util::optional<ExecBatch>& maybe_batch) -> ControlFlow<int> {
+                std::unique_lock<std::mutex> lock(mutex_);
+                if (IsIterationEnd(maybe_batch) || stop_requested_) {
+                  stop_requested_ = true;
+                  return Break(total_batches);
+                }
+                lock.unlock();
+                ExecBatch batch = std::move(*maybe_batch);
+
+                if (executor) {
+                  auto status =
+                      task_group_.AddTask([this, executor, batch]() -> Result<Future<>> {
+                        return executor->Submit([=]() {
+                          outputs_[0]->InputReceived(this, std::move(batch));
+                          return Status::OK();
+                        });
+                      });
+                  if (!status.ok()) {
+                    outputs_[0]->ErrorReceived(this, std::move(status));
+                    return Break(total_batches);
                   }
-                  lock.unlock();
-
-                  return generator_().Then(
-                      [=](const util::optional<ExecBatch>& batch) -> ControlFlow<int> {
-                        std::unique_lock<std::mutex> lock(mutex_);
-                        if (IsIterationEnd(batch) || stop_requested_) {
-                          stop_requested_ = true;
-                          return Break(total_batches);
-                        }
-                        lock.unlock();
-
-                        if (executor) {
-                          auto maybe_future = executor->Submit([=]() {
-                            outputs_[0]->InputReceived(this, *batch);
-                            return Status::OK();
-                          });
-                          if (!maybe_future.ok()) {
-                            outputs_[0]->ErrorReceived(this, maybe_future.status());
-                            return Break(total_batches);
-                          }
-                          auto status =
-                              task_group_.AddTask(maybe_future.MoveValueUnsafe());
-                          if (!status.ok()) {
-                            outputs_[0]->ErrorReceived(this, std::move(status));
-                            return Break(total_batches);
-                          }
-                        } else {
-                          outputs_[0]->InputReceived(this, *batch);
-                        }
-                        return Continue();
-                      },
-                      [=](const Status& error) -> ControlFlow<int> {
-                        // NB: ErrorReceived is independent of InputFinished, but
-                        // ErrorReceived will usually prompt StopProducing which will
-                        // prompt InputFinished. ErrorReceived may still be called from a
-                        // node which was requested to stop (indeed, the request to stop
-                        // may prompt an error).
-                        std::unique_lock<std::mutex> lock(mutex_);
-                        stop_requested_ = true;
-                        lock.unlock();
-                        outputs_[0]->ErrorReceived(this, error);
-                        return Break(total_batches);
-                      },
-                      options);
-                }).Then([&](int total_batches) {
-      outputs_[0]->InputFinished(this, total_batches);
-      return task_group_.WaitForTasksToFinish();
-    });
+                } else {
+                  outputs_[0]->InputReceived(this, std::move(batch));
+                }
+                return Continue();
+              },
+              [=](const Status& error) -> ControlFlow<int> {
+                // NB: ErrorReceived is independent of InputFinished, but
+                // ErrorReceived will usually prompt StopProducing which will
+                // prompt InputFinished. ErrorReceived may still be called from a
+                // node which was requested to stop (indeed, the request to stop
+                // may prompt an error).
+                std::unique_lock<std::mutex> lock(mutex_);
+                stop_requested_ = true;
+                lock.unlock();
+                outputs_[0]->ErrorReceived(this, error);
+                return Break(total_batches);
+              },
+              options);
+        }).Then([&](int total_batches) {
+          outputs_[0]->InputFinished(this, total_batches);
+          return task_group_.End();
+        });
 
     return Status::OK();
   }

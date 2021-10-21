@@ -496,3 +496,29 @@ def test_parquet_metadata_empty_to_dict(tempdir):
     assert len(metadata_dict["row_groups"]) == 1
     assert len(metadata_dict["row_groups"][0]["columns"]) == 1
     assert metadata_dict["row_groups"][0]["columns"][0]["statistics"] is None
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_metadata_exceeds_message_size():
+    # ARROW-13655: Thrift may enable a defaut message size that limits
+    # the size of Parquet metadata that can be written.
+    NCOLS = 1000
+    NREPEATS = 4000
+
+    table = pa.table({str(i): np.random.randn(10) for i in range(NCOLS)})
+
+    with pa.BufferOutputStream() as out:
+        pq.write_table(table, out)
+        buf = out.getvalue()
+
+    original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    metadata = pq.read_metadata(pa.BufferReader(buf))
+    for i in range(NREPEATS):
+        metadata.append_row_groups(original_metadata)
+
+    with pa.BufferOutputStream() as out:
+        metadata.write_metadata_file(out)
+        buf = out.getvalue()
+
+    metadata = pq.read_metadata(pa.BufferReader(buf))

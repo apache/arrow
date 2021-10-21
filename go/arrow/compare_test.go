@@ -69,25 +69,25 @@ func TestTypeEqual(t *testing.T) {
 			&TimestampType{Unit: Second, TimeZone: "UTC"}, &TimestampType{Unit: Nanosecond, TimeZone: "CET"}, false, false,
 		},
 		{
-			&ListType{elem: PrimitiveTypes.Uint64}, &ListType{elem: PrimitiveTypes.Uint64}, true, false,
+			&ListType{elem: Field{Type: PrimitiveTypes.Uint64}}, &ListType{elem: Field{Type: PrimitiveTypes.Uint64}}, true, false,
 		},
 		{
-			&ListType{elem: PrimitiveTypes.Uint64}, &ListType{elem: PrimitiveTypes.Uint32}, false, false,
+			&ListType{elem: Field{Type: PrimitiveTypes.Uint64}}, &ListType{elem: Field{Type: PrimitiveTypes.Uint32}}, false, false,
 		},
 		{
-			&ListType{elem: &Time32Type{Unit: Millisecond}}, &ListType{elem: &Time32Type{Unit: Millisecond}}, true, false,
+			&ListType{elem: Field{Type: &Time32Type{Unit: Millisecond}}}, &ListType{elem: Field{Type: &Time32Type{Unit: Millisecond}}}, true, false,
 		},
 		{
-			&ListType{elem: &Time32Type{Unit: Millisecond}}, &ListType{elem: &Time32Type{Unit: Second}}, false, false,
+			&ListType{elem: Field{Type: &Time32Type{Unit: Millisecond}}}, &ListType{elem: Field{Type: &Time32Type{Unit: Second}}}, false, false,
 		},
 		{
-			&ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, true, false,
+			&ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint16}}}}, &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint16}}}}, true, false,
 		},
 		{
-			&ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint8}}, false, false,
+			&ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint16}}}}, &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint8}}}}, false, false,
 		},
 		{
-			&ListType{elem: &ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint8}}, false, false,
+			&ListType{elem: Field{Type: &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint16}}}}}}, &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint8}}}}, false, false,
 		},
 		{
 			&StructType{

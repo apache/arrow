@@ -35,6 +35,8 @@ module Arrow
     def load
       if @input.is_a?(URI)
         custom_load_method = "load_from_uri"
+      elsif @input.is_a?(String) and ::File.directory?(@input)
+        custom_load_method = "load_from_directory"
       else
         custom_load_method = "load_from_file"
       end
@@ -48,7 +50,7 @@ module Arrow
         end
         message = "Arrow::Table load source must be one of ["
         message << available_schemes.join(", ")
-        message << "]: #{@input.scheme.inspect}"
+        message << "]: #{@input.inspect}"
         raise ArgumentError, message
       end
       __send__(custom_load_method)

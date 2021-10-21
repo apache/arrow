@@ -131,11 +131,6 @@ func (enc *DictInt32Encoder) Type() parquet.Type {
 	return parquet.Types.Int32
 }
 
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictInt32Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Int32Traits.CastFromBytes(out))
-}
-
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *DictInt32Encoder) Put(in []int32) {
 	for _, val := range in {
@@ -345,11 +340,6 @@ type DictInt64Encoder struct {
 // Type returns the underlying physical type that can be encoded with this encoder
 func (enc *DictInt64Encoder) Type() parquet.Type {
 	return parquet.Types.Int64
-}
-
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictInt64Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Int64Traits.CastFromBytes(out))
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -609,11 +599,6 @@ func (enc *DictFloat32Encoder) Type() parquet.Type {
 	return parquet.Types.Float
 }
 
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictFloat32Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Float32Traits.CastFromBytes(out))
-}
-
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *DictFloat32Encoder) Put(in []float32) {
 	for _, val := range in {
@@ -811,11 +796,6 @@ type DictFloat64Encoder struct {
 // Type returns the underlying physical type that can be encoded with this encoder
 func (enc *DictFloat64Encoder) Type() parquet.Type {
 	return parquet.Types.Double
-}
-
-// WriteDict populates the byte slice with the dictionary index
-func (enc *DictFloat64Encoder) WriteDict(out []byte) {
-	enc.memo.CopyValues(arrow.Float64Traits.CastFromBytes(out))
 }
 
 // Put encodes the values passed in, adding to the index as needed.

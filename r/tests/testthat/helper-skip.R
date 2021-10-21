@@ -25,10 +25,6 @@ skip_if_not_available <- function(feature) {
   if (feature == "re2") {
     # RE2 does not support valgrind (on purpose): https://github.com/google/re2/issues/177
     skip_on_valgrind()
-  } else if (feature == "dataset") {
-    # These tests often hang on 32-bit windows rtools35, and we haven't been
-    # able to figure out how to make them work safely
-    skip_if_multithreading_disabled()
   }
 
   yes <- feature %in% names(build_features) && build_features[feature]
@@ -73,12 +69,9 @@ skip_on_valgrind <- function() {
   }
 }
 
-skip_if_multithreading_disabled <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-  if (is_32bit && is_old_r && is_windows) {
-    skip("Multithreading does not work properly on this system")
+skip_if_r_version <- function(r_version) {
+  if (getRversion() <= r_version) {
+    skip(paste("R version:", getRversion()))
   }
 }
 

@@ -335,6 +335,10 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
   }
   options->reader_properties->set_buffer_size(buffer_size);
   options->arrow_reader_properties->set_pre_buffer(pre_buffer);
+  if (pre_buffer) {
+    options->arrow_reader_properties->set_cache_options(
+        arrow::io::CacheOptions::LazyDefaults());
+  }
   return options;
 }
 
@@ -449,6 +453,12 @@ std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(
 std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(
     const std::shared_ptr<ds::ScannerBuilder>& sb) {
   return ValueOrStop(sb->Finish());
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::ScannerBuilder> dataset___ScannerBuilder__FromRecordBatchReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  return (ds::ScannerBuilder::FromRecordBatchReader(reader));
 }
 
 // [[dataset::export]]

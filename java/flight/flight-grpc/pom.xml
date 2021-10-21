@@ -24,7 +24,7 @@
   <packaging>jar</packaging>
 
   <properties>
-    <dep.grpc.version>1.30.2</dep.grpc.version>
+    <dep.grpc.version>1.41.0</dep.grpc.version>
     <dep.protobuf.version>3.7.1</dep.protobuf.version>
     <forkCount>1</forkCount>
   </properties>

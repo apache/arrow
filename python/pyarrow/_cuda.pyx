@@ -187,7 +187,8 @@ cdef class Context(_Weakrefable):
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def foreign_buffer(self, address, size, base=None):
-        """Create device buffer from address and size as a view.
+        """
+        Create device buffer from address and size as a view.
 
         The caller is responsible for allocating and freeing the
         memory. When `address==size==0` then a new zero-sized buffer

@@ -78,7 +78,7 @@ nse_funcs$coalesce <- function(...) {
     }
 
     # coalesce doesn't yet support factors/dictionaries
-    # TODO: remove this after ARROW-13390 is merged
+    # TODO: remove this after ARROW-14167 is merged
     if (nse_funcs$is.factor(arg)) {
       warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
     }
@@ -255,6 +255,10 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   assert_that(is.null(n))
   nse_funcs$is.logical(x)
 }
+nse_funcs$is_timestamp <- function(x, n = NULL) {
+  assert_that(is.null(n))
+  inherits(x, "POSIXt") || (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
+}
 
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
@@ -328,6 +332,39 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
       )
     )
   }
+}
+
+# Currently, Arrow does not supports a locale option for string case conversion
+# functions, contrast to stringr's API, so the 'locale' argument is only valid
+# for stringr's default value ("en"). The following are string functions that
+# take a 'locale' option as its second argument:
+#   str_to_lower
+#   str_to_upper
+#   str_to_title
+#
+# Arrow locale will be supported with ARROW-14126
+stop_if_locale_provided <- function(locale) {
+  if (!identical(locale, "en")) {
+    stop("Providing a value for 'locale' other than the default ('en') is not supported by Arrow. ",
+      "To change locale, use 'Sys.setlocale()'",
+      call. = FALSE
+    )
+  }
+}
+
+nse_funcs$str_to_lower <- function(string, locale = "en") {
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_lower", string)
+}
+
+nse_funcs$str_to_upper <- function(string, locale = "en") {
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_upper", string)
+}
+
+nse_funcs$str_to_title <- function(string, locale = "en") {
+  stop_if_locale_provided(locale)
+  Expression$create("utf8_title", string)
 }
 
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
@@ -564,6 +601,50 @@ nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), 
   )
 }
 
+nse_funcs$startsWith <- function(x, prefix) {
+  Expression$create(
+    "starts_with",
+    x,
+    options = list(pattern = prefix)
+  )
+}
+
+nse_funcs$endsWith <- function(x, suffix) {
+  Expression$create(
+    "ends_with",
+    x,
+    options = list(pattern = suffix)
+  )
+}
+
+nse_funcs$str_starts <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$startsWith(x = string, prefix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
+nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$endsWith(x = string, suffix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2
@@ -672,6 +753,54 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
+nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+  if (tz == "") {
+    tz <- Sys.timezone()
+  }
+  # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
+  # cast the timestamp to desired timezone. This is a metadata only change.
+  if (nse_funcs$is_timestamp(x)) {
+    ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+  } else {
+    ts <- x
+  }
+  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
+
+nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+  ISO8601_precision_map <-
+    list(
+      y = "%Y",
+      ym = "%Y-%m",
+      ymd = "%Y-%m-%d",
+      ymdh = "%Y-%m-%dT%H",
+      ymdhm = "%Y-%m-%dT%H:%M",
+      ymdhms = "%Y-%m-%dT%H:%M:%S"
+    )
+
+  if (is.null(precision)) {
+    precision <- "ymdhms"
+  }
+  if (!precision %in% names(ISO8601_precision_map)) {
+    abort(
+      paste(
+        "`precision` must be one of the following values:",
+        paste(names(ISO8601_precision_map), collapse = ", "),
+        "\nValue supplied was: ",
+        precision
+      )
+    )
+  }
+  format <- ISO8601_precision_map[[precision]]
+  if (usetz) {
+    format <- paste0(format, "%z")
+  }
+  Expression$create("strftime", x, options = list(format = format, locale = "C"))
+}
+
 nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
@@ -689,16 +818,21 @@ nse_funcs$round <- function(x, digits = 0) {
   )
 }
 
-nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
-
-  # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
-  # When the ticket below is resolved, we should be able to support the label argument
-  # https://issues.apache.org/jira/browse/ARROW-13133
+nse_funcs$wday <- function(x,
+                           label = FALSE,
+                           abbr = TRUE,
+                           week_start = getOption("lubridate.week.start", 7),
+                           locale = Sys.getlocale("LC_TIME")) {
   if (label) {
-    arrow_not_supported("Label argument")
+    if (abbr) {
+      format <- "%a"
+    } else {
+      format <- "%A"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
   }
 
-  Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
+  Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
@@ -758,7 +892,6 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
 }
 
 # Although base R ifelse allows `yes` and `no` to be different classes
-#
 nse_funcs$ifelse <- function(test, yes, no) {
   nse_funcs$if_else(condition = test, true = yes, false = no)
 }
@@ -781,6 +914,9 @@ nse_funcs$case_when <- function(...) {
     value[[i]] <- arrow_eval(f[[3]], mask)
     if (!nse_funcs$is.logical(query[[i]])) {
       abort("Left side of each formula in case_when() must be a logical expression")
+    }
+    if (inherits(value[[i]], "try-error")) {
+      abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
     }
   }
   build_expr(
@@ -805,24 +941,24 @@ nse_funcs$case_when <- function(...) {
 # So to see a list of available hash aggregation functions,
 # you can use list_compute_functions("^hash_")
 agg_funcs <- list()
-agg_funcs$sum <- function(x, na.rm = FALSE) {
+agg_funcs$sum <- function(..., na.rm = FALSE) {
   list(
     fun = "sum",
-    data = x,
+    data = ensure_one_arg(list2(...), "sum"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-agg_funcs$any <- function(x, na.rm = FALSE) {
+agg_funcs$any <- function(..., na.rm = FALSE) {
   list(
     fun = "any",
-    data = x,
+    data = ensure_one_arg(list2(...), "any"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-agg_funcs$all <- function(x, na.rm = FALSE) {
+agg_funcs$all <- function(..., na.rm = FALSE) {
   list(
     fun = "all",
-    data = x,
+    data = ensure_one_arg(list2(...), "all"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
@@ -847,10 +983,41 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
-agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+agg_funcs$quantile <- function(x, probs, na.rm = FALSE) {
+  if (length(probs) != 1) {
+    arrow_not_supported("quantile() with length(probs) != 1")
+  }
+  # TODO: Bind to the Arrow function that returns an exact quantile and remove
+  # this warning (ARROW-14021)
+  warn(
+    "quantile() currently returns an approximate quantile in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.quantile.approximate"
+  )
+  list(
+    fun = "tdigest",
+    data = x,
+    options = list(skip_nulls = na.rm, q = probs)
+  )
+}
+agg_funcs$median <- function(x, na.rm = FALSE) {
+  # TODO: Bind to the Arrow function that returns an exact median and remove
+  # this warning (ARROW-14021)
+  warn(
+    "median() currently returns an approximate median in Arrow",
+    .frequency = ifelse(is_interactive(), "once", "always"),
+    .frequency_id = "arrow.median.approximate"
+  )
+  list(
+    fun = "approximate_median",
+    data = x,
+    options = list(skip_nulls = na.rm)
+  )
+}
+agg_funcs$n_distinct <- function(..., na.rm = FALSE) {
   list(
     fun = "count_distinct",
-    data = x,
+    data = ensure_one_arg(list2(...), "n_distinct"),
     options = list(na.rm = na.rm)
   )
 }
@@ -862,37 +1029,44 @@ agg_funcs$n <- function() {
   )
 }
 agg_funcs$min <- function(..., na.rm = FALSE) {
-  args <- list2(...)
-  if (length(args) > 1) {
-    arrow_not_supported("Multiple arguments to min()")
-  }
   list(
     fun = "min",
-    data = args[[1]],
+    data = ensure_one_arg(list2(...), "min"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$max <- function(..., na.rm = FALSE) {
-  args <- list2(...)
-  if (length(args) > 1) {
-    arrow_not_supported("Multiple arguments to max()")
-  }
   list(
     fun = "max",
-    data = args[[1]],
+    data = ensure_one_arg(list2(...), "max"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 
-output_type <- function(fun, input_type) {
+ensure_one_arg <- function(args, fun) {
+  if (length(args) == 0) {
+    arrow_not_supported(paste0(fun, "() with 0 arguments"))
+  } else if (length(args) > 1) {
+    arrow_not_supported(paste0("Multiple arguments to ", fun, "()"))
+  }
+  args[[1]]
+}
+
+output_type <- function(fun, input_type, hash) {
   # These are quick and dirty heuristics.
   if (fun %in% c("any", "all")) {
     bool()
   } else if (fun %in% "sum") {
     # It may upcast to a bigger type but this is close enough
     input_type
-  } else if (fun %in% c("mean", "stddev", "variance")) {
+  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
     float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
   } else {
     # Just so things don't error, assume the resulting type is the same
     input_type

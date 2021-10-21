@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
@@ -273,16 +273,29 @@ test_that("filter environment scope", {
   # 'could not find function "isEqualTo"' because we haven't defined it yet
   expect_dplyr_error(input %>% filter(isEqualTo(int, 4)), tbl)
 
-  skip("Need to substitute in user defined function too")
-  # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
-  # instead yield Expressions. Probably bc the parent env of the function
-  # has the Ops.Expression methods defined; we need to move it so that the
-  # parent env is the data mask we use in the dplyr eval
+  # This works but only because there are S3 methods for those operations
   isEqualTo <- function(x, y) x == y & !is.na(x)
   expect_dplyr_equal(
     input %>%
       select(-fct) %>% # factor levels aren't identical
       filter(isEqualTo(int, 4)) %>%
+      collect(),
+    tbl
+  )
+  # Try something that needs to call another nse_func
+  expect_dplyr_equal(
+    input %>%
+      select(-fct) %>%
+      filter(nchar(padded_strings) < 10) %>%
+      collect(),
+    tbl
+  )
+  isShortString <- function(x) nchar(x) < 10
+  skip("TODO: 14071")
+  expect_dplyr_equal(
+    input %>%
+      select(-fct) %>%
+      filter(isShortString(padded_strings)) %>%
       collect(),
     tbl
   )

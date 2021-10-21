@@ -29,7 +29,7 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
-: ${ARROW_BUILD_TESTS:=ON}
+: ${ARROW_BUILD_TESTS:=OFF}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FILESYSTEM:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}
@@ -82,6 +82,7 @@ cmake \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \
+  -Dre2_SOURCE=BUNDLED \
   ${arrow_dir}/cpp
 cmake --build . --target install
 

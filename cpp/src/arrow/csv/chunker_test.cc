@@ -291,6 +291,45 @@ TEST_P(BaseChunkerTest, EscapingNewline) {
   }
 }
 
+TEST_P(BaseChunkerTest, EscapingAndQuoting) {
+  if (options_.newlines_in_values) {
+    {
+      auto csv = MakeCSVData({"\"a\\\"\n", "\"b\\\"\n"});
+      {
+        options_.quoting = true;
+        options_.escaping = true;
+        auto lengths = {10};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
+      {
+        options_.quoting = true;
+        options_.escaping = false;
+        auto lengths = {5, 5};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
+    }
+    {
+      auto csv = MakeCSVData({"\"a\\\n\"\n"});
+      {
+        options_.quoting = false;
+        options_.escaping = true;
+        auto lengths = {6};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
+      {
+        options_.quoting = false;
+        options_.escaping = false;
+        auto lengths = {4, 2};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
+    }
+  }
+}
+
 TEST_P(BaseChunkerTest, ParseSkip) {
   {
     auto csv = MakeCSVData({"ab,c,\n", "def,,gh\n", ",ij,kl\n"});

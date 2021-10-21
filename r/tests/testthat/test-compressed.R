@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Compressed.*Stream")
-
 test_that("codec_is_available", {
   expect_true(codec_is_available("uncompressed")) # Always true
   expect_match_arg_error(codec_is_available("sdfasdf"))

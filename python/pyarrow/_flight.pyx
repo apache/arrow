@@ -1285,7 +1285,6 @@ cdef class FlightClient(_Weakrefable):
         """
         cdef:
             unique_ptr[CResultStream] results
-            Result result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         if isinstance(action, (str, bytes)):
@@ -1300,13 +1299,18 @@ cdef class FlightClient(_Weakrefable):
             check_flight_status(
                 self.client.get().DoAction(
                     deref(c_options), c_action, &results))
-        while True:
-            result = Result.__new__(Result)
-            with nogil:
-                check_flight_status(results.get().Next(&result.result))
-                if result.result == NULL:
-                    break
-            yield result
+
+        def _do_action_response():
+            cdef:
+                Result result
+            while True:
+                result = Result.__new__(Result)
+                with nogil:
+                    check_flight_status(results.get().Next(&result.result))
+                    if result.result == NULL:
+                        break
+                yield result
+        return _do_action_response()
 
     def list_flights(self, criteria: bytes = None,
                      options: FlightCallOptions = None):
@@ -1950,6 +1954,9 @@ cdef CStatus _do_action(void* self, const CServerCallContext& context,
         return (<FlightError> flight_error).to_status()
     # Let the application return an iterator or anything convertible
     # into one
+    if responses is None:
+        # Server didn't return anything
+        responses = []
     result.reset(new CPyFlightResultStream(iter(responses), ptr))
     return CStatus_OK()
 

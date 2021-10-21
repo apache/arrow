@@ -104,6 +104,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(
       new MakeStructOptions({"col1"}, {false}, {key_value_metadata({{"key", "val"}})}));
   options.emplace_back(new DayOfWeekOptions(false, 1));
+  options.emplace_back(new WeekOptions(true, false, false));
   options.emplace_back(new CastOptions(CastOptions::Safe(boolean())));
   options.emplace_back(new CastOptions(CastOptions::Unsafe(int64())));
   options.emplace_back(new FilterOptions());

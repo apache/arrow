@@ -57,11 +57,11 @@ func TestSimpleArrayExport(t *testing.T) {
 	assert.False(t, test1IsReleased())
 
 	testarr := exportInt32Array()
-	arr, err := ImportCArrayWithType(&testarr, arrow.PrimitiveTypes.Int32)
+	arr, err := ImportCArrayWithType(testarr, arrow.PrimitiveTypes.Int32)
 	assert.NoError(t, err)
 
 	assert.False(t, test1IsReleased())
-	assert.True(t, isReleased(&testarr))
+	assert.True(t, isReleased(testarr))
 
 	arr.Release()
 	runtime.GC()
@@ -76,7 +76,7 @@ func TestSimpleArrayAndSchema(t *testing.T) {
 	buflist := (*[2]unsafe.Pointer)(unsafe.Pointer(testarr.buffers))
 	origvals := (*[10]int32)(unsafe.Pointer(buflist[1]))
 
-	fld, arr, err := ImportCArray(&testarr, &sc)
+	fld, arr, err := ImportCArray(testarr, &sc)
 	assert.NoError(t, err)
 	assert.Equal(t, arrow.PrimitiveTypes.Int32, fld.Type)
 	assert.EqualValues(t, 10, arr.Len())
@@ -149,6 +149,7 @@ func TestImportTemporalSchema(t *testing.T) {
 		{arrow.FixedWidthTypes.Duration_ns, "tDn"},
 		{arrow.FixedWidthTypes.MonthInterval, "tiM"},
 		{arrow.FixedWidthTypes.DayTimeInterval, "tiD"},
+		{arrow.FixedWidthTypes.MonthDayNanoInterval, "tin"},
 		{arrow.FixedWidthTypes.Timestamp_s, "tss:"},
 		{&arrow.TimestampType{Unit: arrow.Second, TimeZone: "Europe/Paris"}, "tss:Europe/Paris"},
 		{arrow.FixedWidthTypes.Timestamp_ms, "tsm:"},
@@ -175,18 +176,19 @@ func TestImportTemporalSchema(t *testing.T) {
 
 func TestListSchemas(t *testing.T) {
 	tests := []struct {
-		typ   arrow.DataType
-		fmts  []string
-		names []string
+		typ    arrow.DataType
+		fmts   []string
+		names  []string
+		isnull []bool
 	}{
-		{arrow.ListOf(arrow.PrimitiveTypes.Int8), []string{"+l", "c"}, []string{"", "item"}},
-		{arrow.FixedSizeListOf(2, arrow.PrimitiveTypes.Int64), []string{"+w:2", "l"}, []string{"", "item"}},
-		{arrow.ListOf(arrow.ListOf(arrow.PrimitiveTypes.Int32)), []string{"+l", "+l", "i"}, []string{"", "item", "item"}},
+		{arrow.ListOf(arrow.PrimitiveTypes.Int8), []string{"+l", "c"}, []string{"", "item"}, []bool{true}},
+		{arrow.FixedSizeListOfNonNullable(2, arrow.PrimitiveTypes.Int64), []string{"+w:2", "l"}, []string{"", "item"}, []bool{false}},
+		{arrow.ListOfNonNullable(arrow.ListOf(arrow.PrimitiveTypes.Int32)), []string{"+l", "+l", "i"}, []string{"", "item", "item"}, []bool{false, true}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.typ.Name(), func(t *testing.T) {
-			sc := testNested(tt.fmts, tt.names)
+			sc := testNested(tt.fmts, tt.names, tt.isnull)
 			defer freeMallocedSchemas(sc)
 
 			top := (*[1]*CArrowSchema)(unsafe.Pointer(sc))[0]

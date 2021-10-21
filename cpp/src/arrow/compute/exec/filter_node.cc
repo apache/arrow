@@ -21,13 +21,11 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-
 namespace arrow {
 
 using internal::checked_cast;
@@ -35,13 +33,11 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class FilterNode : public ExecNode {
+class FilterNode : public MapNode {
  public:
   FilterNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-             std::shared_ptr<Schema> output_schema, Expression filter)
-      : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-                 std::move(output_schema),
-                 /*num_outputs=*/1),
+             std::shared_ptr<Schema> output_schema, Expression filter, bool async_mode)
+      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
         filter_(std::move(filter)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -61,9 +57,9 @@ class FilterNode : public ExecNode {
                                filter_expression.ToString(), " evaluates to ",
                                filter_expression.type()->ToString());
     }
-
     return plan->EmplaceNode<FilterNode>(plan, std::move(inputs), std::move(schema),
-                                         std::move(filter_expression));
+                                         std::move(filter_expression),
+                                         filter_options.async_mode);
   }
 
   const char* kind_name() const override { return "FilterNode"; }
@@ -98,38 +94,9 @@ class FilterNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
-
-    auto maybe_filtered = DoFilter(std::move(batch));
-    if (ErrorIfNotOk(maybe_filtered.status())) return;
-
-    maybe_filtered->guarantee = batch.guarantee;
-    outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
+    auto func = [this](ExecBatch batch) { return DoFilter(std::move(batch)); };
+    this->SubmitTask(std::move(func), std::move(batch));
   }
-
-  void ErrorReceived(ExecNode* input, Status error) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->ErrorReceived(this, std::move(error));
-  }
-
-  void InputFinished(ExecNode* input, int total_batches) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, total_batches);
-  }
-
-  Status StartProducing() override { return Status::OK(); }
-
-  void PauseProducing(ExecNode* output) override {}
-
-  void ResumeProducing(ExecNode* output) override {}
-
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override { inputs_[0]->StopProducing(this); }
-
-  Future<> finished() override { return inputs_[0]->finished(); }
 
  protected:
   std::string ToStringExtra() const override { return "filter=" + filter_.ToString(); }
@@ -137,11 +104,9 @@ class FilterNode : public ExecNode {
  private:
   Expression filter_;
 };
-
 }  // namespace
 
 namespace internal {
-
 void RegisterFilterNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("filter", FilterNode::Make));
 }

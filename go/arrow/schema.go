@@ -220,3 +220,24 @@ func (s *Schema) String() string {
 	}
 	return o.String()
 }
+
+func (s *Schema) Fingerprint() string {
+	if s == nil {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("S{")
+	for _, f := range s.Fields() {
+		fieldFingerprint := f.Fingerprint()
+		if fieldFingerprint == "" {
+			return ""
+		}
+
+		b.WriteString(fieldFingerprint)
+		b.WriteByte(';')
+	}
+	// endianness
+	b.WriteByte('}')
+	return b.String()
+}

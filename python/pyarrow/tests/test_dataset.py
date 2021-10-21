@@ -22,6 +22,8 @@ import pathlib
 import pickle
 import textwrap
 import tempfile
+import threading
+import time
 
 import numpy as np
 import pytest
@@ -30,7 +32,8 @@ import pyarrow as pa
 import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
-from pyarrow.tests.util import change_cwd, _filesystem_uri, FSProtocolClass
+from pyarrow.tests.util import (change_cwd, _filesystem_uri,
+                                FSProtocolClass, ProxyHandler)
 
 try:
     import pandas as pd
@@ -576,7 +579,7 @@ def test_expression_construction():
         field.isin(1)
 
     with pytest.raises(pa.ArrowInvalid):
-        field != {1}
+        field != object()
 
 
 def test_expression_boolean_operators():
@@ -702,6 +705,12 @@ def test_file_format_pickling():
             buffer_size=4096,
         )
     ]
+    try:
+        formats.append(ds.OrcFileFormat())
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
+        pass
+
     for file_format in formats:
         assert pickle.loads(pickle.dumps(file_format)) == file_format
 
@@ -2237,11 +2246,11 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
 
 
 @pytest.fixture
-def s3_example_simple(s3_connection, s3_server):
+def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     uri = (
         "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
         .format(access_key, secret_key, host, port)
@@ -2300,11 +2309,11 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server):
+def test_open_dataset_from_s3_with_filesystem_uri(s3_server):
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     bucket = 'theirbucket'
     path = 'nested/folder/data.parquet'
     uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}".format(
@@ -2632,6 +2641,76 @@ def test_ipc_format(tempdir, dataset_reader):
         dataset = ds.dataset(path, format=format_str)
         result = dataset_reader.to_table(dataset)
         assert result.equals(table)
+
+
+@pytest.mark.orc
+def test_orc_format(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format=ds.OrcFileFormat())
+    result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
+    assert result.equals(table)
+
+    dataset = ds.dataset(path, format="orc")
+    result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
+    assert result.equals(table)
+
+    result = dataset_reader.to_table(dataset, columns=["b"])
+    result.validate(full=True)
+    assert result.equals(table.select(["b"]))
+
+    result = dataset_reader.to_table(
+        dataset, columns={"b2": ds.field("b") * 2}
+    )
+    result.validate(full=True)
+    assert result.equals(
+        pa.table({'b2': pa.array([.2, .4, .6], type="float64")})
+    )
+
+    assert dataset_reader.count_rows(dataset) == 3
+    assert dataset_reader.count_rows(dataset, filter=ds.field("a") > 2) == 1
+
+
+@pytest.mark.orc
+def test_orc_scan_options(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format="orc")
+    result = list(dataset_reader.to_batches(dataset))
+    assert len(result) == 1
+    assert result[0].num_rows == 3
+    assert result[0].equals(table.to_batches()[0])
+    # TODO batch_size is not yet supported (ARROW-14153)
+    # result = list(dataset_reader.to_batches(dataset, batch_size=2))
+    # assert len(result) == 2
+    # assert result[0].num_rows == 2
+    # assert result[0].equals(table.slice(0, 2).to_batches()[0])
+    # assert result[1].num_rows == 1
+    # assert result[1].equals(table.slice(2, 1).to_batches()[0])
+
+
+def test_orc_format_not_supported():
+    try:
+        from pyarrow.dataset import OrcFileFormat  # noqa
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
+        # ORC is not available, test error message
+        with pytest.raises(
+            ValueError, match="not built with support for the ORC file"
+        ):
+            ds.dataset(".", format="orc")
 
 
 @pytest.mark.pandas
@@ -3165,7 +3244,14 @@ def test_legacy_write_to_dataset_drops_null(tempdir):
     assert actual == expected
 
 
-def _check_dataset_roundtrip(dataset, base_dir, expected_files,
+def _sort_table(tab, sort_col):
+    import pyarrow.compute as pc
+    sorted_indices = pc.sort_indices(
+        tab, options=pc.SortOptions([(sort_col, 'ascending')]))
+    return pc.take(tab, sorted_indices)
+
+
+def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
                              base_dir_path=None, partitioning=None):
     base_dir_path = base_dir_path or base_dir
 
@@ -3179,7 +3265,9 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
     # check that reading back in as dataset gives the same result
     dataset2 = ds.dataset(
         base_dir_path, format="feather", partitioning=partitioning)
-    assert dataset2.to_table().equals(dataset.to_table())
+
+    assert _sort_table(dataset2.to_table(), sort_col).equals(
+        _sort_table(dataset.to_table(), sort_col))
 
 
 @pytest.mark.parquet
@@ -3193,12 +3281,12 @@ def test_write_dataset(tempdir):
     # full string path
     target = tempdir / 'single-file-target'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+    _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
     # pathlib path object
     target = tempdir / 'single-file-target2'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, target, expected_files, target)
+    _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
     # TODO
     # # relative path
@@ -3215,7 +3303,7 @@ def test_write_dataset(tempdir):
 
     target = tempdir / 'single-directory-target'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+    _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
 
 @pytest.mark.parquet
@@ -3230,24 +3318,24 @@ def test_write_dataset_partitioned(tempdir):
     target = tempdir / 'partitioned-hive-target'
     expected_paths = [
         target / "part=a", target / "part=a" / "part-0.feather",
-        target / "part=b", target / "part=b" / "part-1.feather"
+        target / "part=b", target / "part=b" / "part-0.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning_schema)
 
     # directory partitioning
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
         target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-1.feather"
+        target / "b", target / "b" / "part-0.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]))
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning_schema)
 
 
@@ -3295,13 +3383,84 @@ def test_write_dataset_with_scanner(tempdir):
     dataset = ds.dataset(tempdir, partitioning=["b"])
 
     with tempfile.TemporaryDirectory() as tempdir2:
-        ds.write_dataset(dataset.scanner(columns=["b", "c"]), tempdir2,
-                         format='parquet', partitioning=["b"])
+        ds.write_dataset(dataset.scanner(columns=["b", "c"], use_async=True),
+                         tempdir2, format='parquet', partitioning=["b"])
 
         load_back = ds.dataset(tempdir2, partitioning=["b"])
         load_back_table = load_back.to_table()
         assert dict(load_back_table.to_pydict()
                     ) == table.drop(["a"]).to_pydict()
+
+
+def test_write_dataset_with_backpressure(tempdir):
+    consumer_gate = threading.Event()
+
+    # A filesystem that blocks all writes so that we can build
+    # up backpressure.  The writes are released at the end of
+    # the test.
+    class GatingFs(ProxyHandler):
+        def open_output_stream(self, path, metadata):
+            # Block until the end of the test
+            consumer_gate.wait()
+            return self._fs.open_output_stream(path, metadata=metadata)
+    gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
+
+    schema = pa.schema([pa.field('data', pa.int32())])
+    # By default, the dataset writer will queue up 64Mi rows so
+    # with batches of 1M it should only fit ~67 batches
+    batch = pa.record_batch([pa.array(list(range(1_000_000)))], schema=schema)
+    batches_read = 0
+    min_backpressure = 67
+    end = 200
+
+    def counting_generator():
+        nonlocal batches_read
+        while batches_read < end:
+            time.sleep(0.01)
+            batches_read += 1
+            yield batch
+
+    scanner = ds.Scanner.from_batches(
+        counting_generator(), schema=schema, use_threads=True,
+        use_async=True)
+
+    write_thread = threading.Thread(
+        target=lambda: ds.write_dataset(
+            scanner, str(tempdir), format='parquet', filesystem=gating_fs))
+    write_thread.start()
+
+    try:
+        start = time.time()
+
+        def duration():
+            return time.time() - start
+
+        # This test is timing dependent.  There is no signal from the C++
+        # when backpressure has been hit.  We don't know exactly when
+        # backpressure will be hit because it may take some time for the
+        # signal to get from the sink to the scanner.
+        #
+        # The test may emit false positives on slow systems.  It could
+        # theoretically emit a false negative if the scanner managed to read
+        # and emit all 200 batches before the backpressure signal had a chance
+        # to propagate but the 0.01s delay in the generator should make that
+        # scenario unlikely.
+        last_value = 0
+        backpressure_probably_hit = False
+        while duration() < 10:
+            if batches_read > min_backpressure:
+                if batches_read == last_value:
+                    backpressure_probably_hit = True
+                    break
+                last_value = batches_read
+            time.sleep(0.5)
+
+        assert backpressure_probably_hit
+
+    finally:
+        consumer_gate.set()
+        write_thread.join()
+    assert batches_read == end
 
 
 def test_write_dataset_with_dataset(tempdir):
@@ -3334,7 +3493,7 @@ def test_write_dataset_partitioned_dict(tempdir):
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
         target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-1.feather"
+        target / "b", target / "b" / "part-0.feather"
     ]
     partitioning = ds.partitioning(pa.schema([
         dataset.schema.field('part')]),
@@ -3343,7 +3502,7 @@ def test_write_dataset_partitioned_dict(tempdir):
     # directories in _check_dataset_roundtrip (not currently required for
     # the formatting step)
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning)
 
 
@@ -3368,18 +3527,12 @@ def test_write_dataset_use_threads(tempdir):
         use_threads=True, file_visitor=file_visitor
     )
 
-    # Since it is a multi-threaded write there is no way to know which
-    # directory gets part-0 and which gets part-1
-    expected_paths_a = {
+    expected_paths = {
         target1 / 'part=a' / 'part-0.feather',
-        target1 / 'part=b' / 'part-1.feather'
-    }
-    expected_paths_b = {
-        target1 / 'part=a' / 'part-1.feather',
         target1 / 'part=b' / 'part-0.feather'
     }
     paths_written_set = set(map(pathlib.Path, paths_written))
-    assert paths_written_set in [expected_paths_a, expected_paths_b]
+    assert paths_written_set == expected_paths
 
     target2 = tempdir / 'partitioned2'
     ds.write_dataset(
@@ -3414,7 +3567,7 @@ def test_write_table(tempdir):
     base_dir = tempdir / 'partitioned'
     expected_paths = [
         base_dir / "part=a", base_dir / "part=a" / "dat_0.arrow",
-        base_dir / "part=b", base_dir / "part=b" / "dat_1.arrow"
+        base_dir / "part=b", base_dir / "part=b" / "dat_0.arrow"
     ]
 
     visited_paths = []
@@ -3495,10 +3648,10 @@ def test_write_iterable(tempdir):
 
 
 def test_write_scanner(tempdir, dataset_reader):
-    if dataset_reader.use_async:
+    if not dataset_reader.use_async:
         pytest.skip(
-            ('ARROW-12803: Write dataset with scanner does not'
-             ' support async scan'))
+            ('ARROW-13338: Write dataset with scanner does not'
+             ' support synchronous scan'))
 
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
@@ -3654,18 +3807,12 @@ def test_partition_dataset_parquet_file_visitor(tempdir):
         use_threads=True, file_visitor=file_visitor
     )
 
-    # Since it is a multi-threaded write there is no way to know which
-    # directory gets part-0 and which gets part-1
-    expected_paths_a = {
+    expected_paths = {
         root_path / 'part=a' / 'part-0.parquet',
-        root_path / 'part=b' / 'part-1.parquet'
-    }
-    expected_paths_b = {
-        root_path / 'part=a' / 'part-1.parquet',
         root_path / 'part=b' / 'part-0.parquet'
     }
     paths_written_set = set(map(pathlib.Path, paths_written))
-    assert paths_written_set in [expected_paths_a, expected_paths_b]
+    assert paths_written_set == expected_paths
     assert sample_metadata is not None
     assert sample_metadata.num_columns == 2
 

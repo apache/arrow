@@ -48,6 +48,9 @@ Classes
 
    FileFormat
    ParquetFileFormat
+   ORCFileFormat
+   IpcFileFormat
+   CsvFileFormat
    Partitioning
    PartitioningFactory
    DirectoryPartitioning

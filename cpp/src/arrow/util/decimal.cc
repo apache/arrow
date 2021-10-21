@@ -386,6 +386,9 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
 }
 
 std::string Decimal128::ToString(int32_t scale) const {
+  if (ARROW_PREDICT_FALSE(scale < -kMaxScale || scale > kMaxScale)) {
+    return "<scale out of range, cannot format Decimal128 value>";
+  }
   std::string str(ToIntegerString());
   AdjustIntegerStringWithScale(scale, &str);
   return str;
@@ -695,6 +698,9 @@ std::string Decimal256::ToIntegerString() const {
 }
 
 std::string Decimal256::ToString(int32_t scale) const {
+  if (ARROW_PREDICT_FALSE(scale < -kMaxScale || scale > kMaxScale)) {
+    return "<scale out of range, cannot format Decimal256 value>";
+  }
   std::string str(ToIntegerString());
   AdjustIntegerStringWithScale(scale, &str);
   return str;

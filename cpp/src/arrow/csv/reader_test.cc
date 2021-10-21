@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <thread>
@@ -176,20 +177,21 @@ void TestNestedParallelism(std::shared_ptr<internal::ThreadPool> thread_pool,
   ASSERT_EQ(table->num_rows(), NROWS);
 }
 
-void TestInvalidRowsSkipped(TableReaderFactory reader_factory, bool rows_counted) {
+void TestInvalidRowsSkipped(TableReaderFactory reader_factory, bool async) {
   const int NROWS = 1000;
   const int INVALID_EVERY = 20;
   const int NINVALID = 50;
 
   auto opts = ParseOptions::Defaults();
-  int num_invalid_rows = 0;
+  std::atomic<int> num_invalid_rows(0);
   opts.invalid_row_handler = [&](const InvalidRow& row) {
-    ++num_invalid_rows;
-    if (rows_counted) {
-      // actual data starts at row #2 in the CSV "file"
-      EXPECT_EQ(num_invalid_rows * INVALID_EVERY + 1, row.number);
-    } else {
+    auto cur_invalid_rows = ++num_invalid_rows;
+    if (async) {
+      // Row numbers are not counted in batches during async processing
       EXPECT_EQ(-1, row.number);
+    } else {
+      // actual data starts at row #2 in the CSV "file"
+      EXPECT_EQ(cur_invalid_rows * INVALID_EVERY + 1, row.number);
     }
     return InvalidRowResult::Skip;
   };
@@ -224,7 +226,7 @@ TEST(SerialReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, MakeSerialFactory());
 }
 TEST(SerialReaderTests, InvalidRowsSkipped) {
-  TestInvalidRowsSkipped(MakeSerialFactory(), /*rows_counted=*/true);
+  TestInvalidRowsSkipped(MakeSerialFactory(), /*async=*/false);
 }
 
 Result<TableReaderFactory> MakeAsyncFactory(
@@ -268,7 +270,7 @@ TEST(AsyncReaderTests, NestedParallelism) {
 }
 TEST(AsyncReaderTests, InvalidRowsSkipped) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
-  TestInvalidRowsSkipped(table_factory, /*rows_counted=*/false);
+  TestInvalidRowsSkipped(table_factory, /*async=*/true);
 }
 
 TableReaderFactory MakeStreamingFactory(bool use_threads = true) {
@@ -311,11 +313,10 @@ TEST(StreamingReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, MakeStreamingFactory());
 }
 TEST(StreamingReaderTests, InvalidRowsSkipped) {
-  TestInvalidRowsSkipped(MakeStreamingFactory(/*use_threads=*/false),
-                         /*rows_counted=*/true);
+  TestInvalidRowsSkipped(MakeStreamingFactory(/*use_threads=*/false), /*async=*/false);
 }
 TEST(StreamingReaderTests, InvalidRowsSkippedAsync) {
-  TestInvalidRowsSkipped(MakeStreamingFactory(), /*rows_counted=*/false);
+  TestInvalidRowsSkipped(MakeStreamingFactory(), /*async=*/true);
 }
 
 TEST(StreamingReaderTests, BytesRead) {

@@ -19,11 +19,20 @@
 package cdata
 
 import (
+	"unsafe"
+
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/arrio"
+	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
+
+// SchemaFromPtr is a simple helper function to cast a uintptr to a *CArrowSchema
+func SchemaFromPtr(ptr uintptr) *CArrowSchema { return (*CArrowSchema)(unsafe.Pointer(ptr)) }
+
+// ArrayFromPtr is a simple helper function to cast a uintptr to a *CArrowArray
+func ArrayFromPtr(ptr uintptr) *CArrowArray { return (*CArrowArray)(unsafe.Pointer(ptr)) }
 
 // ImportCArrowField takes in an ArrowSchema from the C Data interface, it
 // will copy the metadata and type definitions rather than keep direct references
@@ -158,4 +167,59 @@ func ImportCArrayStream(stream *CArrowArrayStream, schema *arrow.Schema) arrio.R
 	out := &nativeCRecordBatchReader{schema: schema}
 	initReader(out, stream)
 	return out
+}
+
+// ExportArrowSchema populates the passed in CArrowSchema with the schema passed in so
+// that it can be passed to some consumer of the C Data Interface. The `release` function
+// is tied to a callback in order to properly release any memory that was allocated during
+// the populating of the struct. Any memory allocated will be allocated using malloc
+// which means that it is invisible to the Go Garbage Collector and must be freed manually
+// using the callback on the CArrowSchema object.
+func ExportArrowSchema(schema *arrow.Schema, out *CArrowSchema) {
+	dummy := arrow.Field{Type: arrow.StructOf(schema.Fields()...), Metadata: schema.Metadata()}
+	exportField(dummy, out)
+}
+
+// ExportArrowRecordBatch populates the passed in CArrowArray (and optionally the schema too)
+// by sharing the memory used for the buffers of each column's arrays. It does not
+// copy the data, and will internally increment the reference counters so that releasing
+// the record will not free the memory prematurely.
+//
+// When using CGO, memory passed to C is pinned so that the Go garbage collector won't
+// move where it is allocated out from under the C pointer locations, ensuring the C pointers
+// stay valid. This is only true until the CGO call returns, at which point the garbage collector
+// is free to move things around again. As a result, if the function you're calling is going to
+// hold onto the pointers or otherwise continue to reference the memory *after* the call returns,
+// you should use the CgoArrowAllocator rather than the GoAllocator (or DefaultAllocator) so that
+// the memory which is allocated for the record batch in the first place is allocated in C,
+// not by the Go runtime and is therefore not subject to the Garbage collection.
+//
+// The release function on the populated CArrowArray will properly decrease the reference counts,
+// and release the memory if the record has already been released. But since this must be explicitly
+// done, make sure it is released so that you do not create a memory leak.
+func ExportArrowRecordBatch(rb array.Record, out *CArrowArray, outSchema *CArrowSchema) {
+	children := make([]*array.Data, rb.NumCols())
+	for i := range rb.Columns() {
+		children[i] = rb.Column(i).Data()
+	}
+
+	data := array.NewData(arrow.StructOf(rb.Schema().Fields()...), int(rb.NumRows()), []*memory.Buffer{nil},
+		children, 0, 0)
+	defer data.Release()
+	arr := array.NewStructData(data)
+	defer arr.Release()
+
+	if outSchema != nil {
+		ExportArrowSchema(rb.Schema(), outSchema)
+	}
+
+	exportArray(arr, out, nil)
+}
+
+// ExportArrowArray populates the CArrowArray that is passed in with the pointers to the memory
+// being used by the array.Interface passed in, in order to share with zero-copy across the C
+// Data Interface. See the documentation for ExportArrowRecordBatch for details on how to ensure
+// you do not leak memory and prevent unwanted, undefined or strange behaviors.
+func ExportArrowArray(arr array.Interface, out *CArrowArray, outSchema *CArrowSchema) {
+	exportArray(arr, out, outSchema)
 }

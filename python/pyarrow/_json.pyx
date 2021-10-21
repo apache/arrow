@@ -86,12 +86,12 @@ cdef class ParseOptions(_Weakrefable):
 
     Parameters
     ----------
-    explicit_schema: Schema, optional (default None)
+    explicit_schema : Schema, optional (default None)
         Optional explicit schema (no type inference, ignores other fields).
-    newlines_in_values: bool, optional (default False)
+    newlines_in_values : bool, optional (default False)
         Whether objects may be printed across multiple lines (for example
         pretty printed). If false, input must end with an empty line.
-    unexpected_field_behavior: str, default "infer"
+    unexpected_field_behavior : str, default "infer"
         How JSON fields outside of explicit_schema (if given) are treated.
 
         Possible behaviors:
@@ -211,16 +211,16 @@ def read_json(input_file, read_options=None, parse_options=None,
 
     Parameters
     ----------
-    input_file: string, path or file-like object
+    input_file : str, path or file-like object
         The location of JSON data. Currently only the line-delimited JSON
         format is supported.
-    read_options: pyarrow.json.ReadOptions, optional
-        Options for the JSON reader (see ReadOptions constructor for defaults)
-    parse_options: pyarrow.json.ParseOptions, optional
+    read_options : pyarrow.json.ReadOptions, optional
+        Options for the JSON reader (see ReadOptions constructor for defaults).
+    parse_options : pyarrow.json.ParseOptions, optional
         Options for the JSON parser
-        (see ParseOptions constructor for defaults)
-    memory_pool: MemoryPool, optional
-        Pool to allocate Table memory from
+        (see ParseOptions constructor for defaults).
+    memory_pool : MemoryPool, optional
+        Pool to allocate Table memory from.
 
     Returns
     -------

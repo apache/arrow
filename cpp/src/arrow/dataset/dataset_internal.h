@@ -28,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 
@@ -131,6 +132,29 @@ class FragmentDataset : public Dataset {
   FragmentVector fragments_;
   AsyncGenerator<std::shared_ptr<Fragment>> fragment_gen_;
 };
+
+// Given a record batch generator, creates a new generator that slices
+// batches so individual batches have at most batch_size rows. The
+// resulting generator is async-reentrant, but does not forward
+// reentrant pulls, so apply readahead before using this helper.
+inline RecordBatchGenerator MakeChunkedBatchGenerator(RecordBatchGenerator gen,
+                                                      int64_t batch_size) {
+  return MakeFlatMappedGenerator(
+      std::move(gen),
+      [batch_size](const std::shared_ptr<RecordBatch>& batch)
+          -> ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> {
+        const int64_t rows = batch->num_rows();
+        if (rows <= batch_size) {
+          return ::arrow::MakeVectorGenerator<std::shared_ptr<RecordBatch>>({batch});
+        }
+        std::vector<std::shared_ptr<RecordBatch>> slices;
+        slices.reserve(rows / batch_size + (rows % batch_size != 0));
+        for (int64_t i = 0; i < rows; i += batch_size) {
+          slices.push_back(batch->Slice(i, batch_size));
+        }
+        return ::arrow::MakeVectorGenerator(std::move(slices));
+      });
+}
 
 }  // namespace dataset
 }  // namespace arrow

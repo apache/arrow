@@ -61,7 +61,7 @@ RUN apt-key adv \
 COPY ci/etc/rprofile /arrow/ci/etc/
 RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
-RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
+RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
 
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/

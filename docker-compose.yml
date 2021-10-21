@@ -113,6 +113,7 @@ x-hierarchy:
       - debian-ruby
     - debian-python
   - debian-go:
+    - debian-go-cgo
     - debian-go-cgo-python
   - debian-java:
     - debian-java-jni
@@ -128,6 +129,7 @@ x-hierarchy:
     - ubuntu-python-sdist-test
     - ubuntu-r
     - ubuntu-r-only-r
+  - ubuntu-cpp-bundled
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
@@ -226,6 +228,7 @@ services:
     environment:
       <<: *ccache
       ARROW_BUILD_BENCHMARKS: "ON"
+      ARROW_BUILD_EXAMPLES: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
       ARROW_USE_LD_GOLD: "ON"
@@ -276,7 +279,7 @@ services:
     #   docker-compose run --rm debian-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     build:
       context: .
@@ -328,6 +331,26 @@ services:
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
+    command: *cpp-command
+
+  ubuntu-cpp-bundled:
+    # Arrow build with BUNDLED dependencies
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp-minimal.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: *ccache
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      CMAKE_GENERATOR: "Unix Makefiles"
+    volumes: *ubuntu-volumes
     command: *cpp-command
 
   ubuntu-cuda-cpp:
@@ -465,7 +488,7 @@ services:
     #   docker-compose run --rm debian-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
     build:
       context: .
@@ -524,7 +547,7 @@ services:
     #   docker-compose run --rm debian-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-ruby
     build:
       context: .
@@ -633,7 +656,7 @@ services:
     #   docker-compose run --rm debian-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 9, 10
+    #   DEBIAN: 10, 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
     build:
       context: .
@@ -752,7 +775,7 @@ services:
       args:
         arch_alias: ${ARCH_ALIAS}
         arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2020-12-03-912b0de
+        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
@@ -775,7 +798,7 @@ services:
       args:
         arch_alias: ${ARCH_ALIAS}
         arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2020-11-11-bc8ce45
+        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
@@ -873,6 +896,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery &&
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java/dist &&
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
 
   ##############################  Integration #################################
@@ -1183,12 +1207,12 @@ services:
     # Usage:
     #   docker-compose build debian-go
     #   docker-compose run debian-go
-    image: ${REPO}:${ARCH}-debian-10-go-${GO}
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
     build:
       context: .
-      dockerfile: ci/docker/debian-10-go.dockerfile
+      dockerfile: ci/docker/debian-${DEBIAN}-go.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-10-go-${GO}
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
       args:
         arch: ${ARCH}
         go: ${GO}
@@ -1199,36 +1223,54 @@ services:
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/go_test.sh /arrow"
 
+  debian-go-cgo:
+    # Usage:
+    #   docker-compose build debian-go-cgo
+    #   docker-compose run debian-go-cgo
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
+    build:
+      context: .
+      dockerfile: ci/docker/debian-go-cgo.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
+      args:
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    environment:
+      ARROW_GO_TESTCGO: "1"
+    command: *go-command
+
   debian-go-cgo-python:
     # Usage:
     #   docker-compose build debian-go-cgo-python
     #   docker-compose run debian-go-cgo-python
-    image: ${REPO}:${ARCH}-debian-10-go-${GO}-cgo-python
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
     build:
       context: .
-      dockerfile: ci/docker/debian-10-go-cgo-python.dockerfile
+      dockerfile: ci/docker/debian-${DEBIAN}-go-cgo-python.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-10-go-${GO}-cgo-python
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
       args:
-        base: ${REPO}:${ARCH}-debian-10-go-${GO}
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &go-cgo-python-command >
         /bin/bash -c "
           /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
-      
+
   ############################# JavaScript ####################################
 
   debian-js:
     # Usage:
     #   docker-compose build debian-js
     #   docker-compose run debian-js
-    image: ${REPO}:${ARCH}-debian-10-js-${NODE}
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
     build:
       context: .
-      dockerfile: ci/docker/debian-10-js.dockerfile
+      dockerfile: ci/docker/debian-${DEBIAN}-js.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-10-js-${NODE}
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
       args:
         arch: ${ARCH}
         node: ${NODE}
@@ -1288,7 +1330,7 @@ services:
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
   debian-java-jni:
-    # Includes plasma test and jni for gandiva and orc.
+    # Includes plasma test, jni for gandiva and orc, and C data interface.
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose build debian-java-jni
@@ -1312,6 +1354,7 @@ services:
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
@@ -1346,6 +1389,7 @@ services:
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/csharp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&

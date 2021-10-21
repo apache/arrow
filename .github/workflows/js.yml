@@ -42,7 +42,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 10 NodeJS 14
+    name: AMD64 Debian 11 NodeJS 14
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

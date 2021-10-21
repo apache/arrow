@@ -36,7 +36,6 @@ func main() {
 
 	s := flight_integration.GetScenario(*scenario)
 	srv := s.MakeServer(*port)
-	srv.Init(fmt.Sprintf("0.0.0.0:%d", *port))
 	srv.SetShutdownOnSignals(syscall.SIGTERM, os.Interrupt)
 	_, p, _ := net.SplitHostPort(srv.Addr().String())
 	fmt.Printf("Server listening on localhost:%s\n", p)

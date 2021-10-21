@@ -28,6 +28,7 @@ pip install -e $arrow_dir/dev/archery
 archery integration \
     --run-flight \
     --with-cpp=1 \
+    --with-csharp=1 \
     --with-java=1 \
     --with-js=1 \
     --with-go=1 \

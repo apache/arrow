@@ -93,5 +93,17 @@ ARROW_TESTING_EXPORT
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
                                     int num_batches = 10, int batch_size = 4);
 
+ARROW_TESTING_EXPORT
+Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);
+
+ARROW_TESTING_EXPORT
+void AssertTablesEqual(const std::shared_ptr<Table>& exp,
+                       const std::shared_ptr<Table>& act);
+
+ARROW_TESTING_EXPORT
+void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
+                            const std::vector<ExecBatch>& exp,
+                            const std::vector<ExecBatch>& act);
+
 }  // namespace compute
 }  // namespace arrow

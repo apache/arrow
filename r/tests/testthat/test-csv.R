@@ -44,7 +44,7 @@ test_that("read_csv_arrow(as_data_frame=TRUE)", {
 
   write.csv(tbl, tf, row.names = FALSE)
   tab1 <- read_csv_arrow(tf, as_data_frame = TRUE)
-  expect_equivalent(tbl, tab1)
+  expect_equal(tbl, tab1)
 })
 
 test_that("read_delim_arrow parsing options: delim", {
@@ -54,8 +54,8 @@ test_that("read_delim_arrow parsing options: delim", {
   write.table(tbl, tf, sep = "\t", row.names = FALSE)
   tab1 <- read_tsv_arrow(tf)
   tab2 <- read_delim_arrow(tf, delim = "\t")
-  expect_equivalent(tab1, tab2)
-  expect_equivalent(tbl, tab1)
+  expect_equal(tab1, tab2)
+  expect_equal(tbl, tab1)
 })
 
 test_that("read_delim_arrow parsing options: quote", {
@@ -69,9 +69,9 @@ test_that("read_delim_arrow parsing options: quote", {
   # Is this a problem?
   # Component “a”: target is integer64, current is numeric
   tab1$a <- as.numeric(tab1$a)
-  expect_equivalent(
+  expect_equal(
     tab1,
-    data.frame(a = c(1, 2), b = c("abc", "def"), stringsAsFactors = FALSE)
+    tibble::tibble(a = c(1, 2), b = c("abc", "def"))
   )
 })
 
@@ -89,7 +89,7 @@ test_that("read_csv_arrow parsing options: col_names", {
   tab1 <- read_csv_arrow(tf, col_names = names(tbl))
 
   expect_identical(names(tab1), names(tbl))
-  expect_equivalent(tbl, tab1)
+  expect_equal(tbl, tab1)
 
   # This errors (correctly) because I haven't given enough names
   # but the error message is "Invalid: Empty CSV file", which is not accurate
@@ -113,7 +113,7 @@ test_that("read_csv_arrow parsing options: skip", {
   tab1 <- read_csv_arrow(tf, skip = 2)
 
   expect_identical(names(tab1), names(tbl))
-  expect_equivalent(tbl, tab1)
+  expect_equal(tbl, tab1)
 })
 
 test_that("read_csv_arrow parsing options: skip_empty_rows", {
@@ -175,7 +175,7 @@ test_that("read_csv_arrow() can detect compression from file name", {
 
   write.csv(tbl, gzfile(tf), row.names = FALSE, quote = FALSE)
   tab1 <- read_csv_arrow(tf)
-  expect_equivalent(tbl, tab1)
+  expect_equal(tbl, tab1)
 })
 
 test_that("read_csv_arrow(schema=)", {
@@ -222,8 +222,9 @@ test_that("read_csv_arrow() can read timestamps", {
   df <- read_csv_arrow(tf, col_types = schema(time = timestamp(timezone = "UTC")))
   expect_equal(tbl, df)
 
-  df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)
-  expect_equal(tbl, df, check.tzone = FALSE) # col_types = "t" makes timezone-naive timestamp
+  # time zones are being read in as time zone-naive, hence ignore_attr = "tzone"
+  df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
+  expect_equal(tbl, df, ignore_attr = "tzone")
 })
 
 test_that("read_csv_arrow(timestamp_parsers=)", {
@@ -328,4 +329,29 @@ test_that("Write a CSV file with invalid batch size", {
     write_csv_arrow(tbl_no_dates, csv_file, batch_size = -1),
     regexp = "batch_size not greater than 0"
   )
+})
+
+test_that("time mapping work as expected (ARROW-13624)", {
+  tbl <- tibble::tibble(
+    dt = as.POSIXct(c("2020-07-20 16:20", NA), tz = "UTC"),
+    time = c(hms::as_hms("16:20:00"), NA)
+  )
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf,
+    col_names = c("dt", "time"),
+    col_types = "Tt",
+    skip = 1
+  )
+
+  expect_error(
+    read_csv_arrow(tf,
+      col_names = c("dt", "time"),
+      col_types = "tT", skip = 1
+    )
+  )
+
+  expect_equal(df, tbl, ignore_attr = "tzone")
 })

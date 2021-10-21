@@ -30,7 +30,7 @@
 
 namespace arrow {
 namespace compute {
-namespace aggregate {
+namespace internal {
 
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
@@ -83,7 +83,7 @@ struct SumImpl : public ScalarAggregator {
       if (is_boolean_type<ArrowType>::value) {
         this->sum += static_cast<SumCType>(BooleanArray(data).true_count());
       } else {
-        this->sum += arrow::compute::detail::SumArray<CType, SumCType, SimdLevel>(*data);
+        this->sum += SumArray<CType, SumCType, SimdLevel>(*data);
       }
     } else {
       const auto& data = *batch[0].scalar();
@@ -621,6 +621,6 @@ struct MinMaxInitState {
   }
 };
 
-}  // namespace aggregate
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

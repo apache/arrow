@@ -122,7 +122,7 @@ func arrayEqualBinary(left, right *Binary) bool {
 		if left.IsNull(i) {
 			continue
 		}
-		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
+		if !bytes.Equal(left.Value(i), right.Value(i)) {
 			return false
 		}
 	}
