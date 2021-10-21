@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// +build !ccalloc,!ccexec
-
 // this file is used to provide dummy implementations for exec
 // functions that are called elsewhere in the compute package by
 // the expression handlers so that the logic can stay where it should
