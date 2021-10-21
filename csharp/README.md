@@ -35,7 +35,7 @@ for currently available features.
 
 # Known Issues
 
-- Cannot read Arrow files containing tensors or tables.
+- Cannot read Arrow files containing tensors.
 - Cannot easily modify allocation strategy without implementing a custom memory pool. All allocations are currently 64-byte aligned and padded to 8-bytes.
 - Default memory allocation strategy uses an over-allocation strategy with pointer fixing, which results in significant memory overhead for small buffers. A buffer that requires a single byte for storage may be backed by an allocation of up to 64-bytes to satisfy alignment requirements.
 - There are currently few builder APIs available for specific array types. Arrays must be built manually with an arrow buffer builder abstraction.
