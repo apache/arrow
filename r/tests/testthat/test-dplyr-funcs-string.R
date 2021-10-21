@@ -1340,10 +1340,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
 test_that("str_count", {
   df <- tibble(
-    cities = c(
-      "Kolkata", "Dar es Salaam", "Tel Aviv", "San Antonio",
-      "Cluj Napoca", "Bern", "Bogota"
-    ),
+    cities = c("Kolkata", "Dar es Salaam", "Tel Aviv", "San Antonio", "Cluj Napoca", "Bern", "Bogota"),
     dots = c("a.", "...", ".a.a", "a..a.", "ab...", "dse....", ".f..d..")
   )
 
@@ -1380,10 +1377,7 @@ test_that("str_count", {
   # nse_funcs$str_count() is not vectorised over pattern
   expect_dplyr_equal(
     input %>%
-      mutate(let_count = str_count(
-        cities,
-        pattern = c("a", "b", "e", "g", "p", "n", "s")
-      )) %>%
+      mutate(let_count = str_count(cities, pattern = c("a", "b", "e", "g", "p", "n", "s"))) %>%
       collect(),
     df,
     warning = TRUE
