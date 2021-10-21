@@ -574,7 +574,4 @@ gdv_month_interval castNULLABLEINTERVALYEAR_int32(int64_t context, gdv_int32 in)
 
 gdv_month_interval castNULLABLEINTERVALYEAR_int64(int64_t context, gdv_int64 in);
 
-gdv_int32 levenshtein(gdv_int64 ctx, const char* text1, gdv_int32 text1_len,
-                      const char* text2, gdv_int32 text2_len);
-
 }  // extern "C"
