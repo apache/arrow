@@ -38,10 +38,8 @@ Status ToArrowStatus(const google::cloud::Status& s) {
     case google::cloud::StatusCode::kInvalidArgument:
       return Status::Invalid(os.str());
     case google::cloud::StatusCode::kDeadlineExceeded:
-      return Status::IOError(os.str());
     case google::cloud::StatusCode::kNotFound:
-      // TODO: it is unclear if a better mapping would be possible.
-      return Status::UnknownError(os.str());
+      return Status::IOError(os.str());
     case google::cloud::StatusCode::kAlreadyExists:
       return Status::AlreadyExists(os.str());
     case google::cloud::StatusCode::kPermissionDenied:

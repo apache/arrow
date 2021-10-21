@@ -1690,7 +1690,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       for (const auto& pair : sort_columns_) {
         ColumnComparator comparator(pair.second, options_.null_placement);
         const auto& chunked_array = *pair.first;
-        int64_t lhs_index, rhs_index;
+        int64_t lhs_index = 0, rhs_index = 0;
         const Array* lhs_array = FindTargetArray(chunked_array, lhs, &lhs_index);
         const Array* rhs_array = FindTargetArray(chunked_array, rhs, &rhs_index);
         int compared = comparator(*lhs_array, *rhs_array, lhs_index, rhs_index);
