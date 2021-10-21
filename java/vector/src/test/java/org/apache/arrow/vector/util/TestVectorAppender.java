@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
@@ -92,6 +93,53 @@ public class TestVectorAppender {
         expected.allocateNew();
         ValueVectorDataPopulator.setVector(expected, 0, 1, 2, 3, 4, 5, 6, null, 8, 9, null, 11, 12, 13, 14);
         assertVectorsEqual(expected, target);
+      }
+    }
+  }
+
+  /**
+   * Test BitVector explicitly because the appender has special handling for the BitVector.
+   */
+  @Test
+  public void testAppendBitVector() {
+    final int length1 = 5;
+    final Integer[] targetValues = {0, 1, null, 0, 1};
+    final Integer[] deltaValues = {null, 0, 1, null, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+
+    // Run the test with delta vectors of different lengths.
+    // Different lengths from 1 to 14 ensures that bits less than
+    // and more than a byte are handled correctly.
+    for (int length2 = 1; length2 <= deltaValues.length; length2++) {
+      try (BitVector target = new BitVector("", allocator);
+           BitVector delta = new BitVector("", allocator)) {
+
+        // Delta values to append
+        Integer[] deltaValuesToAppend = new Integer[length2];
+        System.arraycopy(deltaValues, 0, deltaValuesToAppend, 0, length2);
+
+        target.allocateNew(length1);
+        delta.allocateNew(length2);
+
+        ValueVectorDataPopulator.setVector(target, targetValues);
+        ValueVectorDataPopulator.setVector(delta, deltaValuesToAppend);
+
+        VectorAppender appender = new VectorAppender(target);
+        delta.accept(appender, null);
+
+        assertEquals(length1 + length2, target.getValueCount());
+
+        // Compute expected boolean values.
+        Object[] expectedValues = new Object[length1 + length2];
+        int targetIndex = 0;
+        for (Integer v : targetValues) {
+          expectedValues[targetIndex++] = v != null ? v == 1 : null;
+        }
+        for (Integer v : deltaValuesToAppend) {
+          expectedValues[targetIndex++] = v != null ? v == 1 : null;
+        }
+
+        // Test appended values against expected values.
+        assertVectorValuesEqual(target, expectedValues);
       }
     }
   }
