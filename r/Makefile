@@ -45,7 +45,7 @@ sync-cpp:
 	cp -p ../.env tools/dotenv
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/
-	sed -i .bak "s/\.env/dotenv/g" tools/cpp/CMakeLists.txt
+	sed -i"" -e "s/\.env/dotenv/g" tools/cpp/CMakeLists.txt
 
 build: doc sync-cpp
 	R CMD build ${args} .

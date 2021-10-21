@@ -22,11 +22,9 @@
 #' make it much faster to read and query.
 #'
 #' @param dataset [Dataset], [RecordBatch], [Table], `arrow_dplyr_query`, or
-#' `data.frame`. If an `arrow_dplyr_query` or `grouped_df`,
-#' `schema` and `partitioning` will be taken from the result of any `select()`
-#' and `group_by()` operations done on the dataset. `filter()` queries will be
-#' applied to restrict written rows.
-#' Note that `select()`-ed columns may not be renamed.
+#' `data.frame`. If an `arrow_dplyr_query`, the query will be evaluated and
+#' the result will be written. This means that you can `select()`, `filter()`, `mutate()`,
+#' etc. to transform the data before it is written if you need to.
 #' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
 #' to write to (directory will be created if it does not exist)
 #' @param format a string identifier of the file format. Default is to use
