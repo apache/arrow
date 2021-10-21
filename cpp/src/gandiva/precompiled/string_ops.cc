@@ -2266,5 +2266,4 @@ gdv_int32 levenshtein(gdv_int64 ctx, const char* text1, gdv_int32 text1_len,
 
   return a + 1;
 }
-
 }  // extern "C"
