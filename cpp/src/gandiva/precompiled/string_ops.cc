@@ -1654,13 +1654,13 @@ gdv_int32 levenshtein_utf8_utf8(int64_t context, const char* in1, int32_t in1_le
   int32_t len_dist_1 = in1_len + 1;
   int32_t len_dist_2 = in2_len + 1;
   // dist[i][j] represents the Levenstein distance between the strings
-  int **dist;
-  if ((dist = (int **)malloc((len_dist_1 + 1) * sizeof(int*))) == NULL){
+  int** dist;
+  if ((dist = (int**)malloc((len_dist_1 + 1) * sizeof(int*))) == NULL) {
     gdv_fn_context_set_error_msg(context, "Insufficient space to allocate buffer");
     return 0;
   }
-  for(int i = 0; i <= in1_len; i++){
-    if ((dist[i] = (int *)malloc(len_dist_2 * sizeof(int*))) == NULL){
+  for (int i = 0; i <= in1_len; i++) {
+    if ((dist[i] = (int*)malloc(len_dist_2 * sizeof(int*))) == NULL) {
       gdv_fn_context_set_error_msg(context, "Insufficient space to allocate buffer");
       return 0;
     }
@@ -1683,8 +1683,8 @@ gdv_int32 levenshtein_utf8_utf8(int64_t context, const char* in1, int32_t in1_le
   }
   int levenshtein = dist[in1_len][in2_len];
 
-  //Free memory of dist
-  for(int i = 0; i <= in1_len; i++){
+  // Free memory of dist
+  for (int i = 0; i <= in1_len; i++) {
     free(dist[i]);
   }
   free(dist);
