@@ -31,7 +31,7 @@ class Report:
         self.job = job
 
         tasks = sorted(job.tasks.items())
-        if task_filters is not None:
+        if task_filters:
             filtered = set()
             for pattern in task_filters:
                 filtered |= set(fnmatch.filter(job.tasks.keys(), pattern))
