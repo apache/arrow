@@ -577,3 +577,11 @@ func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
 
 	return ImportCRecordBatchWithSchema(arr, n.schema)
 }
+
+func releaseArr(arr *CArrowArray) {
+	C.ArrowArrayRelease(arr)
+}
+
+func releaseSchema(schema *CArrowSchema) {
+	C.ArrowSchemaRelease(schema)
+}
