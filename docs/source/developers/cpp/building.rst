@@ -121,8 +121,22 @@ argument is omitted then a release build will be produced.
 
 .. note::
 
-   You need to more options to build on Windows. See
+   You need to set more options to build on Windows. See
    :ref:`developers-cpp-windows` for details.
+
+Other options for build type are also possible:
+
+* ``Debug``: doesn't apply any optimization passes in the compiler and
+  leaves the symbol map in the binary.
+* ``FastDebug``
+* ``RelWithDebInfo``: applies compiler optimizations and it removes the symbol
+  map from the binary.
+* ``Release``: fast but less useful for debugging or profiling.
+* ``Profile_Gen``
+* ``Profile_Build``
+
+You can also run default build with flag `-DARROW_EXTRA_ERROR_CONTEXT=ON`, see
+:ref:`Extra debugging help` 
 
 Minimal release build:
 
