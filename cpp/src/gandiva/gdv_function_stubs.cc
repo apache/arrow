@@ -19,6 +19,7 @@
 
 #include <utf8proc.h>
 
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,7 @@
 #include "arrow/util/string_view.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
+#include "encrypt_utils.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
@@ -830,6 +832,58 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 
   *out_len = out_idx;
   return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
+                               const char* key_data, int32_t key_data_len, int32_t* out_len) {
+
+  if (data_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid data length to be encrypted");
+    *out_len = 0;
+    return "";
+  }
+
+  unsigned char encrypted[256];
+  int32_t decrypted_len = gandiva::aes_encrypt(context, (unsigned char*)data, data_len,
+                                               (unsigned char*)key_data, encrypted);
+  *out_len = decrypted_len;
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    std::string err_msg = "Could not allocate memory for returning aes encrypt cypher text";
+    gdv_fn_context_set_error_msg(context, err_msg.data());
+    return nullptr;
+  }
+
+  memcpy(ret, reinterpret_cast<const char*>(encrypted), *out_len);
+  return ret;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_len,
+                               const char* key_data, int32_t key_data_len, int32_t* out_len) {
+
+  if (data_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid data length to be decrypted");
+    *out_len = 0;
+    return "";
+  }
+
+  unsigned char decrypted[256];
+  int32_t decrypted_len = gandiva::aes_decrypt(context, (unsigned char*)data, data_len,
+                                                 (unsigned char*)key_data, decrypted);
+  *out_len = decrypted_len;
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    std::string err_msg = "Could not allocate memory for returning aes encrypt cypher text";
+    gdv_fn_context_set_error_msg(context, err_msg.data());
+    return nullptr;
+  }
+
+  memcpy(ret, reinterpret_cast<const char*>(decrypted), *out_len);
+  return ret;
 }
 }
 
@@ -1840,5 +1894,33 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_initcap_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
+
+  // gdv_fn_aes_encrypt
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_encrypt",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_aes_encrypt));
+
+  // gdv_fn_aes_decrypt
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_aes_decrypt));
 }
 }  // namespace gandiva

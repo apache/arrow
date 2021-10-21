@@ -22,6 +22,7 @@
 #include "gandiva/function_registry_math_ops.h"
 #include "gandiva/function_registry_string.h"
 #include "gandiva/function_registry_timestamp_arithmetic.h"
+#include "gandiva/function_registry_encrypt.h"
 
 #include <iterator>
 #include <utility>
@@ -64,6 +65,9 @@ SignatureMap FunctionRegistry::InitPCMap() {
 
   auto v6 = GetDateTimeArithmeticFunctionRegistry();
   pc_registry_.insert(std::end(pc_registry_), v6.begin(), v6.end());
+
+  auto v7 = GetEncryptFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v7.begin(), v7.end());
 
   for (auto& elem : pc_registry_) {
     for (auto& func_signature : elem.signatures()) {
