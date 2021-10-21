@@ -41,6 +41,9 @@ Building requires:
   sufficient. For Windows, at least Visual Studio 2017 is required.
 * CMake 3.5 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
+* At least 1GB of RAM for a minimal build, 4GB for a minimal  
+  debug build with tests and 8GB for a full build using
+  :ref:`docker <docker>`.
 
 On Ubuntu/Debian you can install the requirements with:
 
