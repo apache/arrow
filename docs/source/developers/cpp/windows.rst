@@ -308,6 +308,8 @@ LLVM toolchain for Windows on ARM64 can be downloaded from LLVM release page `LL
 
 Visual Studio (MSVC) cannot be yet used for compiling win/arm64 build due to compatibility issues for dependencies like xsimd and boost library.
 
+Note: This is only an experimental build for WoA64 as all features are not extensively tested through CI due to lack of infrastructure.
+
 Debug builds
 ============
 
