@@ -209,7 +209,8 @@ tasks:
 {% for python_version, numpy_version in [("3.6", "1.17"),
                                          ("3.7", "1.17"),
                                          ("3.8", "1.17"),
-                                         ("3.9", "1.19")] %}
+                                         ("3.9", "1.19"),
+                                         ("3.10", "1.21")] %}
   {% set pyver = python_version | replace(".", "") %}
 
   conda-linux-gcc-py{{ pyver }}-cuda:

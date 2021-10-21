@@ -19,7 +19,8 @@
 requires = [
     "cython >= 0.29",
     "numpy==1.16.6; python_version<'3.9'",
-    "numpy==1.19.4; python_version>='3.9'",
+    "numpy==1.19.4; python_version<'3.10'",
+    "numpy==1.21.3; python_version>='3.10'",
     "setuptools",
     "setuptools_scm",
     "wheel"
