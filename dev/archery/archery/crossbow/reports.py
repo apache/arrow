@@ -27,18 +27,23 @@ import textwrap
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
 
-    def __init__(self, job, task_filter=None):
+    def __init__(self, job, task_filters=None):
+        assert isinstance(task_filters, list)
         self.job = job
-        if task_filter is None:
-            self.task_filter = lambda task_name: True
-        else:
-            self.task_filter = (
-                lambda task_name: fnmatch.fnmatch(task_name, task_filter)
-            )
 
+        if task_filters:
+            filtered = set()
+            for pattern in task_filters:
+                filtered |= set(fnmatch.filter(job.tasks.keys(), pattern))
+
+            self._tasks = {name: task for name, task in job.tasks.items()
+                           if name in filtered}
+        else:
+            self._tasks = job.tasks
+
+    @property
     def tasks(self):
-        return {k: v for k, v in sorted(self.job.tasks.items())
-                if self.task_filter(k)}
+        return self._tasks
 
     def show(self):
         raise NotImplementedError()
@@ -106,7 +111,7 @@ class ConsoleReport(Report):
         echo(self.header())
 
         # write table's body
-        for task_name, task in self.tasks().items():
+        for task_name, task in self.tasks.items():
             # write summary of the uploaded vs total assets
             status = task.status()
             assets = task.assets(validate_patterns=validate_patterns)
