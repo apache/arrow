@@ -587,10 +587,14 @@ def test_subtree_filesystem():
     subfs = SubTreeFileSystem('/base', localfs)
     assert subfs.base_path == '/base/'
     assert subfs.base_fs == localfs
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/base/, '
+                                  'base_fs=<pyarrow._fs.LocalFileSystem')
 
     subfs = SubTreeFileSystem('/another/base/', LocalFileSystem())
     assert subfs.base_path == '/another/base/'
     assert subfs.base_fs == localfs
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/another/base/,'
+                                  ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
 def test_filesystem_pickling(fs):

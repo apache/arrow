@@ -129,6 +129,7 @@ x-hierarchy:
     - ubuntu-python-sdist-test
     - ubuntu-r
     - ubuntu-r-only-r
+  - ubuntu-cpp-bundled
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
@@ -330,6 +331,26 @@ services:
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
+    command: *cpp-command
+
+  ubuntu-cpp-bundled:
+    # Arrow build with BUNDLED dependencies
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp-minimal.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: *ccache
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      CMAKE_GENERATOR: "Unix Makefiles"
+    volumes: *ubuntu-volumes
     command: *cpp-command
 
   ubuntu-cuda-cpp:
