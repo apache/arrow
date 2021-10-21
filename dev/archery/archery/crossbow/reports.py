@@ -18,6 +18,7 @@
 import click
 import collections
 import operator
+import fnmatch
 import functools
 from io import StringIO
 import textwrap
@@ -26,8 +27,22 @@ import textwrap
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
 
-    def __init__(self, job):
+    def __init__(self, job, task_filters=None):
         self.job = job
+
+        tasks = sorted(job.tasks.items())
+        if task_filters is not None:
+            filtered = set()
+            for pattern in task_filters:
+                filtered |= set(fnmatch.filter(job.tasks.keys(), pattern))
+
+            tasks = [(name, task) for name, task in tasks if name in filtered]
+
+        self._tasks = dict(tasks)
+
+    @property
+    def tasks(self):
+        return self._tasks
 
     def show(self):
         raise NotImplementedError()
@@ -88,19 +103,17 @@ class ConsoleReport(Report):
         )
         return name_ + state_
 
-    def show(self, outstream, asset_callback=None):
+    def show(self, outstream, asset_callback=None, validate_patterns=True):
         echo = functools.partial(click.echo, file=outstream)
 
         # write table's header
         echo(self.header())
 
         # write table's body
-        for task_name, task in sorted(self.job.tasks.items()):
-            # if not task_name.startswith("test-debian-10-python-3"):
-            #     continue
+        for task_name, task in self.tasks.items():
             # write summary of the uploaded vs total assets
             status = task.status()
-            assets = task.assets()
+            assets = task.assets(validate_patterns=validate_patterns)
 
             # mapping of artifact pattern to asset or None of not uploaded
             n_expected = len(task.artifacts)
