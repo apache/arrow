@@ -166,7 +166,7 @@ test_that("nchar() arguments", {
     tbl,
     warning = paste0(
       "In nchar\\(verses, type = \"bytes\", allowNA = TRUE\\), ",
-      "allowNA = TRUE not supported by Arrow; pulling data into R"
+      "allowNA = TRUE not supported in Arrow; pulling data into R"
     )
   )
 })

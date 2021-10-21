@@ -483,7 +483,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
   # Error checking a single function because they all use the same code path.
   expect_error(
     nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
-    "Providing a value for 'locale' other than the default ('en') is not supported by Arrow",
+    "Providing a value for 'locale' other than the default ('en') is not supported in Arrow",
     fixed = TRUE
   )
 })
@@ -547,21 +547,21 @@ test_that("errors and warnings in string splitting", {
   x <- Expression$field_ref("x")
   expect_error(
     nse_funcs$str_split(x, fixed("and", ignore_case = TRUE)),
-    "Case-insensitive string splitting not supported by Arrow"
+    "Case-insensitive string splitting not supported in Arrow"
   )
   expect_error(
     nse_funcs$str_split(x, coll("and.?")),
-    "Pattern modifier `coll()` not supported by Arrow",
+    "Pattern modifier `coll()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
     nse_funcs$str_split(x, boundary(type = "word")),
-    "Pattern modifier `boundary()` not supported by Arrow",
+    "Pattern modifier `boundary()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
     nse_funcs$str_split(x, "and", n = 0),
-    "Splitting strings into zero parts not supported by Arrow"
+    "Splitting strings into zero parts not supported in Arrow"
   )
 
   # This condition generates a warning
@@ -576,12 +576,12 @@ test_that("errors and warnings in string detection and replacement", {
 
   expect_error(
     nse_funcs$str_detect(x, boundary(type = "character")),
-    "Pattern modifier `boundary()` not supported by Arrow",
+    "Pattern modifier `boundary()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
     nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó"),
-    "Pattern modifier `coll()` not supported by Arrow",
+    "Pattern modifier `coll()` not supported in Arrow",
     fixed = TRUE
   )
 
@@ -748,7 +748,7 @@ test_that("errors in strptime", {
   x <- Expression$field_ref("x")
   expect_error(
     nse_funcs$strptime(x, tz = "PDT"),
-    "Time zone argument not supported by Arrow"
+    "Time zone argument not supported in Arrow"
   )
 })
 
