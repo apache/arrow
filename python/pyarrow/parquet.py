@@ -696,8 +696,8 @@ writer_engine_version : unused
         table_or_batch : {RecordBatch, Table}
         row_group_size : int, default None
             Maximum size of each written row group. If None, the
-            row group size will be the same size as the input
-            table or batch.
+            row group size will be the minimum of the input
+            table or batch length and 64 * 1024 * 1024.
         """
         if isinstance(table_or_batch, pa.RecordBatch):
             self.write_batch(table_or_batch, row_group_size)
@@ -715,7 +715,8 @@ writer_engine_version : unused
         batch : RecordBatch
         row_group_size : int, default None
             Maximum size of each written row group. If None, the
-            row group size will be the same size as the RecordBatch.
+            row group size will be the minimum of the RecordBatch
+            size and 64 * 1024 * 1024.
         """
         table = pa.Table.from_batches([batch], batch.schema)
         self.write_table(table, row_group_size)
@@ -729,7 +730,8 @@ writer_engine_version : unused
         table : Table
         row_group_size : int, default None
             Maximum size of each written row group. If None, the
-            row group size will be the same size as the Table.
+            row group size will be the minimum of the Table size
+            and 64 * 1024 * 1024.
         """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
