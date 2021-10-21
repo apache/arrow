@@ -791,7 +791,8 @@ test_that("strftime", {
   )
 
   withr::with_timezone(
-    "Pacific/Marquesas", {
+    "Pacific/Marquesas",
+    {
       expect_dplyr_equal(
         input %>%
           mutate(
@@ -1339,9 +1340,12 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
 test_that("str_count", {
   df <- tibble(
-    cities = c("Kolkata", "Dar es Salaam", "Tel Aviv", "San Antonio",
-               "Cluj Napoca", "Bern", "Bogota"),
-    dots = c("a.", "...", ".a.a", "a..a.", "ab...", "dse....", ".f..d.."))
+    cities = c(
+      "Kolkata", "Dar es Salaam", "Tel Aviv", "San Antonio",
+      "Cluj Napoca", "Bern", "Bogota"
+    ),
+    dots = c("a.", "...", ".a.a", "a..a.", "ab...", "dse....", ".f..d..")
+  )
 
   expect_dplyr_equal(
     input %>%
@@ -1360,7 +1364,8 @@ test_that("str_count", {
   expect_dplyr_equal(
     input %>%
       mutate(p_count = str_count(cities,
-                                 pattern = regex("d", ignore_case = TRUE))) %>%
+        pattern = regex("d", ignore_case = TRUE)
+      )) %>%
       collect(),
     df
   )
@@ -1377,14 +1382,15 @@ test_that("str_count", {
     input %>%
       mutate(let_count = str_count(
         cities,
-        pattern = c("a", "b", "e", "g", "p", "n", "s"))) %>%
+        pattern = c("a", "b", "e", "g", "p", "n", "s")
+      )) %>%
       collect(),
     df,
     warning = TRUE
   )
 
   expect_dplyr_equal(
-   input %>%
+    input %>%
       mutate(dots_count = str_count(dots, ".")) %>%
       collect(),
     df
