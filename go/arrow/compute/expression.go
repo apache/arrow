@@ -32,21 +32,55 @@ import (
 
 var hashSeed = maphash.MakeSeed()
 
+// Expression is an interface for mapping one datum to another. An expression
+// is one of:
+//	A literal Datum
+// 	A reference to a single (potentially nested) field of an input Datum
+//	A call to a compute function, with arguments specified by other Expressions
 type Expression interface {
+	// IsBound returns true if this expression has been bound to a particular
+	// Datum and/or Schema.
 	IsBound() bool
+	// IsScalarExpr returns true if this expression is composed only of scalar
+	// literals, field references and calls to scalar functions.
 	IsScalarExpr() bool
+	// IsNullLiteral returns true if this expression is a literal and entirely
+	// null.
 	IsNullLiteral() bool
+	// IsSatisfiable returns true if this expression could evaluate to true
 	IsSatisfiable() bool
+	// FieldRef returns a pointer to the underlying field reference, or nil if
+	// this expression is not a field reference.
 	FieldRef() *FieldRef
+	// Descr returns the shape of this expression will evaluate to including the type
+	// and whether it will be an Array, Scalar, or either.
 	Descr() ValueDescr
+	// Type returns the datatype this expression will evaluate to.
 	Type() arrow.DataType
+
 	Hash() uint64
 	Equals(Expression) bool
+
+	// Bind binds this expression to the given input schema, looking up appropriate
+	// underlying implementations and some expression simplification may be performed
+	// along with implicit casts being inserted.
+	// Any state necessary for execution will be initialized.
+	//
+	// This only works in conjunction with cgo and being able to link against the
+	// C++ libarrow.so compute library. If this was not built with the libarrow compute
+	// support, this will panic.
 	Bind(context.Context, memory.Allocator, *arrow.Schema) (Expression, error)
+
+	// Release releases the underlying bound C++ memory that is allocated when
+	// a Bind is performed. Any bound expression should get released to ensure
+	// no memory leaks.
+	Release()
 
 	boundExpr() boundRef
 }
 
+// Literal is an expression denoting a literal Datum which could be any value
+// as a scalar, an array, or so on.
 type Literal struct {
 	Literal Datum
 
@@ -115,6 +149,8 @@ func (l *Literal) Release() {
 	}
 }
 
+// Parameter represents a field reference and needs to be bound in order to determine
+// its type and shape.
 type Parameter struct {
 	ref *FieldRef
 
@@ -162,6 +198,9 @@ func (p *Parameter) Release() {
 	}
 }
 
+// Call is a function call with specific arguments which are themselves other
+// expressions. A call can also have options that are specific to the function
+// in question. It must be bound to determine the shape and type.
 type Call struct {
 	funcName string
 	args     []Expression
@@ -252,6 +291,9 @@ func (c *Call) Release() {
 	}
 }
 
+// FunctionOptions can be any type which has a TypeName function. The fields
+// of the type will be used (via reflection) to determine the information to
+// propagate when serializing to pass to the C++ for execution.
 type FunctionOptions interface {
 	TypeName() string
 }
@@ -270,22 +312,31 @@ type NullOptions struct {
 
 func (NullOptions) TypeName() string { return "NullOptions" }
 
+// NewLiteral constructs a new literal expression from any value. It is passed
+// to NewDatum which will construct the appropriate Datum and/or scalar
+// value for the type provided.
 func NewLiteral(arg interface{}) Expression {
 	return &Literal{Literal: NewDatum(arg)}
 }
 
+// NewRef constructs a parameter expression which refers to a specific field
 func NewRef(ref FieldRef) Expression {
 	return &Parameter{ref: &ref, index: -1}
 }
 
+// NewFieldRef is shorthand for NewRef(FieldRefName(field))
 func NewFieldRef(field string) Expression {
 	return NewRef(FieldRefName(field))
 }
 
+// NewCall constructs an expression that represents a specific function call with
+// the given arguments and options.
 func NewCall(name string, args []Expression, opts FunctionOptions) Expression {
 	return &Call{funcName: name, args: args, options: opts}
 }
 
+// Project is shorthand for `make_struct` to produce a record batch output
+// from a group of expressions.
 func Project(values []Expression, names []string) Expression {
 	nulls := make([]bool, len(names))
 	for i := range nulls {
@@ -296,34 +347,43 @@ func Project(values []Expression, names []string) Expression {
 		&MakeStructOptions{FieldNames: names, FieldNullability: nulls, FieldMetadata: meta})
 }
 
+// Equal is a convenience function for the equal function
 func Equal(lhs, rhs Expression) Expression {
 	return NewCall("equal", []Expression{lhs, rhs}, nil)
 }
 
+// NotEqual creates a call to not_equal
 func NotEqual(lhs, rhs Expression) Expression {
 	return NewCall("not_equal", []Expression{lhs, rhs}, nil)
 }
 
+// Less is shorthand for NewCall("less",....)
 func Less(lhs, rhs Expression) Expression {
 	return NewCall("less", []Expression{lhs, rhs}, nil)
 }
 
+// LessEqual is shorthand for NewCall("less_equal",....)
 func LessEqual(lhs, rhs Expression) Expression {
 	return NewCall("less_equal", []Expression{lhs, rhs}, nil)
 }
 
+// Greater is shorthand for NewCall("greater",....)
 func Greater(lhs, rhs Expression) Expression {
 	return NewCall("greater", []Expression{lhs, rhs}, nil)
 }
 
+// GreaterEqual is shorthand for NewCall("greater_equal",....)
 func GreaterEqual(lhs, rhs Expression) Expression {
 	return NewCall("greater_equal", []Expression{lhs, rhs}, nil)
 }
 
+// IsNull creates an expression that returns true if the passed in expression is
+// null. Optionally treating NaN as null if desired.
 func IsNull(lhs Expression, nanIsNull bool) Expression {
 	return NewCall("less", []Expression{lhs}, &NullOptions{nanIsNull})
 }
 
+// IsValid is the inverse of IsNull
 func IsValid(lhs Expression) Expression {
 	return NewCall("is_valid", []Expression{lhs}, nil)
 }
@@ -349,8 +409,10 @@ func and(lhs, rhs Expression) Expression {
 	return NewCall("and_kleene", []Expression{lhs, rhs}, nil)
 }
 
-func And(ops ...Expression) Expression {
-	folded := foldLeft(and, ops...)
+// And constructs a tree of calls to and_kleene for boolean And logic taking
+// an arbitrary number of values.
+func And(lhs, rhs Expression, ops ...Expression) Expression {
+	folded := foldLeft(and, append([]Expression{lhs, rhs}, ops...)...)
 	if folded != nil {
 		return folded
 	}
@@ -361,6 +423,8 @@ func or(lhs, rhs Expression) Expression {
 	return NewCall("or_kleene", []Expression{lhs, rhs}, nil)
 }
 
+// Or constructs a tree of calls to or_kleene for boolean Or logic taking
+// an arbitrary number of values.
 func Or(lhs, rhs Expression, ops ...Expression) Expression {
 	folded := foldLeft(or, append([]Expression{lhs, rhs}, ops...)...)
 	if folded != nil {
@@ -369,6 +433,7 @@ func Or(lhs, rhs Expression, ops ...Expression) Expression {
 	return NewLiteral(false)
 }
 
+// Not creates a call to "invert" for the value specified.
 func Not(expr Expression) Expression {
 	return NewCall("invert", []Expression{expr}, nil)
 }
