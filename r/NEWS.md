@@ -19,8 +19,6 @@
 
 # arrow 5.0.0.9000
 
-* added bindings for `str_count()`. (ARROW-13156, @dragosmg)
-
 There are now two ways to query Arrow data:
 
 ## 1. Expanded Arrow-native queries: aggregation and joins
