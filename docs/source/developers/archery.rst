@@ -36,7 +36,7 @@ the top level directory install Archery by using the command
    pip install -e dev/archery[all]
    
 Many operations in Archery make use of `Docker <https://docs.docker.com/>`_ 
-and `docker-compose <https://docs.docker.com/compose/>`_., which you may 
+and `docker-compose <https://docs.docker.com/compose/>`_, which you may 
 also want to install.   
 
 Usage
