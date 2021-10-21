@@ -339,10 +339,10 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-{% for ci, arch, arch_alias, manylinux in [("github", "amd64", "x86_64", "2010"),
-                                           ("github", "amd64", "x86_64", "2014"),
-                                           ("travis", "arm64", "aarch64", "2014")] %}
-  {% set platform_tag = "manylinux{}_{}".format(manylinux, arch_alias) %}
+{% for ci, arch, arch_alias, x_y, manylinux in [("github", "amd64", "x86_64", "2_12", "2010"),
+                                                ("github", "amd64", "x86_64", "2_17", "2014"),
+                                                ("travis", "arm64", "aarch64", "2_17", "2014")] %}
+  {% set platform_tag = f"manylinux_{x_y}_{arch_alias}.manylinux{manylinux}_{arch_alias}" %}
 
   wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
     ci: {{ ci }}
