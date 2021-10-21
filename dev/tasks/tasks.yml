@@ -1205,12 +1205,12 @@ tasks:
 {% endfor %}
 
 {% for dask_version in ["latest", "master"] %}
-  test-conda-python-3.7-dask-{{ dask_version }}:
+  test-conda-python-3.9-dask-{{ dask_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.7
+        PYTHON: 3.9
         DASK: {{ dask_version }}
       # use the latest dask release, so prevent reusing any cached layers
       flags: --no-leaf-cache
