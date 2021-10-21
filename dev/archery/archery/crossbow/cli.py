@@ -210,14 +210,18 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
 @click.argument('job-name', required=True)
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
+@click.option('--task-filter', '-f', 'task_filters', multiple=True,
+              help='Glob pattern for filtering relevant tasks')
 @click.pass_obj
-def status(obj, job_name, fetch):
+def status(obj, job_name, fetch, task_filters):
     output = obj['output']
     queue = obj['queue']
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
-    ConsoleReport(job).show(output)
+
+    report = ConsoleReport(job, task_filters=list(task_filters))
+    report.show(output)
 
 
 @crossbow.command()

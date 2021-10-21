@@ -31,15 +31,15 @@ class Report:
         assert isinstance(task_filters, list)
         self.job = job
 
+        tasks = sorted(job.tasks.items())
         if task_filters:
             filtered = set()
             for pattern in task_filters:
                 filtered |= set(fnmatch.filter(job.tasks.keys(), pattern))
 
-            self._tasks = {name: task for name, task in job.tasks.items()
-                           if name in filtered}
-        else:
-            self._tasks = job.tasks
+            tasks = [(name, task) for name, task in tasks if name in filtered]
+
+        self._tasks = dict(tasks)
 
     @property
     def tasks(self):
