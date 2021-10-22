@@ -101,6 +101,29 @@ public interface FlightClientHandler extends AutoCloseable {
   FlightInfo getExportedKeys(String catalog, String schema, String table);
 
   /**
+   * Makes an RPC "getCrossReference" request based on the provided info.
+   *
+   * @param pkCatalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                  Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                  narrow the search.
+   * @param pkSchema  The schema name. Must match the schema name as it is stored in the database.
+   *                  "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                  the search.
+   * @param pkTable   The table name. Must match the table name as it is stored in the database.
+   * @param fkCatalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                  Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                  narrow the search.
+   * @param fkSchema  The schema name. Must match the schema name as it is stored in the database.
+   *                  "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                  the search.
+   * @param fkTable   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getCrossReference(String pkCatalog, String pkSchema, String pkTable,
+                               String fkCatalog, String fkSchema ,
+                               String fkTable);
+
+  /**
    * Makes an RPC "getSchemas" request based on the provided info.
    *
    * @param catalog       The catalog name. Must match the catalog name as it is stored in the database.

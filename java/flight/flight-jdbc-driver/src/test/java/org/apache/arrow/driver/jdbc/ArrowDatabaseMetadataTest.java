@@ -33,6 +33,9 @@ import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForUtf8Field;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataVarCharListField;
 import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setIntToIntListMapField;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
+import static org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
+import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedGroupBy;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -56,7 +59,6 @@ import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.utils.ResultSetTestUtils;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
-import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
@@ -160,6 +162,8 @@ public class ArrowDatabaseMetadataTest {
               null})
           .map(Arrays::asList)
           .collect(toList());
+  private static final List<List<Object>> EXPECTED_CROSS_REFERENCE_RESULTS =
+      EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS;
   private static final List<List<Object>> EXPECTED_PRIMARY_KEYS_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
@@ -177,7 +181,9 @@ public class ArrowDatabaseMetadataTest {
       "FKTABLE_NAME", "FKCOLUMN_NAME", "KEY_SEQ",
       "FK_NAME", "PK_NAME", "UPDATE_RULE", "DELETE_RULE",
       "DEFERRABILITY");
+  private static final List<String> FIELDS_GET_CROSS_REFERENCE = FIELDS_GET_IMPORTED_EXPORTED_KEYS;
   private static final String TARGET_TABLE = "TARGET_TABLE";
+  private static final String TARGET_FOREIGN_TABLE = "FOREIGN_TABLE";
   private static final String EXPECTED_DATABASE_PRODUCT_NAME = "Test Server Name";
   private static final String EXPECTED_DATABASE_PRODUCT_VERSION = "v0.0.1-alpha";
   private static final String EXPECTED_IDENTIFIER_QUOTE_STRING = "\"";
@@ -423,6 +429,10 @@ public class ArrowDatabaseMetadataTest {
 
     final Message commandGetExportedKeys = CommandGetExportedKeys.newBuilder().setTable(TARGET_TABLE).build();
     final Message commandGetImportedKeys = CommandGetImportedKeys.newBuilder().setTable(TARGET_TABLE).build();
+    final Message commandGetCrossReference = CommandGetCrossReference.newBuilder()
+        .setPkTable(TARGET_TABLE)
+        .setFkTable(TARGET_FOREIGN_TABLE)
+        .build();
     final Consumer<ServerStreamListener> commandGetExportedAndImportedKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_IMPORTED_KEYS_SCHEMA,
@@ -465,6 +475,7 @@ public class ArrowDatabaseMetadataTest {
     };
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetExportedKeys, commandGetExportedAndImportedKeysResultProducer);
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetImportedKeys, commandGetExportedAndImportedKeysResultProducer);
+    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetCrossReference, commandGetExportedAndImportedKeysResultProducer);
 
     final Message commandGetPrimaryKeys = CommandGetPrimaryKeys.newBuilder().setTable(TARGET_TABLE).build();
     final Consumer<ServerStreamListener> commandGetPrimaryKeysResultProducer = listener -> {
@@ -593,7 +604,7 @@ public class ArrowDatabaseMetadataTest {
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedGroupByProvider =
         (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_GROUP_BY,
             (int) (createBitmaskFromEnums(
-                FlightSql.SqlSupportedGroupBy.SQL_GROUP_BY_UNRELATED)));
+                SqlSupportedGroupBy.SQL_GROUP_BY_UNRELATED)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_GROUP_BY, flightSqlSupportedGroupByProvider);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsLikeEscapeClauseProvider =
@@ -627,7 +638,7 @@ public class ArrowDatabaseMetadataTest {
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsOuterJoins =
         (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
-            (int) (createBitmaskFromEnums(FlightSql.SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS)));
+            (int) (createBitmaskFromEnums(SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS)));
     FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL, flightSqlSupportsOuterJoins);
 
     final ObjIntConsumer<VectorSchemaRoot> flightSqlSchemaTermProvider =
@@ -1000,6 +1011,23 @@ public class ArrowDatabaseMetadataTest {
   }
 
   @Test
+  public void testGetCrossReferenceCanBeAccessedByIndices() throws SQLException {
+    try (final ResultSet resultSet = connection.getMetaData().getCrossReference(null, null,
+        TARGET_TABLE, null, null, TARGET_FOREIGN_TABLE)) {
+      resultSetTestUtils.testData(resultSet, EXPECTED_CROSS_REFERENCE_RESULTS);
+    }
+  }
+
+  @Test
+  public void testGetGetCrossReferenceCanBeAccessedByNames() throws SQLException {
+    try (final ResultSet resultSet = connection.getMetaData().getCrossReference(null, null,
+        TARGET_TABLE, null, null, TARGET_FOREIGN_TABLE)) {
+      resultSetTestUtils.testData(
+          resultSet, FIELDS_GET_CROSS_REFERENCE, EXPECTED_CROSS_REFERENCE_RESULTS);
+    }
+  }
+
+  @Test
   public void testPrimaryKeysCanBeAccessedByIndices() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(resultSet, EXPECTED_PRIMARY_KEYS_RESULTS);
@@ -1328,32 +1356,6 @@ public class ArrowDatabaseMetadataTest {
         }
       };
       testEmptyResultSet(resultSet, expectedGetVersionColumnsSchema);
-    }
-  }
-
-  @Test
-  public void testGetCrossReference() throws SQLException {
-    try (ResultSet resultSet = connection.getMetaData().getCrossReference(null, null, null, null, null, null)) {
-      // Maps ordinal index to column name according to JDBC documentation
-      final Map<Integer, String> expectedGetCrossReferenceSchema = new HashMap<Integer, String>() {
-        {
-          put(1, "PKTABLE_CAT");
-          put(2, "PKTABLE_SCHEM");
-          put(3, "PKTABLE_NAME");
-          put(4, "PKCOLUMN_NAME");
-          put(5, "FKTABLE_CAT");
-          put(6, "FKTABLE_SCHEM");
-          put(7, "FKTABLE_NAME");
-          put(8, "FKCOLUMN_NAME");
-          put(9, "KEY_SEQ");
-          put(10, "UPDATE_RULE");
-          put(11, "DELETE_RULE");
-          put(12, "FK_NAME");
-          put(13, "PK_NAME");
-          put(14, "DEFERABILITY");
-        }
-      };
-      testEmptyResultSet(resultSet, expectedGetCrossReferenceSchema);
     }
   }
 

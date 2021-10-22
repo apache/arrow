@@ -749,7 +749,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final FlightInfo flightInfoImportedKeys = connection.getClientHandler().getImportedKeys(catalog, schema, table);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
-    final VectorSchemaRootTransformer transformer = getImportedExportedKeysTransformer(allocator);
+    final VectorSchemaRootTransformer transformer = getForeignKeysTransformer(allocator);
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoImportedKeys, transformer);
   }
 
@@ -759,11 +759,28 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final FlightInfo flightInfoExportedKeys = connection.getClientHandler().getExportedKeys(catalog, schema, table);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
-    final VectorSchemaRootTransformer transformer = getImportedExportedKeysTransformer(allocator);
+    final VectorSchemaRootTransformer transformer = getForeignKeysTransformer(allocator);
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoExportedKeys, transformer);
   }
 
-  private VectorSchemaRootTransformer getImportedExportedKeysTransformer(final BufferAllocator allocator) {
+  @Override
+  public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTable,
+                                     String foreignCatalog, String foreignSchema, String foreignTable)
+      throws SQLException {
+    final ArrowFlightConnection connection = getConnection();
+    final FlightInfo flightInfoCrossReference = connection.getClientHandler().getCrossReference(
+        parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable);
+
+    final BufferAllocator allocator = connection.getBufferAllocator();
+    final VectorSchemaRootTransformer transformer = getForeignKeysTransformer(allocator);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoCrossReference, transformer);
+  }
+
+  /**
+   * Transformer used on getImportedKeys, getExportedKeys and getCrossReference methods, since
+   * all three share the same schema.
+   */
+  private VectorSchemaRootTransformer getForeignKeysTransformer(final BufferAllocator allocator) {
     return new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_KEYS_SCHEMA,
         allocator)
         .renameFieldVector("pk_catalog_name", "PKTABLE_CAT")

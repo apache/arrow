@@ -165,6 +165,12 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
     return sqlClient.getPrimaryKeys(catalog, schema, table, getOptions());
   }
 
+  @Override
+  public FlightInfo getCrossReference(String pkCatalog, String pkSchema, String pkTable,
+                                      String fkCatalog, String fkSchema, String fkTable) {
+    return sqlClient.getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable, getOptions());
+  }
+
   /**
    * Builder for {@link ArrowFlightSqlClientHandler}.
    */
