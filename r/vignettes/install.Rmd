@@ -322,7 +322,7 @@ If a system library or other installed Arrow is found but it doesn't match the R
 (for example, you have libarrow 1.0.0 on your system and are installing R package 2.0.0),
 it is likely that the R bindings will fail to compile.
 Because the Apache Arrow project is under active development,
-is it essential that versions of the C++ and R libraries match.
+it is essential that versions of the C++ and R libraries match.
 When `install.packages("arrow")` has to download the C++ libraries,
 the install script ensures that you fetch the C++ libraries that correspond to your R package version.
 However, if you are using Arrow libraries already on your system, version match isn't guaranteed.
