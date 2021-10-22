@@ -43,8 +43,10 @@ TEST_F(TestEncrypt, TestAesEncryptDecrypt) {
   auto cypher_res = field("cypher", arrow::utf8());
   auto plain_res = field("plain", arrow::utf8());
 
-  auto encrypt_expr = TreeExprBuilder::MakeExpression("aes_encrypt", {field0, field1}, cypher_res);
-  auto decrypt_expr = TreeExprBuilder::MakeExpression("aes_decrypt", {field0, field1}, plain_res);
+  auto encrypt_expr =
+      TreeExprBuilder::MakeExpression("aes_encrypt", {field0, field1}, cypher_res);
+  auto decrypt_expr =
+      TreeExprBuilder::MakeExpression("aes_decrypt", {field0, field1}, plain_res);
 
   auto configuration = TestConfiguration();
 
@@ -54,7 +56,8 @@ TEST_F(TestEncrypt, TestAesEncryptDecrypt) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_data = MakeArrowArrayUtf8({"abc", "some words", "", "hyah\n"}, {true, true, true, true});
+  auto array_data =
+      MakeArrowArrayUtf8({"abc", "some words", "", "hyah\n"}, {true, true, true, true});
   auto array_key = MakeArrowArrayUtf8({"11", "13", "15", "17"}, {true, true, true, true});
 
   auto array_holder_en = MakeArrowArrayUtf8({"", "", "", ""}, {true, true, true, true});
@@ -71,11 +74,12 @@ TEST_F(TestEncrypt, TestAesEncryptDecrypt) {
   status = Projector::Make(schema, {decrypt_expr}, configuration, &projector_de);
   ASSERT_OK(status);
   // Validate results
-//  EXPECT_ARROW_ARRAY_EQUALS(exp_en, outputs_en.at(0));
+  //  EXPECT_ARROW_ARRAY_EQUALS(exp_en, outputs_en.at(0));
 
   array_holder_en = outputs_en.at(0);
 
-  auto in_batch_de = arrow::RecordBatch::Make(schema, num_records, {array_holder_en, array_key});
+  auto in_batch_de =
+      arrow::RecordBatch::Make(schema, num_records, {array_holder_en, array_key});
 
   arrow::ArrayVector outputs_de;
   status = projector_de->Evaluate(*in_batch_de, pool_, &outputs_de);
@@ -83,4 +87,4 @@ TEST_F(TestEncrypt, TestAesEncryptDecrypt) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(array_data, outputs_de.at(0));
 }
-}
+}  // namespace gandiva

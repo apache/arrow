@@ -20,18 +20,16 @@
 
 namespace gandiva {
 
-
 std::vector<NativeFunction> GetEncryptFunctionRegistry() {
   static std::vector<NativeFunction> encrypt_fn_registry_ = {
-      NativeFunction("aes_encrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(), kResultNullIfNull,
-                     "gdv_fn_aes_encrypt", NativeFunction::kNeedsContext),
-      NativeFunction("aes_decrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(), kResultNullIfNull,
-                     "gdv_fn_aes_decrypt", NativeFunction::kNeedsContext)
-  };
+      NativeFunction("aes_encrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("aes_decrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt",
+                     NativeFunction::kNeedsContext)};
 
   return encrypt_fn_registry_;
 }
 
-}
-
-
+}  // namespace gandiva

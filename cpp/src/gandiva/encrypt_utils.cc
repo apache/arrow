@@ -21,28 +21,27 @@
 
 namespace gandiva {
 
-int32_t aes_encrypt(int64_t context, unsigned char* plaintext,
-                           int32_t plaintext_len, unsigned char* key,
-                           unsigned char* cipher) {
+int32_t aes_encrypt(int64_t context, unsigned char* plaintext, int32_t plaintext_len,
+                    unsigned char* key, unsigned char* cipher) {
   int32_t cipher_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* en_ctx = EVP_CIPHER_CTX_new();
 
-  if(!en_ctx) {
+  if (!en_ctx) {
     return 0;
   }
 
-  if(!EVP_EncryptInit_ex(en_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
+  if (!EVP_EncryptInit_ex(en_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
     return 0;
   }
 
-  if(!EVP_EncryptUpdate(en_ctx, cipher, &len, plaintext, plaintext_len)) {
+  if (!EVP_EncryptUpdate(en_ctx, cipher, &len, plaintext, plaintext_len)) {
     return 0;
   }
 
   cipher_len += len;
 
-  if(!EVP_EncryptFinal_ex(en_ctx, cipher + len, &len)) {
+  if (!EVP_EncryptFinal_ex(en_ctx, cipher + len, &len)) {
     return 0;
   }
 
@@ -52,28 +51,27 @@ int32_t aes_encrypt(int64_t context, unsigned char* plaintext,
   return cipher_len;
 }
 
-int32_t aes_decrypt(int64_t context, unsigned char* ciphertext,
-                    int32_t ciphertext_len, unsigned char* key,
-                    unsigned char* plaintext) {
+int32_t aes_decrypt(int64_t context, unsigned char* ciphertext, int32_t ciphertext_len,
+                    unsigned char* key, unsigned char* plaintext) {
   int32_t plaintext_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* de_ctx = EVP_CIPHER_CTX_new();
 
-  if(!de_ctx) {
+  if (!de_ctx) {
     return 0;
   }
 
-  if(!EVP_DecryptInit_ex(de_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
+  if (!EVP_DecryptInit_ex(de_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
     return 0;
   }
 
-  if(!EVP_DecryptUpdate(de_ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+  if (!EVP_DecryptUpdate(de_ctx, plaintext, &len, ciphertext, ciphertext_len)) {
     return 0;
   }
 
   plaintext_len += len;
 
-  if(!EVP_DecryptFinal_ex(de_ctx, plaintext + len, &len)) {
+  if (!EVP_DecryptFinal_ex(de_ctx, plaintext + len, &len)) {
     return 0;
   }
 

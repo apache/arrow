@@ -30,29 +30,34 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
   auto* key = (unsigned char*)"12345abcde";
   auto* to_encrypt = (unsigned char*)"some test string";
 
-  auto to_encrypt_len = static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
+  auto to_encrypt_len =
+      static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_1[64];
 
-  int32_t cipher_1_len = gandiva::aes_encrypt(ctx_ptr, to_encrypt, to_encrypt_len, key, cipher_1);
+  int32_t cipher_1_len =
+      gandiva::aes_encrypt(ctx_ptr, to_encrypt, to_encrypt_len, key, cipher_1);
 
   unsigned char decrypted_1[64];
-  int32_t decrypted_1_len = gandiva::aes_decrypt(ctx_ptr, cipher_1, cipher_1_len, key, decrypted_1);
-  
+  int32_t decrypted_1_len =
+      gandiva::aes_decrypt(ctx_ptr, cipher_1, cipher_1_len, key, decrypted_1);
+
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_1), decrypted_1_len));
 
   key = (unsigned char*)"abcde12345";
   to_encrypt = (unsigned char*)"some\ntest\nstring";
 
-  to_encrypt_len = static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
+  to_encrypt_len =
+      static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_2[64];
 
-  int32_t cipher_2_len = gandiva::aes_encrypt(ctx_ptr, to_encrypt, to_encrypt_len, key, cipher_2);
+  int32_t cipher_2_len =
+      gandiva::aes_encrypt(ctx_ptr, to_encrypt, to_encrypt_len, key, cipher_2);
 
   unsigned char decrypted_2[64];
-  int32_t decrypted_2_len = gandiva::aes_decrypt(ctx_ptr, cipher_2, cipher_2_len, key, decrypted_2);
+  int32_t decrypted_2_len =
+      gandiva::aes_decrypt(ctx_ptr, cipher_2, cipher_2_len, key, decrypted_2);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_2), decrypted_2_len));
-
 }

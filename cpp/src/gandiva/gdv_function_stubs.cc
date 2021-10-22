@@ -836,8 +836,8 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 
 GANDIVA_EXPORT
 const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
-                               const char* key_data, int32_t key_data_len, int32_t* out_len) {
-
+                               const char* key_data, int32_t key_data_len,
+                               int32_t* out_len) {
   if (data_len < 0) {
     gdv_fn_context_set_error_msg(context, "Invalid data length to be encrypted");
     *out_len = 0;
@@ -851,7 +851,8 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
 
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    std::string err_msg = "Could not allocate memory for returning aes encrypt cypher text";
+    std::string err_msg =
+        "Could not allocate memory for returning aes encrypt cypher text";
     gdv_fn_context_set_error_msg(context, err_msg.data());
     return nullptr;
   }
@@ -862,8 +863,8 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
 
 GANDIVA_EXPORT
 const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_len,
-                               const char* key_data, int32_t key_data_len, int32_t* out_len) {
-
+                               const char* key_data, int32_t key_data_len,
+                               int32_t* out_len) {
   if (data_len < 0) {
     gdv_fn_context_set_error_msg(context, "Invalid data length to be decrypted");
     *out_len = 0;
@@ -872,12 +873,13 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
 
   unsigned char decrypted[256];
   int32_t decrypted_len = gandiva::aes_decrypt(context, (unsigned char*)data, data_len,
-                                                 (unsigned char*)key_data, decrypted);
+                                               (unsigned char*)key_data, decrypted);
   *out_len = decrypted_len;
 
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    std::string err_msg = "Could not allocate memory for returning aes encrypt cypher text";
+    std::string err_msg =
+        "Could not allocate memory for returning aes encrypt cypher text";
     gdv_fn_context_set_error_msg(context, err_msg.data());
     return nullptr;
   }

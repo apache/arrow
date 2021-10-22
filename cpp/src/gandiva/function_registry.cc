@@ -18,11 +18,11 @@
 #include "gandiva/function_registry.h"
 #include "gandiva/function_registry_arithmetic.h"
 #include "gandiva/function_registry_datetime.h"
+#include "gandiva/function_registry_encrypt.h"
 #include "gandiva/function_registry_hash.h"
 #include "gandiva/function_registry_math_ops.h"
 #include "gandiva/function_registry_string.h"
 #include "gandiva/function_registry_timestamp_arithmetic.h"
-#include "gandiva/function_registry_encrypt.h"
 
 #include <iterator>
 #include <utility>

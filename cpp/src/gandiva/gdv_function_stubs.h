@@ -178,8 +178,10 @@ double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in
 
 GANDIVA_EXPORT
 const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
-                               const char* key_data, int32_t key_data_len, int32_t* out_len);
+                               const char* key_data, int32_t key_data_len,
+                               int32_t* out_len);
 
 const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_len,
-                               const char* key_data, int32_t key_data_len, int32_t* out_len);
+                               const char* key_data, int32_t key_data_len,
+                               int32_t* out_len);
 }

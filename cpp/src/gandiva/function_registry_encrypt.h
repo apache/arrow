@@ -24,5 +24,4 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetEncryptFunctionRegistry();
 
-
 }  // namespace gandiva
