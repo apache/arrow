@@ -394,8 +394,11 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
 
   # Avoid error when an unknown warning flag is passed
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
-  # Add colors when paired with ninja
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+
+  # Enable color diagnostics when compiling without ccache
+  if (NOT CCACHE_FOUND AND NOT CMAKE_CXX_COMPILER_LAUNCHER MATCHES "^.*(C|c)cache.*$")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+  endif ()
 
   # Don't complain about optimization passes that were not possible
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
