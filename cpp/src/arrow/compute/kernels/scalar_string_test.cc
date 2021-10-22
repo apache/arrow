@@ -59,7 +59,7 @@ class BaseTestStringKernels : public ::testing::Test {
   }
 
   void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
-                  const std::shared_ptr<Array> expected,
+                  const std::shared_ptr<Array>& expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalar(func_name, {Datum(input)}, Datum(expected), options);
   }
