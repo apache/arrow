@@ -47,6 +47,12 @@ DEFINE_string(computeir_dir, "",
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  if (std::system("flatc --version") != 0) {
+    std::cout << "flatc not available, skipping tests" << std::endl;
+    return 0;
+  }
+
   int ret = RUN_ALL_TESTS();
   gflags::ShutDownCommandLineFlags();
   return ret;
@@ -54,8 +60,6 @@ int main(int argc, char** argv) {
 
 namespace arrow {
 namespace compute {
-
-bool HaveFlatbufferCompiler() { return std::system("flatc --version") == 0; }
 
 std::shared_ptr<Buffer> FlatbufferFromJSON(std::string root_type,
                                            util::string_view json) {
@@ -108,8 +112,6 @@ auto ConvertJSON(util::string_view json) -> decltype(Convert(std::declval<Ir>())
 }
 
 TEST(Literal, Int64) {
-  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
-
   ASSERT_THAT(ConvertJSON<ir::Literal>(R"({
     type: {
       type_type: "Int",
@@ -130,8 +132,6 @@ TEST(Literal, Int64) {
 }
 
 TEST(Expression, Comparison) {
-  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
-
   ASSERT_THAT(ConvertJSON<ir::Expression>(R"({
     impl_type: "Call",
     impl: {
@@ -164,23 +164,13 @@ TEST(Expression, Comparison) {
 }
 
 TEST(Relation, Filter) {
-  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
-
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
     impl_type: "Filter",
     impl: {
-      base: {
-        output_mapping_type: "PassThrough",
-        output_mapping: {}
-      },
       rel: {
         impl_type: "Source",
         impl: {
-          base: {
-            output_mapping_type: "PassThrough",
-            output_mapping: {}
-          },
           name: "test source",
           schema: {
             endianness: "Little",
@@ -257,15 +247,9 @@ TEST(Relation, Filter) {
 }
 
 TEST(Relation, AggregateSimple) {
-  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
-
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
-                "base": {
-                    "output_mapping": {},
-                    "output_mapping_type": "PassThrough"
-                },
                 "groupings": [
                     {
                         "keys": [
@@ -322,10 +306,6 @@ TEST(Relation, AggregateSimple) {
                 ],
                 "rel": {
                     "impl": {
-                        "base": {
-                            "output_mapping": {},
-                            "output_mapping_type": "PassThrough"
-                        },
                         "name": "tbl",
                         "schema": {
                             "endianness": "Little",
@@ -385,15 +365,9 @@ TEST(Relation, AggregateSimple) {
 }
 
 TEST(Relation, AggregateWithHaving) {
-  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
-
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
-                "base": {
-                    "output_mapping": {},
-                    "output_mapping_type": "PassThrough"
-                },
                 "predicate": {
                     "impl": {
                         "arguments": [
@@ -431,10 +405,6 @@ TEST(Relation, AggregateWithHaving) {
                 },
                 "rel": {
                     "impl": {
-                        "base": {
-                            "output_mapping": {},
-                            "output_mapping_type": "PassThrough"
-                        },
                         "groupings": [
                             {
                                 "keys": [
@@ -491,10 +461,6 @@ TEST(Relation, AggregateWithHaving) {
                         ],
                         "rel": {
                             "impl": {
-                                "base": {
-                                    "output_mapping": {},
-                                    "output_mapping_type": "PassThrough"
-                                },
                                 "predicate": {
                                     "impl": {
                                         "arguments": [
@@ -532,10 +498,6 @@ TEST(Relation, AggregateWithHaving) {
                                 },
                                 "rel": {
                                     "impl": {
-                                        "base": {
-                                            "output_mapping": {},
-                                            "output_mapping_type": "PassThrough"
-                                        },
                                         "name": "tbl",
                                         "schema": {
                                             "endianness": "Little",
@@ -603,15 +565,9 @@ TEST(Relation, AggregateWithHaving) {
 }
 
 TEST(Relation, ProjectionWithFilter) {
-  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
-
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
-                "base": {
-                    "output_mapping": {},
-                    "output_mapping_type": "PassThrough"
-                },
                 "predicate": {
                     "impl": {
                         "arguments": [
@@ -649,10 +605,6 @@ TEST(Relation, ProjectionWithFilter) {
                 },
                 "rel": {
                     "impl": {
-                        "base": {
-                            "output_mapping": {},
-                            "output_mapping_type": "PassThrough"
-                        },
                         "expressions": [
                             {
                                 "impl": {
@@ -677,10 +629,6 @@ TEST(Relation, ProjectionWithFilter) {
                         ],
                         "rel": {
                             "impl": {
-                                "base": {
-                                    "output_mapping": {},
-                                    "output_mapping_type": "PassThrough"
-                                },
                                 "name": "tbl",
                                 "schema": {
                                     "endianness": "Little",
@@ -734,15 +682,9 @@ TEST(Relation, ProjectionWithFilter) {
 }
 
 TEST(Relation, ProjectionWithSort) {
-  if (!HaveFlatbufferCompiler()) GTEST_SKIP() << "flatc unavailable";
-
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
-                "base": {
-                    "output_mapping": {},
-                    "output_mapping_type": "PassThrough"
-                },
                 "keys": [
                     {
                         "expression": {
@@ -773,10 +715,6 @@ TEST(Relation, ProjectionWithSort) {
                 ],
                 "rel": {
                     "impl": {
-                        "base": {
-                            "output_mapping": {},
-                            "output_mapping_type": "PassThrough"
-                        },
                         "expressions": [
                             {
                                 "impl": {
@@ -811,10 +749,6 @@ TEST(Relation, ProjectionWithSort) {
                         ],
                         "rel": {
                             "impl": {
-                                "base": {
-                                    "output_mapping": {},
-                                    "output_mapping_type": "PassThrough"
-                                },
                                 "name": "tbl",
                                 "schema": {
                                     "endianness": "Little",
