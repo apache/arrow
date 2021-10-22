@@ -80,57 +80,59 @@ func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, err
 		return nil, xerrors.Errorf("createListScalar only works for slices, not %s", sliceval.Kind())
 	}
 
+	var arr array.Interface
+
 	switch sliceval.Type().Elem().Kind() {
 	case reflect.String:
 		bldr := array.NewStringBuilder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]string), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.BinaryTypes.String))
+		arr = bldr.NewArray()
 	case reflect.Bool:
 		bldr := array.NewBooleanBuilder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]bool), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.FixedWidthTypes.Boolean))
+		arr = bldr.NewArray()
 	case reflect.Int8:
 		bldr := array.NewInt8Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]int8), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int8))
+		arr = bldr.NewArray()
 	case reflect.Uint8:
 		bldr := array.NewUint8Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]uint8), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint8))
+		arr = bldr.NewArray()
 	case reflect.Int16:
 		bldr := array.NewInt16Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]int16), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int16))
+		arr = bldr.NewArray()
 	case reflect.Uint16:
 		bldr := array.NewUint16Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]uint16), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint16))
+		arr = bldr.NewArray()
 	case reflect.Int32:
 		bldr := array.NewInt32Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]int32), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int32))
+		arr = bldr.NewArray()
 	case reflect.Uint32:
 		bldr := array.NewUint32Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]uint32), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint32))
+		arr = bldr.NewArray()
 	case reflect.Int64:
 		bldr := array.NewInt64Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]int64), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int64))
+		arr = bldr.NewArray()
 	case reflect.Uint64:
 		bldr := array.NewUint64Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(sliceval.Interface().([]uint64), nil)
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint64))
+		arr = bldr.NewArray()
 	case reflect.Int:
 		if bits.UintSize == 32 {
 			bldr := array.NewInt32Builder(mem)
@@ -138,14 +140,15 @@ func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, err
 			for _, v := range sliceval.Interface().([]int) {
 				bldr.Append(int32(v))
 			}
-			return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int32))
+			arr = bldr.NewArray()
+			break
 		}
 		bldr := array.NewInt64Builder(mem)
 		defer bldr.Release()
 		for _, v := range sliceval.Interface().([]int) {
 			bldr.Append(int64(v))
 		}
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Int64))
+		arr = bldr.NewArray()
 	case reflect.Uint:
 		if bits.UintSize == 32 {
 			bldr := array.NewUint32Builder(mem)
@@ -153,14 +156,15 @@ func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, err
 			for _, v := range sliceval.Interface().([]uint) {
 				bldr.Append(uint32(v))
 			}
-			return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint32))
+			arr = bldr.NewArray()
+			break
 		}
 		bldr := array.NewUint64Builder(mem)
 		defer bldr.Release()
 		for _, v := range sliceval.Interface().([]uint) {
 			bldr.Append(uint64(v))
 		}
-		return MakeScalarParam(bldr.NewArray(), arrow.ListOf(arrow.PrimitiveTypes.Uint64))
+		arr = bldr.NewArray()
 	case reflect.Ptr:
 		meta, ok := sliceval.Interface().([]*arrow.Metadata)
 		if !ok {
@@ -180,10 +184,18 @@ func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, err
 			}
 		}
 
-		return NewListScalar(bldr.NewMapArray()), nil
+		arr := bldr.NewMapArray()
+		defer arr.Release()
+
+		return NewListScalar(arr), nil
 	}
 
-	return nil, xerrors.Errorf("createListScalar not implemented for %s", sliceval.Type())
+	if arr == nil {
+		return nil, xerrors.Errorf("createListScalar not implemented for %s", sliceval.Type())
+	}
+
+	defer arr.Release()
+	return MakeScalarParam(arr, arrow.ListOf(arr.DataType()))
 }
 
 // MakeScalarParam is for converting a value to a scalar when it requires a
