@@ -116,14 +116,24 @@ Status SerializedAsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task)
   return err_;
 }
 
-Future<> SerializedAsyncTaskGroup::End() {
-  util::Mutex::Guard guard = mutex_.Lock();
+Future<> SerializedAsyncTaskGroup::EndUnlocked(util::Mutex::Guard&& guard) {
   ended_ = true;
   if (!processing_.is_valid()) {
     guard.Unlock();
     on_finished_.MarkFinished(err_);
   }
   return on_finished_;
+}
+
+Future<> SerializedAsyncTaskGroup::End() {
+  return EndUnlocked(mutex_.Lock());
+}
+
+Future<> SerializedAsyncTaskGroup::Abort(Status err) {
+  util::Mutex::Guard guard = mutex_.Lock();
+  err_ = std::move(err);
+  tasks_ = {};
+  return EndUnlocked(std::move(guard));
 }
 
 void SerializedAsyncTaskGroup::ConsumeAsMuchAsPossibleUnlocked(

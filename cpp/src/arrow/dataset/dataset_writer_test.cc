@@ -190,6 +190,7 @@ TEST_F(DatasetWriterTestFixture, Basic) {
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
+  write_options_.max_rows_per_group = 10;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(35), "");
   AssertFinished(queue_fut);
@@ -202,6 +203,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
 
 TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   write_options_.max_rows_per_file = 10;
+  write_options_.max_rows_per_group = 10;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
