@@ -166,19 +166,10 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 // create a bitmap out of the definition Levels
 func defLevelsToBitmapInternal(defLevels []int16, info LevelInfo, out *ValidityBitmapInputOutput, hasRepeatedParent bool) {
 	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(len(defLevels)))
-	setCount := uint64(0)
-	out.Read = 0
-	remaining := out.ReadUpperBound
-	for int64(len(defLevels)) > extractBitsSize {
-		setCount += defLevelsBatchToBitmap(defLevels[:extractBitsSize], remaining, info, wr, hasRepeatedParent)
-		defLevels = defLevels[extractBitsSize:]
-		remaining = out.ReadUpperBound - int64(wr.Pos())
-	}
-	setCount += defLevelsBatchToBitmap(defLevels, remaining, info, wr, hasRepeatedParent)
-
+	defer wr.Finish()
+	setCount := defLevelsBatchToBitmap(defLevels, out.ReadUpperBound, info, wr, hasRepeatedParent)
 	out.Read = int64(wr.Pos())
 	out.NullCount += out.Read - int64(setCount)
-	wr.Finish()
 }
 
 // DefLevelsToBitmap creates a validitybitmap out of the passed in definition levels and info object.
@@ -196,6 +187,7 @@ func DefRepLevelsToListInfo(defLevels, repLevels []int16, info LevelInfo, out *V
 	var wr utils.BitmapWriter
 	if out.ValidBits != nil {
 		wr = utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, out.ReadUpperBound)
+		defer wr.Finish()
 	}
 	offsetPos := 0
 	for idx := range defLevels {
@@ -247,10 +239,6 @@ func DefRepLevelsToListInfo(defLevels, repLevels []int16, info LevelInfo, out *V
 				wr.Next()
 			}
 		}
-	}
-
-	if wr != nil {
-		wr.Finish()
 	}
 
 	if len(offsets) > 0 {
