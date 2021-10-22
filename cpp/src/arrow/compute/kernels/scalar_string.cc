@@ -1342,9 +1342,7 @@ struct FindSubstringRegex {
     regex.reserve(options.pattern.length() + 2);
     regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
     regex += ")";
-    regex_match_.reset(
-        new RE2(std::move(regex),
-                MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
+    regex_match_.reset(new RE2(regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
   }
 
   template <typename OutValue, typename... Ignored>
@@ -4232,11 +4230,6 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
 }
 
 #endif
-
-// NOTE: Predicate should only populate 'status' with errors,
-//       leave it unmodified to indicate Status::OK()
-using StringPredicate =
-    std::function<bool(KernelContext*, const uint8_t*, size_t, Status*)>;
 
 template <typename Type, typename Predicate>
 struct StringPredicateFunctor {
