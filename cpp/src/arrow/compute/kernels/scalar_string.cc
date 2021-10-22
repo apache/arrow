@@ -1276,7 +1276,7 @@ void AddMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func = std::make_shared<ScalarFunction>("starts_with", Arity::Unary(),
-                                                 &match_substring_doc);
+                                                 &starts_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec =
           GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
@@ -1287,7 +1287,7 @@ void AddMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
-                                                 &match_substring_doc);
+                                                 &ends_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
       DCHECK_OK(
