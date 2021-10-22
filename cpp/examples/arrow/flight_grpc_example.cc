@@ -38,8 +38,7 @@
 //
 // grpcurl -d '{"name": "Rakka"}' -plaintext localhost:31337 HelloWorldService/SayHello
 
-DEFINE_string(server_host, "localhost", "Host where the server is running on");
-DEFINE_int32(port, 31337, "Server port to listen on");
+DEFINE_int32(port, -1, "Server port to listen on");
 
 namespace flight = ::arrow::flight;
 
@@ -70,6 +69,12 @@ class HelloWorldServiceImpl : public HelloWorldService::Service {
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  if (FLAGS_port < 0) {
+    // For CI
+    std::cout << "Must specify a port with -port" << std::endl;
+    return EXIT_SUCCESS;
+  }
 
   std::unique_ptr<flight::FlightServerBase> server;
   server.reset(new SimpleFlightServer());
