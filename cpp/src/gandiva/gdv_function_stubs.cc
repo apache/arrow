@@ -830,7 +830,7 @@ const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
   std::string word = words.at(pos - 1);
 
   // trim whitespace
-  word.erase(std::remove(word.begin(),word.end(),' '),word.end());
+  word.erase(std::remove(word.begin(), word.end(), ' '), word.end());
 
   *out_len = static_cast<int32_t>(word.size());
 

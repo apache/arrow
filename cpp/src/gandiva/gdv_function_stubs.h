@@ -172,5 +172,6 @@ GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in_len);
 
 GANDIVA_EXPORT
-const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data, int32_t data_len, int32_t* out_len);
+const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
+                            int32_t data_len, int32_t* out_len);
 }

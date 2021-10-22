@@ -1697,7 +1697,7 @@ TEST_F(TestProjector, TestEltFunction) {
 
   std::shared_ptr<Projector> projector1;
 
-  auto status = Projector::Make( schema0, {elt_expr0}, TestConfiguration(), &projector1);
+  auto status = Projector::Make(schema0, {elt_expr0}, TestConfiguration(), &projector1);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1709,10 +1709,12 @@ TEST_F(TestProjector, TestEltFunction) {
   std::string string3 = "hi, yeah";
 
   auto array0 = MakeArrowArrayInt32({1, 2, 4, 0}, {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({string0, string1, string2, string3}, {true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({string0, string1, string2, string3}, {true, true, true, true});
   auto in_batch0 = arrow::RecordBatch::Make(schema0, num_records, {array0, array1});
 
-  auto expected_out0 = MakeArrowArrayUtf8({"john", "world", "", ""}, {true, true, true, true});
+  auto expected_out0 =
+      MakeArrowArrayUtf8({"john", "world", "", ""}, {true, true, true, true});
 
   arrow::ArrayVector outputs;
 
