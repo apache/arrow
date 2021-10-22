@@ -236,7 +236,7 @@ func DefRepLevelsToListInfo(defLevels, repLevels []int16, info LevelInfo, out *V
 			}
 
 			if wr != nil {
-				// the leve info def level for lists reflects element present level
+				// the level info def level for lists reflects element present level
 				// the prior level distinguishes between empty lists
 				if defLevels[idx] >= info.DefLevel-1 {
 					wr.Set()
