@@ -55,11 +55,11 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
-import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
@@ -462,11 +462,10 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public FlightInfo getFlightInfoCrossReference(final FlightSql.CommandGetCrossReference commandGetCrossReference,
+  public FlightInfo getFlightInfoCrossReference(final CommandGetCrossReference commandGetCrossReference,
                                                 final CallContext callContext,
                                                 final FlightDescriptor flightDescriptor) {
-    // TODO: Implement this
-    return null;
+    return getFightInfoExportedAndImportedKeys(commandGetCrossReference, flightDescriptor);
   }
 
   @Override
@@ -482,9 +481,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public void getStreamCrossReference(final FlightSql.CommandGetCrossReference commandGetCrossReference,
+  public void getStreamCrossReference(final CommandGetCrossReference commandGetCrossReference,
                                       final CallContext callContext, final ServerStreamListener serverStreamListener) {
-    // TODO: Implement this
+    getStreamCatalogFunctions(commandGetCrossReference, serverStreamListener);
   }
 
   @Override
