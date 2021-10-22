@@ -759,6 +759,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] column(int i)
         const c_string& column_name(int i)
 
+        shared_ptr[CArrayData] column_data(int i)
+        const vector[shared_ptr[CArrayData]]& column_data()
+
         const vector[shared_ptr[CArray]]& columns()
 
         int num_columns()
