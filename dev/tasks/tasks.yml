@@ -754,7 +754,7 @@ tasks:
       env:
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
-      artifact: "binaries"
+      artifact: {{ target }}
 {% endfor %}
 
 {% for platform, arch, runner in [("linux", "amd64", "ubuntu-20.04"),
