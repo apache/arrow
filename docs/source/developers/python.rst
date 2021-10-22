@@ -343,15 +343,11 @@ Now, build pyarrow:
 
    pushd arrow/python
    export PYARROW_WITH_PARQUET=1
-   export PYARROW_WITH_FLIGHT=0
-   export PYARROW_WITH_GANDIVA=0
-   export PYARROW_WITH_ORC=0
-   export PYARROW_WITH_PLASMA=0
    python setup.py build_ext --inplace
    popd
 
-If you did not build one of the optional components, set the corresponding
-``PYARROW_WITH_$COMPONENT`` environment variable to 0 as in this example.
+If you did build one of the optional components (in C++), you need to set the
+corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
 
 If you wish to delete pyarrow build before rebuilding navigate to the ``arrow/python``
 folder and run ``python setup.py clean``.
