@@ -148,7 +148,7 @@ test_apt() {
                 "ubuntu:hirsute" \
                 "arm64v8/ubuntu:hirsute"; do \
     case "${target}" in
-      arm64v8/debian:bullseye|arm64v8/debian:bookworm)
+      arm64v8/debian:bullseye|arm64v8/debian:bookworm|arm64v8/ubuntu:hirsute)
         # qemu-user-static in Ubuntu 20.04 has a crash bug:
         #   https://bugs.launchpad.net/qemu/+bug/1749393
         continue
