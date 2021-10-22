@@ -1384,8 +1384,6 @@ template <typename ArrowType>
 class TestFloatingMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
 
 class TestBooleanMinMaxKernel : public TestPrimitiveMinMaxKernel<BooleanType> {};
-class TestDayTimeIntervalMinMaxKernel
-    : public TestPrimitiveMinMaxKernel<DayTimeIntervalType> {};
 
 TEST_F(TestBooleanMinMaxKernel, Basics) {
   ScalarAggregateOptions options;

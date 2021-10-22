@@ -375,7 +375,9 @@ struct IfElseFunctor {};
 // internal::GenerateTypeAgnosticPrimitive forwards types to the corresponding unsigned
 // int type
 template <typename Type>
-struct IfElseFunctor<Type, enable_if_number<Type>> {
+struct IfElseFunctor<Type,
+                     enable_if_t<is_number_type<Type>::value ||
+                                 std::is_same<Type, MonthDayNanoIntervalType>::value>> {
   using T = typename TypeTraits<Type>::CType;
   // A - Array, S - Scalar, X = Array/Scalar
 
@@ -1295,7 +1297,8 @@ struct CopyFixedWidth<BooleanType> {
 };
 
 template <typename Type>
-struct CopyFixedWidth<Type, enable_if_number<Type>> {
+struct CopyFixedWidth<
+    Type, enable_if_t<is_number_type<Type>::value || is_interval_type<Type>::value>> {
   using CType = typename TypeTraits<Type>::CType;
   static void CopyScalar(const Scalar& scalar, const int64_t length,
                          uint8_t* raw_out_values, const int64_t out_offset) {

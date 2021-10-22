@@ -149,6 +149,14 @@ class TestReplaceDayTimeInterval : public TestReplaceKernel<DayTimeIntervalType>
   }
 };
 
+class TestReplaceMonthDayNanoInterval
+    : public TestReplaceKernel<MonthDayNanoIntervalType> {
+ protected:
+  std::shared_ptr<DataType> type() override {
+    return TypeTraits<MonthDayNanoIntervalType>::type_singleton();
+  }
+};
+
 template <typename T>
 class TestReplaceBinary : public TestReplaceKernel<T> {
  protected:
@@ -578,6 +586,80 @@ TEST_F(TestReplaceDayTimeInterval, ReplaceWithMask) {
   this->Assert(ReplaceWithMask, this->array("[[1, 2], [3, 4], [5, 6]]"),
                this->mask("[true, false, null]"), this->scalar("[7, 8]"),
                this->array("[[7, 8], [3, 4], null]"));
+}
+
+TEST_F(TestReplaceMonthDayNanoInterval, ReplaceWithMask) {
+  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
+               this->array("[]"), this->array("[]"));
+  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
+               this->array("[]"), this->array("[]"));
+  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
+               this->array("[]"), this->array("[]"));
+
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4]]"), this->mask_scalar(false),
+               this->array("[]"), this->array("[[1, 2, 4]]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4]]"), this->mask_scalar(true),
+               this->array("[[3, 4, -2]]"), this->array("[[3, 4, -2]]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4]]"), this->null_mask_scalar(),
+               this->array("[]"), this->array("[null]"));
+
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
+               this->mask_scalar(false), this->scalar("[7, 0, 8]"),
+               this->array("[[1, 2, 4], [3, 4, -2]]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
+               this->mask_scalar(true), this->scalar("[7, 0, 8]"),
+               this->array("[[7, 0, 8], [7, 0, 8]]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
+               this->mask_scalar(true), this->scalar("null"),
+               this->array("[null, null]"));
+
+  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
+               this->array("[]"));
+  this->Assert(ReplaceWithMask,
+               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+               this->mask("[false, false, false, false]"), this->array("[]"),
+               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"));
+  this->Assert(ReplaceWithMask,
+               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+               this->mask("[true, true, true, true]"),
+               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"),
+               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"));
+  this->Assert(ReplaceWithMask,
+               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+               this->mask("[null, null, null, null]"), this->array("[]"),
+               this->array("[null, null, null, null]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
+               this->mask("[false, false, false, false]"), this->array("[]"),
+               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
+               this->mask("[true, true, true, true]"),
+               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"),
+               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
+               this->mask("[null, null, null, null]"), this->array("[]"),
+               this->array("[null, null, null, null]"));
+  this->Assert(
+      ReplaceWithMask,
+      this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+      this->mask("[true, true, false, false, null, null]"),
+      this->array("[[3, 4, -2], null]"),
+      this->array("[[3, 4, -2], null, [1, 2, 4], [1, 2, 4], null, null]"));
+  this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
+               this->mask("[true, true, false, false, null, null]"),
+               this->array("[[3, 4, -2], null]"),
+               this->array("[[3, 4, -2], null, null, null, null, null]"));
+
+  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
+               this->scalar("[7, 0, 8]"), this->array("[]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
+               this->mask("[true, true]"), this->scalar("[7, 0, 8]"),
+               this->array("[[7, 0, 8], [7, 0, 8]]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
+               this->mask("[true, true]"), this->scalar("null"),
+               this->array("[null, null]"));
+  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2], [-5, 6, 7]]"),
+               this->mask("[true, false, null]"), this->scalar("[7, 0, 8]"),
+               this->array("[[7, 0, 8], [3, 4, -2], null]"));
 }
 
 TYPED_TEST(TestReplaceBinary, ReplaceWithMask) {

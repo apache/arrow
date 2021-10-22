@@ -286,7 +286,8 @@ TEST(Grouper, SupportedKeys) {
     ASSERT_OK(internal::Grouper::Make({timestamp(unit), duration(unit)}));
   }
 
-  ASSERT_OK(internal::Grouper::Make({day_time_interval(), month_interval()}));
+  ASSERT_OK(internal::Grouper::Make(
+      {day_time_interval(), month_interval(), month_day_nano_interval()}));
 
   ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({field("", int64())})}));
 
