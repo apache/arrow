@@ -16,11 +16,9 @@ write_dataset(
 }
 \arguments{
 \item{dataset}{\link{Dataset}, \link{RecordBatch}, \link{Table}, \code{arrow_dplyr_query}, or
-\code{data.frame}. If an \code{arrow_dplyr_query} or \code{grouped_df},
-\code{schema} and \code{partitioning} will be taken from the result of any \code{select()}
-and \code{group_by()} operations done on the dataset. \code{filter()} queries will be
-applied to restrict written rows.
-Note that \code{select()}-ed columns may not be renamed.}
+\code{data.frame}. If an \code{arrow_dplyr_query}, the query will be evaluated and
+the result will be written. This means that you can \code{select()}, \code{filter()}, \code{mutate()},
+etc. to transform the data before it is written if you need to.}
 
 \item{path}{string path, URI, or \code{SubTreeFileSystem} referencing a directory
 to write to (directory will be created if it does not exist)}

@@ -29,7 +29,7 @@ it. This function exposes the analogous functions in the Arrow C++ library.
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # note that the returned value is 0-indexed
-cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
+cars_tbl <- arrow_table(name = rownames(mtcars), mtcars)
 match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
 
 is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)

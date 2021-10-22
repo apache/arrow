@@ -51,6 +51,8 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
+      - name: Install Dependencies
+        run: brew bundle --file=arrow/cpp/Brewfile
       - name: Build C Data Interface lib
         run: |
           set -e
@@ -93,11 +95,11 @@ jobs:
           tar -xvzf arrow-shared-libs-linux.tar.gz
       - name: Test that Shared Libraries Exist
         run: |
-          test -f arrow/java/dist/libarrow_cdata_jni.dylib  
+          test -f arrow/java/dist/libarrow_cdata_jni.dylib
           test -f arrow/java/dist/libarrow_dataset_jni.dylib
           test -f arrow/java/dist/libgandiva_jni.dylib
           test -f arrow/java/dist/libarrow_orc_jni.dylib
-          test -f arrow/java/dist/libarrow_cdata_jni.so  
+          test -f arrow/java/dist/libarrow_cdata_jni.so
           test -f arrow/java/dist/libarrow_dataset_jni.so
           test -f arrow/java/dist/libarrow_orc_jni.so
           test -f arrow/java/dist/libgandiva_jni.so

@@ -1257,8 +1257,6 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
   BasicDecimal256 x = BasicDecimal256::Abs(*this);
   BasicDecimal256 y = BasicDecimal256::Abs(right);
 
-  uint128_t r_hi;
-  uint128_t r_lo;
   std::array<uint64_t, 4> res{0, 0, 0, 0};
   MultiplyUnsignedArray<4>(x.array_, y.array_, &res);
   array_ = res;

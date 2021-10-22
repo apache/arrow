@@ -24,11 +24,13 @@
 #include <google/cloud/storage/options.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <boost/process.hpp>
 #include <string>
 
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
 namespace arrow {
@@ -45,6 +47,15 @@ using ::testing::Not;
 using ::testing::NotNull;
 
 auto const* kPreexistingBucket = "test-bucket-name";
+auto const* kPreexistingObject = "test-object-name";
+auto const* kLoremIpsum = R"""(
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.
+)""";
 
 class GcsIntegrationTest : public ::testing::Test {
  public:
@@ -65,16 +76,29 @@ class GcsIntegrationTest : public ::testing::Test {
     server_process_ = bp::child(boost::this_process::environment(), exe_path, "-m",
                                 "testbench", "--port", port_);
 
-    // Create a bucket in the testbench. This makes it easier to bootstrap GcsFileSystem
-    // and its tests.
+    // Create a bucket and a small file in the testbench. This makes it easier to
+    // bootstrap GcsFileSystem and its tests.
     auto client = gcs::Client(
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
             .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials()));
-    google::cloud::StatusOr<gcs::BucketMetadata> metadata = client.CreateBucketForProject(
+    google::cloud::StatusOr<gcs::BucketMetadata> bucket = client.CreateBucketForProject(
         kPreexistingBucket, "ignored-by-testbench", gcs::BucketMetadata{});
-    ASSERT_TRUE(metadata.ok()) << "Failed to create bucket <" << kPreexistingBucket
-                               << ">, status=" << metadata.status();
+    ASSERT_TRUE(bucket.ok()) << "Failed to create bucket <" << kPreexistingBucket
+                             << ">, status=" << bucket.status();
+
+    google::cloud::StatusOr<gcs::ObjectMetadata> object =
+        client.InsertObject(kPreexistingBucket, kPreexistingObject, kLoremIpsum);
+    ASSERT_TRUE(object.ok()) << "Failed to create object <" << kPreexistingObject
+                             << ">, status=" << object.status();
+  }
+
+  static std::string PreexistingObjectPath() {
+    return std::string(kPreexistingBucket) + "/" + kPreexistingObject;
+  }
+
+  static std::string NotFoundObjectPath() {
+    return std::string(kPreexistingBucket) + "/not-found";
   }
 
   GcsOptions TestGcsOptions() {
@@ -114,7 +138,7 @@ TEST(GcsFileSystem, ToArrowStatus) {
       {google::cloud::StatusCode::kUnknown, StatusCode::UnknownError},
       {google::cloud::StatusCode::kInvalidArgument, StatusCode::Invalid},
       {google::cloud::StatusCode::kDeadlineExceeded, StatusCode::IOError},
-      {google::cloud::StatusCode::kNotFound, StatusCode::UnknownError},
+      {google::cloud::StatusCode::kNotFound, StatusCode::IOError},
       {google::cloud::StatusCode::kAlreadyExists, StatusCode::AlreadyExists},
       {google::cloud::StatusCode::kPermissionDenied, StatusCode::IOError},
       {google::cloud::StatusCode::kUnauthenticated, StatusCode::IOError},
@@ -159,9 +183,80 @@ TEST(GcsFileSystem, FileSystemCompare) {
   EXPECT_FALSE(a->Equals(*b));
 }
 
-TEST_F(GcsIntegrationTest, MakeBucket) {
+TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   arrow::fs::AssertFileInfo(fs.get(), kPreexistingBucket, FileType::Directory);
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoObject) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
+}
+
+TEST_F(GcsIntegrationTest, ReadObjectString) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  std::shared_ptr<io::InputStream> stream;
+  ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream(PreexistingObjectPath()));
+
+  std::array<char, 1024> buffer{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, stream->Read(buffer.size(), buffer.data()));
+
+  EXPECT_EQ(std::string(buffer.data(), size), kLoremIpsum);
+}
+
+TEST_F(GcsIntegrationTest, ReadObjectStringBuffers) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  std::shared_ptr<io::InputStream> stream;
+  ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream(PreexistingObjectPath()));
+
+  std::string contents;
+  std::shared_ptr<Buffer> buffer;
+  do {
+    ASSERT_OK_AND_ASSIGN(buffer, stream->Read(16));
+    contents.append(buffer->ToString());
+  } while (buffer && buffer->size() != 0);
+
+  EXPECT_EQ(contents, kLoremIpsum);
+}
+
+TEST_F(GcsIntegrationTest, ReadObjectInfo) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  arrow::fs::FileInfo info;
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingObjectPath()));
+
+  std::shared_ptr<io::InputStream> stream;
+  ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream(info));
+
+  std::array<char, 1024> buffer{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, stream->Read(buffer.size(), buffer.data()));
+
+  EXPECT_EQ(std::string(buffer.data(), size), kLoremIpsum);
+}
+
+TEST_F(GcsIntegrationTest, ReadObjectNotFound) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  auto result = fs->OpenInputStream(NotFoundObjectPath());
+  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+}
+
+TEST_F(GcsIntegrationTest, ReadObjectInfoInvalid) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  arrow::fs::FileInfo info;
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(kPreexistingBucket));
+
+  auto result = fs->OpenInputStream(NotFoundObjectPath());
+  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
+  result = fs->OpenInputStream(NotFoundObjectPath());
+  EXPECT_EQ(result.status().code(), StatusCode::IOError);
 }
 
 }  // namespace

@@ -148,7 +148,7 @@ test_apt() {
                 "ubuntu:hirsute" \
                 "arm64v8/ubuntu:hirsute"; do \
     case "${target}" in
-      arm64v8/debian:bullseye)
+      arm64v8/debian:bullseye|arm64v8/debian:bookworm|arm64v8/ubuntu:hirsute)
         # qemu-user-static in Ubuntu 20.04 has a crash bug:
         #   https://bugs.launchpad.net/qemu/+bug/1749393
         continue
@@ -577,8 +577,14 @@ test_binary_distribution() {
 }
 
 test_linux_wheels() {
+  if [ "$(uname -m)" = "aarch64" ]; then
+    local arch="aarch64"
+  else
+    local arch="x86_64"
+  fi
+
   local py_arches="3.6m 3.7m 3.8 3.9"
-  local manylinuxes="2010 2014"
+  local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
@@ -586,9 +592,9 @@ test_linux_wheels() {
     conda activate ${env}
     pip install -U pip
 
-    for ml_spec in ${manylinuxes}; do
+    for tag in ${platform_tags}; do
       # check the mandatory and optional imports
-      pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
+      pip install --force-reinstall python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-${tag}.whl
       INSTALL_PYARROW=OFF ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
     done
 

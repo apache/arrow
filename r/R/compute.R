@@ -231,7 +231,7 @@ all.ArrowDatum <- function(..., na.rm = FALSE) {
 #' per element of `x` it it is present in `table`.
 #' @examplesIf arrow_available()
 #' # note that the returned value is 0-indexed
-#' cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
+#' cars_tbl <- arrow_table(name = rownames(mtcars), mtcars)
 #' match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
 #'
 #' is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)
