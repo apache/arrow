@@ -55,9 +55,7 @@ like so:
 
 .. code-block:: shell
 
-   pytest pyarrow
-
-Be sure to run the command inside arrow/python folder.
+   pytest arrow/python/pyarrow
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
@@ -109,7 +107,7 @@ System Requirements
 -------------------
 
 On macOS, any modern XCode (6.4 or higher; the current version is 13) is
-sufficient. All you need is have XCode installed, no additional configuration is needed.
+sufficient. All you need is to have XCode installed, no additional configuration is needed.
 
 On Linux, for this guide, we require a minimum of gcc 4.8, or clang 3.7 or
 higher. You can check your version by running
@@ -334,8 +332,10 @@ virtualenv) enables cmake to choose the python executable which you are using.
 
 For any other C++ build challenges, see :ref:`cpp-development`.
 
-In case you may need to rebuild the C++ part it is advisable to delete the content of
-the build folder with command ``rm -rf *`` from the build folder.
+In case you may need to rebuild the C++ part due to errors in the process it is
+advisable to delete the content of the build folder with command ``rm -rf *``
+from the build folder itself. If the build has passed successfully and you need to rebuild
+due to latest pull from master, then this step is not needed.
 
 Now, build pyarrow:
 
@@ -354,7 +354,7 @@ If you did not build one of the optional components, set the corresponding
 ``PYARROW_WITH_$COMPONENT`` environment variable to 0 as in this example.
 
 If you wish to delete pyarrow build before rebuilding navigate to the ``arrow/python``
-folder and run ``python setp.py clean``.
+folder and run ``python setup.py clean``.
 
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
@@ -370,7 +370,7 @@ libraries), one can set ``--bundle-arrow-cpp``:
 
 .. note::
    To run an editable pyarrow version run ``pip install -e. --no-build-isolation``
-   in the ``arrow/python``.
+   in the ``arrow/python`` directory.
 
 Docker examples
 ~~~~~~~~~~~~~~~

@@ -126,17 +126,15 @@ argument is omitted then a release build will be produced.
 
 Other options for build type are also possible:
 
-* ``Debug``: doesn't apply any optimization passes in the compiler and
-  leaves the symbol map in the binary.
-* ``FastDebug``
-* ``RelWithDebInfo``: applies compiler optimizations and it removes the symbol
-  map from the binary.
-* ``Release``: fast but less useful for debugging or profiling.
-* ``Profile_Gen``
-* ``Profile_Build``
+* ``Debug``: doesn't apply any compiler optimizations and leaves debugging
+  information in the binary.
+* ``RelWithDebInfo``: applies compiler optimizations while leaving debug
+  information in the binary.
+* ``Release``: applies compiler optimizations and removes debug information
+  from the binary.
 
 You can also run default build with flag `-DARROW_EXTRA_ERROR_CONTEXT=ON`, see
-:ref:`Extra debugging help` 
+:ref:`label-extra-debugging:` 
 
 Minimal release build:
 
@@ -437,6 +435,8 @@ this can be accomplished with the ``Threads`` built-in package:
    set(THREADS_PREFER_PTHREAD_FLAG ON)
    find_package(Threads REQUIRED)
    target_link_libraries(my_target PRIVATE Threads::Threads)
+
+.. _label-extra-debugging:
 
 Extra debugging help
 ~~~~~~~~~~~~~~~~~~~~
