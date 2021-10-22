@@ -1275,8 +1275,8 @@ void AddMatchSubstring(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
-    auto func = std::make_shared<ScalarFunction>("starts_with", Arity::Unary(),
-                                                 &starts_with_doc);
+    auto func =
+        std::make_shared<ScalarFunction>("starts_with", Arity::Unary(), &starts_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec =
           GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
@@ -1286,8 +1286,8 @@ void AddMatchSubstring(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
-    auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
-                                                 &ends_with_doc);
+    auto func =
+        std::make_shared<ScalarFunction>("ends_with", Arity::Unary(), &ends_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
       DCHECK_OK(
@@ -1342,7 +1342,8 @@ struct FindSubstringRegex {
     regex.reserve(options.pattern.length() + 2);
     regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
     regex += ")";
-    regex_match_.reset(new RE2(regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
+    regex_match_.reset(
+        new RE2(regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
   }
 
   template <typename OutValue, typename... Ignored>
