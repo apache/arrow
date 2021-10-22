@@ -87,7 +87,7 @@ type DataPage interface {
 // Create some pools to use for reusing the data page objects themselves so that
 // we can avoid tight loops that are creating and destroying tons of individual
 // objects. This combined with a Release function on the pages themselves
-// which will put them back into the pool creates significant memory usage
+// which will put them back into the pool yields significant memory reduction
 // and performance benefits
 
 var dataPageV1Pool = sync.Pool{
