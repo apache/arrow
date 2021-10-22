@@ -117,33 +117,35 @@ Install ``sphinx``:
 
    pip install sphinx
 
-After navigating to the relevant directory, back up any existing ``index.rst`` file:
+After navigating to the ``docs`` directory, back up any existing ``index.rst``
+file in the target directory:
 
 .. code-block:: shell
 
-   cd docs/source/developers
-   mv index.rst index_old.rst
+   cd docs
+   mv ./source/developers/index.rst ./source/developers/index_old.rst
 
-Create an empty index.rst file:
-
-.. code-block:: shell
-
-   touch index.rst
-
-Build the current directory
+Create an empty ``index.rst`` file:
 
 .. code-block:: shell
 
-   sphinx-build . _build -c ..
+   touch ./source/developers/index.rst
 
-This builds everything in the current directory (``.``) to a folder called ``_build`` using
-the config file in the parent directory (``..``).
+Build the docs in the target directory:
+
+.. code-block:: shell
+
+   cd ../..
+   sphinx-build ./source/developers ./source/developers/_build -c ./source
+
+This builds everything in the target directory (``.``) to a folder inside of it
+called ``_build`` using the config file in the `source` directory.
 
 Once you have verified the HTML documents, you can remove the build directory
 and, if necessary, restore any previous ``index.rst`` file:
 
 .. code-block:: shell
 
-   rm -rf _build
-   rm index.rst
-   mv index_old.rst index.rst
+   rm -rf ./source/developers/_build
+   rm ./source/developers/index.rst
+   mv ./source/developers/index_old.rst ./source/developers/index.rst
