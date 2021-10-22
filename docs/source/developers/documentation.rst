@@ -106,22 +106,44 @@ Building a single directory for dev purposes without all the pre-requisites
 ----------------------------------------------------------
 
 You can build documentation in a single directory without needing to install
-all of the pre-requisites by first installing `sphinx`:
+all of the pre-requisites by installing sphinx, setting up a temporary
+index in the directory you want to build and then building that directory.
+
+The example below shows how to do this in the ``developers`` directory.
+
+Install ``sphinx``:
 
 .. code-block:: shell
 
    pip install sphinx
 
-and then navigating to the appropriate directory and running:
+After navigating to the relevant directory, back up any existing ``index.rst`` file:
 
 .. code-block:: shell
 
-   sphinx-quickstart
+   cd docs/source/developers
+   mv index.rst index_old.rst
 
-Follow the prompts (enter any random text for 'Project name' etc), and once this is complete, run:
+Create an empty index.rst file:
 
 .. code-block:: shell
 
-   make html
+   touch index.rst
 
-This will build the HTML docs.
+Build the current directory
+
+.. code-block:: shell
+
+   sphinx-build . _build -c ..
+
+This builds everything in the current directory (``.``) to a folder called ``_build`` using
+the config file in the parent directory (``..``).
+
+Once you have verified the HTML documents, you can remove the build directory
+and, if necessary, restore any previous ``index.rst`` file:
+
+.. code-block:: shell
+
+   rm -rf _build
+   rm index.rst
+   mv index_old.rst index.rst
