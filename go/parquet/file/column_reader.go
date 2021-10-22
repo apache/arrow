@@ -263,19 +263,19 @@ func (c *columnChunkReader) initLevelDecodersV2(page *DataPageV2) (int64, error)
 	c.numBuffered = int64(page.nvals)
 	c.numDecoded = 0
 	buf := page.Data()
-	totalLvlLen := int64(page.repLvlBytelen) + int64(page.defLvlBytelen)
+	totalLvlLen := int64(page.repLvlByteLen) + int64(page.defLvlByteLen)
 
 	if totalLvlLen > int64(len(buf)) {
 		return totalLvlLen, xerrors.New("parquet: data page too small for levels (corrupt header?)")
 	}
 
 	if c.descr.MaxRepetitionLevel() > 0 {
-		c.repetitionDecoder.SetDataV2(page.repLvlBytelen, c.descr.MaxRepetitionLevel(), int(c.numBuffered), buf)
-		buf = buf[page.repLvlBytelen:]
+		c.repetitionDecoder.SetDataV2(page.repLvlByteLen, c.descr.MaxRepetitionLevel(), int(c.numBuffered), buf)
+		buf = buf[page.repLvlByteLen:]
 	}
 
 	if c.descr.MaxDefinitionLevel() > 0 {
-		c.definitionDecoder.SetDataV2(page.defLvlBytelen, c.descr.MaxDefinitionLevel(), int(c.numBuffered), buf)
+		c.definitionDecoder.SetDataV2(page.defLvlByteLen, c.descr.MaxDefinitionLevel(), int(c.numBuffered), buf)
 	}
 
 	return totalLvlLen, nil
@@ -350,7 +350,14 @@ func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 	return nil
 }
 
-func (c *columnChunkReader) readDefinitionLevels(levels []int16) (int, int64) {
+// readDefinitionLevels decodes the definition levels from the page and returns
+// it returns the total number of levels that were decoded (and thus populated
+// in the passed in slice) and the number of physical values that exist to read
+// (the number of levels that are equal to the max definition level).
+//
+// If the max definition level is 0, the assumption is that there no nulls in the
+// column and therefore no definition levels to read, so it will always return 0, 0
+func (c *columnChunkReader) readDefinitionLevels(levels []int16) (totalDecoded int, valuesToRead int64) {
 	if c.descr.MaxDefinitionLevel() == 0 {
 		return 0, 0
 	}
@@ -358,6 +365,12 @@ func (c *columnChunkReader) readDefinitionLevels(levels []int16) (int, int64) {
 	return c.definitionDecoder.Decode(levels)
 }
 
+// readRepetitionLevels decodes the repetition levels from the page and returns
+// the total number of values decoded (and thus populated in the passed in levels
+// slice).
+//
+// If max repetition level is 0, it is assumed there are no repetition levels,
+// and thus will always return 0.
 func (c *columnChunkReader) readRepetitionLevels(levels []int16) int {
 	if c.descr.MaxRepetitionLevel() == 0 {
 		return 0
@@ -440,6 +453,8 @@ func (c *columnChunkReader) skipValues(nvalues int64, readFn func(batch int64, b
 	return nvalues - toskip, err
 }
 
+type readerFunc func(int64, int64) (int, error)
+
 // base function for reading a batch of values, this will read until it either reads in batchSize values or
 // it hits the end of the column chunk, including reading multiple pages.
 //
@@ -481,5 +496,3 @@ func (c *columnChunkReader) readBatch(batchSize int64, defLvls, repLvls []int16,
 	}
 	return totalLvls, totalRead, err
 }
-
-type readerFunc func(int64, int64) (int, error)

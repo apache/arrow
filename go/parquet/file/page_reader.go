@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/compress"
+	"github.com/apache/arrow/go/parquet/internal/debug"
 	"github.com/apache/arrow/go/parquet/internal/encryption"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/thrift"
@@ -176,8 +177,8 @@ type DataPageV2 struct {
 
 	nulls            int32
 	nrows            int32
-	defLvlBytelen    int32
-	repLvlBytelen    int32
+	defLvlByteLen    int32
+	repLvlByteLen    int32
 	compressed       bool
 	uncompressedSize int64
 	statistics       metadata.EncodedStatistics
@@ -191,8 +192,8 @@ func NewDataPageV2(buffer *memory.Buffer, numValues, numNulls, numRows int32, en
 			page:             page{buf: buffer, typ: format.PageType_DATA_PAGE_V2, nvals: numValues, encoding: format.Encoding(encoding)},
 			nulls:            numNulls,
 			nrows:            numRows,
-			defLvlBytelen:    defLvlsByteLen,
-			repLvlBytelen:    repLvlsByteLen,
+			defLvlByteLen:    defLvlsByteLen,
+			repLvlByteLen:    repLvlsByteLen,
 			compressed:       isCompressed,
 			uncompressedSize: uncompressed,
 		}
@@ -201,7 +202,7 @@ func NewDataPageV2(buffer *memory.Buffer, numValues, numNulls, numRows int32, en
 	dp.buf, dp.nvals = buffer, numValues
 	dp.encoding = format.Encoding(encoding)
 	dp.nulls, dp.nrows = numNulls, numRows
-	dp.defLvlBytelen, dp.repLvlBytelen = defLvlsByteLen, repLvlsByteLen
+	dp.defLvlByteLen, dp.repLvlByteLen = defLvlsByteLen, repLvlsByteLen
 	dp.compressed, dp.uncompressedSize = isCompressed, uncompressed
 	dp.statistics.HasMax, dp.statistics.HasMin = false, false
 	dp.statistics.HasNullCount, dp.statistics.HasDistinctCount = false, false
@@ -236,10 +237,10 @@ func (d *DataPageV2) Statistics() metadata.EncodedStatistics { return d.statisti
 func (d *DataPageV2) NumNulls() int32 { return d.nulls }
 
 // DefinitionLevelByteLen is the number of bytes in the buffer that are used to represent the definition levels
-func (d *DataPageV2) DefinitionLevelByteLen() int32 { return d.defLvlBytelen }
+func (d *DataPageV2) DefinitionLevelByteLen() int32 { return d.defLvlByteLen }
 
 // RepetitionLevelByteLen is the number of bytes in the buffer which are used to represent the repetition Levels
-func (d *DataPageV2) RepetitionLevelByteLen() int32 { return d.repLvlBytelen }
+func (d *DataPageV2) RepetitionLevelByteLen() int32 { return d.repLvlByteLen }
 
 // IsCompressed returns true if the data of this page is compressed
 func (d *DataPageV2) IsCompressed() bool { return d.compressed }
@@ -511,6 +512,7 @@ func (p *serializedPageReader) Next() bool {
 				p.err = err
 				return false
 			}
+			debug.Assert(len(data) == lenUncompressed, "len(data) != lenUncompressed")
 
 			// p.buf.Resize(lenUncompressed)
 			// make dictionary page
@@ -538,6 +540,7 @@ func (p *serializedPageReader) Next() bool {
 				p.err = err
 				return false
 			}
+			debug.Assert(len(data) == lenUncompressed, "len(data) != lenUncompressed")
 
 			// make datapagev1
 			p.curPage = &DataPageV1{
@@ -586,6 +589,7 @@ func (p *serializedPageReader) Next() bool {
 				io.ReadFull(p.r, p.buf.Bytes())
 				data = p.buf.Bytes()
 			}
+			debug.Assert(len(data) == lenUncompressed, "len(data) != lenUncompressed")
 
 			// make datapage v2
 			p.curPage = &DataPageV2{
@@ -597,8 +601,8 @@ func (p *serializedPageReader) Next() bool {
 				},
 				nulls:            dataHeader.GetNumNulls(),
 				nrows:            dataHeader.GetNumRows(),
-				defLvlBytelen:    dataHeader.GetDefinitionLevelsByteLength(),
-				repLvlBytelen:    dataHeader.GetRepetitionLevelsByteLength(),
+				defLvlByteLen:    dataHeader.GetDefinitionLevelsByteLength(),
+				repLvlByteLen:    dataHeader.GetRepetitionLevelsByteLength(),
 				compressed:       compressed,
 				uncompressedSize: int64(lenUncompressed),
 				statistics:       extractStats(dataHeader),
