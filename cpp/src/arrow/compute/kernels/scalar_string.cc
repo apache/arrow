@@ -310,7 +310,7 @@ struct StringTransformBase {
 
   // Return the maximum total size of the output in codeunits (i.e. bytes)
   // given input characteristics.
-  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
+  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, const uint8_t* input) {
     return input_ncodeunits;
   }
 
@@ -344,9 +344,11 @@ struct StringTransformExecBase {
 
     const int64_t input_ncodeunits = input.total_values_length();
     const int64_t input_nstrings = input.length();
+    offset_type input_string_ncodeunitss;
+    const uint8_t* input_string = input.GetValue(0, &input_string_ncodeunitss);
 
     const int64_t output_ncodeunits_max =
-        transform->MaxCodeunits(input_nstrings, input_ncodeunits);
+        transform->MaxCodeunits(input_nstrings, input_ncodeunits, input_string);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -390,7 +392,7 @@ struct StringTransformExecBase {
     result->is_valid = true;
     const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
 
-    const int64_t output_ncodeunits_max = transform->MaxCodeunits(1, data_nbytes);
+    const int64_t output_ncodeunits_max = transform->MaxCodeunits(1, data_nbytes, input.value->data());
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
           "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -529,7 +531,7 @@ struct FunctionalCaseMappingTransform : public StringTransformBase {
     return Status::OK();
   }
 
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, const uint8_t* input) override {
     // Section 5.18 of the Unicode spec claims that the number of codepoints for case
     // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
     // However, since we don't support all casings (SpecialCasing.txt) the growth
@@ -656,24 +658,33 @@ struct Utf8TitleTransform : public FunctionalCaseMappingTransform {
 template <typename Type>
 using Utf8Title = StringTransformExec<Type, Utf8TitleTransform>;
 
-struct Utf8NormalizationFormTransform : public FunctionalCaseMappingTransform {
+struct Utf8NormalizeFormTransform : public FunctionalCaseMappingTransform {
   using State = OptionsWrapper<NormalizationFormOptions>;
 
   const NormalizationFormOptions* options;
 
-  explicit Utf8NormalizationFormTransform(const NormalizationFormOptions& options)
+  explicit Utf8NormalizeFormTransform(const NormalizationFormOptions& options)
       : options{&options} {}
-  
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, const uint8_t* input) override {
     utf8proc_uint8_t* transformed = nullptr;
     utf8proc_option_t option = GenerateNormalizationFormOption(options->method);
-    auto output_string_ncodeunits =
-        utf8proc_map(input, input_string_ncodeunits, &transformed, option);
-    std::memcpy(output, transformed, output_string_ncodeunits);
-    free(transformed);
+    auto string_ncodeunits = Normalize(input, input_ncodeunits, &transformed, option);
+    // free(transformed);
 
-    return output_string_ncodeunits;  
+    return string_ncodeunits;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    utf8proc_option_t option = GenerateNormalizationFormOption(options->method);
+    auto output_string_ncodeunits = Normalize(input, input_string_ncodeunits, &output, option);
+    printf("c\n");
+    printf("%s\n", input);
+    printf("%s\n", output);
+    printf("d\n");
+
+    return output_string_ncodeunits;
   }
 
   private:
@@ -691,10 +702,43 @@ struct Utf8NormalizationFormTransform : public FunctionalCaseMappingTransform {
           return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
       }
     }
+
+    utf8proc_ssize_t Normalize(const utf8proc_uint8_t *str, utf8proc_ssize_t strlen,
+                               utf8proc_uint8_t **output, utf8proc_option_t options) {
+      utf8proc_int32_t* dstptr = nullptr;
+      utf8proc_ssize_t result;
+      result = utf8proc_decompose_custom(str, strlen, NULL, 0, options, NULL, NULL);
+      if (result < 0) return result;
+
+      utf8proc_int32_t* tmpptr;
+      tmpptr = (utf8proc_int32_t *) realloc(dstptr, result * sizeof(utf8proc_int32_t) + 1);
+      if (tmpptr == NULL) return result;
+
+      dstptr = tmpptr;
+      free(tmpptr);
+      result = utf8proc_decompose_custom(str, strlen, dstptr, result, options, NULL, NULL);
+      if (result < 0) return result;
+
+      result = utf8proc_reencode(dstptr, result, options);
+      printf("%td55\n", result);
+      if (result < 0) return result;
+
+      // auto tmpptr2 = realloc(dstptr, result + 1);
+      // printf("%td66\n", result);
+      // if (tmpptr2 == NULL) return result;
+
+      // dstptr = tmpptr2;
+      // free(tmpptr2);
+      *output = (utf8proc_uint8_t *)dstptr;
+
+      printf("%td77\n", result);
+
+      return result;
+    }
 };
 
 template <typename Type>
-using Utf8NormalizationForm = StringTransformExecWithState<Type, Utf8NormalizationFormTransform>;
+using Utf8NormalizeForm = StringTransformExecWithState<Type, Utf8NormalizeFormTransform>;
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -1608,7 +1652,7 @@ struct SliceTransformBase : public StringTransformBase {
 };
 
 struct SliceCodeunitsTransform : SliceTransformBase {
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, const uint8_t* input) override {
     const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
       // If start and stop don't have the same sign, we can't guess an upper bound
@@ -2730,7 +2774,7 @@ struct ReplaceSliceTransformBase : public StringTransformBase {
   explicit ReplaceSliceTransformBase(const ReplaceSliceOptions& options)
       : options{&options} {}
 
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, const uint8_t* input) override {
     return ninputs * options->replacement.size() + input_ncodeunits;
   }
 };
@@ -3155,7 +3199,7 @@ struct AsciiPadTransform : public StringTransformBase {
     return Status::OK();
   }
 
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, const uint8_t* input) override {
     // This is likely very overallocated but hard to do better without
     // actually looking at each string (because of strings that may be
     // longer than the given width)
@@ -3209,7 +3253,7 @@ struct Utf8PadTransform : public StringTransformBase {
     return Status::OK();
   }
 
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, const uint8_t* input) override {
     // This is likely very overallocated but hard to do better without
     // actually looking at each string (because of strings that may be
     // longer than the given width)
@@ -4415,7 +4459,7 @@ const FunctionDoc utf8_reverse_doc(
      "composed of multiple codepoints."),
     {"strings"});
 
-const FunctionDoc utf8_normalization_form_doc(
+const FunctionDoc utf8_normalize_form_doc(
     "Normalization Form Canonical Decomposition",
     ("For each string in `strings`, return an unicode normalized version.\n\n"
      "Characters are decomposed by canonical equivalence,\n"
@@ -4509,7 +4553,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry, &utf8_is_space_doc);
   AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry, &utf8_is_title_doc);
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
-  MakeUnaryStringBatchKernelWithState<Utf8NormalizationForm>("utf8_normalization_form", registry, &utf8_normalization_form_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8NormalizeForm>("utf8_normalize_form", registry, &utf8_normalize_form_doc);
 #endif
 
   AddBinaryLength(registry);
