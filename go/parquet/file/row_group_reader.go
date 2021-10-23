@@ -19,6 +19,7 @@ package file
 import (
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/parquet/internal/debug"
 	"github.com/apache/arrow/go/parquet/internal/encryption"
 	"github.com/apache/arrow/go/parquet/internal/utils"
 	"github.com/apache/arrow/go/parquet/metadata"
@@ -79,7 +80,13 @@ func (r *RowGroupReader) GetColumnPageReader(i int) (PageReader, error) {
 	}
 
 	colLen := col.TotalCompressedSize()
+	// PARQUET-816 workaround for old files created by older parquet-mr
 	if r.fileMetadata.WriterVersion().LessThan(metadata.Parquet816FixedVersion) {
+		// The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
+		// dictionary page header size in total_compressed_size and total_uncompressed_size
+		// (see IMPALA-694). We add padding to compensate.
+		debug.Assert(colStart >= 0 && colLen >= 0, "invalid column chunk metadata, column offset and size must be positive")
+		debug.Assert(colStart < r.sourceSz && colLen < r.sourceSz, "invalid column chunk metadata, column offset and size should both be less than sourceSz")
 		bytesRemain := r.sourceSz - (colStart + colLen)
 		padding := utils.Min(maxDictHeaderSize, bytesRemain)
 		colLen += padding
