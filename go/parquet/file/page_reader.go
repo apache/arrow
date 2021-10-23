@@ -26,7 +26,6 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/compress"
-	"github.com/apache/arrow/go/parquet/internal/debug"
 	"github.com/apache/arrow/go/parquet/internal/encryption"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/thrift"
@@ -512,7 +511,10 @@ func (p *serializedPageReader) Next() bool {
 				p.err = err
 				return false
 			}
-			debug.Assert(len(data) == lenUncompressed, "len(data) != lenUncompressed")
+			if len(data) != lenUncompressed {
+				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed dictionary page, got %d bytes", lenUncompressed, len(data))
+				return false
+			}
 
 			// p.buf.Resize(lenUncompressed)
 			// make dictionary page
@@ -540,7 +542,10 @@ func (p *serializedPageReader) Next() bool {
 				p.err = err
 				return false
 			}
-			debug.Assert(len(data) == lenUncompressed, "len(data) != lenUncompressed")
+			if len(data) != lenUncompressed {
+				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
+				return false
+			}
 
 			// make datapagev1
 			p.curPage = &DataPageV1{
@@ -589,7 +594,10 @@ func (p *serializedPageReader) Next() bool {
 				io.ReadFull(p.r, p.buf.Bytes())
 				data = p.buf.Bytes()
 			}
-			debug.Assert(len(data) == lenUncompressed, "len(data) != lenUncompressed")
+			if len(data) != lenUncompressed {
+				p.err = xerrors.Errorf("parquet: metadata said %d bytes uncompressed data page, got %d bytes", lenUncompressed, len(data))
+				return false
+			}
 
 			// make datapage v2
 			p.curPage = &DataPageV2{
