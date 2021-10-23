@@ -19,7 +19,6 @@ package file
 import (
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/debug"
 	"github.com/apache/arrow/go/parquet/internal/encryption"
 	"github.com/apache/arrow/go/parquet/internal/utils"
 	"github.com/apache/arrow/go/parquet/metadata"
@@ -85,8 +84,12 @@ func (r *RowGroupReader) GetColumnPageReader(i int) (PageReader, error) {
 		// The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
 		// dictionary page header size in total_compressed_size and total_uncompressed_size
 		// (see IMPALA-694). We add padding to compensate.
-		debug.Assert(colStart >= 0 && colLen >= 0, "invalid column chunk metadata, column offset and size must be positive")
-		debug.Assert(colStart < r.sourceSz && colLen < r.sourceSz, "invalid column chunk metadata, column offset and size should both be less than sourceSz")
+		if colStart < 0 || colLen < 0 {
+			return nil, xerrors.Errorf("invalid column chunk metadata, offset (%d) and length (%d) should both be positive", colStart, colLen)
+		}
+		if colStart > r.sourceSz || colLen > r.sourceSz {
+			return nil, xerrors.Errorf("invalid column chunk metadata, offset (%d) and length (%d) must both be less than total source size (%d)", colStart, colLen, r.sourceSz)
+		}
 		bytesRemain := r.sourceSz - (colStart + colLen)
 		padding := utils.Min(maxDictHeaderSize, bytesRemain)
 		colLen += padding
