@@ -423,9 +423,9 @@ test_js() {
   fi
 
   yarn --frozen-lockfile
-  yarn run-s clean:all
-  yarn run-s lint
-  yarn run-s build
+  yarn clean:all
+  yarn lint
+  yarn build
   yarn test
   popd
 }
