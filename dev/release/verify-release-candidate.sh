@@ -102,8 +102,8 @@ fetch_archive() {
   download_rc_file ${dist_name}.tar.gz.sha256
   download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  shasum -a 256 -c ${dist_name}.tar.gz.sha256
-  shasum -a 512 -c ${dist_name}.tar.gz.sha512
+  openssl sha256 -c ${dist_name}.tar.gz.sha256
+  openssl sha512 -c ${dist_name}.tar.gz.sha512
 }
 
 verify_dir_artifact_signatures() {
@@ -117,9 +117,9 @@ verify_dir_artifact_signatures() {
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
     if [ -f $base_artifact.sha256 ]; then
-      shasum -a 256 -c $base_artifact.sha256 || exit 1
+      openssl sha256 -c $base_artifact.sha256 || exit 1
     fi
-    shasum -a 512 -c $base_artifact.sha512 || exit 1
+    openssl sha512 -c $base_artifact.sha512 || exit 1
     popd
   done
 }
