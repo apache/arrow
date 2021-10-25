@@ -312,6 +312,7 @@ Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
 }
 
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
+                                             int64_t body_length,
                                              io::RandomAccessFile* file,
                                              const FieldsLoaderFunction& fields_loader) {
   std::unique_ptr<Message> result;
@@ -323,7 +324,14 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                            decoder.next_required_size());
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto metadata, file->ReadAt(offset, metadata_length));
+  // Don't read ahead if a fine-grained read was requested.
+  // TODO(ARROW-14577): this is suboptimal for column selection on
+  // high-latency filesystems.
+  int64_t to_read = metadata_length;
+  if (!fields_loader && body_length > 0) {
+    to_read += body_length;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto metadata, file->ReadAt(offset, to_read));
   if (metadata->size() < metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length,
                            " metadata bytes but got ", metadata->size());
@@ -347,6 +355,8 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
             body, AllocateBuffer(decoder.next_required_size(), default_memory_pool()));
         RETURN_NOT_OK(ReadFieldsSubset(offset, metadata_length, file, fields_loader,
                                        metadata, decoder.next_required_size(), body));
+      } else if (body_length >= 0) {
+        body = SliceBuffer(metadata, metadata_length, body_length);
       } else {
         ARROW_ASSIGN_OR_RAISE(
             body, file->ReadAt(offset + metadata_length, decoder.next_required_size()));
@@ -364,6 +374,11 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
     default:
       return Status::Invalid("Unexpected state: ", decoder.state());
   }
+}
+
+Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
+                                             io::RandomAccessFile* file) {
+  return ReadMessage(offset, metadata_length, -1, file);
 }
 
 Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metadata_length,

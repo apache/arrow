@@ -456,15 +456,24 @@ using FieldsLoaderFunction = std::function<Status(const void*, io::RandomAccessF
 ///
 /// \param[in] offset the position in the file where the message starts. The
 /// first 4 bytes after the offset are the message length
-/// \param[in] metadata_length the total number of bytes to read from file
+/// \param[in] metadata_length the size of the message header
+/// \param[in] body_length the size of the message body, if known, or
+/// -1 otherwise. When provided, the entire message will be read in
+/// one I/O operation, potentially reducing I/O costs on high-latency
+/// filesystems.
 /// \param[in] file the seekable file interface to read from
 /// \param[in] fields_loader the function for loading subset of fields from the given file
 /// \return the message read
-
 ARROW_EXPORT
 Result<std::unique_ptr<Message>> ReadMessage(
-    const int64_t offset, const int32_t metadata_length, io::RandomAccessFile* file,
-    const FieldsLoaderFunction& fields_loader = {});
+    const int64_t offset, const int32_t metadata_length, const int64_t body_length,
+    io::RandomAccessFile* file, const FieldsLoaderFunction& fields_loader = {});
+
+/// \brief Read encapsulated RPC message from position in file
+ARROW_EXPORT
+Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
+                                             const int32_t metadata_length,
+                                             io::RandomAccessFile* file);
 
 ARROW_EXPORT
 Future<std::shared_ptr<Message>> ReadMessageAsync(

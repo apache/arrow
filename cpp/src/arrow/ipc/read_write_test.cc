@@ -2561,7 +2561,13 @@ void GetReadRecordBatchReadRanges(
   // 1) read magic and footer length IO
   // 2) read footer IO
   // 3) read record batch metadata IO
-  ASSERT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+  if (included_fields.empty()) {
+    // ARROW-14429: The I/O for the metadata is merged with the body itself
+    ASSERT_EQ(1, expected_body_read_lengths.size());
+    ASSERT_EQ(read_ranges.size(), 3);
+  } else {
+    ASSERT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+  }
   const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
@@ -2573,6 +2579,12 @@ void GetReadRecordBatchReadRanges(
   ASSERT_EQ(read_ranges[1].length, footer_length);
   // read record batch metadata.  The exact size is tricky to determine but it doesn't
   // matter for this test and it should be smaller than the footer.
+  if (included_fields.empty()) {
+    // ARROW-14429: The I/O for the metadata is merged with the body itself
+    ASSERT_LT(read_ranges[2].length, footer_length + expected_body_read_lengths.front());
+    return;
+  }
+  // The metadata is read separately
   ASSERT_LT(read_ranges[2].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
     ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);

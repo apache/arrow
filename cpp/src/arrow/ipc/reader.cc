@@ -980,8 +980,9 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
   // TODO(wesm): this breaks integration tests, see ARROW-3256
   // DCHECK_EQ((*out)->body_length(), block.body_length);
 
-  ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
-                                                  file, fields_loader));
+  ARROW_ASSIGN_OR_RAISE(
+      auto message, ReadMessage(block.offset, block.metadata_length, block.body_length,
+                                file, fields_loader));
   return std::move(message);
 }
 
