@@ -121,7 +121,9 @@ test_that("paste, paste0, and str_c", {
   # sep is literal NA
   # errors in paste() (consistent with base::paste())
   expect_snapshot({
-    (expect_error(nse_funcs$paste(x, y, sep = NA_character_)))
+    (expect_error(
+      nse_funcs$paste(x, y, sep = NA_character_)
+    ))
   })
 
   # emits null in str_c() (consistent with stringr::str_c())
@@ -156,12 +158,22 @@ test_that("paste, paste0, and str_c", {
 
   expect_snapshot({
     # collapse argument not supported
-    (expect_error(nse_funcs$paste(x, y, collapse = "")))
-    (expect_error(nse_funcs$paste0(x, y, collapse = "")))
-    (expect_error(nse_funcs$str_c(x, y, collapse = "")))
+    (expect_error(
+      nse_funcs$paste(x, y, collapse = "")
+    ))
+    (expect_error(
+      nse_funcs$paste0(x, y, collapse = "")
+    ))
+    (expect_error(
+      nse_funcs$str_c(x, y, collapse = "")
+    ))
     # literal vectors of length != 1 not supported
-    (expect_error(nse_funcs$paste(x, character(0), y)))
-    (expect_error(nse_funcs$paste(x, c(",", ";"), y)))
+    (expect_error(
+      nse_funcs$paste(x, character(0), y)
+    ))
+    (expect_error(
+      nse_funcs$paste(x, c(",", ";"), y)
+    ))
   })
 })
 
@@ -468,7 +480,9 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   # Error checking a single function because they all use the same code path.
   expect_snapshot({
-    (expect_error(nse_funcs$str_to_lower("Apache Arrow", locale = "sp")))
+    (expect_error(
+      nse_funcs$str_to_lower("Apache Arrow", locale = "sp")
+    ))
   })
 })
 
@@ -531,12 +545,22 @@ test_that("errors and warnings in string splitting", {
   x <- Expression$field_ref("x")
 
   expect_snapshot({
-    (expect_error(nse_funcs$str_split(x, fixed("and", ignore_case = TRUE))))
-    (expect_error(nse_funcs$str_split(x, coll("and.?"))))
-    (expect_error(nse_funcs$str_split(x, boundary(type = "word"))))
-    (expect_error(nse_funcs$str_split(x, "and", n = 0)))
+    (expect_error(
+      nse_funcs$str_split(x, fixed("and", ignore_case = TRUE))
+    ))
+    (expect_error(
+      nse_funcs$str_split(x, coll("and.?"))
+    ))
+    (expect_error(
+      nse_funcs$str_split(x, boundary(type = "word"))
+    ))
+    (expect_error(
+      nse_funcs$str_split(x, "and", n = 0)
+    ))
     # This condition generates a warning
-    (expect_warning(nse_funcs$str_split(x, fixed("and"), simplify = TRUE)))
+    (expect_warning(
+      nse_funcs$str_split(x, fixed("and"), simplify = TRUE)
+    ))
   })
 })
 
@@ -544,8 +568,12 @@ test_that("errors and warnings in string detection and replacement", {
   x <- Expression$field_ref("x")
 
   expect_snapshot({
-    (expect_error(nse_funcs$str_detect(x, boundary(type = "character"))))
-    (expect_error(nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó")))
+    (expect_error(
+      nse_funcs$str_detect(x, boundary(type = "character"))
+    ))
+    (expect_error(
+      nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó")
+    ))
     # This condition generates a warning
     (expect_warning(
       nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u")
@@ -708,7 +736,9 @@ test_that("errors in strptime", {
   # Error when tz is passed
   x <- Expression$field_ref("x")
   expect_snapshot({
-    (expect_error(nse_funcs$strptime(x, tz = "PDT")))
+    (expect_error(
+      nse_funcs$strptime(x, tz = "PDT")
+    ))
   })
 })
 
@@ -1103,8 +1133,12 @@ test_that("substr", {
   )
 
   expect_snapshot({
-    (expect_error(nse_funcs$substr("Apache Arrow", c(1, 2), 3)))
-    (expect_error(nse_funcs$substr("Apache Arrow", 1, c(2, 3))))
+    (expect_error(
+      nse_funcs$substr("Apache Arrow", c(1, 2), 3)
+    ))
+    (expect_error(
+      nse_funcs$substr("Apache Arrow", 1, c(2, 3))
+    ))
   })
 })
 
@@ -1194,8 +1228,12 @@ test_that("str_sub", {
   )
 
   expect_snapshot({
-    (expect_error(nse_funcs$str_sub("Apache Arrow", c(1, 2), 3)))
-    (expect_error(nse_funcs$str_sub("Apache Arrow", 1, c(2, 3))))
+    (expect_error(
+      nse_funcs$str_sub("Apache Arrow", c(1, 2), 3)
+    ))
+    (expect_error(
+      nse_funcs$str_sub("Apache Arrow", 1, c(2, 3))
+    ))
   })
 })
 
