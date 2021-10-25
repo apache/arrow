@@ -51,7 +51,7 @@ function cycle(result: CaseResult, _summary: Summary) {
         results.push(result);
     }
     console.log(
-        `${kleur.cyan(result.name)} ${formatNumber(result.ops, 3)} ops/s ±${result.margin.toPrecision(2)}%, ${formatNumber(duration, 2)} ms, ${kleur.gray(result.samples + ' samples')}`,
+        `${kleur.cyan(result.name)} ${formatNumber(result.ops, 3)} ops/s ±${result.margin.toPrecision(2)}%, ${formatNumber(duration, 2)} ms, ${kleur.gray(`${result.samples} samples`)}`,
     );
 }
 
