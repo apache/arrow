@@ -118,7 +118,7 @@ compare_dplyr_binding <- function(expr,
     expect_warning(
       via_table <- rlang::eval_tidy(
         expr,
-        rlang::new_data_mask(rlang::env(input = arrow_table(tbl)))
+        rlang::new_data_mask(rlang::env(.input = arrow_table(tbl)))
       ),
       warning
     )
@@ -185,7 +185,7 @@ compare_dplyr_error <- function(expr,
   expect_error(
     rlang::eval_tidy(
       expr,
-      rlang::new_data_mask(rlang::env(input = arrow_table(tbl)))
+      rlang::new_data_mask(rlang::env(.input = arrow_table(tbl)))
     ),
     msg,
     ...
