@@ -36,6 +36,16 @@ TEST(TotalBufferSize, Arrays) {
   ASSERT_EQ(20, TotalBufferSize(*with_nulls->data()));
 }
 
+TEST(TotalBufferSize, NestedArray) {
+  std::shared_ptr<Array> array_with_children =
+      ArrayFromJSON(list(int64()), "[[0, 1, 2, 3, 4], [5], null]");
+  // The offsets array will have 4 4-byte offsets      (16)
+  // The child array will have 6 8-byte values         (48)
+  // The child array will not have a validity bitmap
+  // The list array will have a 1 byte validity bitmap  (1)
+  ASSERT_EQ(65, TotalBufferSize(*array_with_children));
+}
+
 TEST(TotalBufferSize, ArrayWithOffset) {
   std::shared_ptr<Array> base_array =
       ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 6, 7, 8, 9]");
