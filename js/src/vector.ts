@@ -339,7 +339,7 @@ export function makeVector(init: any) {
 }
 
 
-function inferType(value: any[]): DataType {
+function inferType(value: readonly unknown[]): DataType {
     if (value.length === 0) { return new dtypes.Null; }
     let nullsCount = 0;
     // @ts-ignore
@@ -389,15 +389,15 @@ function inferType(value: any[]): DataType {
 }
 
 
-export function vectorFromArray(values: (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
-export function vectorFromArray(values: (null | undefined | boolean)[], type?: dtypes.Bool): Vector<dtypes.Bool>;
-export function vectorFromArray(values: (null | undefined | string)[], type?: dtypes.Utf8): Vector<dtypes.Utf8>;
-export function vectorFromArray<T extends dtypes.Date_>(values: (null | undefined | Date)[], type?: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Int>(values: (null | undefined | number)[], type: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: (null | undefined | bigint)[], type: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: (null | undefined | number)[], type?: T): Vector<T>;
+export function vectorFromArray(values: readonly (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
+export function vectorFromArray(values: readonly (null | undefined | boolean)[], type?: dtypes.Bool): Vector<dtypes.Bool>;
+export function vectorFromArray(values: readonly (null | undefined | string)[], type?: dtypes.Utf8): Vector<dtypes.Utf8>;
+export function vectorFromArray<T extends dtypes.Date_>(values: readonly (null | undefined | Date)[], type?: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Int>(values: readonly (null | undefined | number)[], type: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: readonly (null | undefined | bigint)[], type: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: readonly (null | undefined | number)[], type?: T): Vector<T>;
 
-export function vectorFromArray(values: unknown[], type?: DataType) {
+export function vectorFromArray(values: readonly unknown[], type?: DataType) {
     const options = { type: type ?? inferType(values) };
     const chunks = [...Builder.throughIterable(options)(values)];
     return chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
