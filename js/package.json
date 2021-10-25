@@ -13,7 +13,7 @@
     "perf": "ts-node-transpile-only ./perf/index.ts",
     "test:integration": "node ./bin/integration.js --mode validate",
     "release": "./npm-release.sh",
-    "clean:all": "gulp clean && gulp clean:testdata",
+    "clean:all": "yarn clean && yarn clean:testdata",
     "clean:testdata": "gulp clean:testdata",
     "create:testdata": "gulp create:testdata",
     "test:coverage": "gulp test -t src --coverage",
