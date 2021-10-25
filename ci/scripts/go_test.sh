@@ -54,6 +54,8 @@ done
 
 popd
 
+export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
+
 pushd ${source_dir}/parquet
 
 for d in $(go list ./... | grep -v vendor); do
