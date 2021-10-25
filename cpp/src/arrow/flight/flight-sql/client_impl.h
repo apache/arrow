@@ -20,6 +20,7 @@
 #include <arrow/flight/types.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
+#include <arrow/result.h>
 #include <arrow/testing/gtest_util.h>
 #include <google/protobuf/any.pb.h>
 #include <google/protobuf/message_lite.h>
@@ -67,28 +68,29 @@ inline FlightDescriptor GetFlightDescriptorForCommand(
 }
 
 template <class T>
-Status GetFlightInfoForCommand(const std::unique_ptr<T>& client,
-                               const FlightCallOptions& options,
-                               std::unique_ptr<FlightInfo>* flight_info,
-                               const google::protobuf::Message& command) {
+arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
+    const std::unique_ptr<T>& client, const FlightCallOptions& options,
+    const google::protobuf::Message& command) {
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
 
-  return client->GetFlightInfo(options, descriptor, flight_info);
+  std::unique_ptr<FlightInfo> flight_info;
+  ARROW_RETURN_NOT_OK(client->GetFlightInfo(options, descriptor, &flight_info));
+
+  return std::move(flight_info);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::Execute(const FlightCallOptions& options,
-                                    const std::string& query,
-                                    std::unique_ptr<FlightInfo>* flight_info) const {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::Execute(
+    const FlightCallOptions& options, const std::string& query) const {
   pb::sql::CommandStatementQuery command;
   command.set_query(query);
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
-                                          const std::string& query, int64_t* rows) const {
+arrow::Result<int64_t> FlightSqlClientT<T>::ExecuteUpdate(
+    const FlightCallOptions& options, const std::string& query) const {
   pb::sql::CommandStatementUpdate command;
   command.set_query(query);
 
@@ -110,24 +112,21 @@ Status FlightSqlClientT<T>::ExecuteUpdate(const FlightCallOptions& options,
   const std::string& string = pBuffer->ToString();
 
   doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(string);
-  *rows = doPutUpdateResult.record_count();
-
-  return Status::OK();
+  return doPutUpdateResult.record_count();
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetCatalogs(const FlightCallOptions& options,
-                                        std::unique_ptr<FlightInfo>* flight_info) const {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetCatalogs(
+    const FlightCallOptions& options) const {
   pb::sql::CommandGetCatalogs command;
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetSchemas(const FlightCallOptions& options,
-                                       const std::string* catalog,
-                                       const std::string* schema_filter_pattern,
-                                       std::unique_ptr<FlightInfo>* flight_info) const {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetSchemas(
+    const FlightCallOptions& options, const std::string* catalog,
+    const std::string* schema_filter_pattern) const {
   pb::sql::CommandGetSchemas command;
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
@@ -136,17 +135,14 @@ Status FlightSqlClientT<T>::GetSchemas(const FlightCallOptions& options,
     command.set_schema_filter_pattern(*schema_filter_pattern);
   }
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetTables(const FlightCallOptions& options,
-                                      const std::string* catalog,
-                                      const std::string* schema_filter_pattern,
-                                      const std::string* table_filter_pattern,
-                                      bool include_schema,
-                                      std::vector<std::string>& table_types,
-                                      std::unique_ptr<FlightInfo>* flight_info) const {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetTables(
+    const FlightCallOptions& options, const std::string* catalog,
+    const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
+    bool include_schema, std::vector<std::string>& table_types) const {
   pb::sql::CommandGetTables command;
 
   if (catalog != NULLPTR) {
@@ -167,14 +163,13 @@ Status FlightSqlClientT<T>::GetTables(const FlightCallOptions& options,
     command.add_table_types(table_type);
   }
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetPrimaryKeys(
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetPrimaryKeys(
     const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema, const std::string& table,
-    std::unique_ptr<FlightInfo>* flight_info) const {
+    const std::string* schema, const std::string& table) const {
   pb::sql::CommandGetPrimaryKeys command;
 
   if (catalog != NULLPTR) {
@@ -187,14 +182,13 @@ Status FlightSqlClientT<T>::GetPrimaryKeys(
 
   command.set_table(table);
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetExportedKeys(
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetExportedKeys(
     const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema, const std::string& table,
-    std::unique_ptr<FlightInfo>* flight_info) const {
+    const std::string* schema, const std::string& table) const {
   pb::sql::CommandGetExportedKeys command;
 
   if (catalog != NULLPTR) {
@@ -207,14 +201,13 @@ Status FlightSqlClientT<T>::GetExportedKeys(
 
   command.set_table(table);
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetImportedKeys(
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetImportedKeys(
     const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema, const std::string& table,
-    std::unique_ptr<FlightInfo>* flight_info) const {
+    const std::string* schema, const std::string& table) const {
   pb::sql::CommandGetImportedKeys command;
 
   if (catalog != NULLPTR) {
@@ -227,15 +220,15 @@ Status FlightSqlClientT<T>::GetImportedKeys(
 
   command.set_table(table);
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetCrossReference(
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetCrossReference(
     const FlightCallOptions& options, const std::string* pk_catalog,
     const std::string* pk_schema, const std::string& pk_table,
     const std::string* fk_catalog, const std::string* fk_schema,
-    const std::string& fk_table, std::unique_ptr<FlightInfo>* flight_info) const {
+    const std::string& fk_table) const {
   pb::sql::CommandGetCrossReference command;
 
   if (pk_catalog != NULLPTR) {
@@ -254,27 +247,29 @@ Status FlightSqlClientT<T>::GetCrossReference(
   }
   command.set_fk_table(fk_table);
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetTableTypes(
-    const FlightCallOptions& options, std::unique_ptr<FlightInfo>* flight_info) const {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetTableTypes(
+    const FlightCallOptions& options) const {
   pb::sql::CommandGetTableTypes command;
 
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::DoGet(const FlightCallOptions& options, const Ticket& ticket,
-                                  std::unique_ptr<FlightStreamReader>* stream) const {
-  return client->DoGet(options, ticket, stream);
+arrow::Result<std::unique_ptr<FlightStreamReader>> FlightSqlClientT<T>::DoGet(
+    const FlightCallOptions& options, const Ticket& ticket) const {
+  std::unique_ptr<FlightStreamReader> stream;
+  ARROW_RETURN_NOT_OK(client->DoGet(options, ticket, &stream));
+
+  return std::move(stream);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::Prepare(
-    const FlightCallOptions& options, const std::string& query,
-    std::shared_ptr<PreparedStatementT<T>>* prepared_statement) {
+arrow::Result<std::shared_ptr<PreparedStatementT<T>>> FlightSqlClientT<T>::Prepare(
+    const FlightCallOptions& options, const std::string& query) {
   google::protobuf::Any command;
   pb::sql::ActionCreatePreparedStatementRequest request;
   request.set_query(query);
@@ -301,14 +296,12 @@ Status FlightSqlClientT<T>::Prepare(
 
   prepared_result.UnpackTo(&prepared_statement_result);
 
-  prepared_statement->reset(
+  return std::shared_ptr<PreparedStatementT<T>>(
       new PreparedStatementT<T>(client.get(), query, prepared_statement_result, options));
-
-  return Status::OK();
 }
 
 template <class T>
-Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatementT<T>::Execute() {
   if (is_closed) {
     return Status::Invalid("Statement already closed.");
   }
@@ -336,11 +329,14 @@ Status PreparedStatementT<T>::Execute(std::unique_ptr<FlightInfo>* info) {
     ARROW_RETURN_NOT_OK(reader->ReadMetadata(&buffer));
   }
 
-  return client->GetFlightInfo(options, descriptor, info);
+  std::unique_ptr<FlightInfo> info;
+  ARROW_RETURN_NOT_OK(client->GetFlightInfo(options, descriptor, &info));
+
+  return std::move(info);
 }
 
 template <class T>
-Status PreparedStatementT<T>::ExecuteUpdate(int64_t* rows) {
+arrow::Result<int64_t> PreparedStatementT<T>::ExecuteUpdate() {
   if (is_closed) {
     return Status::Invalid("Statement already closed.");
   }
@@ -367,13 +363,14 @@ Status PreparedStatementT<T>::ExecuteUpdate(int64_t* rows) {
   ARROW_RETURN_NOT_OK(writer->DoneWriting());
   std::shared_ptr<Buffer> metadata;
   ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(writer->Close());
+
   pb::sql::DoPutUpdateResult doPutUpdateResult;
   const std::string& metadataAsString = metadata->ToString();
 
   doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(metadataAsString);
-  *rows = doPutUpdateResult.record_count();
-  ARROW_RETURN_NOT_OK(writer->Close());
-  return Status::OK();
+
+  return doPutUpdateResult.record_count();
 }
 
 template <class T>
@@ -390,29 +387,25 @@ bool PreparedStatementT<T>::IsClosed() const {
 }
 
 template <class T>
-Status PreparedStatementT<T>::GetResultSetSchema(std::shared_ptr<Schema>* schema) {
+arrow::Result<std::shared_ptr<Schema>> PreparedStatementT<T>::GetResultSetSchema() {
   auto& args = prepared_statement_result.dataset_schema();
   std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
 
   io::BufferReader reader(schema_buffer);
 
   ipc::DictionaryMemo in_memo;
-  ARROW_ASSIGN_OR_RAISE(*schema, ReadSchema(&reader, &in_memo))
-
-  return Status::OK();
+  return ReadSchema(&reader, &in_memo);
 }
 
 template <class T>
-Status PreparedStatementT<T>::GetParameterSchema(std::shared_ptr<Schema>* schema) {
+arrow::Result<std::shared_ptr<Schema>> PreparedStatementT<T>::GetParameterSchema() {
   auto& args = prepared_statement_result.parameter_schema();
   std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
 
   io::BufferReader reader(schema_buffer);
 
   ipc::DictionaryMemo in_memo;
-  ARROW_ASSIGN_OR_RAISE(*schema, ReadSchema(&reader, &in_memo))
-
-  return Status::OK();
+  return ReadSchema(&reader, &in_memo);
 }
 
 template <class T>
@@ -441,20 +434,19 @@ Status PreparedStatementT<T>::Close() {
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetSqlInfo(const FlightCallOptions& options,
-                                       const std::vector<int>& sql_info,
-                                       std::unique_ptr<FlightInfo>* flight_info) const {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetSqlInfo(
+    const FlightCallOptions& options, const std::vector<int>& sql_info) const {
   pb::sql::CommandGetSqlInfo command;
   for (const int& info : sql_info) command.add_info(info);
-  return GetFlightInfoForCommand(client, options, flight_info, command);
+
+  return GetFlightInfoForCommand(client, options, command);
 }
 
 template <class T>
-Status FlightSqlClientT<T>::GetSqlInfo(const FlightCallOptions& options,
-                                       const std::vector<pb::sql::SqlInfo>& sql_info,
-                                       std::unique_ptr<FlightInfo>* flight_info) const {
-  return GetSqlInfo(options, reinterpret_cast<const std::vector<int>&>(sql_info),
-                    flight_info);
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClientT<T>::GetSqlInfo(
+    const FlightCallOptions& options,
+    const std::vector<pb::sql::SqlInfo>& sql_info) const {
+  return GetSqlInfo(options, reinterpret_cast<const std::vector<int>&>(sql_info));
 }
 
 }  // namespace internal

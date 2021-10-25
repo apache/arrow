@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_SQLITE_TABLES_SCHEMA_BATCH_READER_H
-#define ARROW_SQLITE_TABLES_SCHEMA_BATCH_READER_H
+#pragma once
 
 #include <arrow/record_batch.h>
 #include <sqlite3.h>
@@ -56,5 +55,3 @@ class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
-
-#endif  // ARROW_SQLITE_TABLES_SCHEMA_BATCH_READER_H

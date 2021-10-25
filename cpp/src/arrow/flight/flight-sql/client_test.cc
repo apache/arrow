@@ -106,22 +106,21 @@ FlightDescriptor getDescriptor(google::protobuf::Message& command) {
 TEST(TestFlightSqlClient, TestGetCatalogs) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   pb::sql::CommandGetCatalogs command;
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetCatalogs(call_options, &flight_info));
+  ASSERT_OK(sql_client.GetCatalogs(call_options));
 }
 
 TEST(TestFlightSqlClient, TestGetSchemas) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string schema_filter_pattern = "schema_filter_pattern";
@@ -132,17 +131,15 @@ TEST(TestFlightSqlClient, TestGetSchemas) {
   command.set_schema_filter_pattern(schema_filter_pattern);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetSchemas(call_options, &catalog, &schema_filter_pattern,
-                             &flight_info));
+  ASSERT_OK(sql_client.GetSchemas(call_options, &catalog, &schema_filter_pattern));
 }
 
 TEST(TestFlightSqlClient, TestGetTables) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string catalog = "catalog";
@@ -161,33 +158,31 @@ TEST(TestFlightSqlClient, TestGetTables) {
   }
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetTables(call_options, &catalog, &schema_filter_pattern,
-                            &table_name_filter_pattern, include_schema, table_types,
-                            &flight_info));
+  ASSERT_OK(sql_client.GetTables(call_options, &catalog, &schema_filter_pattern,
+                                 &table_name_filter_pattern, include_schema,
+                                 table_types));
 }
 
 TEST(TestFlightSqlClient, TestGetTableTypes) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   pb::sql::CommandGetTableTypes command;
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetTableTypes(call_options, &flight_info));
+  ASSERT_OK(sql_client.GetTableTypes(call_options));
 }
 
 TEST(TestFlightSqlClient, TestGetExported) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string catalog = "catalog";
@@ -200,16 +195,15 @@ TEST(TestFlightSqlClient, TestGetExported) {
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetExportedKeys(call_options, &catalog, &schema, table, &flight_info));
+  ASSERT_OK(sql_client.GetExportedKeys(call_options, &catalog, &schema, table));
 }
 
 TEST(TestFlightSqlClient, TestGetImported) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string catalog = "catalog";
@@ -222,16 +216,15 @@ TEST(TestFlightSqlClient, TestGetImported) {
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetImportedKeys(call_options, &catalog, &schema, table, &flight_info));
+  ASSERT_OK(sql_client.GetImportedKeys(call_options, &catalog, &schema, table));
 }
 
 TEST(TestFlightSqlClient, TestGetPrimary) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string catalog = "catalog";
@@ -244,16 +237,15 @@ TEST(TestFlightSqlClient, TestGetPrimary) {
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetPrimaryKeys(call_options, &catalog, &schema, table, &flight_info));
+  ASSERT_OK(sql_client.GetPrimaryKeys(call_options, &catalog, &schema, table));
 }
 
 TEST(TestFlightSqlClient, TestGetCrossReference) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string pk_catalog = "pk_catalog";
@@ -272,18 +264,16 @@ TEST(TestFlightSqlClient, TestGetCrossReference) {
   command.set_fk_table(fk_table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.GetCrossReference(call_options, &pk_catalog, &pk_schema,
-                                    pk_table, &fk_catalog, &fk_schema,
-                                    fk_table, &flight_info));
+  ASSERT_OK(sql_client.GetCrossReference(call_options, &pk_catalog, &pk_schema, pk_table,
+                                         &fk_catalog, &fk_schema, fk_table));
 }
 
 TEST(TestFlightSqlClient, TestExecute) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string query = "query";
@@ -292,16 +282,15 @@ TEST(TestFlightSqlClient, TestExecute) {
   command.set_query(query);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
-  ASSERT_OK(sqlClient.Execute(call_options, query, &flight_info));
+  ASSERT_OK(sql_client.Execute(call_options, query));
 }
 
 TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   const std::string query = "query";
@@ -323,21 +312,19 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecute) {
         return Status::OK();
       });
 
-  std::unique_ptr<FlightInfo> flight_info;
   EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
 
-  std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> preparedStatement;
-  ASSERT_OK(sqlClient.Prepare(call_options, query, &preparedStatement));
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client.Prepare(call_options, query));
 
-  EXPECT_CALL(*client_mock, GetFlightInfo(_, _, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(_, _, _));
 
-  ASSERT_OK(preparedStatement->Execute(&flight_info));
+  ASSERT_OK(prepared_statement->Execute());
 }
 
 TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   const std::string query = "query";
@@ -382,15 +369,12 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
         return Status::OK();
       });
 
-  std::unique_ptr<FlightInfo> flight_info;
   EXPECT_CALL(*client_mock, DoAction(_, _, _)).Times(2);
   EXPECT_CALL(*client_mock, DoPut(_, _, _, _, _));
 
-  std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
-  ASSERT_OK(sqlClient.Prepare(call_options, query, &prepared_statement));
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client.Prepare(call_options, query));
 
-  std::shared_ptr<Schema> parameter_schema;
-  ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
+  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
 
   arrow::Int64Builder int_builder;
   ASSERT_OK(int_builder.Append(1));
@@ -400,15 +384,15 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
   result = arrow::RecordBatch::Make(parameter_schema, 1, {int_array});
   ASSERT_OK(prepared_statement->SetParameters(result));
 
-  EXPECT_CALL(*client_mock, GetFlightInfo(_, _, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(_, _, _));
 
-  ASSERT_OK(prepared_statement->Execute(&flight_info));
+  ASSERT_OK(prepared_statement->Execute());
 }
 
 TEST(TestFlightSqlClient, TestExecuteUpdate) {
   auto* client_mock = new FlightClientMock();
   std::unique_ptr<FlightClientMock> client_mock_ptr(client_mock);
-  FlightSqlClientT<FlightClientMock> sqlClient(client_mock_ptr);
+  FlightSqlClientT<FlightClientMock> sql_client(client_mock_ptr);
   FlightCallOptions call_options;
 
   std::string query = "query";
@@ -445,9 +429,7 @@ TEST(TestFlightSqlClient, TestExecuteUpdate) {
   std::unique_ptr<FlightMetadataReader> reader;
   EXPECT_CALL(*client_mock, DoPut(Ref(call_options), descriptor, _, _, _));
 
-  int64_t num_rows;
-
-  ASSERT_OK(sqlClient.ExecuteUpdate(call_options, query, &num_rows));
+  ASSERT_OK_AND_ASSIGN(auto num_rows, sql_client.ExecuteUpdate(call_options, query));
 
   ASSERT_EQ(num_rows, 100);
 }
@@ -461,7 +443,6 @@ TEST(TestFlightSqlClient, TestGetSqlInfo) {
       pb::sql::SqlInfo::FLIGHT_SQL_SERVER_NAME,
       pb::sql::SqlInfo::FLIGHT_SQL_SERVER_VERSION,
       pb::sql::SqlInfo::FLIGHT_SQL_SERVER_ARROW_VERSION};
-  std::unique_ptr<FlightInfo> flight_info;
   pb::sql::CommandGetSqlInfo command;
 
   for (const auto& info : sql_info) command.add_info(info);
@@ -470,8 +451,8 @@ TEST(TestFlightSqlClient, TestGetSqlInfo) {
   const FlightDescriptor& descriptor = FlightDescriptor::Command(any.SerializeAsString());
 
   FlightCallOptions call_options;
-  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, &flight_info));
-  ASSERT_OK(sql_client.GetSqlInfo(call_options, sql_info, &flight_info));
+  EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
+  ASSERT_OK(sql_client.GetSqlInfo(call_options, sql_info));
 }
 
 template <class Func>
@@ -530,11 +511,9 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
     EXPECT_CALL(*client_mock, DoPut(_, _, *schema, _, _));
   }
 
-  int64_t rows;
-  std::shared_ptr<internal::PreparedStatementT<FlightClientMock>> prepared_statement;
-  ASSERT_OK(sql_client.Prepare(call_options, query, &prepared_statement));
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client.Prepare(call_options, query));
   func(prepared_statement, *client_mock, schema, expected_rows);
-  ASSERT_OK(prepared_statement->ExecuteUpdate(&rows));
+  ASSERT_OK_AND_ASSIGN(auto rows, prepared_statement->ExecuteUpdate());
   ASSERT_EQ(expected_rows, rows);
 }
 

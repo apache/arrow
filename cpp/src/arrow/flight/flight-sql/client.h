@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_FLIGHT_SQL_CLIENT_H
-#define ARROW_FLIGHT_SQL_CLIENT_H
+#pragma once
 
 #include <arrow/flight/Flight.pb.h>
 #include <arrow/flight/client.h>
 #include <arrow/flight/flight-sql/FlightSql.pb.h>
 #include <arrow/flight/types.h>
+#include <arrow/result.h>
 #include <arrow/status.h>
 #include <google/protobuf/message.h>
 
@@ -55,25 +55,20 @@ class ARROW_EXPORT PreparedStatementT {
   ~PreparedStatementT();
 
   /// \brief Executes the prepared statement query on the server.
-  /// \param[in] call_options RPC-layer hints for this call.
-  /// \param[out] info        A FlightInfo object representing the stream(s) to fetch.
-  /// \return Status.
-  Status Execute(std::unique_ptr<FlightInfo>* info);
+  /// \return A FlightInfo object representing the stream(s) to fetch.
+  arrow::Result<std::unique_ptr<FlightInfo>> Execute();
 
   /// \brief Executes the prepared statement update query on the server.
-  /// \param rows[out] The number of rows affected.
-  /// \return Status.
-  Status ExecuteUpdate(int64_t* rows);
+  /// \return The number of rows affected.
+  arrow::Result<int64_t> ExecuteUpdate();
 
   /// \brief Retrieve the parameter schema from the query.
-  /// \param schema   The parameter schema from the query.
-  /// \return         Status.
-  Status GetParameterSchema(std::shared_ptr<Schema>* schema);
+  /// \return The parameter schema from the query.
+  arrow::Result<std::shared_ptr<Schema>> GetParameterSchema();
 
   /// \brief Retrieve the ResultSet schema from the query.
-  /// \param schema   The ResultSet schema from the query.
-  /// \return         Status.
-  Status GetResultSetSchema(std::shared_ptr<Schema>* schema);
+  /// \return The ResultSet schema from the query.
+  arrow::Result<std::shared_ptr<Schema>> GetResultSetSchema();
 
   /// \brief Set a RecordBatch that contains the parameters that will be bind.
   /// \param parameter_binding_   The parameters that will be bind.
@@ -101,45 +96,39 @@ class FlightSqlClientT {
   /// \brief Execute a query on the server.
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] query        The query to be executed in the UTF-8 format.
-  /// \param[out] flight_info The FlightInfo describing where to access the dataset
-  /// \return Status.
-  Status Execute(const FlightCallOptions& options, const std::string& query,
-                 std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> Execute(const FlightCallOptions& options,
+                                                     const std::string& query) const;
 
   /// \brief Execute an update query on the server.
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] query        The query to be executed in the UTF-8 format.
-  /// \param[out] rows        The quantity of rows affected by the operation.
-  /// \return Status.
-  Status ExecuteUpdate(const FlightCallOptions& options, const std::string& query,
-                       int64_t* rows) const;
+  /// \return The quantity of rows affected by the operation.
+  arrow::Result<int64_t> ExecuteUpdate(const FlightCallOptions& options,
+                                       const std::string& query) const;
 
   /// \brief Request a list of catalogs.
   /// \param[in] options      RPC-layer hints for this call.
-  /// \param[out] flight_info The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetCatalogs(const FlightCallOptions& options,
-                     std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetCatalogs(
+      const FlightCallOptions& options) const;
 
   /// \brief Request a list of schemas.
   /// \param[in] options                RPC-layer hints for this call.
   /// \param[in] catalog                The catalog.
   /// \param[in] schema_filter_pattern  The schema filter pattern.
-  /// \param[out] flight_info           The FlightInfo describing where to access the
-  ///                                   dataset.
-  /// \return Status.
-  Status GetSchemas(const FlightCallOptions& options, const std::string* catalog,
-                    const std::string* schema_filter_pattern,
-                    std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetSchemas(
+      const FlightCallOptions& options, const std::string* catalog,
+      const std::string* schema_filter_pattern) const;
 
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
   /// \param[in] options Per-RPC options
   /// \param[in] ticket The flight ticket to use
-  /// \param[out] stream the returned RecordBatchReader
-  /// \return Status
-  Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-               std::unique_ptr<FlightStreamReader>* stream) const;
+  /// \return The returned RecordBatchReader
+  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
+      const FlightCallOptions& options, const Ticket& ticket) const;
 
   /// \brief Request a list of tables.
   /// \param[in] options                  RPC-layer hints for this call.
@@ -149,25 +138,21 @@ class FlightSqlClientT {
   /// \param[in] include_schema           True to include the schema upon return,
   ///                                     false to not include the schema.
   /// \param[in] table_types              The table types to include.
-  /// \param[out] flight_info             The FlightInfo describing where to access the
-  ///                                     dataset.
-  /// \return Status.
-  Status GetTables(const FlightCallOptions& options, const std::string* catalog,
-                   const std::string* schema_filter_pattern,
-                   const std::string* table_filter_pattern, bool include_schema,
-                   std::vector<std::string>& table_types,
-                   std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetTables(
+      const FlightCallOptions& options, const std::string* catalog,
+      const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
+      bool include_schema, std::vector<std::string>& table_types) const;
 
   /// \brief Request the primary keys for a table.
   /// \param[in] options          RPC-layer hints for this call.
   /// \param[in] catalog          The catalog.
   /// \param[in] schema           The schema.
   /// \param[in] table            The table.
-  /// \param[out] flight_info     The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetPrimaryKeys(const FlightCallOptions& options, const std::string* catalog,
-                        const std::string* schema, const std::string& table,
-                        std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetPrimaryKeys(
+      const FlightCallOptions& options, const std::string* catalog,
+      const std::string* schema, const std::string& table) const;
 
   /// \brief Retrieves a description about the foreign key columns that reference the
   /// primary key columns of the given table.
@@ -175,22 +160,20 @@ class FlightSqlClientT {
   /// \param[in] catalog          The foreign key table catalog.
   /// \param[in] schema           The foreign key table schema.
   /// \param[in] table            The foreign key table. Cannot be null.
-  /// \param[out] flight_info     The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetExportedKeys(const FlightCallOptions& options, const std::string* catalog,
-                         const std::string* schema, const std::string& table,
-                         std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetExportedKeys(
+      const FlightCallOptions& options, const std::string* catalog,
+      const std::string* schema, const std::string& table) const;
 
   /// \brief Retrieves the foreign key columns for the given table.
   /// \param[in] options          RPC-layer hints for this call.
   /// \param[in] catalog          The primary key table catalog.
   /// \param[in] schema           The primary key table schema.
   /// \param[in] table            The primary key table. Cannot be null.
-  /// \param[out] flight_info     The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetImportedKeys(const FlightCallOptions& options, const std::string* catalog,
-                         const std::string* schema, const std::string& table,
-                         std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetImportedKeys(
+      const FlightCallOptions& options, const std::string* catalog,
+      const std::string* schema, const std::string& table) const;
 
   /// \brief Retrieves a description of the foreign key columns in the given foreign key
   ///        table that reference the primary key or the columns representing a unique
@@ -202,45 +185,40 @@ class FlightSqlClientT {
   /// \param[in] fk_catalog     The catalog of the table that imports the key.
   /// \param[in] fk_schema      The schema of the table that imports the key.
   /// \param[in] fk_table       The table that imports the key.
-  /// \param[out] flight_info   The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetCrossReference(const FlightCallOptions& options,
-                           const std::string* pk_catalog, const std::string* pk_schema,
-                           const std::string& pk_table, const std::string* fk_catalog,
-                           const std::string* fk_schema, const std::string& fk_table,
-                           std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetCrossReference(
+      const FlightCallOptions& options, const std::string* pk_catalog,
+      const std::string* pk_schema, const std::string& pk_table,
+      const std::string* fk_catalog, const std::string* fk_schema,
+      const std::string& fk_table) const;
 
   /// \brief Request a list of table types.
   /// \param[in] options          RPC-layer hints for this call.
-  /// \param[out] flight_info     The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetTableTypes(const FlightCallOptions& options,
-                       std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetTableTypes(
+      const FlightCallOptions& options) const;
 
   /// \brief Request a list of SQL information.
   /// \param[in] options RPC-layer hints for this call.
   /// \param[in] sql_info the SQL info required.
-  /// \param[out] flight_info The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetSqlInfo(const FlightCallOptions& options, const std::vector<int>& sql_info,
-                    std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetSqlInfo(
+      const FlightCallOptions& options, const std::vector<int>& sql_info) const;
 
   /// \brief Request a list of SQL information.
   /// \param[in] options RPC-layer hints for this call.
   /// \param[in] sql_info the SQL info required.
-  /// \param[out] flight_info The FlightInfo describing where to access the dataset.
-  /// \return Status.
-  Status GetSqlInfo(const FlightCallOptions& options,
-                    const std::vector<pb::sql::SqlInfo>& sql_info,
-                    std::unique_ptr<FlightInfo>* flight_info) const;
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetSqlInfo(
+      const FlightCallOptions& options,
+      const std::vector<pb::sql::SqlInfo>& sql_info) const;
 
   /// \brief Create a prepared statement object.
   /// \param[in] options              RPC-layer hints for this call.
   /// \param[in] query                The query that will be executed.
-  /// \param[out] prepared_statement  The created prepared statement.
-  /// \return Status.
-  Status Prepare(const FlightCallOptions& options, const std::string& query,
-                 std::shared_ptr<PreparedStatementT<T>>* prepared_statement);
+  /// \return The created prepared statement.
+  arrow::Result<std::shared_ptr<PreparedStatementT<T>>> Prepare(
+      const FlightCallOptions& options, const std::string& query);
 
  private:
   std::unique_ptr<T> client;
@@ -254,7 +232,5 @@ using PreparedStatement = internal::PreparedStatementT<>;
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
-
-#endif  // ARROW_FLIGHT_SQL_CLIENT_H
 
 #include <arrow/flight/flight-sql/client_impl.h>

@@ -57,8 +57,7 @@ DEFINE_string(table, "", "Table");
 Status PrintResultsForEndpoint(const FlightSqlClient& client,
                                const FlightCallOptions& call_options,
                                const FlightEndpoint& endpoint) {
-  std::unique_ptr<FlightStreamReader> stream;
-  ARROW_RETURN_NOT_OK(client.DoGet(call_options, endpoint.ticket, &stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream, client.DoGet(call_options, endpoint.ticket));
 
   const arrow::Result<std::shared_ptr<Schema>>& schema = stream->GetSchema();
   ARROW_RETURN_NOT_OK(schema);
@@ -117,8 +116,8 @@ Status RunMain() {
   FlightSqlClient sqlClient(client);
 
   if (fLS::FLAGS_command == "ExecuteUpdate") {
-    int64_t rows;
-    ARROW_RETURN_NOT_OK(sqlClient.ExecuteUpdate(call_options, fLS::FLAGS_query, &rows));
+    ARROW_ASSIGN_OR_RAISE(auto rows,
+                          sqlClient.ExecuteUpdate(call_options, fLS::FLAGS_query));
 
     std::cout << "Result: " << rows << std::endl;
 
@@ -128,23 +127,20 @@ Status RunMain() {
   std::unique_ptr<FlightInfo> info;
 
   if (fLS::FLAGS_command == "Execute") {
-    ARROW_RETURN_NOT_OK(sqlClient.Execute(call_options, fLS::FLAGS_query, &info));
+    ARROW_ASSIGN_OR_RAISE(info, sqlClient.Execute(call_options, fLS::FLAGS_query));
   } else if (fLS::FLAGS_command == "GetCatalogs") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetCatalogs(call_options, &info));
+    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetCatalogs(call_options));
   } else if (fLS::FLAGS_command == "PreparedStatementExecute") {
-    std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement;
-
-    ARROW_RETURN_NOT_OK(
-        sqlClient.Prepare(call_options, fLS::FLAGS_query, &prepared_statement));
-    ARROW_RETURN_NOT_OK(prepared_statement->Execute(&info));
-    ARROW_RETURN_NOT_OK(PrintResults(sqlClient, call_options, info));
+    ARROW_ASSIGN_OR_RAISE(auto prepared_statement,
+                          sqlClient.Prepare(call_options, fLS::FLAGS_query));
+    ARROW_ASSIGN_OR_RAISE(info, prepared_statement->Execute());
   } else if (fLS::FLAGS_command == "PreparedStatementExecuteParameterBinding") {
-    std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement;
-    ARROW_RETURN_NOT_OK(sqlClient.Prepare({}, fLS::FLAGS_query, &prepared_statement));
-    std::shared_ptr<Schema> parameter_schema;
-    std::shared_ptr<Schema> result_set_schema;
-    ARROW_RETURN_NOT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
-    ARROW_RETURN_NOT_OK(prepared_statement->GetResultSetSchema(&result_set_schema));
+    ARROW_ASSIGN_OR_RAISE(auto prepared_statement,
+                          sqlClient.Prepare({}, fLS::FLAGS_query));
+    ARROW_ASSIGN_OR_RAISE(auto parameter_schema,
+                          prepared_statement->GetParameterSchema());
+    ARROW_ASSIGN_OR_RAISE(auto result_set_schema,
+                          prepared_statement->GetResultSetSchema());
 
     std::cout << result_set_schema->ToString(false) << std::endl;
     arrow::Int64Builder int_builder;
@@ -155,29 +151,31 @@ Status RunMain() {
     result = arrow::RecordBatch::Make(parameter_schema, 1, {int_array});
 
     ARROW_RETURN_NOT_OK(prepared_statement->SetParameters(result));
-    ARROW_RETURN_NOT_OK(prepared_statement->Execute(&info));
-    ARROW_RETURN_NOT_OK(PrintResults(sqlClient, call_options, info));
+    ARROW_ASSIGN_OR_RAISE(info, prepared_statement->Execute());
   } else if (fLS::FLAGS_command == "GetSchemas") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetSchemas(call_options, &fLS::FLAGS_catalog,
-                                             &fLS::FLAGS_schema, &info));
+    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetSchemas(call_options, &fLS::FLAGS_catalog,
+                                                     &fLS::FLAGS_schema));
   } else if (fLS::FLAGS_command == "GetTableTypes") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetTableTypes(call_options, &info));
+    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetTableTypes(call_options));
   } else if (fLS::FLAGS_command == "GetTables") {
     std::vector<std::string> table_types = {};
     bool include_schema = false;
 
-    ARROW_RETURN_NOT_OK(sqlClient.GetTables(call_options, &fLS::FLAGS_catalog,
-                                            &fLS::FLAGS_schema, &fLS::FLAGS_table,
-                                            include_schema, table_types, &info));
+    ARROW_ASSIGN_OR_RAISE(
+        info, sqlClient.GetTables(call_options, &fLS::FLAGS_catalog, &fLS::FLAGS_schema,
+                                  &fLS::FLAGS_table, include_schema, table_types));
   } else if (fLS::FLAGS_command == "GetExportedKeys") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetExportedKeys(
-        call_options, &fLS::FLAGS_catalog, &fLS::FLAGS_schema, fLS::FLAGS_table, &info));
+    ARROW_ASSIGN_OR_RAISE(
+        info, sqlClient.GetExportedKeys(call_options, &fLS::FLAGS_catalog,
+                                        &fLS::FLAGS_schema, fLS::FLAGS_table));
   } else if (fLS::FLAGS_command == "GetImportedKeys") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetImportedKeys(
-        call_options, &fLS::FLAGS_catalog, &fLS::FLAGS_schema, fLS::FLAGS_table, &info));
+    ARROW_ASSIGN_OR_RAISE(
+        info, sqlClient.GetImportedKeys(call_options, &fLS::FLAGS_catalog,
+                                        &fLS::FLAGS_schema, fLS::FLAGS_table));
   } else if (fLS::FLAGS_command == "GetPrimaryKeys") {
-    ARROW_RETURN_NOT_OK(sqlClient.GetPrimaryKeys(
-        call_options, &fLS::FLAGS_catalog, &fLS::FLAGS_schema, fLS::FLAGS_table, &info));
+    ARROW_ASSIGN_OR_RAISE(info,
+                          sqlClient.GetPrimaryKeys(call_options, &fLS::FLAGS_catalog,
+                                                   &fLS::FLAGS_schema, fLS::FLAGS_table));
   }
 
   if (info != NULLPTR &&

@@ -101,11 +101,11 @@ class TestFlightSqlServer : public ::testing::Environment {
 };
 
 TEST(TestFlightSqlServer, TestCommandStatementQuery) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client->Execute({}, "SELECT * FROM intTable", &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->Execute({}, "SELECT * FROM intTable"));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -126,13 +126,13 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTables) {
-  std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
-  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types,
-                                  &flight_info));
+  ASSERT_OK_AND_ASSIGN(
+      auto flight_info,
+      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -154,15 +154,15 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
-  std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
 
   std::string table_filter_pattern = "int%";
-  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, false,
-                                  table_types, &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern,
+                                             false, table_types));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -179,14 +179,14 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
-  std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types{"index"};
 
-  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types,
-                                  &flight_info));
+  ASSERT_OK_AND_ASSIGN(
+      auto flight_info,
+      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -197,14 +197,14 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
-  std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types{"table"};
 
-  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types,
-                                  &flight_info));
+  ASSERT_OK_AND_ASSIGN(
+      auto flight_info,
+      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -226,15 +226,15 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
-  std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
 
   std::string table_filter_pattern = "int%";
-  ASSERT_OK(sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, true,
-                                  table_types, &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern,
+                                             true, table_types));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -265,11 +265,10 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client->GetCatalogs({}, &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCatalogs({}));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -281,11 +280,10 @@ TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetSchemas) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client->GetSchemas({}, NULLPTR, NULLPTR, &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSchemas({}, NULLPTR, NULLPTR));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -297,11 +295,10 @@ TEST(TestFlightSqlServer, TestCommandGetSchemas) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client->GetTableTypes({}, &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetTableTypes({}));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -315,34 +312,33 @@ TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
 
 TEST(TestFlightSqlServer, TestCommandStatementUpdate) {
   int64_t result;
-  ASSERT_OK(sql_client->ExecuteUpdate(
-      {},
-      "INSERT INTO intTable (keyName, value) VALUES "
-      "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)",
-      &result));
+  ASSERT_OK_AND_ASSIGN(result,
+                       sql_client->ExecuteUpdate(
+                           {},
+                           "INSERT INTO intTable (keyName, value) VALUES "
+                           "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)"));
   ASSERT_EQ(3, result);
 
-  ASSERT_OK(
-      sql_client->ExecuteUpdate({},
-                                "UPDATE intTable SET keyName = 'KEYNAME1' "
-                                "WHERE keyName = 'KEYNAME2' OR keyName = 'KEYNAME3'",
-                                &result));
+  ASSERT_OK_AND_ASSIGN(result, sql_client->ExecuteUpdate(
+                                   {},
+                                   "UPDATE intTable SET keyName = 'KEYNAME1' "
+                                   "WHERE keyName = 'KEYNAME2' OR keyName = 'KEYNAME3'"));
   ASSERT_EQ(2, result);
 
-  ASSERT_OK(sql_client->ExecuteUpdate(
-      {}, "DELETE FROM intTable WHERE keyName = 'KEYNAME1'", &result));
+  ASSERT_OK_AND_ASSIGN(
+      result,
+      sql_client->ExecuteUpdate({}, "DELETE FROM intTable WHERE keyName = 'KEYNAME1'"));
   ASSERT_EQ(3, result);
 }
 
 TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
-  std::shared_ptr<PreparedStatement> prepared_statement;
-  ASSERT_OK(sql_client->Prepare({}, "SELECT * FROM intTable", &prepared_statement));
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement,
+                       sql_client->Prepare({}, "SELECT * FROM intTable"));
 
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(prepared_statement->Execute(&flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, prepared_statement->Execute());
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -363,12 +359,11 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
 }
 
 TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding) {
-  std::shared_ptr<PreparedStatement> prepared_statement;
-  ASSERT_OK(sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?",
-                                &prepared_statement));
+  ASSERT_OK_AND_ASSIGN(
+      auto prepared_statement,
+      sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?"));
 
-  std::shared_ptr<Schema> parameter_schema;
-  ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
+  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
@@ -400,11 +395,10 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
 
   ASSERT_OK(prepared_statement->SetParameters(record_batch));
 
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(prepared_statement->Execute(&flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, prepared_statement->Execute());
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -424,12 +418,11 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
-Status ExecuteCountQuery(const std::string& query, int64_t* result) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ARROW_RETURN_NOT_OK(sql_client->Execute({}, query, &flight_info));
+arrow::Result<int64_t> ExecuteCountQuery(const std::string& query) {
+  ARROW_ASSIGN_OR_RAISE(auto flight_info, sql_client->Execute({}, query));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ARROW_RETURN_NOT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ARROW_RETURN_NOT_OK(stream->ReadAll(&table));
@@ -437,19 +430,16 @@ Status ExecuteCountQuery(const std::string& query, int64_t* result) {
   const std::shared_ptr<Array>& result_array = table->column(0)->chunk(0);
   ARROW_ASSIGN_OR_RAISE(auto count_scalar, result_array->GetScalar(0));
 
-  *result = reinterpret_cast<Int64Scalar&>(*count_scalar).value;
-
-  return Status::OK();
+  return reinterpret_cast<Int64Scalar&>(*count_scalar).value;
 }
 
 TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding) {
-  std::shared_ptr<PreparedStatement> prepared_statement;
-  ASSERT_OK(sql_client->Prepare(
-      {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', ?)",
-      &prepared_statement));
+  ASSERT_OK_AND_ASSIGN(
+      auto prepared_statement,
+      sql_client->Prepare(
+          {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', ?)"));
 
-  std::shared_ptr<Schema> parameter_schema;
-  ASSERT_OK(prepared_statement->GetParameterSchema(&parameter_schema));
+  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
@@ -482,54 +472,56 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
   ASSERT_OK(prepared_statement->SetParameters(record_batch));
 
   int64_t result;
-  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_EQ(3, result);
 
-  ASSERT_OK(prepared_statement->ExecuteUpdate(&result));
+  ASSERT_OK_AND_ASSIGN(result, prepared_statement->ExecuteUpdate());
   ASSERT_EQ(1, result);
 
-  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_EQ(4, result);
 
-  ASSERT_OK(sql_client->ExecuteUpdate(
-      {}, "DELETE FROM intTable WHERE keyName = 'new_value'", &result));
+  ASSERT_OK_AND_ASSIGN(
+      result,
+      sql_client->ExecuteUpdate({}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
   ASSERT_EQ(1, result);
 
-  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_EQ(3, result);
 }
 
 TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
-  std::shared_ptr<PreparedStatement> prepared_statement;
-  ASSERT_OK(sql_client->Prepare(
-      {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)",
-      &prepared_statement));
+  ASSERT_OK_AND_ASSIGN(
+      auto prepared_statement,
+      sql_client->Prepare(
+          {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)"));
 
   int64_t result;
-  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_EQ(3, result);
 
-  ASSERT_OK(prepared_statement->ExecuteUpdate(&result));
+  ASSERT_OK_AND_ASSIGN(result, prepared_statement->ExecuteUpdate());
   ASSERT_EQ(1, result);
 
-  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_EQ(4, result);
 
-  ASSERT_OK(sql_client->ExecuteUpdate(
-      {}, "DELETE FROM intTable WHERE keyName = 'new_value'", &result));
+  ASSERT_OK_AND_ASSIGN(
+      result,
+      sql_client->ExecuteUpdate({}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
   ASSERT_EQ(1, result);
 
-  ASSERT_OK(ExecuteCountQuery("SELECT COUNT(*) FROM intTable", &result));
+  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_EQ(3, result);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
-  std::unique_ptr<FlightInfo> flight_info;
   std::vector<std::string> table_types;
-  ASSERT_OK(sql_client->GetPrimaryKeys({}, nullptr, nullptr, "int%", &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetPrimaryKeys({}, nullptr, nullptr, "int%"));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -549,11 +541,11 @@ TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client->GetImportedKeys({}, NULLPTR, NULLPTR, "intTable", &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetImportedKeys({}, NULLPTR, NULLPTR, "intTable"));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -581,12 +573,11 @@ TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(
-      sql_client->GetExportedKeys({}, NULLPTR, NULLPTR, "foreignTable", &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetExportedKeys({}, NULLPTR, NULLPTR, "foreignTable"));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -614,12 +605,12 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
-  std::unique_ptr<FlightInfo> flight_info;
-  ASSERT_OK(sql_client->GetCrossReference({}, NULLPTR, NULLPTR, "foreignTable", NULLPTR,
-                                          NULLPTR, "intTable", &flight_info));
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetCrossReference({}, NULLPTR, NULLPTR, "foreignTable",
+                                                     NULLPTR, NULLPTR, "intTable"));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(sql_client->DoGet({}, flight_info->endpoints()[0].ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
