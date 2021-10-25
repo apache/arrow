@@ -24,41 +24,7 @@
 #include <arrow/flight/types.h>
 #include <arrow/testing/gtest_util.h>
 #include <gmock/gmock.h>
-#include <google/protobuf/any.pb.h>
 #include <gtest/gtest.h>
-
-#define unparen(...) __VA_ARGS__
-#define DECLARE_ARRAY(ARRAY_NAME, TYPE_CLASS, DATA)     \
-  std::shared_ptr<arrow::TYPE_CLASS##Array> ARRAY_NAME; \
-  {                                                     \
-    arrow::TYPE_CLASS##Builder builder;                 \
-    auto data = unparen DATA;                           \
-    for (const auto& item : data) {                     \
-      ASSERT_OK(builder.Append(item));                  \
-    }                                                   \
-    ASSERT_OK(builder.Finish(&(ARRAY_NAME)));           \
-  }
-
-#define DECLARE_BINARY_ARRAY(ARRAY_NAME, DATA, LENGTH) \
-  std::shared_ptr<arrow::BinaryArray> ARRAY_NAME;      \
-  {                                                    \
-    arrow::Binary##Builder builder;                    \
-    auto data = unparen DATA;                          \
-    for (const auto& item : data) {                    \
-      ASSERT_OK(builder.Append(item, LENGTH));         \
-    }                                                  \
-    ASSERT_OK(builder.Finish(&(ARRAY_NAME)));          \
-  }
-
-#define DECLARE_NULL_ARRAY(ARRAY_NAME, TYPE_CLASS, LENGTH) \
-  std::shared_ptr<arrow::TYPE_CLASS##Array> ARRAY_NAME;    \
-  {                                                        \
-    arrow::TYPE_CLASS##Builder builder;                    \
-    for (int i = 0; i < LENGTH; i++) {                     \
-      ASSERT_OK(builder.AppendNull());                     \
-    }                                                      \
-    ASSERT_OK(builder.Finish(&(ARRAY_NAME)));              \
-  }
 
 using ::testing::_;
 using ::testing::Ref;
@@ -114,10 +80,15 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  DECLARE_ARRAY(id_array, Int64, ({1, 2, 3}));
-  DECLARE_ARRAY(keyname_array, String, ({"one", "zero", "negative one"}));
-  DECLARE_ARRAY(value_array, Int64, ({1, 0, -1}));
-  DECLARE_ARRAY(foreignId_array, Int64, ({1, 1, 1}));
+  std::shared_ptr<Array> id_array;
+  std::shared_ptr<Array> keyname_array;
+  std::shared_ptr<Array> value_array;
+  std::shared_ptr<Array> foreignId_array;
+  ArrayFromVector<Int64Type, std::int64_t>({1, 2, 3}, &id_array);
+  ArrayFromVector<StringType, std::string>({"one", "zero", "negative one"},
+                                           &keyname_array);
+  ArrayFromVector<Int64Type, std::int64_t>({1, 0, -1}, &value_array);
+  ArrayFromVector<Int64Type, std::int64_t>({1, 1, 1}, &foreignId_array);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -137,15 +108,13 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(catalog_name, String, 3);
-  DECLARE_NULL_ARRAY(schema_name, String, 3);
-  DECLARE_ARRAY(table_name, String,
-                ({
-                    "foreignTable",
-                    "intTable",
-                    "sqlite_sequence",
-                }));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
+  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 3))
+  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 3))
+  std::shared_ptr<Array> table_name;
+  ArrayFromVector<StringType, std::string>(
+      {"foreignTable", "intTable", "sqlite_sequence"}, &table_name);
+  std::shared_ptr<Array> table_type;
+  ArrayFromVector<StringType, std::string>({"table", "table", "table"}, &table_type);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -167,10 +136,12 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(schema_name, String, 1);
-  DECLARE_ARRAY(table_name, String, ({"intTable"}));
-  DECLARE_ARRAY(table_type, String, ({"table"}));
+  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 1))
+  std::shared_ptr<Array> table_name;
+  std::shared_ptr<Array> table_type;
+  ArrayFromVector<StringType, std::string>({"intTable"}, &table_name);
+  ArrayFromVector<StringType, std::string>({"table"}, &table_type);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -209,15 +180,18 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(catalog_name, String, 3);
-  DECLARE_NULL_ARRAY(schema_name, String, 3);
-  DECLARE_ARRAY(table_name, String,
-                ({
-                    "foreignTable",
-                    "intTable",
-                    "sqlite_sequence",
-                }));
-  DECLARE_ARRAY(table_type, String, ({"table", "table", "table"}));
+  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 3))
+  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 3))
+  std::shared_ptr<Array> table_name;
+  ArrayFromVector<StringType, std::string>(
+      {
+          "foreignTable",
+          "intTable",
+          "sqlite_sequence",
+      },
+      &table_name);
+  std::shared_ptr<Array> table_type;
+  ArrayFromVector<StringType, std::string>({"table", "table", "table"}, &table_type);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -239,10 +213,12 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(schema_name, String, 1);
-  DECLARE_ARRAY(table_name, String, ({"intTable"}));
-  DECLARE_ARRAY(table_type, String, ({"table"}));
+  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 1))
+  std::shared_ptr<Array> table_name;
+  std::shared_ptr<Array> table_type;
+  ArrayFromVector<StringType, std::string>({"intTable"}, &table_name);
+  ArrayFromVector<StringType, std::string>({"table"}, &table_type);
 
   const std::shared_ptr<Schema> schema_table =
       arrow::schema({arrow::field("id", int64(), true, NULL),
@@ -252,14 +228,17 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
 
   const arrow::Result<std::shared_ptr<Buffer>>& value =
       ipc::SerializeSchema(*schema_table);
-  value.ValueOrDie()->data(), value.ValueOrDie()->size();
+  std::shared_ptr<Buffer> schema_buffer;
 
-  DECLARE_BINARY_ARRAY(table_schema, ({value.ValueOrDie()->data()}),
-                       value.ValueOrDie()->size());
+  ASSERT_OK_AND_ASSIGN(schema_buffer, value);
+  std::shared_ptr<Array> table_schema;
+
+  ArrayFromVector<BinaryType, std::string>(
+    {schema_buffer->ToString()}, &table_schema);
 
   const std::shared_ptr<Table>& expected_table =
-      Table::Make(SqlSchema::GetTablesSchemaWithIncludedSchema(),
-                  {catalog_name, schema_name, table_name, table_type, table_schema});
+    Table::Make(SqlSchema::GetTablesSchemaWithIncludedSchema(),
+                {catalog_name, schema_name, table_name, table_type, table_schema});
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
@@ -303,7 +282,8 @@ TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_ARRAY(table_type, String, ({"table"}));
+  std::shared_ptr<Array> table_type;
+  ArrayFromVector<StringType, std::string>({"table"}, &table_type);
 
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetTableTypesSchema(), {table_type});
@@ -347,10 +327,15 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  DECLARE_ARRAY(id_array, Int64, ({1, 2, 3}));
-  DECLARE_ARRAY(keyname_array, String, ({"one", "zero", "negative one"}));
-  DECLARE_ARRAY(value_array, Int64, ({1, 0, -1}));
-  DECLARE_ARRAY(foreignId_array, Int64, ({1, 1, 1}));
+  std::shared_ptr<Array> id_array;
+  std::shared_ptr<Array> keyname_array;
+  std::shared_ptr<Array> value_array;
+  std::shared_ptr<Array> foreignId_array;
+  ArrayFromVector<Int64Type, std::int64_t>({1, 2, 3}, &id_array);
+  ArrayFromVector<StringType, std::string>({"one", "zero", "negative one"},
+                                           &keyname_array);
+  ArrayFromVector<Int64Type, std::int64_t>({1, 0, -1}, &value_array);
+  ArrayFromVector<Int64Type, std::int64_t>({1, 1, 1}, &foreignId_array);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -407,10 +392,14 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  DECLARE_ARRAY(id_array, Int64, ({1, 3}));
-  DECLARE_ARRAY(keyname_array, String, ({"one", "negative one"}));
-  DECLARE_ARRAY(value_array, Int64, ({1, -1}));
-  DECLARE_ARRAY(foreignId_array, Int64, ({1, 1}));
+  std::shared_ptr<Array> id_array;
+  std::shared_ptr<Array> keyname_array;
+  std::shared_ptr<Array> value_array;
+  std::shared_ptr<Array> foreignId_array;
+  ArrayFromVector<Int64Type, std::int64_t>({1, 3}, &id_array);
+  ArrayFromVector<StringType, std::string>({"one", "negative one"}, &keyname_array);
+  ArrayFromVector<Int64Type, std::int64_t>({1, -1}, &value_array);
+  ArrayFromVector<Int64Type, std::int64_t>({1, 1}, &foreignId_array);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -526,12 +515,16 @@ TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(schema_name, String, 1);
-  DECLARE_ARRAY(table_name, String, ({"intTable"}));
-  DECLARE_ARRAY(column_name, String, ({"id"}));
-  DECLARE_ARRAY(key_sequence, Int64, ({1}));
-  DECLARE_NULL_ARRAY(key_name, String, 1);
+  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto key_name, MakeArrayOfNull(utf8(), 1))
+
+  std::shared_ptr<Array> table_name;
+  std::shared_ptr<Array> column_name;
+  std::shared_ptr<Array> key_sequence;
+  ArrayFromVector<StringType, std::string>({"intTable"}, &table_name);
+  ArrayFromVector<StringType, std::string>({"id"}, &column_name);
+  ArrayFromVector<Int64Type, std::int64_t>({1}, &key_sequence);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetPrimaryKeysSchema(),
@@ -550,19 +543,27 @@ TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(pk_catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(pk_schema_name, String, 1);
-  DECLARE_ARRAY(pk_table_name, String, ({"foreignTable"}));
-  DECLARE_ARRAY(pk_column_name, String, ({"id"}));
-  DECLARE_NULL_ARRAY(fk_catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(fk_schema_name, String, 1);
-  DECLARE_ARRAY(fk_table_name, String, ({"intTable"}));
-  DECLARE_ARRAY(fk_column_name, String, ({"foreignId"}));
-  DECLARE_ARRAY(key_sequence, Int32, ({0}));
-  DECLARE_NULL_ARRAY(fk_key_name, String, 1);
-  DECLARE_NULL_ARRAY(pk_key_name, String, 1);
-  DECLARE_ARRAY(update_rule, UInt8, ({3}));
-  DECLARE_ARRAY(delete_rule, UInt8, ({3}));
+  std::shared_ptr<Array> pk_table_name;
+  std::shared_ptr<Array> pk_column_name;
+  std::shared_ptr<Array> fk_table_name;
+  std::shared_ptr<Array> fk_column_name;
+  std::shared_ptr<Array> key_sequence;
+  std::shared_ptr<Array> update_rule;
+  std::shared_ptr<Array> delete_rule;
+  ArrayFromVector<StringType, std::string>({"foreignTable"}, &pk_table_name);
+  ArrayFromVector<StringType, std::string>({"id"}, &pk_column_name);
+  ArrayFromVector<StringType, std::string>({"intTable"}, &fk_table_name);
+  ArrayFromVector<StringType, std::string>({"foreignId"}, &fk_column_name);
+  ArrayFromVector<Int32Type, std::int32_t>({0}, &key_sequence);
+  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &update_rule);
+  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &delete_rule);
+
+  ASSERT_OK_AND_ASSIGN(auto pk_catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto pk_schema_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_schema_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_key_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto pk_key_name, MakeArrayOfNull(utf8(), 1))
 
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetImportedKeysSchema(),
@@ -582,19 +583,27 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(pk_catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(pk_schema_name, String, 1);
-  DECLARE_ARRAY(pk_table_name, String, ({"foreignTable"}));
-  DECLARE_ARRAY(pk_column_name, String, ({"id"}));
-  DECLARE_NULL_ARRAY(fk_catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(fk_schema_name, String, 1);
-  DECLARE_ARRAY(fk_table_name, String, ({"intTable"}));
-  DECLARE_ARRAY(fk_column_name, String, ({"foreignId"}));
-  DECLARE_ARRAY(key_sequence, Int32, ({0}));
-  DECLARE_NULL_ARRAY(fk_key_name, String, 1);
-  DECLARE_NULL_ARRAY(pk_key_name, String, 1);
-  DECLARE_ARRAY(update_rule, UInt8, ({3}));
-  DECLARE_ARRAY(delete_rule, UInt8, ({3}));
+  std::shared_ptr<Array> pk_table_name;
+  std::shared_ptr<Array> pk_column_name;
+  std::shared_ptr<Array> fk_table_name;
+  std::shared_ptr<Array> fk_column_name;
+  std::shared_ptr<Array> key_sequence;
+  std::shared_ptr<Array> update_rule;
+  std::shared_ptr<Array> delete_rule;
+  ArrayFromVector<StringType, std::string>({"foreignTable"}, &pk_table_name);
+  ArrayFromVector<StringType, std::string>({"id"}, &pk_column_name);
+  ArrayFromVector<StringType, std::string>({"intTable"}, &fk_table_name);
+  ArrayFromVector<StringType, std::string>({"foreignId"}, &fk_column_name);
+  ArrayFromVector<Int32Type, std::int32_t>({0}, &key_sequence);
+  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &update_rule);
+  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &delete_rule);
+
+  ASSERT_OK_AND_ASSIGN(auto pk_catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto pk_schema_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_schema_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_key_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto pk_key_name, MakeArrayOfNull(utf8(), 1))
 
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetExportedKeysSchema(),
@@ -615,20 +624,27 @@ TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  DECLARE_NULL_ARRAY(pk_catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(pk_schema_name, String, 1);
-  DECLARE_ARRAY(pk_table_name, String, ({"foreignTable"}));
-  DECLARE_ARRAY(pk_column_name, String, ({"id"}));
-  DECLARE_NULL_ARRAY(fk_catalog_name, String, 1);
-  DECLARE_NULL_ARRAY(fk_schema_name, String, 1);
-  DECLARE_ARRAY(fk_table_name, String, ({"intTable"}));
-  DECLARE_ARRAY(fk_column_name, String, ({"foreignId"}));
-  DECLARE_ARRAY(key_sequence, Int32, ({0}));
-  DECLARE_NULL_ARRAY(fk_key_name, String, 1);
-  DECLARE_NULL_ARRAY(pk_key_name, String, 1);
-  DECLARE_ARRAY(update_rule, UInt8, ({3}));
-  DECLARE_ARRAY(delete_rule, UInt8, ({3}));
+  std::shared_ptr<Array> pk_table_name;
+  std::shared_ptr<Array> pk_column_name;
+  std::shared_ptr<Array> fk_table_name;
+  std::shared_ptr<Array> fk_column_name;
+  std::shared_ptr<Array> key_sequence;
+  std::shared_ptr<Array> update_rule;
+  std::shared_ptr<Array> delete_rule;
+  ArrayFromVector<StringType, std::string>({"foreignTable"}, &pk_table_name);
+  ArrayFromVector<StringType, std::string>({"id"}, &pk_column_name);
+  ArrayFromVector<StringType, std::string>({"intTable"}, &fk_table_name);
+  ArrayFromVector<StringType, std::string>({"foreignId"}, &fk_column_name);
+  ArrayFromVector<Int32Type, std::int32_t>({0}, &key_sequence);
+  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &update_rule);
+  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &delete_rule);
 
+  ASSERT_OK_AND_ASSIGN(auto pk_catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto pk_schema_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_catalog_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_schema_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto fk_key_name, MakeArrayOfNull(utf8(), 1))
+  ASSERT_OK_AND_ASSIGN(auto pk_key_name, MakeArrayOfNull(utf8(), 1))
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetCrossReferenceSchema(),
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
