@@ -233,12 +233,11 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   ASSERT_OK_AND_ASSIGN(schema_buffer, value);
   std::shared_ptr<Array> table_schema;
 
-  ArrayFromVector<BinaryType, std::string>(
-    {schema_buffer->ToString()}, &table_schema);
+  ArrayFromVector<BinaryType, std::string>({schema_buffer->ToString()}, &table_schema);
 
   const std::shared_ptr<Table>& expected_table =
-    Table::Make(SqlSchema::GetTablesSchemaWithIncludedSchema(),
-                {catalog_name, schema_name, table_name, table_type, table_schema});
+      Table::Make(SqlSchema::GetTablesSchemaWithIncludedSchema(),
+                  {catalog_name, schema_name, table_name, table_type, table_schema});
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }

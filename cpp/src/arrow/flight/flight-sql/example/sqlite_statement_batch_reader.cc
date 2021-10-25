@@ -73,9 +73,10 @@ std::shared_ptr<Schema> SqliteStatementBatchReader::schema() const { return sche
 
 SqliteStatementBatchReader::SqliteStatementBatchReader(
     std::shared_ptr<SqliteStatement> statement, std::shared_ptr<Schema> schema)
-    : statement_(std::move(statement)), schema_(std::move(schema)) {
-  rc = SQLITE_OK;
-}
+    : statement_(std::move(statement)),
+      schema_(std::move(schema)),
+      rc_(SQLITE_OK),
+      already_executed_(false) {}
 
 Status SqliteStatementBatchReader::Create(
     const std::shared_ptr<SqliteStatement>& statement_,
@@ -113,14 +114,14 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
     ARROW_RETURN_NOT_OK(MakeBuilder(default_memory_pool(), field_type, &builders[i]));
   }
 
-  if (!already_executed) {
-    ARROW_RETURN_NOT_OK(statement_->Reset(&rc));
-    ARROW_RETURN_NOT_OK(statement_->Step(&rc));
-    already_executed = true;
+  if (!already_executed_) {
+    ARROW_RETURN_NOT_OK(statement_->Reset(&rc_));
+    ARROW_RETURN_NOT_OK(statement_->Step(&rc_));
+    already_executed_ = true;
   }
 
   int rows = 0;
-  while (rows < MAX_BATCH_SIZE && rc == SQLITE_ROW) {
+  while (rows < MAX_BATCH_SIZE && rc_ == SQLITE_ROW) {
     rows++;
     for (int i = 0; i < num_fields; i++) {
       const std::shared_ptr<Field>& field = schema_->field(i);
@@ -149,7 +150,7 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
       }
     }
 
-    ARROW_RETURN_NOT_OK(statement_->Step(&rc));
+    ARROW_RETURN_NOT_OK(statement_->Step(&rc_));
   }
 
   if (rows > 0) {

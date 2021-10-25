@@ -52,8 +52,8 @@ class SqliteStatementBatchReader : public RecordBatchReader {
  private:
   std::shared_ptr<SqliteStatement> statement_;
   std::shared_ptr<Schema> schema_;
-  int rc;
-  bool already_executed;
+  int rc_;
+  bool already_executed_;
 
   SqliteStatementBatchReader(std::shared_ptr<SqliteStatement> statement,
                              std::shared_ptr<Schema> schema);
