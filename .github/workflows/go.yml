@@ -165,10 +165,10 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
-        run: ci/scripts/go_build.sh .
+        run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh .
+        run: ci/scripts/go_test.sh $(pwd)
 
   macos:
     name: AMD64 MacOS 10.15 Go ${{ matrix.go }}
@@ -193,10 +193,10 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
-        run: ci/scripts/go_build.sh .
+        run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh .
+        run: ci/scripts/go_test.sh $(pwd)
 
   macos-cgo:
     name: AMD64 MacOS 10.15 Go ${{ matrix.go }} - CGO
@@ -226,10 +226,10 @@ jobs:
         run: brew install apache-arrow
       - name: Build
         shell: bash
-        run: ci/scripts/go_build.sh .
+        run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh .
+        run: ci/scripts/go_test.sh $(pwd)
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} CGO
@@ -279,7 +279,7 @@ jobs:
           echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
       - name: Build
         shell: bash
-        run: ci/scripts/go_build.sh .
+        run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh .
+        run: ci/scripts/go_test.sh $(pwd)
