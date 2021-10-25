@@ -167,9 +167,7 @@ struct GetByteRangesArray {
   }
 
   Status Visit(const DenseUnionType& type) {
-    // DenseUnion has a validity buffer but it should always be null so I guess we could
-    // skip this...
-    RETURN_NOT_OK(VisitBitmap(input->buffers[0]));
+    // Skip validity map for DenseUnionType
     // Types buffer is always int8
     RETURN_NOT_OK(VisitFixedWidthArray(
         *input->buffers[1], *std::dynamic_pointer_cast<FixedWidthType>(int8())));
@@ -177,7 +175,8 @@ struct GetByteRangesArray {
     RETURN_NOT_OK(VisitFixedWidthArray(
         *input->buffers[2], *std::dynamic_pointer_cast<FixedWidthType>(int32())));
 
-    // TODO: Is there a better way to solve this?
+    // We have to loop through the types buffer to figure out the correct
+    // offset / length being referenced in the child arrays
     std::array<std::size_t, UnionType::kMaxTypeCode> type_code_index_lookup;
     for (std::size_t i = 0; i < type.type_codes().size(); i++) {
       type_code_index_lookup[static_cast<std::size_t>(type.type_codes()[i])] = i;
@@ -205,8 +204,7 @@ struct GetByteRangesArray {
   }
 
   Status Visit(const SparseUnionType& type) {
-    // Could skip
-    RETURN_NOT_OK(VisitBitmap(input->buffers[0]));
+    // Skip validity map for SparseUnionType
     // Types buffer is always int8
     RETURN_NOT_OK(VisitFixedWidthArray(
         *input->buffers[1], *std::dynamic_pointer_cast<FixedWidthType>(int8())));
