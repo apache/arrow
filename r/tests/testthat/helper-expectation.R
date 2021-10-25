@@ -67,15 +67,18 @@ verify_output <- function(...) {
 
 #' Compare dplyr binding
 #'
-#' This function compares the output of running a dplyr expression on a tibble or data.frame object against the output of the same expression run on Arrow Table and RecordBatch objects.
+#' This function compares the output of running a dplyr expression on a tibble
+#' or data.frame object against the output of the same expression run on
+#' Arrow Table and RecordBatch objects.
 #'
 #'
 #' @param expr A dplyr pipeline which must have `.input` as its start
 #' @param tbl A tibble or data.frame which will be substituted for `.input`
-#' @param skip_record_batch The skip message to show (if you should skip the RecordBatch test)
+#' @param skip_record_batch The skip message to show (if you should skip the
+#' RecordBatch test)
 #' @param skip_table The skip message to show (if you should skip the Table test)
-#' @param warning The expected warning from the RecordBatch and Table comparison paths,
-#'   passed to `expect_warning()`. Special values:
+#' @param warning The expected warning from the RecordBatch and Table comparison
+#'  paths, passed to `expect_warning()`. Special values:
 #'     * `NA` (the default) for ensuring no warning message
 #'     * `TRUE` is a special case to mean to check for the
 #'      "not supported in Arrow; pulling data into R" message.
