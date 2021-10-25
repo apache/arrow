@@ -826,11 +826,11 @@ String transforms
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
 | binary_length           | Unary | Binary- or String-like | Int32 or Int64         |                                   | \(3)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| binary_replace_slice    | Unary | String-like            | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(4)  |
+| binary_replace_slice    | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(4)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring       | Unary | String-like            | String-like            | :struct:`ReplaceSubstringOptions` | \(5)  |
+| replace_substring       | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(5)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring_regex | Unary | String-like            | String-like            | :struct:`ReplaceSubstringOptions` | \(6)  |
+| replace_substring_regex | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(6)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
 | utf8_capitalize         | Unary | String-like            | String-like            |                                   | \(8)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
@@ -856,7 +856,7 @@ String transforms
   are present, ``Invalid`` :class:`Status` will be returned.
 
 * \(3) Output is the physical length in bytes of each input element.  Output
-  type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
+  type is Int32 for Binary/String, Int64 for LargeBinary/LargeString.
 
 * \(4) Replace the slice of the substring from :member:`ReplaceSliceOptions::start`
   (inclusive) to :member:`ReplaceSliceOptions::stop` (exclusive) by
@@ -967,9 +967,9 @@ when a positive ``max_splits`` is given.
 +==========================+============+=========================+===================+==================================+=========+
 | ascii_split_whitespace   | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(1)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| split_pattern            | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(2)    |
+| split_pattern            | Unary      | Binary- or String-like  | List-like         | :struct:`SplitPatternOptions`    | \(2)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| split_pattern_regex      | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(3)    |
+| split_pattern_regex      | Unary      | Binary- or String-like  | List-like         | :struct:`SplitPatternOptions`    | \(3)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
 | utf8_split_whitespace    | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(4)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
@@ -990,11 +990,11 @@ when a positive ``max_splits`` is given.
 String component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+---------------+-------+-------------+-------------+-------------------------------+-------+
-| Function name | Arity | Input types | Output type | Options class                 | Notes |
-+===============+=======+=============+=============+===============================+=======+
-| extract_regex | Unary | String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
-+---------------+-------+-------------+-------------+-------------------------------+-------+
++---------------+-------+------------------------+-------------+-------------------------------+-------+
+| Function name | Arity | Input types            | Output type | Options class                 | Notes |
++===============+=======+========================+=============+===============================+=======+
+| extract_regex | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
++---------------+-------+------------------------+-------------+-------------------------------+-------+
 
 * \(1) Extract substrings defined by a regular expression using the Google RE2
   library.  The output struct field names refer to the named capture groups,
@@ -1006,13 +1006,13 @@ String joining
 
 These functions do the inverse of string splitting.
 
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| Function name            | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
-+==========================+===========+=======================+================+===================+=======================+=========+
-| binary_join              | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| binary_join_element_wise | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
++--------------------------+---------+----------------------------------+------------------------+------------------------+-----------------------+---------+
+| Function name            | Arity   | Input type 1                     | Input type 2           | Output type            | Options class         | Notes   |
++==========================+=========+==================================+========================+========================+=======================+=========+
+| binary_join              | Binary  | List of Binary- or String-like   | String-like            | String-like            |                       | \(1)    |
++--------------------------+---------+----------------------------------+------------------------+------------------------+-----------------------+---------+
+| binary_join_element_wise | Varargs | Binary- or String-like (varargs) | Binary- or String-like | Binary- or String-like | :struct:`JoinOptions` | \(2)    |
++--------------------------+---------+----------------------------------+------------------------+------------------------+-----------------------+---------+
 
 * \(1) The first input must be an array, while the second can be a scalar or array.
   Each list of values in the first input is joined using each second input
@@ -1049,11 +1049,11 @@ Containment tests
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
 +=======================+=======+===================================+================+=================================+=======+
-| count_substring       | Unary | String-like                       | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
+| count_substring       | Unary | Binary- or String-like            | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| count_substring_regex | Unary | String-like                       | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
+| count_substring_regex | Unary | Binary- or String-like            | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| ends_with             | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
+| ends_with             | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | find_substring        | Unary | Binary- and String-like           | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(3)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
@@ -1065,13 +1065,13 @@ Containment tests
 | is_in                 | Unary | Boolean, Null, Numeric, Temporal, | Boolean        | :struct:`SetLookupOptions`      | \(5)  |
 |                       |       | Binary- and String-like           |                |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_like            | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(6)  |
+| match_like            | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(6)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_substring       | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(7)  |
+| match_substring       | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(7)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_substring_regex | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(8)  |
+| match_substring_regex | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(8)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| starts_with           | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
+| starts_with           | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 * \(1) Output is the number of occurrences of
@@ -1319,7 +1319,6 @@ null input value is converted into a null output value.
   input value type to the output value type (if a conversion is
   available).
 
-
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1457,7 +1456,6 @@ An error is returned if the timestamps already have the timezone metadata set.
 * \(1) In addition to the timezone value, :struct:`AssumeTimezoneOptions`
   allows choosing the behaviour when a timestamp is ambiguous or nonexistent
   in the given timezone (because of DST shifts).
-
 
 Array-wise ("vector") functions
 -------------------------------

@@ -219,7 +219,7 @@ TEST_F(TestIsInKernel, Boolean) {
             "[false, true, false, false, true]", /*skip_nulls=*/true);
 }
 
-TYPED_TEST_SUITE(TestIsInKernelBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestIsInKernelBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestIsInKernelBinary, Binary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
@@ -678,7 +678,7 @@ TEST_F(TestIndexInKernel, Boolean) {
 template <typename Type>
 class TestIndexInKernelBinary : public TestIndexInKernel {};
 
-TYPED_TEST_SUITE(TestIndexInKernelBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestIndexInKernelBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestIndexInKernelBinary, Binary) {
   auto type = TypeTraits<TypeParam>::type_singleton();

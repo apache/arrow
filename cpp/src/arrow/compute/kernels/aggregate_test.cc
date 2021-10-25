@@ -1647,7 +1647,7 @@ TEST(TestNullMinMaxKernel, Basics) {
 
 template <typename ArrowType>
 class TestBaseBinaryMinMaxKernel : public ::testing::Test {};
-TYPED_TEST_SUITE(TestBaseBinaryMinMaxKernel, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestBaseBinaryMinMaxKernel, BaseBinaryArrowTypes);
 TYPED_TEST(TestBaseBinaryMinMaxKernel, Basics) {
   std::vector<std::string> chunked_input1 = {R"(["cc", "", "aa", "b", "c"])",
                                              R"(["d", "", null, "b", "c"])"};
@@ -2249,7 +2249,7 @@ TYPED_TEST(TestBooleanIndexKernel, Basics) {
 
 template <typename ArrowType>
 class TestStringIndexKernel : public TestIndexKernel<ArrowType> {};
-TYPED_TEST_SUITE(TestStringIndexKernel, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestStringIndexKernel, BaseBinaryArrowTypes);
 TYPED_TEST(TestStringIndexKernel, Basics) {
   auto buffer = Buffer::FromString("foo");
   auto value = std::make_shared<typename TestFixture::ScalarType>(buffer);
