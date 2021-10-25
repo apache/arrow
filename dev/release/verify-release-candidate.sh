@@ -588,7 +588,12 @@ test_linux_wheels() {
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
-    conda create -yq -n ${env} python=${py_arch//[mu]/}
+    if [ $py_arch = "3.10" ]; then
+      local channels="-c conda-forge -c defaults"
+    else
+      local channels="-c conda-forge"
+    fi
+    conda create -yq -n ${env} ${channels} python=${py_arch//[mu]/}
     conda activate ${env}
     pip install -U pip
 
@@ -616,14 +621,19 @@ test_macos_wheels() {
   fi
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local py_arches="3.8 3.9"
+    local py_arches="3.8 3.9 3.10"
     local check_flight=OFF
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
-    conda create -yq -n ${env} python=${py_arch//m/}
+    if [ $py_arch = "3.10" ]; then
+      local channels="-c conda-forge -c defaults"
+    else
+      local channels="-c conda-forge"
+    fi
+    conda create -yq -n ${env} ${channels} python=${py_arch//m/}
     conda activate ${env}
     pip install -U pip
 
