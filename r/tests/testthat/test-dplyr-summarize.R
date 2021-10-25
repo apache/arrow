@@ -242,14 +242,14 @@ test_that("n_distinct() on dataset", {
     tbl
   )
 
-  compare_dplyr_bindings(
+  compare_dplyr_binding(
     .input %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
     tbl,
     warning = "Multiple arguments"
   )
-  compare_dplyr_bindings(
+  compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
@@ -260,14 +260,14 @@ test_that("n_distinct() on dataset", {
 })
 
 test_that("Functions that take ... but we only accept a single arg", {
-  compare_dplyr_bindings(
+  compare_dplyr_binding(
     .input %>%
       summarize(distinct = n_distinct()) %>%
       collect(),
     tbl,
     warning = "0 arguments"
   )
-  compare_dplyr_bindings(
+  compare_dplyr_binding(
     .input %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
@@ -844,7 +844,7 @@ test_that("summarize() handles group_by .drop", {
     x = 1:10,
     y = factor(rep(c("a", "c"), each = 5), levels = c("a", "b", "c"))
   )
-  compare_dplyr_bindings(
+  compare_dplyr_binding(
     .input %>%
       group_by(y) %>%
       count() %>%
@@ -853,7 +853,7 @@ test_that("summarize() handles group_by .drop", {
     tbl
   )
   # Not supported: check message
-  compare_dplyr_bindings(
+  compare_dplyr_binding(
     .input %>%
       group_by(y, .drop = FALSE) %>%
       count() %>%
@@ -867,7 +867,7 @@ test_that("summarize() handles group_by .drop", {
   )
 
   # But this is ok because there is no factor group
-  compare_dplyr_bindings(
+  compare_dplyr_binding(
     .input %>%
       group_by(y, .drop = FALSE) %>%
       count() %>%
