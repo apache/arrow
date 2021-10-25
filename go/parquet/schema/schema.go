@@ -209,6 +209,12 @@ func (s *Schema) UpdateColumnOrders(orders []parquet.ColumnOrder) error {
 	return nil
 }
 
+func (s *Schema) String() string {
+	var b strings.Builder
+	PrintSchema(s.root, &b, 2)
+	return b.String()
+}
+
 // NewSchema constructs a new Schema object from a root group node.
 //
 // Any fields with a field-id of -1 will be given an appropriate field number based on their order.
