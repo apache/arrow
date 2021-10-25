@@ -162,7 +162,7 @@ using NumericBasedTypes =
 
 TYPED_TEST_SUITE(TestReplaceNumeric, NumericBasedTypes);
 TYPED_TEST_SUITE(TestReplaceDecimal, DecimalArrowTypes);
-TYPED_TEST_SUITE(TestReplaceBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestReplaceBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMask) {
   this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
