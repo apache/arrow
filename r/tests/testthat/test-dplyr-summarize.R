@@ -242,15 +242,15 @@ test_that("n_distinct() on dataset", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
     tbl,
     warning = "Multiple arguments"
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
@@ -260,15 +260,15 @@ test_that("n_distinct() on dataset", {
 })
 
 test_that("Functions that take ... but we only accept a single arg", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       summarize(distinct = n_distinct()) %>%
       collect(),
     tbl,
     warning = "0 arguments"
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
     tbl,
@@ -844,8 +844,8 @@ test_that("summarize() handles group_by .drop", {
     x = 1:10,
     y = factor(rep(c("a", "c"), each = 5), levels = c("a", "b", "c"))
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       group_by(y) %>%
       count() %>%
       collect() %>%
@@ -853,8 +853,8 @@ test_that("summarize() handles group_by .drop", {
     tbl
   )
   # Not supported: check message
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       group_by(y, .drop = FALSE) %>%
       count() %>%
       collect() %>%
@@ -867,8 +867,8 @@ test_that("summarize() handles group_by .drop", {
   )
 
   # But this is ok because there is no factor group
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       group_by(y, .drop = FALSE) %>%
       count() %>%
       collect() %>%

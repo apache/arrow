@@ -237,8 +237,8 @@ test_that("arrange then head returns the right data (ARROW-14162)", {
 })
 
 test_that("arrange then tail returns the right data", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       # mpg has ties so we need to sort by two things to get deterministic order
       arrange(mpg, disp) %>%
       tail(4) %>%

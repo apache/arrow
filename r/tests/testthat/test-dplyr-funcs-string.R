@@ -1344,22 +1344,22 @@ test_that("str_count", {
     dots = c("a.", "...", ".a.a", "a..a.", "ab...", "dse....", ".f..d..")
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       mutate(a_count = str_count(cities, pattern = "a")) %>%
       collect(),
     df
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       mutate(p_count = str_count(cities, pattern = "d")) %>%
       collect(),
     df
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       mutate(p_count = str_count(cities,
         pattern = regex("d", ignore_case = TRUE)
       )) %>%
@@ -1367,31 +1367,31 @@ test_that("str_count", {
     df
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       mutate(e_count = str_count(cities, pattern = "u")) %>%
       collect(),
     df
   )
 
   # nse_funcs$str_count() is not vectorised over pattern
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       mutate(let_count = str_count(cities, pattern = c("a", "b", "e", "g", "p", "n", "s"))) %>%
       collect(),
     df,
     warning = TRUE
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       mutate(dots_count = str_count(dots, ".")) %>%
       collect(),
     df
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_bindings(
+    .input %>%
       mutate(dots_count = str_count(dots, fixed("."))) %>%
       collect(),
     df
