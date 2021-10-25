@@ -1272,7 +1272,6 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
     int readahead = std::min<int>(kFooterReadaheadSize,
                                   static_cast<int>(footer_offset_ - file_end_size));
-    file_end_size = file_end_size;
     auto self = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
     auto read_magic = file_->ReadAsync(footer_offset_ - file_end_size - readahead,
                                        file_end_size + readahead);
