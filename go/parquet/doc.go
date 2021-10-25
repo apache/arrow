@@ -63,4 +63,5 @@
 // sure what to use, just use Plain and Dictionary encoding.
 package parquet
 
+//go:generate go run golang.org/x/tools/cmd/stringer -type=Version -linecomment
 //go:generate thrift -o internal -r --gen go ../../cpp/src/parquet/parquet.thrift

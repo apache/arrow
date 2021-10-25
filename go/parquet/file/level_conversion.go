@@ -19,7 +19,6 @@ package file
 import (
 	"math"
 	"math/bits"
-	"unsafe"
 
 	"github.com/apache/arrow/go/v7/parquet"
 	"github.com/apache/arrow/go/v7/parquet/internal/bmi"
@@ -135,8 +134,6 @@ type ValidityBitmapInputOutput struct {
 	// Input only, offset into valid_bits to start at.
 	ValidBitsOffset int64
 }
-
-const extractBitsSize int64 = 8 * int64(unsafe.Sizeof(uint64(0)))
 
 // create a bitmap out of the definition Levels and return the number of non-null values
 func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info LevelInfo, wr utils.BitmapWriter, hasRepeatedParent bool) uint64 {
