@@ -196,6 +196,7 @@ r/vignettes/*.Rmd
 r/tests/testthat/test-*.txt
 r/inst/include/cpp11.hpp
 r/inst/include/cpp11/*.hpp
+r/tests/testthat/_snaps/*.md
 .gitattributes
 ruby/red-arrow/.yardopts
 julia/Arrow/Project.toml
