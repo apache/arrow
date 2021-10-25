@@ -915,16 +915,9 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
     return Status::OK();
   }
 
-  template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, const uint8_t*> UnboxBinaryScalar(
-      const Scalar& scalar) {
+  static const uint8_t* UnboxBinaryScalar(const Scalar& scalar) {
     return reinterpret_cast<const uint8_t*>(
-        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(scalar).data());
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal<T, const uint8_t*> UnboxBinaryScalar(const Scalar& scalar) {
-    return internal::UnboxScalar<T>::Unbox(scalar).native_endian_bytes();
+        checked_cast<const arrow::internal::PrimitiveScalarBase&>(scalar).view().data());
   }
 
   template <typename T = Type>
@@ -1319,46 +1312,24 @@ struct CopyFixedWidth<Type, enable_if_number<Type>> {
 };
 
 template <typename Type>
-struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
+struct CopyFixedWidth<Type, enable_if_fixed_size_binary<Type>> {
   static void CopyScalar(const Scalar& values, const int64_t length,
                          uint8_t* raw_out_values, const int64_t out_offset) {
     const int32_t width =
         checked_cast<const FixedSizeBinaryType&>(*values.type).byte_width();
     uint8_t* next = raw_out_values + (width * out_offset);
-    const auto& scalar = checked_cast<const FixedSizeBinaryScalar&>(values);
+    const auto& scalar =
+        checked_cast<const arrow::internal::PrimitiveScalarBase&>(values);
     // Scalar may have null value buffer
-    if (!scalar.value) {
+    if (!scalar.is_valid) {
       std::memset(next, 0x00, width * length);
     } else {
-      DCHECK_EQ(scalar.value->size(), width);
+      util::string_view view = scalar.view();
+      DCHECK_EQ(view.size(), static_cast<size_t>(width));
       for (int i = 0; i < length; i++) {
-        std::memcpy(next, scalar.value->data(), width);
+        std::memcpy(next, view.data(), width);
         next += width;
       }
-    }
-  }
-  static void CopyArray(const DataType& type, const uint8_t* in_values,
-                        const int64_t in_offset, const int64_t length,
-                        uint8_t* raw_out_values, const int64_t out_offset) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(type).byte_width();
-    uint8_t* next = raw_out_values + (width * out_offset);
-    std::memcpy(next, in_values + in_offset * width, length * width);
-  }
-};
-
-template <typename Type>
-struct CopyFixedWidth<Type, enable_if_decimal<Type>> {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void CopyScalar(const Scalar& values, const int64_t length,
-                         uint8_t* raw_out_values, const int64_t out_offset) {
-    const int32_t width =
-        checked_cast<const FixedSizeBinaryType&>(*values.type).byte_width();
-    uint8_t* next = raw_out_values + (width * out_offset);
-    const auto& scalar = checked_cast<const ScalarType&>(values);
-    const auto value = scalar.value.ToBytes();
-    for (int i = 0; i < length; i++) {
-      std::memcpy(next, value.data(), width);
-      next += width;
     }
   }
   static void CopyArray(const DataType& type, const uint8_t* in_values,
@@ -2851,8 +2822,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCaseWhenKernels(func, {boolean(), null()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<Decimal128Type>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<Decimal256Type>::Exec);
+    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
+    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
     AddCaseWhenKernel(func, Type::FIXED_SIZE_LIST,
                       CaseWhenFunctor<FixedSizeListType>::Exec);
@@ -2874,8 +2845,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, {boolean(), null()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
-    AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<Decimal128Type>::Exec);
-    AddCoalesceKernel(func, Type::DECIMAL256, CoalesceFunctor<Decimal256Type>::Exec);
+    AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec);
+    AddCoalesceKernel(func, Type::DECIMAL256, CoalesceFunctor<FixedSizeBinaryType>::Exec);
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
@@ -2898,8 +2869,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveChooseKernels(func, {boolean(), null()});
     AddChooseKernel(func, Type::FIXED_SIZE_BINARY,
                     ChooseFunctor<FixedSizeBinaryType>::Exec);
-    AddChooseKernel(func, Type::DECIMAL128, ChooseFunctor<Decimal128Type>::Exec);
-    AddChooseKernel(func, Type::DECIMAL256, ChooseFunctor<Decimal256Type>::Exec);
+    AddChooseKernel(func, Type::DECIMAL128, ChooseFunctor<FixedSizeBinaryType>::Exec);
+    AddChooseKernel(func, Type::DECIMAL256, ChooseFunctor<FixedSizeBinaryType>::Exec);
     for (const auto& ty : BaseBinaryTypes()) {
       AddChooseKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<ChooseFunctor>(ty));
     }
