@@ -493,6 +493,15 @@ TEST(TestCompareTimestamps, DifferentParameters) {
               "Cannot compare timestamp with timezone to timestamp without timezone"),
           CallFunction(function, {lhs, rhs}));
     }
+    {
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(function, {lhs, rhs}));
+    }
   }
 }
 
