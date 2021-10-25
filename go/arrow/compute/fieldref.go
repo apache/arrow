@@ -194,6 +194,10 @@ func (f FieldPath) findAll(fields []arrow.Field) []FieldPath {
 // a nameref represents a FieldRef by name of the field
 type nameRef string
 
+func (n nameRef) String() string {
+	return "Name(" + string(n) + ")"
+}
+
 func (ref nameRef) findAll(fields []arrow.Field) []FieldPath {
 	out := []FieldPath{}
 	for i, f := range fields {
@@ -225,6 +229,17 @@ func (m *matches) add(prefix, suffix FieldPath, fields []arrow.Field) {
 // field is being referenced. allowing combinations of field indices and names
 type refList []FieldRef
 
+func (r refList) String() string {
+	var b strings.Builder
+	b.WriteString("Nested(")
+	for _, f := range r {
+		fmt.Fprint(&b, f)
+		b.WriteByte(' ')
+	}
+	ret := b.String()
+	return ret[:len(ret)-1] + ")"
+}
+
 func (ref refList) hash(h *maphash.Hash) {
 	for _, r := range ref {
 		r.hash(h)
@@ -254,6 +269,7 @@ func (ref refList) findAll(fields []arrow.Field) []FieldPath {
 }
 
 type refImpl interface {
+	fmt.Stringer
 	findAll(fields []arrow.Field) []FieldPath
 	hash(h *maphash.Hash)
 }
@@ -580,4 +596,8 @@ func (f FieldRef) GetOneColumnOrNone(root array.Record) (array.Interface, error)
 		return nil, nil
 	}
 	return match.GetColumn(root)
+}
+
+func (f FieldRef) String() string {
+	return "FieldRef." + f.impl.String()
 }

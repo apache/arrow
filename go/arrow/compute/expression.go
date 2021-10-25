@@ -18,13 +18,17 @@ package compute
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"hash/maphash"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/arrow/scalar"
@@ -38,6 +42,7 @@ var hashSeed = maphash.MakeSeed()
 // 	A reference to a single (potentially nested) field of an input Datum
 //	A call to a compute function, with arguments specified by other Expressions
 type Expression interface {
+	fmt.Stringer
 	// IsBound returns true if this expression has been bound to a particular
 	// Datum and/or Schema.
 	IsBound() bool
@@ -79,6 +84,26 @@ type Expression interface {
 	boundExpr() boundRef
 }
 
+func printDatum(datum Datum) string {
+	switch datum := datum.(type) {
+	case *ScalarDatum:
+		if !datum.Value.IsValid() {
+			return "null"
+		}
+
+		switch datum.Type().ID() {
+		case arrow.STRING, arrow.LARGE_STRING:
+			return strconv.Quote(datum.Value.(scalar.BinaryScalar).String())
+		case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.LARGE_BINARY:
+			return `"` + strings.ToUpper(hex.EncodeToString(datum.Value.(scalar.BinaryScalar).Data())) + `"`
+		}
+
+		return datum.Value.String()
+	default:
+		return datum.String()
+	}
+}
+
 // Literal is an expression denoting a literal Datum which could be any value
 // as a scalar, an array, or so on.
 type Literal struct {
@@ -88,6 +113,7 @@ type Literal struct {
 }
 
 func (Literal) FieldRef() *FieldRef     { return nil }
+func (l *Literal) String() string       { return printDatum(l.Literal) }
 func (l *Literal) boundExpr() boundRef  { return l.bound }
 func (l *Literal) Type() arrow.DataType { return l.Literal.(ArrayLikeDatum).Type() }
 func (l *Literal) IsBound() bool        { return l.Type() != nil }
@@ -170,6 +196,18 @@ func (p *Parameter) IsSatisfiable() bool  { return p.Type() == nil || p.Type().I
 func (p *Parameter) FieldRef() *FieldRef  { return p.ref }
 func (p *Parameter) Descr() ValueDescr    { return p.descr }
 func (p *Parameter) Hash() uint64         { return p.ref.Hash(hashSeed) }
+
+func (p *Parameter) String() string {
+	switch {
+	case p.ref.IsName():
+		return p.ref.Name()
+	case p.ref.IsFieldPath():
+		return p.ref.FieldPath().String()
+	default:
+		return p.ref.String()
+	}
+}
+
 func (p *Parameter) Equals(other Expression) bool {
 	if rhs, ok := other.(*Parameter); ok {
 		return p.ref.Equals(*rhs.ref)
@@ -198,6 +236,86 @@ func (p *Parameter) Release() {
 	}
 }
 
+type comparisonType int8
+
+const (
+	compNA comparisonType = 0
+	compEQ comparisonType = 1
+	compLT comparisonType = 2
+	compGT comparisonType = 4
+	compNE comparisonType = compLT | compGT
+	compLE comparisonType = compLT | compEQ
+	compGE comparisonType = compGT | compEQ
+)
+
+func (c comparisonType) name() string {
+	switch c {
+	case compEQ:
+		return "equal"
+	case compLT:
+		return "less"
+	case compGT:
+		return "greater"
+	case compNE:
+		return "not_equal"
+	case compLE:
+		return "less_equal"
+	case compGE:
+		return "greater_equal"
+	}
+	return "na"
+}
+
+func (c comparisonType) getOp() string {
+	switch c {
+	case compEQ:
+		return "=="
+	case compLT:
+		return "<"
+	case compGT:
+		return ">"
+	case compNE:
+		return "!="
+	case compLE:
+		return "<="
+	case compGE:
+		return ">="
+	}
+	debug.Assert(false, "invalid getop")
+	return ""
+}
+
+var compmap = map[string]comparisonType{
+	"equal":         compEQ,
+	"less":          compLT,
+	"greater":       compGT,
+	"not_equal":     compNE,
+	"less_equal":    compLE,
+	"greater_equal": compGE,
+}
+
+func optionsToString(fn FunctionOptions) string {
+	if s, ok := fn.(fmt.Stringer); ok {
+		return s.String()
+	}
+
+	var b strings.Builder
+	v := reflect.Indirect(reflect.ValueOf(fn))
+	b.WriteByte('{')
+	for i := 0; i < v.Type().NumField(); i++ {
+		fld := v.Type().Field(i)
+		tag := fld.Tag.Get("compute")
+		if tag == "-" {
+			continue
+		}
+
+		fldVal := v.Field(i)
+		fmt.Fprintf(&b, "%s=%v, ", tag, fldVal.Interface())
+	}
+	ret := b.String()
+	return ret[:len(ret)-2] + "}"
+}
+
 // Call is a function call with specific arguments which are themselves other
 // expressions. A call can also have options that are specific to the function
 // in question. It must be bound to determine the shape and type.
@@ -217,6 +335,45 @@ func (c *Call) FieldRef() *FieldRef  { return nil }
 func (c *Call) Descr() ValueDescr    { return c.descr }
 func (c *Call) Type() arrow.DataType { return c.descr.Type }
 func (c *Call) IsSatisfiable() bool  { return c.Type() == nil || c.Type().ID() != arrow.NULL }
+
+func (c *Call) String() string {
+	binary := func(op string) string {
+		return "(" + c.args[0].String() + " " + op + " " + c.args[1].String() + ")"
+	}
+
+	if cmp, ok := compmap[c.funcName]; ok {
+		return binary(cmp.getOp())
+	}
+
+	const kleene = "_kleene"
+	if strings.HasSuffix(c.funcName, kleene) {
+		return binary(strings.TrimSuffix(c.funcName, kleene))
+	}
+
+	if c.funcName == "make_struct" && c.options != nil {
+		opts := c.options.(*MakeStructOptions)
+		out := "{"
+		for i, a := range c.args {
+			out += opts.FieldNames[i] + "=" + a.String() + ", "
+		}
+		return out[:len(out)-2] + "}"
+	}
+
+	var b strings.Builder
+	b.WriteString(c.funcName + "(")
+	for _, a := range c.args {
+		b.WriteString(a.String() + ", ")
+	}
+
+	if c.options != nil {
+		b.WriteString(optionsToString(c.options))
+		b.WriteString("  ")
+	}
+
+	ret := b.String()
+	return ret[:len(ret)-2] + ")"
+}
+
 func (c *Call) Hash() uint64 {
 	if c.cachedHash != 0 {
 		return c.cachedHash
@@ -306,6 +463,79 @@ type NullOptions struct {
 }
 
 func (NullOptions) TypeName() string { return "NullOptions" }
+
+type StrptimeOptions struct {
+	Format string         `compute:"format"`
+	Unit   arrow.TimeUnit `compute:"unit"`
+}
+
+func (StrptimeOptions) TypeName() string { return "StrptimeOptions" }
+
+type NullSelectionBehavior int8
+
+const (
+	DropNulls NullSelectionBehavior = iota
+	EmitNulls
+)
+
+type FilterOptions struct {
+	NullSelection NullSelectionBehavior `compute:"null_selection_behavior"`
+}
+
+func (FilterOptions) TypeName() string { return "FilterOptions" }
+
+type ArithmeticOptions struct {
+	CheckOverflow bool `compute:"check_overflow"`
+}
+
+func (ArithmeticOptions) TypeName() string { return "ArithmeticOptions" }
+
+type CastOptions struct {
+	ToType               arrow.DataType `compute:"to_type"`
+	AllowIntOverflow     bool           `compute:"allow_int_overflow"`
+	AllowTimeTruncate    bool           `compute:"allow_time_truncate"`
+	AllowTimeOverflow    bool           `compute:"allow_time_overflow"`
+	AllowDecimalTruncate bool           `compute:"allow_decimal_truncate"`
+	AllowFloatTruncate   bool           `compute:"allow_float_truncate"`
+	AllowInvalidUtf8     bool           `compute:"allow_invalid_utf8"`
+}
+
+func (CastOptions) TypeName() string { return "CastOptions" }
+
+func DefaultCastOptions(safe bool) *CastOptions {
+	if safe {
+		return &CastOptions{}
+	}
+	return &CastOptions{
+		AllowIntOverflow:     true,
+		AllowTimeTruncate:    true,
+		AllowTimeOverflow:    true,
+		AllowDecimalTruncate: true,
+		AllowFloatTruncate:   true,
+		AllowInvalidUtf8:     true,
+	}
+}
+
+func NewCastOptions(dt arrow.DataType, safe bool) *CastOptions {
+	opts := DefaultCastOptions(safe)
+	if dt != nil {
+		opts.ToType = dt
+	} else {
+		opts.ToType = arrow.Null
+	}
+	return opts
+}
+
+func Cast(ex Expression, dt arrow.DataType) Expression {
+	opts := &CastOptions{}
+	if dt == nil {
+		opts.ToType = arrow.Null
+	} else {
+		opts.ToType = dt
+	}
+
+	return NewCall("cast", []Expression{ex}, opts)
+}
 
 // NewLiteral constructs a new literal expression from any value. It is passed
 // to NewDatum which will construct the appropriate Datum and/or scalar
