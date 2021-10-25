@@ -102,10 +102,10 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
   }
 }
 
-int64_t ExecBatch::EstimateBufferSize() const {
+int64_t ExecBatch::TotalBufferSize() const {
   int64_t sum = 0;
   for (const auto& value : values) {
-    sum += value.EstimateBufferSize();
+    sum += value.TotalBufferSize();
   }
   return sum;
 }

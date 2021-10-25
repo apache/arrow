@@ -17,52 +17,89 @@
 
 #include "arrow/util/byte_size.h"
 
+#include <cstdint>
+#include <unordered_set>
+
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+
 namespace arrow {
 
 namespace util {
 
-int64_t EstimateBufferSize(const ArrayData& array_data) {
+namespace {
+
+int64_t DoTotalBufferSize(const ArrayData& array_data,
+                          std::unordered_set<const uint8_t*>* seen_buffers) {
   int64_t sum = 0;
   for (const auto& buffer : array_data.buffers) {
-    if (buffer) {
+    if (buffer && seen_buffers->insert(buffer->data()).second) {
       sum += buffer->size();
     }
   }
   for (const auto& child : array_data.child_data) {
-    sum += EstimateBufferSize(*child);
+    sum += DoTotalBufferSize(*child, seen_buffers);
   }
   if (array_data.dictionary) {
-    sum += EstimateBufferSize(*array_data.dictionary);
+    sum += DoTotalBufferSize(*array_data.dictionary, seen_buffers);
   }
   return sum;
 }
 
-int64_t EstimateBufferSize(const Array& array) {
-  return EstimateBufferSize(*array.data());
+int64_t DoTotalBufferSize(const Array& array,
+                          std::unordered_set<const uint8_t*>* seen_buffers) {
+  return DoTotalBufferSize(*array.data(), seen_buffers);
 }
 
-int64_t EstimateBufferSize(const ChunkedArray& chunked_array) {
+int64_t DoTotalBufferSize(const ChunkedArray& chunked_array,
+                          std::unordered_set<const uint8_t*>* seen_buffers) {
   int64_t sum = 0;
   for (const auto& chunk : chunked_array.chunks()) {
-    sum += EstimateBufferSize(*chunk);
+    sum += DoTotalBufferSize(*chunk, seen_buffers);
   }
   return sum;
 }
 
-int64_t EstimateBufferSize(const RecordBatch& record_batch) {
+int64_t DoTotalBufferSize(const RecordBatch& record_batch,
+                          std::unordered_set<const uint8_t*>* seen_buffers) {
   int64_t sum = 0;
   for (const auto& column : record_batch.columns()) {
-    sum += EstimateBufferSize(*column);
+    sum += DoTotalBufferSize(*column, seen_buffers);
   }
   return sum;
 }
 
-int64_t EstimateBufferSize(const Table& table) {
+int64_t DoTotalBufferSize(const Table& table,
+                          std::unordered_set<const uint8_t*>* seen_buffers) {
   int64_t sum = 0;
   for (const auto& column : table.columns()) {
-    sum += EstimateBufferSize(*column);
+    sum += DoTotalBufferSize(*column, seen_buffers);
   }
   return sum;
+}
+
+}  // namespace
+
+int64_t TotalBufferSize(const ArrayData& array_data) {
+  std::unordered_set<const uint8_t*> seen_buffers;
+  return DoTotalBufferSize(array_data, &seen_buffers);
+}
+
+int64_t TotalBufferSize(const Array& array) { return TotalBufferSize(*array.data()); }
+
+int64_t TotalBufferSize(const ChunkedArray& chunked_array) {
+  std::unordered_set<const uint8_t*> seen_buffers;
+  return DoTotalBufferSize(chunked_array, &seen_buffers);
+}
+
+int64_t TotalBufferSize(const RecordBatch& record_batch) {
+  std::unordered_set<const uint8_t*> seen_buffers;
+  return DoTotalBufferSize(record_batch, &seen_buffers);
+}
+
+int64_t TotalBufferSize(const Table& table) {
+  std::unordered_set<const uint8_t*> seen_buffers;
+  return DoTotalBufferSize(table, &seen_buffers);
 }
 
 }  // namespace util

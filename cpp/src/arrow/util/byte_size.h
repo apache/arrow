@@ -27,25 +27,26 @@ namespace arrow {
 
 namespace util {
 
-/// \brief Estimate the size (in bytes) of all buffers
+/// \brief The sum of bytes in each buffer referenced by the array
 ///
-/// Note: This will overestimate if there is an offset.
-///       See ARROW-14356
-/// Note: This will overestimate if any buffers are shared.
-///       See ARROW-14357
-int64_t EstimateBufferSize(const ArrayData& array_data);
-/// \brief Estimate the size (in bytes) of all buffers
+/// Note: An array may only reference a portion of a buffer.
+///       This method will overestimate in this case and return the
+///       byte size of the entire buffer.
+/// Note: If a buffer is referenced multiple times then it will
+///       only be counted once.
+int64_t ARROW_EXPORT TotalBufferSize(const ArrayData& array_data);
+/// \brief The sum of bytes in each buffer referenced by the array
 /// Note: The caveats on the ArrayData overload apply here as well
-int64_t EstimateBufferSize(const Array& array);
-/// \brief Estimate the size (in bytes) of all buffers
+int64_t ARROW_EXPORT TotalBufferSize(const Array& array);
+/// \brief The sum of bytes in each buffer referenced by the array
 /// Note: The caveats on the ArrayData overload apply here as well
-int64_t EstimateBufferSize(const ChunkedArray& chunked_array);
-/// \brief Estimate the size (in bytes) of all buffers
+int64_t ARROW_EXPORT TotalBufferSize(const ChunkedArray& chunked_array);
+/// \brief The sum of bytes in each buffer referenced by the batch
 /// Note: The caveats on the ArrayData overload apply here as well
-int64_t EstimateBufferSize(const RecordBatch& record_batch);
-/// \brief Estimate the size (in bytes) of all buffers
+int64_t ARROW_EXPORT TotalBufferSize(const RecordBatch& record_batch);
+/// \brief The sum of bytes in each buffer referenced by the table
 /// Note: The caveats on the ArrayData overload apply here as well
-int64_t EstimateBufferSize(const Table& table);
+int64_t ARROW_EXPORT TotalBufferSize(const Table& table);
 
 }  // namespace util
 

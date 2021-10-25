@@ -129,19 +129,17 @@ int64_t Datum::length() const {
   }
 }
 
-int64_t Datum::EstimateBufferSize() const {
+int64_t Datum::TotalBufferSize() const {
   switch (this->kind()) {
     case Datum::ARRAY:
-      return util::EstimateBufferSize(
-          *util::get<std::shared_ptr<ArrayData>>(this->value));
+      return util::TotalBufferSize(*util::get<std::shared_ptr<ArrayData>>(this->value));
     case Datum::CHUNKED_ARRAY:
-      return util::EstimateBufferSize(
+      return util::TotalBufferSize(
           *util::get<std::shared_ptr<ChunkedArray>>(this->value));
     case Datum::RECORD_BATCH:
-      return util::EstimateBufferSize(
-          *util::get<std::shared_ptr<RecordBatch>>(this->value));
+      return util::TotalBufferSize(*util::get<std::shared_ptr<RecordBatch>>(this->value));
     case Datum::TABLE:
-      return util::EstimateBufferSize(*util::get<std::shared_ptr<Table>>(this->value));
+      return util::TotalBufferSize(*util::get<std::shared_ptr<Table>>(this->value));
     case Datum::SCALAR:
       return 0;
     default:

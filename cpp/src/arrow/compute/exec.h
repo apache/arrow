@@ -212,14 +212,14 @@ struct ARROW_EXPORT ExecBatch {
   /// by ExecBatchIterator which by design does not yield length-0 batches.
   int64_t length;
 
-  /// \brief Estimate the size of the batch (in bytes)
+  /// \brief The sum of bytes in each buffer referenced by the batch
   ///
   /// Note: Scalars are not counted
-  /// Note: If any values share buffers then this method
-  ///       will overestimate the size. (ARROW-14357)
-  /// Note: If any values have an offset then this method
-  ///       will overestimate the size. (ARROW-14356)
-  int64_t EstimateBufferSize() const;
+  /// Note: Some values may referenced only part of a buffer, for
+  ///       example, an array with an offset.  The actual data
+  ///       visible to this batch will be smaller than the total
+  ///       buffer size in this case.
+  int64_t TotalBufferSize() const;
 
   /// \brief Return the value at the i-th index
   template <typename index_type>
