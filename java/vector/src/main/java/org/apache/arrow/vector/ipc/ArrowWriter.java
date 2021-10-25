@@ -29,6 +29,7 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -100,6 +101,50 @@ public abstract class ArrowWriter implements AutoCloseable {
           Collections.singletonList(vector.getField()),
           Collections.singletonList(vector),
           count);
+      VectorUnloader unloader = new VectorUnloader(dictRoot);
+      ArrowRecordBatch batch = unloader.getRecordBatch();
+      this.dictionaries.add(new ArrowDictionaryBatch(id, batch));
+    }
+
+    this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
+  }
+
+  /**
+   * Note: fields are not closed when the writer is closed.
+   *
+   * @param root     the vectors to write to the output
+   * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
+   * @param codec the codec for compressing data. If it is null, then no compression is needed.
+   * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
+   * @param provider where to find the dictionaries
+   * @param out      the output where to write
+   * @param option   IPC write options
+   */
+  protected ArrowWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                        boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
+    this.unloader = new VectorUnloader(root, includeNullCount, codec, alignBuffers);
+    this.out = new WriteChannel(out);
+    this.option = option;
+
+    List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
+    Set<Long> dictionaryIdsUsed = new HashSet<>();
+
+    MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option.metadataVersion);
+    // Convert fields with dictionaries to have dictionary type
+    for (Field field : root.getSchema().getFields()) {
+      fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
+    }
+
+    // Create a record batch for each dictionary
+    this.dictionaries = new ArrayList<>(dictionaryIdsUsed.size());
+    for (long id : dictionaryIdsUsed) {
+      Dictionary dictionary = provider.lookup(id);
+      FieldVector vector = dictionary.getVector();
+      int count = vector.getValueCount();
+      VectorSchemaRoot dictRoot = new VectorSchemaRoot(
+              Collections.singletonList(vector.getField()),
+              Collections.singletonList(vector),
+              count);
       VectorUnloader unloader = new VectorUnloader(dictRoot);
       ArrowRecordBatch batch = unloader.getRecordBatch();
       this.dictionaries.add(new ArrowDictionaryBatch(id, batch));
