@@ -23,6 +23,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -63,6 +64,48 @@ public class ArrowStreamWriter extends ArrowWriter {
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
       IpcOption option) {
     super(root, provider, out, option);
+  }
+
+  /**
+   * Construct an ArrowStreamWriter with an optional DictionaryProvider for the OutputStream.
+   *
+   * @param root Existing VectorSchemaRoot with vectors to be written.
+   * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
+   * @param codec the codec for compressing data. If it is null, then no compression is needed.
+   * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
+   *                 (Optional, can be null)
+   * @param out OutputStream for writing.
+   */
+  public ArrowStreamWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                           boolean alignBuffers, DictionaryProvider provider, OutputStream out) {
+    this(root, includeNullCount, codec, alignBuffers, provider, Channels.newChannel(out));
+  }
+
+  /**
+   * Construct an ArrowStreamWriter with an optional DictionaryProvider for the WritableByteChannel.
+   */
+  public ArrowStreamWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                           boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out) {
+    this(root, includeNullCount, codec, alignBuffers, provider, out, IpcOption.DEFAULT);
+  }
+
+  /**
+   * Construct an ArrowStreamWriter with an optional DictionaryProvider for the WritableByteChannel.
+   *
+   * @param root Existing VectorSchemaRoot with vectors to be written.
+   * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
+   * @param codec the codec for compressing data. If it is null, then no compression is needed.
+   * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
+   *                 (Optional, can be null)
+   * @param option IPC write options
+   * @param out WritableByteChannel for writing.
+   */
+  public ArrowStreamWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                           boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out,
+                           IpcOption option) {
+    super(root, includeNullCount, codec, alignBuffers, provider, out, option);
   }
 
   /**
