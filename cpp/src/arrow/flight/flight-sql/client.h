@@ -34,11 +34,11 @@ namespace internal {
 
 template <class T = arrow::flight::FlightClient>
 class ARROW_EXPORT PreparedStatementT {
+  T* client;
+  FlightCallOptions options;
   pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
   std::shared_ptr<RecordBatch> parameter_binding;
-  FlightCallOptions options;
   bool is_closed;
-  T* client;
 
  public:
   /// \brief Constructor for the PreparedStatement class.

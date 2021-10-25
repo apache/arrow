@@ -45,8 +45,8 @@ PreparedStatementT<T>::PreparedStatementT(
     pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result_,
     const FlightCallOptions& options_)
     : client(client_),
-      prepared_statement_result(std::move(prepared_statement_result_)),
-      options(options_) {
+      options(options_),
+      prepared_statement_result(std::move(prepared_statement_result_)) {
   is_closed = false;
 }
 

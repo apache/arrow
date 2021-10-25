@@ -25,26 +25,16 @@ set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
 set(FLIGHT_SQL_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
                                      "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.h")
 
-set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
+set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF})
 
 add_custom_command(OUTPUT ${FLIGHT_SQL_GENERATED_PROTO_FILES}
                    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
                            "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_SQL_PROTO}"
-                   DEPENDS ${PROTO_DEPENDS} ARGS
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
-                           "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
-                           "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
-                           "${FLIGHT_SQL_PROTO}")
+                   DEPENDS ${PROTO_DEPENDS})
 
 set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
-add_custom_target(flight_sql_grpc_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
-
-# <KLUDGE> -Werror / /WX cause try_compile to fail because there seems to be no
-# way to pass -isystem $GRPC_INCLUDE_DIR instead of -I$GRPC_INCLUDE_DIR
-set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
-string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
 set(ARROW_FLIGHT_SQL_SRCS server.cc)
 
@@ -60,7 +50,7 @@ add_arrow_lib(arrow_flight_sql
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/flight-sql/pch.h>"
               DEPENDENCIES
-              flight_sql_grpc_gen
+              flight_sql_protobuf_gen
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
@@ -79,34 +69,39 @@ else()
                                       ${ARROW_TEST_LINK_LIBS})
 endif()
 
-add_arrow_test(flight_sql_test
-               SOURCES
-               client_test.cc
-               server_test.cc
-               "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
-               STATIC_LINK_LIBS
-               ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-               GTest::gtest
-               GTest::gmock
-               LABELS
-               "arrow_flight_sql")
-
 add_executable(flight_sql_test_app test_app_cli.cc
                                    ${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc)
 target_link_libraries(flight_sql_test_app PRIVATE arrow_flight_sql_static
                                                   ${GFLAGS_LIBRARIES})
 
-find_package(SQLite3)
-include_directories(${SQLite3_INCLUDE_DIRS})
+add_arrow_test(flight_sql_test
+        SOURCES
+        client_test.cc
+        server_test.cc
+        "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
+        STATIC_LINK_LIBS
+        ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+        LABELS
+        "arrow_flight_sql")
 
-add_executable(flight_sql_test_server
-               server.cc
-               test_server_cli.cc
-               example/sqlite_statement.cc
-               example/sqlite_statement_batch_reader.cc
-               example/sqlite_server.cc
-               example/sqlite_tables_schema_batch_reader.cpp
-               "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
-target_link_libraries(flight_sql_test_server
-                      PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}
-                              ${SQLite3_LIBRARIES})
+# Build test server for unit tests
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
+  find_package(SQLite3)
+  include_directories(${SQLite3_INCLUDE_DIRS})
+
+  add_executable(flight_sql_test_server
+          server.cc
+          test_server_cli.cc
+          example/sqlite_statement.cc
+          example/sqlite_statement_batch_reader.cc
+          example/sqlite_server.cc
+          example/sqlite_tables_schema_batch_reader.cpp
+          "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
+  target_link_libraries(flight_sql_test_server
+          PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}
+          ${SQLite3_LIBRARIES})
+
+  if(ARROW_BUILD_TESTS)
+    add_dependencies(arrow-flight-sql-test flight_sql_test_server)
+  endif()
+endif()
