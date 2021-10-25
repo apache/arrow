@@ -1258,6 +1258,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   }
 
   Future<> ReadFooterAsync(arrow::internal::Executor* executor) {
+    // When reading the footer, read this much additional data in an
+    // attempt to avoid a second I/O operation (which can be slow on a
+    // high-latency filesystem like S3)
+    constexpr static int kFooterReadaheadSize = 512 * 1024;
+
     const int32_t magic_size = static_cast<int>(strlen(kArrowMagicBytes));
 
     if (footer_offset_ <= magic_size * 2 + 4) {
@@ -1265,8 +1270,12 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     }
 
     int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
+    int readahead = std::min<int>(kFooterReadaheadSize,
+                                  static_cast<int>(footer_offset_ - file_end_size));
+    file_end_size = file_end_size;
     auto self = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
-    auto read_magic = file_->ReadAsync(footer_offset_ - file_end_size, file_end_size);
+    auto read_magic = file_->ReadAsync(footer_offset_ - file_end_size - readahead,
+                                       file_end_size + readahead);
     if (executor) read_magic = executor->Transfer(std::move(read_magic));
     return read_magic
         .Then([=](const std::shared_ptr<Buffer>& buffer)
@@ -1277,19 +1286,24 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
                                    "from end of file");
           }
 
-          if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
+          const uint8_t* magic_start = buffer->data() + readahead;
+          if (memcmp(magic_start + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
             return Status::Invalid("Not an Arrow file");
           }
 
-          int32_t footer_length = BitUtil::FromLittleEndian(
-              *reinterpret_cast<const int32_t*>(buffer->data()));
-
+          int32_t footer_length =
+              BitUtil::FromLittleEndian(util::SafeLoadAs<int32_t>(magic_start));
           if (footer_length <= 0 ||
               footer_length > self->footer_offset_ - magic_size * 2 - 4) {
             return Status::Invalid("File is smaller than indicated metadata size");
           }
 
           // Now read the footer
+          if (footer_length <= readahead) {
+            return SliceBuffer(buffer, buffer->size() - file_end_size - footer_length,
+                               footer_length);
+          }
+
           auto read_footer = self->file_->ReadAsync(
               self->footer_offset_ - footer_length - file_end_size, footer_length);
           if (executor) read_footer = executor->Transfer(std::move(read_footer));
