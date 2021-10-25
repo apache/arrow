@@ -120,10 +120,10 @@ test_that("paste, paste0, and str_c", {
 
   # sep is literal NA
   # errors in paste() (consistent with base::paste())
-  expect_error(
-    nse_funcs$paste(x, y, sep = NA_character_),
-    "Invalid separator"
-  )
+  expect_snapshot({
+    (expect_error(nse_funcs$paste(x, y, sep = NA_character_)))
+  })
+
   # emits null in str_c() (consistent with stringr::str_c())
   expect_dplyr_equal(
     input %>%
@@ -154,29 +154,15 @@ test_that("paste, paste0, and str_c", {
 
   # expected errors
 
-  # collapse argument not supported
-  expect_error(
-    nse_funcs$paste(x, y, collapse = ""),
-    "collapse"
-  )
-  expect_error(
-    nse_funcs$paste0(x, y, collapse = ""),
-    "collapse"
-  )
-  expect_error(
-    nse_funcs$str_c(x, y, collapse = ""),
-    "collapse"
-  )
-
-  # literal vectors of length != 1 not supported
-  expect_error(
-    nse_funcs$paste(x, character(0), y),
-    "Literal vectors of length != 1 not supported in string concatenation"
-  )
-  expect_error(
-    nse_funcs$paste(x, c(",", ";"), y),
-    "Literal vectors of length != 1 not supported in string concatenation"
-  )
+  expect_snapshot({
+    # collapse argument not supported
+    (expect_error(nse_funcs$paste(x, y, collapse = "")))
+    (expect_error(nse_funcs$paste0(x, y, collapse = "")))
+    (expect_error(nse_funcs$str_c(x, y, collapse = "")))
+    # literal vectors of length != 1 not supported
+    (expect_error(nse_funcs$paste(x, character(0), y)))
+    (expect_error(nse_funcs$paste(x, c(",", ";"), y)))
+  })
 })
 
 test_that("grepl with ignore.case = FALSE and fixed = TRUE", {
@@ -481,11 +467,9 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
   )
 
   # Error checking a single function because they all use the same code path.
-  expect_error(
-    nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
-    "Providing a value for 'locale' other than the default ('en') is not supported by Arrow",
-    fixed = TRUE
-  )
+  expect_snapshot({
+    (expect_error(nse_funcs$str_to_lower("Apache Arrow", locale = "sp")))
+  })
 })
 
 test_that("arrow_*_split_whitespace functions", {
@@ -545,51 +529,28 @@ test_that("errors and warnings in string splitting", {
   # so here we can just call the functions directly
 
   x <- Expression$field_ref("x")
-  expect_error(
-    nse_funcs$str_split(x, fixed("and", ignore_case = TRUE)),
-    "Case-insensitive string splitting not supported by Arrow"
-  )
-  expect_error(
-    nse_funcs$str_split(x, coll("and.?")),
-    "Pattern modifier `coll()` not supported by Arrow",
-    fixed = TRUE
-  )
-  expect_error(
-    nse_funcs$str_split(x, boundary(type = "word")),
-    "Pattern modifier `boundary()` not supported by Arrow",
-    fixed = TRUE
-  )
-  expect_error(
-    nse_funcs$str_split(x, "and", n = 0),
-    "Splitting strings into zero parts not supported by Arrow"
-  )
 
-  # This condition generates a warning
-  expect_warning(
-    nse_funcs$str_split(x, fixed("and"), simplify = TRUE),
-    "Argument 'simplify = TRUE' will be ignored"
-  )
+  expect_snapshot({
+    (expect_error(nse_funcs$str_split(x, fixed("and", ignore_case = TRUE))))
+    (expect_error(nse_funcs$str_split(x, coll("and.?"))))
+    (expect_error(nse_funcs$str_split(x, boundary(type = "word"))))
+    (expect_error(nse_funcs$str_split(x, "and", n = 0)))
+    # This condition generates a warning
+    (expect_warning(nse_funcs$str_split(x, fixed("and"), simplify = TRUE)))
+  })
 })
 
 test_that("errors and warnings in string detection and replacement", {
   x <- Expression$field_ref("x")
 
-  expect_error(
-    nse_funcs$str_detect(x, boundary(type = "character")),
-    "Pattern modifier `boundary()` not supported by Arrow",
-    fixed = TRUE
-  )
-  expect_error(
-    nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó"),
-    "Pattern modifier `coll()` not supported by Arrow",
-    fixed = TRUE
-  )
-
-  # This condition generates a warning
-  expect_warning(
-    nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u"),
-    "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
-  )
+  expect_snapshot({
+    (expect_error(nse_funcs$str_detect(x, boundary(type = "character"))))
+    (expect_error(nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó")))
+    # This condition generates a warning
+    (expect_warning(
+      nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u")
+    ))
+  })
 })
 
 test_that("backreferences in pattern in string detection", {
@@ -746,10 +707,9 @@ test_that("strptime", {
 test_that("errors in strptime", {
   # Error when tz is passed
   x <- Expression$field_ref("x")
-  expect_error(
-    nse_funcs$strptime(x, tz = "PDT"),
-    "Time zone argument not supported by Arrow"
-  )
+  expect_snapshot({
+    (expect_error(nse_funcs$strptime(x, tz = "PDT")))
+  })
 })
 
 test_that("strftime", {
@@ -1142,15 +1102,10 @@ test_that("substr", {
     df
   )
 
-  expect_error(
-    nse_funcs$substr("Apache Arrow", c(1, 2), 3),
-    "`start` must be length 1 - other lengths are not supported in Arrow"
-  )
-
-  expect_error(
-    nse_funcs$substr("Apache Arrow", 1, c(2, 3)),
-    "`stop` must be length 1 - other lengths are not supported in Arrow"
-  )
+  expect_snapshot({
+    (expect_error(nse_funcs$substr("Apache Arrow", c(1, 2), 3)))
+    (expect_error(nse_funcs$substr("Apache Arrow", 1, c(2, 3))))
+  })
 })
 
 test_that("substring", {
@@ -1238,15 +1193,10 @@ test_that("str_sub", {
     df
   )
 
-  expect_error(
-    nse_funcs$str_sub("Apache Arrow", c(1, 2), 3),
-    "`start` must be length 1 - other lengths are not supported in Arrow"
-  )
-
-  expect_error(
-    nse_funcs$str_sub("Apache Arrow", 1, c(2, 3)),
-    "`end` must be length 1 - other lengths are not supported in Arrow"
-  )
+  expect_snapshot({
+    (expect_error(nse_funcs$str_sub("Apache Arrow", c(1, 2), 3)))
+    (expect_error(nse_funcs$str_sub("Apache Arrow", 1, c(2, 3))))
+  })
 })
 
 test_that("str_starts, str_ends, startsWith, endsWith", {
