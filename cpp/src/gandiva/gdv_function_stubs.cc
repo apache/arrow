@@ -892,6 +892,83 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
 
   return ret;
 }
+
+GANDIVA_EXPORT
+const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_len,
+                                int32_t n_to_mask, int32_t* out_len) {
+  if (data_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  std::string str(data, data_len);
+  int32_t counter = 0;
+  for(char& c : str) {
+    if (n_to_mask > 0 && counter < n_to_mask && isalnum(c)) {
+      if (isdigit(c)) {
+        c = 'n';
+      } else {
+        if (isupper(c)) {
+          c = 'X';
+        } else {
+          c = 'x';
+        }
+      }
+      counter++;
+    }
+  }
+
+  *out_len = static_cast<int32_t>(str.size());
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(out, str.c_str(), *out_len);
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_mask_last_n(int64_t context, const char* data, int32_t data_len,
+                                int32_t n_to_mask, int32_t* out_len) {
+  if (data_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  std::string str(data, data_len);
+  std::reverse(str.begin(), str.end());
+  int32_t counter = 0;
+  for(char& c : str) {
+    if (n_to_mask > 0 && counter < n_to_mask && isalnum(c)) {
+      if (isdigit(c)) {
+        c = 'n';
+      } else {
+        if (isupper(c)) {
+          c = 'X';
+        } else {
+          c = 'x';
+        }
+      }
+      counter++;
+    }
+  }
+  std::reverse(str.begin(), str.end());
+  *out_len = static_cast<int32_t>(str.size());
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(out, str.c_str(), *out_len);
+  return out;
+}
 }
 
 namespace gandiva {
@@ -1938,5 +2015,31 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_aes_decrypt));
+
+  // gdv_fn_mask_first_n
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i32_type(),     // n_to_mask
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_mask_first_n",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_mask_first_n));
+
+  // gdv_fn_mask_last_n
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i32_type(),     // n_to_mask
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_mask_last_n",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_mask_last_n));
 }
 }  // namespace gandiva

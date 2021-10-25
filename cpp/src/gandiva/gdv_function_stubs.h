@@ -187,4 +187,12 @@ GANDIVA_EXPORT
 const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_len,
                                const char* key_data, int32_t key_data_len,
                                int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_len,
+                                int32_t n_to_mask, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_mask_last_n(int64_t context, const char* data, int32_t data_len,
+                                int32_t n_to_mask, int32_t* out_len);
 }
