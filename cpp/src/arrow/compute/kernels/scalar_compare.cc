@@ -65,21 +65,6 @@ struct GreaterEqual {
   }
 };
 
-template <typename T>
-using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
-                                                             std::is_unsigned<T>::value>;
-
-template <typename T>
-using is_signed_integer =
-    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
-
-template <typename T>
-using enable_if_c_integer =
-    enable_if_t<is_signed_integer<T>::value || is_unsigned_integer<T>::value, T>;
-
-template <typename T>
-using enable_if_floating_value = enable_if_t<std::is_floating_point<T>::value, T>;
-
 struct Minimum {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T> Call(Arg0 left, Arg1 right) {
@@ -88,7 +73,7 @@ struct Minimum {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(Arg0 left, Arg1 right) {
+  static enable_if_integer_value<T> Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::min(left, right);
   }
@@ -104,7 +89,7 @@ struct Minimum {
   }
 
   template <typename T>
-  static constexpr enable_if_c_integer<T> antiextreme() {
+  static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::max();
   }
 };
@@ -117,7 +102,7 @@ struct Maximum {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(Arg0 left, Arg1 right) {
+  static enable_if_integer_value<T> Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::max(left, right);
   }
@@ -133,7 +118,7 @@ struct Maximum {
   }
 
   template <typename T>
-  static constexpr enable_if_c_integer<T> antiextreme() {
+  static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::min();
   }
 };

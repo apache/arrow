@@ -53,32 +53,6 @@ namespace {
 // N.B. take care not to conflict with type_traits.h as that can cause surprises in a
 // unity build
 
-template <typename T>
-using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
-                                                             std::is_unsigned<T>::value>;
-
-template <typename T>
-using is_signed_integer =
-    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
-
-template <typename T, typename R = T>
-using enable_if_signed_c_integer = enable_if_t<is_signed_integer<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_unsigned_c_integer = enable_if_t<is_unsigned_integer<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_c_integer =
-    enable_if_t<is_signed_integer<T>::value || is_unsigned_integer<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_floating_value = enable_if_t<std::is_floating_point<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_decimal_value =
-    enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
-                R>;
-
 struct AbsoluteValue {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
@@ -87,21 +61,22 @@ struct AbsoluteValue {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                             Status*) {
+  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                                 Status*) {
     return arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                           Status* st) {
+  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                               Status* st) {
     return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
   }
 };
 
 struct AbsoluteValueChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                     Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == std::numeric_limits<Arg>::min()) {
       *st = Status::Invalid("overflow");
@@ -111,8 +86,8 @@ struct AbsoluteValueChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_c_integer<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                   Status* st) {
+  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
+                                                       Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return arg;
   }
@@ -133,14 +108,14 @@ struct Add {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                        Arg1 right, Status*) {
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
     return left + right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                      Arg1 right, Status*) {
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
     return arrow::internal::SafeSignedAdd(left, right);
   }
 
@@ -152,7 +127,8 @@ struct Add {
 
 struct AddChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
@@ -183,15 +159,15 @@ struct Subtract {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                        Arg1 right, Status*) {
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                      Arg1 right, Status*) {
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return arrow::internal::SafeSignedSubtract(left, right);
   }
@@ -204,7 +180,8 @@ struct Subtract {
 
 struct SubtractChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
@@ -244,14 +221,14 @@ struct Multiply {
 
   template <typename T, typename Arg0, typename Arg1>
   static constexpr enable_if_t<
-      is_unsigned_integer<T>::value && !std::is_same<T, uint16_t>::value, T>
+      is_unsigned_integer_value<T>::value && !std::is_same<T, uint16_t>::value, T>
   Call(KernelContext*, T left, T right, Status*) {
     return left * right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static constexpr enable_if_t<
-      is_signed_integer<T>::value && !std::is_same<T, int16_t>::value, T>
+      is_signed_integer_value<T>::value && !std::is_same<T, int16_t>::value, T>
   Call(KernelContext*, T left, T right, Status*) {
     return to_unsigned(left) * to_unsigned(right);
   }
@@ -279,7 +256,8 @@ struct Multiply {
 
 struct MultiplyChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, right, &result))) {
@@ -309,7 +287,8 @@ struct Divide {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     T result;
     if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
       if (right == 0) {
@@ -335,7 +314,8 @@ struct Divide {
 
 struct DivideChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result;
     if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
@@ -373,20 +353,22 @@ struct Negate {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg arg,
+                                                            Status*) {
     return ~arg + 1;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg arg,
+                                                          Status*) {
     return arrow::internal::SafeSignedNegate(arg);
   }
 };
 
 struct NegateChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                     Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(NegateWithOverflow(arg, &result))) {
@@ -396,8 +378,8 @@ struct NegateChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_c_integer<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                   Status* st) {
+  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
+                                                       Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     DCHECK(false) << "This is included only for the purposes of instantiability from the "
                      "arithmetic kernel generator";
@@ -426,7 +408,7 @@ struct Power {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, T base, T exp, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, T base, T exp, Status* st) {
     if (exp < 0) {
       *st = Status::Invalid("integers to negative integer powers are not allowed");
       return 0;
@@ -442,7 +424,8 @@ struct Power {
 
 struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 base, Arg1 exp,
+                                         Status* st) {
     if (exp < 0) {
       *st = Status::Invalid("integers to negative integer powers are not allowed");
       return 0;
@@ -482,14 +465,14 @@ struct Sign {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                             Status*) {
+  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                                 Status*) {
     return (arg > 0) ? 1 : 0;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                           Status*) {
+  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                               Status*) {
     return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 };
@@ -539,8 +522,8 @@ struct ShiftLeft {
 // See SEI CERT C Coding Standard rule INT34-C
 struct ShiftLeftChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
-                                              Status* st) {
+  static enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
+                                                  Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
       *st = Status::Invalid("shift amount must be >= 0 and less than precision of type");
@@ -550,8 +533,8 @@ struct ShiftLeftChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_signed_c_integer<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
-                                            Status* st) {
+  static enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
+                                                Status* st) {
     using Unsigned = typename std::make_unsigned<Arg0>::type;
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
