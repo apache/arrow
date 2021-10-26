@@ -903,7 +903,7 @@ const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_
 
   std::string str(data, data_len);
   int32_t counter = 0;
-  for(char& c : str) {
+  for (char& c : str) {
     if (n_to_mask > 0 && counter < n_to_mask && isalnum(c)) {
       if (isdigit(c)) {
         c = 'n';
@@ -933,7 +933,7 @@ const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_
 
 GANDIVA_EXPORT
 const char* gdv_fn_mask_last_n(int64_t context, const char* data, int32_t data_len,
-                                int32_t n_to_mask, int32_t* out_len) {
+                               int32_t n_to_mask, int32_t* out_len) {
   if (data_len <= 0) {
     *out_len = 0;
     return "";
@@ -942,7 +942,7 @@ const char* gdv_fn_mask_last_n(int64_t context, const char* data, int32_t data_l
   std::string str(data, data_len);
   std::reverse(str.begin(), str.end());
   int32_t counter = 0;
-  for(char& c : str) {
+  for (char& c : str) {
     if (n_to_mask > 0 && counter < n_to_mask && isalnum(c)) {
       if (isdigit(c)) {
         c = 'n';
