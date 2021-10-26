@@ -364,7 +364,7 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
   auto type = this->type();

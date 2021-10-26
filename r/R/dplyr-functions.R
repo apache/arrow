@@ -645,6 +645,19 @@ nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
   out
 }
 
+nse_funcs$str_count <- function(string, pattern) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (!is.string(pattern)) {
+    arrow_not_supported("`pattern` must be a length 1 character vector; other values")
+  }
+  arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
+  Expression$create(
+    arrow_fun,
+    string,
+    options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+  )
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2

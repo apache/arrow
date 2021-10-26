@@ -414,7 +414,7 @@ test_js() {
   if [ "${INSTALL_NODE}" -gt 0 ]; then
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | \
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
@@ -423,7 +423,9 @@ test_js() {
   fi
 
   yarn --frozen-lockfile
-  yarn run-s clean:all lint build
+  yarn clean:all
+  yarn lint
+  yarn build
   yarn test
   popd
 }
@@ -444,7 +446,8 @@ test_ruby() {
 
   for module in ${modules}; do
     pushd ${module}
-    bundle install --path vendor/bundle
+    bundle config set --local path 'vendor/bundle'
+    bundle install
     bundle exec ruby test/run-test.rb
     popd
   done

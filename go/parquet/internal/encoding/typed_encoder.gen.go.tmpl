@@ -56,15 +56,15 @@ type {{.lower}}EncoderTraits struct{}
 
 // Encoder returns an encoder for {{.lower}} type data, using the specified encoding type and whether or not
 // it should be dictionary encoded.
-{{- if or (eq .Name "Boolean") (eq .Name "Int96")}}
+{{- if or (eq .Name "Boolean") }}
 // dictionary encoding does not exist for this type and Encoder will panic if useDict is true
 {{- end }}
 func ({{.lower}}EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.Column, mem memory.Allocator) TypedEncoder {
   if useDict {
-{{- if or (eq .Name "Boolean") (eq .Name "Int96")}}
+{{- if or (eq .Name "Boolean") }}
     panic("parquet: no {{.name}} dictionary encoding")
 {{- else}}
-    return &Dict{{.Name}}Encoder{newDictEncoderBase(descr, New{{if and (ne .Name "ByteArray") (ne .Name "FixedLenByteArray")}}{{.Name}}Dictionary(){{else}}BinaryDictionary(mem){{end}}, mem)}
+    return &Dict{{.Name}}Encoder{newDictEncoderBase(descr, New{{if and (ne .Name "Int96") (ne .Name "ByteArray") (ne .Name "FixedLenByteArray")}}{{.Name}}Dictionary(){{else}}BinaryDictionary(mem){{end}}, mem)}
 {{- end}}
   }
 
@@ -105,7 +105,7 @@ func ({{.lower}}DecoderTraits) BytesRequired(n int) int {
 // Decoder returns a decoder for {{.lower}} typed data of the requested encoding type if available
 func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useDict bool, mem memory.Allocator) TypedDecoder {
   if useDict {
-{{- if and (ne .Name "Boolean") (ne .Name "Int96")}}
+{{- if and (ne .Name "Boolean") }}
     return &Dict{{.Name}}Decoder{dictDecoder{decoder: newDecoderBase(format.Encoding_RLE_DICTIONARY, descr), mem: mem}}
 {{- else}}
     panic("dictionary decoding unimplemented for {{.lower}}")
@@ -150,7 +150,7 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
   }
 }
 
-{{if and (ne .Name "Boolean") (ne .Name "Int96")}}
+{{if and (ne .Name "Boolean") }}
 // Dict{{.Name}}Encoder is an encoder for {{.name}} data using dictionary encoding
 type Dict{{.Name}}Encoder struct {
   dictEncoder
@@ -162,6 +162,12 @@ func (enc *Dict{{.Name}}Encoder) Type() parquet.Type {
 }
 
 {{if and (ne .Name "ByteArray") (ne .Name "FixedLenByteArray")}}
+{{if (ne .Name "Int96")}}
+// WriteDict populates the byte slice with the dictionary index
+func (enc *Dict{{.Name}}Encoder) WriteDict(out []byte) {
+  enc.memo.CopyValues({{.prefix}}.{{.Name}}Traits.CastFromBytes(out))
+}
+
 // Put encodes the values passed in, adding to the index as needed.
 func (enc *Dict{{.Name}}Encoder) Put(in []{{.name}}) {
   for _, val := range in {
@@ -179,6 +185,34 @@ func (enc *Dict{{.Name}}Encoder) PutSpaced(in []{{.name}}, validBits []byte, val
     return nil
   })
 }
+{{else}}
+// WriteDict populates the byte slice with the dictionary index
+func (enc *DictInt96Encoder) WriteDict(out []byte) {
+  enc.memo.(BinaryMemoTable).CopyFixedWidthValues(0, parquet.Int96SizeBytes, out)
+}
+
+// Put encodes the values passed in, adding to the index as needed
+func (enc *DictInt96Encoder) Put(in []parquet.Int96) {
+  for _, v := range in {
+    memoIdx, found, err := enc.memo.GetOrInsert(v)
+    if err != nil {
+      panic(err)
+    }
+    if !found {
+      enc.dictEncodedSize += parquet.Int96SizeBytes
+    }
+    enc.addIndex(memoIdx)
+  }
+}
+
+// PutSpaced is like Put but assumes space for nulls
+func (enc *DictInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, validBitsOffset int64) {
+  utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+    enc.Put(in[pos : pos+length])
+    return nil
+  })
+}
+{{end}}
 {{end}}
 
 // Dict{{.Name}}Decoder is a decoder for decoding dictionary encoded data for {{.name}} columns
@@ -302,7 +336,7 @@ func (dc *{{.Name}}DictConverter) Copy(out interface{}, vals []utils.IndexType) 
 // decoder as the decoder to decode the dictionary index.
 func NewDictConverter(dict TypedDecoder) utils.DictionaryConverter {
   switch dict.Type() {
-  {{ range .In }}{{ if and (ne .Name "Boolean") (ne .Name "Int96") -}}
+  {{ range .In }}{{ if and (ne .Name "Boolean") -}}
   case parquet.Types.{{if .physical }}{{.physical}}{{else}}{{.Name}}{{end}}:
     return &{{.Name}}DictConverter{valueDecoder: dict.({{.Name}}Decoder), dict: make([]{{.name}}, 0, dict.ValuesLeft())}
   {{ end }}{{ end -}}

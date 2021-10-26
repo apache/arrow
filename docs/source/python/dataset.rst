@@ -598,8 +598,10 @@ to supply a visitor that will be called as each file is created:
         print(f"path={written_file.path}")
         print(f"metadata={written_file.metadata}")
 
+.. ipython:: python
+
     ds.write_dataset(table, base / "dataset_visited", format="parquet", partitioning=part,
-                    file_visitor=file_visitor)
+                     file_visitor=file_visitor)
 
 This will allow you to collect the filenames that belong to the dataset and store them elsewhere
 which can be useful when you want to avoid scanning directories the next time you need to read

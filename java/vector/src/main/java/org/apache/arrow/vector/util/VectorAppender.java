@@ -25,6 +25,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
@@ -83,9 +84,16 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
             deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
 
     // append data buffer
-    PlatformDependent.copyMemory(deltaVector.getDataBuffer().memoryAddress(),
-            targetVector.getDataBuffer().memoryAddress() + deltaVector.getTypeWidth() * targetVector.getValueCount(),
-            deltaVector.getTypeWidth() * deltaVector.getValueCount());
+    if (targetVector instanceof BitVector) {
+      // special processing for bit vector, as its type width is 0
+      BitVectorHelper.concatBits(targetVector.getDataBuffer(), targetVector.getValueCount(),
+              deltaVector.getDataBuffer(), deltaVector.getValueCount(), targetVector.getDataBuffer());
+
+    } else {
+      PlatformDependent.copyMemory(deltaVector.getDataBuffer().memoryAddress(),
+              targetVector.getDataBuffer().memoryAddress() + deltaVector.getTypeWidth() * targetVector.getValueCount(),
+              deltaVector.getTypeWidth() * deltaVector.getValueCount());
+    }
     targetVector.setValueCount(newValueCount);
     return targetVector;
   }
