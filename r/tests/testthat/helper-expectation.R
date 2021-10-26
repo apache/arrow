@@ -91,7 +91,7 @@ compare_dplyr_binding <- function(expr,
                                   warning = NA,
                                   ...) {
 
-  # Quote the contents of `expr` and evaluate it to get the expected value
+  # Quote the contents of `expr` so that we can evaluate it a few different ways
   expr <- rlang::enquo(expr)
   # Get the expected output by evaluating expr on the .input data.frame using regular dplyr
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = tbl)))
