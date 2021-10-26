@@ -2109,24 +2109,23 @@ TEST_F(TestAllKernel, Basics) {
 // Index
 //
 
+void CheckIndex(Datum array, const std::shared_ptr<Scalar>& value, int64_t expected) {
+  IndexOptions options(value);
+  ASSERT_OK_AND_ASSIGN(Datum out, Index(array, options));
+  const Int64Scalar& out_index = out.scalar_as<Int64Scalar>();
+  ASSERT_EQ(out_index.value, expected);
+}
+
 template <typename ArrowType>
 class TestIndexKernel : public ::testing::Test {
  public:
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
-  void AssertIndexIs(const Datum& array, const std::shared_ptr<ScalarType>& value,
-                     int64_t expected) {
-    IndexOptions options(value);
-    ASSERT_OK_AND_ASSIGN(Datum out, Index(array, options));
-    const Int64Scalar& out_index = out.scalar_as<Int64Scalar>();
-    ASSERT_EQ(out_index.value, expected);
-  }
-
   void AssertIndexIs(const std::string& json, const std::shared_ptr<ScalarType>& value,
                      int64_t expected) {
     SCOPED_TRACE("Value: " + value->ToString());
     SCOPED_TRACE("Input: " + json);
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertIndexIs(array, value, expected);
+    CheckIndex(array, value, expected);
   }
 
   void AssertIndexIs(const std::vector<std::string>& json,
@@ -2134,7 +2133,7 @@ class TestIndexKernel : public ::testing::Test {
     SCOPED_TRACE("Value: " + value->ToString());
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
     SCOPED_TRACE("Input: " + array->ToString());
-    AssertIndexIs(array, value, expected);
+    CheckIndex(array, value, expected);
   }
 
   std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(); }
@@ -2208,7 +2207,7 @@ TYPED_TEST(TestNumericIndexKernel, Random) {
       if (expected >= 0) break;
     }
 
-    this->AssertIndexIs(Datum(chunked_array), value, expected);
+    CheckIndex(Datum(chunked_array), value, expected);
   }
 }
 
@@ -2263,6 +2262,72 @@ TYPED_TEST(TestStringIndexKernel, Basics) {
   this->AssertIndexIs(R"([null, null, null])", value, -1);
   this->AssertIndexIs(R"([null, null, null])", null_value, -1);
   this->AssertIndexIs(R"(["foo", null, null])", null_value, -1);
+}
+
+TEST(TestIndexKernel, FixedSizeBinary) {
+  auto ty = fixed_size_binary(3);
+  auto buffer = Buffer::FromString("foo");
+  auto value = std::make_shared<FixedSizeBinaryScalar>(buffer, ty);
+  auto null_value = std::make_shared<FixedSizeBinaryScalar>(buffer, ty);
+  null_value->is_valid = false;
+
+  CheckIndex(ArrayFromJSON(ty, R"([])"), value, -1);
+  CheckIndex(ArrayFromJSON(ty, R"(["foo"])"), value, 0);
+  CheckIndex(ArrayFromJSON(ty, R"(["bar", "bar", "bar", "bar"])"), value, -1);
+  CheckIndex(ArrayFromJSON(ty, R"(["bar", "bar", "bar", "bar", "foo"])"), value, 4);
+  CheckIndex(ArrayFromJSON(ty, R"([null, null, null])"), value, -1);
+  CheckIndex(ArrayFromJSON(ty, R"([null, null, null])"), null_value, -1);
+  CheckIndex(ArrayFromJSON(ty, R"(["foo", null, null])"), null_value, -1);
+}
+
+TEST(TestIndexKernel, Decimal) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    std::shared_ptr<Scalar> value, null_value;
+    if (ty->id() == Type::DECIMAL128) {
+      value = std::make_shared<Decimal128Scalar>(Decimal128(123), ty);
+      null_value = std::make_shared<Decimal128Scalar>(ty);
+    } else {
+      value = std::make_shared<Decimal256Scalar>(Decimal256(123), ty);
+      null_value = std::make_shared<Decimal256Scalar>(ty);
+    }
+
+    CheckIndex(ArrayFromJSON(ty, R"([])"), value, -1);
+    CheckIndex(ArrayFromJSON(ty, R"(["1.23"])"), value, 0);
+    CheckIndex(ArrayFromJSON(ty, R"(["9.99", "9.99", "9.99", "9.99"])"), value, -1);
+    CheckIndex(ArrayFromJSON(ty, R"(["9.99", "9.99", "9.99", "9.99", "1.23"])"), value,
+               4);
+    CheckIndex(ArrayFromJSON(ty, R"([null, null, null])"), value, -1);
+    CheckIndex(ArrayFromJSON(ty, R"([null, null, null])"), null_value, -1);
+    CheckIndex(ArrayFromJSON(ty, R"(["1.23", null, null])"), null_value, -1);
+  }
+}
+
+TEST(TestIndexKernel, Null) {
+  auto ty = null();
+  auto value = std::make_shared<NullScalar>();
+
+  CheckIndex(ArrayFromJSON(ty, R"([])"), value, -1);
+  CheckIndex(ArrayFromJSON(ty, R"([null])"), value, -1);
+  CheckIndex(ArrayFromJSON(ty, R"([null, null, null, null])"), value, -1);
+}
+
+TEST(TestIndexKernel, Errors) {
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "Expected IndexOptions.value to be of type string, but got int32"),
+      Index(ArrayFromJSON(utf8(), R"(["a"])"),
+            IndexOptions(ScalarFromJSON(int32(), "1"))));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Expected IndexOptions.value to be of type timestamp[ns], "
+                           "but got timestamp[ms]"),
+      Index(ArrayFromJSON(timestamp(TimeUnit::NANO), R"(["2020-01-01"])"),
+            IndexOptions(ScalarFromJSON(timestamp(TimeUnit::MILLI), R"("2020-01-01")"))));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Must provide IndexOptions.value"),
+      Index(ArrayFromJSON(utf8(), R"(["a"])"), IndexOptions(nullptr)));
 }
 
 //
