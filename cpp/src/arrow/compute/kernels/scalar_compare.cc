@@ -131,15 +131,12 @@ struct CompareTimestamps
   using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (is_timestamp_type<ArgType>::value) {
-      const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
-      const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
-      if ((lhs.timezone().empty() && !rhs.timezone().empty()) ||
-          (!lhs.timezone().empty() && rhs.timezone().empty())) {
-        return Status::Invalid(
-            "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
-            lhs, " and ", rhs);
-      }
+    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
+    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
+    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
+      return Status::Invalid(
+          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
+          lhs, " and ", rhs);
     }
     return Base::Exec(ctx, batch, out);
   }

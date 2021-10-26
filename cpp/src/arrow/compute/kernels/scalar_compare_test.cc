@@ -456,12 +456,9 @@ TEST(TestCompareTimestamps, Basics) {
 
 TEST(TestCompareTimestamps, DifferentParameters) {
   const std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[0, 0, 1]"),
-      std::make_pair("not_equal", "[1, 1, 0]"),
-      std::make_pair("less", "[1, 0, 0]"),
-      std::make_pair("less_equal", "[1, 0, 1]"),
-      std::make_pair("greater", "[0, 1, 0]"),
-      std::make_pair("greater_equal", "[0, 1, 1]"),
+      {"equal", "[0, 0, 1]"},   {"not_equal", "[1, 1, 0]"},
+      {"less", "[1, 0, 0]"},    {"less_equal", "[1, 0, 1]"},
+      {"greater", "[0, 1, 0]"}, {"greater_equal", "[0, 1, 1]"},
   };
   const std::string lhs_json = R"(["1970-01-01","2000-02-29","1900-02-28"])";
   const std::string rhs_json = R"(["1970-01-02","2000-02-01","1900-02-28"])";
@@ -513,12 +510,9 @@ TYPED_TEST(TestCompareDecimal, ArrayScalar) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, null]"),
-      std::make_pair("less", "[0, 0, 1, null]"),
-      std::make_pair("less_equal", "[1, 0, 1, null]"),
-      std::make_pair("greater", "[0, 1, 0, null]"),
-      std::make_pair("greater_equal", "[1, 1, 0, null]"),
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 0, 1, null]"},    {"less_equal", "[1, 0, 1, null]"},
+      {"greater", "[0, 1, 0, null]"}, {"greater_equal", "[1, 1, 0, null]"},
   };
 
   auto lhs = ArrayFromJSON(ty, R"(["1.23", "2.34", "-1.23", null])");
@@ -543,12 +537,9 @@ TYPED_TEST(TestCompareDecimal, ScalarArray) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, null]"),
-      std::make_pair("less", "[0, 1, 0, null]"),
-      std::make_pair("less_equal", "[1, 1, 0, null]"),
-      std::make_pair("greater", "[0, 0, 1, null]"),
-      std::make_pair("greater_equal", "[1, 0, 1, null]"),
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 1, 0, null]"},    {"less_equal", "[1, 1, 0, null]"},
+      {"greater", "[0, 0, 1, null]"}, {"greater_equal", "[1, 0, 1, null]"},
   };
 
   auto lhs = ScalarFromJSON(ty, R"("1.23")");
@@ -573,12 +564,12 @@ TYPED_TEST(TestCompareDecimal, ArrayArray) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, 1, 0, 0, null, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, 0, 1, 1, null, null]"),
-      std::make_pair("less", "[0, 1, 0, 0, 1, 0, null, null]"),
-      std::make_pair("less_equal", "[1, 1, 0, 1, 1, 0, null, null]"),
-      std::make_pair("greater", "[0, 0, 1, 0, 0, 1, null, null]"),
-      std::make_pair("greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"),
+      {"equal", "[1, 0, 0, 1, 0, 0, null, null]"},
+      {"not_equal", "[0, 1, 1, 0, 1, 1, null, null]"},
+      {"less", "[0, 1, 0, 0, 1, 0, null, null]"},
+      {"less_equal", "[1, 1, 0, 1, 1, 0, null, null]"},
+      {"greater", "[0, 0, 1, 0, 0, 1, null, null]"},
+      {"greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"},
   };
 
   auto lhs = ArrayFromJSON(
@@ -613,12 +604,9 @@ TYPED_TEST(TestCompareDecimal, DifferentParameters) {
   auto ty2 = std::make_shared<TypeParam>(4, 3);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, 1, 0, 0]"),
-      std::make_pair("not_equal", "[0, 1, 1, 0, 1, 1]"),
-      std::make_pair("less", "[0, 1, 0, 0, 1, 0]"),
-      std::make_pair("less_equal", "[1, 1, 0, 1, 1, 0]"),
-      std::make_pair("greater", "[0, 0, 1, 0, 0, 1]"),
-      std::make_pair("greater_equal", "[1, 0, 1, 1, 0, 1]"),
+      {"equal", "[1, 0, 0, 1, 0, 0]"},   {"not_equal", "[0, 1, 1, 0, 1, 1]"},
+      {"less", "[0, 1, 0, 0, 1, 0]"},    {"less_equal", "[1, 1, 0, 1, 1, 0]"},
+      {"greater", "[0, 0, 1, 0, 0, 1]"}, {"greater_equal", "[1, 0, 1, 1, 0, 1]"},
   };
 
   auto lhs = ArrayFromJSON(ty1, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23"])");
