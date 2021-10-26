@@ -40,43 +40,13 @@ class GandivaObjectCache : public llvm::ObjectCache {
  public:
   explicit GandivaObjectCache(
       std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>& cache,
-      ExpressionCacheKey key) : cache_key_(key) {
-    cache_ = cache;
-    // Start measuring code gen time
-    begin_time_ = std::chrono::high_resolution_clock::now();
-  }
+      ExpressionCacheKey key);
 
   ~GandivaObjectCache() {}
 
-  void notifyObjectCompiled(const llvm::Module* M, llvm::MemoryBufferRef Obj) {
-    // Stop measuring time and  calculate the elapsed time to compile the object code
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto elapsed_time =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end_time - begin_time_)
-            .count();
+  void notifyObjectCompiled(const llvm::Module* M, llvm::MemoryBufferRef Obj);
 
-    std::unique_ptr<llvm::MemoryBuffer> obj_buffer =
-        llvm::MemoryBuffer::getMemBufferCopy(Obj.getBuffer(), Obj.getBufferIdentifier());
-    std::shared_ptr<llvm::MemoryBuffer> obj_code = std::move(obj_buffer);
-
-    ValueCacheObject<std::shared_ptr<llvm::MemoryBuffer>> value_cache(
-        obj_code, elapsed_time, obj_code->getBufferSize());
-
-    cache_->PutObjectCode(cache_key_, value_cache);
-  }
-
-  std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
-    std::shared_ptr<llvm::MemoryBuffer> cached_obj =
-        cache_->GetObjectCode(cache_key_);
-    if (cached_obj != nullptr) {
-      std::unique_ptr<llvm::MemoryBuffer> cached_buffer = cached_obj->getMemBufferCopy(
-          cached_obj->getBuffer(), cached_obj->getBufferIdentifier());
-      ARROW_LOG(INFO) << "[INFO][CACHE-LOG]: An object code was found on cache.";
-      return cached_buffer;
-    }
-    ARROW_LOG(INFO) << "[INFO][CACHE-LOG]: No object code was found on cache.";
-    return nullptr;
-  }
+  std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M);
 
  private:
   ExpressionCacheKey cache_key_;
