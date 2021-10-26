@@ -95,6 +95,14 @@ import_gpg_keys() {
   gpg --import KEYS
 }
 
+if type shasum >/dev/null 2>&1; then
+  sha256_verify="shasum -a 256 -c"
+  sha512_verify="shasum -a 512 -c"
+else
+  sha256_verify="sha256sum -c"
+  sha512_verify="sha512sum -c"
+fi
+
 fetch_archive() {
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
@@ -102,8 +110,8 @@ fetch_archive() {
   download_rc_file ${dist_name}.tar.gz.sha256
   download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  shasum -a 256 -c ${dist_name}.tar.gz.sha256
-  shasum -a 512 -c ${dist_name}.tar.gz.sha512
+  ${sha256_verify} ${dist_name}.tar.gz.sha256
+  ${sha512_verify} ${dist_name}.tar.gz.sha512
 }
 
 verify_dir_artifact_signatures() {
@@ -117,9 +125,9 @@ verify_dir_artifact_signatures() {
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
     if [ -f $base_artifact.sha256 ]; then
-      shasum -a 256 -c $base_artifact.sha256 || exit 1
+      ${sha256_verify} $base_artifact.sha256 || exit 1
     fi
-    shasum -a 512 -c $base_artifact.sha512 || exit 1
+    ${sha512_verify} $base_artifact.sha512 || exit 1
     popd
   done
 }
