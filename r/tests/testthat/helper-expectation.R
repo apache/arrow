@@ -93,6 +93,7 @@ compare_dplyr_binding <- function(expr,
 
   # Quote the contents of `expr` and evaluate it to get the expected value
   expr <- rlang::enquo(expr)
+  # Get the expected output by evaluating expr on the .input data.frame using regular dplyr
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = tbl)))
 
   if (isTRUE(warning)) {
