@@ -42,15 +42,15 @@ using StatementQuery = struct StatementQuery { std::string query; };
 using StatementUpdate = struct StatementUpdate { std::string query; };
 
 using StatementQueryTicket = struct StatementQueryTicket {
-  const std::string statement_handle;
+  std::string statement_handle;
 };
 
 using PreparedStatementQuery = struct PreparedStatementQuery {
-  const std::string prepared_statement_handle;
+  std::string prepared_statement_handle;
 };
 
 using PreparedStatementUpdate = struct PreparedStatementUpdate {
-  const std::string prepared_statement_handle;
+  std::string prepared_statement_handle;
 };
 
 using GetSqlInfo = struct GetSqlInfo {
@@ -58,72 +58,72 @@ using GetSqlInfo = struct GetSqlInfo {
 };
 
 using GetSchemas = struct GetSchemas {
-  const bool has_catalog;
-  const std::string catalog;
-  const bool has_schema_filter_pattern;
-  const std::string schema_filter_pattern;
+  bool has_catalog;
+  std::string catalog;
+  bool has_schema_filter_pattern;
+  std::string schema_filter_pattern;
 };
 
 using GetTables = struct GetTables {
-  const bool has_catalog;
-  const std::string catalog;
-  const bool has_schema_filter_pattern;
-  const std::string schema_filter_pattern;
-  const bool has_table_name_filter_pattern;
-  const std::string table_name_filter_pattern;
-  const std::vector<std::string> table_types;
-  const bool include_schema;
+  bool has_catalog;
+  std::string catalog;
+  bool has_schema_filter_pattern;
+  std::string schema_filter_pattern;
+  bool has_table_name_filter_pattern;
+  std::string table_name_filter_pattern;
+  std::vector<std::string> table_types;
+  bool include_schema;
 };
 
 using GetPrimaryKeys = struct GetPrimaryKeys {
-  const bool has_catalog;
-  const std::string catalog;
-  const bool has_schema;
-  const std::string schema;
-  const std::string table;
+  bool has_catalog;
+  std::string catalog;
+  bool has_schema;
+  std::string schema;
+  std::string table;
 };
 
 using GetExportedKeys = struct GetExportedKeys {
-  const bool has_catalog;
-  const std::string catalog;
-  const bool has_schema;
-  const std::string schema;
-  const std::string table;
+  bool has_catalog;
+  std::string catalog;
+  bool has_schema;
+  std::string schema;
+  std::string table;
 };
 
 using GetImportedKeys = struct GetImportedKeys {
-  const bool has_catalog;
-  const std::string catalog;
-  const bool has_schema;
-  const std::string schema;
-  const std::string table;
+  bool has_catalog;
+  std::string catalog;
+  bool has_schema;
+  std::string schema;
+  std::string table;
 };
 
 using GetCrossReference = struct GetCrossReference {
-  const bool has_pk_catalog;
-  const std::string pk_catalog;
-  const bool has_pk_schema;
-  const std::string pk_schema;
-  const std::string pk_table;
-  const bool has_fk_catalog;
-  const std::string fk_catalog;
-  const bool has_fk_schema;
-  const std::string fk_schema;
-  const std::string fk_table;
+  bool has_pk_catalog;
+  std::string pk_catalog;
+  bool has_pk_schema;
+  std::string pk_schema;
+  std::string pk_table;
+  bool has_fk_catalog;
+  std::string fk_catalog;
+  bool has_fk_schema;
+  std::string fk_schema;
+  std::string fk_table;
 };
 
 using ActionCreatePreparedStatementRequest = struct ActionCreatePreparedStatementRequest {
-  const std::string query;
+  std::string query;
 };
 
 using ActionClosePreparedStatementRequest = struct ActionClosePreparedStatementRequest {
-  const std::string prepared_statement_handle;
+  std::string prepared_statement_handle;
 };
 
 using ActionCreatePreparedStatementResult = struct ActionCreatePreparedStatementResult {
-  const std::shared_ptr<Schema> dataset_schema;
-  const std::shared_ptr<Schema> parameter_schema;
-  const std::string prepared_statement_handle;
+  std::shared_ptr<Schema> dataset_schema;
+  std::shared_ptr<Schema> parameter_schema;
+  std::string prepared_statement_handle;
 };
 
 class FlightSqlServerBase : public FlightServerBase {

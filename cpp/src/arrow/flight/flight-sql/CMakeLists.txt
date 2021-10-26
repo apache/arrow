@@ -75,14 +75,14 @@ target_link_libraries(flight_sql_test_app PRIVATE arrow_flight_sql_static
                                                   ${GFLAGS_LIBRARIES})
 
 add_arrow_test(flight_sql_test
-        SOURCES
-        client_test.cc
-        server_test.cc
-        "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
-        STATIC_LINK_LIBS
-        ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-        LABELS
-        "arrow_flight_sql")
+               SOURCES
+               client_test.cc
+               server_test.cc
+               "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
+               STATIC_LINK_LIBS
+               ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+               LABELS
+               "arrow_flight_sql")
 
 # Build test server for unit tests
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
@@ -90,16 +90,16 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   include_directories(${SQLite3_INCLUDE_DIRS})
 
   add_executable(flight_sql_test_server
-          server.cc
-          test_server_cli.cc
-          example/sqlite_statement.cc
-          example/sqlite_statement_batch_reader.cc
-          example/sqlite_server.cc
-          example/sqlite_tables_schema_batch_reader.cpp
-          "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
+                 server.cc
+                 test_server_cli.cc
+                 example/sqlite_statement.cc
+                 example/sqlite_statement_batch_reader.cc
+                 example/sqlite_server.cc
+                 example/sqlite_tables_schema_batch_reader.cpp
+                 "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
   target_link_libraries(flight_sql_test_server
-          PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}
-          ${SQLite3_LIBRARIES})
+                        PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}
+                                ${SQLite3_LIBRARIES})
 
   if(ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-sql-test flight_sql_test_server)

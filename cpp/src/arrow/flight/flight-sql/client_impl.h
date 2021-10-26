@@ -43,12 +43,11 @@ template <class T>
 PreparedStatementT<T>::PreparedStatementT(
     T* client_, const std::string& query,
     pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result_,
-    const FlightCallOptions& options_)
+    FlightCallOptions options_)
     : client(client_),
-      options(options_),
-      prepared_statement_result(std::move(prepared_statement_result_)) {
-  is_closed = false;
-}
+      options(std::move(options_)),
+      prepared_statement_result(std::move(prepared_statement_result_)),
+      is_closed(false) {}
 
 template <class T>
 FlightSqlClientT<T>::~FlightSqlClientT() = default;
@@ -320,7 +319,8 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatementT<T>::Execute() {
   if (parameter_binding && parameter_binding->num_rows() > 0) {
     std::unique_ptr<FlightStreamWriter> writer;
     std::unique_ptr<FlightMetadataReader> reader;
-    ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, parameter_binding->schema(), &writer, &reader));
+    ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, parameter_binding->schema(),
+                                      &writer, &reader));
 
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding));
     ARROW_RETURN_NOT_OK(writer->DoneWriting());

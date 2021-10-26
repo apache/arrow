@@ -18,7 +18,7 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
-#include "server.h"
+#include "arrow/flight/flight-sql/server.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -49,68 +49,77 @@ GetCrossReference ParseCommandGetCrossReference(const google::protobuf::Any& any
   pb::sql::CommandGetCrossReference command;
   any.UnpackTo(&command);
 
-  return (GetCrossReference){.has_pk_catalog = command.has_pk_catalog(),
-                             .pk_catalog = command.pk_catalog(),
-                             .has_pk_schema = command.has_pk_schema(),
-                             .pk_schema = command.pk_schema(),
-                             .pk_table = command.pk_table(),
-                             .has_fk_catalog = command.has_fk_catalog(),
-                             .fk_catalog = command.fk_catalog(),
-                             .has_fk_schema = command.has_fk_schema(),
-                             .fk_schema = command.fk_schema(),
-                             .fk_table = command.fk_table()};
+  GetCrossReference result;
+  result.has_pk_catalog = command.has_pk_catalog();
+  result.pk_catalog = command.pk_catalog();
+  result.has_pk_schema = command.has_pk_schema();
+  result.pk_schema = command.pk_schema();
+  result.pk_table = command.pk_table();
+  result.has_fk_catalog = command.has_fk_catalog();
+  result.fk_catalog = command.fk_catalog();
+  result.has_fk_schema = command.has_fk_schema();
+  result.fk_schema = command.fk_schema();
+  result.fk_table = command.fk_table();
+  return result;
 }
 
 GetImportedKeys ParseCommandGetImportedKeys(const google::protobuf::Any& any) {
   pb::sql::CommandGetImportedKeys command;
   any.UnpackTo(&command);
 
-  return (GetImportedKeys){.has_catalog = command.has_catalog(),
-                           .catalog = command.catalog(),
-                           .has_schema = command.has_schema(),
-                           .schema = command.schema(),
-                           .table = command.table()};
+  GetImportedKeys result;
+  result.has_catalog = command.has_catalog();
+  result.catalog = command.catalog();
+  result.has_schema = command.has_schema();
+  result.schema = command.schema();
+  result.table = command.table();
+  return result;
 }
 
 GetExportedKeys ParseCommandGetExportedKeys(const google::protobuf::Any& any) {
   pb::sql::CommandGetExportedKeys command;
   any.UnpackTo(&command);
 
-  return (GetExportedKeys){.has_catalog = command.has_catalog(),
-                           .catalog = command.catalog(),
-                           .has_schema = command.has_schema(),
-                           .schema = command.schema(),
-                           .table = command.table()};
+  GetExportedKeys result;
+  result.has_catalog = command.has_catalog();
+  result.catalog = command.catalog();
+  result.has_schema = command.has_schema();
+  result.schema = command.schema();
+  result.table = command.table();
+  return result;
 }
 
 GetPrimaryKeys ParseCommandGetPrimaryKeys(const google::protobuf::Any& any) {
   pb::sql::CommandGetPrimaryKeys command;
   any.UnpackTo(&command);
 
-  return (GetPrimaryKeys){.has_catalog = command.has_catalog(),
-                          .catalog = command.catalog(),
-                          .has_schema = command.has_schema(),
-                          .schema = command.schema(),
-                          .table = command.table()};
+  GetPrimaryKeys result;
+  result.has_catalog = command.has_catalog();
+  result.catalog = command.catalog();
+  result.has_schema = command.has_schema();
+  result.schema = command.schema();
+  result.table = command.table();
+  return result;
 }
 
 GetSqlInfo ParseCommandGetSqlInfo(const google::protobuf::Any& any) {
   pb::sql::CommandGetSqlInfo command;
   any.UnpackTo(&command);
 
-  return (GetSqlInfo){};
+  GetSqlInfo result;
+  return result;
 }
 
 GetSchemas ParseCommandGetSchemas(const google::protobuf::Any& any) {
   pb::sql::CommandGetSchemas command;
   any.UnpackTo(&command);
 
-  return (GetSchemas){
-      .has_catalog = command.has_catalog(),
-      .catalog = command.catalog(),
-      .has_schema_filter_pattern = command.has_schema_filter_pattern(),
-      .schema_filter_pattern = command.schema_filter_pattern(),
-  };
+  GetSchemas result;
+  result.has_catalog = command.has_catalog();
+  result.catalog = command.catalog();
+  result.has_schema_filter_pattern = command.has_schema_filter_pattern();
+  result.schema_filter_pattern = command.schema_filter_pattern();
+  return result;
 }
 
 PreparedStatementQuery ParseCommandPreparedStatementQuery(
@@ -118,15 +127,18 @@ PreparedStatementQuery ParseCommandPreparedStatementQuery(
   pb::sql::CommandPreparedStatementQuery command;
   any.UnpackTo(&command);
 
-  return (PreparedStatementQuery){.prepared_statement_handle =
-                                      command.prepared_statement_handle()};
+  PreparedStatementQuery result;
+  result.prepared_statement_handle = command.prepared_statement_handle();
+  return result;
 }
 
 StatementQuery ParseCommandStatementQuery(const google::protobuf::Any& any) {
   pb::sql::CommandStatementQuery command;
   any.UnpackTo(&command);
 
-  return (StatementQuery){.query = command.query()};
+  StatementQuery result;
+  result.query = command.query();
+  return result;
 }
 
 GetTables ParseCommandGetTables(const google::protobuf::Any& anyCommand) {
@@ -138,29 +150,34 @@ GetTables ParseCommandGetTables(const google::protobuf::Any& anyCommand) {
   for (const auto& item : command.table_types()) {
     table_types.push_back(item);
   }
-  return (GetTables){
-      .has_catalog = command.has_catalog(),
-      .catalog = command.catalog(),
-      .has_schema_filter_pattern = command.has_schema_filter_pattern(),
-      .schema_filter_pattern = command.schema_filter_pattern(),
-      .has_table_name_filter_pattern = command.has_table_name_filter_pattern(),
-      .table_name_filter_pattern = command.table_name_filter_pattern(),
-      .table_types = table_types,
-      .include_schema = command.include_schema()};
+  GetTables result;
+  result.has_catalog = command.has_catalog();
+  result.catalog = command.catalog();
+  result.has_schema_filter_pattern = command.has_schema_filter_pattern();
+  result.schema_filter_pattern = command.schema_filter_pattern();
+  result.has_table_name_filter_pattern = command.has_table_name_filter_pattern();
+  result.table_name_filter_pattern = command.table_name_filter_pattern();
+  result.table_types = table_types;
+  result.include_schema = command.include_schema();
+  return result;
 }
 
 StatementQueryTicket ParseStatementQueryTicket(const google::protobuf::Any& anyCommand) {
   pb::sql::TicketStatementQuery command;
   anyCommand.UnpackTo(&command);
 
-  return (StatementQueryTicket){.statement_handle = command.statement_handle()};
+  StatementQueryTicket result;
+  result.statement_handle = command.statement_handle();
+  return result;
 }
 
 StatementUpdate ParseCommandStatementUpdate(const google::protobuf::Any& any) {
   pb::sql::CommandStatementUpdate command;
   any.UnpackTo(&command);
 
-  return (StatementUpdate){.query = command.query()};
+  StatementUpdate result;
+  result.query = command.query();
+  return result;
 }
 
 PreparedStatementUpdate ParseCommandPreparedStatementUpdate(
@@ -168,8 +185,9 @@ PreparedStatementUpdate ParseCommandPreparedStatementUpdate(
   pb::sql::CommandPreparedStatementUpdate command;
   any.UnpackTo(&command);
 
-  return (PreparedStatementUpdate){.prepared_statement_handle =
-                                       command.prepared_statement_handle()};
+  PreparedStatementUpdate result;
+  result.prepared_statement_handle = command.prepared_statement_handle();
+  return result;
 }
 
 ActionCreatePreparedStatementRequest ParseActionCreatePreparedStatementRequest(
@@ -177,7 +195,9 @@ ActionCreatePreparedStatementRequest ParseActionCreatePreparedStatementRequest(
   pb::sql::ActionCreatePreparedStatementRequest command;
   anyCommand.UnpackTo(&command);
 
-  return (ActionCreatePreparedStatementRequest){.query = command.query()};
+  ActionCreatePreparedStatementRequest result;
+  result.query = command.query();
+  return result;
 }
 
 ActionClosePreparedStatementRequest ParseActionClosePreparedStatementRequest(
@@ -185,8 +205,9 @@ ActionClosePreparedStatementRequest ParseActionClosePreparedStatementRequest(
   pb::sql::ActionClosePreparedStatementRequest command;
   anyCommand.UnpackTo(&command);
 
-  return (ActionClosePreparedStatementRequest){.prepared_statement_handle =
-                                                   command.prepared_statement_handle()};
+  ActionClosePreparedStatementRequest result;
+  result.prepared_statement_handle = command.prepared_statement_handle();
+  return result;
 }
 
 Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,

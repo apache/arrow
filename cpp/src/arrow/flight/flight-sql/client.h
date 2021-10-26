@@ -47,7 +47,7 @@ class ARROW_EXPORT PreparedStatementT {
   PreparedStatementT(
       T* client, const std::string& query,
       pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result,
-      const FlightCallOptions& options);
+      FlightCallOptions options);
 
   /// \brief Default destructor for the PreparedStatement class.
   /// The destructor will call the Close method from the class in order,
