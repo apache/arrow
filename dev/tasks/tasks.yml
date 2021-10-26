@@ -446,7 +446,8 @@ tasks:
                   "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
-                  "ubuntu-hirsute"] %}
+                  "ubuntu-hirsute",
+                  "ubuntu-impish"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     {% if architecture == "amd64" %}
