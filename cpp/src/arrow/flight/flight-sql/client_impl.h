@@ -55,7 +55,7 @@ FlightSqlClientT<T>::~FlightSqlClientT() = default;
 
 template <class T>
 PreparedStatementT<T>::~PreparedStatementT<T>() {
-  Close();
+  ARROW_UNUSED(Close());
 }
 
 inline FlightDescriptor GetFlightDescriptorForCommand(
@@ -320,7 +320,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatementT<T>::Execute() {
   if (parameter_binding && parameter_binding->num_rows() > 0) {
     std::unique_ptr<FlightStreamWriter> writer;
     std::unique_ptr<FlightMetadataReader> reader;
-    client->DoPut(options, descriptor, parameter_binding->schema(), &writer, &reader);
+    ARROW_RETURN_NOT_OK(client->DoPut(options, descriptor, parameter_binding->schema(), &writer, &reader));
 
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding));
     ARROW_RETURN_NOT_OK(writer->DoneWriting());
