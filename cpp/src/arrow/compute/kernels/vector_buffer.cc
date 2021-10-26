@@ -260,7 +260,7 @@ struct GetByteRangesArray {
 const FunctionDoc byte_ranges_doc(
     "Returns an array of byte ranges referenced by the input",
     (R"(The output is a StructArray {"start": int64, "offset": int64, "length":)"
-     " int64 } where each item represents a range of memory addressed by buffers in"
+     " int64} where each item represents a range of memory addressed by buffers in"
      " the input.  The ranges should have no overlap even if buffers are shared in the"
      " input.  If any of the arrays are sliced zero-copy views of the data this method"
      " will return the sliced ranges that are referenced.  There is a slight exception"
