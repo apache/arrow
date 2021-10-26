@@ -1060,10 +1060,20 @@ TYPED_TEST(TestStringKernels, StringRepeat) {
   }
 
   // Negative repeat count
-  auto num_repeat = *arrow::MakeScalar(int64(), -1);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Repeat count must be a non-negative integer"),
-      CallFunction("string_repeat", {values, num_repeat}));
+  for (auto num_repeat_ : {-1, -2, -5}) {
+    auto num_repeat = *arrow::MakeScalar(int64(), num_repeat_);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Repeat count must be a non-negative integer"),
+        CallFunction("string_repeat", {values, num_repeat}));
+  }
+
+  // Floating-point repeat count
+  for (auto num_repeat_ : {0.0, 1.2, -1.3}) {
+    auto num_repeat = *arrow::MakeScalar(float64(), num_repeat_);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented, ::testing::HasSubstr("has no kernel matching input types"),
+        CallFunction("string_repeat", {values, num_repeat}));
+  }
 }
 
 TYPED_TEST(TestStringKernels, StringRepeats) {
@@ -1081,6 +1091,12 @@ TYPED_TEST(TestStringKernels, StringRepeats) {
   auto num_repeats = ArrayFromJSON(int64(), R"([100, -1, 2, -5, 2, -1, 3, -2, 3, -100])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Invalid: Negative buffer resize"),
+                                  CallFunction("string_repeat", {values, num_repeats}));
+
+  // Floating-point repeat count
+  num_repeats = ArrayFromJSON(float64(), R"([0.0, 1.2, -1.3])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("has no kernel matching input types"),
                                   CallFunction("string_repeat", {values, num_repeats}));
 }
 
