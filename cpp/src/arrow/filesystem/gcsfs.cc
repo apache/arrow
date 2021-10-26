@@ -106,16 +106,16 @@ class GcsInputStream : public arrow::io::InputStream {
 
 google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   auto options = google::cloud::Options{};
+  std::string scheme = o.scheme;
+  if (scheme.empty()) scheme = "https";
+  if (scheme == "https") {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        google::cloud::MakeGoogleDefaultCredentials());
+  } else {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        google::cloud::MakeInsecureCredentials());
+  }
   if (!o.endpoint_override.empty()) {
-    std::string scheme = o.scheme;
-    if (scheme.empty()) scheme = "https";
-    if (scheme == "https") {
-      options.set<google::cloud::UnifiedCredentialsOption>(
-          google::cloud::MakeGoogleDefaultCredentials());
-    } else {
-      options.set<google::cloud::UnifiedCredentialsOption>(
-          google::cloud::MakeInsecureCredentials());
-    }
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
   return options;
