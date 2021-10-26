@@ -447,7 +447,6 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     if (Base::IsMaterialized(alt)) {
       return STRING_ELT(R_altrep_data2(alt), i);
     }
-
     BEGIN_CPP11
 
     auto array = GetChunkedArray(alt)->Slice(i, 1)->chunk(0);
