@@ -106,12 +106,10 @@ arrow::Result<int64_t> FlightSqlClientT<T>::ExecuteUpdate(
 
   pb::sql::DoPutUpdateResult doPutUpdateResult;
 
-  Buffer* pBuffer = metadata.get();
+  pb::sql::DoPutUpdateResult result;
+  result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()));
 
-  const std::string& string = pBuffer->ToString();
-
-  doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(string);
-  return doPutUpdateResult.record_count();
+  return result.record_count();
 }
 
 template <class T>
@@ -365,12 +363,10 @@ arrow::Result<int64_t> PreparedStatementT<T>::ExecuteUpdate() {
   ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
   ARROW_RETURN_NOT_OK(writer->Close());
 
-  pb::sql::DoPutUpdateResult doPutUpdateResult;
-  const std::string& metadataAsString = metadata->ToString();
+  pb::sql::DoPutUpdateResult result;
+  result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()));
 
-  doPutUpdateResult.ParseFrom<google::protobuf::MessageLite::kParse>(metadataAsString);
-
-  return doPutUpdateResult.record_count();
+  return result.record_count();
 }
 
 template <class T>
