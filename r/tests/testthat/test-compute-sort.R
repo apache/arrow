@@ -66,69 +66,69 @@ test_that("ChunkedArray$SortIndices()", {
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on integers", {
-  compare_vector(
+  compare_expression(
     sort(.input),
     tbl$int
   )
-  compare_vector(
+  compare_expression(
     sort(.input, na.last = NA),
     tbl$int
   )
-  compare_vector(
+  compare_expression(
     sort(.input, na.last = TRUE),
     tbl$int
   )
-  compare_vector(
+  compare_expression(
     sort(.input, na.last = FALSE),
     tbl$int
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE),
     tbl$int,
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE, na.last = TRUE),
     tbl$int,
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$int,
   )
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on strings", {
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
   )
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on floats", {
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE, na.last = TRUE),
     tbl$dbl
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = FALSE, na.last = TRUE),
     tbl$dbl
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE, na.last = NA),
     tbl$dbl
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$dbl,
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = FALSE, na.last = NA),
     tbl$dbl
   )
-  compare_vector(
+  compare_expression(
     sort(.input, decreasing = FALSE, na.last = FALSE),
     tbl$dbl,
   )

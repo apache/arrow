@@ -197,8 +197,6 @@ compare_dplyr_error <- function(expr,
   )
 }
 
-#' Compare vector
-#'
 #' Comparing the output of running expressions on R vectors against the same
 #' expression run on Arrow Arrays and ChunkedArrays.
 #'
@@ -208,7 +206,7 @@ compare_dplyr_error <- function(expr,
 #' @param skip_chunked_array The skip message to show (if you should skip the ChunkedArray test)
 #' @param ignore_attr Ignore differences in specified attributes?
 #' @param ... additional arguments, passed to `expect_as_vector()`
-compare_vector <- function(expr,
+compare_expression <- function(expr,
                            vec,
                            skip_array = NULL,
                            skip_chunked_array = NULL,
@@ -257,7 +255,7 @@ compare_vector <- function(expr,
 #' @param skip_array The skip message to show (if you should skip the Array test)
 #' @param skip_chunked_array The skip message to show (if you should skip the ChunkedArray test)
 #' @param ... additional arguments, passed to `expect_error()`
-compare_vector_error <- function(expr,
+compare_expression_error <- function(expr,
                                  vec,
                                  skip_array = NULL,
                                  skip_chunked_array = NULL,
