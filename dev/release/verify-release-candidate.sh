@@ -154,16 +154,21 @@ test_apt() {
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:hirsute" \
-                "arm64v8/ubuntu:hirsute"; do \
+                "arm64v8/ubuntu:hirsute" \
+                "ubuntu:impish" \
+                "arm64v8/ubuntu:impish"; do \
     case "${target}" in
-      arm64v8/debian:bullseye|arm64v8/debian:bookworm|arm64v8/ubuntu:hirsute)
-        # qemu-user-static in Ubuntu 20.04 has a crash bug:
-        #   https://bugs.launchpad.net/qemu/+bug/1749393
-        continue
-        ;;
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          : # OK
+          case "${target}" in
+          arm64v8/debian:buster|arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+            ;; # OK
+          *)
+            # qemu-user-static in Ubuntu 20.04 has a crash bug:
+            #   https://bugs.launchpad.net/qemu/+bug/1749393
+            continue
+            ;;
+          esac
         else
           continue
         fi
