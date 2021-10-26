@@ -202,7 +202,7 @@ compare_dplyr_error <- function(expr,
 #' expression run on Arrow Arrays and ChunkedArrays.
 #'
 #' @param expr A vectorized R expression which must have `.input` as its start
-#' @param tbl A vector which will be substituted for `.input`
+#' @param vec A vector which will be substituted for `.input`
 #' @param skip_array The skip message to show (if you should skip the Array test)
 #' @param skip_chunked_array The skip message to show (if you should skip the ChunkedArray test)
 #' @param ignore_attr Ignore differences in specified attributes?
