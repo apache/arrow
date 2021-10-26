@@ -66,7 +66,7 @@ verify_output <- function(...) {
   testthat::verify_output(...)
 }
 
-#' Compare dplyr binding
+#' Ensure that dplyr methods on Arrow objects return the same as for data frames
 #'
 #' This function compares the output of running a dplyr expression on a tibble
 #' or data.frame object against the output of the same expression run on
