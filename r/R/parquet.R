@@ -196,7 +196,17 @@ write_parquet <- function(x,
       allow_truncated_timestamps = allow_truncated_timestamps
     )
   )
-  writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
+
+  # determine an approximate chunk size
+  if (is.null(chunk_size)) {
+    num_cells <- x$num_rows * x$num_columns
+    # no more than 1 million cells (rows * cols) per group
+    proposed_chunks <- x$num_rows / (num_cells / 2.5e8)
+    # but chunks are no larger than rows (e.g. if we have less than a million cells)
+    chunk_size <- min(proposed_chunks, x$num_rows)
+  }
+
+  writer$WriteTable(x, chunk_size = chunk_size)
   writer$Close()
 
   invisible(x_out)
