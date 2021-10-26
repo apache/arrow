@@ -271,7 +271,8 @@ services:
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
     volumes: *conda-volumes
-    command: *cpp-conda-command
+    command: ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   debian-cpp:
     # Usage:
