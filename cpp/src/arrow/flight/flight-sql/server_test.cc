@@ -93,7 +93,7 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTables) {
@@ -119,7 +119,7 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
@@ -146,7 +146,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
@@ -196,7 +196,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
@@ -239,7 +239,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
       Table::Make(SqlSchema::GetTablesSchemaWithIncludedSchema(),
                   {catalog_name, schema_name, table_name, table_type, table_schema});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
@@ -286,7 +286,7 @@ TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
 
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetTableTypesSchema(), {table_type});
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandStatementUpdate) {
@@ -339,7 +339,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding) {
@@ -403,7 +403,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 arrow::Result<int64_t> ExecuteCountQuery(const std::string& query) {
@@ -529,7 +529,7 @@ TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
       SqlSchema::GetPrimaryKeysSchema(),
       {catalog_name, schema_name, table_name, column_name, key_sequence, key_name});
 
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
@@ -569,7 +569,7 @@ TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
                    fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
                    key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
@@ -609,7 +609,7 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
                    fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
                    key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
@@ -649,7 +649,7 @@ TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
                    fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
                    key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
-  ASSERT_TRUE(expected_table->Equals(*table));
+  AssertTablesEqual(*expected_table, *table);
 }
 
 auto env = ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);
