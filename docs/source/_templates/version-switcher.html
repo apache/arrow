@@ -1,55 +1,58 @@
-<!-- Copied from https://github.com/pydata/pydata-sphinx-theme/pull/436
-TODO update this once that is included in the upstream theme -->
-
 <div class="dropdown">
-    <button type="button" class="btn btn-primary btn-sm navbar-btn dropdown-toggle" id="switcher_button" data-toggle="dropdown">
-        {{ switcher_prefix }}{{ release }}
+    <button type="button" class="btn btn-primary btn-sm navbar-btn dropdown-toggle" id="version_switcher_button" data-toggle="dropdown">
+        {{ release }}
         <span class="caret"></span>
     </button>
-    <div id="switcher" class="dropdown-menu list-group-flush py-0" aria-labelledby="switcher_button">
+    <div id="version_switcher" class="dropdown-menu list-group-flush py-0" aria-labelledby="version_switcher_button">
     <!-- dropdown will be populated by javascript on page load -->
     </div>
 </div>
 
 <script type="text/javascript">
 // Function to construct the target URL from the JSON components
-function buildURL(template, entry) {
-    //
-    var parts = template.split(/[\{\}]/);
-    version_ix = parts.indexOf("version");
-    language_ix = parts.indexOf("language");
-    if (version_ix >= 0) {
-        parts[version_ix] = entry.version;
-    }
-    if (language_ix >= 0) {
-        parts[language_ix] = entry.language;
-    }
-    return parts.join("");
+function buildURL(entry) {
+    var template = "{{ switcher_template_url }}";  // supplied by jinja
+    template = template.replace("{version}", entry.version);
+    return template;
 }
-// Function to populate the (release, language) version switcher
+
+// Function to check if corresponding page path exists in other version of docs
+// and, if so, go there instead of the homepage of the other docs version
+function checkPageExistsAndRedirect(event) {
+    const currentFilePath = "{{ pagename }}.html",
+          otherDocsHomepage = event.target.getAttribute("data-href");
+    let tryUrl = `${otherDocsHomepage}${currentFilePath}`;
+    $.ajax({
+        type: 'HEAD',
+        url: tryUrl,
+        // if the page exists, go there
+        success: function() {
+            location.href = tryUrl;
+        }
+    }).fail(function() {
+        location.href = otherDocsHomepage;
+    });
+}
+
+// Function to populate the version switcher
 (function () {
     // get JSON config
     $.getJSON("{{ switcher_json_url }}", function(data, textStatus, jqXHR) {
         // create the nodes first (before AJAX calls) to ensure the order is
         // correct (for now, links will go to doc version homepage)
         $.each(data, function(index, entry) {
-            entry.url = buildURL("{{ switcher_template_url }}", entry);
+            // if no custom name specified (e.g., "latest"), use version string
             if (!("name" in entry)) {
                 entry.name = entry.version;
             }
-            $("#switcher").append(`<a class="list-group-item list-group-item-action py-1" href="${entry.url}">${entry.name}</a>`);
-        });
-        // see if the current page exists in the other versions of the docs
-        $.each(data, function(index, entry) {
-            let filePath = "{{ pagename }}.html";
-            $.ajax({
-                type: 'HEAD',
-                url: `${entry.url}${filePath}`,
-                // update the target URL if it exists
-                success: function() {
-                    $("#switcher").children()[index].setAttribute("href", `${entry.url}${filePath}`);
-                }
-            });
+            // construct the appropriate URL, and add it to the dropdown
+            entry.url = buildURL(entry);
+            const node = document.createElement("a");
+            node.setAttribute("class", "list-group-item list-group-item-action py-1");
+            node.setAttribute("data-href", `${entry.url}`);
+            node.textContent = `${entry.name}`;
+            node.onclick = checkPageExistsAndRedirect;
+            $("#version_switcher").append(node);
         });
     });
 })();
