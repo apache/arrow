@@ -28,7 +28,8 @@ expect_r6_class <- function(object, class) {
   expect_s3_class(object, "R6")
 }
 
-#' Redefines `expect_equal()` so it can run on objects with class `ArrowObject`
+#' Mask `testthat::expect_equal()` in order to compare ArrowObjects using their
+#' `Equals` methods from the C++ library.
 expect_equal <- function(object, expected, ignore_attr = FALSE, ..., info = NULL, label = NULL) {
   if (inherits(object, "ArrowObject") && inherits(expected, "ArrowObject")) {
     mc <- match.call()
