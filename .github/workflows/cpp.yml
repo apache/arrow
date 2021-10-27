@@ -38,8 +38,8 @@ on:
       - 'format/Flight.proto'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
 
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF

@@ -42,8 +42,8 @@ on:
       - 'format/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
 
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
