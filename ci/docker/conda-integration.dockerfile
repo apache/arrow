@@ -28,13 +28,13 @@ ARG go=1.15
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
 RUN conda install -q \
-    --file arrow/ci/conda_env_archery.txt \
-    numpy \
-    compilers \
-    maven=${maven} \
-    nodejs=${node} \
-    yarn \
-    openjdk=${jdk} && \
+        --file arrow/ci/conda_env_archery.txt \
+        numpy \
+        compilers \
+        maven=${maven} \
+        nodejs=${node} \
+        yarn \
+        openjdk=${jdk} && \
     conda clean --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
