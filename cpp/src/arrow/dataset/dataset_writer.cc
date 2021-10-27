@@ -85,8 +85,11 @@ class Throttle {
 };
 
 struct DatasetWriterState {
-  DatasetWriterState(uint64_t rows_in_flight, uint64_t max_open_files) : rows_in_flight_throttle(rows_in_flight), open_files_throttle(max_open_files), staged_rows_count(0) {
+  DatasetWriterState(uint64_t rows_in_flight, uint64_t max_open_files, uint64_t max_rows_staged) : rows_in_flight_throttle(rows_in_flight), open_files_throttle(max_open_files), staged_rows_count(0), max_rows_staged(max_rows_staged) {
+  }
 
+  bool StagingFull() const {
+    return staged_rows_count.load() >= max_rows_staged;
   }
 
   // Throttle for how many rows the dataset writer will allow to be in process memory
@@ -99,6 +102,10 @@ struct DatasetWriterState {
   // staged if it is waiting for more rows to reach minimum_batch_size.  If this is
   // exceeded then the largest staged batch is unstaged (no backpressure is applied)
   std::atomic<uint64_t> staged_rows_count;
+  // If too many rows get staged we will end up with poor performance and, if more rows
+  // are staged than max_rows_queued we will end up with deadlock.  To avoid this, once
+  // we have too many staged rows we just ignore min_rows_per_group
+  const uint64_t max_rows_staged;
   // Mutex to guard access to the file visitors in the writer options
   std::mutex visitors_mutex;
 };
@@ -132,13 +139,13 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
       } else {
         uint64_t remaining = options_.max_rows_per_group - num_rows;
         std::shared_ptr<RecordBatch> next_partial = next->Slice(0, static_cast<int64_t>(remaining));
+        batches_to_write.push_back(std::move(next_partial));
         std::shared_ptr<RecordBatch> next_remainder = next->Slice(static_cast<int64_t>(remaining));
         staged_batches_.push_front(std::move(next_remainder));
         break;
       }
     }
     DCHECK_GT(batches_to_write.size(), 0);
-    DCHECK_GT(num_rows, options_.min_rows_per_group);
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table, Table::FromRecordBatches(batches_to_write));
     return table->CombineChunksToBatch();
   }
@@ -154,16 +161,22 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
     return file_tasks_.AddTask(WriteTask{this, std::move(batch)});
   }
 
+  Result<int64_t> PopAndDeliverStagedBatch() {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch, PopStagedBatch());
+    int64_t rows_popped = next_batch->num_rows();
+    rows_currently_staged_ -= next_batch->num_rows();
+    ARROW_RETURN_NOT_OK(ScheduleBatch(std::move(next_batch)));
+    return rows_popped;
+  }
+
   // Stage batches, popping and delivering batches if enough data has arrived
   Status Push(std::shared_ptr<RecordBatch> batch) {
     uint64_t delta_staged = batch->num_rows();
     rows_currently_staged_ += delta_staged;
     staged_batches_.push_back(std::move(batch));
-    while (!staged_batches_.empty() && rows_currently_staged_ > options_.min_rows_per_group) {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch, PopStagedBatch());
-      delta_staged -= next_batch->num_rows();
-      rows_currently_staged_ -= next_batch->num_rows();
-      ARROW_RETURN_NOT_OK(ScheduleBatch(std::move(next_batch)));
+    while (!staged_batches_.empty() && (writer_state_->StagingFull() || rows_currently_staged_ >= options_.min_rows_per_group)) {
+      ARROW_ASSIGN_OR_RAISE(int64_t rows_popped, PopAndDeliverStagedBatch());
+      delta_staged -= rows_popped;
     }
     // Note, delta_staged may be negative if we were able to deliver some data
     writer_state_->staged_rows_count += delta_staged;
@@ -171,6 +184,12 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
   }
 
   Future<> DoDestroy() override {
+    if (!aborted_) {
+      writer_state_->staged_rows_count -= rows_currently_staged_;
+      while (!staged_batches_.empty()) {
+        RETURN_NOT_OK(PopAndDeliverStagedBatch());
+      }
+    }
     return file_tasks_.End().Then([this] { return DoFinish(); });
   }
 
@@ -204,6 +223,7 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
   }
 
   void Abort(Status err) {
+    aborted_ = true;
     ARROW_UNUSED(file_tasks_.Abort(std::move(err)));
   }
 
@@ -215,6 +235,7 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
   std::deque<std::shared_ptr<RecordBatch>> staged_batches_;
   uint64_t rows_currently_staged_ = 0;
   util::SerializedAsyncTaskGroup file_tasks_;
+  bool aborted_ = false;
 };
 
 struct WriteTask {
@@ -399,13 +420,20 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
   return Status::OK();
 }
 
+// Rule of thumb for the max rows to stage.  It will grow with max_rows_queued until
+// max_rows_queued starts to get too large and then it caps out at 8 million rows.
+// Feel free to replace with something more meaningful, this is just a random heuristic.
+uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued) {
+  return std::min(static_cast<uint64_t>(1 << 23), max_rows_queued / 4);
+}
+
 }  // namespace
 
 class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
  public:
   DatasetWriterImpl(FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued)
       : write_options_(std::move(write_options)),
-        writer_state_(max_rows_queued, write_options_.max_open_files) {}
+        writer_state_(max_rows_queued, write_options_.max_open_files, CalculateMaxRowsStaged(max_rows_queued)) {}
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory) {
