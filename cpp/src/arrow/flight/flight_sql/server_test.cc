@@ -353,7 +353,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
       auto prepared_statement,
       sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?"));
 
-  auto parameter_schema = prepared_statement->parameter_schema();
+  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
@@ -433,7 +433,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', ?)"));
 
-  auto parameter_schema = prepared_statement->parameter_schema();
+  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
