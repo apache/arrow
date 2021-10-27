@@ -140,6 +140,9 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
 })
 
 test_that("Writing a dataset: existing data behavior", {
+  # This test does not work on Windows because unlink does not immediately
+  # delete the data.
+  skip_on_os("windows")
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
