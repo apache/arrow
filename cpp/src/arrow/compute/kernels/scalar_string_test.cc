@@ -1095,9 +1095,9 @@ TYPED_TEST(TestStringKernels, StringRepeats) {
 
   // Floating-point repeat count
   num_repeats = ArrayFromJSON(float64(), R"([0.0, 1.2, -1.3])");
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
-                                  ::testing::HasSubstr("has no kernel matching input types"),
-                                  CallFunction("string_repeat", {values, num_repeats}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("has no kernel matching input types"),
+      CallFunction("string_repeat", {values, num_repeats}));
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
