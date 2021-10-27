@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.ObjIntConsumer;
 
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
@@ -737,6 +738,16 @@ public class SqlInfoBuilder {
    */
   public SqlInfoBuilder withSqlSupportedUnions(final SqlSupportedUnions... values) {
     return withEnumProvider(SqlInfo.SQL_SUPPORTED_UNIONS_VALUE, values);
+  }
+
+  /**
+   * Sets a value for {@link SqlInfo#SQL_OUTER_JOINS_SUPPORT_LEVEL} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_OUTER_JOINS_SUPPORT_LEVEL} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlOuterJoinSupportLevel(final SqlOuterJoinsSupportLevel... value) {
+    return withEnumProvider(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL_VALUE, value);
   }
 
   /**
