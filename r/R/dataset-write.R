@@ -51,6 +51,14 @@
 #'   files. Default (NULL) will not compress body buffers.
 #' - `null_fallback`: character to be used in place of missing values (`NA` or
 #' `NULL`) when using Hive-style partitioning. See [hive_partition()].
+#' - `existing_data_behavior`: The behavior to use when there is already data
+#'   in the destination directory.  Must be one of overwrite, error, or
+#'   delete_matching.  When this is set to "overwrite" (the default) then any
+#'   new files created will overwrite existing files.  When this is set to
+#'   "error" then the operation will fail if the destination directory is not
+#'   empty.  When this is set to "delete_matching" then the writer will delete
+#'   any existing partitions if data is going to be written to those partitions
+#'   and will leave alone partitions which data is not written to.
 #' @return The input `dataset`, invisibly
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)
 #' # You can write datasets partitioned by the values in a column (here: "cyl").
