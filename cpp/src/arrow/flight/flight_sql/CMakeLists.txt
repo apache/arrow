@@ -74,7 +74,7 @@ endif()
 
 add_executable(flight_sql_test_app test_app_cli.cc
                                    ${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc)
-target_link_libraries(flight_sql_test_app PRIVATE arrow_flight_sql_static
+target_link_libraries(flight_sql_test_app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                                                   ${GFLAGS_LIBRARIES})
 
 add_arrow_test(flight_sql_client_test
@@ -100,7 +100,6 @@ add_arrow_test(flight_sql_server_test
 # Build test server for unit tests
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   find_package(SQLite3)
-  include_directories(${SQLite3_INCLUDE_DIRS})
 
   add_executable(flight_sql_test_server
                  server.cc
@@ -111,7 +110,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  example/sqlite_tables_schema_batch_reader.cc
                  "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
   target_link_libraries(flight_sql_test_server
-                        PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}
+                        PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
                                 ${SQLite3_LIBRARIES})
 
   if(ARROW_BUILD_TESTS)
