@@ -189,6 +189,38 @@ struct GetOutputType<Decimal256Type> {
 };
 
 // ----------------------------------------------------------------------
+// enable_if helpers for C types
+
+template <typename T>
+using is_unsigned_integer_value =
+    std::integral_constant<bool,
+                           std::is_integral<T>::value && std::is_unsigned<T>::value>;
+
+template <typename T>
+using is_signed_integer_value =
+    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
+
+template <typename T, typename R = T>
+using enable_if_signed_integer_value = enable_if_t<is_signed_integer_value<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_unsigned_integer_value =
+    enable_if_t<is_unsigned_integer_value<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_integer_value =
+    enable_if_t<is_signed_integer_value<T>::value || is_unsigned_integer_value<T>::value,
+                R>;
+
+template <typename T, typename R = T>
+using enable_if_floating_value = enable_if_t<std::is_floating_point<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_decimal_value =
+    enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
+                R>;
+
+// ----------------------------------------------------------------------
 // Iteration / value access utilities
 
 template <typename T, typename R = void>

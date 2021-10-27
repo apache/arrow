@@ -95,6 +95,14 @@ import_gpg_keys() {
   gpg --import KEYS
 }
 
+if type shasum >/dev/null 2>&1; then
+  sha256_verify="shasum -a 256 -c"
+  sha512_verify="shasum -a 512 -c"
+else
+  sha256_verify="sha256sum -c"
+  sha512_verify="sha512sum -c"
+fi
+
 fetch_archive() {
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
@@ -102,8 +110,8 @@ fetch_archive() {
   download_rc_file ${dist_name}.tar.gz.sha256
   download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  shasum -a 256 -c ${dist_name}.tar.gz.sha256
-  shasum -a 512 -c ${dist_name}.tar.gz.sha512
+  ${sha256_verify} ${dist_name}.tar.gz.sha256
+  ${sha512_verify} ${dist_name}.tar.gz.sha512
 }
 
 verify_dir_artifact_signatures() {
@@ -117,9 +125,9 @@ verify_dir_artifact_signatures() {
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
     if [ -f $base_artifact.sha256 ]; then
-      shasum -a 256 -c $base_artifact.sha256 || exit 1
+      ${sha256_verify} $base_artifact.sha256 || exit 1
     fi
-    shasum -a 512 -c $base_artifact.sha512 || exit 1
+    ${sha512_verify} $base_artifact.sha512 || exit 1
     popd
   done
 }
@@ -146,16 +154,21 @@ test_apt() {
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:hirsute" \
-                "arm64v8/ubuntu:hirsute"; do \
+                "arm64v8/ubuntu:hirsute" \
+                "ubuntu:impish" \
+                "arm64v8/ubuntu:impish"; do \
     case "${target}" in
-      arm64v8/debian:bullseye|arm64v8/debian:bookworm|arm64v8/ubuntu:hirsute)
-        # qemu-user-static in Ubuntu 20.04 has a crash bug:
-        #   https://bugs.launchpad.net/qemu/+bug/1749393
-        continue
-        ;;
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          : # OK
+          case "${target}" in
+          arm64v8/debian:buster|arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+            ;; # OK
+          *)
+            # qemu-user-static in Ubuntu 20.04 has a crash bug:
+            #   https://bugs.launchpad.net/qemu/+bug/1749393
+            continue
+            ;;
+          esac
         else
           continue
         fi
@@ -414,7 +427,7 @@ test_js() {
   if [ "${INSTALL_NODE}" -gt 0 ]; then
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | \
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
@@ -423,7 +436,9 @@ test_js() {
   fi
 
   yarn --frozen-lockfile
-  yarn run-s clean:all lint build
+  yarn clean:all
+  yarn lint
+  yarn build
   yarn test
   popd
 }

@@ -167,6 +167,8 @@ class LocalBinaryTask < BinaryTask
       # "ubuntu-focal-arm64",
       "ubuntu-hirsute",
       # "ubuntu-hirsute-arm64",
+      "ubuntu-impish",
+      # "ubuntu-impish-arm64",
     ]
   end
 
@@ -211,6 +213,8 @@ class LocalBinaryTask < BinaryTask
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-8",
+      # "almalinux-8-aarch64",
       "amazon-linux-2",
       # "amazon-linux-2-aarch64",
       "centos-7",

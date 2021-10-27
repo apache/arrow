@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,23 +14,28 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-set -ue
 
-SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+FROM ubuntu:impish
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <version>"
-    exit
-fi
+RUN \
+  echo "debconf debconf/frontend select Noninteractive" | \
+    debconf-set-selections
 
-version=$1
-version_tag="apache-arrow-${version}"
-go_arrow_tag="go/arrow/v${version}"
-go_parquet_tag="go/parquet/v${version}"
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
 
-git tag "${go_arrow_tag}" "${version_tag}"
-git tag "${go_parquet_tag}" "${version_tag}"
+ARG DEBUG
 
-git push apache "${go_arrow_tag}"
-git push apache "${go_parquet_tag}"
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
+    build-essential \
+    debhelper \
+    devscripts \
+    fakeroot \
+    gnupg \
+    lsb-release && \
+  apt clean && \
+  rm -rf /var/lib/apt/lists/*

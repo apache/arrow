@@ -193,7 +193,10 @@ message Result {
  * Wrap the result of a getSchema call
  */
 message SchemaResult {
-  // schema of the dataset as described in Schema.fbs::Schema.
+  // The schema of the dataset in its IPC form:
+  //   4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
+  //   4 bytes - the byte length of the payload
+  //   a flatbuffer Message whose header is the Schema
   bytes schema = 1;
 }
 
@@ -244,7 +247,10 @@ message FlightDescriptor {
  * consumer is able to determine how to retrieve a dataset.
  */
 message FlightInfo {
-  // schema of the dataset as described in Schema.fbs::Schema.
+  // The schema of the dataset in its IPC form:
+  //   4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
+  //   4 bytes - the byte length of the payload
+  //   a flatbuffer Message whose header is the Schema
   bytes schema = 1;
 
   /*
