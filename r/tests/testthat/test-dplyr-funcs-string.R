@@ -477,12 +477,6 @@ test_that("strrep", {
       df
     )
   }
-
-  expect_error(
-    nse_funcs$strrep("Apache Arrow", -1L),
-    "Repeat count must be a non-negative integer",
-    fixed = TRUE
-  )
 })
 
 test_that("str_to_lower, str_to_upper, and str_to_title", {
