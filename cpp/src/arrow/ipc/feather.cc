@@ -705,11 +705,16 @@ Status WriteFeatherV1(const Table& table, io::OutputStream* dst) {
 
 class ReaderV2 : public Reader {
  public:
-  Status Open(const std::shared_ptr<io::RandomAccessFile>& source) {
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& source, const IpcReadOptions& options) {
     source_ = source;
-    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(source_));
+    options_ = options;
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(source_, options_));
     schema_ = reader->schema();
     return Status::OK();
+  }
+
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& source) {
+    return Open(source, IpcReadOptions::Defaults());
   }
 
   int version() const override { return kFeatherV2Version; }
@@ -727,11 +732,11 @@ class ReaderV2 : public Reader {
   }
 
   Status Read(std::shared_ptr<Table>* out) override {
-    return Read(IpcReadOptions::Defaults(), out);
+    return Read(options_, out);
   }
 
   Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out) override {
-    auto options = IpcReadOptions::Defaults();
+    auto options = options_;
     options.included_fields = indices;
     return Read(options, out);
   }
@@ -753,6 +758,7 @@ class ReaderV2 : public Reader {
  private:
   std::shared_ptr<io::RandomAccessFile> source_;
   std::shared_ptr<Schema> schema_;
+  IpcReadOptions options_;
 };
 
 }  // namespace
@@ -779,6 +785,35 @@ Result<std::shared_ptr<Reader>> Reader::Open(
                     strlen(internal::kArrowMagicBytes)) == 0) {
     std::shared_ptr<ReaderV2> result = std::make_shared<ReaderV2>();
     RETURN_NOT_OK(result->Open(source));
+    return result;
+  } else {
+    return Status::Invalid("Not a Feather V1 or Arrow IPC file");
+  }
+}
+
+Result<std::shared_ptr<Reader>> Reader::Open(
+    const std::shared_ptr<io::RandomAccessFile>& source,
+    const IpcReadOptions& options) {
+  // Pathological issue where the file is smaller than header and footer
+  // combined
+  ARROW_ASSIGN_OR_RAISE(int64_t size, source->GetSize());
+  if (size < /* 2 * 4 + 4 */ 12) {
+    return Status::Invalid("File is too small to be a well-formed file");
+  }
+
+  // Determine what kind of file we have. 6 is the max of len(FEA1) and
+  // len(ARROW1)
+  constexpr int magic_size = 6;
+  ARROW_ASSIGN_OR_RAISE(auto buffer, source->ReadAt(0, magic_size));
+
+  if (memcmp(buffer->data(), kFeatherV1MagicBytes, strlen(kFeatherV1MagicBytes)) == 0) {
+    std::shared_ptr<ReaderV1> result = std::make_shared<ReaderV1>();
+    RETURN_NOT_OK(result->Open(source));
+    return result;
+  } else if (memcmp(buffer->data(), internal::kArrowMagicBytes,
+                    strlen(internal::kArrowMagicBytes)) == 0) {
+    std::shared_ptr<ReaderV2> result = std::make_shared<ReaderV2>();
+    RETURN_NOT_OK(result->Open(source, options));
     return result;
   } else {
     return Status::Invalid("Not a Feather V1 or Arrow IPC file");

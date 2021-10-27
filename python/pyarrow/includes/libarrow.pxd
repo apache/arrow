@@ -1443,6 +1443,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int max_recursion_depth
         CMemoryPool* memory_pool
         shared_ptr[unordered_set[int]] included_fields
+        c_bool use_threads
 
         @staticmethod
         CIpcReadOptions Defaults()

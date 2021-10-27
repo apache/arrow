@@ -217,11 +217,11 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
     df : pandas.DataFrame
     """
     _check_pandas_version()
-    return (read_table(source, columns=columns, memory_map=memory_map)
+    return (read_table(source, columns=columns, memory_map=memory_map, use_threads=use_threads)
             .to_pandas(use_threads=use_threads))
 
 
-def read_table(source, columns=None, memory_map=True):
+def read_table(source, columns=None, memory_map=True, use_threads=True):
     """
     Read a pyarrow.Table from Feather format
 
@@ -238,7 +238,7 @@ def read_table(source, columns=None, memory_map=True):
     -------
     table : pyarrow.Table
     """
-    reader = _feather.FeatherReader(source, use_memory_map=memory_map)
+    reader = _feather.FeatherReader(source, use_memory_map=memory_map, use_threads=use_threads)
 
     if columns is None:
         return reader.read()

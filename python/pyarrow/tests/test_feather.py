@@ -193,6 +193,28 @@ def test_read_table(version):
 
 
 @pytest.mark.pandas
+def test_read_feather(version):
+    # ARROW-14470
+    num_values = (100, 100)
+    path = random_path()
+
+    TEST_FILES.append(path)
+
+    values = np.random.randint(0, 100, size=num_values)
+    columns = ['col_' + str(i) for i in range(100)]
+    table = pa.Table.from_arrays(values, columns)
+
+    write_feather(table, path, version=version)
+
+    result = read_feather(path)
+    assert_frame_equal(table.to_pandas(), result)
+
+    # Test with use_threads=False
+    result = read_feather(path, use_threads=False)
+    assert_frame_equal(table.to_pandas(), result)
+
+
+@pytest.mark.pandas
 def test_float_nulls(version):
     num_values = 100
 
