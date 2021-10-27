@@ -85,12 +85,14 @@ class Throttle {
 };
 
 struct DatasetWriterState {
-  DatasetWriterState(uint64_t rows_in_flight, uint64_t max_open_files, uint64_t max_rows_staged) : rows_in_flight_throttle(rows_in_flight), open_files_throttle(max_open_files), staged_rows_count(0), max_rows_staged(max_rows_staged) {
-  }
+  DatasetWriterState(uint64_t rows_in_flight, uint64_t max_open_files,
+                     uint64_t max_rows_staged)
+      : rows_in_flight_throttle(rows_in_flight),
+        open_files_throttle(max_open_files),
+        staged_rows_count(0),
+        max_rows_staged(max_rows_staged) {}
 
-  bool StagingFull() const {
-    return staged_rows_count.load() >= max_rows_staged;
-  }
+  bool StagingFull() const { return staged_rows_count.load() >= max_rows_staged; }
 
   // Throttle for how many rows the dataset writer will allow to be in process memory
   // When this is exceeded the dataset writer will pause / apply backpressure
@@ -121,7 +123,7 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
     ARROW_UNUSED(file_tasks_.AddTask([this, writer_fut] {
       return writer_fut.Then(
           [this](const std::shared_ptr<FileWriter>& writer) { writer_ = writer; });
-      }));
+    }));
   }
 
   Result<std::shared_ptr<RecordBatch>> PopStagedBatch() {
@@ -138,23 +140,24 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
         }
       } else {
         uint64_t remaining = options_.max_rows_per_group - num_rows;
-        std::shared_ptr<RecordBatch> next_partial = next->Slice(0, static_cast<int64_t>(remaining));
+        std::shared_ptr<RecordBatch> next_partial =
+            next->Slice(0, static_cast<int64_t>(remaining));
         batches_to_write.push_back(std::move(next_partial));
-        std::shared_ptr<RecordBatch> next_remainder = next->Slice(static_cast<int64_t>(remaining));
+        std::shared_ptr<RecordBatch> next_remainder =
+            next->Slice(static_cast<int64_t>(remaining));
         staged_batches_.push_front(std::move(next_remainder));
         break;
       }
     }
     DCHECK_GT(batches_to_write.size(), 0);
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table, Table::FromRecordBatches(batches_to_write));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
+                          Table::FromRecordBatches(batches_to_write));
     return table->CombineChunksToBatch();
   }
 
   Status ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
     struct WriteTask {
-      Future<> operator()() {
-        return self->WriteNext(std::move(batch));
-      }
+      Future<> operator()() { return self->WriteNext(std::move(batch)); }
       DatasetWriterFileQueue* self;
       std::shared_ptr<RecordBatch> batch;
     };
@@ -174,7 +177,9 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
     uint64_t delta_staged = batch->num_rows();
     rows_currently_staged_ += delta_staged;
     staged_batches_.push_back(std::move(batch));
-    while (!staged_batches_.empty() && (writer_state_->StagingFull() || rows_currently_staged_ >= options_.min_rows_per_group)) {
+    while (!staged_batches_.empty() &&
+           (writer_state_->StagingFull() ||
+            rows_currently_staged_ >= options_.min_rows_per_group)) {
       ARROW_ASSIGN_OR_RAISE(int64_t rows_popped, PopAndDeliverStagedBatch());
       delta_staged -= rows_popped;
     }
@@ -319,8 +324,8 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
         });
     auto file_queue = util::MakeSharedAsync<DatasetWriterFileQueue>(
         file_writer_fut, write_options_, writer_state_);
-    RETURN_NOT_OK(task_group_.AddTask(
-        file_queue->on_closed().Then([this] { writer_state_->open_files_throttle.Release(1); })));
+    RETURN_NOT_OK(task_group_.AddTask(file_queue->on_closed().Then(
+        [this] { writer_state_->open_files_throttle.Release(1); })));
     return file_queue;
   }
 
@@ -341,8 +346,9 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue,
                                 util::DestroyingDeleter<DatasetWriterDirectoryQueue>>>
   Make(util::AsyncTaskGroup* task_group,
-       const FileSystemDatasetWriteOptions& write_options, DatasetWriterState* writer_state,
-       std::shared_ptr<Schema> schema, std::string dir) {
+       const FileSystemDatasetWriteOptions& write_options,
+       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
+       std::string dir) {
     auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
         std::move(dir), std::move(schema), write_options, writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
@@ -394,8 +400,10 @@ Status ValidateOptions(const FileSystemDatasetWriteOptions& options) {
   if (options.max_rows_per_group < options.min_rows_per_group) {
     return Status::Invalid("max_rows_per_group must be less than min_rows_per_group");
   }
-  if (options.max_rows_per_file > 0 && options.max_rows_per_file < options.max_rows_per_group) {
-    return Status::Invalid("max_rows_per_group must be less than or equal to max_rows_per_file");
+  if (options.max_rows_per_file > 0 &&
+      options.max_rows_per_file < options.max_rows_per_group) {
+    return Status::Invalid(
+        "max_rows_per_group must be less than or equal to max_rows_per_file");
   }
   return Status::OK();
 }
@@ -433,7 +441,8 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
  public:
   DatasetWriterImpl(FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued)
       : write_options_(std::move(write_options)),
-        writer_state_(max_rows_queued, write_options_.max_open_files, CalculateMaxRowsStaged(max_rows_queued)) {}
+        writer_state_(max_rows_queued, write_options_.max_open_files,
+                      CalculateMaxRowsStaged(max_rows_queued)) {}
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory) {
@@ -471,8 +480,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
         ::arrow::internal::GetOrInsertGenerated(
             &directory_queues_, directory, [this, &batch](const std::string& dir) {
               return DatasetWriterDirectoryQueue::Make(
-                  &task_group_, write_options_, &writer_state_, batch->schema(),
-                  dir);
+                  &task_group_, write_options_, &writer_state_, batch->schema(), dir);
             }));
     std::shared_ptr<DatasetWriterDirectoryQueue> dir_queue = dir_queue_itr->second;
     Future<> backpressure;
@@ -483,7 +491,8 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
       ARROW_ASSIGN_OR_RAISE(auto next_chunk, dir_queue->NextWritableChunk(
                                                  batch, &remainder, &will_open_file));
 
-      backpressure = writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
+      backpressure =
+          writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
         break;
       }

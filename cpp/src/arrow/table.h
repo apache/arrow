@@ -224,7 +224,8 @@ class ARROW_EXPORT Table {
   /// concatenated into a single chunk.
   ///
   /// \param[in] pool The pool for buffer allocations
-  Result<std::shared_ptr<RecordBatch>> CombineChunksToBatch(MemoryPool * pool = default_memory_pool()) const;
+  Result<std::shared_ptr<RecordBatch>> CombineChunksToBatch(
+      MemoryPool* pool = default_memory_pool()) const;
 
  protected:
   Table();

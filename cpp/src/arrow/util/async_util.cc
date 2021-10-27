@@ -125,14 +125,12 @@ Future<> SerializedAsyncTaskGroup::EndUnlocked(util::Mutex::Guard&& guard) {
   return on_finished_;
 }
 
-Future<> SerializedAsyncTaskGroup::End() {
-  return EndUnlocked(mutex_.Lock());
-}
+Future<> SerializedAsyncTaskGroup::End() { return EndUnlocked(mutex_.Lock()); }
 
 Future<> SerializedAsyncTaskGroup::Abort(Status err) {
   util::Mutex::Guard guard = mutex_.Lock();
   err_ = std::move(err);
-  tasks_ = {};
+  tasks_ = std::queue<std::function<Result<Future<>>()>>();
   return EndUnlocked(std::move(guard));
 }
 

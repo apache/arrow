@@ -47,14 +47,18 @@ class DatasetWriterTestFixture : public testing::Test {
     uint64_t num_rows;
     int num_record_batches;
 
-    ExpectedFile(std::string filename, uint64_t start, uint64_t num_rows) : filename(std::move(filename)), start(start), num_rows(num_rows), num_record_batches(1) {
+    ExpectedFile(std::string filename, uint64_t start, uint64_t num_rows)
+        : filename(std::move(filename)),
+          start(start),
+          num_rows(num_rows),
+          num_record_batches(1) {}
 
-    }
-
-    ExpectedFile(std::string filename, uint64_t start, uint64_t num_rows, int num_record_batches) : filename(std::move(filename)), start(start), num_rows(num_rows), num_record_batches(num_record_batches) {
-
-    }
-
+    ExpectedFile(std::string filename, uint64_t start, uint64_t num_rows,
+                 int num_record_batches)
+        : filename(std::move(filename)),
+          start(start),
+          num_rows(num_rows),
+          num_record_batches(num_record_batches) {}
   };
 
   void SetUp() override {
@@ -225,7 +229,8 @@ TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 10, 4}, {"testdir/chunk-1.arrow", 10, 8, 3}});
+  AssertCreatedData(
+      {{"testdir/chunk-0.arrow", 0, 10, 4}, {"testdir/chunk-1.arrow", 10, 8, 3}});
 }
 
 TEST_F(DatasetWriterTestFixture, MinRowGroup) {
@@ -272,13 +277,15 @@ TEST_F(DatasetWriterTestFixture, MinAndMaxRowGroup) {
 }
 
 TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
-  // This tests the case where we end up queuing too much data because we're waiting for enough data
-  // to form a min row group and we fill up the dataset writer (it should auto-evict)
+  // This tests the case where we end up queuing too much data because we're waiting for
+  // enough data to form a min row group and we fill up the dataset writer (it should
+  // auto-evict)
   write_options_.min_rows_per_group = 10;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_, 100));
   std::vector<ExpectedFile> expected_files;
   for (int i = 0; i < 12; i++) {
-    expected_files.push_back({"testdir/" + std::to_string(i) + "/chunk-0.arrow", static_cast<uint64_t>(i*9), 9, 1});
+    expected_files.push_back({"testdir/" + std::to_string(i) + "/chunk-0.arrow",
+                              static_cast<uint64_t>(i * 9), 9, 1});
     ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(9), std::to_string(i)));
   }
   ASSERT_FINISHES_OK(dataset_writer->Finish());
