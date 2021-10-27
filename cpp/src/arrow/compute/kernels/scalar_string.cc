@@ -347,10 +347,6 @@ struct StringTransformExecBase {
 
   static Status Execute(KernelContext* ctx, StringTransform* transform,
                         const ExecBatch& batch, Datum* out) {
-    if (batch.num_values() != 1) {
-      return Status::Invalid("Invalid arity for unary string transform");
-    }
-
     if (batch[0].kind() == Datum::ARRAY) {
       return ExecArray(ctx, transform, batch[0].array(), out);
     } else if (batch[0].kind() == Datum::SCALAR) {
@@ -546,12 +542,12 @@ struct StringBinaryTransformBase {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
-  // Not all combinations of input shapes are meaningful to string binary transforms, so
-  // these flags serve as toggles for enabling/disabling the corresponding ones. These
-  // flags should be set in the PreExec() method.
+  // Not all combinations of input shapes are meaningful to string binary
+  // transforms, so these flags serve as control toggles for enabling/disabling
+  // the corresponding ones. These flags should be set in the PreExec() method.
   //
-  // This is an example of a StringTransform that disables argument shapes with mixed
-  // scalar/array.
+  // This is an example of a StringTransform that disables argument shapes with
+  // mixed scalar/array.
   //
   // template <typename Type1, typename Type2>
   // struct MyStringTransform : public StringBinaryTransformBase<Type1, Type2> {
@@ -578,20 +574,24 @@ struct StringBinaryTransformBase {
   }
 
   // Return the maximum total size of the output in codeunits (i.e. bytes)
-  // given input characteristics for Scalar-Scalar, Scalar-Array, Array-Scalar, and
-  // Array-Array inputs.
+  // given input characteristics for different input shapes.
+  //
+  // Scalar-Scalar
   virtual int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ViewType2) {
     return input1_ncodeunits;
   }
 
+  // Scalar-Array
   virtual int64_t MaxCodeunits(const int64_t input1_ncodeunits, const ArrayType2&) {
     return input1_ncodeunits;
   }
 
+  // Array-Scalar
   virtual int64_t MaxCodeunits(const ArrayType1& input1, const ViewType2) {
     return input1.total_values_length();
   }
 
+  // Array-Array
   virtual int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2&) {
     return input1.total_values_length();
   }
@@ -613,10 +613,6 @@ struct StringBinaryTransformExecBase {
 
   static Status Execute(KernelContext* ctx, StringTransform* transform,
                         const ExecBatch& batch, Datum* out) {
-    if (batch.num_values() != 2) {
-      return Status::Invalid("Invalid arity for binary string transform");
-    }
-
     if (batch[0].is_scalar()) {
       if (batch[1].is_scalar()) {
         if (transform->EnableScalarScalar) {
@@ -703,7 +699,7 @@ struct StringBinaryTransformExecBase {
     offset_type output_ncodeunits = 0;
 
     // Apply transform
-    ARROW_RETURN_NOT_OK(VisitArrayDataInline<Type1>(
+    RETURN_NOT_OK(VisitArrayDataInline<Type1>(
         *data1,
         [&](util::string_view input_string_view) {
           auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
@@ -754,7 +750,7 @@ struct StringBinaryTransformExecBase {
     offset_type output_ncodeunits = 0;
 
     // Apply transform
-    ARROW_RETURN_NOT_OK(arrow::internal::VisitBitBlocks(
+    RETURN_NOT_OK(arrow::internal::VisitBitBlocks(
         data2->buffers[0], data2->offset, data2->length,
         [&](int64_t i) {
           auto value2 = array2.GetView(i);
@@ -799,7 +795,7 @@ struct StringBinaryTransformExecBase {
     offset_type output_ncodeunits = 0;
 
     // Apply transform
-    ARROW_RETURN_NOT_OK(arrow::internal::VisitTwoBitBlocks(
+    RETURN_NOT_OK(arrow::internal::VisitTwoBitBlocks(
         data1->buffers[0], data1->offset, data2->buffers[0], data2->offset, data1->length,
         [&](int64_t i) {
           auto input_string_view = array1.GetView(i);
