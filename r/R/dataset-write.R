@@ -41,12 +41,12 @@
 #' @param existing_data_behavior The behavior to use when there is already data
 #' in the destination directory.  Must be one of "overwrite", "error", or
 #' "delete_matching".
-#' - "overwrite" (the default) then any new files created will overwrite 
+#' - "overwrite" (the default) then any new files created will overwrite
 #'   existing files
 #' - "error" then the operation will fail if the destination directory is not
 #'   empty
-#' - "delete_matching" then the writer will delete any existing partitions 
-#'   if data is going to be written to those partitions and will leave alone 
+#' - "delete_matching" then the writer will delete any existing partitions
+#'   if data is going to be written to those partitions and will leave alone
 #'   partitions which data is not written to.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are
