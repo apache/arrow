@@ -1,5 +1,5 @@
 <div class="dropdown">
-    <button type="button" class="btn btn-primary btn-sm navbar-btn dropdown-toggle" id="version_switcher_button" data-toggle="dropdown">
+    <button type="button" class="btn btn-secondary btn-sm navbar-btn dropdown-toggle" id="version_switcher_button" data-toggle="dropdown">
         {{ release }}
         <span class="caret"></span>
     </button>
@@ -20,7 +20,7 @@ function buildURL(entry) {
 // and, if so, go there instead of the homepage of the other docs version
 function checkPageExistsAndRedirect(event) {
     const currentFilePath = "{{ pagename }}.html",
-          otherDocsHomepage = event.target.getAttribute("data-href");
+          otherDocsHomepage = event.target.getAttribute("href");
     let tryUrl = `${otherDocsHomepage}${currentFilePath}`;
     $.ajax({
         type: 'HEAD',
@@ -32,6 +32,7 @@ function checkPageExistsAndRedirect(event) {
     }).fail(function() {
         location.href = otherDocsHomepage;
     });
+    return false;
 }
 
 // Function to populate the version switcher
@@ -49,7 +50,7 @@ function checkPageExistsAndRedirect(event) {
             entry.url = buildURL(entry);
             const node = document.createElement("a");
             node.setAttribute("class", "list-group-item list-group-item-action py-1");
-            node.setAttribute("data-href", `${entry.url}`);
+            node.setAttribute("href", `${entry.url}`);
             node.textContent = `${entry.name}`;
             node.onclick = checkPageExistsAndRedirect;
             $("#version_switcher").append(node);
