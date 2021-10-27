@@ -234,6 +234,8 @@ def read_table(source, columns=None, memory_map=True, use_threads=True):
         read.
     memory_map : boolean, default True
         Use memory mapping when opening file on disk
+    use_threads : bool, default True
+        Whether to parallelize reading using multiple threads.
 
     Returns
     -------

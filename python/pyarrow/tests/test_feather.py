@@ -195,13 +195,13 @@ def test_read_table(version):
 @pytest.mark.pandas
 def test_read_feather(version):
     # ARROW-14470
-    num_values = (100, 100)
+    num_values = (10, 10)
     path = random_path()
 
     TEST_FILES.append(path)
 
-    values = np.random.randint(0, 100, size=num_values)
-    columns = ['col_' + str(i) for i in range(100)]
+    values = np.random.randint(0, 10, size=num_values)
+    columns = ['col_' + str(i) for i in range(10)]
     table = pa.Table.from_arrays(values, columns)
 
     write_feather(table, path, version=version)

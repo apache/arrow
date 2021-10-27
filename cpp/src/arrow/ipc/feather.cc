@@ -766,30 +766,7 @@ class ReaderV2 : public Reader {
 
 Result<std::shared_ptr<Reader>> Reader::Open(
     const std::shared_ptr<io::RandomAccessFile>& source) {
-  // Pathological issue where the file is smaller than header and footer
-  // combined
-  ARROW_ASSIGN_OR_RAISE(int64_t size, source->GetSize());
-  if (size < /* 2 * 4 + 4 */ 12) {
-    return Status::Invalid("File is too small to be a well-formed file");
-  }
-
-  // Determine what kind of file we have. 6 is the max of len(FEA1) and
-  // len(ARROW1)
-  constexpr int magic_size = 6;
-  ARROW_ASSIGN_OR_RAISE(auto buffer, source->ReadAt(0, magic_size));
-
-  if (memcmp(buffer->data(), kFeatherV1MagicBytes, strlen(kFeatherV1MagicBytes)) == 0) {
-    std::shared_ptr<ReaderV1> result = std::make_shared<ReaderV1>();
-    RETURN_NOT_OK(result->Open(source));
-    return result;
-  } else if (memcmp(buffer->data(), internal::kArrowMagicBytes,
-                    strlen(internal::kArrowMagicBytes)) == 0) {
-    std::shared_ptr<ReaderV2> result = std::make_shared<ReaderV2>();
-    RETURN_NOT_OK(result->Open(source));
-    return result;
-  } else {
-    return Status::Invalid("Not a Feather V1 or Arrow IPC file");
-  }
+  return Reader::Open(source, IpcReadOptions::Defaults());
 }
 
 Result<std::shared_ptr<Reader>> Reader::Open(
