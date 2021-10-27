@@ -201,9 +201,9 @@ html_theme_options = {
 
 html_context = {
     "switcher_json_url": "/docs/_static/versions.json",
-    "switcher_template_url": "https://arrow.apache.org/docs/{version}/",
+    "switcher_template_url": "https://arrow.apache.org/docs/{version}",
     # for local testing
-    #"switcher_template_url": "http://0.0.0.0:8000/docs/{version}/",
+    # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
