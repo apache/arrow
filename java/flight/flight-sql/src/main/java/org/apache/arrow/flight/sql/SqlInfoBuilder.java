@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.ObjIntConsumer;
 
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
