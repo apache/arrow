@@ -542,27 +542,6 @@ struct StringBinaryTransformBase {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
-  // Not all combinations of input shapes are meaningful to string binary
-  // transforms, so these flags serve as control toggles for enabling/disabling
-  // the corresponding ones. These flags should be set in the PreExec() method.
-  //
-  // This is an example of a StringTransform that disables argument shapes with
-  // mixed scalar/array.
-  //
-  // template <typename Type1, typename Type2>
-  // struct MyStringTransform : public StringBinaryTransformBase<Type1, Type2> {
-  //   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
-  //     EnableScalarArray = false;
-  //     EnableArrayScalar = false;
-  //     return StringBinaryTransformBase::PreExec(ctx, batch, out);
-  //   }
-  //   ...
-  // };
-  bool EnableScalarScalar = true;
-  bool EnableScalarArray = true;
-  bool EnableArrayScalar = true;
-  bool EnableArrayArray = true;
-
   virtual ~StringBinaryTransformBase() = default;
 
   virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -595,6 +574,34 @@ struct StringBinaryTransformBase {
   virtual int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2&) {
     return input1.total_values_length();
   }
+
+  // Not all combinations of input shapes are meaningful to string binary
+  // transforms, so these flags serve as control toggles for enabling/disabling
+  // the corresponding ones. These flags should be set in the PreExec() method.
+  //
+  // This is an example of a StringTransform that disables argument shapes with
+  // mixed scalar/array.
+  //
+  // template <typename Type1, typename Type2>
+  // struct MyStringTransform : public StringBinaryTransformBase<Type1, Type2> {
+  //   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  //     EnableScalarArray = false;
+  //     EnableArrayScalar = false;
+  //     return StringBinaryTransformBase::PreExec(ctx, batch, out);
+  //   }
+  //   ...
+  // };
+  bool EnableScalarScalar = true;
+  bool EnableScalarArray = true;
+  bool EnableArrayScalar = true;
+  bool EnableArrayArray = true;
+
+  // Tracks status of transform in StringBinaryTransformExecBase.
+  // The purpose of this transform status is to provide a means to report/detect
+  // errors in functions that do not provide a mechanism to return a Status
+  // value but can still detect errors. This status is checked automatically
+  // after MaxCodeunits() and Transform() operations.
+  Status st = Status::OK();
 };
 
 /// Kernel exec generator for binary (two parameters) string transforms.
@@ -653,6 +660,7 @@ struct StringBinaryTransformExecBase {
 
     // Calculate max number of output codeunits
     const auto max_output_ncodeunits = transform->MaxCodeunits(input_ncodeunits, value2);
+    RETURN_NOT_OK(transform->st);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output string
@@ -665,6 +673,7 @@ struct StringBinaryTransformExecBase {
     // Apply transform
     auto encoded_nbytes = static_cast<offset_type>(
         transform->Transform(input_string, input_ncodeunits, value2, output_string));
+    RETURN_NOT_OK(transform->st);
     if (encoded_nbytes < 0) {
       return transform->InvalidStatus();
     }
@@ -685,6 +694,7 @@ struct StringBinaryTransformExecBase {
 
     // Calculate max number of output codeunits
     const auto max_output_ncodeunits = transform->MaxCodeunits(array1, value2);
+    RETURN_NOT_OK(transform->st);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output strings
@@ -706,6 +716,7 @@ struct StringBinaryTransformExecBase {
           auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
           auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
               input_string, input_ncodeunits, value2, output_string + output_ncodeunits));
+          RETURN_NOT_OK(transform->st);
           if (encoded_nbytes < 0) {
             return transform->InvalidStatus();
           }
@@ -736,6 +747,7 @@ struct StringBinaryTransformExecBase {
 
     // Calculate max number of output codeunits
     const auto max_output_ncodeunits = transform->MaxCodeunits(input_ncodeunits, array2);
+    RETURN_NOT_OK(transform->st);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output strings
@@ -756,6 +768,7 @@ struct StringBinaryTransformExecBase {
           auto value2 = array2.GetView(i);
           auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
               input_string, input_ncodeunits, value2, output_string + output_ncodeunits));
+          RETURN_NOT_OK(transform->st);
           if (encoded_nbytes < 0) {
             return transform->InvalidStatus();
           }
@@ -781,6 +794,7 @@ struct StringBinaryTransformExecBase {
 
     // Calculate max number of output codeunits
     const auto max_output_ncodeunits = transform->MaxCodeunits(array1, array2);
+    RETURN_NOT_OK(transform->st);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output strings
@@ -804,6 +818,7 @@ struct StringBinaryTransformExecBase {
           auto value2 = array2.GetView(i);
           auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
               input_string, input_ncodeunits, value2, output_string + output_ncodeunits));
+          RETURN_NOT_OK(transform->st);
           if (encoded_nbytes < 0) {
             return transform->InvalidStatus();
           }
@@ -2869,7 +2884,12 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
                        const ArrayType2& input2) override {
     int64_t total_num_repeats = 0;
     for (int64_t i = 0; i < input2.length(); ++i) {
-      total_num_repeats += input2.GetView(i);
+      auto num_repeats = input2.GetView(i);
+      if (num_repeats < 0) {
+        this->st = Status::Invalid("Repeat count must be a non-negative integer");
+        return num_repeats;
+      }
+      total_num_repeats += num_repeats;
     }
     return input1_ncodeunits * total_num_repeats;
   }
@@ -2881,7 +2901,12 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   int64_t MaxCodeunits(const ArrayType1& input1, const ArrayType2& input2) override {
     int64_t total_codeunits = 0;
     for (int64_t i = 0; i < input2.length(); ++i) {
-      total_codeunits += input1.GetView(i).length() * input2.GetView(i);
+      auto num_repeats = input2.GetView(i);
+      if (num_repeats < 0) {
+        this->st = Status::Invalid("Repeat count must be a non-negative integer");
+        return num_repeats;
+      }
+      total_codeunits += input1.GetView(i).length() * num_repeats;
     }
     return total_codeunits;
   }
@@ -2935,9 +2960,8 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     if (batch[1].is_scalar()) {
       auto scalar = batch[1].scalar();
       auto num_repeats = UnboxScalar<Type2>::Unbox(*scalar);
-      // Validate repeat count. For array shape, repeat count is not explicitly
-      // validated as an optimization. The output buffer allocation should fail
-      // via MaxCodeunits.
+      // Validate repeat count here to resolve error early as possible.
+      // For array shape, repeat count is validated in MaxCodeunits().
       if (num_repeats < 0) {
         return Status::Invalid("Repeat count must be a non-negative integer");
       }
