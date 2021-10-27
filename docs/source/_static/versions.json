@@ -1,0 +1,26 @@
+[
+    {
+        "name": "6.0 (stable)",
+        "version": ""
+    },
+    {
+        "name": "5.0",
+        "version": "5.0/"
+    },
+    {
+        "name": "4.0",
+        "version": "4.0/"
+    },
+    {
+        "name": "3.0",
+        "version": "3.0/"
+    },
+    {
+        "name": "2.0",
+        "version": "2.0/"
+    },
+    {
+        "name": "1.0",
+        "version": "1.0/"
+    }
+]
