@@ -100,14 +100,18 @@ class PackageTask
     unless File.exist?(absolute_output_path)
       mkdir_p(File.dirname(absolute_output_path))
       rake_output_message "Downloading... #{url}"
-      URI(url).open do |downloaded_file|
+      open_url(url) do |downloaded_file|
         File.open(absolute_output_path, "wb") do |output_file|
-          output_file.print(downloaded_file.read)
+          IO.copy_stream(downloaded_file, output_file)
         end
       end
     end
 
     absolute_output_path
+  end
+
+  def open_url(url, &block)
+    URI(url).open(&block)
   end
 
   def substitute_content(content)
@@ -270,6 +274,8 @@ class PackageTask
       # "ubuntu-focal-arm64",
       "ubuntu-hirsute",
       # "ubuntu-hirsute-arm64",
+      "ubuntu-impish",
+      # "ubuntu-impish-arm64",
     ]
   end
 

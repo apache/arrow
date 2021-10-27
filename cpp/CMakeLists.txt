@@ -351,6 +351,13 @@ if(ARROW_ENGINE)
   set(ARROW_COMPUTE ON)
 endif()
 
+if(ARROW_SKYHOOK)
+  set(ARROW_DATASET ON)
+  set(ARROW_PARQUET ON)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_SNAPPY ON)
+endif()
+
 if(ARROW_DATASET)
   set(ARROW_COMPUTE ON)
   set(ARROW_FILESYSTEM ON)
@@ -936,6 +943,10 @@ endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
+endif()
+
+if(ARROW_SKYHOOK)
+  add_subdirectory(src/skyhook)
 endif()
 
 if(ARROW_BUILD_EXAMPLES)

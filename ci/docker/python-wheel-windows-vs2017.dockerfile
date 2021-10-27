@@ -98,7 +98,7 @@ RUN pip install -r arrow/python/requirements-wheel-build.txt
 
 # TODO(kszucs): set clcache as the compiler
 ENV CLCACHE_DIR="C:\clcache"
-RUN pip install clcache
+RUN if "%python%" NEQ "3.10" pip install clcache
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
