@@ -72,8 +72,7 @@ class ARROW_EXPORT Reader {
   /// \param[in] options IPC Read options
   /// \return the table reader
   static Result<std::shared_ptr<Reader>> Open(
-      const std::shared_ptr<io::RandomAccessFile>& source,
-      const IpcReadOptions& options);
+      const std::shared_ptr<io::RandomAccessFile>& source, const IpcReadOptions& options);
 
   /// \brief Return the version number of the Feather file
   virtual int version() const = 0;

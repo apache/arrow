@@ -732,9 +732,7 @@ class ReaderV2 : public Reader {
     return Table::FromRecordBatches(reader->schema(), batches).Value(out);
   }
 
-  Status Read(std::shared_ptr<Table>* out) override {
-    return Read(options_, out);
-  }
+  Status Read(std::shared_ptr<Table>* out) override { return Read(options_, out); }
 
   Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out) override {
     auto options = options_;
@@ -770,8 +768,7 @@ Result<std::shared_ptr<Reader>> Reader::Open(
 }
 
 Result<std::shared_ptr<Reader>> Reader::Open(
-    const std::shared_ptr<io::RandomAccessFile>& source,
-    const IpcReadOptions& options) {
+    const std::shared_ptr<io::RandomAccessFile>& source, const IpcReadOptions& options) {
   // Pathological issue where the file is smaller than header and footer
   // combined
   ARROW_ASSIGN_OR_RAISE(int64_t size, source->GetSize());
@@ -786,6 +783,7 @@ Result<std::shared_ptr<Reader>> Reader::Open(
 
   if (memcmp(buffer->data(), kFeatherV1MagicBytes, strlen(kFeatherV1MagicBytes)) == 0) {
     std::shared_ptr<ReaderV1> result = std::make_shared<ReaderV1>();
+    // IPC Read options are ignored for ReaderV1
     RETURN_NOT_OK(result->Open(source));
     return result;
   } else if (memcmp(buffer->data(), internal::kArrowMagicBytes,

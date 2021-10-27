@@ -193,7 +193,7 @@ def test_read_table(version):
 
 
 @pytest.mark.pandas
-def test_read_feather(version):
+def test_use_threads(version):
     # ARROW-14470
     num_values = (10, 10)
     path = random_path()
@@ -209,9 +209,13 @@ def test_read_feather(version):
     result = read_feather(path)
     assert_frame_equal(table.to_pandas(), result)
 
-    # Test with use_threads=False
+    # Test read_feather with use_threads=False
     result = read_feather(path, use_threads=False)
     assert_frame_equal(table.to_pandas(), result)
+
+    # Test read_table with use_threads=False
+    result = read_table(path, use_threads=False)
+    assert result.equals(table)
 
 
 @pytest.mark.pandas
