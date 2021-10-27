@@ -3,6 +3,8 @@
   <img src="{{ pathto('_static/' + logo, 1) }}" class="logo" alt="logo">
 </a>
 
+{% include "version-switcher.html" %}
+
 <form class="bd-search d-flex align-items-center" action="{{ pathto('search') }}" method="get">
   <i class="icon fas fa-search"></i>
   <input type="search" class="form-control" name="q" id="search-input" placeholder="{{ theme_search_bar_text }}" aria-label="{{ theme_search_bar_text }}" autocomplete="off" >
