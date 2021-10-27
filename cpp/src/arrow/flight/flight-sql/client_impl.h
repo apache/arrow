@@ -107,7 +107,9 @@ arrow::Result<int64_t> FlightSqlClientT<T>::ExecuteUpdate(
   pb::sql::DoPutUpdateResult doPutUpdateResult;
 
   pb::sql::DoPutUpdateResult result;
-  result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()));
+  if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
+    return Status::Invalid("Unable to parse DoPutUpdateResult object.");
+  }
 
   return result.record_count();
 }
@@ -286,12 +288,16 @@ arrow::Result<std::shared_ptr<PreparedStatementT<T>>> FlightSqlClientT<T>::Prepa
   google::protobuf::Any prepared_result;
 
   std::shared_ptr<Buffer> message = std::move(result->body);
-
-  prepared_result.ParseFromArray(message->data(), static_cast<int>(message->size()));
+  if (!prepared_result.ParseFromArray(message->data(),
+                                      static_cast<int>(message->size()))) {
+    return Status::Invalid("Unable to parse packed ActionCreatePreparedStatementResult");
+  }
 
   pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
 
-  prepared_result.UnpackTo(&prepared_statement_result);
+  if (!prepared_result.UnpackTo(&prepared_statement_result)) {
+    return Status::Invalid("Unable to unpack ActionCreatePreparedStatementResult");
+  }
 
   return std::shared_ptr<PreparedStatementT<T>>(
       new PreparedStatementT<T>(client.get(), query, prepared_statement_result, options));
@@ -364,7 +370,9 @@ arrow::Result<int64_t> PreparedStatementT<T>::ExecuteUpdate() {
   ARROW_RETURN_NOT_OK(writer->Close());
 
   pb::sql::DoPutUpdateResult result;
-  result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()));
+  if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
+    return Status::Invalid("Unable to parse DoPutUpdateResult object.");
+  }
 
   return result.record_count();
 }

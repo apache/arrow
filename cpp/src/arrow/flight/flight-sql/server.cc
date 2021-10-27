@@ -45,9 +45,12 @@ namespace sql {
 
 namespace pb = arrow::flight::protocol;
 
-GetCrossReference ParseCommandGetCrossReference(const google::protobuf::Any& any) {
+arrow::Result<GetCrossReference> ParseCommandGetCrossReference(
+    const google::protobuf::Any& any) {
   pb::sql::CommandGetCrossReference command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetCrossReference.");
+  }
 
   GetCrossReference result;
   result.has_pk_catalog = command.has_pk_catalog();
@@ -63,9 +66,12 @@ GetCrossReference ParseCommandGetCrossReference(const google::protobuf::Any& any
   return result;
 }
 
-GetImportedKeys ParseCommandGetImportedKeys(const google::protobuf::Any& any) {
+arrow::Result<GetImportedKeys> ParseCommandGetImportedKeys(
+    const google::protobuf::Any& any) {
   pb::sql::CommandGetImportedKeys command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetImportedKeys.");
+  }
 
   GetImportedKeys result;
   result.has_catalog = command.has_catalog();
@@ -76,9 +82,12 @@ GetImportedKeys ParseCommandGetImportedKeys(const google::protobuf::Any& any) {
   return result;
 }
 
-GetExportedKeys ParseCommandGetExportedKeys(const google::protobuf::Any& any) {
+arrow::Result<GetExportedKeys> ParseCommandGetExportedKeys(
+    const google::protobuf::Any& any) {
   pb::sql::CommandGetExportedKeys command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetExportedKeys.");
+  }
 
   GetExportedKeys result;
   result.has_catalog = command.has_catalog();
@@ -89,9 +98,12 @@ GetExportedKeys ParseCommandGetExportedKeys(const google::protobuf::Any& any) {
   return result;
 }
 
-GetPrimaryKeys ParseCommandGetPrimaryKeys(const google::protobuf::Any& any) {
+arrow::Result<GetPrimaryKeys> ParseCommandGetPrimaryKeys(
+    const google::protobuf::Any& any) {
   pb::sql::CommandGetPrimaryKeys command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetPrimaryKeys.");
+  }
 
   GetPrimaryKeys result;
   result.has_catalog = command.has_catalog();
@@ -102,17 +114,21 @@ GetPrimaryKeys ParseCommandGetPrimaryKeys(const google::protobuf::Any& any) {
   return result;
 }
 
-GetSqlInfo ParseCommandGetSqlInfo(const google::protobuf::Any& any) {
+arrow::Result<GetSqlInfo> ParseCommandGetSqlInfo(const google::protobuf::Any& any) {
   pb::sql::CommandGetSqlInfo command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetSqlInfo.");
+  }
 
   GetSqlInfo result;
   return result;
 }
 
-GetSchemas ParseCommandGetSchemas(const google::protobuf::Any& any) {
+arrow::Result<GetSchemas> ParseCommandGetSchemas(const google::protobuf::Any& any) {
   pb::sql::CommandGetSchemas command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetSchemas.");
+  }
 
   GetSchemas result;
   result.has_catalog = command.has_catalog();
@@ -122,28 +138,35 @@ GetSchemas ParseCommandGetSchemas(const google::protobuf::Any& any) {
   return result;
 }
 
-PreparedStatementQuery ParseCommandPreparedStatementQuery(
+arrow::Result<PreparedStatementQuery> ParseCommandPreparedStatementQuery(
     const google::protobuf::Any& any) {
   pb::sql::CommandPreparedStatementQuery command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandPreparedStatementQuery.");
+  }
 
   PreparedStatementQuery result;
   result.prepared_statement_handle = command.prepared_statement_handle();
   return result;
 }
 
-StatementQuery ParseCommandStatementQuery(const google::protobuf::Any& any) {
+arrow::Result<StatementQuery> ParseCommandStatementQuery(
+    const google::protobuf::Any& any) {
   pb::sql::CommandStatementQuery command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandStatementQuery.");
+  }
 
   StatementQuery result;
   result.query = command.query();
   return result;
 }
 
-GetTables ParseCommandGetTables(const google::protobuf::Any& anyCommand) {
+arrow::Result<GetTables> ParseCommandGetTables(const google::protobuf::Any& any) {
   pb::sql::CommandGetTables command;
-  anyCommand.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetTables.");
+  }
 
   std::vector<std::string> table_types;
   table_types.reserve(command.table_types_size());
@@ -162,48 +185,60 @@ GetTables ParseCommandGetTables(const google::protobuf::Any& anyCommand) {
   return result;
 }
 
-StatementQueryTicket ParseStatementQueryTicket(const google::protobuf::Any& anyCommand) {
+arrow::Result<StatementQueryTicket> ParseStatementQueryTicket(
+    const google::protobuf::Any& any) {
   pb::sql::TicketStatementQuery command;
-  anyCommand.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack TicketStatementQuery.");
+  }
 
   StatementQueryTicket result;
   result.statement_handle = command.statement_handle();
   return result;
 }
 
-StatementUpdate ParseCommandStatementUpdate(const google::protobuf::Any& any) {
+arrow::Result<StatementUpdate> ParseCommandStatementUpdate(
+    const google::protobuf::Any& any) {
   pb::sql::CommandStatementUpdate command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandStatementUpdate.");
+  }
 
   StatementUpdate result;
   result.query = command.query();
   return result;
 }
 
-PreparedStatementUpdate ParseCommandPreparedStatementUpdate(
+arrow::Result<PreparedStatementUpdate> ParseCommandPreparedStatementUpdate(
     const google::protobuf::Any& any) {
   pb::sql::CommandPreparedStatementUpdate command;
-  any.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandPreparedStatementUpdate.");
+  }
 
   PreparedStatementUpdate result;
   result.prepared_statement_handle = command.prepared_statement_handle();
   return result;
 }
 
-ActionCreatePreparedStatementRequest ParseActionCreatePreparedStatementRequest(
-    const google::protobuf::Any& anyCommand) {
+arrow::Result<ActionCreatePreparedStatementRequest>
+ParseActionCreatePreparedStatementRequest(const google::protobuf::Any& any) {
   pb::sql::ActionCreatePreparedStatementRequest command;
-  anyCommand.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionCreatePreparedStatementRequest.");
+  }
 
   ActionCreatePreparedStatementRequest result;
   result.query = command.query();
   return result;
 }
 
-ActionClosePreparedStatementRequest ParseActionClosePreparedStatementRequest(
-    const google::protobuf::Any& anyCommand) {
+arrow::Result<ActionClosePreparedStatementRequest>
+ParseActionClosePreparedStatementRequest(const google::protobuf::Any& any) {
   pb::sql::ActionClosePreparedStatementRequest command;
-  anyCommand.UnpackTo(&command);
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack ActionClosePreparedStatementRequest.");
+  }
 
   ActionClosePreparedStatementRequest result;
   result.prepared_statement_handle = command.prepared_statement_handle();
@@ -214,38 +249,46 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
                                           const FlightDescriptor& request,
                                           std::unique_ptr<FlightInfo>* info) {
   google::protobuf::Any any;
-  any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()));
+  if (!any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()))) {
+    return Status::Invalid("Unable to parse command");
+  }
 
   if (any.Is<pb::sql::CommandStatementQuery>()) {
-    StatementQuery internal_command = ParseCommandStatementQuery(any);
+    ARROW_ASSIGN_OR_RAISE(StatementQuery internal_command,
+                          ParseCommandStatementQuery(any));
     return GetFlightInfoStatement(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
-    PreparedStatementQuery internal_command = ParseCommandPreparedStatementQuery(any);
+    ARROW_ASSIGN_OR_RAISE(PreparedStatementQuery internal_command,
+                          ParseCommandPreparedStatementQuery(any));
     return GetFlightInfoPreparedStatement(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
     return GetFlightInfoCatalogs(context, request, info);
   } else if (any.Is<pb::sql::CommandGetSchemas>()) {
-    GetSchemas internal_command = ParseCommandGetSchemas(any);
+    ARROW_ASSIGN_OR_RAISE(GetSchemas internal_command, ParseCommandGetSchemas(any));
     return GetFlightInfoSchemas(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetTables>()) {
-    GetTables command = ParseCommandGetTables(any);
+    ARROW_ASSIGN_OR_RAISE(GetTables command, ParseCommandGetTables(any));
     return GetFlightInfoTables(command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     return GetFlightInfoTableTypes(context, request, info);
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
-    GetSqlInfo internal_command = ParseCommandGetSqlInfo(any);
+    ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command, ParseCommandGetSqlInfo(any));
     return GetFlightInfoSqlInfo(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
-    GetPrimaryKeys internal_command = ParseCommandGetPrimaryKeys(any);
+    ARROW_ASSIGN_OR_RAISE(GetPrimaryKeys internal_command,
+                          ParseCommandGetPrimaryKeys(any));
     return GetFlightInfoPrimaryKeys(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetExportedKeys>()) {
-    GetExportedKeys internal_command = ParseCommandGetExportedKeys(any);
+    ARROW_ASSIGN_OR_RAISE(GetExportedKeys internal_command,
+                          ParseCommandGetExportedKeys(any));
     return GetFlightInfoExportedKeys(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetImportedKeys>()) {
-    GetImportedKeys internal_command = ParseCommandGetImportedKeys(any);
+    ARROW_ASSIGN_OR_RAISE(GetImportedKeys internal_command,
+                          ParseCommandGetImportedKeys(any));
     return GetFlightInfoImportedKeys(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetCrossReference>()) {
-    GetCrossReference internal_command = ParseCommandGetCrossReference(any);
+    ARROW_ASSIGN_OR_RAISE(GetCrossReference internal_command,
+                          ParseCommandGetCrossReference(any));
     return GetFlightInfoCrossReference(internal_command, context, request, info);
   }
 
@@ -254,42 +297,48 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
 
 Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket& request,
                                   std::unique_ptr<FlightDataStream>* stream) {
-  google::protobuf::Any anyCommand;
+  google::protobuf::Any any;
 
-  anyCommand.ParseFromArray(request.ticket.data(),
-                            static_cast<int>(request.ticket.size()));
+  if (!any.ParseFromArray(request.ticket.data(),
+                          static_cast<int>(request.ticket.size()))) {
+    return Status::Invalid("Unable to parse ticket.");
+  }
 
-  if (anyCommand.Is<pb::sql::TicketStatementQuery>()) {
-    StatementQueryTicket command = ParseStatementQueryTicket(anyCommand);
+  if (any.Is<pb::sql::TicketStatementQuery>()) {
+    ARROW_ASSIGN_OR_RAISE(StatementQueryTicket command, ParseStatementQueryTicket(any));
     return DoGetStatement(command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandPreparedStatementQuery>()) {
-    PreparedStatementQuery internal_command =
-        ParseCommandPreparedStatementQuery(anyCommand);
+  } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
+    ARROW_ASSIGN_OR_RAISE(PreparedStatementQuery internal_command,
+                          ParseCommandPreparedStatementQuery(any));
     return DoGetPreparedStatement(internal_command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetCatalogs>()) {
+  } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
     return DoGetCatalogs(context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetSchemas>()) {
-    GetSchemas internal_command = ParseCommandGetSchemas(anyCommand);
+  } else if (any.Is<pb::sql::CommandGetSchemas>()) {
+    ARROW_ASSIGN_OR_RAISE(GetSchemas internal_command, ParseCommandGetSchemas(any));
     return DoGetSchemas(internal_command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetTables>()) {
-    GetTables command = ParseCommandGetTables(anyCommand);
+  } else if (any.Is<pb::sql::CommandGetTables>()) {
+    ARROW_ASSIGN_OR_RAISE(GetTables command, ParseCommandGetTables(any));
     return DoGetTables(command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetTableTypes>()) {
+  } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     return DoGetTableTypes(context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetSqlInfo>()) {
-    GetSqlInfo internal_command = ParseCommandGetSqlInfo(anyCommand);
+  } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command, ParseCommandGetSqlInfo(any));
     return DoGetSqlInfo(internal_command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetPrimaryKeys>()) {
-    GetPrimaryKeys internal_command = ParseCommandGetPrimaryKeys(anyCommand);
+  } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
+    ARROW_ASSIGN_OR_RAISE(GetPrimaryKeys internal_command,
+                          ParseCommandGetPrimaryKeys(any));
     return DoGetPrimaryKeys(internal_command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetExportedKeys>()) {
-    GetExportedKeys internal_command = ParseCommandGetExportedKeys(anyCommand);
+  } else if (any.Is<pb::sql::CommandGetExportedKeys>()) {
+    ARROW_ASSIGN_OR_RAISE(GetExportedKeys internal_command,
+                          ParseCommandGetExportedKeys(any));
     return DoGetExportedKeys(internal_command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetImportedKeys>()) {
-    GetImportedKeys internal_command = ParseCommandGetImportedKeys(anyCommand);
+  } else if (any.Is<pb::sql::CommandGetImportedKeys>()) {
+    ARROW_ASSIGN_OR_RAISE(GetImportedKeys internal_command,
+                          ParseCommandGetImportedKeys(any));
     return DoGetImportedKeys(internal_command, context, stream);
-  } else if (anyCommand.Is<pb::sql::CommandGetCrossReference>()) {
-    GetCrossReference internal_command = ParseCommandGetCrossReference(anyCommand);
+  } else if (any.Is<pb::sql::CommandGetCrossReference>()) {
+    ARROW_ASSIGN_OR_RAISE(GetCrossReference internal_command,
+                          ParseCommandGetCrossReference(any));
     return DoGetCrossReference(internal_command, context, stream);
   }
 
@@ -305,7 +354,8 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
   any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()));
 
   if (any.Is<pb::sql::CommandStatementUpdate>()) {
-    StatementUpdate internal_command = ParseCommandStatementUpdate(any);
+    ARROW_ASSIGN_OR_RAISE(StatementUpdate internal_command,
+                          ParseCommandStatementUpdate(any));
     ARROW_ASSIGN_OR_RAISE(auto record_count,
                           DoPutCommandStatementUpdate(internal_command, context, reader))
 
@@ -318,10 +368,12 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
 
     return Status::OK();
   } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
-    PreparedStatementQuery internal_command = ParseCommandPreparedStatementQuery(any);
+    ARROW_ASSIGN_OR_RAISE(PreparedStatementQuery internal_command,
+                          ParseCommandPreparedStatementQuery(any));
     return DoPutPreparedStatementQuery(internal_command, context, reader, writer);
   } else if (any.Is<pb::sql::CommandPreparedStatementUpdate>()) {
-    PreparedStatementUpdate internal_command = ParseCommandPreparedStatementUpdate(any);
+    ARROW_ASSIGN_OR_RAISE(PreparedStatementUpdate internal_command,
+                          ParseCommandPreparedStatementUpdate(any));
     ARROW_ASSIGN_OR_RAISE(auto record_count,
                           DoPutPreparedStatementUpdate(internal_command, context, reader))
 
@@ -349,11 +401,12 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
                                      const Action& action,
                                      std::unique_ptr<ResultStream>* result_stream) {
   if (action.type == FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT.type) {
-    google::protobuf::Any anyCommand;
-    anyCommand.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
+    google::protobuf::Any any_command;
+    any_command.ParseFromArray(action.body->data(),
+                               static_cast<int>(action.body->size()));
 
-    ActionCreatePreparedStatementRequest internal_command =
-        ParseActionCreatePreparedStatementRequest(anyCommand);
+    ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementRequest internal_command,
+                          ParseActionCreatePreparedStatementRequest(any_command));
     ARROW_ASSIGN_OR_RAISE(auto result, CreatePreparedStatement(internal_command, context))
 
     pb::sql::ActionCreatePreparedStatementResult action_result;
@@ -378,11 +431,11 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     return Status::OK();
   } else if (action.type ==
              FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.type) {
-    google::protobuf::Any anyCommand;
-    anyCommand.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
+    google::protobuf::Any any;
+    any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
 
-    ActionClosePreparedStatementRequest internal_command =
-        ParseActionClosePreparedStatementRequest(anyCommand);
+    ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
+                          ParseActionClosePreparedStatementRequest(any));
 
     return ClosePreparedStatement(internal_command, context, result_stream);
   }
