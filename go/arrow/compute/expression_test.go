@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/compute"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/arrow/scalar"
@@ -108,4 +109,76 @@ func TestExpressionEquality(t *testing.T) {
 			assert.Equal(t, tt.equal, tt.exp1.Equals(tt.exp2))
 		})
 	}
+}
+
+func TestExpressionHashing(t *testing.T) {
+	set := make(map[uint64]compute.Expression)
+
+	e := compute.NewFieldRef("alpha")
+	set[e.Hash()] = e
+
+	e = compute.NewFieldRef("beta")
+	_, ok := set[e.Hash()]
+	assert.False(t, ok)
+	set[e.Hash()] = e
+
+	e = compute.NewFieldRef("beta")
+	ex, ok := set[e.Hash()]
+	assert.True(t, ok)
+	assert.True(t, e.Equals(ex))
+
+	e = compute.NewLiteral(1)
+	set[e.Hash()] = e
+	_, ok = set[compute.NewLiteral(1).Hash()]
+	assert.True(t, ok)
+	_, ok = set[compute.NewLiteral(3).Hash()]
+	assert.False(t, ok)
+	set[compute.NewLiteral(3).Hash()] = compute.NewLiteral(3)
+
+	e = compute.NullLiteral(arrow.PrimitiveTypes.Int32)
+	set[e.Hash()] = e
+	_, ok = set[compute.NullLiteral(arrow.PrimitiveTypes.Int32).Hash()]
+	assert.True(t, ok)
+	e = compute.NullLiteral(arrow.PrimitiveTypes.Float32)
+	_, ok = set[e.Hash()]
+	assert.False(t, ok)
+	set[e.Hash()] = e
+
+	e = compute.NewCall("add", []compute.Expression{}, nil)
+	set[e.Hash()] = e
+	_, ok = set[compute.NewCall("add", nil, nil).Hash()]
+	assert.True(t, ok)
+	e = compute.NewCall("widgetify", nil, nil)
+	_, ok = set[e.Hash()]
+	assert.False(t, ok)
+	set[e.Hash()] = e
+
+	assert.Len(t, set, 8)
+}
+
+func TestIsScalarExpression(t *testing.T) {
+	assert.True(t, compute.NewLiteral(true).IsScalarExpr())
+	arr := array.MakeFromData(array.NewData(arrow.PrimitiveTypes.Int8, 0, []*memory.Buffer{nil, nil}, nil, 0, 0))
+	defer arr.Release()
+
+	assert.False(t, compute.NewLiteral(arr).IsScalarExpr())
+	assert.True(t, compute.NewFieldRef("a").IsScalarExpr())
+}
+
+func TestExpressionIsSatisfiable(t *testing.T) {
+	assert.True(t, compute.NewLiteral(true).IsSatisfiable())
+	assert.False(t, compute.NewLiteral(false).IsSatisfiable())
+
+	null := scalar.MakeNullScalar(arrow.FixedWidthTypes.Boolean)
+	assert.False(t, compute.NewLiteral(null).IsSatisfiable())
+	assert.True(t, compute.NewFieldRef("a").IsSatisfiable())
+	assert.True(t, compute.Equal(compute.NewFieldRef("a"), compute.NewLiteral(1)).IsSatisfiable())
+	// no constant folding here
+	assert.True(t, compute.Equal(compute.NewLiteral(0), compute.NewLiteral(1)).IsSatisfiable())
+
+	// when a top level conjunction contains an Expression which is certain to
+	// evaluate to null, it can only evaluate to null or false
+	neverTrue := compute.And(compute.NewLiteral(null), compute.NewFieldRef("a"))
+	// this may appear in satisfiable filters if coalesced (for example, wrapped in fill_na)
+	assert.True(t, compute.NewCall("is_null", []compute.Expression{neverTrue}, nil).IsSatisfiable())
 }

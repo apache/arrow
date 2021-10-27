@@ -537,11 +537,22 @@ func Cast(ex Expression, dt arrow.DataType) Expression {
 	return NewCall("cast", []Expression{ex}, opts)
 }
 
+type SetLookupOptions struct {
+	ValueSet  Datum `compute:"value_set"`
+	SkipNulls bool  `compute:"skip_nulls"`
+}
+
+func (SetLookupOptions) TypeName() string { return "SetLookupOptions" }
+
 // NewLiteral constructs a new literal expression from any value. It is passed
 // to NewDatum which will construct the appropriate Datum and/or scalar
 // value for the type provided.
 func NewLiteral(arg interface{}) Expression {
 	return &Literal{Literal: NewDatum(arg)}
+}
+
+func NullLiteral(dt arrow.DataType) Expression {
+	return &Literal{Literal: NewDatum(scalar.MakeNullScalar(dt))}
 }
 
 // NewRef constructs a parameter expression which refers to a specific field
