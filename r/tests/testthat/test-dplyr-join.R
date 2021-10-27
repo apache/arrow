@@ -17,7 +17,7 @@
 
 skip_if_not_available("dataset")
 
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 
 left <- example_data
 # Error: Invalid: Dictionary type support for join output field
@@ -149,5 +149,33 @@ test_that("anti_join", {
       anti_join(to_join, by = "some_grouping") %>%
       collect(),
     left
+  )
+})
+
+test_that("mutate then join", {
+  left <- Table$create(
+    one = c("a", "b"),
+    two = 1:2
+  )
+  right <- Table$create(
+    three = TRUE,
+    dos = 2L
+  )
+
+  expect_equal(
+    left %>%
+      rename(dos = two) %>%
+      mutate(one = toupper(one)) %>%
+      left_join(
+        right %>%
+          mutate(three = !three)
+      ) %>%
+      arrange(dos) %>%
+      collect(),
+    tibble(
+      one = c("A", "B"),
+      dos = 1:2,
+      three = c(NA, FALSE)
+    )
   )
 })

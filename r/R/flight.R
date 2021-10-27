@@ -51,12 +51,15 @@ flight_connect <- function(host = "localhost", port, scheme = "grpc+tcp") {
 #' @return `client`, invisibly.
 #' @export
 flight_put <- function(client, data, path, overwrite = TRUE) {
+  assert_is(data, c("data.frame", "Table", "RecordBatch"))
+
   if (!overwrite && flight_path_exists(client, path)) {
     stop(path, " exists.", call. = FALSE)
   }
   if (is.data.frame(data)) {
     data <- Table$create(data)
   }
+
   py_data <- reticulate::r_to_py(data)
   writer <- client$do_put(descriptor_for_path(path), py_data$schema)[[1]]
   if (inherits(data, "RecordBatch")) {

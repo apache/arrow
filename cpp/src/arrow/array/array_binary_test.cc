@@ -324,7 +324,7 @@ class TestStringArray : public ::testing::Test {
   std::shared_ptr<ArrayType> strings_;
 };
 
-TYPED_TEST_SUITE(TestStringArray, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestStringArray, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
 
@@ -661,7 +661,7 @@ class TestStringBuilder : public TestBuilder {
   std::shared_ptr<ArrayType> result_;
 };
 
-TYPED_TEST_SUITE(TestStringBuilder, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestStringBuilder, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
@@ -863,7 +863,7 @@ struct BinaryAppender {
 };
 
 template <typename T>
-class TestBinaryDataVisitor : public ::testing::Test {
+class TestBaseBinaryDataVisitor : public ::testing::Test {
  public:
   using TypeClass = T;
 
@@ -891,10 +891,10 @@ class TestBinaryDataVisitor : public ::testing::Test {
   std::shared_ptr<DataType> type_;
 };
 
-TYPED_TEST_SUITE(TestBinaryDataVisitor, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestBaseBinaryDataVisitor, BaseBinaryArrowTypes);
 
-TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
+TYPED_TEST(TestBaseBinaryDataVisitor, Basics) { this->TestBasics(); }
 
-TYPED_TEST(TestBinaryDataVisitor, Sliced) { this->TestSliced(); }
+TYPED_TEST(TestBaseBinaryDataVisitor, Sliced) { this->TestSliced(); }
 
 }  // namespace arrow

@@ -3937,11 +3937,19 @@ macro(build_awssdk)
                       DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
+  set(AWSSDK_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
+                                              "10")
+    # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
+    set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
+                             "<SOURCE_DIR>/cmake/compiler_settings.cmake")
+  endif()
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}

@@ -1010,8 +1010,8 @@ class BinaryTask
       ["debian", "bookworm", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
-      ["ubuntu", "groovy", "main"],
       ["ubuntu", "hirsute", "main"],
+      ["ubuntu", "impish", "main"],
     ]
   end
 
@@ -1453,6 +1453,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       unless signed_rpm?(rpm)
         sh("rpm",
            "-D", "_gpg_name #{gpg_key_id}",
+           "-D", "__gpg /usr/bin/gpg",
            "-D", "__gpg_check_password_cmd /bin/true true",
            "--resign",
            rpm,
