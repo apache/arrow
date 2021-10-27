@@ -17,6 +17,8 @@
 package scalar
 
 import (
+	"errors"
+	"fmt"
 	"math/bits"
 	"reflect"
 	"strconv"
@@ -29,15 +31,100 @@ import (
 	"golang.org/x/xerrors"
 )
 
+type TypeToScalar interface {
+	ToScalar() (Scalar, error)
+}
+
+type TypeFromScalar interface {
+	FromStructScalar(*Struct) error
+}
+
 type hasTypename interface {
 	TypeName() string
 }
 
-var hasTypenameType = reflect.TypeOf((*hasTypename)(nil)).Elem()
+var (
+	hasTypenameType = reflect.TypeOf((*hasTypename)(nil)).Elem()
+	dataTypeType    = reflect.TypeOf((*arrow.DataType)(nil)).Elem()
+)
+
+func FromScalar(sc *Struct, val interface{}) error {
+	if sc == nil || len(sc.Value) == 0 {
+		return nil
+	}
+
+	if v, ok := val.(TypeFromScalar); ok {
+		return v.FromStructScalar(sc)
+	}
+
+	v := reflect.ValueOf(val)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("fromscalar must be given a pointer to an object to populate")
+	}
+	value := reflect.Indirect(v)
+
+	for i := 0; i < value.Type().NumField(); i++ {
+		fld := value.Type().Field(i)
+		tag := fld.Tag.Get("compute")
+		if tag == "-" || fld.Name == "_type_name" {
+			continue
+		}
+
+		fldVal, err := sc.Field(tag)
+		if err != nil {
+			return err
+		}
+		if err := setFromScalar(fldVal, value.Field(i)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func setFromScalar(s Scalar, v reflect.Value) error {
+	if v.Type() == dataTypeType {
+		v.Set(reflect.ValueOf(s.DataType()))
+		return nil
+	}
+
+	switch s := s.(type) {
+	case BinaryScalar:
+		value := s.value().(*memory.Buffer)
+		switch v.Kind() {
+		case reflect.String:
+			if value == nil {
+				v.SetString("")
+			} else {
+				v.SetString(string(value.Bytes()))
+			}
+		default:
+			if value == nil {
+				v.SetBytes(nil)
+			} else {
+				v.SetBytes(value.Bytes())
+			}
+		}
+	case ListScalar:
+		return fromListScalar(s, v)
+	case *Struct:
+		return FromScalar(s, v.Interface())
+	default:
+		if v.Type() == reflect.TypeOf(arrow.TimeUnit(0)) {
+			v.Set(reflect.ValueOf(arrow.TimeUnit(s.value().(uint32))))
+		} else {
+			v.Set(reflect.ValueOf(s.value()))
+		}
+	}
+	return nil
+}
 
 func ToScalar(val interface{}, mem memory.Allocator) (Scalar, error) {
-	if v, ok := val.(arrow.DataType); ok {
+	switch v := val.(type) {
+	case arrow.DataType:
 		return MakeScalar(v), nil
+	case TypeToScalar:
+		return v.ToScalar()
 	}
 
 	v := reflect.Indirect(reflect.ValueOf(val))
@@ -196,6 +283,82 @@ func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, err
 
 	defer arr.Release()
 	return MakeScalarParam(arr, arrow.ListOf(arr.DataType()))
+}
+
+func fromListScalar(s ListScalar, v reflect.Value) error {
+	if v.Kind() != reflect.Slice {
+		return fmt.Errorf("could not populate field from list scalar, incompatible types: %s is not a slice", v.Type().String())
+	}
+
+	arr := s.GetList()
+	v.Set(reflect.MakeSlice(v.Type(), arr.Len(), arr.Len()))
+	switch arr := arr.(type) {
+	case *array.Boolean:
+		for i := 0; i < arr.Len(); i++ {
+			v.Index(i).SetBool(arr.Value(i))
+		}
+	case *array.Int8:
+		reflect.Copy(v, reflect.ValueOf(arr.Int8Values()))
+	case *array.Uint8:
+		reflect.Copy(v, reflect.ValueOf(arr.Uint8Values()))
+	case *array.Int16:
+		reflect.Copy(v, reflect.ValueOf(arr.Int16Values()))
+	case *array.Uint16:
+		reflect.Copy(v, reflect.ValueOf(arr.Uint16Values()))
+	case *array.Int32:
+		reflect.Copy(v, reflect.ValueOf(arr.Int32Values()))
+	case *array.Uint32:
+		reflect.Copy(v, reflect.ValueOf(arr.Uint32Values()))
+	case *array.Int64:
+		reflect.Copy(v, reflect.ValueOf(arr.Int64Values()))
+	case *array.Uint64:
+		reflect.Copy(v, reflect.ValueOf(arr.Uint64Values()))
+	case *array.Float32:
+		reflect.Copy(v, reflect.ValueOf(arr.Float32Values()))
+	case *array.Float64:
+		reflect.Copy(v, reflect.ValueOf(arr.Float64Values()))
+	case *array.Binary:
+		for i := 0; i < arr.Len(); i++ {
+			v.Index(i).SetString(arr.ValueString(i))
+		}
+	case *array.String:
+		for i := 0; i < arr.Len(); i++ {
+			v.Index(i).SetString(arr.Value(i))
+		}
+	case *array.Map:
+		// only implementing slice of metadata for now
+		if v.Type().Elem() != reflect.PtrTo(reflect.TypeOf(arrow.Metadata{})) {
+			return fmt.Errorf("unimplemented fromListScalar type %s to %s", arr.DataType(), v.Type().String())
+		}
+
+		var (
+			offsets    = arr.Offsets()
+			keys       = arr.Keys().(*array.Binary)
+			values     = arr.Items().(*array.Binary)
+			metaKeys   []string
+			metaValues []string
+		)
+
+		for i, o := range offsets[:len(offsets)-1] {
+			start := o
+			end := offsets[i+1]
+
+			metaKeys = make([]string, end-start)
+			metaValues = make([]string, end-start)
+			for j := start; j < end; j++ {
+				metaKeys = append(metaKeys, keys.ValueString(int(j)))
+				metaValues = append(metaValues, values.ValueString(int(j)))
+			}
+
+			m := arrow.NewMetadata(metaKeys, metaValues)
+			v.Index(i).Set(reflect.ValueOf(&m))
+		}
+
+	default:
+		return fmt.Errorf("unimplemented fromListScalar type: %s", arr.DataType())
+	}
+
+	return nil
 }
 
 // MakeScalarParam is for converting a value to a scalar when it requires a

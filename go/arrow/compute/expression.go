@@ -17,6 +17,7 @@
 package compute
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -161,7 +162,7 @@ func (l *Literal) Hash() uint64 {
 }
 
 func (l *Literal) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	bound, _, _, err := bindExprSchema(ctx, mem, l, schema)
+	bound, _, _, _, err := bindExprSchema(ctx, mem, l, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,7 @@ func (p *Parameter) Equals(other Expression) bool {
 }
 
 func (p *Parameter) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	bound, descr, index, err := bindExprSchema(ctx, mem, p, schema)
+	bound, descr, index, _, err := bindExprSchema(ctx, mem, p, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -423,18 +424,18 @@ func (c *Call) Equals(other Expression) bool {
 		}
 	}
 
+	if opt, ok := c.options.(FunctionOptionsEqual); ok {
+		return opt.Equals(rhs.options)
+	}
 	return reflect.DeepEqual(c.options, rhs.options)
 }
 
-func (c Call) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	bound, descr, _, err := bindExprSchema(ctx, mem, &c, schema)
+func (c *Call) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
+	_, _, _, output, err := bindExprSchema(ctx, mem, c, schema)
 	if err != nil {
 		return nil, err
 	}
-
-	c.descr = descr
-	c.bound = bound
-	return &c, nil
+	return output, nil
 }
 
 func (c *Call) Release() {
@@ -448,6 +449,10 @@ func (c *Call) Release() {
 // propagate when serializing to pass to the C++ for execution.
 type FunctionOptions interface {
 	TypeName() string
+}
+
+type FunctionOptionsEqual interface {
+	Equals(FunctionOptions) bool
 }
 
 type MakeStructOptions struct {
@@ -543,6 +548,48 @@ type SetLookupOptions struct {
 }
 
 func (SetLookupOptions) TypeName() string { return "SetLookupOptions" }
+
+func (s *SetLookupOptions) Equals(other FunctionOptions) bool {
+	rhs, ok := other.(*SetLookupOptions)
+	if !ok {
+		return false
+	}
+
+	return s.SkipNulls == rhs.SkipNulls && s.ValueSet.Equals(rhs.ValueSet)
+}
+
+func (s *SetLookupOptions) FromStructScalar(sc *scalar.Struct) error {
+	if v, err := sc.Field("skip_nulls"); err == nil {
+		s.SkipNulls = v.(*scalar.Boolean).Value
+	}
+
+	value, err := sc.Field("value_set")
+	if err != nil {
+		return err
+	}
+
+	if v, ok := value.(scalar.ListScalar); ok {
+		s.ValueSet = NewDatum(v.GetList())
+		return nil
+	}
+
+	return errors.New("set lookup options valueset should be a list")
+}
+
+var (
+	funcOptionsMap map[string]reflect.Type
+	funcOptsTypes  = []FunctionOptions{
+		SetLookupOptions{}, ArithmeticOptions{}, CastOptions{},
+		FilterOptions{}, NullOptions{}, StrptimeOptions{}, MakeStructOptions{},
+	}
+)
+
+func init() {
+	funcOptionsMap = make(map[string]reflect.Type)
+	for _, ft := range funcOptsTypes {
+		funcOptionsMap[ft.TypeName()] = reflect.TypeOf(ft)
+	}
+}
 
 // NewLiteral constructs a new literal expression from any value. It is passed
 // to NewDatum which will construct the appropriate Datum and/or scalar
@@ -674,6 +721,35 @@ func Not(expr Expression) Expression {
 	return NewCall("invert", []Expression{expr}, nil)
 }
 
+func SerializeOptions(opts FunctionOptions, mem memory.Allocator) (*memory.Buffer, error) {
+	sc, err := scalar.ToScalar(opts, mem)
+	if err != nil {
+		return nil, err
+	}
+	if sc, ok := sc.(releasable); ok {
+		defer sc.Release()
+	}
+
+	arr, err := scalar.MakeArrayFromScalar(sc, 1, mem)
+	if err != nil {
+		return nil, err
+	}
+	defer arr.Release()
+
+	batch := array.NewRecord(arrow.NewSchema([]arrow.Field{{Type: arr.DataType(), Nullable: true}}, nil), []array.Interface{arr}, 1)
+	defer batch.Release()
+
+	buf := &bufferWriteSeeker{mem: mem}
+	wr, err := ipc.NewFileWriter(buf, ipc.WithSchema(batch.Schema()), ipc.WithAllocator(mem))
+	if err != nil {
+		return nil, err
+	}
+
+	wr.Write(batch)
+	wr.Close()
+	return buf.buf, nil
+}
+
 // SerializeExpr serializes expressions by converting them to Metadata and
 // storing this in the schema of a Record. Embedded arrays and scalars are
 // stored in its columns. Finally the record is written as an IPC file
@@ -771,4 +847,108 @@ func SerializeExpr(expr Expression, mem memory.Allocator) (*memory.Buffer, error
 	wr.Write(rec)
 	wr.Close()
 	return buf.buf, nil
+}
+
+func DeserializeExpr(mem memory.Allocator, buf *memory.Buffer) (Expression, error) {
+	rdr, err := ipc.NewFileReader(bytes.NewReader(buf.Bytes()), ipc.WithAllocator(mem))
+	if err != nil {
+		return nil, err
+	}
+	defer rdr.Close()
+
+	batch, err := rdr.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	if !batch.Schema().HasMetadata() {
+		return nil, errors.New("serialized Expression's batch repr had no metadata")
+	}
+
+	if batch.NumRows() != 1 {
+		return nil, fmt.Errorf("serialized Expression's batch repr was not a single row - had %d", batch.NumRows())
+	}
+
+	var (
+		getone   func() (Expression, error)
+		index    int = 0
+		metadata     = batch.Schema().Metadata()
+	)
+
+	getscalar := func(i string) (scalar.Scalar, error) {
+		colIndex, err := strconv.ParseInt(i, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		if colIndex >= batch.NumCols() {
+			return nil, errors.New("column index out of bounds")
+		}
+		return scalar.GetScalar(batch.Column(int(colIndex)), 0)
+	}
+
+	getone = func() (Expression, error) {
+		if index >= metadata.Len() {
+			return nil, errors.New("unterminated serialized Expression")
+		}
+
+		key, val := metadata.Keys()[index], metadata.Values()[index]
+		index++
+
+		switch key {
+		case "literal":
+			scalar, err := getscalar(val)
+			if err != nil {
+				return nil, err
+			}
+			if r, ok := scalar.(releasable); ok {
+				defer r.Release()
+			}
+			return NewLiteral(scalar), err
+		case "field_ref":
+			return NewFieldRef(val), nil
+		case "call":
+			args := make([]Expression, 0)
+			for metadata.Keys()[index] != "end" {
+				if metadata.Keys()[index] == "options" {
+					optsScalar, err := getscalar(metadata.Values()[index])
+					if err != nil {
+						return nil, err
+					}
+					if r, ok := optsScalar.(releasable); ok {
+						defer r.Release()
+					}
+					var opts FunctionOptions
+					if optsScalar != nil {
+						typname, err := optsScalar.(*scalar.Struct).Field("_type_name")
+						if err != nil {
+							return nil, err
+						}
+						if typname.DataType().ID() != arrow.BINARY {
+							return nil, errors.New("options scalar typename must be binary")
+						}
+
+						optionsVal := reflect.New(funcOptionsMap[string(typname.(*scalar.Binary).Data())]).Interface()
+						if err := scalar.FromScalar(optsScalar.(*scalar.Struct), optionsVal); err != nil {
+							return nil, err
+						}
+						opts = optionsVal.(FunctionOptions)
+					}
+					index += 2
+					return NewCall(val, args, opts), nil
+				}
+
+				arg, err := getone()
+				if err != nil {
+					return nil, err
+				}
+				args = append(args, arg)
+			}
+			index++
+			return NewCall(val, args, nil), nil
+		default:
+			return nil, fmt.Errorf("unrecognized serialized Expression key %s", key)
+		}
+	}
+
+	return getone()
 }

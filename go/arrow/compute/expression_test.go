@@ -182,3 +182,75 @@ func TestExpressionIsSatisfiable(t *testing.T) {
 	// this may appear in satisfiable filters if coalesced (for example, wrapped in fill_na)
 	assert.True(t, compute.NewCall("is_null", []compute.Expression{neverTrue}, nil).IsSatisfiable())
 }
+
+func TestExpressionSerializationRoundTrip(t *testing.T) {
+	bldr := array.NewInt32Builder(memory.DefaultAllocator)
+	defer bldr.Release()
+
+	bldr.AppendValues([]int32{1, 2, 3}, nil)
+	lookupArr := bldr.NewArray()
+	defer lookupArr.Release()
+
+	intvalueset := compute.NewDatum(lookupArr)
+	defer intvalueset.Release()
+
+	bldr2 := array.NewFloat64Builder(memory.DefaultAllocator)
+	defer bldr2.Release()
+
+	bldr2.AppendValues([]float64{0.5, 1.0, 2.0}, nil)
+	lookupArr = bldr2.NewArray()
+	defer lookupArr.Release()
+
+	fltvalueset := compute.NewDatum(lookupArr)
+	defer fltvalueset.Release()
+
+	tests := []struct {
+		name string
+		expr compute.Expression
+	}{
+		{"null literal", compute.NewLiteral(scalar.MakeNullScalar(arrow.Null))},
+		{"null int32 literal", compute.NewLiteral(scalar.MakeNullScalar(arrow.PrimitiveTypes.Int32))},
+		{"null struct literal", compute.NewLiteral(scalar.MakeNullScalar(arrow.StructOf(
+			arrow.Field{Name: "i", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+			arrow.Field{Name: "s", Type: arrow.BinaryTypes.String, Nullable: true},
+		)))},
+		{"literal true", compute.NewLiteral(true)},
+		{"literal false", compute.NewLiteral(false)},
+		{"literal int", compute.NewLiteral(1)},
+		{"literal float", compute.NewLiteral(1.125)},
+		{"stringy strings", compute.NewLiteral("stringy strings")},
+		{"field ref", compute.NewFieldRef("field")},
+		{"greater", compute.Greater(compute.NewFieldRef("a"), compute.NewLiteral(0.25))},
+		{"or", compute.Or(
+			compute.Equal(compute.NewFieldRef("a"), compute.NewLiteral(1)),
+			compute.NotEqual(compute.NewFieldRef("b"), compute.NewLiteral("hello")),
+			compute.Equal(compute.NewFieldRef("b"), compute.NewLiteral("foo bar")))},
+		{"not", compute.Not(compute.NewFieldRef("alpha"))},
+		{"is_in", compute.NewCall("is_in", []compute.Expression{compute.NewLiteral(1)}, &compute.SetLookupOptions{ValueSet: intvalueset})},
+		{"is_in cast", compute.NewCall("is_in", []compute.Expression{
+			compute.NewCall("cast", []compute.Expression{compute.NewFieldRef("version")}, compute.NewCastOptions(arrow.PrimitiveTypes.Float64, true))},
+			&compute.SetLookupOptions{ValueSet: fltvalueset})},
+		{"is valid", compute.IsValid(compute.NewFieldRef("validity"))},
+		{"lots and", compute.And(
+			compute.And(
+				compute.GreaterEqual(compute.NewFieldRef("x"), compute.NewLiteral(-1.5)),
+				compute.Less(compute.NewFieldRef("x"), compute.NewLiteral(0.0))),
+			compute.And(compute.GreaterEqual(compute.NewFieldRef("y"), compute.NewLiteral(0.0)),
+				compute.Less(compute.NewFieldRef("y"), compute.NewLiteral(1.5))),
+			compute.And(compute.Greater(compute.NewFieldRef("z"), compute.NewLiteral(1.5)),
+				compute.LessEqual(compute.NewFieldRef("z"), compute.NewLiteral(3.0))))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+			serialized, err := compute.SerializeExpr(tt.expr, mem)
+			assert.NoError(t, err)
+			defer serialized.Release()
+			roundTripped, err := compute.DeserializeExpr(mem, serialized)
+			assert.NoError(t, err)
+			assert.Truef(t, tt.expr.Equals(roundTripped), "started with: %s, got: %s", tt.expr, roundTripped)
+		})
+	}
+}

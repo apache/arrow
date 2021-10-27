@@ -120,6 +120,9 @@ func (ScalarDatum) Chunks() []array.Interface { return nil }
 func (d *ScalarDatum) Type() arrow.DataType   { return d.Value.DataType() }
 func (d *ScalarDatum) String() string         { return d.Value.String() }
 func (d *ScalarDatum) Descr() ValueDescr      { return ValueDescr{ShapeScalar, d.Value.DataType()} }
+func (d *ScalarDatum) ToScalar() (scalar.Scalar, error) {
+	return d.Value, nil
+}
 
 func (d *ScalarDatum) NullN() int64 {
 	if d.Value.IsValid() {
@@ -160,7 +163,9 @@ func (d *ArrayDatum) Descr() ValueDescr          { return ValueDescr{ShapeArray,
 func (d *ArrayDatum) String() string             { return fmt.Sprintf("Array:{%s}", d.Value.DataType()) }
 func (d *ArrayDatum) MakeArray() array.Interface { return array.MakeFromData(d.Value) }
 func (d *ArrayDatum) Chunks() []array.Interface  { return []array.Interface{d.MakeArray()} }
-
+func (d *ArrayDatum) ToScalar() (scalar.Scalar, error) {
+	return scalar.NewListScalarData(d.Value), nil
+}
 func (d *ArrayDatum) Release() {
 	d.Value.Release()
 	d.Value = nil
@@ -308,6 +313,8 @@ func (c CollectionDatum) Equals(other Datum) bool {
 // datum of that appropriate type.
 func NewDatum(value interface{}) Datum {
 	switch v := value.(type) {
+	case Datum:
+		return v
 	case array.Interface:
 		v.Data().Retain()
 		return &ArrayDatum{v.Data()}
