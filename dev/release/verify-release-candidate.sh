@@ -25,6 +25,7 @@
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
 # - Go >= 1.15
+# - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
