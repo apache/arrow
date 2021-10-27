@@ -160,7 +160,7 @@ pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
 ./arrow_example
-c++ -o arrow_example arrow_example.cc $(pkg-config --cflags --libs arrow)
+c++ -o arrow_example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow_example
 popd
 
