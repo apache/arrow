@@ -298,7 +298,7 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 };
 
 template <typename T>
-struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<T> {
+struct TemporalScalar : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
@@ -307,7 +307,7 @@ struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<T> {
 };
 
 template <typename T>
-struct ARROW_EXPORT DateScalar : public TemporalScalar<T> {
+struct DateScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
@@ -342,7 +342,7 @@ struct ARROW_EXPORT TimestampScalar : public TemporalScalar<TimestampType> {
 };
 
 template <typename T>
-struct ARROW_EXPORT IntervalScalar : public TemporalScalar<T> {
+struct IntervalScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 

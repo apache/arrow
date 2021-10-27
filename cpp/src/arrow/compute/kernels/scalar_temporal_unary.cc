@@ -73,14 +73,6 @@ const std::shared_ptr<DataType>& IsoCalendarType() {
   return type;
 }
 
-Result<std::locale> GetLocale(const std::string& locale) {
-  try {
-    return std::locale(locale.c_str());
-  } catch (const std::runtime_error& ex) {
-    return Status::Invalid("Cannot find locale '", locale, "': ", ex.what());
-  }
-}
-
 Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
   if (options.week_start < 1 || 7 < options.week_start) {
     return Status::Invalid(
@@ -465,6 +457,14 @@ struct Nanosecond {
 // Convert timestamps to a string representation with an arbitrary format
 
 #ifndef _WIN32
+Result<std::locale> GetLocale(const std::string& locale) {
+  try {
+    return std::locale(locale.c_str());
+  } catch (const std::runtime_error& ex) {
+    return Status::Invalid("Cannot find locale '", locale, "': ", ex.what());
+  }
+}
+
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
