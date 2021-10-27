@@ -171,7 +171,7 @@ test_that("Writing a dataset: existing data behavior", {
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "overwrite")
   check_dataset()
   expect_error(
-    write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "error"), 
+    write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "error"),
     "directory is not empty"
   )
   unlink(dst_dir, recursive = TRUE)
