@@ -207,7 +207,7 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
         read.
     use_threads : bool, default True
         Whether to parallelize reading using multiple threads. If false the
-        restriction is only used in the conversion to Pandas and not in the
+        restriction is used in the conversion to Pandas as well as in the
         reading from Feather format.
     memory_map : boolean, default True
         Use memory mapping when opening file on disk
@@ -217,8 +217,9 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
     df : pandas.DataFrame
     """
     _check_pandas_version()
-    return (read_table(source, columns=columns, memory_map=memory_map, use_threads=use_threads)
-            .to_pandas(use_threads=use_threads))
+    return (read_table(
+        source, columns=columns, memory_map=memory_map,
+        use_threads=use_threads).to_pandas(use_threads=use_threads))
 
 
 def read_table(source, columns=None, memory_map=True, use_threads=True):
@@ -238,7 +239,8 @@ def read_table(source, columns=None, memory_map=True, use_threads=True):
     -------
     table : pyarrow.Table
     """
-    reader = _feather.FeatherReader(source, use_memory_map=memory_map, use_threads=use_threads)
+    reader = _feather.FeatherReader(
+        source, use_memory_map=memory_map, use_threads=use_threads)
 
     if columns is None:
         return reader.read()

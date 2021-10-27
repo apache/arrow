@@ -705,7 +705,8 @@ Status WriteFeatherV1(const Table& table, io::OutputStream* dst) {
 
 class ReaderV2 : public Reader {
  public:
-  Status Open(const std::shared_ptr<io::RandomAccessFile>& source, const IpcReadOptions& options) {
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& source,
+              const IpcReadOptions& options) {
     source_ = source;
     options_ = options;
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(source_, options_));
