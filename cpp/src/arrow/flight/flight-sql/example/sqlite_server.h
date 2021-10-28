@@ -21,6 +21,7 @@
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <map>
 
 #include "arrow/api.h"
 #include "arrow/flight/flight-sql/example/sqlite_statement.h"

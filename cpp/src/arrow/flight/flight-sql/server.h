@@ -20,9 +20,7 @@
 
 #pragma once
 
-#include <arrow/flight/flight-sql/FlightSql.pb.h>
 #include <arrow/flight/server.h>
-#include <google/protobuf/any.pb.h>
 #include <sqlite3.h>
 
 #include <boost/uuid/uuid.hpp>

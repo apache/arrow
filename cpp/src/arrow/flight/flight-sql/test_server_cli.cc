@@ -31,8 +31,6 @@
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 
-namespace pb = arrow::flight::protocol;
-
 std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 
 int main(int argc, char** argv) {

@@ -30,68 +30,22 @@ namespace pb = arrow::flight::protocol;
 namespace arrow {
 namespace flight {
 namespace sql {
+
 namespace internal {
-
-template <class T = arrow::flight::FlightClient>
-class ARROW_EXPORT PreparedStatementT {
-  T* client;
-  FlightCallOptions options;
-  pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
-  std::shared_ptr<RecordBatch> parameter_binding;
-  bool is_closed;
-
- public:
-  /// \brief Constructor for the PreparedStatement class.
-  /// \param[in] client   A raw pointer to FlightClient.
-  /// \param[in] query      The query that will be executed.
-  PreparedStatementT(
-      T* client, const std::string& query,
-      pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result,
-      FlightCallOptions options);
-
-  /// \brief Default destructor for the PreparedStatement class.
-  /// The destructor will call the Close method from the class in order,
-  /// to send a request to close the PreparedStatement.
-  ~PreparedStatementT();
-
-  /// \brief Executes the prepared statement query on the server.
-  /// \return A FlightInfo object representing the stream(s) to fetch.
-  arrow::Result<std::unique_ptr<FlightInfo>> Execute();
-
-  /// \brief Executes the prepared statement update query on the server.
-  /// \return The number of rows affected.
-  arrow::Result<int64_t> ExecuteUpdate();
-
-  /// \brief Retrieve the parameter schema from the query.
-  /// \return The parameter schema from the query.
-  arrow::Result<std::shared_ptr<Schema>> GetParameterSchema();
-
-  /// \brief Retrieve the ResultSet schema from the query.
-  /// \return The ResultSet schema from the query.
-  arrow::Result<std::shared_ptr<Schema>> GetResultSetSchema();
-
-  /// \brief Set a RecordBatch that contains the parameters that will be bind.
-  /// \param parameter_binding_   The parameters that will be bind.
-  /// \return                     Status.
-  Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
-
-  /// \brief Closes the prepared statement.
-  /// \param[in] options  RPC-layer hints for this call.
-  /// \return Status.
-  Status Close();
-
-  /// \brief Checks if the prepared statement is closed.
-  /// \return The state of the prepared statement.
-  bool IsClosed() const;
-};
+class FlightClientImpl;
+}
 
 /// \brief Flight client with Flight SQL semantics.
-template <class T = arrow::flight::FlightClient>
-class FlightSqlClientT {
- public:
-  explicit FlightSqlClientT(std::unique_ptr<T>& client);
+class ARROW_EXPORT FlightSqlClient {
+ private:
+  std::shared_ptr<internal::FlightClientImpl> impl_;
 
-  ~FlightSqlClientT();
+ public:
+  class PreparedStatement;
+
+  explicit FlightSqlClient(std::shared_ptr<internal::FlightClientImpl> client);
+
+  ~FlightSqlClient();
 
   /// \brief Execute a query on the server.
   /// \param[in] options      RPC-layer hints for this call.
@@ -217,20 +171,63 @@ class FlightSqlClientT {
   /// \param[in] options              RPC-layer hints for this call.
   /// \param[in] query                The query that will be executed.
   /// \return The created prepared statement.
-  arrow::Result<std::shared_ptr<PreparedStatementT<T>>> Prepare(
+  arrow::Result<std::shared_ptr<PreparedStatement>> Prepare(
       const FlightCallOptions& options, const std::string& query);
 
- private:
-  std::unique_ptr<T> client;
+  explicit FlightSqlClient(std::unique_ptr<FlightClient> client);
+
+  class PreparedStatement {
+    std::shared_ptr<internal::FlightClientImpl> client_;
+    FlightCallOptions options_;
+    pb::sql::ActionCreatePreparedStatementResult prepared_statement_result_;
+    std::shared_ptr<RecordBatch> parameter_binding_;
+    bool is_closed_;
+
+   public:
+    /// \brief Constructor for the PreparedStatement class.
+    /// \param[in] query      The query that will be executed.
+    PreparedStatement(
+        std::shared_ptr<internal::FlightClientImpl> client_, const std::string& query,
+        pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result,
+        FlightCallOptions options);
+
+    /// \brief Default destructor for the PreparedStatement class.
+    /// The destructor will call the Close method from the class in order,
+    /// to send a request to close the PreparedStatement.
+    ~PreparedStatement();
+
+    /// \brief Executes the prepared statement query on the server.
+    /// \return A FlightInfo object representing the stream(s) to fetch.
+    arrow::Result<std::unique_ptr<FlightInfo>> Execute();
+
+    /// \brief Executes the prepared statement update query on the server.
+    /// \return The number of rows affected.
+    arrow::Result<int64_t> ExecuteUpdate();
+
+    /// \brief Retrieve the parameter schema from the query.
+    /// \return The parameter schema from the query.
+    arrow::Result<std::shared_ptr<Schema>> GetParameterSchema();
+
+    /// \brief Retrieve the ResultSet schema from the query.
+    /// \return The ResultSet schema from the query.
+    arrow::Result<std::shared_ptr<Schema>> GetResultSetSchema();
+
+    /// \brief Set a RecordBatch that contains the parameters that will be bind.
+    /// \param parameter_binding_   The parameters that will be bind.
+    /// \return                     Status.
+    Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
+
+    /// \brief Closes the prepared statement.
+    /// \param[in] options  RPC-layer hints for this call.
+    /// \return Status.
+    Status Close();
+
+    /// \brief Checks if the prepared statement is closed.
+    /// \return The state of the prepared statement.
+    bool IsClosed() const;
+  };
 };
-
-}  // namespace internal
-
-using FlightSqlClient = internal::FlightSqlClientT<>;
-using PreparedStatement = internal::PreparedStatementT<>;
 
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
-
-#include <arrow/flight/flight-sql/client_impl.h>

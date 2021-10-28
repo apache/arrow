@@ -18,6 +18,7 @@
 #include <arrow/api.h>
 #include <arrow/flight/api.h>
 #include <arrow/flight/flight-sql/api.h>
+#include <arrow/flight/flight-sql/client_internal.h>
 #include <arrow/flight/flight-sql/example/sqlite_server.h>
 #include <arrow/flight/flight-sql/server.h>
 #include <arrow/flight/test_util.h>
@@ -55,7 +56,7 @@ class TestFlightSqlServer : public ::testing::Environment {
     ASSERT_OK(Location::Parse(uri, &location));
     ASSERT_OK(FlightClient::Connect(location, &client));
 
-    sql_client = new FlightSqlClient(client);
+    sql_client = new FlightSqlClient(std::move(client));
   }
 
   void TearDown() override {

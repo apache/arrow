@@ -20,6 +20,9 @@
 
 #include "arrow/flight/flight-sql/server.h"
 
+#include <arrow/flight/flight-sql/FlightSql.pb.h>
+#include <google/protobuf/any.pb.h>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <sstream>

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <arrow/array/builder_binary.h>
+#include <arrow/array/builder_primitive.h>
 #include <arrow/flight/api.h>
 #include <arrow/flight/flight-sql/api.h>
 #include <arrow/io/memory.h>
@@ -113,7 +114,7 @@ Status RunMain() {
     call_options.headers.push_back(bearer_result.ValueOrDie());
   }
 
-  FlightSqlClient sqlClient(client);
+  FlightSqlClient sqlClient(std::move(client));
 
   if (fLS::FLAGS_command == "ExecuteUpdate") {
     ARROW_ASSIGN_OR_RAISE(auto rows,
