@@ -631,7 +631,7 @@ services:
     volumes: *conda-volumes
     command: &python-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build true &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   ubuntu-cuda-python:
@@ -940,7 +940,10 @@ services:
     environment:
       <<: *ccache
     volumes: *conda-volumes
-    command: *python-conda-command
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build true &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-dask:
     # Possible $DASK parameters:
