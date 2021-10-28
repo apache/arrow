@@ -344,9 +344,9 @@ struct StringTransformExecBase {
 
     const int64_t input_ncodeunits = input.total_values_length();
     const int64_t input_nstrings = input.length();
-    const uint8_t* input_nstring = input.GetValue(0, NULL);
+    offset_type tmp_offset_type;
+    const uint8_t* input_nstring = input.GetValue(0, &tmp_offset_type);
 
-    printf("ArrayMaxCodeunits");
     const int64_t output_ncodeunits_max =
         transform->MaxCodeunits(input_nstring, input_nstrings, input_ncodeunits);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
@@ -367,7 +367,6 @@ struct StringTransformExecBase {
       if (!input.IsNull(i)) {
         offset_type input_string_ncodeunits;
         const uint8_t* input_string = input.GetValue(i, &input_string_ncodeunits);
-        printf("TransformArray");
         auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
             input_string, input_string_ncodeunits, output_str + output_ncodeunits, output_ncodeunits_max - output_ncodeunits));
         if (encoded_nbytes < 0) {
@@ -393,7 +392,6 @@ struct StringTransformExecBase {
     result->is_valid = true;
     const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
 
-    printf("ScalarMaxCodeunits");
     const int64_t output_ncodeunits_max = transform->MaxCodeunits(input.value->data(), 1, data_nbytes);
     if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
       return Status::CapacityError(
@@ -401,7 +399,6 @@ struct StringTransformExecBase {
     }
     ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
     result->value = value_buffer;
-    printf("ScalarTransform");
     auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
         input.value->data(), data_nbytes, value_buffer->mutable_data(), output_ncodeunits_max));
     if (encoded_nbytes < 0) {
@@ -464,7 +461,6 @@ struct FixedSizeBinaryTransformExecBase {
     for (int64_t i = 0; i < input_nstrings; i++) {
       if (!input.IsNull(i)) {
         const uint8_t* input_string = input.GetValue(i);
-        printf("TransformArray2");
         auto encoded_nbytes = static_cast<int32_t>(
             transform->Transform(input_string, input_width, output_str, output_width));
         if (encoded_nbytes != output_width) {
@@ -492,7 +488,6 @@ struct FixedSizeBinaryTransformExecBase {
 
     const int32_t data_nbytes = static_cast<int32_t>(input.value->size());
     ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(out_width));
-    printf("TransformScalar2");
     auto encoded_nbytes = static_cast<int32_t>(transform->Transform(
         input.value->data(), data_nbytes, value_buffer->mutable_data(), out_width));
     if (encoded_nbytes != out_width) {
@@ -4429,10 +4424,8 @@ const FunctionDoc utf8_reverse_doc(
     {"strings"});
 
 const FunctionDoc utf8_normalize_doc(
-    "Normalization Form Canonical Decomposition",
-    ("For each string in `strings`, return an unicode normalized version.\n\n"
-     "Characters are decomposed by canonical equivalence,\n"
-     "and multiple combining characters are arranged in a specific order.\n"),
+    "Utf8 Normalization Form",
+    ("For each string in `strings`, return an unicode normalized version."),
     {"strings"}, "Utf8NormalizeOptions");
 
 }  // namespace
