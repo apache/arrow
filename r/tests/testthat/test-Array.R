@@ -318,19 +318,19 @@ test_that("support for NaN (ARROW-3615)", {
 
 test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
   x <- c(1.0, NA, NaN, -1.0)
-  expect_vector_equal(is.nan(input), x)
+  compare_expression(is.nan(.input), x)
 })
 
 test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
   x <- c(1L, 2L, 3L)
   y <- c("foo", "bar")
-  expect_vector_equal(is.nan(input), x)
-  expect_vector_equal(is.nan(input), y)
+  compare_expression(is.nan(.input), x)
+  compare_expression(is.nan(.input), y)
 })
 
 test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
   x <- c(1, NA, NaN, -1)
-  expect_vector_equal(is.na(input), x)
+  compare_expression(is.na(.input), x)
 })
 
 test_that("integer types casts (ARROW-3741)", {
