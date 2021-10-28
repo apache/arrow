@@ -429,7 +429,6 @@ TEST_F(TestFlightSqlClient, TestExecuteUpdate) {
 }
 
 TEST_F(TestFlightSqlClient, TestGetSqlInfo) {
-
   std::vector<int> sql_info{pb::sql::SqlInfo::FLIGHT_SQL_SERVER_NAME,
                             pb::sql::SqlInfo::FLIGHT_SQL_SERVER_VERSION,
                             pb::sql::SqlInfo::FLIGHT_SQL_SERVER_ARROW_VERSION};
