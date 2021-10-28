@@ -19,8 +19,8 @@ package parquet_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/encryption"
+	"github.com/apache/arrow/go/parquet/v6"
+	"github.com/apache/arrow/go/parquet/v6/internal/encryption"
 	"github.com/stretchr/testify/assert"
 )
 

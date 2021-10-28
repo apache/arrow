@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 )
 
 var (

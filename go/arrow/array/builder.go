@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/arrow/v6/bitutil"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 )
 
 const (

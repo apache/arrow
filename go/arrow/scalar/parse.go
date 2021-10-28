@@ -21,10 +21,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/float16"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/arrow/v6/array"
+	"github.com/apache/arrow/go/arrow/v6/float16"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 	"golang.org/x/xerrors"
 )
 

@@ -19,8 +19,8 @@ package encoding
 import (
 	"math"
 
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/parquet/v6"
+	"github.com/apache/arrow/go/parquet/v6/internal/utils"
 	"golang.org/x/xerrors"
 )
 

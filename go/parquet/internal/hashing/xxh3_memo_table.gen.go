@@ -23,7 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/parquet/v6/internal/utils"
 )
 
 type payloadInt32 struct {

@@ -22,7 +22,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/v6"
 	"golang.org/x/xerrors"
 )
 

@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/arrow/v6/internal/testing/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )

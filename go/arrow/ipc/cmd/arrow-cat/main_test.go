@@ -24,10 +24,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6/array"
+	"github.com/apache/arrow/go/arrow/v6/internal/arrdata"
+	"github.com/apache/arrow/go/arrow/v6/ipc"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 )
 
 func TestCatStream(t *testing.T) {

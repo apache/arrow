@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6/array"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 )
 
 func TestBooleanSliceData(t *testing.T) {

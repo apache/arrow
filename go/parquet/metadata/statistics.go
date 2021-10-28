@@ -24,12 +24,12 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/debug"
-	"github.com/apache/arrow/go/parquet/internal/encoding"
-	"github.com/apache/arrow/go/parquet/internal/utils"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/parquet/v6"
+	"github.com/apache/arrow/go/parquet/v6/internal/debug"
+	"github.com/apache/arrow/go/parquet/v6/internal/encoding"
+	"github.com/apache/arrow/go/parquet/v6/internal/utils"
+	format "github.com/apache/arrow/go/parquet/v6/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/parquet/v6/schema"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata statistics_types.gen.go.tmpl

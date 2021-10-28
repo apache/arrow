@@ -14,17 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc // import "github.com/apache/arrow/go/arrow/v6/ipc"
 
 import (
 	"encoding/binary"
 	"io"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/arrow/v6/array"
+	"github.com/apache/arrow/go/arrow/v6/bitutil"
+	"github.com/apache/arrow/go/arrow/v6/internal/flatbuf"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 	"golang.org/x/xerrors"
 )
 

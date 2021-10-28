@@ -19,7 +19,7 @@ package arrow_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/v6"
 	"github.com/stretchr/testify/assert"
 )
 

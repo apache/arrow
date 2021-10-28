@@ -19,11 +19,11 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/arrow/v6/array"
+	"github.com/apache/arrow/go/arrow/v6/internal/testing/tools"
+	"github.com/apache/arrow/go/arrow/v6/internal/testing/types"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 	"github.com/stretchr/testify/assert"
 )
 

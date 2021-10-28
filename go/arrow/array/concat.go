@@ -20,10 +20,10 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/arrow/v6/bitutil"
+	"github.com/apache/arrow/go/arrow/v6/internal/debug"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 	"golang.org/x/xerrors"
 )
 

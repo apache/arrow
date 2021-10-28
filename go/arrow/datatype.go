@@ -19,7 +19,7 @@ package arrow
 import (
 	"hash/maphash"
 
-	"github.com/apache/arrow/go/arrow/internal/debug"
+	"github.com/apache/arrow/go/arrow/v6/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as

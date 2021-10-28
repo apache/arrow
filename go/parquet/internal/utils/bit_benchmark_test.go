@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet/internal/testutils"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/parquet/v6/internal/testutils"
+	"github.com/apache/arrow/go/parquet/v6/internal/utils"
 )
 
 func randomBitsBuffer(nbits, setPct int64) []byte {

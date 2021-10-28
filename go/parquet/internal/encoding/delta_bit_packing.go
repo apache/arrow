@@ -24,8 +24,8 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/parquet/v6"
+	"github.com/apache/arrow/go/parquet/v6/internal/utils"
 	"golang.org/x/xerrors"
 )
 

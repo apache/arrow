@@ -15,19 +15,19 @@
 // limitations under the License.
 
 // Package arrdata exports arrays and records data ready to be used for tests.
-package arrdata // import "github.com/apache/arrow/go/arrow/internal/arrdata"
+package arrdata // import "github.com/apache/arrow/go/arrow/v6/internal/arrdata"
 
 import (
 	"fmt"
 	"sort"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/float16"
-	"github.com/apache/arrow/go/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/arrow/v6/array"
+	"github.com/apache/arrow/go/arrow/v6/decimal128"
+	"github.com/apache/arrow/go/arrow/v6/float16"
+	"github.com/apache/arrow/go/arrow/v6/internal/testing/types"
+	"github.com/apache/arrow/go/arrow/v6/ipc"
+	"github.com/apache/arrow/go/arrow/v6/memory"
 )
 
 var (

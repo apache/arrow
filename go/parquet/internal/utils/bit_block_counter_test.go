@@ -21,7 +21,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/parquet/v6/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/rand"
 )
