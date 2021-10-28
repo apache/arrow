@@ -21,9 +21,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/v6/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/v6/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/v6/memory"
+	"github.com/apache/arrow/go/v6/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v6/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 )
 
 func TestFile(t *testing.T) {

@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/v6"
-	"github.com/apache/arrow/go/parquet/v6/compress"
+	"github.com/apache/arrow/go/v6/arrow/memory"
+	"github.com/apache/arrow/go/v6/parquet"
+	"github.com/apache/arrow/go/v6/parquet/compress"
 	"github.com/stretchr/testify/assert"
 )
 

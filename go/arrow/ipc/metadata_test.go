@@ -14,18 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/v6/ipc"
+package ipc // import "github.com/apache/arrow/go/v6/arrow/ipc"
 
 import (
 	"bytes"
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/v6"
-	"github.com/apache/arrow/go/arrow/v6/array"
-	"github.com/apache/arrow/go/arrow/v6/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/v6/internal/testing/types"
-	"github.com/apache/arrow/go/arrow/v6/memory"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v6/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v6/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/stretchr/testify/assert"
 )

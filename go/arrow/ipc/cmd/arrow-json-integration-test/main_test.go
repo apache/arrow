@@ -14,15 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main // import "github.com/apache/arrow/go/arrow/v6/ipc/cmd/arrow-json-integration-test"
+package main // import "github.com/apache/arrow/go/v6/arrow/ipc/cmd/arrow-json-integration-test"
 
 import (
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/v6/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/v6/memory"
+	"github.com/apache/arrow/go/v6/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 )
 
 func TestIntegration(t *testing.T) {

@@ -19,7 +19,7 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/parquet/v6/schema"
+	"github.com/apache/arrow/go/v6/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -17,8 +17,8 @@
 package schema
 
 import (
-	"github.com/apache/arrow/go/parquet/v6"
-	format "github.com/apache/arrow/go/parquet/v6/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v6/parquet"
+	format "github.com/apache/arrow/go/v6/parquet/internal/gen-go/parquet"
 	"github.com/apache/thrift/lib/go/thrift"
 	"golang.org/x/xerrors"
 )

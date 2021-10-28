@@ -21,10 +21,10 @@ package cdata
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/v6"
-	"github.com/apache/arrow/go/arrow/v6/array"
-	"github.com/apache/arrow/go/arrow/v6/arrio"
-	"github.com/apache/arrow/go/arrow/v6/memory"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v6/arrow/arrio"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 	"golang.org/x/xerrors"
 )
 

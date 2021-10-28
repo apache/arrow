@@ -21,11 +21,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/v6"
-	"github.com/apache/arrow/go/parquet/v6/metadata"
-	"github.com/apache/arrow/go/parquet/v6/schema"
+	"github.com/apache/arrow/go/v6/arrow/bitutil"
+	"github.com/apache/arrow/go/v6/arrow/memory"
+	"github.com/apache/arrow/go/v6/parquet"
+	"github.com/apache/arrow/go/v6/parquet/metadata"
+	"github.com/apache/arrow/go/v6/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 

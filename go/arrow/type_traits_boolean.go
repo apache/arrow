@@ -17,7 +17,7 @@
 package arrow
 
 import (
-	"github.com/apache/arrow/go/arrow/v6/bitutil"
+	"github.com/apache/arrow/go/v6/arrow/bitutil"
 )
 
 type booleanTraits struct{}

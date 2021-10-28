@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/v6/arrow"
 	"golang.org/x/xerrors"
 )
 

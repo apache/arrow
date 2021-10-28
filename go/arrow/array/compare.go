@@ -19,8 +19,8 @@ package array
 import (
 	"math"
 
-	"github.com/apache/arrow/go/arrow/v6"
-	"github.com/apache/arrow/go/arrow/v6/float16"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/float16"
 	"golang.org/x/xerrors"
 )
 

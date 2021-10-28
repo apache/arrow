@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main // import "github.com/apache/arrow/go/arrow/v6/ipc/cmd/arrow-file-to-stream"
+package main // import "github.com/apache/arrow/go/v6/arrow/ipc/cmd/arrow-file-to-stream"
 
 import (
 	"io"
@@ -22,8 +22,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/v6/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/v6/memory"
+	"github.com/apache/arrow/go/v6/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 )
 
 func TestFileToStream(t *testing.T) {

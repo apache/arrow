@@ -20,9 +20,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/v6/internal/encoding"
-	"github.com/apache/arrow/go/parquet/v6/internal/hashing"
+	"github.com/apache/arrow/go/v6/arrow/memory"
+	"github.com/apache/arrow/go/v6/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v6/parquet/internal/hashing"
 	"github.com/stretchr/testify/suite"
 )
 

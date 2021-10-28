@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/v6/array"
+	"github.com/apache/arrow/go/v6/arrow/array"
 )
 
 // #include <stdlib.h>

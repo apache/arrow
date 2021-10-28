@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/arrow/v6"
+	"github.com/apache/arrow/go/v6/arrow"
 )
 
 // A type which represents an immutable sequence of int64 values.

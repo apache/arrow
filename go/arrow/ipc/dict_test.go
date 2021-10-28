@@ -14,14 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/v6/ipc"
+package ipc // import "github.com/apache/arrow/go/v6/arrow/ipc"
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/v6/array"
-	"github.com/apache/arrow/go/arrow/v6/memory"
+	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 )
 
 func TestDictMemo(t *testing.T) {

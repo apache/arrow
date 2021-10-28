@@ -22,9 +22,9 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/v6"
-	"github.com/apache/arrow/go/arrow/v6/csv"
-	"github.com/apache/arrow/go/arrow/v6/memory"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/csv"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 )
 
 func Example() {

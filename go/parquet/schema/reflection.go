@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/parquet/v6"
-	format "github.com/apache/arrow/go/parquet/v6/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v6/parquet"
+	format "github.com/apache/arrow/go/v6/parquet/internal/gen-go/parquet"
 	"golang.org/x/xerrors"
 )
 
