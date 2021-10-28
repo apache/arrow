@@ -906,13 +906,15 @@ tasks:
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
-  test-debian-11-cpp:
+{% for debian_version in ["10", "11"] %}
+  test-debian-{{ debian_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        DEBIAN: 11
+        DEBIAN: {{ debian_version }}
       image: debian-cpp
+{% endfor %}
 
   test-fedora-33-cpp:
     ci: github
