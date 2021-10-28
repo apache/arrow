@@ -34,6 +34,7 @@
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <climits>
 #include <cstdint>
@@ -313,18 +314,18 @@ namespace {
 
 Result<NativePathString> NativeReal(const NativePathString& path) {
 #if _WIN32
-  std::array<char, _MAX_PATH> resolved;
-  if (_wfullpath(path.c_str(), resolved.data(), resolved.size()) == nullptr) {
+  std::array<wchar_t, _MAX_PATH> resolved;
+  if (_wfullpath(const_cast<wchar_t*>(path.c_str()), resolved.data(), resolved.size()) ==
+      nullptr) {
     return IOErrorFromWinError(errno, "Failed to resolve real path");
   }
-  return {resolved.data()};
 #else
   std::array<char, PATH_MAX + 1> resolved;
   if (realpath(path.c_str(), resolved.data()) == nullptr) {
     return IOErrorFromErrno(errno, "Failed to resolve real path");
   }
-  return {resolved.data()};
 #endif
+  return NativePathString{resolved.data()};
 }
 
 }  // namespace
