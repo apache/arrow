@@ -26,8 +26,12 @@ if(ARROW_COMPUTE AND ARROW_CSV)
 endif()
 
 if(ARROW_FLIGHT)
-  if(ARROW_BUILD_SHARED)
+  # Static gRPC means we cannot linked to shared Arrow, since then
+  # we'll violate ODR for gRPC symbols
+  if(ARROW_GRPC_USE_SHARED)
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_shared)
+  elseif(NOT ARROW_BUILD_STATIC)
+    message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
   else()
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_static)
   endif()
