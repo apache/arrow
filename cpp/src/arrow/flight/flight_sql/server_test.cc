@@ -44,6 +44,12 @@ class TestFlightSqlServer : public ::testing::Environment {
   void SetUp() override {
     server = new TestServer("flight_sql_test_server");
     server->Start();
+    for(int i=0; i<100; i++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if(server->IsRunning()) {
+            break;
+        }
+    }
     ASSERT_TRUE(server->IsRunning());
 
     std::stringstream ss;
