@@ -168,9 +168,11 @@ TEST(Relation, Filter) {
       ConvertJSON<ir::Relation>(R"({
     impl_type: "Filter",
     impl: {
+      id: { id: 1 },
       rel: {
         impl_type: "Source",
         impl: {
+          id: { id: 0 },
           name: "test source",
           schema: {
             endianness: "Little",
@@ -241,15 +243,16 @@ TEST(Relation, Filter) {
                                                        field("i32", int32()),
                                                        field("f64", float64()),
                                                        field("i64", int64()),
-                                                   })}},
-          {"filter", FilterNodeOptions{equal(field_ref(2), literal<int64_t>(42))}},
+                                                   })},
+           "0"},
+          {"filter", FilterNodeOptions{equal(field_ref(2), literal<int64_t>(42))}, "1"},
       }))));
 }
 
 TEST(Relation, AggregateSimple) {
-  ASSERT_THAT(
-      ConvertJSON<ir::Relation>(R"({
+  ASSERT_THAT(ConvertJSON<ir::Relation>(R"({
             "impl": {
+                id: {id: 1},
                 "groupings": [
                     {
                         "keys": [
@@ -306,6 +309,7 @@ TEST(Relation, AggregateSimple) {
                 ],
                 "rel": {
                     "impl": {
+                        id: {id: 0},
                         "name": "tbl",
                         "schema": {
                             "endianness": "Little",
@@ -344,30 +348,35 @@ TEST(Relation, AggregateSimple) {
             },
             "impl_type": "Aggregate"
 })"),
-      ResultWith(Eq(Declaration::Sequence({
-          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
-                                                                 field("foo", int32()),
-                                                                 field("bar", int64()),
-                                                                 field("baz", float64()),
-                                                             })}},
-          {"aggregate", AggregateNodeOptions{/*aggregates=*/{
-                                                 {"sum", nullptr},
-                                                 {"mean", nullptr},
-                                             },
-                                             /*targets=*/{1, 2},
-                                             /*names=*/
-                                             {
-                                                 "sum FieldRef.FieldPath(1)",
-                                                 "mean FieldRef.FieldPath(2)",
-                                             },
-                                             /*keys=*/{0}}},
-      }))));
+              ResultWith(Eq(Declaration::Sequence({
+                  {"catalog_source",
+                   CatalogSourceNodeOptions{"tbl", schema({
+                                                       field("foo", int32()),
+                                                       field("bar", int64()),
+                                                       field("baz", float64()),
+                                                   })},
+                   "0"},
+                  {"aggregate",
+                   AggregateNodeOptions{/*aggregates=*/{
+                                            {"sum", nullptr},
+                                            {"mean", nullptr},
+                                        },
+                                        /*targets=*/{1, 2},
+                                        /*names=*/
+                                        {
+                                            "sum FieldRef.FieldPath(1)",
+                                            "mean FieldRef.FieldPath(2)",
+                                        },
+                                        /*keys=*/{0}},
+                   "1"},
+              }))));
 }
 
 TEST(Relation, AggregateWithHaving) {
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
+                id: {id: 3},
                 "predicate": {
                     "impl": {
                         "arguments": [
@@ -405,6 +414,7 @@ TEST(Relation, AggregateWithHaving) {
                 },
                 "rel": {
                     "impl": {
+                        id: {id: 2},
                         "groupings": [
                             {
                                 "keys": [
@@ -461,6 +471,7 @@ TEST(Relation, AggregateWithHaving) {
                         ],
                         "rel": {
                             "impl": {
+                                id: {id: 1},
                                 "predicate": {
                                     "impl": {
                                         "arguments": [
@@ -498,6 +509,7 @@ TEST(Relation, AggregateWithHaving) {
                                 },
                                 "rel": {
                                     "impl": {
+                                        id: {id: 0},
                                         "name": "tbl",
                                         "schema": {
                                             "endianness": "Little",
@@ -543,24 +555,28 @@ TEST(Relation, AggregateWithHaving) {
             "impl_type": "Filter"
 })"),
       ResultWith(Eq(Declaration::Sequence({
-          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
-                                                                 field("foo", int32()),
-                                                                 field("bar", int64()),
-                                                                 field("baz", float64()),
-                                                             })}},
-          {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}},
-          {"aggregate", AggregateNodeOptions{/*aggregates=*/{
-                                                 {"sum", nullptr},
-                                                 {"mean", nullptr},
-                                             },
-                                             /*targets=*/{1, 2},
-                                             /*names=*/
-                                             {
-                                                 "sum FieldRef.FieldPath(1)",
-                                                 "mean FieldRef.FieldPath(2)",
-                                             },
-                                             /*keys=*/{0}}},
-          {"filter", FilterNodeOptions{greater(field_ref(0), literal<int8_t>(10))}},
+          {"catalog_source",
+           CatalogSourceNodeOptions{"tbl", schema({
+                                               field("foo", int32()),
+                                               field("bar", int64()),
+                                               field("baz", float64()),
+                                           })},
+           "0"},
+          {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}, "1"},
+          {"aggregate",
+           AggregateNodeOptions{/*aggregates=*/{
+                                    {"sum", nullptr},
+                                    {"mean", nullptr},
+                                },
+                                /*targets=*/{1, 2},
+                                /*names=*/
+                                {
+                                    "sum FieldRef.FieldPath(1)",
+                                    "mean FieldRef.FieldPath(2)",
+                                },
+                                /*keys=*/{0}},
+           "2"},
+          {"filter", FilterNodeOptions{greater(field_ref(0), literal<int8_t>(10))}, "3"},
       }))));
 }
 
@@ -568,6 +584,7 @@ TEST(Relation, ProjectionWithFilter) {
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
+                id: {id:2},
                 "predicate": {
                     "impl": {
                         "arguments": [
@@ -605,6 +622,7 @@ TEST(Relation, ProjectionWithFilter) {
                 },
                 "rel": {
                     "impl": {
+                        id: {id:1},
                         "expressions": [
                             {
                                 "impl": {
@@ -629,6 +647,7 @@ TEST(Relation, ProjectionWithFilter) {
                         ],
                         "rel": {
                             "impl": {
+                                id: {id:0},
                                 "name": "tbl",
                                 "schema": {
                                     "endianness": "Little",
@@ -671,13 +690,16 @@ TEST(Relation, ProjectionWithFilter) {
             "impl_type": "Filter"
 })"),
       ResultWith(Eq(Declaration::Sequence({
-          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
-                                                                 field("foo", int32()),
-                                                                 field("bar", int64()),
-                                                                 field("baz", float64()),
-                                                             })}},
-          {"project", ProjectNodeOptions{/*expressions=*/{field_ref(1), field_ref(2)}}},
-          {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}},
+          {"catalog_source",
+           CatalogSourceNodeOptions{"tbl", schema({
+                                               field("foo", int32()),
+                                               field("bar", int64()),
+                                               field("baz", float64()),
+                                           })},
+           "0"},
+          {"project", ProjectNodeOptions{/*expressions=*/{field_ref(1), field_ref(2)}},
+           "1"},
+          {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}, "2"},
       }))));
 }
 
@@ -685,6 +707,7 @@ TEST(Relation, ProjectionWithSort) {
   ASSERT_THAT(
       ConvertJSON<ir::Relation>(R"({
             "impl": {
+                id: {id:2},
                 "keys": [
                     {
                         "expression": {
@@ -715,6 +738,7 @@ TEST(Relation, ProjectionWithSort) {
                 ],
                 "rel": {
                     "impl": {
+                        id: {id:1},
                         "expressions": [
                             {
                                 "impl": {
@@ -749,6 +773,7 @@ TEST(Relation, ProjectionWithSort) {
                         ],
                         "rel": {
                             "impl": {
+                                id: {id: 0},
                                 "name": "tbl",
                                 "schema": {
                                     "endianness": "Little",
@@ -791,20 +816,24 @@ TEST(Relation, ProjectionWithSort) {
             "impl_type": "OrderBy"
 })"),
       ResultWith(Eq(Declaration::Sequence({
-          {"catalog_source", CatalogSourceNodeOptions{"tbl", schema({
-                                                                 field("foo", int32()),
-                                                                 field("bar", int64()),
-                                                                 field("baz", float64()),
-                                                             })}},
-          {"project", ProjectNodeOptions{
-                          /*expressions=*/{field_ref(0), field_ref(1), field_ref(2)}}},
+          {"catalog_source",
+           CatalogSourceNodeOptions{"tbl", schema({
+                                               field("foo", int32()),
+                                               field("bar", int64()),
+                                               field("baz", float64()),
+                                           })},
+           "0"},
+          {"project",
+           ProjectNodeOptions{/*expressions=*/{field_ref(0), field_ref(1), field_ref(2)}},
+           "1"},
           {"order_by_sink",
            OrderBySinkNodeOptions{SortOptions{{
                                                   SortKey{0, SortOrder::Ascending},
                                                   SortKey{1, SortOrder::Descending},
                                               },
                                               NullPlacement::AtStart},
-                                  nullptr}},
+                                  nullptr},
+           "2"},
       }))));
 }
 

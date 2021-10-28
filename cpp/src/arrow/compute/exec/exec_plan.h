@@ -352,11 +352,26 @@ struct ARROW_EXPORT Declaration {
         label{this->factory_name} {}
 
   template <typename Options>
+  Declaration(std::string factory_name, std::vector<Input> inputs, Options options,
+              std::string label)
+      : factory_name{std::move(factory_name)},
+        inputs{std::move(inputs)},
+        options{std::make_shared<Options>(std::move(options))},
+        label{std::move(label)} {}
+
+  template <typename Options>
   Declaration(std::string factory_name, Options options)
       : factory_name{std::move(factory_name)},
         inputs{},
         options{std::make_shared<Options>(std::move(options))},
         label{this->factory_name} {}
+
+  template <typename Options>
+  Declaration(std::string factory_name, Options options, std::string label)
+      : factory_name{std::move(factory_name)},
+        inputs{},
+        options{std::make_shared<Options>(std::move(options))},
+        label{std::move(label)} {}
 
   /// \brief Convenience factory for the common case of a simple sequence of nodes.
   ///
