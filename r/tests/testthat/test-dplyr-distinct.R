@@ -23,8 +23,8 @@ tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)
 
 test_that("distinct()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       distinct(some_grouping, lgl) %>%
       collect() %>%
       arrange(some_grouping, lgl),
@@ -33,16 +33,16 @@ test_that("distinct()", {
 })
 
 test_that("distinct() works without any variables", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       distinct() %>%
       arrange(int) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(x = int + 1) %>%
       distinct() %>%
       # Even though we have group_by(x), all cols (including int) are kept
@@ -53,8 +53,8 @@ test_that("distinct() works without any variables", {
 })
 
 test_that("distinct() can retain groups", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping, int) %>%
       distinct(lgl) %>%
       collect() %>%
@@ -63,8 +63,8 @@ test_that("distinct() can retain groups", {
   )
 
   # With expressions here
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(y = some_grouping, int) %>%
       distinct(x = lgl) %>%
       collect() %>%
@@ -74,16 +74,16 @@ test_that("distinct() can retain groups", {
 })
 
 test_that("distinct() can contain expressions", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       distinct(lgl, x = some_grouping + 1) %>%
       collect() %>%
       arrange(lgl, x),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(lgl, int) %>%
       distinct(x = some_grouping + 1) %>%
       collect() %>%
@@ -94,8 +94,8 @@ test_that("distinct() can contain expressions", {
 
 test_that("distinct() can return all columns", {
   skip("ARROW-13993 - need this to return correct rows from other cols")
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       distinct(lgl, .keep_all = TRUE) %>%
       collect() %>%
       arrange(int),

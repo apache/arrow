@@ -43,8 +43,8 @@ test_that("basic select/filter/collect", {
 })
 
 test_that("dim() on query", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 5) %>%
       select(int, chr) %>%
       dim(),
@@ -71,20 +71,20 @@ See $.data for the source Arrow object',
 })
 
 test_that("pull", {
-  expect_dplyr_equal(
-    input %>% pull(),
+  compare_dplyr_binding(
+    .input %>% pull(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>% pull(1),
+  compare_dplyr_binding(
+    .input %>% pull(1),
     tbl
   )
-  expect_dplyr_equal(
-    input %>% pull(chr),
+  compare_dplyr_binding(
+    .input %>% pull(chr),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 4) %>%
       rename(strng = chr) %>%
       pull(strng),
@@ -224,8 +224,9 @@ test_that("head", {
 })
 
 test_that("arrange then head returns the right data (ARROW-14162)", {
-  expect_dplyr_equal(
-    input %>%
+
+  compare_dplyr_binding(
+    .input %>%
       # mpg has ties so we need to sort by two things to get deterministic order
       arrange(mpg, disp) %>%
       head(4) %>%
@@ -236,8 +237,8 @@ test_that("arrange then head returns the right data (ARROW-14162)", {
 })
 
 test_that("arrange then tail returns the right data", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       # mpg has ties so we need to sort by two things to get deterministic order
       arrange(mpg, disp) %>%
       tail(4) %>%
