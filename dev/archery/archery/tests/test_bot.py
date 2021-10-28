@@ -142,6 +142,12 @@ def test_respond_with_usage(load_fixture, responses):
         github_url('/repos/ursa-labs/ursabot/issues/26/comments'),
         json={}
     )
+    responses.add(
+        responses.POST,
+        github_url(
+            '/repos/ursa-labs/ursabot/issues/comments/479081273/reactions'),
+        json=()
+    )
 
     def handler(command, **kwargs):
         raise CommandError('test-usage')
@@ -157,7 +163,6 @@ def test_respond_with_usage(load_fixture, responses):
 @pytest.mark.parametrize(('command', 'reaction'), [
     ('@ursabot build', '+1'),
     ('@ursabot build\nwith a comment', '+1'),
-    ('@ursabot listen', '-1'),
 ])
 def test_issue_comment_with_commands(load_fixture, responses, command,
                                      reaction):
@@ -199,6 +204,58 @@ def test_issue_comment_with_commands(load_fixture, responses, command,
     bot.handle('issue_comment', payload)
 
     post = responses.calls[3]
+    assert json.loads(post.request.body) == {'content': reaction}
+
+
+@pytest.mark.parametrize(('command', 'reaction'), [
+    ('@ursabot listen', '-1'),
+])
+def test_issue_comment_invalid_commands(load_fixture, responses, command,
+                                        reaction):
+    responses.add(
+        responses.GET,
+        github_url('/repositories/169101701/issues/26'),
+        json=load_fixture('issue-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/pulls/26'),
+        json=load_fixture('pull-request-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/issues/comments/480248726'),
+        json=load_fixture('issue-comment-480248726.json')
+    )
+    responses.add(
+        responses.POST,
+        github_url(
+            '/repos/ursa-labs/ursabot/issues/comments/480248726/reactions'
+        ),
+        json={}
+    )
+    responses.add(
+        responses.POST,
+        github_url('/repos/ursa-labs/ursabot/issues/26/comments'),
+        json={}
+    )
+
+    def handler(command, **kwargs):
+        if command == 'build':
+            return True
+        else:
+            raise ValueError('Only `build` command is supported.')
+
+    payload = load_fixture('event-issue-comment-build-command.json')
+    payload["comment"]["body"] = command
+
+    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot.handle('issue_comment', payload)
+
+    # Setting reaction is always the last call
+    post = responses.calls[-1]
     assert json.loads(post.request.body) == {'content': reaction}
 
 

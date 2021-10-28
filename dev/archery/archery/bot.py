@@ -95,7 +95,6 @@ class CommentBot:
     def parse_command(self, payload):
         # only allow users of apache org to submit commands, for more see
         # https://developer.github.com/v4/enum/commentauthorassociation/
-        allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR'}
         mention = '@{}'.format(self.name)
         comment = payload['comment']
 
@@ -103,10 +102,6 @@ class CommentBot:
             raise EventError("Don't respond to itself")
         elif payload['action'] not in {'created', 'edited'}:
             raise EventError("Don't respond to comment deletion")
-        elif comment['author_association'] not in allowed_roles:
-            raise EventError(
-                "Don't respond to comments from non-authorized users"
-            )
         elif not comment['body'].lstrip().startswith(mention):
             raise EventError("The bot is not mentioned")
 
@@ -146,13 +141,20 @@ class CommentBot:
 
         comment = pull.get_issue_comment(payload['comment']['id'])
         try:
+            # Check privileges here to enable the bot to respond
+            # without relying on the handler.
+            allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR'}
+            if payload['comment']['author_association'] not in allowed_roles:
+                raise EventError(
+                    '''Only contributors can submit requests to this bot. \
+                    Please ask someone from the community for help with \
+                    getting the first commit in.'''
+                )
             self.handler(command, issue=issue, pull_request=pull,
                          comment=comment)
-        except CommandError as e:
-            logger.error(e)
-            pull.create_issue_comment("```\n{}\n```".format(e.message))
         except Exception as e:
             logger.exception(e)
+            pull.create_issue_comment(f"```\n{e}\n```")
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')
