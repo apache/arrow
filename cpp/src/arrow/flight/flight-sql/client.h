@@ -52,20 +52,20 @@ class ARROW_EXPORT FlightSqlClient {
   /// \param[in] query        The query to be executed in the UTF-8 format.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> Execute(const FlightCallOptions& options,
-                                                     const std::string& query) const;
+                                                     const std::string& query);
 
   /// \brief Execute an update query on the server.
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] query        The query to be executed in the UTF-8 format.
   /// \return The quantity of rows affected by the operation.
   arrow::Result<int64_t> ExecuteUpdate(const FlightCallOptions& options,
-                                       const std::string& query) const;
+                                       const std::string& query);
 
   /// \brief Request a list of catalogs.
   /// \param[in] options      RPC-layer hints for this call.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetCatalogs(
-      const FlightCallOptions& options) const;
+      const FlightCallOptions& options);
 
   /// \brief Request a list of schemas.
   /// \param[in] options                RPC-layer hints for this call.
@@ -74,7 +74,7 @@ class ARROW_EXPORT FlightSqlClient {
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetSchemas(
       const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema_filter_pattern) const;
+      const std::string* schema_filter_pattern);
 
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
@@ -82,7 +82,7 @@ class ARROW_EXPORT FlightSqlClient {
   /// \param[in] ticket The flight ticket to use
   /// \return The returned RecordBatchReader
   arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
-      const FlightCallOptions& options, const Ticket& ticket) const;
+      const FlightCallOptions& options, const Ticket& ticket);
 
   /// \brief Request a list of tables.
   /// \param[in] options                  RPC-layer hints for this call.
@@ -96,7 +96,7 @@ class ARROW_EXPORT FlightSqlClient {
   arrow::Result<std::unique_ptr<FlightInfo>> GetTables(
       const FlightCallOptions& options, const std::string* catalog,
       const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
-      bool include_schema, std::vector<std::string>& table_types) const;
+      bool include_schema, std::vector<std::string>& table_types);
 
   /// \brief Request the primary keys for a table.
   /// \param[in] options          RPC-layer hints for this call.
@@ -106,7 +106,7 @@ class ARROW_EXPORT FlightSqlClient {
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetPrimaryKeys(
       const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema, const std::string& table) const;
+      const std::string* schema, const std::string& table);
 
   /// \brief Retrieves a description about the foreign key columns that reference the
   /// primary key columns of the given table.
@@ -117,7 +117,7 @@ class ARROW_EXPORT FlightSqlClient {
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetExportedKeys(
       const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema, const std::string& table) const;
+      const std::string* schema, const std::string& table);
 
   /// \brief Retrieves the foreign key columns for the given table.
   /// \param[in] options          RPC-layer hints for this call.
@@ -127,7 +127,7 @@ class ARROW_EXPORT FlightSqlClient {
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetImportedKeys(
       const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema, const std::string& table) const;
+      const std::string* schema, const std::string& table);
 
   /// \brief Retrieves a description of the foreign key columns in the given foreign key
   ///        table that reference the primary key or the columns representing a unique
@@ -144,28 +144,27 @@ class ARROW_EXPORT FlightSqlClient {
       const FlightCallOptions& options, const std::string* pk_catalog,
       const std::string* pk_schema, const std::string& pk_table,
       const std::string* fk_catalog, const std::string* fk_schema,
-      const std::string& fk_table) const;
+      const std::string& fk_table);
 
   /// \brief Request a list of table types.
   /// \param[in] options          RPC-layer hints for this call.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetTableTypes(
-      const FlightCallOptions& options) const;
+      const FlightCallOptions& options);
+
+  /// \brief Request a list of SQL information.
+  /// \param[in] options RPC-layer hints for this call.
+  /// \param[in] sql_info the SQL info required.
+  /// \return The FlightInfo describing where to access the dataset.
+  arrow::Result<std::unique_ptr<FlightInfo>> GetSqlInfo(const FlightCallOptions& options,
+                                                        const std::vector<int>& sql_info);
 
   /// \brief Request a list of SQL information.
   /// \param[in] options RPC-layer hints for this call.
   /// \param[in] sql_info the SQL info required.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetSqlInfo(
-      const FlightCallOptions& options, const std::vector<int>& sql_info) const;
-
-  /// \brief Request a list of SQL information.
-  /// \param[in] options RPC-layer hints for this call.
-  /// \param[in] sql_info the SQL info required.
-  /// \return The FlightInfo describing where to access the dataset.
-  arrow::Result<std::unique_ptr<FlightInfo>> GetSqlInfo(
-      const FlightCallOptions& options,
-      const std::vector<pb::sql::SqlInfo>& sql_info) const;
+      const FlightCallOptions& options, const std::vector<pb::sql::SqlInfo>& sql_info);
 
   /// \brief Create a prepared statement object.
   /// \param[in] options              RPC-layer hints for this call.
@@ -224,7 +223,7 @@ class ARROW_EXPORT FlightSqlClient {
 
     /// \brief Checks if the prepared statement is closed.
     /// \return The state of the prepared statement.
-    bool IsClosed() const;
+    bool IsClosed();
   };
 };
 

@@ -55,7 +55,7 @@ DEFINE_string(catalog, "", "Catalog");
 DEFINE_string(schema, "", "Schema");
 DEFINE_string(table, "", "Table");
 
-Status PrintResultsForEndpoint(const FlightSqlClient& client,
+Status PrintResultsForEndpoint(FlightSqlClient& client,
                                const FlightCallOptions& call_options,
                                const FlightEndpoint& endpoint) {
   ARROW_ASSIGN_OR_RAISE(auto stream, client.DoGet(call_options, endpoint.ticket));
