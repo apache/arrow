@@ -737,9 +737,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                  --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
                  --error-exitcode=1 ${TEST_PATH} ${ARG_TEST_ARGUMENTS}")
   elseif(WIN32)
-    add_test(${TEST_NAME}
-             ${TEST_PATH}
-             ${ARG_TEST_ARGUMENTS})
+    add_test(${TEST_NAME} ${TEST_PATH} ${ARG_TEST_ARGUMENTS})
   else()
     add_test(${TEST_NAME}
              ${BUILD_SUPPORT_DIR}/run-test.sh
