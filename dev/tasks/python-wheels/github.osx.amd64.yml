@@ -86,6 +86,11 @@ jobs:
         run: $VCPKG_ROOT/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
       {% endif %}
 
+      {% if arrow_gcs == "ON" %}
+      - name: Install Google Cloud Platform C++
+        run: $VCPKG_ROOT/vcpkg install google-cloud-cpp[core,storage]
+      {% endif %}
+
       - name: Install Python {{ python_version }}
         shell: bash
         run: sudo arrow/ci/scripts/install_python.sh macos {{ python_version }}

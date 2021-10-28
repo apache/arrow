@@ -87,6 +87,7 @@ RUN vcpkg install --clean-after-build \
         flatbuffers \
         gflags \
         glog \
+        google-cloud-cpp[core,storage] \
         grpc \
         lz4 \
         openssl \

@@ -97,6 +97,7 @@ jobs:
             flatbuffers \
             gflags \
             glog \
+            google-cloud-cpp[core,storage] \
             lz4 \
             orc \
             protobuf \
