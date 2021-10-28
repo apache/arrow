@@ -904,7 +904,13 @@ if(ARROW_USE_UBSAN)
   set(ARROW_USE_NATIVE_INT128 FALSE)
 else()
   include(CheckCXXSymbolExists)
-  check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  check_cxx_symbol_exists("_M_ARM64" "" WIN32_ARM64_TARGET)
+  if(WIN32_ARM64_TARGET AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # NOTE: For clang/win-arm64, native int128_t produce linker errors
+    set(ARROW_USE_NATIVE_INT128 FALSE)
+  else()
+    check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  endif()
 endif()
 
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
