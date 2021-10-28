@@ -21,17 +21,6 @@ set -ex
 arrow_dir=${1}
 build_dir=${2}/docs
 
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig:${PKG_CONFIG_PATH}
-export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
-export CFLAGS="-DARROW_NO_DEPRECATED_API"
-export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
-
-ncpus=$(python3 -c "import os; print(os.cpu_count())")
-
-# Sphinx docs
-sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source ${build_dir}
-
 # C++ - original doxygen
 # rsync -a ${arrow_dir}/cpp/apidoc/ ${build_dir}/cpp
 
