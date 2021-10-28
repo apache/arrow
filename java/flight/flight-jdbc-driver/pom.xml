@@ -198,24 +198,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <configuration>
-                    <appendAssemblyId>false</appendAssemblyId>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>single</goal>
-                        </goals> <!-- this is used for inheritance merges -->
-                        <id>make-assembly</id> <!-- bind to the packaging phase -->
-                        <phase>package</phase>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.4</version>
@@ -233,40 +215,6 @@
                                 <includes>
                                     <include>*:*</include>
                                 </includes>
-                                <excludes>
-                                    <exclude>com.fasterxml.jackson.core:jackson-annotations:*</exclude>
-                                    <exclude>com.fasterxml.jackson.core:jackson-core:*</exclude>
-                                    <exclude>com.fasterxml.jackson.core:jackson-databind:*</exclude>
-                                    <exclude>com.google.android:annotations:*</exclude>
-                                    <exclude>com.google.api.grpc:proto-google-common-protos:*</exclude>
-                                    <exclude>com.google.code.findbugs:jsr305:*</exclude>
-                                    <exclude>com.google.code.gson:gson:*</exclude>
-                                    <exclude>com.google.errorprone:error_prone_annotations:*</exclude>
-                                    <exclude>com.google.flatbuffers:flatbuffers-java:*</exclude>
-                                    <exclude>com.google.guava:failureaccess:*</exclude>
-                                    <exclude>com.google.guava:guava:*</exclude>
-                                    <exclude>com.google.guava:listenablefuture:*</exclude>
-                                    <exclude>com.google.j2objc:j2objc-annotations:*</exclude>
-                                    <exclude>com.google.protobuf:protobuf-java:*</exclude>
-                                    <exclude>commons-cli:commons-cli:*</exclude>
-                                    <exclude>commons-codec:commons-codec:*</exclude>
-                                    <exclude>io.perfmark:perfmark-api:*</exclude>
-                                    <exclude>javax.annotation:javax.annotation-api:*</exclude>
-                                    <exclude>org.apache.arrow:arrow-jdbc:*</exclude>
-                                    <exclude>org.apache.arrow:arrow-format:*</exclude>
-                                    <exclude>org.apache.arrow:arrow-memory-core:*</exclude>
-                                    <exclude>org.apache.arrow:arrow-memory-netty:*</exclude>
-                                    <exclude>org.apache.arrow:arrow-vector:*</exclude>
-                                    <exclude>org.apache.arrow:flight-core:*</exclude>
-                                    <exclude>org.apache.arrow:flight-sql:*</exclude>
-                                    <exclude>org.apache.calcite.avatica:avatica:*</exclude>
-                                    <exclude>org.bouncycastle:bcpkix-jdk15on:*</exclude>
-                                    <exclude>org.bouncycastle:bcprov-jdk15on:*</exclude>
-                                    <exclude>org.checkerframework:checker-qual:*</exclude>
-                                    <exclude>org.codehaus.mojo:animal-sniffer-annotations:*</exclude>
-                                    <exclude>org.hamcrest:hamcrest:*</exclude>
-                                    <exclude>org.slf4j:slf4j-api:*</exclude>
-                                </excludes>
                             </artifactSet>
                             <relocations>
                                 <relocation>
@@ -305,9 +253,7 @@
                                 <filter>
                                     <artifact>org.apache.calcite.avatica:*</artifact>
                                     <excludes>
-                                        <exclude>org/apache/calcite/avatica/org/apache/http/**</exclude>
-                                        <exclude>org/apache/calcite/avatica/org/apache/commons/codec/**</exclude>
-                                        <exclude>org/apache/calcite/avatica/com/fasterxml/jackson/**</exclude>
+                                        <exclude>META-INF/services/java.sql.Driver</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
