@@ -21,6 +21,7 @@ set -ex
 
 source_dir=${1}/c_glib
 build_dir=${2}/c_glib
+build_root=${2}
 with_docs=${3:-false}
 
 : ${ARROW_GLIB_GTK_DOC:=${with_docs}}
@@ -45,3 +46,7 @@ pushd ${build_dir}
 ninja
 ninja install
 popd
+
+if [ "${with_docs}" == "true" ]; then
+  rsync -a ${ARROW_HOME}/share/gtk-doc/html/ ${build_root}/docs/c_glib
+fi

@@ -20,6 +20,7 @@ set -ex
 
 : ${R_BIN:=R}
 source_dir=${1}/r
+build_dir=${2}
 with_docs=${2:-false}
 
 pushd ${source_dir}
@@ -28,6 +29,7 @@ ${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
 
 if [ "${with_docs}" == "true" ]; then
   ${R_BIN} -e "pkgdown::build_site(install = FALSE)"
+  rsync -a ${source_dir}/docs/ ${build_dir}/docs/r &&
 fi
 
 popd

@@ -57,5 +57,5 @@ popd
 
 if [ "${with_docs}" == "true" ]; then
   ncpus=$(python -c "import os; print(os.cpu_count())")
-  sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source
+  sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source ${build_dir}/docs
 fi

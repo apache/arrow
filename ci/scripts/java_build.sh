@@ -20,8 +20,9 @@ set -ex
 
 arrow_dir=${1}
 source_dir=${1}/java
-cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
-cdata_dist_dir=${2}/java/c
+build_dir=${2}
+cpp_build_dir=${build_dir}/cpp/${ARROW_BUILD_TYPE:-debug}
+cdata_dist_dir=${build_dir}/java/c
 with_docs=${3:-false}
 
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
@@ -102,6 +103,7 @@ fi
 if [ "${with_docs}" == "true" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
   ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false install site
+  rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/docs/java/reference
 fi
 
 popd
