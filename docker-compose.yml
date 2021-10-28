@@ -1416,7 +1416,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
-        /arrow/ci/scripts/java_build.sh /arrow /build true &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
   debian-java-jni:
