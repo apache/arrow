@@ -139,15 +139,13 @@ class FlightSqlServerBase : public FlightServerBase {
                std::unique_ptr<FlightMetadataWriter> writer) override;
 
   const ActionType FLIGHT_SQL_CREATE_PREPARED_STATEMENT =
-      ActionType{.type = "CreatePreparedStatement",
-                 .description =
-                     "Creates a reusable prepared statement resource on the server.\n"
+      ActionType{"CreatePreparedStatement",
+                 "Creates a reusable prepared statement resource on the server.\n"
                      "Request Message: ActionCreatePreparedStatementRequest\n"
                      "Response Message: ActionCreatePreparedStatementResult"};
   const ActionType FLIGHT_SQL_CLOSE_PREPARED_STATEMENT =
-      ActionType{.type = "ClosePreparedStatement",
-                 .description =
-                     "Closes a reusable prepared statement resource on the server.\n"
+      ActionType{"ClosePreparedStatement",
+                 "Closes a reusable prepared statement resource on the server.\n"
                      "Request Message: ActionClosePreparedStatementRequest\n"
                      "Response Message: N/A"};
 
@@ -451,7 +449,7 @@ class FlightSqlServerBase : public FlightServerBase {
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.
-class SqlSchema {
+class ARROW_EXPORT SqlSchema {
  public:
   /// \brief Gets the Schema used on GetCatalogs response.
   /// \return The default schema template.
