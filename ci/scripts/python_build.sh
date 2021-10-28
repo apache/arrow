@@ -22,6 +22,7 @@ set -ex
 arrow_dir=${1}
 source_dir=${1}/python
 build_dir=${2}/python
+with_docs=${3:-false}
 
 if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
