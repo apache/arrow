@@ -244,7 +244,7 @@ test_that("Error messages are shown when the compression algorithm lz4 is not fo
     d <- read_feather(ft_file)
     expect_s3_class(d, "data.frame")
   } else {
-    expect_error(read_feather(ft_file), msg, fixed = FALSE)
+    expect_error(read_feather(ft_file), msg)
   }
 })
 
