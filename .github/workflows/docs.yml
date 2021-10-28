@@ -42,7 +42,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Ubuntu 20.10 Docs & Reference
+    name: AMD64 Ubuntu 20.10 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

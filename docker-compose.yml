@@ -518,7 +518,7 @@ services:
     command: &c-glib-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build true &&
         /arrow/ci/scripts/c_glib_test.sh /arrow /build"
 
   ubuntu-c-glib:
@@ -576,7 +576,7 @@ services:
     command: &ruby-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build true &&
         /arrow/ci/scripts/c_glib_test.sh /arrow /build &&
         /arrow/ci/scripts/ruby_test.sh /arrow /build"
 
@@ -631,7 +631,7 @@ services:
     volumes: *conda-volumes
     command: &python-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build true &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   ubuntu-cuda-python:
@@ -1135,6 +1135,7 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/r_build.sh /arrow true &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-only-r:
@@ -1367,7 +1368,7 @@ services:
     volumes: *debian-volumes
     command: &js-command >
       /bin/bash -c "
-        /arrow/ci/scripts/js_build.sh /arrow &&
+        /arrow/ci/scripts/js_build.sh /arrow true &&
         /arrow/ci/scripts/js_test.sh /arrow"
 
   #################################### C# #####################################
@@ -1415,7 +1416,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build true &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
   debian-java-jni:
@@ -1506,17 +1507,16 @@ services:
     environment:
       <<: *ccache
       ARROW_CUDA: "ON"
-      ARROW_GLIB_GTK_DOC: "true"
       Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: *ubuntu-volumes
     command: &docs-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build true &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build true &&
-        /arrow/ci/scripts/js_build.sh /arrow true &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build true &&
+        /arrow/ci/scripts/python_build.sh /arrow /build true &&
         /arrow/ci/scripts/r_build.sh /arrow true &&
+        /arrow/ci/scripts/js_build.sh /arrow true &&
+        /arrow/ci/scripts/java_build.sh /arrow /build true &&
         /arrow/ci/scripts/docs_build.sh /arrow /build"
 
   ################################# Tools #####################################

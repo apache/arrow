@@ -21,7 +21,9 @@ set -ex
 
 source_dir=${1}/c_glib
 build_dir=${2}/c_glib
-: ${ARROW_GLIB_GTK_DOC:=false}
+with_docs=${3:-false}
+
+: ${ARROW_GLIB_GTK_DOC:=${with_docs}}
 : ${ARROW_GLIB_DEVELOPMENT_MODE:=false}
 
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig

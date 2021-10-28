@@ -19,6 +19,7 @@
 
 set -ex
 
+arrow_dir=${1}
 source_dir=${1}/python
 build_dir=${2}/python
 
@@ -52,3 +53,7 @@ ${PYTHON:-python} \
                    --record $relative_build_dir/record.txt
 
 popd
+
+if [ "${with_docs}" == "true" ]; then
+  sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source
+fi
