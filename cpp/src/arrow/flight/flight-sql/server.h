@@ -139,13 +139,13 @@ class FlightSqlServerBase : public FlightServerBase {
   const ActionType FLIGHT_SQL_CREATE_PREPARED_STATEMENT =
       ActionType{"CreatePreparedStatement",
                  "Creates a reusable prepared statement resource on the server.\n"
-                     "Request Message: ActionCreatePreparedStatementRequest\n"
-                     "Response Message: ActionCreatePreparedStatementResult"};
+                 "Request Message: ActionCreatePreparedStatementRequest\n"
+                 "Response Message: ActionCreatePreparedStatementResult"};
   const ActionType FLIGHT_SQL_CLOSE_PREPARED_STATEMENT =
       ActionType{"ClosePreparedStatement",
                  "Closes a reusable prepared statement resource on the server.\n"
-                     "Request Message: ActionClosePreparedStatementRequest\n"
-                     "Response Message: N/A"};
+                 "Request Message: ActionClosePreparedStatementRequest\n"
+                 "Response Message: N/A"};
 
   Status ListActions(const ServerCallContext& context,
                      std::vector<ActionType>* actions) override;
