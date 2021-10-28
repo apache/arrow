@@ -393,13 +393,13 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
   bool first_week_is_fully_in_year;
 };
 
-struct ARROW_EXPORT NormalizationFormOptions : public FunctionOptions {
+struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
  public:
   enum Method { NFC, NFKC, NFD, NFKD };
 
-  explicit NormalizationFormOptions(Method method = NFC);
-  static NormalizationFormOptions Defaults() { return NormalizationFormOptions(); }
-  constexpr static char const kTypeName[] = "NormalizationFormOptions";
+  explicit Utf8NormalizeOptions(Method method = NFC);
+  static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
+  constexpr static char const kTypeName[] = "Utf8NormalizeOptions";
 
   Method method;
 };
