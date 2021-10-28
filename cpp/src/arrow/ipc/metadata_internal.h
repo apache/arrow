@@ -36,7 +36,6 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/unreachable.h"
 #include "arrow/util/visibility.h"
 
 #include "generated/Message_generated.h"

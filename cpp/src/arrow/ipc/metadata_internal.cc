@@ -216,8 +216,9 @@ flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
     case TimeUnit::NANO:
       return flatbuf::TimeUnit::NANOSECOND;
     default:
-      Unreachable();
+      break;
   }
+  return flatbuf::TimeUnit::MIN;
 }
 
 TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
@@ -231,8 +232,10 @@ TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
     case flatbuf::TimeUnit::NANOSECOND:
       return TimeUnit::NANO;
     default:
-      Unreachable();
+      break;
   }
+  // cannot reach
+  return TimeUnit::SECOND;
 }
 
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
