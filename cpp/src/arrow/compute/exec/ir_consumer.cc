@@ -79,7 +79,7 @@ Result<std::shared_ptr<Buffer>> BufferFromFlatbufferByteVector(
   if (!vec->data()) return UnexpectedNullField("Vector<int8_t>.data");
   std::memcpy(buf->mutable_data(), vec->data(), vec->size());
 
-  return buf;
+  return std::move(buf);
 }
 
 Result<Datum> Convert(const ir::Literal& lit);
