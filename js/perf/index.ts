@@ -23,14 +23,12 @@
 
 import * as Arrow from '../src/Arrow';
 
-import config from './config';
+import config, { arrays, typedArrays } from './config';
 import b from 'benny';
 import { CaseResult, Summary } from 'benny/lib/internal/common-types';
 import kleur from 'kleur';
 
 const { RecordBatchReader, RecordBatchStreamWriter } = Arrow;
-// const { predicate } = Arrow;
-// const { col } = Arrow.predicate;
 
 
 const args = process.argv.slice(2);
@@ -55,7 +53,23 @@ function cycle(result: CaseResult, _summary: Summary) {
     );
 }
 
-for (const { name, ipc, df } of config) {
+b.suite(
+    `Vector`,
+
+    ...Object.entries(typedArrays).map(([name, array]) =>
+        b.add(`make vector from ${name}`, () => {
+            Arrow.makeVector(array);
+        })),
+
+    ...Object.entries(arrays).map(([name, array]) =>
+        b.add(`make vector from ${name}`, () => {
+            Arrow.vectorFromArray(array as any);
+        })),
+
+    b.cycle(cycle)
+);
+
+for (const { name, ipc, table } of config) {
     b.suite(
         `Parse`,
 
@@ -64,13 +78,13 @@ for (const { name, ipc, df } of config) {
         }),
 
         b.add(`dataset: ${name}, function: write recordBatches`, () => {
-            RecordBatchStreamWriter.writeAll(df).toUint8Array(true);
+            RecordBatchStreamWriter.writeAll(table).toUint8Array(true);
         }),
 
         b.cycle(cycle)
     );
 
-    const schema = df.schema;
+    const schema = table.schema;
 
     const suites = [{
         suite_name: `Get values by index`,
@@ -95,7 +109,7 @@ for (const { name, ipc, df } of config) {
             suite_name,
 
             ...schema.fields.map((f, i) => {
-                const vector = df.getChildAt(i)!;
+                const vector = table.getChildAt(i)!;
                 return b.add(`dataset: ${name}, column: ${f.name}, length: ${formatNumber(vector.length)}, type: ${vector.type}`, () => {
                     fn(vector);
                 });
@@ -107,87 +121,29 @@ for (const { name, ipc, df } of config) {
 }
 
 
-for (const { name, df, counts } of config) {
-    // for (const { name, df, countBys, counts } of config) {
+for (const { name, table, counts } of config) {
     b.suite(
-        `DataFrame Iterate`,
+        `Table Iterate`,
 
-        b.add(`dataset: ${name}, numRows: ${formatNumber(df.numRows)}`, () => {
-            for (const _value of df) { }
+        b.add(`dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+            for (const _value of table) { }
         }),
 
         b.cycle(cycle)
     );
 
-    // b.suite(
-    //     `DataFrame Count By`,
-
-    //     ...countBys.map((column: string) => b.add(
-    //         `dataset: ${name}, column: ${column}, numRows: ${formatNumber(df.numRows)}, type: ${df.schema.fields.find((c) => c.name === column)!.type}`,
-    //         () => df.countBy(column)
-    //     )),
-
-    //     b.cycle(cycle)
-    // );
-
-    // b.suite(
-    //     `DataFrame Filter-Scan Count`,
-
-    //     ...counts.map(({ column, test, value }: { column: string; test: 'gt' | 'eq'; value: number | string }) => b.add(
-    //         `dataset: ${name}, column: ${column}, numRows: ${formatNumber(df.numRows)}, type: ${df.schema.fields.find((c) => c.name === column)!.type}, test: ${test}, value: ${value}`,
-    //         () => {
-    //             let filteredDf: Arrow.FilteredDataFrame;
-    //             if (test == 'gt') {
-    //                 filteredDf = df.filter(col(column).gt(value));
-    //             } else if (test == 'eq') {
-    //                 filteredDf = df.filter(col(column).eq(value));
-    //             } else {
-    //                 throw new Error(`Unrecognized test "${test}"`);
-    //             }
-
-    //             return () => filteredDf.count();
-    //         }
-    //     )),
-
-    //     b.cycle(cycle)
-    // );
-
-    // b.suite(
-    //     `DataFrame Filter-Iterate`,
-
-    //     ...counts.map(({ column, test, value }: { column: string; test: 'gt' | 'eq'; value: number | string }) => b.add(
-    //         `dataset: ${name}, column: ${column}, numRows: ${formatNumber(df.numRows)}, type: ${df.schema.fields.find((c) => c.name === column)!.type}, test: ${test}, value: ${value}`,
-    //         () => {
-    //             let filteredDf: Arrow.FilteredDataFrame;
-    //             if (test == 'gt') {
-    //                 filteredDf = df.filter(col(column).gt(value));
-    //             } else if (test == 'eq') {
-    //                 filteredDf = df.filter(col(column).eq(value));
-    //             } else {
-    //                 throw new Error(`Unrecognized test "${test}"`);
-    //             }
-
-    //             return () => {
-    //                 for (const _value of filteredDf) { }
-    //             };
-    //         }
-    //     )),
-
-    //     b.cycle(cycle)
-    // );
-
     b.suite(
-        `DataFrame Direct Count`,
+        `Table Direct Count`,
 
         ...counts.map(({ column, test, value }: { column: string; test: 'gt' | 'eq'; value: number | string }) => b.add(
-            `dataset: ${name}, column: ${column}, numRows: ${formatNumber(df.numRows)}, type: ${df.schema.fields.find((c) => c.name === column)!.type}, test: ${test}, value: ${value}`,
+            `dataset: ${name}, column: ${column}, numRows: ${formatNumber(table.numRows)}, type: ${table.schema.fields.find((c) => c.name === column)!.type}, test: ${test}, value: ${value}`,
             () => {
-                const colidx = df.schema.fields.findIndex((c) => c.name === column);
+                const colidx = table.schema.fields.findIndex((c) => c.name === column);
 
                 if (test == 'gt') {
                     return () => {
                         let sum = 0;
-                        const batches = df.batches;
+                        const batches = table.batches;
                         const numBatches = batches.length;
                         for (let batchIndex = -1; ++batchIndex < numBatches;) {
                             // load batches
@@ -203,7 +159,7 @@ for (const { name, df, counts } of config) {
                 } else if (test == 'eq') {
                     return () => {
                         let sum = 0;
-                        const batches = df.batches;
+                        const batches = table.batches;
                         const numBatches = batches.length;
                         for (let batchIndex = -1; ++batchIndex < numBatches;) {
                             // load batches

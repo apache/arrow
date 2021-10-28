@@ -28,8 +28,9 @@ console.time('Prepare Data');
 
 const LENGTH = 100000;
 const NUM_BATCHES = 10;
+const cities = ['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC'];
 
-const values = Arrow.vectorFromArray(['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC']);
+const values = Arrow.vectorFromArray(cities);
 
 const batches = Array.from({ length: NUM_BATCHES }).map(() => {
     const lat = Float32Array.from(
@@ -57,6 +58,27 @@ const batches = Array.from({ length: NUM_BATCHES }).map(() => {
     });
 });
 
+export const typedArrays = {
+    uint8Array: Uint8Array.from({ length: LENGTH }, () => Math.random() * 255),
+    uint16Array: Uint16Array.from({ length: LENGTH }, () => Math.random() * 255),
+    uint32Array: Uint32Array.from({ length: LENGTH }, () => Math.random() * 255),
+    uint64Array: BigUint64Array.from({ length: LENGTH }, () => 42n),
+
+    int8Array: Int8Array.from({ length: LENGTH }, () => Math.random() * 255),
+    int16Array: Int16Array.from({ length: LENGTH }, () => Math.random() * 255),
+    int32Array: Int32Array.from({ length: LENGTH }, () => Math.random() * 255),
+    int64Array: BigInt64Array.from({ length: LENGTH }, () => 42n),
+
+    float32Array: Float32Array.from({ length: LENGTH }, () => Math.random() * 255),
+    float64Array: Float64Array.from({ length: LENGTH }, () => Math.random() * 255)
+};
+
+export const arrays = {
+    numbers: Array.from({ length: LENGTH }, () => Math.random() * 255),
+    booleans: Array.from({ length: LENGTH }, () => Math.random() > 0.5),
+    strings: Array.from({ length: LENGTH }, () => cities[Math.floor(Math.random() * cities.length)])
+};
+
 const tracks = new Arrow.Table(batches[0].schema, batches);
 
 console.timeEnd('Prepare Data');
@@ -64,7 +86,7 @@ console.timeEnd('Prepare Data');
 export default [
     {
         name: 'tracks',
-        df: tracks,
+        table: tracks,
         ipc: Arrow.RecordBatchStreamWriter.writeAll(tracks).toUint8Array(true),
         countBys: ['origin', 'destination'],
         counts: [
