@@ -2352,7 +2352,7 @@ garrow_sort_key_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_SORT_KEY_NAME:
-    if (auto name = priv->sort_key.target().name()) {
+    if (auto name = priv->sort_key.target).name()) {
       g_value_set_string(value, name->c_str());
     } else {
       g_value_set_string(value, "");
