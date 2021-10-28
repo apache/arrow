@@ -24,6 +24,7 @@ ARG python=3.6
 COPY ci/conda_env_python.txt /arrow/ci/
 RUN mamba install -q \
         --file arrow/ci/conda_env_python.txt \
+        --file arrow/ci/conda_env_sphinx.txt \
         $([ "$python" == "3.6" -o "$python" == "3.7" ] && echo "pickle5") \
         python=${python} \
         nomkl && \
