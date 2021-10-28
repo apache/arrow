@@ -76,8 +76,8 @@ public final class JdbcToArrowConfig {
    * is used when constructing the Arrow vectors from the ResultSet, and the calendar is used to define
    * Arrow Timestamp fields, and to read time-based fields from the JDBC <code>ResultSet</code>.
    *
-   * @param allocator The memory allocator to construct the Arrow vectors with.
-   * @param calendar  The calendar to use when constructing Timestamp fields and reading time-based results.
+   * @param allocator       The memory allocator to construct the Arrow vectors with.
+   * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
    */
   JdbcToArrowConfig(BufferAllocator allocator, Calendar calendar) {
     this(allocator, calendar,
