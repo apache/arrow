@@ -1232,7 +1232,12 @@ class SortIndicesMetaFunction : public MetaFunction {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      ARROW_ASSIGN_OR_RAISE(auto array, options.sort_keys[0].target.GetOne(batch));
+      auto maybe_array = options.sort_keys[0].target.GetOne(batch);
+      if (!maybe_array.ok()) {
+        return maybe_array.status().WithMessage("Invalid sort key column: ",
+                                                maybe_array.status().message());
+      }
+      ARROW_ASSIGN_OR_RAISE(auto array, maybe_array);
       return SortIndices(*array, options, ctx);
     }
 
