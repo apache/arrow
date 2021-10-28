@@ -89,6 +89,7 @@ RUN apt-get update -y -q && \
         protobuf-compiler-grpc \
         python3-pip \
         rapidjson-dev \
+        rsync \
         tzdata \
         wget && \
     apt-get clean && \
