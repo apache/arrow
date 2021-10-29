@@ -1071,7 +1071,8 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
     if (auto options = static_cast<const OptionsType*>(args.options)) {
       state = ::arrow::internal::make_unique<State>(*options);
     } else {
-      return Status::Invalid("Attempted to initialize KernelState from null FunctionOptions");
+      return Status::Invalid(
+          "Attempted to initialize KernelState from null FunctionOptions");
     }
 
     auto options = Get(*state);
