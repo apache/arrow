@@ -258,7 +258,13 @@ bool operator==(const Declaration& l, const Declaration& r) {
   if (l.factory_name == "catalog_source") {
     auto l_opts = &OptionsAs<CatalogSourceNodeOptions>(l);
     auto r_opts = &OptionsAs<CatalogSourceNodeOptions>(r);
-    return l_opts->name == r_opts->name && l_opts->schema->Equals(r_opts->schema);
+
+    bool schemas_equal = l_opts->schema == nullptr
+                             ? r_opts->schema == nullptr
+                             : l_opts->schema->Equals(r_opts->schema);
+
+    return l_opts->name == r_opts->name && schemas_equal &&
+           l_opts->filter == r_opts->filter && l_opts->projection == r_opts->projection;
   }
 
   if (l.factory_name == "filter") {
@@ -309,6 +315,16 @@ static inline void PrintToImpl(const std::string& factory_name,
   if (factory_name == "catalog_source") {
     auto o = &OptionsAs<CatalogSourceNodeOptions>(opts);
     *os << o->name << ", schema=" << o->schema->ToString();
+    if (o->filter != literal(true)) {
+      *os << ", filter=" << o->filter.ToString();
+    }
+    if (!o->projection.empty()) {
+      *os << ", projection=[";
+      for (const auto& ref : o->projection) {
+        *os << ref.ToString() << ",";
+      }
+      *os << "]";
+    }
     return;
   }
 

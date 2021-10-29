@@ -38,11 +38,18 @@ namespace ir = org::apache::arrow::computeir::flatbuf;
 
 class ARROW_EXPORT CatalogSourceNodeOptions : public ExecNodeOptions {
  public:
-  CatalogSourceNodeOptions(std::string name, std::shared_ptr<Schema> schema)
-      : name(std::move(name)), schema(std::move(schema)) {}
+  CatalogSourceNodeOptions(std::string name, std::shared_ptr<Schema> schema,
+                           Expression filter = literal(true),
+                           std::vector<FieldRef> projection = {})
+      : name(std::move(name)),
+        schema(std::move(schema)),
+        filter(std::move(filter)),
+        projection(std::move(projection)) {}
 
   std::string name;
   std::shared_ptr<Schema> schema;
+  Expression filter;
+  std::vector<FieldRef> projection;
 };
 
 ARROW_EXPORT
