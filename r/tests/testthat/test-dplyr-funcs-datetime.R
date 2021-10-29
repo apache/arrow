@@ -81,6 +81,8 @@ test_that("extract month from timestamp", {
     test_df
   )
 
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   compare_dplyr_binding(
     .input %>%
       # R returns ordered factor whereas Arrow returns character
