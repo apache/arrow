@@ -30,10 +30,16 @@ if(ARROW_FLIGHT)
   # we'll violate ODR for gRPC symbols
   if(ARROW_GRPC_USE_SHARED)
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_shared)
+    # We don't directly use symbols from the reflection library, so
+    # ensure the linker still links to it
+    set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
+                                  -Wl,--as-needed)
   elseif(NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
   else()
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_static)
+    set(GRPC_REFLECTION_LINK_LIBS -Wl,--whole-archive gRPC::grpc++_reflection
+                                  -Wl,--no-whole-archive)
   endif()
 
   set(FLIGHT_EXAMPLE_GENERATED_PROTO_FILES
@@ -73,7 +79,7 @@ if(ARROW_FLIGHT)
                     EXTRA_LINK_LIBS
                     ${FLIGHT_EXAMPLES_LINK_LIBS}
                     gRPC::grpc++
-                    gRPC::grpc++_reflection
+                    ${GRPC_REFLECTION_LINK_LIBS}
                     ${ARROW_PROTOBUF_LIBPROTOBUF}
                     ${GFLAGS_LIBRARIES}
                     EXTRA_SOURCES
