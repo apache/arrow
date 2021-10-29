@@ -3919,6 +3919,11 @@ macro(build_opentelemetry)
       -DWITH_EXAMPLES=OFF)
   if(ARROW_WITH_OPENTELEMETRY)
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
+    if(WIN32)
+      # WITH_ETW does not respect WITH_API_ONLY
+      set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_API_ONLY=ON
+                                   -DWITH_ETW=OFF)
+    endif()
   else()
     set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} "-DWITH_API_ONLY=ON")
   endif()
