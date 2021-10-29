@@ -864,7 +864,7 @@ struct RoundUtil {
 };
 
 // Specializations of rounding implementations for round kernels
-template <typename Type, RoundMode>
+template <typename, RoundMode>
 struct RoundImpl;
 
 template <typename Type>
@@ -1031,8 +1031,8 @@ struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
 };
 
 // Specializations of kernel state for round kernels
-template <typename>
-struct RoundOptionsWrapper;
+template <typename T>
+struct RoundOptionsWrapper : public OptionsWrapper<T> {};
 
 template <>
 struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
