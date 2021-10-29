@@ -45,10 +45,10 @@ fi
 
 # run examples
 popd
-${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> testthat.out 2>&1 || { cat testthat.out; exit 1; }
+${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> examples.out 2>&1 || { cat examples.out; exit 1; }
 
 cat testthat.out
-if grep -q "runtime error" testthat.out; then
+if grep -q "runtime error" examples.out; then
   exit 1
 fi
 popd
