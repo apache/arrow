@@ -136,8 +136,8 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
-  - r-fedora-clang-devel-san
-  - fedora-r-clang-sanitizer
+  - r-fedora-clang-devel-san:
+    - fedora-r-clang-sanitizer
   - ubuntu-r-valgrind
   - python-sdist
   - r
