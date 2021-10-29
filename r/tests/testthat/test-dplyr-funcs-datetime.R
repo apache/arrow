@@ -80,6 +80,23 @@ test_that("extract month from timestamp", {
       collect(),
     test_df
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = month(datetime, label = TRUE)) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = month(datetime, label = TRUE, abbr = TRUE)) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+
 })
 
 test_that("extract isoweek from timestamp", {

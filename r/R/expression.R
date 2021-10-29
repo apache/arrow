@@ -67,7 +67,6 @@
   "epiweek" = "us_week",
   "isoyear" = "iso_year",
   "minute" = "minute",
-  "month" = "month",
   "quarter" = "quarter",
   # second is defined in dplyr-functions.R
   # wday is defined in dplyr-functions.R
