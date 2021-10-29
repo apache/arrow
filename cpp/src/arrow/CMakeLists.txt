@@ -384,6 +384,7 @@ if(ARROW_COMPUTE)
        compute/function_internal.cc
        compute/kernel.cc
        compute/registry.cc
+       compute/memory_resources.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
        compute/kernels/aggregate_quantile.cc
@@ -424,7 +425,9 @@ if(ARROW_COMPUTE)
        compute/exec/util.cc
        compute/exec/hash_join.cc
        compute/exec/hash_join_node.cc
-       compute/exec/task_util.cc)
+       compute/exec/task_util.cc
+       compute/exec/data_holder_node.cc
+       )
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
