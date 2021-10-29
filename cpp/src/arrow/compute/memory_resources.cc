@@ -246,9 +246,9 @@ struct CPUMemoryResource : public MemoryResource {
 
   int64_t memory_limit() override { return memory_limit_; }
 
-  Result<std::unique_ptr<DataHolder>> GetDataHolder(
+  Result<std::shared_ptr<DataHolder>> GetDataHolder(
       const std::shared_ptr<RecordBatch>& batch) override {
-    auto data_holder = ::arrow::internal::make_unique<CPUDataHolder>(batch);
+    auto data_holder = std::make_shared<CPUDataHolder>(batch);
     return data_holder;
   }
 
@@ -270,9 +270,9 @@ class DiskMemoryResource : public MemoryResource {
 
   int64_t memory_used() override { return memory_used_; }
 
-  Result<std::unique_ptr<DataHolder>> GetDataHolder(
+  Result<std::shared_ptr<DataHolder>> GetDataHolder(
       const std::shared_ptr<RecordBatch>& batch) override {
-    auto data_holder = ::arrow::internal::make_unique<DiskDataHolder>(batch, pool_);
+    auto data_holder = std::make_shared<DiskDataHolder>(batch, pool_);
     return data_holder;
   }
 

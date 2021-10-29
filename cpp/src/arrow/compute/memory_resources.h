@@ -58,7 +58,7 @@ class ARROW_EXPORT MemoryResource {
 
   virtual int64_t memory_used() = 0;
 
-  virtual Result<std::unique_ptr<DataHolder>> GetDataHolder(
+  virtual Result<std::shared_ptr<DataHolder>> GetDataHolder(
       const std::shared_ptr<RecordBatch>& batch) = 0;
 
  private:

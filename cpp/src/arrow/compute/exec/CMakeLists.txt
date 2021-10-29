@@ -27,6 +27,7 @@ add_arrow_compute_test(expression_test
 add_arrow_compute_test(plan_test PREFIX "arrow-compute")
 add_arrow_compute_test(hash_join_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
+add_arrow_compute_test(data_holder_node_test PREFIX "arrow-compute")
 
 add_arrow_compute_test(util_test PREFIX "arrow-compute")
 

@@ -48,8 +48,6 @@ class DataHolderManager {
       : context_(context), gen_(), producer_(gen_.producer()) {}
 
   Status Push(const std::shared_ptr<RecordBatch>& batch) {
-    int index = 0;
-
     static const MemoryLevel all_memory_levels[] = {
         MemoryLevel::kGPULevel, MemoryLevel::kCPULevel, MemoryLevel::kDiskLevel};
 
@@ -69,19 +67,12 @@ class DataHolderManager {
     }
     return Status::OK();
   }
-  AsyncGenerator<std::unique_ptr<DataHolder>> generator() { return gen_; }
+  AsyncGenerator<std::shared_ptr<DataHolder>> generator() { return gen_; }
 
  public:
-  PushGenerator<std::unique_ptr<DataHolder>> gen_;
-  PushGenerator<std::unique_ptr<DataHolder>>::Producer producer_;
   ExecContext* context_;
-};
-
-class DataHolderNodeOptions : public ExecNodeOptions {
- public:
-  explicit DataHolderNodeOptions(bool async_mode = true) : async_mode(async_mode) {}
-
-  bool async_mode;
+  PushGenerator<std::shared_ptr<DataHolder>> gen_;
+  PushGenerator<std::shared_ptr<DataHolder>>::Producer producer_;
 };
 
 class DataHolderNode : public ExecNode {
@@ -94,29 +85,20 @@ class DataHolderNode : public ExecNode {
 
     data_holder_manager_ =
         ::arrow::internal::make_unique<DataHolderManager>(plan->exec_context());
+
     auto status = task_group_.AddTask([this]() -> Result<Future<>> {
       ARROW_DCHECK(executor_ != nullptr);
       return executor_->Submit(this->stop_source_.token(), [this] {
         auto generator = this->data_holder_manager_->generator();
-        struct LoopBody {
-          Future<ControlFlow<bool>> operator()() {
-            auto next = generator_();
-            return next.Then([this](const std::unique_ptr<DataHolder>& result)
-                                 -> Result<ControlFlow<bool>> {
-              if (IsIterationEnd(result)) {
-                return Break(true);
-              } else {
-                ARROW_ASSIGN_OR_RAISE(ExecBatch batch, result->Get());
-                node_->outputs_[0]->InputReceived(node_, batch);
-                return Continue();
-              }
-            });
+        auto iterator = MakeGeneratorIterator(std::move(generator));
+        while (true) {
+          ARROW_ASSIGN_OR_RAISE(auto result, iterator.Next());
+          if (IsIterationEnd(result)) {
+            break;
           }
-          AsyncGenerator<std::unique_ptr<DataHolder>> generator_;
-          DataHolderNode* node_;
-        };
-        auto future = Loop(LoopBody{std::move(generator), this});
-        auto ret = future.result();
+          ARROW_ASSIGN_OR_RAISE(ExecBatch batch, result->Get());
+          this->outputs_[0]->InputReceived(this, batch);
+        }
         return Status::OK();
       });
     });
@@ -143,7 +125,6 @@ class DataHolderNode : public ExecNode {
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
-    const auto& data_holder_options = checked_cast<const DataHolderNodeOptions&>(options);
     auto schema = inputs[0]->output_schema();
     return plan->EmplaceNode<DataHolderNode>(plan, std::move(inputs),
                                              std::vector<std::string>{"target"},
@@ -152,7 +133,7 @@ class DataHolderNode : public ExecNode {
 
   const char* kind_name() const override { return "DataHolderNode"; }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     if (finished_.is_finished()) {
       return;
     }
@@ -204,6 +185,8 @@ class DataHolderNode : public ExecNode {
 
  protected:
   void Finish(Status finish_st = Status::OK()) {
+    this->data_holder_manager_->producer_.Close();
+
     task_group_.End().AddCallback([this, finish_st](const Status& st) {
       Status final_status = finish_st & st;
       this->finished_.MarkFinished(final_status);
