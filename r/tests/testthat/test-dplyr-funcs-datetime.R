@@ -83,7 +83,8 @@ test_that("extract month from timestamp", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = month(datetime, label = TRUE)) %>%
+      # R returns ordered factor whereas Arrow returns character
+      mutate(x = as.character(month(datetime, label = TRUE))) %>%
       collect(),
     test_df,
     ignore_attr = TRUE
@@ -91,7 +92,7 @@ test_that("extract month from timestamp", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = month(datetime, label = TRUE, abbr = TRUE)) %>%
+      mutate(x = as.character(month(datetime, label = TRUE, abbr = TRUE))) %>%
       collect(),
     test_df,
     ignore_attr = TRUE
