@@ -74,8 +74,6 @@ def test_click_based_commands():
     'event-issue-comment-not-mentioning-ursabot.json',
     # don't respond to itself, it prevents recursive comment storms!
     'event-issue-comment-by-ursabot.json',
-    # non-authorized user sent the comment, do not respond
-    'event-issue-comment-by-non-authorized-user.json',
 ])
 def test_noop_events(load_fixture, fixture_name):
     payload = load_fixture(fixture_name)
@@ -86,6 +84,54 @@ def test_noop_events(load_fixture, fixture_name):
 
     handler.assert_not_called()
 
+
+def test_unathorized_user_comment(load_fixture, responses):
+    responses.add(
+        responses.GET,
+        github_url('/repositories/169101701/issues/26'),
+        json=load_fixture('issue-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/pulls/26'),
+        json=load_fixture('pull-request-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/issues/comments/480243815'),
+        json=load_fixture('pull-request-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.POST,
+        github_url('/repos/ursa-labs/ursabot/issues/26/comments'),
+        json={}
+    )
+    responses.add(
+        responses.POST,
+        github_url(
+            '/repos/ursa-labs/ursabot/pulls/26/reactions'),
+        json=()
+    )
+
+    def handler(command, **kwargs):
+        pass
+
+    payload = load_fixture('event-issue-comment-by-non-authorized-user.json')
+    payload["comment"]["body"] = '@ursabot crossbow submit -g nightly'
+    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot.handle('issue_comment', payload)
+
+    print([c.request.body for c in responses.calls])
+    post = responses.calls[-2]
+    reaction = responses.calls[-1]
+    assert json.loads(post.request.body) == {
+        "body": "```\nOnly contributors can submit requests to this bot. \
+Please ask someone from the community for help with getting the first\
+ commit in.\n```"}
+    assert json.loads(reaction.request.body) == {'content': '-1'}
 
 def test_issue_comment_without_pull_request(load_fixture, responses):
     responses.add(
