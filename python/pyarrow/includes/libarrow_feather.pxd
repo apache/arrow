@@ -41,7 +41,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         @staticmethod
         CResult[shared_ptr[CFeatherReader]] Open(
             const shared_ptr[CRandomAccessFile]& file,
-            const CIpcReadOptions options)
+            const CIpcReadOptions& options)
         int version()
         shared_ptr[CSchema] schema()
 
