@@ -1114,6 +1114,7 @@ struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Expression *filter() const {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_FILTER);
   }
+  /// Schemas are explicitly optional
   const org::apache::arrow::flatbuf::Schema *schema() const {
     return GetPointer<const org::apache::arrow::flatbuf::Schema *>(VT_SCHEMA);
   }
@@ -1125,7 +1126,7 @@ struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyString(name()) &&
            VerifyOffset(verifier, VT_FILTER) &&
            verifier.VerifyTable(filter()) &&
-           VerifyOffsetRequired(verifier, VT_SCHEMA) &&
+           VerifyOffset(verifier, VT_SCHEMA) &&
            verifier.VerifyTable(schema()) &&
            verifier.EndTable();
   }
@@ -1156,7 +1157,6 @@ struct SourceBuilder {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Source>(end);
     fbb_.Required(o, Source::VT_NAME);
-    fbb_.Required(o, Source::VT_SCHEMA);
     return o;
   }
 };

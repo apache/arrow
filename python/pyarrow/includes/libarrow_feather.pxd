@@ -20,7 +20,7 @@
 from pyarrow.includes.libarrow cimport (CCompressionType, CStatus, CTable,
                                         COutputStream, CResult, shared_ptr,
                                         vector, CRandomAccessFile, CSchema,
-                                        c_string)
+                                        c_string, CIpcReadOptions)
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
@@ -40,7 +40,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CFeatherReader" arrow::ipc::feather::Reader":
         @staticmethod
         CResult[shared_ptr[CFeatherReader]] Open(
-            const shared_ptr[CRandomAccessFile]& file)
+            const shared_ptr[CRandomAccessFile]& file,
+            const CIpcReadOptions options)
         int version()
         shared_ptr[CSchema] schema()
 

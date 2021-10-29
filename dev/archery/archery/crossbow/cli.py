@@ -38,6 +38,7 @@ _default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
 @click.option('--queue-path', '-q',
+              envvar="CROSSBOW_QUEUE_PATH",
               type=click.Path(), default=_default_queue_path,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')

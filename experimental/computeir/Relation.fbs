@@ -184,7 +184,8 @@ table Source {
   /// A missing filter value indicates no filter, i.e., all rows are
   /// returned from the source.
   filter: Expression;
-  schema: org.apache.arrow.flatbuf.Schema (required);
+  /// Schemas are explicitly optional
+  schema: org.apache.arrow.flatbuf.Schema;
 }
 
 /// The varieties of relations

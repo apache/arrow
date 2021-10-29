@@ -26,18 +26,18 @@ test_that("na.fail on Scalar", {
 })
 
 test_that("na.omit on Array and ChunkedArray", {
-  expect_vector_equal(na.omit(input), data_no_na)
-  expect_vector_equal(na.omit(input), data_na, ignore_attr = TRUE)
+  compare_expression(na.omit(.input), data_no_na)
+  compare_expression(na.omit(.input), data_na, ignore_attr = TRUE)
 })
 
 test_that("na.exclude on Array and ChunkedArray", {
-  expect_vector_equal(na.exclude(input), data_no_na)
-  expect_vector_equal(na.exclude(input), data_na, ignore_attr = TRUE)
+  compare_expression(na.exclude(.input), data_no_na)
+  compare_expression(na.exclude(.input), data_na, ignore_attr = TRUE)
 })
 
 test_that("na.fail on Array and ChunkedArray", {
-  expect_vector_equal(na.fail(input), data_no_na, ignore_attr = TRUE)
-  expect_vector_error(na.fail(input), data_na)
+  compare_expression(na.fail(.input), data_no_na, ignore_attr = TRUE)
+  compare_expression_error(na.fail(.input), data_na)
 })
 
 test_that("na.fail on Scalar", {

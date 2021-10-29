@@ -32,13 +32,13 @@ on:
       - 'cpp/src/arrow/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
 
   matlab:
-    name: AMD64 Ubuntu 20.04 MATLAB 
+    name: AMD64 Ubuntu 20.04 MATLAB
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -54,7 +54,7 @@ jobs:
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
-        env: 
+        env:
           # libarrow.so requires a more recent version of libstdc++.so
           # than is bundled with MATLAB under <matlabroot>/sys/os/glnxa64.
           # Therefore, if a MEX function that depends on libarrow.so
