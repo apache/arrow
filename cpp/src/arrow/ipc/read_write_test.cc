@@ -2561,12 +2561,14 @@ void GetReadRecordBatchReadRanges(
   // 1) read magic and footer length IO
   // 2) read footer IO
   // 3) read record batch metadata IO
+  // ARROW-14429: 1+2 are merged together for small footers (which is
+  // the case in all tests here)
   if (included_fields.empty()) {
     // ARROW-14429: The I/O for the metadata is merged with the body itself
     ASSERT_EQ(1, expected_body_read_lengths.size());
-    ASSERT_EQ(read_ranges.size(), 3);
+    ASSERT_EQ(read_ranges.size(), 2);
   } else {
-    ASSERT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+    ASSERT_EQ(read_ranges.size(), 2 + expected_body_read_lengths.size());
   }
   const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
   // read magic and footer length IO
@@ -2574,20 +2576,20 @@ void GetReadRecordBatchReadRanges(
   auto footer_length_offset = buffer->size() - file_end_size;
   auto footer_length = BitUtil::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
-  ASSERT_EQ(read_ranges[0].length, file_end_size);
-  // read footer IO
-  ASSERT_EQ(read_ranges[1].length, footer_length);
+  // ARROW-14429: the reader eagerly reads a fixed chunk of the end of
+  // the file to try to avoid a separate call to read the footer, so it may read too much
+  ASSERT_GE(read_ranges[0].length, file_end_size + footer_length);
   // read record batch metadata.  The exact size is tricky to determine but it doesn't
   // matter for this test and it should be smaller than the footer.
   if (included_fields.empty()) {
     // ARROW-14429: The I/O for the metadata is merged with the body itself
-    ASSERT_LT(read_ranges[2].length, footer_length + expected_body_read_lengths.front());
+    ASSERT_LT(read_ranges[1].length, footer_length + expected_body_read_lengths.front());
     return;
   }
   // The metadata is read separately
-  ASSERT_LT(read_ranges[2].length, footer_length);
+  ASSERT_LT(read_ranges[1].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
-    ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
+    ASSERT_EQ(read_ranges[2 + i].length, expected_body_read_lengths[i]);
   }
 }
 
