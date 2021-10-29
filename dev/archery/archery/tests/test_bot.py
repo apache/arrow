@@ -133,6 +133,7 @@ Please ask someone from the community for help with getting the first\
  commit in.\n```"}
     assert json.loads(reaction.request.body) == {'content': '-1'}
 
+
 def test_issue_comment_without_pull_request(load_fixture, responses):
     responses.add(
         responses.GET,
