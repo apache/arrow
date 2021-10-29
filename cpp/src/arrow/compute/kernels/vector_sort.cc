@@ -58,6 +58,12 @@ Status CheckNonNested(const FieldRef& ref) {
   return Status::OK();
 }
 
+template <typename T>
+Result<T> PrependInvalidColumn(Result<T> res) {
+  if (res.ok()) return res;
+  return res.status().WithMessage("Invalid sort key column: ", res.status().message());
+}
+
 // Return the field indices of the sort keys, deduplicating them along the way
 Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
                                             const std::vector<SortKey>& sort_keys) {
@@ -69,7 +75,8 @@ Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
   for (const auto& sort_key : sort_keys) {
     RETURN_NOT_OK(CheckNonNested(sort_key.target));
 
-    ARROW_ASSIGN_OR_RAISE(auto match, sort_key.target.FindOne(schema));
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          PrependInvalidColumn(sort_key.target.FindOne(schema)));
     if (seen.insert(match[0]).second) {
       fields.push_back({match[0], sort_key.order});
     }
@@ -1232,12 +1239,8 @@ class SortIndicesMetaFunction : public MetaFunction {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      auto maybe_array = options.sort_keys[0].target.GetOne(batch);
-      if (!maybe_array.ok()) {
-        return maybe_array.status().WithMessage("Invalid sort key column: ",
-                                                maybe_array.status().message());
-      }
-      ARROW_ASSIGN_OR_RAISE(auto array, maybe_array);
+      ARROW_ASSIGN_OR_RAISE(
+          auto array, PrependInvalidColumn(options.sort_keys[0].target.GetOne(batch)));
       return SortIndices(*array, options, ctx);
     }
 
@@ -1828,7 +1831,7 @@ static Status CheckConsistency(const Schema& schema,
                                const std::vector<SortKey>& sort_keys) {
   for (const auto& key : sort_keys) {
     RETURN_NOT_OK(CheckNonNested(key.target));
-    RETURN_NOT_OK(key.target.FindOne(schema));
+    RETURN_NOT_OK(PrependInvalidColumn(key.target.FindOne(schema)));
   }
   return Status::OK();
 }
