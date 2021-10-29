@@ -48,5 +48,6 @@ ninja install
 popd
 
 if [ "${with_docs}" == "true" ]; then
+  mkdir -p ${build_root}/docs/c_glib
   rsync -a ${ARROW_HOME}/share/gtk-doc/html/ ${build_root}/docs/c_glib
 fi
