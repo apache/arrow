@@ -247,32 +247,6 @@ class ARROW_EXPORT ExecNode {
   NodeVector outputs_;
 };
 
-struct ARROW_EXPORT DataHolder {
- public:
-  DataHolder(ExecNode* node) : node_(node) {}
-
-  void ErrorReceived(ExecNode* input, Status error) {
-    node_->ErrorReceived(input, error);
-  }
-
-  void InputFinished(ExecNode* input, int total_batches) {
-    node_->InputFinished(input, total_batches);
-  }
-
-  void PauseProducing(ExecNode* output) { node_->PauseProducing(output); }
-
-  void ResumeProducing(ExecNode* output) { node_->ResumeProducing(output); }
-
-  void StopProducing(ExecNode* output) { node_->StopProducing(output); }
-
-  void StopProducing() { node_->StopProducing(); }
-
-  const std::shared_ptr<Schema>& output_schema() const { return node_->output_schema(); }
-
- protected:
-  ExecNode* node_;
-};
-
 /// \brief MapNode is an ExecNode type class which process a task like filter/project
 /// (See SubmitTask method) to each given ExecBatch object, which have one input, one
 /// output, and are pure functions on the input

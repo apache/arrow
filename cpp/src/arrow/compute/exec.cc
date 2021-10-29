@@ -34,6 +34,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/memory_resources.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/pretty_print.h"
@@ -1015,9 +1016,13 @@ std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalarAggregate() {
 }  // namespace detail
 
 ExecContext::ExecContext(MemoryPool* pool, ::arrow::internal::Executor* executor,
-                         FunctionRegistry* func_registry)
+                         FunctionRegistry* func_registry,
+                         MemoryResources* memory_resources)
     : pool_(pool), executor_(executor) {
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
+
+  this->memory_resources_ =
+      memory_resources == nullptr ? GetMemoryResources(pool) : memory_resources;
 }
 
 CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }
