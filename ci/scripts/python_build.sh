@@ -20,7 +20,7 @@
 set -ex
 
 arrow_dir=${1}
-source_dir=${1}/python
+source_dir=${arrow_dir}/python
 build_dir=${2}/python
 with_docs=${3:-false}
 

@@ -21,7 +21,7 @@ set -ex
 
 source_dir=${1}/js
 build_dir=${2}
-with_docs=${2:-false}
+with_docs=${3:-false}
 
 pushd ${source_dir}
 

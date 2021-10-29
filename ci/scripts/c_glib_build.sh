@@ -24,7 +24,6 @@ build_dir=${2}/c_glib
 build_root=${2}
 with_docs=${3:-false}
 
-: ${ARROW_GLIB_GTK_DOC:=${with_docs}}
 : ${ARROW_GLIB_DEVELOPMENT_MODE:=false}
 
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
@@ -38,7 +37,7 @@ mkdir -p ${build_dir}
 meson --prefix=$ARROW_HOME \
       --libdir=lib \
       -Ddevelopment_mode=${ARROW_GLIB_DEVELOPMENT_MODE} \
-      -Dgtk_doc=${ARROW_GLIB_GTK_DOC} \
+      -Dgtk_doc=${with_docs} \
       ${build_dir} \
       ${source_dir}
 

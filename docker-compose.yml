@@ -513,7 +513,6 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
-      ARROW_GLIB_GTK_DOC: "true"
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
@@ -541,7 +540,6 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
-      ARROW_GLIB_GTK_DOC: "true"
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
