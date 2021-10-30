@@ -47,7 +47,7 @@ fi
 popd
 ${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> examples.out 2>&1 || { cat examples.out; exit 1; }
 
-cat testthat.out
+cat examples.out
 if grep -q "runtime error" examples.out; then
   exit 1
 fi
