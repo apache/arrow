@@ -1303,10 +1303,17 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
                                footer_length);
           }
 
-          auto read_footer = self->file_->ReadAsync(
-              self->footer_offset_ - footer_length - file_end_size, footer_length);
-          if (executor) read_footer = executor->Transfer(std::move(read_footer));
-          return read_footer;
+          const int64_t already_read = buffer->size() - file_end_size;
+          auto read_remainder =
+              self->file_->ReadAsync(self->footer_offset_ - footer_length - file_end_size,
+                                     footer_length - already_read);
+          auto* memory_pool = options_.memory_pool;
+          if (executor) read_remainder = executor->Transfer(std::move(read_remainder));
+          return read_remainder.Then([memory_pool, buffer, already_read](
+                                         const std::shared_ptr<Buffer>& remainder) {
+            return ConcatenateBuffers({remainder, SliceBuffer(buffer, 0, already_read)},
+                                      memory_pool);
+          });
         })
         .Then([=](const std::shared_ptr<Buffer>& buffer) -> Status {
           self->footer_buffer_ = buffer;
