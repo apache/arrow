@@ -19,12 +19,12 @@
 #include "arrow/compute/exec.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/logging.h"
 
+#include <array>
 #include <memory>
 #include <mutex>
 #include <random>
-#include <unordered_map>
 
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/ipc/feather.h>
@@ -51,8 +51,8 @@ namespace compute {
 
 std::string MemoryLevelName(MemoryLevel memory_level) {
   static const char* MemoryLevelNames[] = {ARROW_STRINGIFY(MemoryLevel::kDiskLevel),
-                                           ARROW_STRINGIFY(MemoryLevel::kCPULevel),
-                                           ARROW_STRINGIFY(MemoryLevel::kGPULevel)};
+                                           ARROW_STRINGIFY(MemoryLevel::kCpuLevel),
+                                           ARROW_STRINGIFY(MemoryLevel::kGpuLevel)};
 
   return MemoryLevelNames[static_cast<int>(memory_level)];
 }
@@ -62,7 +62,7 @@ std::string MemoryResource::ToString() const { return MemoryLevelName(memory_lev
 class CPUDataHolder : public DataHolder {
  public:
   explicit CPUDataHolder(const std::shared_ptr<RecordBatch>& record_batch)
-      : DataHolder(MemoryLevel::kCPULevel), record_batch_(std::move(record_batch)) {}
+      : DataHolder(MemoryLevel::kCpuLevel), record_batch_(std::move(record_batch)) {}
 
   Result<ExecBatch> Get() override { return ExecBatch(*record_batch_); }
 
@@ -136,78 +136,41 @@ class DiskDataHolder : public DataHolder {
   const std::string cache_storage_root_path = "file:///tmp/";
 };
 
-class MemoryResources::MemoryResourcesImpl {
- public:
-  Status AddMemoryResource(std::unique_ptr<MemoryResource> resource) {
-    std::lock_guard<std::mutex> mutation_guard(lock_);
-    auto level = resource->memory_level();
-    auto it = stats_.find(level);
-    if (it != stats_.end()) {
-      return Status::KeyError("Already have a resource type registered with name: ",
-                              resource->ToString());
-    }
-    stats_[level] = std::move(resource);
-    return Status::OK();
-  }
-
-  size_t size() const { return stats_.size(); }
-
-  Result<int64_t> memory_limit(MemoryLevel level) const {
-    auto it = stats_.find(level);
-    if (it == stats_.end()) {
-      return Status::KeyError("No memory resource registered with level: ",
-                              MemoryLevelName(level));
-    }
-    return it->second->memory_limit();
-  }
-
-  Result<int64_t> memory_used(MemoryLevel level) const {
-    auto it = stats_.find(level);
-    if (it == stats_.end()) {
-      return Status::KeyError("No memory resource registered with level: ",
-                              MemoryLevelName(level));
-    }
-    return it->second->memory_used();
-  }
-
-  Result<MemoryResource*> memory_resource(MemoryLevel level) const {
-    auto it = stats_.find(level);
-    if (it == stats_.end()) {
-      return Status::KeyError("No memory resource registered with level: ",
-                              MemoryLevelName(level));
-    }
-    return it->second.get();
-  }
-
- private:
-  std::mutex lock_;
-
-  std::unordered_map<MemoryLevel, std::unique_ptr<MemoryResource>> stats_;
-};
-
-MemoryResources::MemoryResources() { impl_.reset(new MemoryResourcesImpl()); }
-
 MemoryResources::~MemoryResources() {}
 
 std::unique_ptr<MemoryResources> MemoryResources::Make() {
   return std::unique_ptr<MemoryResources>(new MemoryResources());
 }
 
-Status MemoryResources::AddMemoryResource(std::unique_ptr<MemoryResource> resource) {
-  return impl_->AddMemoryResource(std::move(resource));
+Status MemoryResources::AddMemoryResource(std::shared_ptr<MemoryResource> resource) {
+  auto level = static_cast<size_t>(resource->memory_level());
+  if (stats_[level] != nullptr) {
+    return Status::KeyError("Already have a resource type registered with name: ",
+                            resource->ToString());
+  }
+  stats_[level] = std::move(resource);
+  return Status::OK();
 }
 
-size_t MemoryResources::size() const { return impl_->size(); }
+size_t MemoryResources::size() const { return stats_.size(); }
 
-Result<int64_t> MemoryResources::memory_limit(MemoryLevel level) const {
-  return impl_->memory_limit(level);
+Result<MemoryResource*> MemoryResources::memory_resource(MemoryLevel memory_level) const {
+  auto level = static_cast<size_t>(memory_level);
+  if (stats_[level] == nullptr) {
+    return Status::KeyError("No memory resource registered with level: ",
+                            MemoryLevelName(memory_level));
+  }
+  return stats_[level].get();
 }
 
-Result<int64_t> MemoryResources::memory_used(MemoryLevel level) const {
-  return impl_->memory_used(level);
-}
-Result<MemoryResource*> MemoryResources::memory_resource(MemoryLevel level) const {
-  return impl_->memory_resource(level);
+std::vector<MemoryResource*> MemoryResources::memory_resources() const {
+  std::vector<MemoryResource*> arr;
+  for (auto&& resource : stats_) {
+    if (resource != nullptr) {
+      arr.push_back(resource.get());
+    }
+  }
+  return arr;
 }
 
 namespace {
@@ -237,7 +200,7 @@ size_t GetTotalMemorySize() {
 
 struct CPUMemoryResource : public MemoryResource {
   CPUMemoryResource(arrow::MemoryPool* pool, float memory_limit_threshold = 0.75)
-      : MemoryResource(MemoryLevel::kCPULevel), pool_(pool) {
+      : MemoryResource(MemoryLevel::kCpuLevel), pool_(pool) {
     total_memory_size_ = GetTotalMemorySize();
     memory_limit_ = memory_limit_threshold * total_memory_size_;
   }
@@ -286,12 +249,12 @@ static std::unique_ptr<MemoryResources> CreateBuiltInMemoryResources(MemoryPool*
   auto resources = MemoryResources::Make();
 
   // CPU MemoryLevel
-  auto cpu_level = ::arrow::internal::make_unique<CPUMemoryResource>(pool);
-  resources->AddMemoryResource(std::move(cpu_level));
+  auto cpu_level = std::make_shared<CPUMemoryResource>(pool);
+  DCHECK_OK(resources->AddMemoryResource(std::move(cpu_level)));
 
   // Disk MemoryLevel
-  auto disk_level = ::arrow::internal::make_unique<DiskMemoryResource>(pool);
-  resources->AddMemoryResource(std::move(disk_level));
+  auto disk_level = std::make_shared<DiskMemoryResource>(pool);
+  DCHECK_OK(resources->AddMemoryResource(std::move(disk_level)));
 
   return resources;
 }

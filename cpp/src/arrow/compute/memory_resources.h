@@ -22,9 +22,11 @@
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 
+#include <array>
 #include <iterator>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace arrow {
 
@@ -32,7 +34,7 @@ namespace compute {
 
 struct ExecBatch;
 
-enum class MemoryLevel : int { kGPULevel, kCPULevel, kDiskLevel };
+enum class MemoryLevel : int { kGpuLevel, kCpuLevel, kDiskLevel, kNumLevels };
 
 class ARROW_EXPORT DataHolder {
  public:
@@ -48,7 +50,9 @@ class ARROW_EXPORT DataHolder {
 
 class ARROW_EXPORT MemoryResource {
  public:
-  MemoryResource(MemoryLevel memory_level) : memory_level_(memory_level) {}
+  explicit MemoryResource(MemoryLevel memory_level) : memory_level_(memory_level) {}
+
+  virtual ~MemoryResource() = default;
 
   MemoryLevel memory_level() const { return memory_level_; }
 
@@ -71,21 +75,21 @@ class ARROW_EXPORT MemoryResources {
 
   static std::unique_ptr<MemoryResources> Make();
 
-  Status AddMemoryResource(std::unique_ptr<MemoryResource> resource);
+  Status AddMemoryResource(std::shared_ptr<MemoryResource> resource);
 
   size_t size() const;
 
-  Result<int64_t> memory_limit(MemoryLevel level) const;
-
-  Result<int64_t> memory_used(MemoryLevel level) const;
-
   Result<MemoryResource*> memory_resource(MemoryLevel level) const;
 
- private:
-  MemoryResources();
+  std::vector<MemoryResource*> memory_resources() const;
 
-  class MemoryResourcesImpl;
-  std::unique_ptr<MemoryResourcesImpl> impl_;
+ private:
+  MemoryResources() {}
+
+ private:
+  std::array<std::shared_ptr<MemoryResource>,
+             static_cast<size_t>(MemoryLevel::kNumLevels)>
+      stats_ = {};
 };
 
 ARROW_EXPORT MemoryResources* GetMemoryResources(MemoryPool* pool);

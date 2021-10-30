@@ -82,7 +82,7 @@ class ARROW_EXPORT ExecContext {
 
   /// \brief The MemoryResources for looking up memory resources by memory level
   /// and getting data holders to enable out of core processing. Defaults to the
-  /// library-global function registry provided by GetMemoryResources.
+  /// instance provided by GetMemoryResources.
   MemoryResources* memory_resources() const { return memory_resources_; }
 
   // \brief Set maximum length unit of work for kernel execution. Larger

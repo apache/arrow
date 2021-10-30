@@ -22,7 +22,6 @@
 
 #include "arrow/compute/memory_resources.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/compute/exec.h"
@@ -32,7 +31,6 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
@@ -44,26 +42,23 @@ namespace compute {
 
 class DataHolderManager {
  public:
-  DataHolderManager(ExecContext* context)
+  explicit DataHolderManager(ExecContext* context)
       : context_(context), gen_(), producer_(gen_.producer()) {}
 
   Status Push(const std::shared_ptr<RecordBatch>& batch) {
-    static const MemoryLevel all_memory_levels[] = {
-        MemoryLevel::kGPULevel, MemoryLevel::kCPULevel, MemoryLevel::kDiskLevel};
-
-    for (auto id : all_memory_levels) {
-      auto resources = context_->memory_resources();
-
-      auto memory_resource_result = resources->memory_resource(id);
-      if (memory_resource_result.ok()) {
-        auto memory_resource = memory_resource_result.ValueOrDie();
-        auto memory_to_use = memory_resource->memory_used();
-        if (memory_to_use < memory_resource->memory_limit()) {
-          ARROW_ASSIGN_OR_RAISE(auto data_holder, memory_resource->GetDataHolder(batch));
-          this->producer_.Push(std::move(data_holder));
-          break;
-        }
+    bool pushed = false;
+    auto resources = context_->memory_resources();
+    for (auto memory_resource : resources->memory_resources()) {
+      auto memory_used = memory_resource->memory_used();
+      if (memory_used < memory_resource->memory_limit()) {
+        ARROW_ASSIGN_OR_RAISE(auto data_holder, memory_resource->GetDataHolder(batch));
+        this->producer_.Push(std::move(data_holder));
+        pushed = true;
+        break;
       }
+    }
+    if (!pushed) {
+      return Status::Invalid("No memory resource registered at all in the exec_context");
     }
     return Status::OK();
   }
@@ -143,6 +138,9 @@ class DataHolderNode : public ExecNode {
         ARROW_ASSIGN_OR_RAISE(auto record_batch,
                               batch.ToRecordBatch(this->output_schema(), pool));
         Status status = data_holder_manager_->Push(record_batch);
+        if (ErrorIfNotOk(status)) {
+          return status;
+        }
         if (this->input_counter_.Increment()) {
           this->Finish(status);
         }
