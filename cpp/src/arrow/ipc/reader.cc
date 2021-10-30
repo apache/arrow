@@ -1258,9 +1258,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   }
 
   Future<> ReadFooterAsync(arrow::internal::Executor* executor) {
-    // When reading the footer, read this much additional data in an
-    // attempt to avoid a second I/O operation (which can be slow on a
-    // high-latency filesystem like S3)
+    // When reading the footer, read up to this much additional data in
+    // an attempt to avoid a second I/O operation (which can be slow
+    // on a high-latency filesystem like S3)
     constexpr static int kFooterReadaheadSize = 512 * 1024;
 
     const int32_t magic_size = static_cast<int>(strlen(kArrowMagicBytes));
