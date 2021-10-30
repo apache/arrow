@@ -125,6 +125,23 @@ struct Maximum {
 
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
+template <typename OutType, typename ArgType, typename Op>
+struct CompareTimestamps
+    : public applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op> {
+  using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
+    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
+    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
+      return Status::Invalid(
+          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
+          lhs, " and ", rhs);
+    }
+    return Base::Exec(ctx, batch, out);
+  }
+};
+
 template <typename Op>
 void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
@@ -210,10 +227,8 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(),
+                              CompareTimestamps<BooleanType, TimestampType, Op>::Exec));
   }
 
   // Duration
