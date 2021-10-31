@@ -689,6 +689,21 @@ TEST_F(TestMemoryMappedFile, WillNeed) {
   ASSERT_RAISES(IOError, mmap->WillNeed({{1025, 1}}));  // Out of bounds
 }
 
+TEST_F(TestMemoryMappedFile, AdviseRandom) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  random_bytes(1024, 0, buffer.data());
+
+  std::string path = TempFile("io-memory-map-advise-random-test");
+  ASSERT_OK_AND_ASSIGN(auto mmap, InitMemoryMap(buffer_size, path));
+  ASSERT_OK(mmap->Write(buffer.data(), buffer_size));
+
+  ASSERT_OK(mmap->AdviseRandom({}));
+  ASSERT_OK(mmap->AdviseRandom({{0, 4}, {100, 924}}));
+  ASSERT_OK(mmap->AdviseRandom({{1024, 0}}));
+  ASSERT_RAISES(IOError, mmap->AdviseRandom({{1025, 1}}));  // Out of bounds
+}
+
 TEST_F(TestMemoryMappedFile, InvalidReads) {
   std::string path = TempFile("io-memory-map-invalid-reads-test");
   ASSERT_OK_AND_ASSIGN(auto result, InitMemoryMap(4096, path));

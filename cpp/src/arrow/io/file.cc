@@ -719,25 +719,36 @@ Future<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAsync(const IOContext&,
   return Future<std::shared_ptr<Buffer>>::MakeFinished(ReadAt(position, nbytes));
 }
 
-Status MemoryMappedFile::WillNeed(const std::vector<ReadRange>& ranges) {
-  using ::arrow::internal::MemoryRegion;
-
-  RETURN_NOT_OK(memory_map_->CheckClosed());
-  auto guard_resize = memory_map_->writable()
-                          ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
+Status MemoryMappedFile::ReadRangesToMemoryRegions(
+    const std::vector<ReadRange>& ranges,
+    std::shared_ptr<MemoryMappedFile::MemoryMap>& memory_map,
+    std::vector<MemoryRegion>& regions) {
+  RETURN_NOT_OK(memory_map->CheckClosed());
+  auto guard_resize = memory_map->writable()
+                          ? std::unique_lock<std::mutex>(memory_map->resize_lock())
                           : std::unique_lock<std::mutex>();
 
-  std::vector<MemoryRegion> regions(ranges.size());
   for (size_t i = 0; i < ranges.size(); ++i) {
     const auto& range = ranges[i];
-    ARROW_ASSIGN_OR_RAISE(
-        auto size,
-        internal::ValidateReadRange(range.offset, range.length, memory_map_->size()));
-    DCHECK_NE(memory_map_->data(), nullptr);
-    regions[i] = {const_cast<uint8_t*>(memory_map_->data() + range.offset),
+    ARROW_ASSIGN_OR_RAISE(auto size, internal::ValidateReadRange(
+                                         range.offset, range.length, memory_map->size()));
+    DCHECK_NE(memory_map->data(), nullptr);
+    regions[i] = {const_cast<uint8_t*>(memory_map->data() + range.offset),
                   static_cast<size_t>(size)};
   }
+  return Status::OK();
+}
+
+Status MemoryMappedFile::WillNeed(const std::vector<ReadRange>& ranges) {
+  std::vector<MemoryRegion> regions(ranges.size());
+  RETURN_NOT_OK(ReadRangesToMemoryRegions(ranges, memory_map_, regions));
   return ::arrow::internal::MemoryAdviseWillNeed(regions);
+}
+
+Status MemoryMappedFile::AdviseRandom(const std::vector<ReadRange>& ranges) {
+  std::vector<MemoryRegion> regions(ranges.size());
+  RETURN_NOT_OK(ReadRangesToMemoryRegions(ranges, memory_map_, regions));
+  return ::arrow::internal::MemoryAdviseRandom(regions);
 }
 
 bool MemoryMappedFile::supports_zero_copy() const { return true; }

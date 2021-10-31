@@ -1047,21 +1047,45 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 #endif
 }
 
-Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
+MemoryRegion align_region(const MemoryRegion& region, size_t page_mask,
+                          size_t page_size) {
+  const auto addr = reinterpret_cast<uintptr_t>(region.addr);
+  const auto aligned_addr = addr & page_mask;
+  DCHECK_LT(addr - aligned_addr, page_size);
+  return {reinterpret_cast<void*>(aligned_addr),
+          region.size + static_cast<size_t>(addr - aligned_addr)};
+}
+
+#ifdef POSIX_MADV_WILLNEED
+Status MemoryAdvise(const std::vector<MemoryRegion>& regions, int advice) {
   const auto page_size = static_cast<size_t>(GetPageSize());
   DCHECK_GT(page_size, 0);
   const size_t page_mask = ~(page_size - 1);
   DCHECK_EQ(page_mask & page_size, page_size);
 
-  auto align_region = [=](const MemoryRegion& region) -> MemoryRegion {
-    const auto addr = reinterpret_cast<uintptr_t>(region.addr);
-    const auto aligned_addr = addr & page_mask;
-    DCHECK_LT(addr - aligned_addr, page_size);
-    return {reinterpret_cast<void*>(aligned_addr),
-            region.size + static_cast<size_t>(addr - aligned_addr)};
-  };
+  for (const auto& region : regions) {
+    if (region.size != 0) {
+      const auto aligned = align_region(region, page_mask, page_size);
+      int err = posix_madvise(aligned.addr, aligned.size, advice);
+      // EBADF can be returned on Linux in the following cases:
+      // - the kernel version is older than 3.9
+      // - the kernel was compiled with CONFIG_SWAP disabled (ARROW-9577)
+      if (err != 0 && err != EBADF) {
+        return IOErrorFromErrno(err, "posix_madvise failed");
+      }
+    }
+  }
+  return Status::OK();
+}
+#endif
 
+Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
 #ifdef _WIN32
+  const auto page_size = static_cast<size_t>(GetPageSize());
+  DCHECK_GT(page_size, 0);
+  const size_t page_mask = ~(page_size - 1);
+  DCHECK_EQ(page_mask & page_size, page_size);
+
   // PrefetchVirtualMemory() is available on Windows 8 or later
   struct PrefetchEntry {  // Like WIN32_MEMORY_RANGE_ENTRY
     void* VirtualAddress;
@@ -1078,7 +1102,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     entries.reserve(regions.size());
     for (const auto& region : regions) {
       if (region.size != 0) {
-        entries.emplace_back(align_region(region));
+        entries.emplace_back(align_region(region, page_mask, page_size));
       }
     }
     if (!entries.empty() &&
@@ -1090,19 +1114,15 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
   }
   return Status::OK();
 #elif defined(POSIX_MADV_WILLNEED)
-  for (const auto& region : regions) {
-    if (region.size != 0) {
-      const auto aligned = align_region(region);
-      int err = posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED);
-      // EBADF can be returned on Linux in the following cases:
-      // - the kernel version is older than 3.9
-      // - the kernel was compiled with CONFIG_SWAP disabled (ARROW-9577)
-      if (err != 0 && err != EBADF) {
-        return IOErrorFromErrno(err, "posix_madvise failed");
-      }
-    }
-  }
+  return MemoryAdvise(regions, POSIX_MADV_WILLNEED);
+#else
   return Status::OK();
+#endif
+}
+
+Status MemoryAdviseRandom(const std::vector<MemoryRegion>& regions) {
+#ifdef POSIX_MADV_RANDOM
+  return MemoryAdvise(regions, POSIX_MADV_RANDOM);
 #else
   return Status::OK();
 #endif

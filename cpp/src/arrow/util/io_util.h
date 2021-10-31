@@ -179,6 +179,9 @@ ARROW_EXPORT
 Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions);
 
 ARROW_EXPORT
+Status MemoryAdviseRandom(const std::vector<MemoryRegion>& regions);
+
+ARROW_EXPORT
 Result<std::string> GetEnvVar(const char* name);
 ARROW_EXPORT
 Result<std::string> GetEnvVar(const std::string& name);

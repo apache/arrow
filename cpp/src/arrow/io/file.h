@@ -26,6 +26,7 @@
 
 #include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -136,6 +137,8 @@ class ARROW_EXPORT ReadableFile
   std::unique_ptr<ReadableFileImpl> impl_;
 };
 
+using ::arrow::internal::MemoryRegion;
+
 /// \brief A file interface that uses memory-mapped files for memory interactions
 ///
 /// This implementation supports zero-copy reads. The same class is used
@@ -190,6 +193,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
   Status WillNeed(const std::vector<ReadRange>& ranges) override;
 
+  Status AdviseRandom(const std::vector<ReadRange>& ranges);
+
   bool supports_zero_copy() const override;
 
   /// Write data at the current position in the file. Thread-safe
@@ -215,6 +220,11 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
   class ARROW_NO_EXPORT MemoryMap;
   std::shared_ptr<MemoryMap> memory_map_;
+
+  Status ReadRangesToMemoryRegions(
+      const std::vector<ReadRange>& ranges,
+      std::shared_ptr<MemoryMappedFile::MemoryMap>& memory_map,
+      std::vector<MemoryRegion>& regions);
 };
 
 }  // namespace io
