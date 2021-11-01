@@ -767,9 +767,9 @@ endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_LINK_LIBS opentelemetry-cpp::trace
-       opentelemetry-cpp::exporter_otlp_http)
+       opentelemetry-cpp::otlp_http_exporter)
   list(APPEND ARROW_STATIC_LINK_LIBS opentelemetry-cpp::trace
-       opentelemetry-cpp::exporter_otlp_http)
+       opentelemetry-cpp::otlp_http_exporter)
 endif()
 
 if(ARROW_WITH_UTF8PROC)

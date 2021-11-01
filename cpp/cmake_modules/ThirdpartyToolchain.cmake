@@ -63,7 +63,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
-    OpenTelemetry
+    opentelemetry-cpp
     ORC
     re2
     Protobuf
@@ -163,7 +163,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
     build_orc()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "OpenTelemetry")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
     build_opentelemetry()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
@@ -228,7 +228,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    find_package(${FIND_PACKAGE_ARGUMENTS})
+    find_package(${FIND_PACKAGE_ARGUMENTS} QUIET)
     if(${${PACKAGE_NAME}_FOUND})
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
@@ -3919,7 +3919,7 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_LIBS
       common
       http_client_curl
-      exporter_otlp_http
+      otlp_http_exporter
       otlp_recordable
       proto
       resources
@@ -3937,6 +3937,10 @@ macro(build_opentelemetry)
     if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     else()
       set(_OPENTELEMETRY_STATIC_LIBRARY
@@ -3963,9 +3967,6 @@ macro(build_opentelemetry)
   add_custom_target(opentelemetry_dependencies)
 
   if(ARROW_WITH_OPENTELEMETRY)
-    build_nlohmann_json_once()
-    find_curl()
-
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
     list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
     set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_OTLP=ON
@@ -3992,7 +3993,8 @@ macro(build_opentelemetry)
     if(gRPC_SOURCE STREQUAL "BUNDLED")
       # TODO: opentelemetry-cpp::proto doesn't declare a dependency on gRPC, so
       # even if we provide the location of gRPC, it'll fail to compile.
-      message(FATAL_ERROR "OpenTelemetry (with exporters) cannot be configured with bundled gRPC"
+      message(FATAL_ERROR "ARROW_WITH_OPENTELEMETRY cannot be configured with gRPC_SOURCE=BUNDLED. "
+                          "See https://github.com/open-telemetry/opentelemetry-cpp/issues/1045"
       )
     endif()
   else()
@@ -4075,7 +4077,7 @@ macro(build_opentelemetry)
                         PROPERTIES INTERFACE_LINK_LIBRARIES
                                    "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
   )
-  set_target_properties(opentelemetry-cpp::exporter_otlp_http
+  set_target_properties(opentelemetry-cpp::otlp_http_exporter
                         PROPERTIES INTERFACE_LINK_LIBRARIES
                                    "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
   )
@@ -4085,15 +4087,18 @@ macro(build_opentelemetry)
   endforeach()
 endmacro()
 
-# For now OpenTelemetry is always bundled from upstream
+# We always use OpenTelemetry headers
 if(1)
-  set(OpenTelemetry_SOURCE "BUNDLED")
-  resolve_dependency(OpenTelemetry)
+  set(opentelemetry-cpp_SOURCE "AUTO")
+  if(ARROW_WITH_OPENTELEMETRY)
+    build_nlohmann_json_once()
+    find_curl()
+  endif()
+  resolve_dependency(opentelemetry-cpp)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${OPENTELEMETRY_INCLUDE_DIR})
   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
-  message(STATUS "Found OpenTelemetry static library: ${OPENTELEMETRY_BUILD_BYPRODUCTS}")
 endif()
 
 # ----------------------------------------------------------------------
