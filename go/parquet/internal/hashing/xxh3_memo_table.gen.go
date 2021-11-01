@@ -21,9 +21,9 @@ package hashing
 import (
 	"math"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/bitutil"
+	"github.com/apache/arrow/go/v6/parquet/internal/utils"
 )
 
 type payloadInt32 struct {

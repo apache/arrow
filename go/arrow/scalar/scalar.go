@@ -26,14 +26,14 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/endian"
-	"github.com/apache/arrow/go/arrow/float16"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v6/arrow/bitutil"
+	"github.com/apache/arrow/go/v6/arrow/decimal128"
+	"github.com/apache/arrow/go/v6/arrow/endian"
+	"github.com/apache/arrow/go/v6/arrow/float16"
+	"github.com/apache/arrow/go/v6/arrow/internal/debug"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 	"golang.org/x/xerrors"
 )
 

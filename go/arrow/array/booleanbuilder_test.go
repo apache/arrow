@@ -19,9 +19,9 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v6/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 

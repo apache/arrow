@@ -123,7 +123,7 @@ dev/tasks/requirements*.txt
 dev/tasks/conda-recipes/*
 docs/requirements.txt
 go/arrow/flight/Flight_grpc.pb.go
-go/arrow/go.sum
+go/go.sum
 go/arrow/Gopkg.lock
 go/arrow/flight/Flight.pb.go
 go/arrow/flight/Flight_grpc.pb.go
@@ -132,7 +132,6 @@ go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
 go/*.tmpldata
 go/*.s
-go/parquet/go.sum
 go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
 go/parquet/internal/gen-go/parquet/parquet-consts.go
 go/parquet/internal/gen-go/parquet/parquet.go

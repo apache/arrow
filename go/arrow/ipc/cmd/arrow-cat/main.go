@@ -52,7 +52,7 @@
 //  record 2...
 //    col[0] "bools": [true (null) (null) false true]
 //  [...]
-package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-cat"
+package main // import "github.com/apache/arrow/go/v6/arrow/ipc/cmd/arrow-cat"
 
 import (
 	"bytes"
@@ -62,8 +62,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v6/arrow/ipc"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
