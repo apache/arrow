@@ -645,44 +645,44 @@ TYPED_TEST(TestStringKernels, Utf8Reverse) {
 
 TYPED_TEST(TestStringKernels, Utf8Normalize) {
   Utf8NormalizeOptions nfc_options{Utf8NormalizeOptions::Method::NFC};
+  Utf8NormalizeOptions nfkc_options{Utf8NormalizeOptions::Method::NFKC};
+  Utf8NormalizeOptions nfd_options{Utf8NormalizeOptions::Method::NFD};
+  Utf8NormalizeOptions nfkd_options{Utf8NormalizeOptions::Method::NFKD};
 
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfc_options);
+  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfd_options);
+  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfc_options);
+  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfd_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfc_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfkc_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfd_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfkd_options);
+
+  // Composition
   // before: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
   // after: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
   this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
                    R"(["á"])", &nfc_options);
-  this->CheckUnary("utf8_normalize", R"(["ﷺ", "①②3", null, ""])", this->type(),
-                   R"(["ﷺ", "①②3", null, ""])", &nfc_options);
-
-  Utf8NormalizeOptions nfkc_options{Utf8NormalizeOptions::Method::NFKC};
-
-  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkc_options);
-  // before: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
-  // after: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
   this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
                    R"(["á"])", &nfkc_options);
-  this->CheckUnary("utf8_normalize", R"(["ﷺ", "①②3", null, ""])", this->type(),
-                   R"(["صلى الله عليه وسلم", "123", null, ""])", &nfkc_options);
 
-  Utf8NormalizeOptions nfd_options{Utf8NormalizeOptions::Method::NFD};
-
-  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfd_options);
+  // Decomposition
   // before: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
   // after: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
   this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
                    R"(["á"])", &nfd_options);
-  this->CheckUnary("utf8_normalize", R"(["ﷺ", "①②3", null, ""])", this->type(),
-                   R"(["ﷺ", "①②3", null, ""])", &nfd_options);
-
-  Utf8NormalizeOptions nfkd_options{Utf8NormalizeOptions::Method::NFKD};
-
-  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkd_options);
-  // before: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
-  // after: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
   this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
                    R"(["á"])", &nfkd_options);
-  this->CheckUnary("utf8_normalize", R"(["ﷺ", "①②3", null, ""])", this->type(),
-                   R"(["صلى الله عليه وسلم", "123", null, ""])", &nfkd_options);
+
+  // Canonical Composition/Decomposition
+  this->CheckUnary("utf8_normalize", R"(["ﷺ"])", this->type(), R"(["ﷺ"])", &nfc_options);
+  this->CheckUnary("utf8_normalize", R"(["ﷺ"])", this->type(), R"(["ﷺ"])", &nfd_options);
+
+  // Compatibility Composition/Decomposition
+  this->CheckUnary("utf8_normalize", R"(["ﷺ"])", this->type(),
+                   R"(["صلى الله عليه وسلم"])", &nfkc_options);
+  this->CheckUnary("utf8_normalize", R"(["ﷺ"])", this->type(),
+                   R"(["صلى الله عليه وسلم"])", &nfkd_options);
 }
 
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {

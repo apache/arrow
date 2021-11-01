@@ -400,9 +400,7 @@ else()
                     -j4
                     -L
                     unittest
-                    --output-on-failure
-                    -R
-                    arrow-compute-scalar)
+                    --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
