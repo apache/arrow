@@ -47,11 +47,9 @@ namespace compute {
 // ----------------------------------------------------------------------
 // IsIn tests
 
-void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
-               const std::string& value_set_json, const std::string& expected_json,
+void CheckIsIn(const std::shared_ptr<Array> input,
+               const std::shared_ptr<Array>& value_set, const std::string& expected_json,
                bool skip_nulls = false) {
-  auto input = ArrayFromJSON(type, input_json);
-  auto value_set = ArrayFromJSON(type, value_set_json);
   auto expected = ArrayFromJSON(boolean(), expected_json);
 
   ASSERT_OK_AND_ASSIGN(Datum actual_datum,
@@ -59,6 +57,14 @@ void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_j
   std::shared_ptr<Array> actual = actual_datum.make_array();
   ValidateOutput(actual_datum);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
+               const std::string& value_set_json, const std::string& expected_json,
+               bool skip_nulls = false) {
+  auto input = ArrayFromJSON(type, input_json);
+  auto value_set = ArrayFromJSON(type, value_set_json);
+  CheckIsIn(input, value_set, expected_json, skip_nulls);
 }
 
 void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
@@ -198,6 +204,19 @@ TEST_F(TestIsInKernel, TimeTimestamp) {
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
   }
+
+  // Disallow mixing timezone-aware and timezone-naive values
+  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
+                              SetLookupOptions(ArrayFromJSON(
+                                  timestamp(TimeUnit::SECOND, "UTC"), "[0, 2]"))));
+  ASSERT_RAISES(
+      Invalid,
+      IsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+           SetLookupOptions(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 2]"))));
+  // However, mixed timezones are allowed (underlying value is UTC)
+  CheckIsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+            ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), "[0, 2]"),
+            "[true, false, true]");
 }
 
 TEST_F(TestIsInKernel, Boolean) {
@@ -274,34 +293,41 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
             R"(["aaa", null, "aaa", "bbb", "bbb", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
+                     SetLookupOptions(ArrayFromJSON(fixed_size_binary(2), R"(["ab"])"))));
 }
 
 TEST_F(TestIsInKernel, Decimal) {
-  auto type = decimal(3, 1);
+  for (auto type : {decimal128(3, 1), decimal256(3, 1)}) {
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, false, true]",
+              /*skip_nulls=*/false);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, false, true]",
+              /*skip_nulls=*/true);
 
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
-            "[true, false, true, false, true]",
-            /*skip_nulls=*/false);
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
-            "[true, false, true, false, true]",
-            /*skip_nulls=*/true);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, false, true, true, true]",
+              /*skip_nulls=*/false);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, false, true, false, true]",
+              /*skip_nulls=*/true);
 
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
-            R"(["12.3", "78.9", null])", "[true, false, true, true, true]",
-            /*skip_nulls=*/false);
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
-            R"(["12.3", "78.9", null])", "[true, false, true, false, true]",
-            /*skip_nulls=*/true);
+    // Duplicates in right array
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, false, true, true, true]",
+              /*skip_nulls=*/false);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, false, true, false, true]",
+              /*skip_nulls=*/true);
 
-  // Duplicates in right array
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
-            R"([null, "12.3", "12.3", "78.9", "78.9", null])",
-            "[true, false, true, true, true]",
-            /*skip_nulls=*/false);
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
-            R"([null, "12.3", "12.3", "78.9", "78.9", null])",
-            "[true, false, true, false, true]",
-            /*skip_nulls=*/true);
+    CheckIsIn(ArrayFromJSON(decimal128(4, 2), R"(["12.30", "45.60", "78.90"])"),
+              ArrayFromJSON(type, R"(["12.3", "78.9"])"), "[true, false, true]");
+  }
 }
 
 TEST_F(TestIsInKernel, DictionaryArray) {
@@ -427,11 +453,9 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
 
 class TestIndexInKernel : public ::testing::Test {
  public:
-  void CheckIndexIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
-                    const std::string& value_set_json, const std::string& expected_json,
-                    bool skip_nulls = false) {
-    std::shared_ptr<Array> input = ArrayFromJSON(type, input_json);
-    std::shared_ptr<Array> value_set = ArrayFromJSON(type, value_set_json);
+  void CheckIndexIn(const std::shared_ptr<Array>& input,
+                    const std::shared_ptr<Array>& value_set,
+                    const std::string& expected_json, bool skip_nulls = false) {
     std::shared_ptr<Array> expected = ArrayFromJSON(int32(), expected_json);
 
     SetLookupOptions options(value_set, skip_nulls);
@@ -439,6 +463,14 @@ class TestIndexInKernel : public ::testing::Test {
     std::shared_ptr<Array> actual = actual_datum.make_array();
     ValidateOutput(actual_datum);
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+
+  void CheckIndexIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
+                    const std::string& value_set_json, const std::string& expected_json,
+                    bool skip_nulls = false) {
+    std::shared_ptr<Array> input = ArrayFromJSON(type, input_json);
+    std::shared_ptr<Array> value_set = ArrayFromJSON(type, value_set_json);
+    return CheckIndexIn(input, value_set, expected_json, skip_nulls);
   }
 
   void CheckIndexInChunked(const std::shared_ptr<ChunkedArray>& input,
@@ -643,6 +675,19 @@ TEST_F(TestIndexInKernel, TimeTimestamp) {
   // Both array are all null
   CheckIndexIn(time32(TimeUnit::SECOND), "[null, null, null, null]", "[null]",
                "[0, 0, 0, 0]");
+
+  // Disallow mixing timezone-aware and timezone-naive values
+  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
+                                 SetLookupOptions(ArrayFromJSON(
+                                     timestamp(TimeUnit::SECOND, "UTC"), "[0, 2]"))));
+  ASSERT_RAISES(
+      Invalid,
+      IndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+              SetLookupOptions(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 2]"))));
+  // However, mixed timezones are allowed (underlying value is UTC)
+  CheckIndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+               ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), "[0, 2]"),
+               "[0, null, 1]");
 }
 
 TEST_F(TestIndexInKernel, Boolean) {
@@ -805,6 +850,11 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
 
   // Empty arrays
   CheckIndexIn(fixed_size_binary(0), R"([])", R"([])", R"([])");
+
+  ASSERT_RAISES(
+      Invalid,
+      IndexIn(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
+              SetLookupOptions(ArrayFromJSON(fixed_size_binary(2), R"(["ab"])"))));
 }
 
 TEST_F(TestIndexInKernel, MonthDayNanoInterval) {
@@ -826,41 +876,50 @@ TEST_F(TestIndexInKernel, MonthDayNanoInterval) {
 }
 
 TEST_F(TestIndexInKernel, Decimal) {
-  auto type = decimal(2, 0);
+  for (const auto& type : {decimal128(2, 0), decimal256(2, 0)}) {
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, 0, 1, 2, null])",
+                 /*skip_nulls=*/false);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, null, 1, 2, null])",
+                 /*skip_nulls=*/true);
 
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"([null, "11", "12"])",
-               /*expected=*/R"([2, 0, 1, 2, null])",
-               /*skip_nulls=*/false);
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"([null, "11", "12"])",
-               /*expected=*/R"([2, null, 1, 2, null])",
-               /*skip_nulls=*/true);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"(["11", "12"])",
+                 /*expected=*/R"([1, null, 0, 1, null])",
+                 /*skip_nulls=*/false);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"(["11", "12"])",
+                 /*expected=*/R"([1, null, 0, 1, null])",
+                 /*skip_nulls=*/true);
 
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"(["11", "12"])",
-               /*expected=*/R"([1, null, 0, 1, null])",
-               /*skip_nulls=*/false);
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"(["11", "12"])",
-               /*expected=*/R"([1, null, 0, 1, null])",
-               /*skip_nulls=*/true);
+    // Duplicates in value_set
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
+                 /*expected=*/R"([4, 0, 2, 4, null])",
+                 /*skip_nulls=*/false);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
+                 /*expected=*/R"([4, null, 2, 4, null])",
+                 /*skip_nulls=*/true);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, 0, 1, 2, null])",
+                 /*skip_nulls=*/false);
 
-  // Duplicates in value_set
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
-               /*expected=*/R"([4, 0, 2, 4, null])",
-               /*skip_nulls=*/false);
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
-               /*expected=*/R"([4, null, 2, 4, null])",
-               /*skip_nulls=*/true);
+    CheckIndexIn(
+        ArrayFromJSON(decimal256(3, 1), R"(["12.0", null, "11.0", "12.0", "13.0"])"),
+        ArrayFromJSON(type, R"([null, "11", "12"])"), R"([2, 0, 1, 2, null])");
+  }
 }
 
 TEST_F(TestIndexInKernel, DictionaryArray) {
