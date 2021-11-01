@@ -99,7 +99,6 @@ test_that("extract month from timestamp", {
     test_df,
     ignore_attr = TRUE
   )
-
 })
 
 test_that("extract isoweek from timestamp", {
