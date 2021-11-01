@@ -20,7 +20,7 @@
 #include <sqlite3.h>
 
 #include "arrow/api.h"
-#include "arrow/flight/flight-sql/example/sqlite_statement.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement.h"
 
 namespace arrow {
 namespace flight {

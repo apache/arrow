@@ -16,8 +16,8 @@
 // under the License.
 
 #include <arrow/flight/client.h>
-#include <arrow/flight/flight-sql/FlightSql.pb.h>
-#include <arrow/flight/flight-sql/api.h>
+#include <arrow/flight/flight_sql/FlightSql.pb.h>
+#include <arrow/flight/flight_sql/api.h>
 #include <arrow/testing/gtest_util.h>
 #include <gmock/gmock.h>
 #include <google/protobuf/any.pb.h>

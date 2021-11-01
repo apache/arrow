@@ -21,7 +21,7 @@
 #include <memory>
 #include <string>
 
-#include "arrow/flight/flight-sql/example/sqlite_server.h"
+#include "arrow/flight/flight_sql/example/sqlite_server.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/test_integration.h"
 #include "arrow/flight/test_util.h"

@@ -27,9 +27,9 @@
 #include <boost/uuid/uuid_generators.hpp>
 
 #include "arrow/api.h"
-#include "arrow/flight/flight-sql/example/sqlite_statement.h"
-#include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
-#include "arrow/flight/flight-sql/server.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
+#include "arrow/flight/flight_sql/server.h"
 
 namespace arrow {
 namespace flight {

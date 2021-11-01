@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
 
 #include <sqlite3.h>
 
 #include "arrow/api.h"
-#include "arrow/flight/flight-sql/example/sqlite_statement.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement.h"
 
 #define STRING_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                                  \
   case TYPE_CLASS##Type::type_id: {                                                    \

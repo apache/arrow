@@ -18,9 +18,9 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
-#include "arrow/flight/flight-sql/server.h"
+#include "arrow/flight/flight_sql/server.h"
 
-#include <arrow/flight/flight-sql/FlightSql.pb.h>
+#include <arrow/flight/flight_sql/FlightSql.pb.h>
 #include <google/protobuf/any.pb.h>
 
 #include <boost/algorithm/string.hpp>

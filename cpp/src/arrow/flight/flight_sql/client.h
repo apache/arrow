@@ -19,7 +19,7 @@
 
 #include <arrow/flight/Flight.pb.h>
 #include <arrow/flight/client.h>
-#include <arrow/flight/flight-sql/FlightSql.pb.h>
+#include <arrow/flight/flight_sql/FlightSql.pb.h>
 #include <arrow/flight/types.h>
 #include <arrow/result.h>
 #include <arrow/status.h>

@@ -16,7 +16,7 @@
 // under the License.
 
 #include <arrow/flight/client.h>
-#include <arrow/flight/flight-sql/client_internal.h>
+#include <arrow/flight/flight_sql/client_internal.h>
 
 namespace arrow {
 namespace flight {

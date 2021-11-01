@@ -23,8 +23,8 @@
 #include <sstream>
 #include <utility>
 
-#include "arrow/flight/flight-sql/example/sqlite_statement.h"
-#include "arrow/flight/flight-sql/example/sqlite_statement_batch_reader.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
 
 namespace arrow {
 namespace flight {

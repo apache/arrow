@@ -17,7 +17,7 @@
 
 add_custom_target(arrow_flight_sql)
 
-arrow_install_all_headers("arrow/flight/flight-sql")
+arrow_install_all_headers("arrow/flight/flight_sql")
 
 set(FLIGHT_SQL_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
@@ -48,7 +48,7 @@ add_arrow_lib(arrow_flight_sql
               SOURCES
               ${ARROW_FLIGHT_SQL_SRCS}
               PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/flight-sql/pch.h>"
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/flight_sql/pch.h>"
               DEPENDENCIES
               flight_sql_protobuf_gen
               SHARED_LINK_FLAGS

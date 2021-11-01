@@ -733,7 +733,7 @@ if(ARROW_FLIGHT)
 endif()
 
 if(ARROW_FLIGHT_SQL)
-  add_subdirectory(flight/flight-sql)
+  add_subdirectory(flight/flight_sql)
 endif()
 
 if(ARROW_HIVESERVER2)

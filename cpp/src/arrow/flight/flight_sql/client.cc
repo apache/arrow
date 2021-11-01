@@ -16,9 +16,9 @@
 // under the License.
 
 #include <arrow/buffer.h>
-#include <arrow/flight/flight-sql/FlightSql.pb.h>
-#include <arrow/flight/flight-sql/client.h>
-#include <arrow/flight/flight-sql/client_internal.h>
+#include <arrow/flight/flight_sql/FlightSql.pb.h>
+#include <arrow/flight/flight_sql/client.h>
+#include <arrow/flight/flight_sql/client_internal.h>
 #include <arrow/flight/types.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
