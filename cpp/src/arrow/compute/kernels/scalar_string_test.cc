@@ -943,26 +943,26 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkc_options);
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfd_options);
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkd_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfc_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfkc_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfd_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfkd_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
+                   &nfc_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
+                   &nfkc_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
+                   &nfd_options);
+  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
+                   &nfkd_options);
 
   // Composition
   // before: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
   // after: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
-  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
-                   R"(["á"])", &nfc_options);
-  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
-                   R"(["á"])", &nfkc_options);
+  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(), R"(["á"])", &nfc_options);
+  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(), R"(["á"])", &nfkc_options);
 
   // Decomposition
   // before: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
   // after: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
-  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
-                   R"(["á"])", &nfd_options);
-  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(),
-                   R"(["á"])", &nfkd_options);
+  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(), R"(["á"])", &nfd_options);
+  this->CheckUnary("utf8_normalize", R"(["á"])", this->type(), R"(["á"])", &nfkd_options);
 
   // Canonical Composition/Decomposition
   this->CheckUnary("utf8_normalize", R"(["ﷺ"])", this->type(), R"(["ﷺ"])", &nfc_options);

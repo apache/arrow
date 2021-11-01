@@ -419,7 +419,7 @@ struct StringTransformExecBase {
     result->value = value_buffer;
     auto encoded_nbytes = static_cast<offset_type>(
         transform->Transform(input.value->data(), data_nbytes,
-            value_buffer->mutable_data(), output_ncodeunits_max));
+                             value_buffer->mutable_data(), output_ncodeunits_max));
     if (encoded_nbytes < 0) {
       return transform->InvalidStatus();
     }
@@ -700,12 +700,12 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
                     uint8_t* output, int64_t output_string_ncodeunits) {
     const auto option = GenerateUtf8NormalizeOption(options->method);
     const auto n_chars = utf8proc_decompose_custom(
-        input, input_string_ncodeunits, reinterpret_cast<utf8proc_int32_t *>(output),
+        input, input_string_ncodeunits, reinterpret_cast<utf8proc_int32_t*>(output),
         output_string_ncodeunits, option, NULL, NULL);
     if (n_chars < 0) return output_string_ncodeunits;
 
-    const auto n_bytes = utf8proc_reencode(reinterpret_cast<utf8proc_int32_t *>(output),
-                                           n_chars, option);
+    const auto n_bytes =
+        utf8proc_reencode(reinterpret_cast<utf8proc_int32_t*>(output), n_chars, option);
     return n_bytes;
   }
 
@@ -4496,8 +4496,8 @@ const FunctionDoc utf8_reverse_doc(
 
 const FunctionDoc utf8_normalize_doc(
     "Utf8 Normalization Form",
-    ("For each string in `strings`, return an unicode normalized version."),
-    {"strings"}, "Utf8NormalizeOptions");
+    ("For each string in `strings`, return an unicode normalized version."), {"strings"},
+    "Utf8NormalizeOptions");
 
 }  // namespace
 

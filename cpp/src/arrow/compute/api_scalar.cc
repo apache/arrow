@@ -453,8 +453,7 @@ WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
 constexpr char WeekOptions::kTypeName[];
 
 Utf8NormalizeOptions::Utf8NormalizeOptions(Method method)
-    : FunctionOptions(internal::kUtf8NormalizeOptionsType),
-      method(method) {}
+    : FunctionOptions(internal::kUtf8NormalizeOptionsType), method(method) {}
 constexpr char Utf8NormalizeOptions::kTypeName[];
 
 NullOptions::NullOptions(bool nan_is_null)
