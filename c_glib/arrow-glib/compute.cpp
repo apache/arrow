@@ -151,7 +151,7 @@ G_BEGIN_DECLS
  * #GArrowScalarAggregateOptions is a class to customize the scalar
  * aggregate functions such as `count` function and convenient
  * functions of them such as garrow_array_count().
-
+ *
  * #GArrowCountOptions is a class to customize the `count` function and
  * garrow_array_count() family.
  *

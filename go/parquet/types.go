@@ -18,6 +18,7 @@ package parquet
 
 import (
 	"encoding/binary"
+	"io"
 	"reflect"
 	"strings"
 	"time"
@@ -46,6 +47,15 @@ var (
 	// FixedLenByteArraySizeBytes is the number of bytes returned by reflect.TypeOf(FixedLenByteArray{}).Size()
 	FixedLenByteArraySizeBytes int = int(reflect.TypeOf(FixedLenByteArray{}).Size())
 )
+
+// ReaderAtSeeker is a combination of the ReaderAt and ReadSeeker interfaces
+// from the io package defining the only functionality that is required
+// in order for a parquet file to be read by the file functions. We just need
+// to be able to call ReadAt, Read, and Seek
+type ReaderAtSeeker interface {
+	io.ReaderAt
+	io.ReadSeeker
+}
 
 // NewInt96 creates a new Int96 from the given 3 uint32 values.
 func NewInt96(v [3]uint32) (out Int96) {

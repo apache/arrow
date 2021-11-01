@@ -92,9 +92,10 @@ test_that("collapse", {
     mutate(twice = int * 2L)
   expect_false(is_collapsed(q))
   expect_true(is_collapsed(collapse(q)))
+  expect_false(is_collapsed(collapse(q)$.data))
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       select(chr, int, lgl) %>%
       mutate(twice = int * 2L) %>%
@@ -105,10 +106,23 @@ test_that("collapse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       collapse() %>%
+      select(chr, int, lgl) %>%
+      collapse() %>%
+      filter(int < 5) %>%
+      select(int, chr) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(dbl > 2, chr == "d" | chr == "f") %>%
+      collapse() %>%
+      group_by(chr) %>%
       select(chr, int, lgl) %>%
       collapse() %>%
       filter(int < 5) %>%
@@ -183,6 +197,7 @@ See $.data for the source Arrow object",
     q %>% head(1) %>% collect(),
     tibble::tibble(lgl = FALSE, total = 8L, extra = 40)
   )
+  skip("TODO (ARROW-1XXXX): implement sorting option about where NAs go")
   expect_equal(
     q %>% tail(1) %>% collect(),
     tibble::tibble(lgl = NA, total = 25L, extra = 125)

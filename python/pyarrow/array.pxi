@@ -163,6 +163,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     representation). Timezone-naive data will be implicitly interpreted as
     UTC.
 
+    Pandas's DateOffsets and dateutil.relativedelta.relativedelta are by
+    default converted as MonthDayNanoIntervalArray. relativedelta leapdays
+    are ignored as are all absolute fields on both objects. datetime.timedelta
+    can also be converted to MonthDayNanoIntervalArray but this requires
+    passing MonthDayNanoIntervalType explicitly.
+
     Converting to dictionary array will promote to a wider integer type for
     indices if the number of distinct values cannot be represented, even if
     the index type was explicitly set. This means that if there are more than
@@ -223,8 +229,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         return _handle_arrow_array_protocol(obj, type, mask, size)
     elif _is_array_like(obj):
         if mask is not None:
-            # out argument unused
-            mask = get_values(mask, &is_pandas_object)
+            if _is_array_like(mask):
+                mask = get_values(mask, &is_pandas_object)
+            else:
+                raise TypeError("Mask must be a numpy array "
+                                "when converting numpy arrays")
 
         values = get_values(obj, &is_pandas_object)
         if is_pandas_object and from_pandas is None:
@@ -1528,6 +1537,32 @@ cdef class DurationArray(NumericArray):
     Concrete class for Arrow arrays of duration data type.
     """
 
+
+cdef class MonthDayNanoIntervalArray(Array):
+    """
+    Concrete class for Arrow arrays of interval[MonthDayNano] type.
+    """
+
+    def to_pylist(self):
+        """
+        Convert to a list of native Python objects.
+
+        pyarrow.MonthDayNano is used as the native representation.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CResult[PyObject*] maybe_py_list
+            PyObject* py_list
+            CMonthDayNanoIntervalArray* array
+        array = <CMonthDayNanoIntervalArray*>self.sp_array.get()
+        maybe_py_list = MonthDayNanoIntervalArrayToPyList(deref(array))
+        py_list = GetResultValue(maybe_py_list)
+        return PyObject_to_object(py_list)
+
+
 cdef class HalfFloatArray(FloatingPointArray):
     """
     Concrete class for Arrow arrays of float16 data type.
@@ -2409,6 +2444,7 @@ cdef dict _array_classes = {
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
     _Type_DURATION: DurationArray,
+    _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalArray,
     _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,

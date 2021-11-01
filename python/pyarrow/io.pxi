@@ -1266,21 +1266,22 @@ cdef class CompressedInputStream(NativeFile):
 
     Parameters
     ----------
-    stream : pa.NativeFile
+    stream : string, path, pa.NativeFile, or file-like object
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
 
-    def __init__(self, NativeFile stream, str compression not None):
+    def __init__(self, object stream, str compression not None):
         cdef:
+            NativeFile nf
             Codec codec = Codec(compression)
+            shared_ptr[CInputStream] c_reader
             shared_ptr[CCompressedInputStream] compressed_stream
+        nf = get_native_file(stream, False)
+        c_reader = nf.get_input_stream()
         compressed_stream = GetResultValue(
-            CCompressedInputStream.Make(
-                codec.unwrap(),
-                stream.get_input_stream()
-            )
+            CCompressedInputStream.Make(codec.unwrap(), c_reader)
         )
         self.set_input_stream(<shared_ptr[CInputStream]> compressed_stream)
         self.is_readable = True

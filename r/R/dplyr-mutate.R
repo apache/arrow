@@ -57,14 +57,14 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- handle_arrow_not_supported(
         results[[new_var]],
-        as_label(exprs[[i]])
+        format_expr(exprs[[i]])
       )
       return(abandon_ship(call, .data, msg))
     } else if (!inherits(results[[new_var]], "Expression") &&
       !is.null(results[[new_var]])) {
       # We need some wrapping to handle literal values
       if (length(results[[new_var]]) != 1) {
-        msg <- paste0("In ", new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
+        msg <- paste0("In ", new_var, " = ", format_expr(exprs[[i]]), ", only values of size one are recycled")
         return(abandon_ship(call, .data, msg))
       }
       results[[new_var]] <- Expression$scalar(results[[new_var]])
@@ -135,6 +135,6 @@ ensure_named_exprs <- function(exprs) {
   # Check for unnamed expressions and fix if any
   unnamed <- !nzchar(names(exprs))
   # Deparse and take the first element in case they're long expressions
-  names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
+  names(exprs)[unnamed] <- map_chr(exprs[unnamed], format_expr)
   exprs
 }

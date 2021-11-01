@@ -129,6 +129,7 @@ x-hierarchy:
     - ubuntu-python-sdist-test
     - ubuntu-r
     - ubuntu-r-only-r
+  - ubuntu-cpp-bundled
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
@@ -235,7 +236,7 @@ services:
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
-    command: &cpp-conda-command
+    command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build true &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
@@ -270,7 +271,9 @@ services:
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
     volumes: *conda-volumes
-    command: *cpp-conda-command
+    command: 
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   debian-cpp:
     # Usage:
@@ -297,9 +300,11 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
+    # integration_skyhook.sh is a no-op unless skyhook is on.
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp:
@@ -323,6 +328,7 @@ services:
         gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     ulimits: *ulimits
+    privileged: true
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -330,6 +336,26 @@ services:
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
+    command: *cpp-command
+
+  ubuntu-cpp-bundled:
+    # Arrow build with BUNDLED dependencies
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp-minimal.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: *ccache
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      CMAKE_GENERATOR: "Unix Makefiles"
+    volumes: *ubuntu-volumes
     command: *cpp-command
 
   ubuntu-cuda-cpp:
@@ -754,7 +780,7 @@ services:
       args:
         arch_alias: ${ARCH_ALIAS}
         arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2020-12-03-912b0de
+        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
@@ -777,7 +803,7 @@ services:
       args:
         arch_alias: ${ARCH_ALIAS}
         arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2020-11-11-bc8ce45
+        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
@@ -875,6 +901,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery &&
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java/dist &&
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
 
   ##############################  Integration #################################
@@ -1308,7 +1335,7 @@ services:
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
   debian-java-jni:
-    # Includes plasma test and jni for gandiva and orc.
+    # Includes plasma test, jni for gandiva and orc, and C data interface.
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose build debian-java-jni
@@ -1332,6 +1359,7 @@ services:
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
@@ -1366,6 +1394,7 @@ services:
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/csharp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&

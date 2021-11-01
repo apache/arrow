@@ -24,7 +24,9 @@ arrow_dplyr_query <- function(.data) {
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
-  if (!inherits(.data, c("Dataset", "arrow_dplyr_query"))) {
+  gv <- dplyr::group_vars(.data) %||% character()
+
+  if (!inherits(.data, c("Dataset", "arrow_dplyr_query", "RecordBatchReader"))) {
     .data <- InMemoryDataset$create(.data)
   }
   # Evaluating expressions on a dataset with duplicated fieldnames will error
@@ -50,7 +52,7 @@ arrow_dplyr_query <- function(.data) {
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
       # in the data. They will be kept when data is pulled into R.
-      group_by_vars = character(),
+      group_by_vars = gv,
       # drop_empty_groups is a logical value indicating whether to drop
       # groups formed by factor levels that don't appear in the data. It
       # should be non-null only when the data is grouped.
@@ -147,7 +149,7 @@ dim.arrow_dplyr_query <- function(x) {
   if (is_collapsed(x)) {
     # Don't evaluate just for nrow
     rows <- NA_integer_
-  } else if (isTRUE(x$filtered)) {
+  } else if (isTRUE(x$filtered_rows)) {
     rows <- x$.data$num_rows
   } else {
     rows <- Scanner$create(x)$CountRows()
@@ -162,22 +164,33 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO (ARROW-13893): refactor
-  out <- head.Dataset(x, n, ...)
-  restore_dplyr_features(out, x)
+  x$head <- n
+  collapse.arrow_dplyr_query(x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  # TODO (ARROW-13893): refactor
-  out <- tail.Dataset(x, n, ...)
-  restore_dplyr_features(out, x)
+  x$tail <- n
+  collapse.arrow_dplyr_query(x)
 }
 
 #' @export
-`[.arrow_dplyr_query` <- `[.Dataset`
-# TODO: ^ should also probably restore_dplyr_features, and/or that should be moved down
-# TODO (ARROW-13893): refactor
+`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
+  x <- ensure_group_vars(x)
+  if (nargs() == 2L) {
+    # List-like column extraction (x[i])
+    return(x[, i])
+  }
+  if (!missing(j)) {
+    x <- select.arrow_dplyr_query(x, all_of(j))
+  }
+
+  if (!missing(i)) {
+    out <- take_dataset_rows(x, i)
+    x <- restore_dplyr_features(out, x)
+  }
+  x
+}
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
@@ -239,4 +252,8 @@ is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 has_aggregation <- function(x) {
   # TODO: update with joins (check right side data too)
   !is.null(x$aggregations) || (is_collapsed(x) && has_aggregation(x$.data))
+}
+
+has_head_tail <- function(x) {
+  !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))
 }

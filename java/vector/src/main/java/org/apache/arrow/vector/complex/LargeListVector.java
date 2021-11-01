@@ -273,8 +273,15 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     }
   }
 
-  @Override
+  /**
+   * Get the inner vectors.
+   *
+   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
+   *
+   * @return the inner vectors for this field as defined by the TypeLayout
+   */
   @Deprecated
+  @Override
   public List<BufferBacked> getFieldInnerVectors() {
     throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
@@ -442,7 +449,14 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     ComplexCopier.copy(in, out);
   }
 
+  /**
+   * Get the offset vector.
+   * @deprecated This API will be removed, as the current implementations no longer hold inner offset vectors.
+   *
+   * @return the underlying offset vector or null if none exists.
+   */
   @Override
+  @Deprecated
   public UInt4Vector getOffsetVector() {
     throw new UnsupportedOperationException("There is no inner offset vector");
   }

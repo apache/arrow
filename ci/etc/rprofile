@@ -3,7 +3,7 @@
     # Return a CRAN repo URL, preferring RSPM binaries if available for this OS
     rspm_template <- "https://packagemanager.rstudio.com/cran/__linux__/%s/latest"
     supported_os <- c("focal", "xenial", "bionic", "centos7", "centos8", "opensuse42", "opensuse15", "opensuse152")
-  
+
     if (nzchar(Sys.which("lsb_release"))) {
       os <- tolower(system("lsb_release -cs", intern = TRUE))
       if (os %in% supported_os) {
@@ -37,10 +37,10 @@
         return(sprintf(rspm_template, os))
       }
     }
-  
+
     return("https://cloud.r-project.org")
   }
-  
+
   options(
     Ncpus = parallel::detectCores(),
     repos = tryCatch(.pick_cran(), error = function(e) "https://cloud.r-project.org"),
@@ -50,4 +50,13 @@
       paste(getRversion(), R.version$platform, R.version$arch, R.version$os)
     )
   )
+
+  # there's a bug in 3.5 that will warn/error on these, so only set it around that
+  if (getRversion() >= "3.6.0" || getRversion() < "3.5.0") {
+    options(
+      warnPartialMatchAttr = TRUE,
+      warnPartialMatchDollar = TRUE,
+      warnPartialMatchArgs = TRUE
+    )
+  }
 })

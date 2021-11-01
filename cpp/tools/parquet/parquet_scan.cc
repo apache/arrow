@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
     int64_t total_rows = parquet::ScanFileContents(columns, batch_size, reader.get());
 
     total_time = static_cast<double>(std::clock() - start_time) /
-      static_cast<double>(CLOCKS_PER_SEC);
+                 static_cast<double>(CLOCKS_PER_SEC);
     std::cout << total_rows << " rows scanned in " << total_time << " seconds."
               << std::endl;
   } catch (const std::exception& e) {

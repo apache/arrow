@@ -50,6 +50,8 @@ both array (chunked or not) and scalar inputs, however some will mandate
 either.  For example, while ``sort_indices`` requires its first and only
 input to be an array.
 
+.. _invoking-compute-functions:
+
 Invoking functions
 ------------------
 
@@ -201,7 +203,7 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary | Non-nested types | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| index              | Unary | Any              | Scalar Int64           | :struct:`IndexOptions`           |       |
+| index              | Unary | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(3)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
@@ -209,19 +211,19 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | min                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| min_max            | Unary | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
+| min_max            | Unary | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(4)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| mode               | Unary | Numeric          | Struct                 | :struct:`ModeOptions`            | \(4)  |
+| mode               | Unary | Numeric          | Struct                 | :struct:`ModeOptions`            | \(5)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| product            | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(5)  |
+| product            | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(6)  |
+| quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(7)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(5)  |
+| sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(7)  |
+| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(8)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
@@ -233,24 +235,27 @@ the input to a single output value.
 * \(2) CountMode controls whether only non-null values are counted (the
   default), only null values are counted, or all values are counted.
 
-* \(3) Output is a ``{"min": input type, "max": input type}`` Struct.
+* \(3) Returns -1 if the value is not found. The index of a null value
+  is always -1, regardless of whether there are nulls in the input.
+
+* \(4) Output is a ``{"min": input type, "max": input type}`` Struct.
 
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(4) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+* \(5) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
   It contains the *N* most common elements in the input, in descending
   order, where *N* is given in :member:`ModeOptions::n`.
   If two values have the same count, the smallest one comes first.
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(5) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(6) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(6) Output is Float64 or input type, depending on QuantileOptions.
+* \(7) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(7) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(8) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
@@ -488,37 +493,37 @@ Rounding functions
 Rounding functions displace numeric inputs to an approximate value with a simpler
 representation based on the rounding criterion.
 
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| Function name     | Arity      | Input types | Output type      | Options class                    | Notes  |
-+===================+============+=============+==================+==================================+========+
-| ceil              | Unary      | Numeric     | Float32/Float64  |                                  |        |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| floor             | Unary      | Numeric     | Float32/Float64  |                                  |        |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| round             | Unary      | Numeric     | Float32/Float64  | :struct:`RoundOptions`           | (1)(2) |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| round_to_multiple | Unary      | Numeric     | Float32/Float64  | :struct:`RoundToMultipleOptions` | (1)(3) |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
-| trunc             | Unary      | Numeric     | Float32/Float64  |                                  |        |
-+-------------------+------------+-------------+------------------+----------------------------------+--------+
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| Function name     | Arity      | Input types | Output type             | Options class                    | Notes  |
++===================+============+=============+=========================+==================================+========+
+| ceil              | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| floor             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| round             | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundOptions`           | (1)(2) |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| round_to_multiple | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundToMultipleOptions` | (1)(3) |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| trunc             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 
 * \(1) Output value is a 64-bit floating-point for integral inputs and the
-  retains the same type for floating-point inputs.  By default rounding
-  functions displace a value to the nearest integer using HALF_TO_EVEN
-  to resolve ties.  Options are available to control the rounding criterion.
-  Both ``round`` and ``round_to_multiple`` have the ``round_mode`` option to set
-  the rounding mode.
+  retains the same type for floating-point and decimal inputs.  By default
+  rounding functions displace a value to the nearest integer using
+  HALF_TO_EVEN to resolve ties.  Options are available to control the rounding
+  criterion.  Both ``round`` and ``round_to_multiple`` have the ``round_mode``
+  option to set the rounding mode.
 * \(2) Round to a number of digits where the ``ndigits`` option of
-  :struct:`RoundOptions` specifies the rounding precision in terms of number of
-  digits.  A negative value corresponds to digits in the non-fractional part.
-  For example, -2 corresponds to rounding to the nearest multiple of 100
-  (zeroing the ones and tens digits).  Default value of ``ndigits`` is 0 which
-  rounds to the nearest integer.
-* \(3) Round to a multiple where the ``multiple`` option of :struct:`RoundToMultipleOptions`
-  specifies the rounding scale.  The rounding multiple has to be a positive value.
-  For example, 100 corresponds to rounding to the nearest multiple of 100
-  (zeroing the ones and tens digits).  Default value of ``multiple`` is 1 which
-  rounds to the nearest integer.
+  :struct:`RoundOptions` specifies the rounding precision in terms of number
+  of digits.  A negative value corresponds to digits in the non-fractional
+  part.  For example, -2 corresponds to rounding to the nearest multiple of
+  100 (zeroing the ones and tens digits).  Default value of ``ndigits`` is 0
+  which rounds to the nearest integer.
+* \(3) Round to a multiple where the ``multiple`` option of
+  :struct:`RoundToMultipleOptions` specifies the rounding scale.  The rounding
+  multiple has to be a positive value.  For example, 100 corresponds to
+  rounding to the nearest multiple of 100 (zeroing the ones and tens digits).
+  Default value of ``multiple`` is 1 which rounds to the nearest integer.
 
 For ``round`` and ``round_to_multiple``, the following rounding modes are available.
 Tie-breaking modes are prefixed with HALF and round non-ties to the nearest integer.
@@ -540,22 +545,22 @@ The example values are given for default values of ``ndigits`` and ``multiple``.
 |                       | round positive values with ``UP`` rule                       | -3.2 -> -4, -3.7 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_DOWN             | Round ties with ``DOWN`` rule                                | 3.5 -> 3, 4.5 -> 4,       |
-|                       |                                                              | -3.5 -> -4, -3.5 -> -5    |
+|                       |                                                              | -3.5 -> -4, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_UP               | Round ties with ``UP`` rule                                  | 3.5 -> 4, 4.5 -> 5,       |
-|                       |                                                              | -3.5 -> -3, -3.5 -> -4    |
+|                       |                                                              | -3.5 -> -3, -4.5 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_TOWARDS_ZERO     | Round ties with ``TOWARDS_ZERO`` rule                        | 3.5 -> 3, 4.5 -> 4,       |
-|                       |                                                              | -3.5 -> -3, -3.5 -> -4    |
+|                       |                                                              | -3.5 -> -3, -4.5 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_TOWARDS_INFINITY | Round ties with ``TOWARDS_INFINITY`` rule                    | 3.5 -> 4, 4.5 -> 5,       |
-|                       |                                                              | -3.5 -> -4, -3.5 -> -5    |
+|                       |                                                              | -3.5 -> -4, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
-| HALF_TO_EVEN          | Round ties to nearest even integer                           | 3.5 -> 5, 4.5 -> 4,       |
-|                       |                                                              | -3.5 -> -4, -3.5 -> -4    |
+| HALF_TO_EVEN          | Round ties to nearest even integer                           | 3.5 -> 4, 4.5 -> 4,       |
+|                       |                                                              | -3.5 -> -4, -4.5 -> -4    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 | HALF_TO_ODD           | Round ties to nearest odd integer                            | 3.5 -> 3, 4.5 -> 5,       |
-|                       |                                                              | -3.5 -> -3, -3.5 -> -5    |
+|                       |                                                              | -3.5 -> -3, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 
 The following table gives examples of how ``ndigits`` (for the ``round``
@@ -824,11 +829,11 @@ String transforms
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
 | binary_length           | Unary | Binary- or String-like | Int32 or Int64         |                                   | \(3)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| binary_replace_slice    | Unary | String-like            | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(4)  |
+| binary_replace_slice    | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(4)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring       | Unary | String-like            | String-like            | :struct:`ReplaceSubstringOptions` | \(5)  |
+| replace_substring       | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(5)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring_regex | Unary | String-like            | String-like            | :struct:`ReplaceSubstringOptions` | \(6)  |
+| replace_substring_regex | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(6)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
 | utf8_capitalize         | Unary | String-like            | String-like            |                                   | \(8)  |
 +-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
@@ -854,7 +859,7 @@ String transforms
   are present, ``Invalid`` :class:`Status` will be returned.
 
 * \(3) Output is the physical length in bytes of each input element.  Output
-  type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
+  type is Int32 for Binary/String, Int64 for LargeBinary/LargeString.
 
 * \(4) Replace the slice of the substring from :member:`ReplaceSliceOptions::start`
   (inclusive) to :member:`ReplaceSliceOptions::stop` (exclusive) by
@@ -965,9 +970,9 @@ when a positive ``max_splits`` is given.
 +==========================+============+=========================+===================+==================================+=========+
 | ascii_split_whitespace   | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(1)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| split_pattern            | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(2)    |
+| split_pattern            | Unary      | Binary- or String-like  | List-like         | :struct:`SplitPatternOptions`    | \(2)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| split_pattern_regex      | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(3)    |
+| split_pattern_regex      | Unary      | Binary- or String-like  | List-like         | :struct:`SplitPatternOptions`    | \(3)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
 | utf8_split_whitespace    | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(4)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
@@ -988,11 +993,11 @@ when a positive ``max_splits`` is given.
 String component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+---------------+-------+-------------+-------------+-------------------------------+-------+
-| Function name | Arity | Input types | Output type | Options class                 | Notes |
-+===============+=======+=============+=============+===============================+=======+
-| extract_regex | Unary | String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
-+---------------+-------+-------------+-------------+-------------------------------+-------+
++---------------+-------+------------------------+-------------+-------------------------------+-------+
+| Function name | Arity | Input types            | Output type | Options class                 | Notes |
++===============+=======+========================+=============+===============================+=======+
+| extract_regex | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
++---------------+-------+------------------------+-------------+-------------------------------+-------+
 
 * \(1) Extract substrings defined by a regular expression using the Google RE2
   library.  The output struct field names refer to the named capture groups,
@@ -1004,13 +1009,13 @@ String joining
 
 These functions do the inverse of string splitting.
 
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| Function name            | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
-+==========================+===========+=======================+================+===================+=======================+=========+
-| binary_join              | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| binary_join_element_wise | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
-+--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
++--------------------------+---------+----------------------------------+------------------------+------------------------+-----------------------+---------+
+| Function name            | Arity   | Input type 1                     | Input type 2           | Output type            | Options class         | Notes   |
++==========================+=========+==================================+========================+========================+=======================+=========+
+| binary_join              | Binary  | List of Binary- or String-like   | String-like            | String-like            |                       | \(1)    |
++--------------------------+---------+----------------------------------+------------------------+------------------------+-----------------------+---------+
+| binary_join_element_wise | Varargs | Binary- or String-like (varargs) | Binary- or String-like | Binary- or String-like | :struct:`JoinOptions` | \(2)    |
++--------------------------+---------+----------------------------------+------------------------+------------------------+-----------------------+---------+
 
 * \(1) The first input must be an array, while the second can be a scalar or array.
   Each list of values in the first input is joined using each second input
@@ -1047,11 +1052,11 @@ Containment tests
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
 +=======================+=======+===================================+================+=================================+=======+
-| count_substring       | Unary | String-like                       | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
+| count_substring       | Unary | Binary- or String-like            | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| count_substring_regex | Unary | String-like                       | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
+| count_substring_regex | Unary | Binary- or String-like            | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(1)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| ends_with             | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
+| ends_with             | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | find_substring        | Unary | Binary- and String-like           | Int32 or Int64 | :struct:`MatchSubstringOptions` | \(3)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
@@ -1063,13 +1068,13 @@ Containment tests
 | is_in                 | Unary | Boolean, Null, Numeric, Temporal, | Boolean        | :struct:`SetLookupOptions`      | \(5)  |
 |                       |       | Binary- and String-like           |                |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_like            | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(6)  |
+| match_like            | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(6)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_substring       | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(7)  |
+| match_substring       | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(7)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| match_substring_regex | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(8)  |
+| match_substring_regex | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(8)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| starts_with           | Unary | String-like                       | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
+| starts_with           | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 * \(1) Output is the number of occurrences of
@@ -1317,7 +1322,6 @@ null input value is converted into a null output value.
   input value type to the output value type (if a conversion is
   available).
 
-
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1455,7 +1459,6 @@ An error is returned if the timestamps already have the timezone metadata set.
 * \(1) In addition to the timezone value, :struct:`AssumeTimezoneOptions`
   allows choosing the behaviour when a timestamp is ambiguous or nonexistent
   in the given timezone (because of DST shifts).
-
 
 Array-wise ("vector") functions
 -------------------------------

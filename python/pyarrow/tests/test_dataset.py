@@ -22,6 +22,8 @@ import pathlib
 import pickle
 import textwrap
 import tempfile
+import threading
+import time
 
 import numpy as np
 import pytest
@@ -30,7 +32,8 @@ import pyarrow as pa
 import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
-from pyarrow.tests.util import change_cwd, _filesystem_uri, FSProtocolClass
+from pyarrow.tests.util import (change_cwd, _filesystem_uri,
+                                FSProtocolClass, ProxyHandler)
 
 try:
     import pandas as pd
@@ -545,8 +548,9 @@ def test_expression_serialization():
     e = ds.scalar(None)
     f = ds.scalar({'a': 1})
     g = ds.scalar(pa.scalar(1))
+    h = ds.scalar(np.int64(2))
 
-    all_exprs = [a, b, c, d, e, f, g, a == b, a > b, a & b, a | b, ~c,
+    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  ds.field('i64') > 5, ds.field('i64') == 5,
@@ -704,7 +708,8 @@ def test_file_format_pickling():
     ]
     try:
         formats.append(ds.OrcFileFormat())
-    except ImportError:
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
         pass
 
     for file_format in formats:
@@ -2662,6 +2667,14 @@ def test_orc_format(tempdir, dataset_reader):
     result.validate(full=True)
     assert result.equals(table.select(["b"]))
 
+    result = dataset_reader.to_table(
+        dataset, columns={"b2": ds.field("b") * 2}
+    )
+    result.validate(full=True)
+    assert result.equals(
+        pa.table({'b2': pa.array([.2, .4, .6], type="float64")})
+    )
+
     assert dataset_reader.count_rows(dataset) == 3
     assert dataset_reader.count_rows(dataset, filter=ds.field("a") > 2) == 1
 
@@ -2692,7 +2705,8 @@ def test_orc_scan_options(tempdir, dataset_reader):
 def test_orc_format_not_supported():
     try:
         from pyarrow.dataset import OrcFileFormat  # noqa
-    except ImportError:
+    except (ImportError, AttributeError):
+        # catch AttributeError for Python 3.6
         # ORC is not available, test error message
         with pytest.raises(
             ValueError, match="not built with support for the ORC file"
@@ -3231,7 +3245,14 @@ def test_legacy_write_to_dataset_drops_null(tempdir):
     assert actual == expected
 
 
-def _check_dataset_roundtrip(dataset, base_dir, expected_files,
+def _sort_table(tab, sort_col):
+    import pyarrow.compute as pc
+    sorted_indices = pc.sort_indices(
+        tab, options=pc.SortOptions([(sort_col, 'ascending')]))
+    return pc.take(tab, sorted_indices)
+
+
+def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
                              base_dir_path=None, partitioning=None):
     base_dir_path = base_dir_path or base_dir
 
@@ -3245,7 +3266,9 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
     # check that reading back in as dataset gives the same result
     dataset2 = ds.dataset(
         base_dir_path, format="feather", partitioning=partitioning)
-    assert dataset2.to_table().equals(dataset.to_table())
+
+    assert _sort_table(dataset2.to_table(), sort_col).equals(
+        _sort_table(dataset.to_table(), sort_col))
 
 
 @pytest.mark.parquet
@@ -3259,12 +3282,12 @@ def test_write_dataset(tempdir):
     # full string path
     target = tempdir / 'single-file-target'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+    _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
     # pathlib path object
     target = tempdir / 'single-file-target2'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, target, expected_files, target)
+    _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
     # TODO
     # # relative path
@@ -3281,7 +3304,7 @@ def test_write_dataset(tempdir):
 
     target = tempdir / 'single-directory-target'
     expected_files = [target / "part-0.feather"]
-    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+    _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
 
 @pytest.mark.parquet
@@ -3301,7 +3324,7 @@ def test_write_dataset_partitioned(tempdir):
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning_schema)
 
     # directory partitioning
@@ -3313,7 +3336,7 @@ def test_write_dataset_partitioned(tempdir):
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]))
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning_schema)
 
 
@@ -3370,6 +3393,77 @@ def test_write_dataset_with_scanner(tempdir):
                     ) == table.drop(["a"]).to_pydict()
 
 
+def test_write_dataset_with_backpressure(tempdir):
+    consumer_gate = threading.Event()
+
+    # A filesystem that blocks all writes so that we can build
+    # up backpressure.  The writes are released at the end of
+    # the test.
+    class GatingFs(ProxyHandler):
+        def open_output_stream(self, path, metadata):
+            # Block until the end of the test
+            consumer_gate.wait()
+            return self._fs.open_output_stream(path, metadata=metadata)
+    gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
+
+    schema = pa.schema([pa.field('data', pa.int32())])
+    # By default, the dataset writer will queue up 64Mi rows so
+    # with batches of 1M it should only fit ~67 batches
+    batch = pa.record_batch([pa.array(list(range(1_000_000)))], schema=schema)
+    batches_read = 0
+    min_backpressure = 67
+    end = 200
+
+    def counting_generator():
+        nonlocal batches_read
+        while batches_read < end:
+            time.sleep(0.01)
+            batches_read += 1
+            yield batch
+
+    scanner = ds.Scanner.from_batches(
+        counting_generator(), schema=schema, use_threads=True,
+        use_async=True)
+
+    write_thread = threading.Thread(
+        target=lambda: ds.write_dataset(
+            scanner, str(tempdir), format='parquet', filesystem=gating_fs))
+    write_thread.start()
+
+    try:
+        start = time.time()
+
+        def duration():
+            return time.time() - start
+
+        # This test is timing dependent.  There is no signal from the C++
+        # when backpressure has been hit.  We don't know exactly when
+        # backpressure will be hit because it may take some time for the
+        # signal to get from the sink to the scanner.
+        #
+        # The test may emit false positives on slow systems.  It could
+        # theoretically emit a false negative if the scanner managed to read
+        # and emit all 200 batches before the backpressure signal had a chance
+        # to propagate but the 0.01s delay in the generator should make that
+        # scenario unlikely.
+        last_value = 0
+        backpressure_probably_hit = False
+        while duration() < 10:
+            if batches_read > min_backpressure:
+                if batches_read == last_value:
+                    backpressure_probably_hit = True
+                    break
+                last_value = batches_read
+            time.sleep(0.5)
+
+        assert backpressure_probably_hit
+
+    finally:
+        consumer_gate.set()
+        write_thread.join()
+    assert batches_read == end
+
+
 def test_write_dataset_with_dataset(tempdir):
     table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
 
@@ -3409,7 +3503,7 @@ def test_write_dataset_partitioned_dict(tempdir):
     # directories in _check_dataset_roundtrip (not currently required for
     # the formatting step)
     _check_dataset_roundtrip(
-        dataset, str(target), expected_paths, target,
+        dataset, str(target), expected_paths, 'f1', target,
         partitioning=partitioning)
 
 

@@ -654,6 +654,20 @@ struct IndexImpl : public ScalarAggregator {
   int64_t index = -1;
 };
 
+template <>
+struct IndexImpl<NullType> : public ScalarAggregator {
+  explicit IndexImpl(IndexOptions, KernelState*) {}
+
+  Status Consume(KernelContext*, const ExecBatch&) override { return Status::OK(); }
+
+  Status MergeFrom(KernelContext*, KernelState&&) override { return Status::OK(); }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    out->value = std::make_shared<Int64Scalar>(-1);
+    return Status::OK();
+  }
+};
+
 struct IndexInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -665,6 +679,11 @@ struct IndexInit {
 
   Status Visit(const DataType& type) {
     return Status::NotImplemented("Index kernel not implemented for ", type.ToString());
+  }
+
+  Status Visit(const NullType&) {
+    state.reset(new IndexImpl<NullType>(options, ctx->state()));
+    return Status::OK();
   }
 
   Status Visit(const BooleanType&) {
@@ -680,6 +699,17 @@ struct IndexInit {
 
   template <typename Type>
   enable_if_base_binary<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    state.reset(new IndexImpl<FixedSizeBinaryType>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }
@@ -712,8 +742,14 @@ struct IndexInit {
     if (!args.options) {
       return Status::Invalid("Must provide IndexOptions for index kernel");
     }
-    IndexInit visitor(ctx, static_cast<const IndexOptions&>(*args.options),
-                      *args.inputs[0].type);
+    const auto& options = static_cast<const IndexOptions&>(*args.options);
+    if (!options.value) {
+      return Status::Invalid("Must provide IndexOptions.value for index kernel");
+    } else if (!options.value->type->Equals(*args.inputs[0].type)) {
+      return Status::TypeError("Expected IndexOptions.value to be of type ",
+                               *args.inputs[0].type, ", but got ", *options.value->type);
+    }
+    IndexInit visitor(ctx, options, *args.inputs[0].type);
     return visitor.Create();
   }
 };
@@ -1003,6 +1039,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddBasicAggKernels(IndexInit::Init, BaseBinaryTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, PrimitiveTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, TemporalTypes(), int64(), func.get());
+  AddBasicAggKernels(IndexInit::Init,
+                     {fixed_size_binary(1), decimal128(1, 0), decimal256(1, 0), null()},
+                     int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

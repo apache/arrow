@@ -104,6 +104,16 @@ RecordBatchReader <- R6Class("RecordBatchReader",
   )
 )
 
+#' @export
+head.RecordBatchReader <- function(x, n = 6L, ...) {
+  head(Scanner$create(x), n)
+}
+
+#' @export
+tail.RecordBatchReader <- function(x, n = 6L, ...) {
+  tail(Scanner$create(x), n)
+}
+
 #' @rdname RecordBatchReader
 #' @usage NULL
 #' @format NULL

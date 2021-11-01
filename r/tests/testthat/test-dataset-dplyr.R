@@ -186,13 +186,14 @@ test_that("collect() on Dataset works (if fits in memory)", {
 })
 
 test_that("count()", {
-  skip("count() is not a generic so we have to get here through summarize()")
   ds <- open_dataset(dataset_dir)
   df <- rbind(df1, df2)
   expect_equal(
     ds %>%
       filter(int > 6, int < 108) %>%
-      count(chr),
+      count(chr) %>%
+      arrange(chr) %>%
+      collect(),
     df %>%
       filter(int > 6, int < 108) %>%
       count(chr)
@@ -284,6 +285,48 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
   expect_r6_class(tab5$.data, "InMemoryDataset")
   # ... and the mutate() was evaluated
   expect_true("negint" %in% names(tab5$.data))
+})
+
+test_that("head/tail on query on dataset", {
+  # head/tail on arrow_dplyr_query does not have deterministic order,
+  # so without sorting we can only assert the correct number of rows
+  ds <- open_dataset(dataset_dir)
+
+  expect_identical(
+    ds %>%
+      filter(int > 6) %>%
+      head(5) %>%
+      compute() %>%
+      nrow(),
+    5L
+  )
+
+  expect_equal(
+    ds %>%
+      filter(int > 6) %>%
+      arrange(int) %>%
+      head() %>%
+      collect(),
+    rbind(df1[7:10, ], df2[1:2, ])
+  )
+
+  expect_equal(
+    ds %>%
+      filter(int < 105) %>%
+      tail(4) %>%
+      compute() %>%
+      nrow(),
+    4L
+  )
+
+  expect_equal(
+    ds %>%
+      filter(int < 105) %>%
+      arrange(int) %>%
+      tail() %>%
+      collect(),
+    rbind(df1[9:10, ], df2[1:4, ])
+  )
 })
 
 test_that("dplyr method not implemented messages", {

@@ -284,7 +284,7 @@ TEST_F(DatasetWriterTestFixture, DeleteExistingData) {
                      fs::File("testdir/chunk-5.arrow"), fs::File("testdir/blah.txt")}));
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
-  write_options_.existing_data_behavior = kDeleteMatchingPartitions;
+  write_options_.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
   AssertFinished(queue_fut);
@@ -302,7 +302,7 @@ TEST_F(DatasetWriterTestFixture, PartitionedDeleteExistingData) {
                      fs::File("testdir/part1/bar.arrow")}));
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
-  write_options_.existing_data_behavior = kDeleteMatchingPartitions;
+  write_options_.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "part0");
   AssertFinished(queue_fut);
@@ -321,7 +321,7 @@ TEST_F(DatasetWriterTestFixture, LeaveExistingData) {
                      fs::File("testdir/chunk-5.arrow"), fs::File("testdir/blah.txt")}));
   filesystem_ = std::dynamic_pointer_cast<MockFileSystem>(fs);
   write_options_.filesystem = filesystem_;
-  write_options_.existing_data_behavior = kOverwriteOrIgnore;
+  write_options_.existing_data_behavior = ExistingDataBehavior::kOverwriteOrIgnore;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "");
   AssertFinished(queue_fut);

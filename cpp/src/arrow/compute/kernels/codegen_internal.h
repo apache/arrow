@@ -189,6 +189,38 @@ struct GetOutputType<Decimal256Type> {
 };
 
 // ----------------------------------------------------------------------
+// enable_if helpers for C types
+
+template <typename T>
+using is_unsigned_integer_value =
+    std::integral_constant<bool,
+                           std::is_integral<T>::value && std::is_unsigned<T>::value>;
+
+template <typename T>
+using is_signed_integer_value =
+    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
+
+template <typename T, typename R = T>
+using enable_if_signed_integer_value = enable_if_t<is_signed_integer_value<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_unsigned_integer_value =
+    enable_if_t<is_unsigned_integer_value<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_integer_value =
+    enable_if_t<is_signed_integer_value<T>::value || is_unsigned_integer_value<T>::value,
+                R>;
+
+template <typename T, typename R = T>
+using enable_if_floating_value = enable_if_t<std::is_floating_point<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_decimal_value =
+    enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
+                R>;
+
+// ----------------------------------------------------------------------
 // Iteration / value access utilities
 
 template <typename T, typename R = void>
@@ -1199,7 +1231,7 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   }
 }
 
-// similar to GenerateTypeAgnosticPrimitive, but for variable types
+// similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
 template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
@@ -1215,10 +1247,28 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for binary and string types
+template <template <typename...> class Generator, typename... Args>
+ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY:
+      return Generator<BinaryType, Args...>::Exec;
+    case Type::STRING:
+      return Generator<StringType, Args...>::Exec;
+    case Type::LARGE_BINARY:
+      return Generator<LargeBinaryType, Args...>::Exec;
+    case Type::LARGE_STRING:
+      return Generator<LargeStringType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for base binary types. Generates
-// a single kernel for binary/string and large binary / large string. If your
-// kernel implementation needs access to the specific type at compile time,
-// please use BaseBinarySpecific.
+// a single kernel for binary/string and large binary/large string. If your kernel
+// implementation needs access to the specific type at compile time, please use
+// BaseBinarySpecific.
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>

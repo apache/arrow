@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "6.0.0-SNAPSHOT")
+set(ARROW_VERSION "7.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -111,6 +111,7 @@ set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSIONS
+    "13.0"
     "12.0"
     "11.1"
     "11.0"
@@ -240,7 +241,7 @@ add_custom_target(lint
                   --exclude_globs
                   ${LINT_EXCLUSIONS_FILE}
                   --source_dir
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src
+                  ${CMAKE_CURRENT_SOURCE_DIR}
                   ${ARROW_LINT_QUIET})
 
 #
@@ -256,7 +257,7 @@ if(${CLANG_FORMAT_FOUND})
                     --exclude_globs
                     ${LINT_EXCLUSIONS_FILE}
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -269,7 +270,7 @@ if(${CLANG_FORMAT_FOUND})
                     --exclude_globs
                     ${LINT_EXCLUSIONS_FILE}
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -298,7 +299,7 @@ if(${CLANG_TIDY_FOUND})
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -313,7 +314,7 @@ if(${CLANG_TIDY_FOUND})
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -348,6 +349,13 @@ endif()
 
 if(ARROW_ENGINE)
   set(ARROW_COMPUTE ON)
+endif()
+
+if(ARROW_SKYHOOK)
+  set(ARROW_DATASET ON)
+  set(ARROW_PARQUET ON)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_SNAPPY ON)
 endif()
 
 if(ARROW_DATASET)
@@ -801,7 +809,11 @@ endif()
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
 # boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
-if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)))
+if(((ARROW_FLIGHT
+     OR ARROW_S3
+     OR ARROW_GCS)
+    AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
+   ))
   list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 endif()
 
@@ -931,6 +943,10 @@ endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
+endif()
+
+if(ARROW_SKYHOOK)
+  add_subdirectory(src/skyhook)
 endif()
 
 if(ARROW_BUILD_EXAMPLES)

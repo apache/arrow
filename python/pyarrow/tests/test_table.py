@@ -1022,6 +1022,23 @@ def test_table_remove_column_empty():
     assert t3.equals(table)
 
 
+def test_empty_table_with_names():
+    # ARROW-13784
+    data = []
+    names = ["a", "b"]
+    message = (
+        'Length of names [(]2[)] does not match length of arrays [(]0[)]')
+    with pytest.raises(ValueError, match=message):
+        pa.Table.from_arrays(data, names=names)
+
+
+def test_empty_table():
+    table = pa.table([])
+
+    assert table.column_names == []
+    assert table.equals(pa.Table.from_arrays([], []))
+
+
 def test_table_rename_columns():
     data = [
         pa.array(range(5)),
@@ -1625,8 +1642,8 @@ def test_table_repr_to_string_ellipsis():
 c0: int16
 c1: int32
 ----
-c0: [[1,2,3,4,1,2,3,4,1,2,...3,4,1,2,3,4,1,2,3,4]]
-c1: [[10,20,30,40,10,20,30,40,10,20,...30,40,10,20,30,40,10,20,30,40]]"""
+c0: [[1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]]
+c1: [[10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]]"""
 
 
 def test_table_function_unicode_schema():

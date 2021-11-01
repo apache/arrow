@@ -117,7 +117,7 @@ make_random_string_of_size <- function(size = 1) {
 }
 
 make_string_of_size <- function(size = 1) {
-  paste(rep(letters, length = 1000 * size), collapse = "")
+  paste(rep(letters, length.out = 1000 * size), collapse = "")
 }
 
 example_with_extra_metadata <- example_with_metadata

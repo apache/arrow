@@ -28,6 +28,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/ipc"
@@ -169,6 +170,8 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 		typ = unitZoneJSON{Name: "interval", Unit: "YEAR_MONTH"}
 	case *arrow.DayTimeIntervalType:
 		typ = unitZoneJSON{Name: "interval", Unit: "DAY_TIME"}
+	case *arrow.MonthDayNanoIntervalType:
+		typ = unitZoneJSON{Name: "interval", Unit: "MONTH_DAY_NANO"}
 	case *arrow.DurationType:
 		switch dt.Unit {
 		case arrow.Second:
@@ -351,9 +354,12 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			f.arrowType.(*arrow.TimestampType).Unit = arrow.Nanosecond
 		}
 	case "list":
-		f.arrowType = arrow.ListOf(f.Children[0].arrowType)
-		f.arrowType.(*arrow.ListType).Meta = f.Children[0].arrowMeta
-
+		f.arrowType = arrow.ListOfField(arrow.Field{
+			Name:     f.Children[0].Name,
+			Type:     f.Children[0].arrowType,
+			Metadata: f.Children[0].arrowMeta,
+			Nullable: f.Children[0].Nullable,
+		})
 	case "map":
 		t := mapJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
@@ -375,7 +381,12 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
-		f.arrowType = arrow.FixedSizeListOf(t.ListSize, f.Children[0].arrowType)
+		f.arrowType = arrow.FixedSizeListOfField(t.ListSize, arrow.Field{
+			Name:     f.Children[0].Name,
+			Type:     f.Children[0].arrowType,
+			Metadata: f.Children[0].arrowMeta,
+			Nullable: f.Children[0].Nullable,
+		})
 	case "interval":
 		t := unitZoneJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
@@ -386,6 +397,8 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			f.arrowType = arrow.FixedWidthTypes.MonthInterval
 		case "DAY_TIME":
 			f.arrowType = arrow.FixedWidthTypes.DayTimeInterval
+		case "MONTH_DAY_NANO":
+			f.arrowType = arrow.FixedWidthTypes.MonthDayNanoInterval
 		}
 	case "duration":
 		t := unitZoneJSON{}
@@ -548,13 +561,13 @@ func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
 		}}
 		switch dt := f.Type.(type) {
 		case *arrow.ListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable, Metadata: dt.Meta}})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()})
 		case *arrow.FixedSizeListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable}})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()})
 		case *arrow.StructType:
 			o[i].Children = fieldsToJSON(dt.Fields())
 		case *arrow.MapType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "entries", Type: dt.ValueType()}})
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ValueField()})
 		}
 	}
 	return o
@@ -630,6 +643,16 @@ func arraysToJSON(schema *arrow.Schema, arrs []array.Interface) []Array {
 		o[i] = arrayToJSON(schema.Field(i), v)
 	}
 	return o
+}
+
+func validsToBitmap(valids []bool, mem memory.Allocator) *memory.Buffer {
+	buf := memory.NewResizableBuffer(mem)
+	buf.Resize(int(bitutil.BytesForBits(int64(len(valids)))))
+
+	wr := bitutil.NewBitmapWriter(buf.Bytes(), 0, len(valids))
+	wr.AppendBools(valids)
+	wr.Finish()
+	return buf
 }
 
 func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Interface {
@@ -750,50 +773,51 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		return bldr.NewArray()
 
 	case *arrow.ListType:
-		bldr := array.NewListBuilder(mem, dt.Elem())
-		defer bldr.Release()
 		valids := validsFromJSON(arr.Valids)
 		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
 		defer elems.Release()
-		for i, v := range valids {
-			bldr.Append(v)
-			beg := int64(arr.Offset[i])
-			end := int64(arr.Offset[i+1])
-			buildArray(bldr.ValueBuilder(), array.NewSlice(elems, beg, end))
-		}
-		return bldr.NewArray()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
+			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
+			[]*array.Data{elems.Data()}, nulls, 0)
+		defer data.Release()
+		return array.NewListData(data)
 
 	case *arrow.FixedSizeListType:
-		bldr := array.NewFixedSizeListBuilder(mem, dt.Len(), dt.Elem())
-		defer bldr.Release()
 		valids := validsFromJSON(arr.Valids)
 		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
 		defer elems.Release()
-		size := int64(dt.Len())
-		for i, v := range valids {
-			bldr.Append(v)
-			beg := int64(i) * size
-			end := int64(i+1) * size
-			buildArray(bldr.ValueBuilder(), array.NewSlice(elems, beg, end))
-		}
-		return bldr.NewArray()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, []*array.Data{elems.Data()}, nulls, 0)
+		defer data.Release()
+		return array.NewFixedSizeListData(data)
 
 	case *arrow.StructType:
-		bldr := array.NewStructBuilder(mem, dt)
-		defer bldr.Release()
 		valids := validsFromJSON(arr.Valids)
-		fields := make([]array.Interface, len(dt.Fields()))
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+
+		fields := make([]*array.Data, len(dt.Fields()))
 		for i := range fields {
-			fields[i] = arrayFromJSON(mem, dt.Field(i).Type, arr.Children[i])
+			child := arrayFromJSON(mem, dt.Field(i).Type, arr.Children[i])
+			defer child.Release()
+			fields[i] = child.Data()
 		}
 
-		bldr.AppendValues(valids)
-		for i := range dt.Fields() {
-			fbldr := bldr.FieldBuilder(i)
-			buildArray(fbldr, fields[i])
-		}
+		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, fields, nulls, 0)
+		defer data.Release()
 
-		return bldr.NewArray()
+		return array.NewStructData(data)
 
 	case *arrow.FixedSizeBinaryType:
 		bldr := array.NewFixedSizeBinaryBuilder(mem, dt)
@@ -815,21 +839,19 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		return bldr.NewArray()
 
 	case *arrow.MapType:
-		bldr := array.NewMapBuilder(mem, dt.KeyType(), dt.ItemType(), dt.KeysSorted)
-		defer bldr.Release()
 		valids := validsFromJSON(arr.Valids)
-		pairs := arrayFromJSON(mem, dt.ValueType(), arr.Children[0])
-		defer pairs.Release()
-		for i, v := range valids {
-			bldr.Append(v)
-			beg := int64(arr.Offset[i])
-			end := int64(arr.Offset[i+1])
-			kb := bldr.KeyBuilder()
-			buildArray(kb, array.NewSlice(pairs.(*array.Struct).Field(0), beg, end))
-			ib := bldr.ItemBuilder()
-			buildArray(ib, array.NewSlice(pairs.(*array.Struct).Field(1), beg, end))
-		}
-		return bldr.NewArray()
+		elems := arrayFromJSON(mem, dt.ValueType(), arr.Children[0])
+		defer elems.Release()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
+			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
+			[]*array.Data{elems.Data()}, nulls, 0)
+		defer data.Release()
+		return array.NewMapData(data)
 
 	case *arrow.Date32Type:
 		bldr := array.NewDate32Builder(mem)
@@ -883,6 +905,14 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		bldr := array.NewDayTimeIntervalBuilder(mem)
 		defer bldr.Release()
 		data := daytimeintervalFromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return bldr.NewArray()
+
+	case *arrow.MonthDayNanoIntervalType:
+		bldr := array.NewMonthDayNanoIntervalBuilder(mem)
+		defer bldr.Release()
+		data := monthDayNanointervalFromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
 		return bldr.NewArray()
@@ -1151,6 +1181,13 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 			Name:   field.Name,
 			Count:  arr.Len(),
 			Data:   daytimeintervalToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+	case *array.MonthDayNanoInterval:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   monthDayNanointervalToJSON(arr),
 			Valids: validsToJSON(arr),
 		}
 	case *array.Duration:
@@ -1670,6 +1707,35 @@ func daytimeintervalToJSON(arr *array.DayTimeInterval) []interface{} {
 	return o
 }
 
+func monthDayNanointervalFromJSON(vs []interface{}) []arrow.MonthDayNanoInterval {
+	o := make([]arrow.MonthDayNanoInterval, len(vs))
+	for i, vv := range vs {
+		v := vv.(map[string]interface{})
+		months, err := v["months"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		days, err := v["days"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		ns, err := v["nanoseconds"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		o[i] = arrow.MonthDayNanoInterval{Months: int32(months), Days: int32(days), Nanoseconds: ns}
+	}
+	return o
+}
+
+func monthDayNanointervalToJSON(arr *array.MonthDayNanoInterval) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.Value(i)
+	}
+	return o
+}
+
 func durationFromJSON(vs []interface{}) []arrow.Duration {
 	o := make([]arrow.Duration, len(vs))
 	for i, v := range vs {
@@ -1692,145 +1758,4 @@ func durationToJSON(arr *array.Duration) []interface{} {
 		}
 	}
 	return o
-}
-
-func buildArray(bldr array.Builder, data array.Interface) {
-	defer data.Release()
-
-	switch bldr := bldr.(type) {
-	default:
-		panic(xerrors.Errorf("unknown builder %T", bldr))
-
-	case *array.BooleanBuilder:
-		data := data.(*array.Boolean)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Int8Builder:
-		data := data.(*array.Int8)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Int16Builder:
-		data := data.(*array.Int16)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Int32Builder:
-		data := data.(*array.Int32)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Int64Builder:
-		data := data.(*array.Int64)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Uint8Builder:
-		data := data.(*array.Uint8)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Uint16Builder:
-		data := data.(*array.Uint16)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Uint32Builder:
-		data := data.(*array.Uint32)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Uint64Builder:
-		data := data.(*array.Uint64)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Float32Builder:
-		data := data.(*array.Float32)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.Float64Builder:
-		data := data.(*array.Float64)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-
-	case *array.StringBuilder:
-		data := data.(*array.String)
-		for i := 0; i < data.Len(); i++ {
-			switch {
-			case data.IsValid(i):
-				bldr.Append(data.Value(i))
-			default:
-				bldr.AppendNull()
-			}
-		}
-	}
 }

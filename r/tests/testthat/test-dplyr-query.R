@@ -43,8 +43,8 @@ test_that("basic select/filter/collect", {
 })
 
 test_that("dim() on query", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 5) %>%
       select(int, chr) %>%
       dim(),
@@ -71,20 +71,20 @@ See $.data for the source Arrow object',
 })
 
 test_that("pull", {
-  expect_dplyr_equal(
-    input %>% pull(),
+  compare_dplyr_binding(
+    .input %>% pull(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>% pull(1),
+  compare_dplyr_binding(
+    .input %>% pull(1),
     tbl
   )
-  expect_dplyr_equal(
-    input %>% pull(chr),
+  compare_dplyr_binding(
+    .input %>% pull(chr),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 4) %>%
       rename(strng = chr) %>%
       pull(strng),
@@ -174,16 +174,15 @@ test_that("head", {
     select(int, chr) %>%
     filter(int > 5) %>%
     head(2)
-
-  expect_r6_class(b2, "Table")
+  expect_s3_class(b2, "arrow_dplyr_query")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")][1:2, ]
-  expect_equal(as.data.frame(b2), expected)
+  expect_equal(collect(b2), expected)
 
   b3 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     head(2)
-  expect_r6_class(b3, "Table")
+  expect_s3_class(b3, "arrow_dplyr_query")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -198,6 +197,55 @@ test_that("head", {
       rename(strng = chr) %>%
       group_by(int)
   )
+
+  expect_equal(
+    batch %>%
+      select(int, strng = chr) %>%
+      filter(int > 5) %>%
+      head(2) %>%
+      mutate(twice = int * 2) %>%
+      collect(),
+    expected %>%
+      rename(strng = chr) %>%
+      mutate(twice = int * 2)
+  )
+
+  # This would fail if we evaluated head() after filter()
+  expect_equal(
+    batch %>%
+      select(int, strng = chr) %>%
+      head(2) %>%
+      filter(int > 5) %>%
+      collect(),
+    expected %>%
+      rename(strng = chr) %>%
+      filter(FALSE)
+  )
+})
+
+test_that("arrange then head returns the right data (ARROW-14162)", {
+
+  compare_dplyr_binding(
+    .input %>%
+      # mpg has ties so we need to sort by two things to get deterministic order
+      arrange(mpg, disp) %>%
+      head(4) %>%
+      collect(),
+    mtcars,
+    ignore_attr = "row.names"
+  )
+})
+
+test_that("arrange then tail returns the right data", {
+  compare_dplyr_binding(
+    .input %>%
+      # mpg has ties so we need to sort by two things to get deterministic order
+      arrange(mpg, disp) %>%
+      tail(4) %>%
+      collect(),
+    mtcars,
+    ignore_attr = "row.names"
+  )
 })
 
 test_that("tail", {
@@ -206,23 +254,26 @@ test_that("tail", {
   b2 <- batch %>%
     select(int, chr) %>%
     filter(int > 5) %>%
+    arrange(int) %>%
     tail(2)
 
-  expect_r6_class(b2, "Table")
+  expect_s3_class(b2, "arrow_dplyr_query")
   expected <- tail(tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")], 2)
   expect_equal(as.data.frame(b2), expected)
 
   b3 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
+    arrange(int) %>%
     tail(2)
-  expect_r6_class(b3, "Table")
+  expect_s3_class(b3, "arrow_dplyr_query")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     group_by(int) %>%
+    arrange(int) %>%
     tail(2)
   expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(

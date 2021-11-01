@@ -684,6 +684,7 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
     -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
     -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
+    -DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY})
 
@@ -806,7 +807,8 @@ macro(build_boost)
                         CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
                         BUILD_COMMAND ${BOOST_BUILD_COMMAND}
                         INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static)
+    add_dependencies(boost_system_static boost_ep)
+    add_dependencies(boost_filesystem_static boost_ep)
   else()
     externalproject_add(boost_ep
                         ${EP_LOG_OPTIONS}
@@ -902,7 +904,13 @@ if(ARROW_USE_UBSAN)
   set(ARROW_USE_NATIVE_INT128 FALSE)
 else()
   include(CheckCXXSymbolExists)
-  check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  check_cxx_symbol_exists("_M_ARM64" "" WIN32_ARM64_TARGET)
+  if(WIN32_ARM64_TARGET AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # NOTE: For clang/win-arm64, native int128_t produce linker errors
+    set(ARROW_USE_NATIVE_INT128 FALSE)
+  else()
+    check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  endif()
 endif()
 
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
@@ -2417,11 +2425,9 @@ macro(build_absl_once)
   if(NOT TARGET absl_ep)
     message(STATUS "Building Abseil-cpp from source")
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+    set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
     set(ABSL_CMAKE_ARGS
-        "${EP_COMMON_CMAKE_ARGS}"
-        -DABSL_RUN_TESTS=OFF
-        -DCMAKE_CXX_STANDARD=11
-        -DCMAKE_INSTALL_LIBDIR=lib
+        "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
     set(ABSL_BUILD_BYPRODUCTS)
     set(ABSL_LIBRARIES)
@@ -2571,14 +2577,16 @@ macro(build_absl_once)
           "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
       add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
-      set_target_properties(absl::${_ABSL_LIB} PROPERTIES IMPORTED_LOCATION
-                                                          ${_ABSL_STATIC_LIBRARY})
+      set_target_properties(absl::${_ABSL_LIB}
+                            PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${ABSL_INCLUDE_DIR}")
       list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
     endforeach()
     foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
       add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
       set_target_properties(absl::${_ABSL_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                          "${ABSL_PREFIX}/include")
+                                                          "${ABSL_INCLUDE_DIR}")
     endforeach()
 
     # Extracted the dependency information using the Abseil pkg-config files:
@@ -3260,6 +3268,9 @@ macro(build_absl_once)
                         CMAKE_ARGS ${ABSL_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
 
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
+
   endif()
 endmacro()
 
@@ -3294,6 +3305,9 @@ macro(build_grpc)
   )
   set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING
       "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+  set(GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION
+      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++_reflection${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(GRPC_STATIC_LIBRARY_UPB
       "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3389,6 +3403,7 @@ macro(build_grpc)
                                        ${GRPC_STATIC_LIBRARY_GRPC}
                                        ${GRPC_STATIC_LIBRARY_GRPCPP}
                                        ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}
                                        ${GRPC_STATIC_LIBRARY_UPB}
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
@@ -3420,6 +3435,12 @@ macro(build_grpc)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+
+  add_library(gRPC::grpc++_reflection STATIC IMPORTED)
+  set_target_properties(gRPC::grpc++_reflection
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc STATIC IMPORTED)
@@ -3501,6 +3522,8 @@ if(ARROW_WITH_GRPC)
 
   if(GRPC_VENDORED)
     set(GRPCPP_PP_INCLUDE TRUE)
+    # Examples need to link to static Arrow if we're using static gRPC
+    set(ARROW_GRPC_USE_SHARED OFF)
   else()
     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
     # depending on the gRPC version.
@@ -3522,6 +3545,7 @@ macro(build_crc32c_once)
     message(STATUS "Building crc32c from source")
     # Build crc32c
     set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
+    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
     set(CRC32C_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_INSTALL_LIBDIR=lib
@@ -3544,11 +3568,13 @@ macro(build_crc32c_once)
                         URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
     add_library(Crc32c::crc32c STATIC IMPORTED)
     set_target_properties(Crc32c::crc32c
                           PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
-                                     "${CRC32C_INCLUDE}/include")
+                                     "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
   endif()
 endmacro()
@@ -3558,11 +3584,12 @@ macro(build_nlohmann_json_once)
     message(STATUS "Building nlohmann-json from source")
     # "Build" nlohmann-json
     set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
+    set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
     set(NLOHMANN_JSON_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
 
-    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/json.hpp)
+    set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
     externalproject_add(nlohmann_json_ep
                         ${EP_LOG_OPTIONS}
@@ -3571,10 +3598,14 @@ macro(build_nlohmann_json_once)
                         URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+
     add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
     set_target_properties(nlohmann_json::nlohmann_json
                           PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                     "${NLOHMANN_JSON_PREFIX}/include")
+                                     "${NLOHMANN_JSON_INCLUDE_DIR}")
     add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
   endif()
 endmacro()
@@ -3590,7 +3621,8 @@ macro(build_google_cloud_cpp_storage)
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
-  find_package(CURL REQUIRED 7.47.0)
+  find_package(CURL 7.47.0 REQUIRED)
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -3658,6 +3690,10 @@ macro(build_google_cloud_cpp_storage)
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
                       DEPENDS google_cloud_cpp_dependencies)
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${GOOGLE_CLOUD_CPP_INCLUDE_DIR})
+
   add_dependencies(toolchain google_cloud_cpp_ep)
 
   add_library(google-cloud-cpp::common STATIC IMPORTED)
@@ -3703,6 +3739,13 @@ endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   resolve_dependency(google_cloud_cpp_storage)
+  get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${google_cloud_cpp_storage_INCLUDE_DIR})
+  get_target_property(absl_base_INCLUDE_DIR absl::base INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${absl_base_INCLUDE_DIR})
+  message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
+  )
 endif()
 
 #
@@ -3912,11 +3955,19 @@ macro(build_awssdk)
                       DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
+  set(AWSSDK_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
+                                              "10")
+    # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
+    set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
+                             "<SOURCE_DIR>/cmake/compiler_settings.cmake")
+  endif()
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}

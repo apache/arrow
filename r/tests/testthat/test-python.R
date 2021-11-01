@@ -17,6 +17,7 @@
 
 test_that("install_pyarrow", {
   skip_on_cran()
+  skip_if_offline()
   skip_if_not_dev_mode()
   # Windows CI machine doesn't pick up the right python or something
   skip_on_os("windows")

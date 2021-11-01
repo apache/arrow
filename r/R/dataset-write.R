@@ -22,11 +22,9 @@
 #' make it much faster to read and query.
 #'
 #' @param dataset [Dataset], [RecordBatch], [Table], `arrow_dplyr_query`, or
-#' `data.frame`. If an `arrow_dplyr_query` or `grouped_df`,
-#' `schema` and `partitioning` will be taken from the result of any `select()`
-#' and `group_by()` operations done on the dataset. `filter()` queries will be
-#' applied to restrict written rows.
-#' Note that `select()`-ed columns may not be renamed.
+#' `data.frame`. If an `arrow_dplyr_query`, the query will be evaluated and
+#' the result will be written. This means that you can `select()`, `filter()`, `mutate()`,
+#' etc. to transform the data before it is written if you need to.
 #' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
 #' to write to (directory will be created if it does not exist)
 #' @param format a string identifier of the file format. Default is to use
@@ -40,6 +38,16 @@
 #' will yield `"part-0.feather", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
+#' @param existing_data_behavior The behavior to use when there is already data
+#' in the destination directory.  Must be one of "overwrite", "error", or
+#' "delete_matching".
+#' - "overwrite" (the default) then any new files created will overwrite
+#'   existing files
+#' - "error" then the operation will fail if the destination directory is not
+#'   empty
+#' - "delete_matching" then the writer will delete any existing partitions
+#'   if data is going to be written to those partitions and will leave alone
+#'   partitions which data is not written to.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -99,6 +107,7 @@ write_dataset <- function(dataset,
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
+                          existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           ...) {
   format <- match.arg(format)
   if (inherits(dataset, "arrow_dplyr_query")) {
@@ -124,8 +133,12 @@ write_dataset <- function(dataset,
   path_and_fs <- get_path_and_filesystem(path)
   options <- FileWriteOptions$create(format, table = scanner, ...)
 
+  existing_data_behavior_opts <- c("delete_matching", "overwrite", "error")
+  existing_data_behavior <- match(match.arg(existing_data_behavior), existing_data_behavior_opts) - 1L
+
   dataset___Dataset__Write(
     options, path_and_fs$fs, path_and_fs$path,
-    partitioning, basename_template, scanner
+    partitioning, basename_template, scanner,
+    existing_data_behavior
   )
 }

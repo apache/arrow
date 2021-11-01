@@ -66,6 +66,10 @@
 #error "xsimd should not be visible from Arrow public headers."
 #endif
 
+#ifdef HAS_CHRONO_ROUNDING
+#error "arrow::vendored::date should not be visible from Arrow public headers."
+#endif
+
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 

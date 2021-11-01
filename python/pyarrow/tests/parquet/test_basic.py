@@ -629,3 +629,22 @@ def test_reads_over_batch(tempdir):
     pq.write_table(table, path)
     table2 = pq.read_table(path)
     assert table == table2
+
+
+def test_permutation_of_column_order(tempdir):
+    # ARROW-2366
+    case = tempdir / "dataset_column_order_permutation"
+    case.mkdir(exist_ok=True)
+
+    data1 = pa.table([[1, 2, 3], [.1, .2, .3]], names=['a', 'b'])
+    pq.write_table(data1, case / "data1.parquet")
+
+    data2 = pa.table([[.4, .5, .6], [4, 5, 6]], names=['b', 'a'])
+    pq.write_table(data2, case / "data2.parquet")
+
+    table = pq.read_table(str(case))
+    table2 = pa.table([[1, 2, 3, 4, 5, 6],
+                      [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                      names=['a', 'b'])
+
+    assert table == table2

@@ -96,5 +96,6 @@ docker_run \
     ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
     RC=${rc} \
+    STAGING=${STAGING:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

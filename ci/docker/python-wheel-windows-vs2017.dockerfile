@@ -88,7 +88,8 @@ ARG python=3.6
 RUN (if "%python%"=="3.6" setx PYTHON_VERSION 3.6.8) & \
     (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.4) & \
     (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.6) & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.1)
+    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.1) & \
+    (if "%python%"=="3.10" setx PYTHON_VERSION 3.10.0)
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip
 
@@ -97,7 +98,7 @@ RUN pip install -r arrow/python/requirements-wheel-build.txt
 
 # TODO(kszucs): set clcache as the compiler
 ENV CLCACHE_DIR="C:\clcache"
-RUN pip install clcache
+RUN if "%python%" NEQ "3.10" pip install clcache
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip

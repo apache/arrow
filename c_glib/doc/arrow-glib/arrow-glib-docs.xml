@@ -84,6 +84,7 @@
       <title>Computation</title>
       <xi:include href="xml/compute.xml"/>
       <xi:include href="xml/datum.xml"/>
+      <xi:include href="xml/expression.xml"/>
     </chapter>
     <chapter id="buffer">
       <title>Buffer</title>

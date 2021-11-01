@@ -157,7 +157,7 @@ open_dataset <- function(sources,
     return(dataset___UnionDataset__create(sources, schema))
   }
 
-  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, ...)
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, schema = schema, ...)
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
@@ -333,24 +333,12 @@ c.Dataset <- function(...) Dataset$create(list(...))
 
 #' @export
 head.Dataset <- function(x, n = 6L, ...) {
-  assert_that(n > 0) # For now
-  scanner <- Scanner$create(ensure_group_vars(x))
-  dataset___Scanner__head(scanner, n)
+  head(Scanner$create(x), n)
 }
 
 #' @export
 tail.Dataset <- function(x, n = 6L, ...) {
-  assert_that(n > 0) # For now
-  result <- list()
-  batch_num <- 0
-  scanner <- Scanner$create(ensure_group_vars(x))
-  for (batch in rev(dataset___Scanner__ScanBatches(scanner))) {
-    batch_num <- batch_num + 1
-    result[[batch_num]] <- tail(batch, n)
-    n <- n - nrow(batch)
-    if (n <= 0) break
-  }
-  Table$create(!!!rev(result))
+  tail(Scanner$create(x), n)
 }
 
 #' @export
@@ -373,7 +361,7 @@ take_dataset_rows <- function(x, i) {
   if (!is.numeric(i) || any(i < 0)) {
     stop("Only slicing with positive indices is supported", call. = FALSE)
   }
-  scanner <- Scanner$create(ensure_group_vars(x))
+  scanner <- Scanner$create(x)
   i <- Array$create(i - 1)
   dataset___Scanner__TakeRows(scanner, i)
 }

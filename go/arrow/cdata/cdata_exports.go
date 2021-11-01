@@ -208,6 +208,8 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "tiM"
 	case *arrow.DayTimeIntervalType:
 		return "tiD"
+	case *arrow.MonthDayNanoIntervalType:
+		return "tin"
 	case *arrow.ListType:
 		return "+l"
 	case *arrow.FixedSizeListType:
@@ -233,7 +235,7 @@ func (exp *schemaExporter) export(field arrow.Field) {
 	switch dt := field.Type.(type) {
 	case *arrow.ListType:
 		exp.children = make([]schemaExporter, 1)
-		exp.children[0].export(arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable})
+		exp.children[0].export(dt.ElemField())
 	case *arrow.StructType:
 		exp.children = make([]schemaExporter, len(dt.Fields()))
 		for i, f := range dt.Fields() {
@@ -241,10 +243,10 @@ func (exp *schemaExporter) export(field arrow.Field) {
 		}
 	case *arrow.MapType:
 		exp.children = make([]schemaExporter, 1)
-		exp.children[0].export(arrow.Field{Name: "keyvalue", Type: dt.ValueType(), Nullable: field.Nullable})
+		exp.children[0].export(dt.ValueField())
 	case *arrow.FixedSizeListType:
 		exp.children = make([]schemaExporter, 1)
-		exp.children[0].export(arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable})
+		exp.children[0].export(dt.ElemField())
 	}
 
 	exp.exportMeta(&field.Metadata)

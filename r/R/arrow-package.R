@@ -20,7 +20,7 @@
 #' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap imap_chr
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
-#' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec
+#' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
@@ -37,7 +37,7 @@
       "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
       "arrange", "rename", "pull", "relocate", "compute", "collapse",
       "distinct", "left_join", "right_join", "inner_join", "full_join",
-      "semi_join", "anti_join"
+      "semi_join", "anti_join", "count", "tally"
     )
   )
   for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {

@@ -332,18 +332,17 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 		Offset: 0,
 	})
 
+	if arr.DataType().ID() == arrow.NULL {
+		return nil
+	}
+
 	switch arr.NullN() {
 	case 0:
 		p.body = append(p.body, nil)
 	default:
-		switch arr.DataType().ID() {
-		case arrow.NULL:
-			// Null type has no validity bitmap
-		default:
-			data := arr.Data()
-			bitmap := newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
-			p.body = append(p.body, bitmap)
-		}
+		data := arr.Data()
+		bitmap := newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
+		p.body = append(p.body, bitmap)
 	}
 
 	switch dtype := arr.DataType().(type) {
@@ -373,7 +372,7 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			// non-zero offset: slice the buffer
 			offset := int64(data.Offset()) * typeWidth
 			// send padding if available
-			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(data.Len())-offset)
+			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len())-offset)
 			values = memory.NewBufferBytes(values.Bytes()[offset : offset+len])
 		default:
 			if values != nil {
@@ -565,7 +564,7 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.B
 		shiftedOffsets.Resize(arrow.Int32Traits.BytesRequired(data.Len() + 1))
 
 		dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
-		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Len()+2]
+		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
 
 		startOffset := offsets[0]
 		for i, o := range offsets {
