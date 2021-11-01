@@ -15,30 +15,90 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_ARROW_EXAMPLE(row_wise_conversion_example)
+add_arrow_example(row_wise_conversion_example)
 
-if (ARROW_COMPUTE)
-  ADD_ARROW_EXAMPLE(compute_register_example)
+if(ARROW_COMPUTE)
+  add_arrow_example(compute_register_example)
 endif()
 
-if (ARROW_COMPUTE AND ARROW_CSV)
-  ADD_ARROW_EXAMPLE(compute_and_write_csv_example)
+if(ARROW_COMPUTE AND ARROW_CSV)
+  add_arrow_example(compute_and_write_csv_example)
 endif()
 
-if (ARROW_PARQUET AND ARROW_DATASET)
-  if (ARROW_BUILD_SHARED)
+if(ARROW_FLIGHT)
+  # Static gRPC means we cannot linked to shared Arrow, since then
+  # we'll violate ODR for gRPC symbols
+  if(ARROW_GRPC_USE_SHARED)
+    set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_shared)
+    # We don't directly use symbols from the reflection library, so
+    # ensure the linker still links to it
+    set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
+                                  -Wl,--as-needed)
+  elseif(NOT ARROW_BUILD_STATIC)
+    message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
+  else()
+    set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_static)
+    set(GRPC_REFLECTION_LINK_LIBS -Wl,--whole-archive gRPC::grpc++_reflection
+                                  -Wl,--no-whole-archive)
+  endif()
+
+  set(FLIGHT_EXAMPLE_GENERATED_PROTO_FILES
+      "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
+      "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.h"
+      "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc"
+      "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.h")
+  set_source_files_properties(${FLIGHT_EXAMPLE_GENERATED_PROTO_FILES} PROPERTIES GENERATED
+                                                                                 TRUE)
+
+  set(FLIGHT_EXAMPLE_PROTO "helloworld.proto")
+  set(FLIGHT_EXAMPLE_PROTO_PATH "${CMAKE_CURRENT_LIST_DIR}")
+  set(FLIGHT_EXAMPLE_PROTO_DEPENDS ${FLIGHT_EXAMPLE_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF}
+                                   gRPC::grpc_cpp_plugin)
+
+  add_custom_command(OUTPUT ${FLIGHT_EXAMPLE_GENERATED_PROTO_FILES}
+                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_EXAMPLE_PROTO_PATH}"
+                             "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}"
+                             "${FLIGHT_EXAMPLE_PROTO}"
+                     DEPENDS ${PROTO_EXAMPLE_PROTO_DEPENDS} ARGS
+                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_EXAMPLE_PROTO_PATH}"
+                             "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
+                             "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+                             "${FLIGHT_EXAMPLE_PROTO}")
+
+  add_custom_target(flight_grpc_example_gen ALL
+                    DEPENDS ${FLIGHT_EXAMPLE_GENERATED_PROTO_FILES})
+
+  add_arrow_example(flight_grpc_example
+                    DEPENDENCIES
+                    flight_grpc_example_gen
+                    # Not CMAKE_CURRENT_BINARY_DIR so we can #include
+                    # "examples/arrow/helloworld.pb.h" instead of
+                    # "helloworld.pb.h" (which fails lint)
+                    EXTRA_INCLUDES
+                    ${CMAKE_BINARY_DIR}
+                    EXTRA_LINK_LIBS
+                    ${FLIGHT_EXAMPLES_LINK_LIBS}
+                    gRPC::grpc++
+                    ${GRPC_REFLECTION_LINK_LIBS}
+                    ${ARROW_PROTOBUF_LIBPROTOBUF}
+                    ${GFLAGS_LIBRARIES}
+                    EXTRA_SOURCES
+                    "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
+                    "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
+endif()
+
+if(ARROW_PARQUET AND ARROW_DATASET)
+  if(ARROW_BUILD_SHARED)
     set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_shared)
   else()
     set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_static)
   endif()
 
-  ADD_ARROW_EXAMPLE(dataset_parquet_scan_example
-    EXTRA_LINK_LIBS
-    ${DATASET_EXAMPLES_LINK_LIBS})
+  add_arrow_example(dataset_parquet_scan_example EXTRA_LINK_LIBS
+                    ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(dataset_parquet_scan_example parquet)
 
-  ADD_ARROW_EXAMPLE(dataset_documentation_example
-    EXTRA_LINK_LIBS
-    ${DATASET_EXAMPLES_LINK_LIBS})
+  add_arrow_example(dataset_documentation_example EXTRA_LINK_LIBS
+                    ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(dataset_documentation_example parquet)
 endif()
