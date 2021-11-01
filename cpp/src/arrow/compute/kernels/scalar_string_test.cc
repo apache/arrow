@@ -650,9 +650,9 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
   Utf8NormalizeOptions nfkd_options{Utf8NormalizeOptions::Method::NFKD};
 
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfc_options);
+  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkc_options);
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfd_options);
-  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfc_options);
-  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfd_options);
+  this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkd_options);
   this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfc_options);
   this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfkc_options);
   this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])", &nfd_options);
