@@ -272,6 +272,11 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   set(ARROW_JSON ON)
 endif()
 
+if(ARROW_WITH_OPENTELEMETRY)
+  set(ARROW_WITH_GRPC ON)
+  set(ARROW_WITH_PROTOBUF ON)
+endif()
+
 if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
@@ -289,6 +294,9 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
+endif()
+
+if(ARROW_WITH_GRPC)
   # gRPC requires zlib
   set(ARROW_WITH_ZLIB ON)
 endif()
@@ -552,9 +560,19 @@ endif()
 if(DEFINED ENV{ARROW_OPENTELEMETRY_URL})
   set(OPENTELEMETRY_SOURCE_URL "$ENV{ARROW_OPENTELEMETRY_URL}")
 else()
+  # TODO: add mirror
   set_urls(OPENTELEMETRY_SOURCE_URL
            "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/${ARROW_OPENTELEMETRY_BUILD_VERSION}.tar.gz"
-           # "https://github.com/ursa-labs/thirdparty/releases/download/latest/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_OPENTELEMETRY_PROTO_URL})
+  set(OPENTELEMETRY_PROTO_SOURCE_URL "$ENV{ARROW_OPENTELEMETRY_PROTO_URL}")
+else()
+  # TODO: add mirror
+  # N.B. upstream pins to particular commits, not tags
+  set_urls(OPENTELEMETRY_PROTO_SOURCE_URL
+           "https://github.com/open-telemetry/opentelemetry-proto/archive/${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -980,6 +998,23 @@ if(ARROW_BOOST_REQUIRED)
 
   include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 endif()
+
+# ----------------------------------------------------------------------
+# cURL
+
+macro(find_curl)
+  if(NOT TARGET CURL::libcurl)
+    find_package(CURL REQUIRED)
+    if(NOT TARGET CURL::libcurl)
+      # For CMake 3.11 or older
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                                              "${CURL_LIBRARIES}")
+    endif()
+  endif()
+endmacro()
 
 # ----------------------------------------------------------------------
 # Snappy
@@ -3612,8 +3647,11 @@ macro(build_nlohmann_json_once)
     set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
     set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
     set(NLOHMANN_JSON_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
+        ${EP_COMMON_CMAKE_ARGS}
+        -DCMAKE_CXX_STANDARD=11
+        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+        -DBUILD_TESTING=OFF
+        -DJSON_BuildTests=OFF)
 
     set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
@@ -3686,17 +3724,7 @@ macro(build_google_cloud_cpp_storage)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json_ep)
   # Typically the steps to build the AWKSSDK provide `CURL::libcurl`, but if that is
   # disabled we need to provide our own.
-  if(NOT TARGET CURL::libcurl)
-    find_package(CURL REQUIRED)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
-    endif()
-  endif()
+  find_curl()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3887,8 +3915,15 @@ macro(build_opentelemetry)
   set(OPENTELEMETRY_STATIC_LIB
       "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
-  set(_OPENTELEMETRY_APIS api sdk)
-  set(_OPENTELEMETRY_LIBS common resources trace)
+  set(_OPENTELEMETRY_APIS api ext sdk)
+  set(_OPENTELEMETRY_LIBS
+      common
+      http_client_curl
+      exporter_otlp_http
+      otlp_recordable
+      proto
+      resources
+      trace)
   set(OPENTELEMETRY_BUILD_BYPRODUCTS)
   set(OPENTELEMETRY_LIBRARIES)
 
@@ -3899,9 +3934,15 @@ macro(build_opentelemetry)
                                      "${OPENTELEMETRY_INCLUDE_DIR}")
   endforeach()
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
-    set(_OPENTELEMETRY_STATIC_LIBRARY
-        "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+    if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    else()
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    endif()
     add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} STATIC IMPORTED)
     set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
                           PROPERTIES IMPORTED_LOCATION ${_OPENTELEMETRY_STATIC_LIBRARY})
@@ -3917,21 +3958,64 @@ macro(build_opentelemetry)
       "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
       -DBUILD_TESTING=OFF
       -DWITH_EXAMPLES=OFF)
+
+  set(OPENTELEMETRY_PREFIX_PATH_LIST)
+  add_custom_target(opentelemetry_dependencies)
+
   if(ARROW_WITH_OPENTELEMETRY)
+    build_nlohmann_json_once()
+    find_curl()
+
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
+    list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+    set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_OTLP=ON
+                                 -DWITH_OTLP_HTTP=ON -DWITH_OTLP_GRPC=OFF)
+
+    # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
+    # submodule. This submodule path is hardcoded into their CMake definitions,
+    # and submodules are not included in their releases. Add a custom build step
+    # to download and extract the Protobufs.
+
+    # Adding such a step is rather complicated, so instead: create a separate
+    # ExternalProject that just fetches the Protobufs, then add a custom step
+    # to the main build to copy the Protobufs.
+    externalproject_add(opentelemetry_proto_ep
+                        ${EP_LOG_OPTIONS}
+                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
+                        URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                        BUILD_COMMAND ""
+                        CONFIGURE_COMMAND ""
+                        INSTALL_COMMAND ""
+                        EXCLUDE_FROM_ALL OFF)
+
+    add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep)
+    if(gRPC_SOURCE STREQUAL "BUNDLED")
+      # TODO: opentelemetry-cpp::proto doesn't declare a dependency on gRPC, so
+      # even if we provide the location of gRPC, it'll fail to compile.
+      message(FATAL_ERROR "OpenTelemetry (with exporters) cannot be configured with bundled gRPC"
+      )
+    endif()
   else()
-    set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} "-DWITH_API_ONLY=ON")
+    set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_API_ONLY=ON)
     if(WIN32)
       # WITH_ETW does not respect WITH_API_ONLY
       set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_ETW=OFF)
     endif()
   endif()
+
+  set(OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR "|")
+  list(JOIN OPENTELEMETRY_PREFIX_PATH_LIST ${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}
+       OPENTELEMETRY_PREFIX_PATH)
+  set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
+                               "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
+
   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
+    # OpenTelemetry tries to determine the processor arch for vcpkg, which fails
+    # on s390x, even though it doesn't use vcpkg there. Tell it ARCH manually
     externalproject_add(opentelemetry_ep
                         ${EP_LOG_OPTIONS}
                         URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
-                        # OpenTelemetry tries to determine the processor arch for vcpkg,
-                        # which fails on s390x, even though it doesn't use vcpkg there
+                        LIST_SEPARATOR ${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}
                         CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env ARCH=s390x
                                           ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR}
                                           "<SOURCE_DIR><SOURCE_SUBDIR>"
@@ -3939,21 +4023,33 @@ macro(build_opentelemetry)
                         BUILD_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target all
                         INSTALL_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target
                                         install
-                        # CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
                         URL ${OPENTELEMETRY_SOURCE_URL}
                         BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
                         EXCLUDE_FROM_ALL NOT
-                        ${ARROW_WITH_OPENTELEMETRY})
+                        ${ARROW_WITH_OPENTELEMETRY}
+                        DEPENDS opentelemetry_dependencies)
   else()
     externalproject_add(opentelemetry_ep
                         ${EP_LOG_OPTIONS}
                         URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                        LIST_SEPARATOR ${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}
                         CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
                         URL ${OPENTELEMETRY_SOURCE_URL}
                         BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
                         EXCLUDE_FROM_ALL NOT
-                        ${ARROW_WITH_OPENTELEMETRY})
+                        ${ARROW_WITH_OPENTELEMETRY}
+                        DEPENDS opentelemetry_dependencies)
   endif()
+
+  if(ARROW_WITH_OPENTELEMETRY)
+    externalproject_add_step(opentelemetry_ep download_proto
+                             COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                     $<TARGET_PROPERTY:opentelemetry_proto_ep,_EP_SOURCE_DIR>/opentelemetry
+                                     $<TARGET_PROPERTY:opentelemetry_ep,_EP_SOURCE_DIR>/third_party/opentelemetry-proto/opentelemetry
+                             DEPENDEES download
+                             DEPENDERS configure)
+  endif()
+
   add_dependencies(toolchain opentelemetry_ep)
   add_dependencies(toolchain-tests opentelemetry_ep)
 
@@ -3968,6 +4064,20 @@ macro(build_opentelemetry)
   set_target_properties(opentelemetry-cpp::trace
                         PROPERTIES INTERFACE_LINK_LIBRARIES
                                    "opentelemetry-cpp::common;opentelemetry-cpp::resources"
+  )
+  set_target_properties(opentelemetry-cpp::http_client_curl
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::ext;CURL::libcurl")
+  set_target_properties(opentelemetry-cpp::proto
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "${ARROW_PROTOBUF_LIBPROTOBUF}")
+  set_target_properties(opentelemetry-cpp::otlp_recordable
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
+  )
+  set_target_properties(opentelemetry-cpp::exporter_otlp_http
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
   )
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
@@ -4121,15 +4231,7 @@ macro(build_awssdk)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
     # on Linux and macOS curl seems to be required
-    find_package(CURL REQUIRED)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
-    endif()
+    find_curl()
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
