@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v6/parquet"
+	"github.com/apache/arrow/go/v6/parquet/schema"
 )
 
 var (

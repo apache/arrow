@@ -21,9 +21,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/endian"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v6/arrow/bitutil"
+	"github.com/apache/arrow/go/v6/arrow/endian"
+	"github.com/apache/arrow/go/v6/parquet/internal/utils"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -21,9 +21,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 )
 
 func TestFixedSizeBinary(t *testing.T) {
