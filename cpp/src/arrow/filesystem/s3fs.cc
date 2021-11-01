@@ -19,10 +19,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <sstream>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 
@@ -45,6 +48,7 @@
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
+#include <aws/core/utils/xml/XmlSerializer.h>
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/AbortMultipartUploadRequest.h>
@@ -505,7 +509,6 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
             detail, static_cast<int64_t>(attempted_retries)));
   }
 
- private:
   template <typename ErrorType>
   static S3RetryStrategy::AWSErrorDetail ErrorToDetail(
       const Aws::Client::AWSError<ErrorType>& error) {
@@ -563,6 +566,95 @@ class S3Client : public Aws::S3::S3Client {
     req.SetBucket(ToAwsString(bucket));
     return GetBucketRegion(req);
   }
+
+  S3Model::CompleteMultipartUploadOutcome CompleteMultipartUploadWithErrorFixup(
+      S3Model::CompleteMultipartUploadRequest&& request) const {
+    // CompletedMultipartUpload can return a 200 OK response with an error
+    // encoded in the response body, in which case we should either retry
+    // or propagate the error to the user (see
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html).
+    //
+    // Unfortunately the AWS SDK doesn't detect such situations but lets them
+    // return successfully (see https://github.com/aws/aws-sdk-cpp/issues/658).
+    //
+    // We work around the issue by registering a DataReceivedEventHandler
+    // which parses the XML response for embedded errors.
+
+    util::optional<AWSError<Aws::Client::CoreErrors>> aws_error;
+
+    auto handler = [&](const Aws::Http::HttpRequest* http_req,
+                       Aws::Http::HttpResponse* http_resp, long long) {
+      auto& stream = http_resp->GetResponseBody();
+      const auto pos = stream.tellg();
+      const auto doc = Aws::Utils::Xml::XmlDocument::CreateFromXmlStream(stream);
+      // Rewind stream for later
+      stream.clear();
+      stream.seekg(pos);
+
+      if (doc.WasParseSuccessful()) {
+        auto root = doc.GetRootElement();
+        if (!root.IsNull()) {
+          ARROW_LOG(INFO) << "... CompleteMultipartUpload XML response root node: "
+                          << root.GetName();
+          if (root.GetName() != "CompleteMultipartUploadResult") {
+            // It's not the expected XML response root node, so it should be an error.
+            ARROW_LOG(INFO) << "CompletedMultipartUpload got error: "
+                            << doc.ConvertToString();
+            http_resp->SetResponseCode(
+                Aws::Http::HttpResponseCode::INTERNAL_SERVER_ERROR);
+            aws_error = GetErrorMarshaller()->Marshall(*http_resp);
+            // Rewind stream for later
+            stream.clear();
+            stream.seekg(pos);
+          }
+        }
+      }
+    };
+
+    request.SetDataReceivedEventHandler(std::move(handler));
+
+    for (int64_t retries = 0;; retries++) {
+      aws_error.reset();
+      auto outcome = Aws::S3::S3Client::S3Client::CompleteMultipartUpload(request);
+      if (!outcome.IsSuccess()) {
+        // Error returned in HTTP headers (or client failure)
+        return outcome;
+      }
+      if (!aws_error.has_value()) {
+        // Genuinely successful outcome
+        return outcome;
+      }
+
+      // An error was returned in the XML body despite the 200 OK status code.
+      // We don't have access to the AWS retry strategy (m_retryStrategy
+      // is a private member of AwsClient), so don't use that.  Instead,
+      // call our own if available; otherwise fall back on AWSError::ShouldRetry(),
+      // but put a hardcoded cap on the number of retries.
+      const auto detail = WrappedRetryStrategy::ErrorToDetail(*aws_error);
+      const bool should_retry = s3_retry_strategy_
+                                    ? s3_retry_strategy_->ShouldRetry(detail, retries)
+                                    : (detail.should_retry && retries < 20);
+
+      ARROW_LOG(WARNING)
+          << "CompletedMultipartUpload got error embedded in a 200 OK response: "
+          << aws_error->GetExceptionName() << " (\"" << aws_error->GetMessage()
+          << "\"), retry = " << should_retry;
+
+      if (!should_retry) {
+        break;
+      }
+      if (s3_retry_strategy_) {
+        auto delay = std::chrono::milliseconds(
+            s3_retry_strategy_->CalculateDelayBeforeNextRetry(detail, retries));
+        std::this_thread::sleep_for(delay);
+      }
+    }
+
+    DCHECK(aws_error.has_value());
+    return std::move(aws_error).value();
+  }
+
+  std::shared_ptr<S3RetryStrategy> s3_retry_strategy_;
 };
 
 // In AWS SDK < 1.8, Aws::Client::ClientConfiguration::followRedirects is a bool.
@@ -617,7 +709,7 @@ class ClientBuilder {
 
     const bool use_virtual_addressing = options_.endpoint_override.empty();
 
-    /// Set proxy options if provided
+    // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
       if (options_.proxy_options.scheme == "http") {
         client_config_.proxyScheme = Aws::Http::Scheme::HTTP;
@@ -641,10 +733,12 @@ class ClientBuilder {
       client_config_.proxyPassword = ToAwsString(options_.proxy_options.password);
     }
 
-    return std::make_shared<S3Client>(
+    auto client = std::make_shared<S3Client>(
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
         use_virtual_addressing);
+    client->s3_retry_strategy_ = options_.retry_strategy;
+    return client;
   }
 
   const S3Options& options() const { return options_; }
@@ -1021,9 +1115,8 @@ class ObjectOutputStream final : public io::OutputStream {
   struct UploadState;
 
  public:
-  ObjectOutputStream(std::shared_ptr<Aws::S3::S3Client> client,
-                     const io::IOContext& io_context, const S3Path& path,
-                     const S3Options& options,
+  ObjectOutputStream(std::shared_ptr<S3Client> client, const io::IOContext& io_context,
+                     const S3Path& path, const S3Options& options,
                      const std::shared_ptr<const KeyValueMetadata>& metadata)
       : client_(std::move(client)),
         io_context_(io_context),
@@ -1118,7 +1211,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetUploadId(upload_id_);
     req.SetMultipartUpload(std::move(completed_upload));
 
-    auto outcome = client_->CompleteMultipartUpload(req);
+    auto outcome = client_->CompleteMultipartUploadWithErrorFixup(std::move(req));
     if (!outcome.IsSuccess()) {
       return ErrorToStatus(
           std::forward_as_tuple("When completing multiple part upload for key '",
@@ -1314,7 +1407,7 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
  protected:
-  std::shared_ptr<Aws::S3::S3Client> client_;
+  std::shared_ptr<S3Client> client_;
   const io::IOContext io_context_;
   const S3Path path_;
   const std::shared_ptr<const KeyValueMetadata> metadata_;
@@ -1503,7 +1596,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
  public:
   ClientBuilder builder_;
   io::IOContext io_context_;
-  std::shared_ptr<Aws::S3::S3Client> client_;
+  std::shared_ptr<S3Client> client_;
   util::optional<S3Backend> backend_;
 
   const int32_t kListObjectsMaxKeys = 1000;
