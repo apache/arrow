@@ -19,10 +19,10 @@ package flight
 import (
 	"bytes"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v6/arrow"
+	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v6/arrow/ipc"
+	"github.com/apache/arrow/go/v6/arrow/memory"
 )
 
 // DataStreamWriter is an interface that represents an Arrow Flight stream

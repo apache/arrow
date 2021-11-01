@@ -19,10 +19,10 @@ package metadata
 import (
 	"reflect"
 
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v6/parquet"
+	"github.com/apache/arrow/go/v6/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v6/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v6/parquet/schema"
 	"golang.org/x/xerrors"
 )
 

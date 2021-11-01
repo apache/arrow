@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/endian"
-	"github.com/apache/arrow/go/arrow/internal/debug"
+	"github.com/apache/arrow/go/v6/arrow/endian"
+	"github.com/apache/arrow/go/v6/arrow/internal/debug"
 )
 
 var (

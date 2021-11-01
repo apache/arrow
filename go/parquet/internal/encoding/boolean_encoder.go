@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v6/arrow/bitutil"
+	"github.com/apache/arrow/go/v6/parquet"
+	"github.com/apache/arrow/go/v6/parquet/internal/utils"
 )
 
 const (
