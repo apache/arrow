@@ -1,4 +1,3 @@
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,70 +15,50 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: C++ Cron
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    paths:
-      - '.github/workflows/cpp_cron.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/cpp_cron.yml'
-  schedule:
-    - cron: |
-        0 */12 * * *
-
-env:
-  ARROW_ENABLE_TIMING_TESTS: OFF
-  DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+{{ macros.github_header() }}
 
 jobs:
-
-  oss-fuzz:
-    name: OSS-Fuzz build check
+  test:
+    name: OSS-Fuzz build test
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        ubuntu: [18.04]
+  {% if env is defined %}
+    env:
+    {% for key, value in env.items() %}
+      {{ key }}: "{{ value }}"
+    {% endfor %}
+  {% endif %}
     steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+      {{ macros.github_checkout_arrow()|indent }}
+
+      - name: Checkout OSS-Fuzz
+        # (not using the dedicated Action for this as its checkout
+        #  location choice is relatively obscure)
+        run: |
+          git clone --depth=50 https://github.com/google/oss-fuzz.git
+
       - name: Free Up Disk Space
         shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Checkout OSS-Fuzz
-        uses: actions/checkout@v1
-        with:
-          path: oss-fuzz
-          repository: google/oss-fuzz
-          ref: master
+        run: arrow/ci/scripts/util_cleanup.sh
+
       - name: Install dependencies
-        working-directory: ../oss-fuzz
+        working-directory: oss-fuzz
         run: |
           python3 -m pip install setuptools
           python3 -m pip install -r infra/ci/requirements.txt
+
       - name: Build image
-        shell: bash
-        working-directory: ../oss-fuzz
+        working-directory: oss-fuzz
         run: |
           python3 infra/helper.py build_image --pull arrow
+
       - name: Build fuzzers
-        shell: bash
-        working-directory: ../oss-fuzz
+        working-directory: oss-fuzz
         run: |
           python3 infra/helper.py build_fuzzers arrow `pwd`/../arrow
+
       - name: Check build
-        shell: bash
-        working-directory: ../oss-fuzz
+        working-directory: oss-fuzz
         run: |
           python3 infra/helper.py check_build arrow
