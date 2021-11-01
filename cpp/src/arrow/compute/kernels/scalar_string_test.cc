@@ -1037,16 +1037,18 @@ TYPED_TEST(TestStringKernels, Utf8Title) {
       R"([null, "", "B", "Aaaz;Zææ&", "Ɑɽɽow", "Ii", "Ⱥ.Ⱥ.Ⱥ..Ⱥ", "Hello, World!", "Foo   Bar;Héhé0Zop", "!%$^.,;"])");
 }
 
-TYPED_TEST(TestStringKernels, StringRepeat) {
-  auto values = ArrayFromJSON(
-      this->type(),
-      R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+TYPED_TEST(TestStringKernels, StringRepeatWithScalarRepeat) {
+  auto values = ArrayFromJSON(this->type(),
+                              R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI",
+                                  "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   std::vector<std::pair<int, std::string>> nrepeats_and_expected{{
       {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
-      {1,
-       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])"},
-      {4,
-       R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb", "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])"},
+      {1, R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
+              "$. A3", "!ɑⱤⱤow"])"},
+      {4, R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb",
+              "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ",
+              "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!",
+              "$. A3$. A3$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])"},
   }};
 
   for (const auto& pair : nrepeats_and_expected) {
@@ -1076,14 +1078,16 @@ TYPED_TEST(TestStringKernels, StringRepeat) {
   }
 }
 
-TYPED_TEST(TestStringKernels, StringRepeats) {
-  auto values = ArrayFromJSON(
-      this->type(),
-      R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+TYPED_TEST(TestStringKernels, StringRepeatWithArrayRepeat) {
+  auto values = ArrayFromJSON(this->type(),
+                              R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI",
+                                  "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   for (const auto& ty : IntTypes()) {
     auto num_repeats = ArrayFromJSON(ty, R"([100, 1, 2, 5, 2, 0, 1, 3, 2, 3])");
     std::string expected =
-        R"([null, "aAazZæÆ&", "", "bbbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
+        R"([null, "aAazZæÆ&", "", "bbbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ",
+            "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3",
+            "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
     this->CheckVarArgs("string_repeat", {values, num_repeats}, this->type(), expected);
   }
 
