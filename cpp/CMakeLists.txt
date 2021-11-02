@@ -241,7 +241,9 @@ add_custom_target(lint
                   --exclude_globs
                   ${LINT_EXCLUSIONS_FILE}
                   --source_dir
-                  ${CMAKE_CURRENT_SOURCE_DIR}
+                  ${CMAKE_CURRENT_SOURCE_DIR}/src
+                  --source_dir
+                  ${CMAKE_CURRENT_SOURCE_DIR}/examples
                   ${ARROW_LINT_QUIET})
 
 #
@@ -257,7 +259,9 @@ if(${CLANG_FORMAT_FOUND})
                     --exclude_globs
                     ${LINT_EXCLUSIONS_FILE}
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/examples
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -270,7 +274,9 @@ if(${CLANG_FORMAT_FOUND})
                     --exclude_globs
                     ${LINT_EXCLUSIONS_FILE}
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/examples
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -299,7 +305,9 @@ if(${CLANG_TIDY_FOUND})
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/examples
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -314,7 +322,9 @@ if(${CLANG_TIDY_FOUND})
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/examples
                     ${ARROW_LINT_QUIET})
 endif()
 
