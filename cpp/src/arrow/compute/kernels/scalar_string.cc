@@ -2936,12 +2936,9 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     return total_codeunits;
   }
 
-  std::function<Result<int64_t>(const uint8_t*, const int64_t, const int64_t, uint8_t*)>
-      Transform;
-
-  static Result<int64_t> TransformSimple(const uint8_t* input,
-                                         const int64_t input_string_ncodeunits,
-                                         const int64_t num_repeats, uint8_t* output) {
+  static Result<int64_t> TransformSimpleLoop(const uint8_t* input,
+                                             const int64_t input_string_ncodeunits,
+                                             const int64_t num_repeats, uint8_t* output) {
     uint8_t* output_start = output;
     for (int64_t i = 0; i < num_repeats; ++i) {
       std::memcpy(output, input, input_string_ncodeunits);
@@ -2950,9 +2947,10 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     return output - output_start;
   }
 
-  static Result<int64_t> TransformDoubling(const uint8_t* input,
-                                           const int64_t input_string_ncodeunits,
-                                           const int64_t num_repeats, uint8_t* output) {
+  static Result<int64_t> TransformDoublingString(const uint8_t* input,
+                                                 const int64_t input_string_ncodeunits,
+                                                 const int64_t num_repeats,
+                                                 uint8_t* output) {
     uint8_t* output_start = output;
     // Repeated doubling of string
     std::memcpy(output, input, input_string_ncodeunits);
@@ -2971,25 +2969,11 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     return output - output_start;
   }
 
-  static Result<int64_t> TransformWrapper(const uint8_t* input,
-                                          const int64_t input_string_ncodeunits,
-                                          const int64_t num_repeats, uint8_t* output) {
-    auto transform = (num_repeats < 4) ? TransformSimple : TransformDoubling;
+  static Result<int64_t> Transform(const uint8_t* input,
+                                   const int64_t input_string_ncodeunits,
+                                   const int64_t num_repeats, uint8_t* output) {
+    auto transform = (num_repeats < 4) ? TransformSimpleLoop : TransformDoublingString;
     return transform(input, input_string_ncodeunits, num_repeats, output);
-  }
-
-  Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
-    // For cases with a scalar repeat count, select the best implementation once
-    // before execution. Otherwise, use TransformWrapper to select implementation
-    // when processing each value.
-    if (batch[1].is_scalar()) {
-      auto scalar = batch[1].scalar();
-      auto num_repeats = UnboxScalar<Type2>::Unbox(*scalar);
-      Transform = (num_repeats < 4) ? TransformSimple : TransformDoubling;
-    } else {
-      Transform = TransformWrapper;
-    }
-    return Status::OK();
   }
 
   static Status ValidateRepeatCount(const int64_t num_repeats) {
