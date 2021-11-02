@@ -93,15 +93,13 @@ FlightCallOptions call_options;
 
 class TestFlightSqlClient : public ::testing::Test {
  protected:
-  FlightSqlClient *sql_client;
+  FlightSqlClient* sql_client;
   void SetUp() override {
-   client_mock = std::make_shared<internal::FlightClientImpl>();
-   sql_client = new FlightSqlClient(client_mock);
+    client_mock = std::make_shared<internal::FlightClientImpl>();
+    sql_client = new FlightSqlClient(client_mock);
   }
 
-  void TearDown() override {
-   free(sql_client);
-  }
+  void TearDown() override { free(sql_client); }
 };
 
 class FlightMetadataReaderMock : public FlightMetadataReader {
@@ -200,8 +198,8 @@ TEST_F(TestFlightSqlClient, TestGetTables) {
   EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
   ASSERT_OK(sql_client->GetTables(call_options, &catalog, &schema_filter_pattern,
-                                 &table_name_filter_pattern, include_schema,
-                                 table_types));
+                                  &table_name_filter_pattern, include_schema,
+                                  table_types));
 }
 
 TEST_F(TestFlightSqlClient, TestGetTableTypes) {
@@ -281,7 +279,7 @@ TEST_F(TestFlightSqlClient, TestGetCrossReference) {
   EXPECT_CALL(*client_mock, GetFlightInfo(Ref(call_options), descriptor, _));
 
   ASSERT_OK(sql_client->GetCrossReference(call_options, &pk_catalog, &pk_schema, pk_table,
-                                         &fk_catalog, &fk_schema, fk_table));
+                                          &fk_catalog, &fk_schema, fk_table));
 }
 
 TEST_F(TestFlightSqlClient, TestExecute) {
@@ -445,7 +443,7 @@ TEST_F(TestFlightSqlClient, TestGetSqlInfo) {
 
 template <class Func>
 inline void AssertTestPreparedStatementExecuteUpdateOk(
-    Func func, const std::shared_ptr<Schema>* schema, FlightSqlClient *sql_client) {
+    Func func, const std::shared_ptr<Schema>* schema, FlightSqlClient* sql_client) {
   const std::string query = "SELECT * FROM IRRELEVANT";
   int64_t expected_rows = 100L;
   pb::sql::DoPutUpdateResult result;

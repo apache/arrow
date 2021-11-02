@@ -44,11 +44,11 @@ class TestFlightSqlServer : public ::testing::Environment {
   void SetUp() override {
     server = new TestServer("flight_sql_test_server");
     server->Start();
-    for(int i=0; i<100; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        if(server->IsRunning()) {
-            break;
-        }
+    for (int i = 0; i < 100; i++) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      if (server->IsRunning()) {
+        break;
+      }
     }
     ASSERT_TRUE(server->IsRunning());
 
@@ -353,7 +353,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
       auto prepared_statement,
       sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?"));
 
-  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
+  auto parameter_schema = prepared_statement->parameter_schema();
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
@@ -433,7 +433,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', ?)"));
 
-  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
+  auto parameter_schema = prepared_statement->parameter_schema();
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
