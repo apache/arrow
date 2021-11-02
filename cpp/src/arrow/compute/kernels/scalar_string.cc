@@ -2957,17 +2957,18 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
                                                  uint8_t* output) {
     uint8_t* output_start = output;
     // Repeated doubling of string
+    // NB: This implementation expects `num_repeats > 0`.
     std::memcpy(output, input, input_string_ncodeunits);
     output += input_string_ncodeunits;
-    int64_t i = 1;
-    for (int64_t ilen = input_string_ncodeunits; i <= (num_repeats / 2);
-         i *= 2, ilen *= 2) {
+    int64_t irep = 1;
+    for (int64_t ilen = input_string_ncodeunits; irep <= (num_repeats / 2);
+         irep *= 2, ilen *= 2) {
       std::memcpy(output, output_start, ilen);
       output += ilen;
     }
 
     // Epilogue remainder
-    int64_t rem = (num_repeats ^ i) * input_string_ncodeunits;
+    int64_t rem = (num_repeats - irep) * input_string_ncodeunits;
     std::memcpy(output, output_start, rem);
     output += rem;
     return output - output_start;
