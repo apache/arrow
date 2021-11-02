@@ -46,8 +46,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
-      cache = LLVMGenerator::GetCache();
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
+      LLVMGenerator::GetCache();
 
   Condition conditionToKey = *(condition.get());
 
@@ -60,8 +60,6 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // Verify if previous filter obj code was cached
   if (prev_cached_obj != nullptr) {
-    ARROW_LOG(DEBUG)
-        << "[DEBUG][CACHE-LOG]: Filter object code WAS already cached!";
     is_cached = true;
   }
 
@@ -79,8 +77,9 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Set the object cache for LLVM
   llvm_gen->SetLLVMObjectCache(obj_cache);
 
-  ARROW_RETURN_NOT_OK(
-      llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));  // to use when caching only the obj code
+  ARROW_RETURN_NOT_OK(llvm_gen->Build(
+      {condition},
+      SelectionVector::Mode::MODE_NONE));  // to use when caching only the obj code
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);

@@ -23,8 +23,8 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/util/optional.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/optional.h"
 
 // modified cache to support evict policy using the GreedyDual-Size algorithm.
 namespace gandiva {
@@ -153,7 +153,6 @@ class GreedyDualSizeCache {
     size_ -= size_to_decrease;
     map_.erase((*i).cache_key);
     priority_set_.erase(i);
-    ARROW_LOG(INFO) << "[INFO][CACHE-LOG]: An object code was evicted successfully from cache.";
   }
 
   map_type map_;

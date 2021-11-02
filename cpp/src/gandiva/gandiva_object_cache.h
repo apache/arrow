@@ -39,7 +39,8 @@ namespace gandiva {
 class GandivaObjectCache : public llvm::ObjectCache {
  public:
   explicit GandivaObjectCache(
-      std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>& cache,
+      std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>&
+          cache,
       ExpressionCacheKey key);
 
   ~GandivaObjectCache() {}

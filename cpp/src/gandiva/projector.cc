@@ -62,8 +62,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
-      cache = LLVMGenerator::GetCache();
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
+      LLVMGenerator::GetCache();
 
   ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
 
@@ -74,8 +74,6 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
   // Verify if previous projector obj code was cached
   if (prev_cached_obj != nullptr) {
-    ARROW_LOG(DEBUG)
-        << "[DEBUG][CACHE-LOG]: Projector object code WAS already cached";
     llvm_flag = true;
   }
 
@@ -96,8 +94,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Set the object cache for LLVM
   llvm_gen->SetLLVMObjectCache(obj_cache);
 
-  ARROW_RETURN_NOT_OK(llvm_gen->Build(
-      exprs, selection_vector_mode));
+  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;

@@ -34,10 +34,7 @@ class ExpressionCacheKey {
  public:
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
                      ExpressionVector expression_vector, SelectionVector::Mode mode)
-      : schema_(schema),
-        mode_(mode),
-        uniqifier_(0),
-        configuration_(configuration) {
+      : schema_(schema), mode_(mode), uniqifier_(0), configuration_(configuration) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     for (auto& expr : expression_vector) {
