@@ -749,6 +749,19 @@ contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
 }
 
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
+}
+
 nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
   # Arrow uses unit for time parsing, strptime() does not.
   # Arrow has no default option for strptime (format, unit),
@@ -818,19 +831,6 @@ nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
 
-nse_funcs$trunc <- function(x, ...) {
-  # accepts and ignores ... for consistency with base::trunc()
-  build_expr("trunc", x)
-}
-
-nse_funcs$round <- function(x, digits = 0) {
-  build_expr(
-    "round",
-    x,
-    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
-  )
-}
-
 nse_funcs$wday <- function(x,
                            label = FALSE,
                            abbr = TRUE,
@@ -846,6 +846,31 @@ nse_funcs$wday <- function(x,
   }
 
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
+}
+
+nse_funcs$is.Date <- function(x) {
+  lubridate::is.Date(x) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
+}
+
+nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
+  lubridate::is.instant(x) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "DATE32", "DATE64")])
+}
+
+nce_funcs$is.POSIXct <- function(x) {
+  lubridate::is.POSIXct(x) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64")])
+}
+
+nce_funcs$is.POSIXlt <- function(x) {
+  lubridate::is.POSIXlt(x) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64")])
+}
+
+nce_funcs$is.POSIXt <- function(x) {
+  lubridate::is.POSIXt(x) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64")])
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
