@@ -855,22 +855,12 @@ nse_funcs$is.Date <- function(x) {
 
 nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
   lubridate::is.instant(x) ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "DATE32", "DATE64")])
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP", "DATE32", "DATE64")])
 }
 
-nce_funcs$is.POSIXct <- function(x) {
+nse_funcs$is.POSIXct <- function(x) {
   lubridate::is.POSIXct(x) ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64")])
-}
-
-nce_funcs$is.POSIXlt <- function(x) {
-  lubridate::is.POSIXlt(x) ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64")])
-}
-
-nce_funcs$is.POSIXt <- function(x) {
-  lubridate::is.POSIXt(x) ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64")])
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP")])
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
