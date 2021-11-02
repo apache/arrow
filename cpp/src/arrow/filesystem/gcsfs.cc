@@ -95,7 +95,8 @@ class GcsInputStream : public arrow::io::InputStream {
     if (!stream_.status().ok()) {
       return internal::ToArrowStatus(stream_.status());
     }
-    return arrow::SliceMutableBufferSafe(std::move(buffer), 0, stream_.gcount());
+    RETURN_NOT_OK(buffer->Resize(stream_.gcount(), true));
+    return buffer;
   }
 
  private:
