@@ -35,9 +35,15 @@ namespace random {
 // Use short arrays since especially in debug mode, generating list(list()) is slow
 constexpr int64_t kExpectedLength = 24;
 
-class RandomArrayTest : public ::testing::TestWithParam<std::shared_ptr<Field>> {
+struct RandomTestParam {
+  RandomTestParam(std::shared_ptr<Field> field) : field(std::move(field)) {}
+
+  std::shared_ptr<Field> field;
+};
+
+class RandomArrayTest : public ::testing::TestWithParam<RandomTestParam> {
  protected:
-  std::shared_ptr<Field> GetField() { return GetParam(); }
+  std::shared_ptr<Field> GetField() { return GetParam().field; }
 };
 
 TEST_P(RandomArrayTest, GenerateArray) {
@@ -144,7 +150,7 @@ auto values = ::testing::Values(
 INSTANTIATE_TEST_SUITE_P(
     TestRandomArrayGeneration, RandomArrayTest, values,
     [](const ::testing::TestParamInfo<RandomArrayTest::ParamType>& info) {
-      return std::to_string(info.index) + info.param->name();
+      return std::to_string(info.index) + info.param.field->name();
     });
 
 template <typename T>
