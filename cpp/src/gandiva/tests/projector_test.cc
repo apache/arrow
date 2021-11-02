@@ -2031,10 +2031,10 @@ TEST_F(TestProjector, TestQuarter) {
   // Create a row-batch with some sample data
   int num_records = 5;
   auto array0 =
-      MakeArrowArrayDate64({1604293200000, 1409648400000, 921783012000, 1338369900000, 0},
-                           {true, true, true, true, false});
+      MakeArrowArrayDate64({1604293200000, 1409648400000, 921783012000, 1338369900000},
+                           {true, true, true, true});
   // expected output
-  auto exp = MakeArrowArrayInt64({4, 3, 1, 2, 0}, {true, true, true, true, false});
+  auto exp = MakeArrowArrayInt64({4, 3, 1, 2}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
