@@ -849,7 +849,6 @@ nse_funcs$wday <- function(x,
 }
 
 nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
-
   if (label) {
     if (abbr) {
       format <- "%b"
