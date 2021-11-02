@@ -2902,7 +2902,7 @@ struct ScalarCTypeToInt64Function : public ScalarFunction {
 };
 
 template <typename Type1, typename Type2>
-struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
+struct BinaryRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
@@ -2990,18 +2990,19 @@ struct StringRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
 };
 
 template <typename Type1, typename Type2>
-using StringRepeat =
-    StringBinaryTransformExec<Type1, Type2, StringRepeatTransform<Type1, Type2>>;
+using BinaryRepeat =
+    StringBinaryTransformExec<Type1, Type2, BinaryRepeatTransform<Type1, Type2>>;
 
-const FunctionDoc string_repeat_doc(
-    "Repeat a string", ("For each string in `strings`, return a replicated version."),
+const FunctionDoc binary_repeat_doc(
+    "Repeat a binary string",
+    ("For each binary string in `strings`, return a replicated version."),
     {"strings", "num_repeats"});
 
-void AddStringRepeat(FunctionRegistry* registry) {
+void AddBinaryRepeat(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarCTypeToInt64Function>(
-      "string_repeat", Arity::Binary(), &string_repeat_doc);
+      "binary_repeat", Arity::Binary(), &binary_repeat_doc);
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec = GenerateVarBinaryToVarBinary<StringRepeat, Int64Type>(ty);
+    auto exec = GenerateVarBinaryToVarBinary<BinaryRepeat, Int64Type>(ty);
     ScalarKernel kernel{{ty, int64()}, ty, exec};
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
@@ -5027,7 +5028,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSplit(registry);
   AddStrptime(registry);
   AddBinaryJoin(registry);
-  AddStringRepeat(registry);
+  AddBinaryRepeat(registry);
 }
 
 }  // namespace internal

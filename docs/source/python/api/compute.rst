@@ -267,10 +267,10 @@ String Transforms
    ascii_title
    ascii_upper
    binary_length
+   binary_repeat
    binary_replace_slice
    replace_substring
    replace_substring_regex
-   string_repeat
    utf8_capitalize
    utf8_length
    utf8_lower
