@@ -109,6 +109,11 @@ public abstract class ArrowWriter implements AutoCloseable {
     this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
   }
 
+  protected ArrowWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                        boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out) {
+    this (root, includeNullCount, codec, alignBuffers, provider, out, IpcOption.DEFAULT);
+  }
+
   /**
    * Note: fields are not closed when the writer is closed.
    *

@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -66,6 +67,31 @@ public class ArrowFileWriter extends ArrowWriter {
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                          Map<String, String> metaData, IpcOption option) {
     super(root, provider, out, option);
+    this.metaData = metaData;
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                         boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out) {
+    super(root, includeNullCount, codec, alignBuffers, provider, out);
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                         boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out,
+                         Map<String, String> metaData) {
+    super(root, includeNullCount, codec, alignBuffers, provider, out);
+    this.metaData = metaData;
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                         boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out,
+                         IpcOption option) {
+    super(root, includeNullCount, codec, alignBuffers, provider, out, option);
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec,
+                         boolean alignBuffers, DictionaryProvider provider, WritableByteChannel out,
+                         Map<String, String> metaData, IpcOption option) {
+    super(root, includeNullCount, codec, alignBuffers, provider, out, option);
     this.metaData = metaData;
   }
 
