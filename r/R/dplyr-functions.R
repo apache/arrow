@@ -255,10 +255,6 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   assert_that(is.null(n))
   nse_funcs$is.logical(x)
 }
-nse_funcs$is_timestamp <- function(x, n = NULL) {
-  assert_that(is.null(n))
-  inherits(x, "POSIXt") || (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
-}
 
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
@@ -788,7 +784,7 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
   # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
   # cast the timestamp to desired timezone. This is a metadata only change.
-  if (nse_funcs$is_timestamp(x)) {
+  if (nse_funcs$is.POSIXct(x)) {
     ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
   } else {
     ts <- x
@@ -850,28 +846,17 @@ nse_funcs$wday <- function(x,
 
 nse_funcs$is.Date <- function(x) {
   inherits(x, "Date") ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32")])
 }
 
 nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
   inherits(x, c("POSIXt", "Date")) ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP", "DATE32", "DATE64")])
-}
-
-
-nse_funcs$is.POSIXt <- function(x) {
-  inherits(x, "POSIXt") ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP")])
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32")])
 }
 
 nse_funcs$is.POSIXct <- function(x) {
   inherits(x, "POSIXct") ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP")])
-}
-
-nse_funcs$is.POSIXlt <- function(x) {
-  inherits(x, "POSIXlt") ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP")])
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
