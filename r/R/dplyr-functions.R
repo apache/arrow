@@ -849,17 +849,28 @@ nse_funcs$wday <- function(x,
 }
 
 nse_funcs$is.Date <- function(x) {
-  lubridate::is.Date(x) ||
+  inherits(x, "Date") ||
     (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
 }
 
 nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
-  lubridate::is.instant(x) ||
+  inherits(x, c("POSIXt", "Date")) ||
     (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP", "DATE32", "DATE64")])
 }
 
+
+nse_funcs$is.POSIXt <- function(x) {
+  inherits(x, "POSIXt") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP")])
+}
+
 nse_funcs$is.POSIXct <- function(x) {
-  lubridate::is.POSIXct(x) ||
+  inherits(x, "POSIXct") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP")])
+}
+
+nse_funcs$is.POSIXlt <- function(x) {
+  inherits(x, "POSIXlt") ||
     (inherits(x, "Expression") && x$type_id() %in% Type[c("TIME32", "TIME64", "TIMESTAMP")])
 }
 
