@@ -36,7 +36,8 @@ namespace random {
 constexpr int64_t kExpectedLength = 24;
 
 struct RandomTestParam {
-  RandomTestParam(std::shared_ptr<Field> field) : field(std::move(field)) {}
+  RandomTestParam(std::shared_ptr<Field> field)  // NOLINT runtime/explicit
+      : field(std::move(field)) {}
 
   std::shared_ptr<Field> field;
 };
