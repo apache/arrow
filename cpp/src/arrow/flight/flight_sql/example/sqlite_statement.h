@@ -17,9 +17,11 @@
 
 #pragma once
 
+#include <arrow/type_fwd.h>
 #include <sqlite3.h>
 
-#include "arrow/api.h"
+#include <memory>
+#include <string>
 
 namespace arrow {
 namespace flight {

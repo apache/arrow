@@ -15,8 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight_sql/example/sqlite_server.h"
-
+#include <arrow/api.h>
+#include <arrow/flight/flight_sql/example/sqlite_server.h>
+#include <arrow/flight/flight_sql/example/sqlite_statement.h>
+#include <arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h>
+#include <arrow/flight/flight_sql/example/sqlite_tables_schema_batch_reader.h>
+#include <arrow/flight/flight_sql/server.h>
 #include <sqlite3.h>
 
 #include <boost/algorithm/string.hpp>
@@ -24,12 +28,6 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <sstream>
-
-#include "arrow/api.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
-#include "arrow/flight/flight_sql/example/sqlite_tables_schema_batch_reader.h"
-#include "arrow/flight/flight_sql/server.h"
 
 namespace arrow {
 namespace flight {

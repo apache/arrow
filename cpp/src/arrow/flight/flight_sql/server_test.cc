@@ -17,8 +17,8 @@
 
 #include <arrow/api.h>
 #include <arrow/flight/api.h>
+#include <arrow/flight/flight_sql/FlightSql.pb.h>
 #include <arrow/flight/flight_sql/api.h>
-#include <arrow/flight/flight_sql/client_internal.h>
 #include <arrow/flight/flight_sql/example/sqlite_server.h>
 #include <arrow/flight/flight_sql/server.h>
 #include <arrow/flight/test_util.h>
@@ -348,7 +348,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
       auto prepared_statement,
       sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?"));
 
-  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
+  auto parameter_schema = prepared_statement->parameter_schema();
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
@@ -428,7 +428,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', ?)"));
 
-  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
+  auto parameter_schema = prepared_statement->parameter_schema();
 
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});

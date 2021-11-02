@@ -17,10 +17,11 @@
 
 #pragma once
 
+#include <arrow/flight/flight_sql/example/sqlite_statement.h>
+#include <arrow/record_batch.h>
 #include <sqlite3.h>
 
-#include "arrow/api.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
+#include <memory>
 
 namespace arrow {
 namespace flight {

@@ -17,15 +17,13 @@
 
 #pragma once
 
-#include <arrow/flight/Flight.pb.h>
 #include <arrow/flight/client.h>
-#include <arrow/flight/flight_sql/FlightSql.pb.h>
 #include <arrow/flight/types.h>
 #include <arrow/result.h>
 #include <arrow/status.h>
-#include <google/protobuf/message.h>
 
-namespace pb = arrow::flight::protocol;
+#include <memory>
+#include <string>
 
 namespace arrow {
 namespace flight {
@@ -159,13 +157,6 @@ class ARROW_EXPORT FlightSqlClient {
   arrow::Result<std::unique_ptr<FlightInfo>> GetSqlInfo(const FlightCallOptions& options,
                                                         const std::vector<int>& sql_info);
 
-  /// \brief Request a list of SQL information.
-  /// \param[in] options RPC-layer hints for this call.
-  /// \param[in] sql_info the SQL info required.
-  /// \return The FlightInfo describing where to access the dataset.
-  arrow::Result<std::unique_ptr<FlightInfo>> GetSqlInfo(
-      const FlightCallOptions& options, const std::vector<pb::sql::SqlInfo>& sql_info);
-
   /// \brief Create a prepared statement object.
   /// \param[in] options              RPC-layer hints for this call.
   /// \param[in] query                The query that will be executed.
@@ -178,21 +169,29 @@ class ARROW_EXPORT FlightSqlClient {
   class PreparedStatement {
     std::shared_ptr<internal::FlightClientImpl> client_;
     FlightCallOptions options_;
-    pb::sql::ActionCreatePreparedStatementResult prepared_statement_result_;
+    std::string handle_;
+    std::shared_ptr<Schema> dataset_schema_;
+    std::shared_ptr<Schema> parameter_schema_;
     std::shared_ptr<RecordBatch> parameter_binding_;
     bool is_closed_;
 
    public:
     /// \brief Constructor for the PreparedStatement class.
-    /// \param[in] query      The query that will be executed.
-    PreparedStatement(
-        std::shared_ptr<internal::FlightClientImpl> client_, const std::string& query,
-        pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result,
-        FlightCallOptions options);
+    /// \param[in] client                Client object used to make the RPC requests.
+    /// \param[in] handle                Handle for this prepared statement.
+    /// \param[in] dataset_schema        Schema of the resulting dataset.
+    /// \param[in] parameter_schema      Schema of the parameters (if any).
+    /// \param[in] options               RPC-layer hints for this call.
+    PreparedStatement(std::shared_ptr<internal::FlightClientImpl> client,
+                      std::string handle, std::shared_ptr<Schema> dataset_schema,
+                      std::shared_ptr<Schema> parameter_schema,
+                      FlightCallOptions options);
 
     /// \brief Default destructor for the PreparedStatement class.
     /// The destructor will call the Close method from the class in order,
     /// to send a request to close the PreparedStatement.
+    /// NOTE: It is best to explicitly close the PreparedStatement, otherwise
+    /// errors can't be caught.
     ~PreparedStatement();
 
     /// \brief Executes the prepared statement query on the server.
@@ -205,11 +204,11 @@ class ARROW_EXPORT FlightSqlClient {
 
     /// \brief Retrieve the parameter schema from the query.
     /// \return The parameter schema from the query.
-    arrow::Result<std::shared_ptr<Schema>> GetParameterSchema();
+    std::shared_ptr<Schema> parameter_schema() const;
 
     /// \brief Retrieve the ResultSet schema from the query.
     /// \return The ResultSet schema from the query.
-    arrow::Result<std::shared_ptr<Schema>> GetResultSetSchema();
+    std::shared_ptr<Schema> dataset_schema() const;
 
     /// \brief Set a RecordBatch that contains the parameters that will be bind.
     /// \param parameter_binding_   The parameters that will be bind.

@@ -396,7 +396,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
 
   ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client.Prepare(call_options, query));
 
-  ASSERT_OK_AND_ASSIGN(auto parameter_schema, prepared_statement->GetParameterSchema());
+  auto parameter_schema = prepared_statement->parameter_schema();
 
   arrow::Int64Builder int_builder;
   ASSERT_OK(int_builder.Append(1));
@@ -459,10 +459,9 @@ TEST(TestFlightSqlClient, TestGetSqlInfo) {
   auto client_mock = std::make_shared<internal::FlightClientImpl>();
   FlightSqlClient sql_client(client_mock);
 
-  std::vector<pb::sql::SqlInfo> sql_info{
-      pb::sql::SqlInfo::FLIGHT_SQL_SERVER_NAME,
-      pb::sql::SqlInfo::FLIGHT_SQL_SERVER_VERSION,
-      pb::sql::SqlInfo::FLIGHT_SQL_SERVER_ARROW_VERSION};
+  std::vector<int> sql_info{pb::sql::SqlInfo::FLIGHT_SQL_SERVER_NAME,
+                            pb::sql::SqlInfo::FLIGHT_SQL_SERVER_VERSION,
+                            pb::sql::SqlInfo::FLIGHT_SQL_SERVER_ARROW_VERSION};
   pb::sql::CommandGetSqlInfo command;
 
   for (const auto& info : sql_info) command.add_info(info);

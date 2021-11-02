@@ -114,10 +114,10 @@ Status RunMain() {
     call_options.headers.push_back(bearer_result.ValueOrDie());
   }
 
-  FlightSqlClient sqlClient(std::move(client));
+  FlightSqlClient sql_client(std::move(client));
 
   if (FLAGS_command == "ExecuteUpdate") {
-    ARROW_ASSIGN_OR_RAISE(auto rows, sqlClient.ExecuteUpdate(call_options, FLAGS_query));
+    ARROW_ASSIGN_OR_RAISE(auto rows, sql_client.ExecuteUpdate(call_options, FLAGS_query));
 
     std::cout << "Result: " << rows << std::endl;
 
@@ -127,19 +127,17 @@ Status RunMain() {
   std::unique_ptr<FlightInfo> info;
 
   if (FLAGS_command == "Execute") {
-    ARROW_ASSIGN_OR_RAISE(info, sqlClient.Execute(call_options, FLAGS_query));
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.Execute(call_options, FLAGS_query));
   } else if (FLAGS_command == "GetCatalogs") {
-    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetCatalogs(call_options));
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetCatalogs(call_options));
   } else if (FLAGS_command == "PreparedStatementExecute") {
     ARROW_ASSIGN_OR_RAISE(auto prepared_statement,
-                          sqlClient.Prepare(call_options, FLAGS_query));
+                          sql_client.Prepare(call_options, FLAGS_query));
     ARROW_ASSIGN_OR_RAISE(info, prepared_statement->Execute());
   } else if (FLAGS_command == "PreparedStatementExecuteParameterBinding") {
-    ARROW_ASSIGN_OR_RAISE(auto prepared_statement, sqlClient.Prepare({}, FLAGS_query));
-    ARROW_ASSIGN_OR_RAISE(auto parameter_schema,
-                          prepared_statement->GetParameterSchema());
-    ARROW_ASSIGN_OR_RAISE(auto result_set_schema,
-                          prepared_statement->GetResultSetSchema());
+    ARROW_ASSIGN_OR_RAISE(auto prepared_statement, sql_client.Prepare({}, FLAGS_query));
+    auto parameter_schema = prepared_statement->parameter_schema();
+    auto result_set_schema = prepared_statement->dataset_schema();
 
     std::cout << result_set_schema->ToString(false) << std::endl;
     arrow::Int64Builder int_builder;
@@ -153,30 +151,30 @@ Status RunMain() {
     ARROW_ASSIGN_OR_RAISE(info, prepared_statement->Execute());
   } else if (FLAGS_command == "GetSchemas") {
     ARROW_ASSIGN_OR_RAISE(
-        info, sqlClient.GetSchemas(call_options, &FLAGS_catalog, &FLAGS_schema));
+        info, sql_client.GetSchemas(call_options, &FLAGS_catalog, &FLAGS_schema));
   } else if (FLAGS_command == "GetTableTypes") {
-    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetTableTypes(call_options));
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetTableTypes(call_options));
   } else if (FLAGS_command == "GetTables") {
     std::vector<std::string> table_types = {};
     bool include_schema = false;
 
-    ARROW_ASSIGN_OR_RAISE(info,
-                          sqlClient.GetTables(call_options, &FLAGS_catalog, &FLAGS_schema,
-                                              &FLAGS_table, include_schema, table_types));
+    ARROW_ASSIGN_OR_RAISE(
+        info, sql_client.GetTables(call_options, &FLAGS_catalog, &FLAGS_schema,
+                                   &FLAGS_table, include_schema, table_types));
   } else if (FLAGS_command == "GetExportedKeys") {
-    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetExportedKeys(call_options, &FLAGS_catalog,
-                                                          &FLAGS_schema, FLAGS_table));
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetExportedKeys(call_options, &FLAGS_catalog,
+                                                           &FLAGS_schema, FLAGS_table));
   } else if (FLAGS_command == "GetImportedKeys") {
-    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetImportedKeys(call_options, &FLAGS_catalog,
-                                                          &FLAGS_schema, FLAGS_table));
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetImportedKeys(call_options, &FLAGS_catalog,
+                                                           &FLAGS_schema, FLAGS_table));
   } else if (FLAGS_command == "GetPrimaryKeys") {
-    ARROW_ASSIGN_OR_RAISE(info, sqlClient.GetPrimaryKeys(call_options, &FLAGS_catalog,
-                                                         &FLAGS_schema, FLAGS_table));
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetPrimaryKeys(call_options, &FLAGS_catalog,
+                                                          &FLAGS_schema, FLAGS_table));
   }
 
   if (info != NULLPTR &&
       !boost::istarts_with(FLAGS_command, "PreparedStatementExecute")) {
-    return PrintResults(sqlClient, call_options, info);
+    return PrintResults(sql_client, call_options, info);
   }
 
   return Status::OK();

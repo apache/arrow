@@ -20,45 +20,50 @@
 
 #pragma once
 
+#include <arrow/flight/flight_sql/example/sqlite_statement.h>
+#include <arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h>
+#include <arrow/flight/flight_sql/server.h>
 #include <arrow/flight/server.h>
 
-#include "arrow/api.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
-#include "arrow/flight/flight_sql/server.h"
+#include <memory>
+#include <string>
 
 namespace arrow {
 namespace flight {
 namespace sql {
 
-using StatementQuery = struct StatementQuery { std::string query; };
+struct StatementQuery {
+  std::string query;
+};
 
-using StatementUpdate = struct StatementUpdate { std::string query; };
+struct StatementUpdate {
+  std::string query;
+};
 
-using StatementQueryTicket = struct StatementQueryTicket {
+struct StatementQueryTicket {
   std::string statement_handle;
 };
 
-using PreparedStatementQuery = struct PreparedStatementQuery {
+struct PreparedStatementQuery {
   std::string prepared_statement_handle;
 };
 
-using PreparedStatementUpdate = struct PreparedStatementUpdate {
+struct PreparedStatementUpdate {
   std::string prepared_statement_handle;
 };
 
-using GetSqlInfo = struct GetSqlInfo {
+struct GetSqlInfo {
   // TODO: To be implemented.
 };
 
-using GetSchemas = struct GetSchemas {
+struct GetSchemas {
   bool has_catalog;
   std::string catalog;
   bool has_schema_filter_pattern;
   std::string schema_filter_pattern;
 };
 
-using GetTables = struct GetTables {
+struct GetTables {
   bool has_catalog;
   std::string catalog;
   bool has_schema_filter_pattern;
@@ -69,7 +74,7 @@ using GetTables = struct GetTables {
   bool include_schema;
 };
 
-using GetPrimaryKeys = struct GetPrimaryKeys {
+struct GetPrimaryKeys {
   bool has_catalog;
   std::string catalog;
   bool has_schema;
@@ -77,7 +82,7 @@ using GetPrimaryKeys = struct GetPrimaryKeys {
   std::string table;
 };
 
-using GetExportedKeys = struct GetExportedKeys {
+struct GetExportedKeys {
   bool has_catalog;
   std::string catalog;
   bool has_schema;
@@ -85,7 +90,7 @@ using GetExportedKeys = struct GetExportedKeys {
   std::string table;
 };
 
-using GetImportedKeys = struct GetImportedKeys {
+struct GetImportedKeys {
   bool has_catalog;
   std::string catalog;
   bool has_schema;
@@ -93,7 +98,7 @@ using GetImportedKeys = struct GetImportedKeys {
   std::string table;
 };
 
-using GetCrossReference = struct GetCrossReference {
+struct GetCrossReference {
   bool has_pk_catalog;
   std::string pk_catalog;
   bool has_pk_schema;
@@ -106,21 +111,21 @@ using GetCrossReference = struct GetCrossReference {
   std::string fk_table;
 };
 
-using ActionCreatePreparedStatementRequest = struct ActionCreatePreparedStatementRequest {
+struct ActionCreatePreparedStatementRequest {
   std::string query;
 };
 
-using ActionClosePreparedStatementRequest = struct ActionClosePreparedStatementRequest {
+struct ActionClosePreparedStatementRequest {
   std::string prepared_statement_handle;
 };
 
-using ActionCreatePreparedStatementResult = struct ActionCreatePreparedStatementResult {
+struct ActionCreatePreparedStatementResult {
   std::shared_ptr<Schema> dataset_schema;
   std::shared_ptr<Schema> parameter_schema;
   std::string prepared_statement_handle;
 };
 
-class FlightSqlServerBase : public FlightServerBase {
+class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
  public:
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override;
@@ -132,12 +137,12 @@ class FlightSqlServerBase : public FlightServerBase {
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override;
 
-  const ActionType FLIGHT_SQL_CREATE_PREPARED_STATEMENT =
+  const ActionType kCreatePreparedStatementActionType =
       ActionType{"CreatePreparedStatement",
                  "Creates a reusable prepared statement resource on the server.\n"
                  "Request Message: ActionCreatePreparedStatementRequest\n"
                  "Response Message: ActionCreatePreparedStatementResult"};
-  const ActionType FLIGHT_SQL_CLOSE_PREPARED_STATEMENT =
+  const ActionType kClosePreparedStatementActionType =
       ActionType{"ClosePreparedStatement",
                  "Closes a reusable prepared statement resource on the server.\n"
                  "Request Message: ActionClosePreparedStatementRequest\n"

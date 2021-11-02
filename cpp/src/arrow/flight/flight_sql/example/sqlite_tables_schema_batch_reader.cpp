@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight_sql/example/sqlite_tables_schema_batch_reader.h"
+#include <arrow/flight/flight_sql/example/sqlite_tables_schema_batch_reader.h>
 
 #include <arrow/flight/flight_sql/server.h>
 #include <arrow/ipc/writer.h>
@@ -24,8 +24,8 @@
 
 #include <sstream>
 
-#include "arrow/flight/flight_sql/example/sqlite_server.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
+#include <arrow/flight/flight_sql/example/sqlite_server.h>
+#include <arrow/flight/flight_sql/example/sqlite_statement.h>
 
 namespace arrow {
 namespace flight {

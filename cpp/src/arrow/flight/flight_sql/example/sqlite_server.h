@@ -17,16 +17,17 @@
 
 #pragma once
 
+#include <arrow/api.h>
+#include <arrow/flight/flight_sql/example/sqlite_statement.h>
+#include <arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h>
+#include <arrow/flight/flight_sql/server.h>
 #include <sqlite3.h>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <map>
-
-#include "arrow/api.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
-#include "arrow/flight/flight_sql/server.h"
+#include <memory>
+#include <string>
 
 namespace arrow {
 namespace flight {

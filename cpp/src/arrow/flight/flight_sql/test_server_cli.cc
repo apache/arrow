@@ -15,19 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/flight/flight_sql/example/sqlite_server.h>
+#include <arrow/flight/server.h>
+#include <arrow/flight/test_integration.h>
+#include <arrow/flight/test_util.h>
+#include <arrow/io/test_common.h>
+#include <arrow/testing/json_integration.h>
+#include <arrow/util/logging.h>
 #include <gflags/gflags.h>
 
 #include <iostream>
 #include <memory>
 #include <string>
-
-#include "arrow/flight/flight_sql/example/sqlite_server.h"
-#include "arrow/flight/server.h"
-#include "arrow/flight/test_integration.h"
-#include "arrow/flight/test_util.h"
-#include "arrow/io/test_common.h"
-#include "arrow/testing/json_integration.h"
-#include "arrow/util/logging.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 

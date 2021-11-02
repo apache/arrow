@@ -15,14 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
-
+#include <arrow/flight/flight_sql/example/sqlite_server.h>
+#include <arrow/flight/flight_sql/example/sqlite_statement.h>
 #include <sqlite3.h>
 
 #include <boost/algorithm/string.hpp>
-
-#include "arrow/api.h"
-#include "arrow/flight/flight_sql/example/sqlite_server.h"
 
 namespace arrow {
 namespace flight {

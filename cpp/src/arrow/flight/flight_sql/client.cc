@@ -27,8 +27,7 @@
 #include <arrow/util/logging.h>
 #include <google/protobuf/any.pb.h>
 
-#include <memory>
-#include <utility>
+namespace pb = arrow::flight::protocol;
 
 namespace arrow {
 namespace flight {
@@ -41,17 +40,21 @@ FlightSqlClient::FlightSqlClient(std::unique_ptr<FlightClient> client)
     : impl_(internal::FlightClientImpl_Create(std::move(client))) {}
 
 FlightSqlClient::PreparedStatement::PreparedStatement(
-    std::shared_ptr<internal::FlightClientImpl> client, const std::string& query,
-    pb::sql::ActionCreatePreparedStatementResult& prepared_statement_result,
+    std::shared_ptr<internal::FlightClientImpl> client, std::string handle,
+    std::shared_ptr<Schema> dataset_schema, std::shared_ptr<Schema> parameter_schema,
     FlightCallOptions options)
-    : client_(client),
+    : client_(std::move(client)),
       options_(std::move(options)),
-      prepared_statement_result_(std::move(prepared_statement_result)),
+      handle_(std::move(handle)),
+      dataset_schema_(std::move(dataset_schema)),
+      parameter_schema_(std::move(parameter_schema)),
       is_closed_(false) {}
 
 FlightSqlClient::~FlightSqlClient() = default;
 
 FlightSqlClient::PreparedStatement::~PreparedStatement() {
+  if (IsClosed()) return;
+
   const Status status = Close();
   if (!status.ok()) {
     ARROW_LOG(ERROR) << "Failed to delete PreparedStatement: " << status.ToString();
@@ -290,8 +293,28 @@ FlightSqlClient::Prepare(const FlightCallOptions& options, const std::string& qu
     return Status::Invalid("Unable to unpack ActionCreatePreparedStatementResult");
   }
 
-  return std::make_shared<PreparedStatement>(impl_, query, prepared_statement_result,
-                                             options);
+  const std::string& serialized_dataset_schema =
+      prepared_statement_result.dataset_schema();
+  const std::string& serialized_parameter_schema =
+      prepared_statement_result.parameter_schema();
+
+  std::shared_ptr<Schema> dataset_schema;
+  if (!serialized_dataset_schema.empty()) {
+    io::BufferReader dataset_schema_reader(serialized_dataset_schema);
+    ipc::DictionaryMemo in_memo;
+    ARROW_ASSIGN_OR_RAISE(dataset_schema, ReadSchema(&dataset_schema_reader, &in_memo));
+  }
+  std::shared_ptr<Schema> parameter_schema;
+  if (!serialized_parameter_schema.empty()) {
+    io::BufferReader parameter_schema_reader(serialized_parameter_schema);
+    ipc::DictionaryMemo in_memo;
+    ARROW_ASSIGN_OR_RAISE(parameter_schema,
+                          ReadSchema(&parameter_schema_reader, &in_memo));
+  }
+  auto handle = prepared_statement_result.prepared_statement_handle();
+
+  return std::make_shared<PreparedStatement>(impl_, handle, dataset_schema,
+                                             parameter_schema, options);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::PreparedStatement::Execute() {
@@ -301,8 +324,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::PreparedStatement::E
 
   pb::sql::CommandPreparedStatementQuery execute_query_command;
 
-  execute_query_command.set_prepared_statement_handle(
-      prepared_statement_result_.prepared_statement_handle());
+  execute_query_command.set_prepared_statement_handle(handle_);
 
   google::protobuf::Any any;
   any.PackFrom(execute_query_command);
@@ -336,8 +358,7 @@ arrow::Result<int64_t> FlightSqlClient::PreparedStatement::ExecuteUpdate() {
   }
 
   pb::sql::CommandPreparedStatementUpdate command;
-  command.set_prepared_statement_handle(
-      prepared_statement_result_.prepared_statement_handle());
+  command.set_prepared_statement_handle(handle_);
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
@@ -377,26 +398,12 @@ Status FlightSqlClient::PreparedStatement::SetParameters(
 
 bool FlightSqlClient::PreparedStatement::IsClosed() { return is_closed_; }
 
-arrow::Result<std::shared_ptr<Schema>>
-FlightSqlClient::PreparedStatement::GetResultSetSchema() {
-  auto& args = prepared_statement_result_.dataset_schema();
-  std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
-
-  io::BufferReader reader(schema_buffer);
-
-  ipc::DictionaryMemo in_memo;
-  return ReadSchema(&reader, &in_memo);
+std::shared_ptr<Schema> FlightSqlClient::PreparedStatement::dataset_schema() const {
+  return dataset_schema_;
 }
 
-arrow::Result<std::shared_ptr<Schema>>
-FlightSqlClient::PreparedStatement::GetParameterSchema() {
-  auto& args = prepared_statement_result_.parameter_schema();
-  std::shared_ptr<Buffer> schema_buffer = std::make_shared<Buffer>(args);
-
-  io::BufferReader reader(schema_buffer);
-
-  ipc::DictionaryMemo in_memo;
-  return ReadSchema(&reader, &in_memo);
+std::shared_ptr<Schema> FlightSqlClient::PreparedStatement::parameter_schema() const {
+  return parameter_schema_;
 }
 
 Status FlightSqlClient::PreparedStatement::Close() {
@@ -405,8 +412,7 @@ Status FlightSqlClient::PreparedStatement::Close() {
   }
   google::protobuf::Any command;
   pb::sql::ActionClosePreparedStatementRequest request;
-  request.set_prepared_statement_handle(
-      prepared_statement_result_.prepared_statement_handle());
+  request.set_prepared_statement_handle(handle_);
 
   command.PackFrom(request);
 
@@ -429,11 +435,6 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSqlInfo(
   for (const int& info : sql_info) command.add_info(info);
 
   return GetFlightInfoForCommand(*impl_, options, command);
-}
-
-arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSqlInfo(
-    const FlightCallOptions& options, const std::vector<pb::sql::SqlInfo>& sql_info) {
-  return GetSqlInfo(options, reinterpret_cast<const std::vector<int>&>(sql_info));
 }
 
 }  // namespace sql

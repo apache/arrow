@@ -17,6 +17,8 @@
 
 #include <arrow/flight/types.h>
 
+#include <memory>
+
 namespace arrow {
 namespace flight {
 

@@ -18,29 +18,15 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
-#include "arrow/flight/flight_sql/server.h"
-
+#include <arrow/api.h>
+#include <arrow/buffer.h>
 #include <arrow/flight/flight_sql/FlightSql.pb.h>
+#include <arrow/flight/flight_sql/server.h>
 #include <google/protobuf/any.pb.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <sstream>
-
-#include "arrow/api.h"
-#include "arrow/buffer.h"
-
-std::string arrow::flight::sql::FlightSqlServerBase::CreateStatementQueryTicket(
-    const std::string& statement_handle) {
-  protocol::sql::TicketStatementQuery ticket_statement_query;
-  ticket_statement_query.set_statement_handle(statement_handle);
-
-  google::protobuf::Any ticket;
-  ticket.PackFrom(ticket_statement_query);
-
-  const std::string& ticket_string = ticket.SerializeAsString();
-  return ticket_string;
-}
 
 namespace arrow {
 namespace flight {
@@ -248,6 +234,18 @@ ParseActionClosePreparedStatementRequest(const google::protobuf::Any& any) {
   return result;
 }
 
+std::string FlightSqlServerBase::CreateStatementQueryTicket(
+    const std::string& statement_handle) {
+  protocol::sql::TicketStatementQuery ticket_statement_query;
+  ticket_statement_query.set_statement_handle(statement_handle);
+
+  google::protobuf::Any ticket;
+  ticket.PackFrom(ticket_statement_query);
+
+  const std::string& ticket_string = ticket.SerializeAsString();
+  return ticket_string;
+}
+
 Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
                                           const FlightDescriptor& request,
                                           std::unique_ptr<FlightInfo>* info) {
@@ -354,7 +352,9 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
   const FlightDescriptor& request = reader->descriptor();
 
   google::protobuf::Any any;
-  any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()));
+  if (!any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()))) {
+    return Status::Invalid("Unable to parse command.");
+  }
 
   if (any.Is<pb::sql::CommandStatementUpdate>()) {
     ARROW_ASSIGN_OR_RAISE(StatementUpdate internal_command,
@@ -395,18 +395,20 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
 
 Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
                                         std::vector<ActionType>* actions) {
-  *actions = {FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT,
-              FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT};
+  *actions = {FlightSqlServerBase::kCreatePreparedStatementActionType,
+              FlightSqlServerBase::kClosePreparedStatementActionType};
   return Status::OK();
 }
 
 Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
                                      const Action& action,
                                      std::unique_ptr<ResultStream>* result_stream) {
-  if (action.type == FlightSqlServerBase::FLIGHT_SQL_CREATE_PREPARED_STATEMENT.type) {
+  if (action.type == FlightSqlServerBase::kCreatePreparedStatementActionType.type) {
     google::protobuf::Any any_command;
-    any_command.ParseFromArray(action.body->data(),
-                               static_cast<int>(action.body->size()));
+    if (!any_command.ParseFromArray(action.body->data(),
+                                    static_cast<int>(action.body->size()))) {
+      return Status::Invalid("Unable to parse action.");
+    }
 
     ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementRequest internal_command,
                           ParseActionCreatePreparedStatementRequest(any_command));
@@ -432,10 +434,11 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     *result_stream = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
 
     return Status::OK();
-  } else if (action.type ==
-             FlightSqlServerBase::FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.type) {
+  } else if (action.type == FlightSqlServerBase::kClosePreparedStatementActionType.type) {
     google::protobuf::Any any;
-    any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()));
+    if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
+      return Status::Invalid("Unable to parse action.");
+    }
 
     ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
                           ParseActionClosePreparedStatementRequest(any));
