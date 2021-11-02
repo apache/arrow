@@ -696,8 +696,9 @@ struct StringBinaryTransformExecBase {
 
     // Apply transform
     ARROW_ASSIGN_OR_RAISE(
-        offset_type encoded_nbytes,
+        auto encoded_nbytes_,
         transform->Transform(input_string, input_ncodeunits, value2, output_string));
+    auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
     if (encoded_nbytes < 0) {
       return transform->InvalidInputSequence();
     }
@@ -739,9 +740,10 @@ struct StringBinaryTransformExecBase {
           auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
           auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
           ARROW_ASSIGN_OR_RAISE(
-              offset_type encoded_nbytes,
+              auto encoded_nbytes_,
               transform->Transform(input_string, input_ncodeunits, value2,
                                    output_string + output_ncodeunits));
+          auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
           if (encoded_nbytes < 0) {
             return transform->InvalidInputSequence();
           }
@@ -792,9 +794,10 @@ struct StringBinaryTransformExecBase {
         [&](int64_t i) {
           auto value2 = array2.GetView(i);
           ARROW_ASSIGN_OR_RAISE(
-              offset_type encoded_nbytes,
+              auto encoded_nbytes_,
               transform->Transform(input_string, input_ncodeunits, value2,
                                    output_string + output_ncodeunits));
+          auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
           if (encoded_nbytes < 0) {
             return transform->InvalidInputSequence();
           }
@@ -843,9 +846,10 @@ struct StringBinaryTransformExecBase {
           auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
           auto value2 = array2.GetView(i);
           ARROW_ASSIGN_OR_RAISE(
-              offset_type encoded_nbytes,
+              auto encoded_nbytes_,
               transform->Transform(input_string, input_ncodeunits, value2,
                                    output_string + output_ncodeunits));
+          auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
           if (encoded_nbytes < 0) {
             return transform->InvalidInputSequence();
           }
