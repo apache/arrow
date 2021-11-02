@@ -607,19 +607,6 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) 
 
 #endif
 
-Status SetWorkingDir(const PlatformFilename& dir_path) {
-#ifdef _WIN32
-  if (_wchdir(dir_path.ToNative().c_str()) == 0) return Status::OK();
-
-  return IOErrorFromWinError(GetLastError(), "Cannot set working directory '",
-                             dir_path.ToString(), "'");
-#else
-  if (chdir(dir_path.ToNative().c_str()) == 0) return Status::OK();
-  return IOErrorFromErrno(errno, "Cannot set working directory '", dir_path.ToString(),
-                          "'");
-#endif
-}
-
 namespace {
 
 #ifdef _WIN32

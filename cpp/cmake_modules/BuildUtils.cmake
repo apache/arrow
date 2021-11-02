@@ -724,10 +724,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
   endif()
 
-  if(ARG_ENVIRONMENT)
-    message(STATUS "WTF ${ARG_ENVIRONMENT}")
-  endif()
-
   if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
     add_test(${TEST_NAME}
              bash

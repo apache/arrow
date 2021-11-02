@@ -241,7 +241,7 @@ void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
 
 template <typename T>
 static const T& OptionsAs(const ExecNodeOptions& opts) {
-  const auto& ptr = dynamic_cast<const T&>(opts);
+  const auto& ptr = checked_cast<const T&>(opts);
   return ptr;
 }
 

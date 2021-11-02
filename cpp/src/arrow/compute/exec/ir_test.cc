@@ -74,14 +74,13 @@ std::shared_ptr<Buffer> FlatbufferFromJSON(std::string root_type,
     dir = *arrow::internal::TemporaryDir::Make("ir_json_");
   }
 
-  auto st = SetWorkingDir(dir->path());
-  if (!st.ok()) st.Abort();
-
-  std::ofstream{"ir.json"} << json;
+  auto json_path = dir->path().ToString() + "ir.json";
+  std::ofstream{json_path} << json;
 
   std::string cmd = "flatc --binary " + FLAGS_computeir_dir + "/Plan.fbs" +
-                    " --root-type org.apache.arrow.computeir.flatbuf." + root_type +
-                    " ir.json";
+                    " --root-type org.apache.arrow.computeir.flatbuf." + root_type + " " +
+                    " -o " + dir->path().ToString() + " " + json_path;
+
   if (int err = std::system(cmd.c_str())) {
     std::cerr << cmd << " failed with error code: " << err;
     std::abort();

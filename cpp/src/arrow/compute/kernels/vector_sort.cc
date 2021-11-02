@@ -104,6 +104,8 @@ Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
       });
 }
 
+// Returns nullptr if no column matching `ref` is found, or if the FieldRef is
+// a nested reference.
 std::shared_ptr<ChunkedArray> GetTableColumn(const Table& table, const FieldRef& ref) {
   if (ref.IsNested()) return nullptr;
 

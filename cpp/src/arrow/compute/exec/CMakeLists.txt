@@ -38,4 +38,4 @@ add_arrow_compute_test(ir_test
                        EXTRA_LINK_LIBS
                        ${GFLAGS_LIBRARIES}
                        TEST_ARGUMENTS
-                       "-computeir_dir=${CMAKE_SOURCE_DIR}/../experimental/computeir")
+                       "--computeir_dir=${CMAKE_SOURCE_DIR}/../experimental/computeir")

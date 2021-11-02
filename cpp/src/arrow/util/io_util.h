@@ -114,10 +114,6 @@ Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_not_foun
 ARROW_EXPORT
 Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
 
-/// Set the process' current working directory.
-ARROW_EXPORT
-Status SetWorkingDir(const PlatformFilename& dir_path);
-
 /// Delete a file if it exists.
 ///
 /// Return whether the file existed.
