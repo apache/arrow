@@ -583,7 +583,8 @@ class S3Client : public Aws::S3::S3Client {
     util::optional<AWSError<Aws::Client::CoreErrors>> aws_error;
 
     auto handler = [&](const Aws::Http::HttpRequest* http_req,
-                       Aws::Http::HttpResponse* http_resp, long long) {
+                       Aws::Http::HttpResponse* http_resp,
+                       long long) {  // NOLINT runtime/int
       auto& stream = http_resp->GetResponseBody();
       const auto pos = stream.tellg();
       const auto doc = Aws::Utils::Xml::XmlDocument::CreateFromXmlStream(stream);
