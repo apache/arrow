@@ -470,7 +470,7 @@ test_that("strsplit and str_split", {
 test_that("strrep", {
   df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
   for (times in 0:8L) {
-    expect_dplyr_equal(
+    compare_dplyr_binding(
       input %>%
         transmute(x = strrep(x, times)) %>%
         collect(),
