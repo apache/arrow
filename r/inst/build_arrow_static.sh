@@ -37,7 +37,9 @@ SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
 # Make some env vars case-insensitive
-LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
+if [ "$LIBARROW_MINIMAL" != "" ]; then
+  LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
+fi
 
 if [ "$LIBARROW_MINIMAL" = "false" ]; then
   ARROW_DEFAULT_PARAM="ON"
