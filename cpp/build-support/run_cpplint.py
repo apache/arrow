@@ -67,6 +67,7 @@ if __name__ == "__main__":
                         "that should be excluded from the checks")
     parser.add_argument("--source_dir",
                         required=True,
+                        action="append",
                         help="Root directory of the source code")
     parser.add_argument("--quiet", default=False,
                         action="store_true",
@@ -79,8 +80,9 @@ if __name__ == "__main__":
             exclude_globs.extend(line.strip() for line in f)
 
     linted_filenames = []
-    for path in lintutils.get_sources(arguments.source_dir, exclude_globs):
-        linted_filenames.append(str(path))
+    for source_dir in arguments.source_dir:
+        for path in lintutils.get_sources(source_dir, exclude_globs):
+            linted_filenames.append(str(path))
 
     cmd = [
         arguments.cpplint_binary,
