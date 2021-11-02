@@ -708,6 +708,18 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+
+    def __arrow_ext_class__(self):
+        """Return an extension array class to be used for building or
+        deserializing arrays with this extension type.
+
+        This method should return a subclass of the ExtensionArray class. By
+        default, if not specialized in the extension implementation, an
+        extension type array will be a built-in ExtensionArray instance.
+        """
+        return ExtensionArray
+
+
     def wrap_array(self, storage):
         """
         Wrap the given storage array as an extension array.
@@ -825,16 +837,6 @@ cdef class ExtensionType(BaseExtensionType):
         return value of ``__arrow_ext_serialize__``).
         """
         return NotImplementedError
-
-    def __arrow_ext_class__(self):
-        """Return an extension array class to be used for building or
-        deserializing arrays with this extension type.
-
-        This method should return a subclass of the ExtensionArray class. By
-        default, if not specialized in the extension implementation, an
-        extension type array will be a built-in ExtensionArray instance.
-        """
-        return ExtensionArray
 
 
 cdef class PyExtensionType(ExtensionType):
