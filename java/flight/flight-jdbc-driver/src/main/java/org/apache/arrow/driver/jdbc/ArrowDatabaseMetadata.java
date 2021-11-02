@@ -764,8 +764,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   @Override
-  public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTable,
-                                     String foreignCatalog, String foreignSchema, String foreignTable)
+  public ResultSet getCrossReference(final String parentCatalog, final String parentSchema, final String parentTable,
+                                     final String foreignCatalog, final String foreignSchema, final String foreignTable)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoCrossReference = connection.getClientHandler().getCrossReference(
