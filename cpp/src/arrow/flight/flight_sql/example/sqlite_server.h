@@ -54,13 +54,13 @@ inline std::shared_ptr<DataType> GetUnknownColumnDataType() {
 ///        database.
 class SQLiteFlightSqlServer : public FlightSqlServerBase {
  public:
-  SQLiteFlightSqlServer();
-
   ~SQLiteFlightSqlServer() override;
+
+  static arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> Create();
 
   /// \brief Auxiliary method used to execute an arbitrary SQL statement on the underlying
   ///        SQLite database.
-  void ExecuteSql(const std::string& sql);
+  Status ExecuteSql(const std::string& sql);
 
   Status GetFlightInfoStatement(const StatementQuery& command,
                                 const ServerCallContext& context,
@@ -96,13 +96,13 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   Status DoGetPreparedStatement(const PreparedStatementQuery& command,
                                 const ServerCallContext& context,
                                 std::unique_ptr<FlightDataStream>* result) override;
-  Status DoPutPreparedStatementQuery(
-      const PreparedStatementQuery& command, const ServerCallContext& context,
-      std::unique_ptr<FlightMessageReader>& reader,
-      std::unique_ptr<FlightMetadataWriter>& writer) override;
+  Status DoPutPreparedStatementQuery(const PreparedStatementQuery& command,
+                                     const ServerCallContext& context,
+                                     FlightMessageReader* reader,
+                                     FlightMetadataWriter* writer) override;
   arrow::Result<int64_t> DoPutPreparedStatementUpdate(
       const PreparedStatementUpdate& command, const ServerCallContext& context,
-      std::unique_ptr<FlightMessageReader>& reader) override;
+      FlightMessageReader* reader) override;
 
   Status GetFlightInfoTables(const GetTables& command, const ServerCallContext& context,
                              const FlightDescriptor& descriptor,
@@ -149,6 +149,10 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   sqlite3* db_;
   boost::uuids::random_generator uuid_generator_;
   std::map<boost::uuids::uuid, std::shared_ptr<SqliteStatement>> prepared_statements_;
+
+  /// SQLiteFlightSqlServer
+  /// \param db   The db parameter from SQLite. The Server it is taking the ownership.
+  explicit SQLiteFlightSqlServer(sqlite3* db);
 
   Status GetStatementByHandle(const std::string& prepared_statement_handle,
                               std::shared_ptr<SqliteStatement>* result);

@@ -33,10 +33,9 @@ class SqliteStatement {
   /// \brief Creates a SQLite3 statement.
   /// \param[in] db        SQLite3 database instance.
   /// \param[in] sql       SQL statement.
-  /// \param[out] result   The resulting SqliteStatement.
-  /// \return              Status.
-  static Status Create(sqlite3* db, const std::string& sql,
-                       std::shared_ptr<SqliteStatement>* result);
+  /// \return              A SqliteStatement object.
+  static arrow::Result<std::shared_ptr<SqliteStatement>> Create(sqlite3* db,
+                                                                const std::string& sql);
 
   ~SqliteStatement();
 
@@ -56,7 +55,8 @@ class SqliteStatement {
   Status Reset(int* rc);
 
   /// \brief Returns the underlying sqlite3_stmt.
-  sqlite3_stmt* GetSqlite3Stmt();
+  /// \return A sqlite statement.
+  sqlite3_stmt* GetSqlite3Stmt() const;
 
   /// \brief Executes an UPDATE, INSERT or DELETE statement.
   /// \param[out] result   The number of rows changed by execution.

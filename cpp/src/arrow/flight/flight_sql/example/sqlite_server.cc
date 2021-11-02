@@ -92,8 +92,7 @@ std::string PrepareQueryForGetTables(const GetTables& command) {
   return table_query.str();
 }
 
-Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt,
-                                      std::unique_ptr<FlightMessageReader>& reader) {
+Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt, FlightMessageReader* reader) {
   FlightStreamChunk chunk;
   while (true) {
     RETURN_NOT_OK(reader->Next(&chunk));
@@ -108,31 +107,27 @@ Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt,
         const std::shared_ptr<Array>& column = record_batch->column(c);
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(i));
 
-        auto& holder = reinterpret_cast<DenseUnionScalar&>(*scalar).value;
+        auto& holder = static_cast<DenseUnionScalar&>(*scalar).value;
 
         switch (holder->type->id()) {
           case Type::INT64: {
-            int64_t value = reinterpret_cast<Int64Scalar&>(*holder).value;
+            int64_t value = static_cast<Int64Scalar&>(*holder).value;
             sqlite3_bind_int64(stmt, c + 1, value);
             break;
           }
           case Type::FLOAT: {
-            double value = reinterpret_cast<FloatScalar&>(*holder).value;
+            double value = static_cast<FloatScalar&>(*holder).value;
             sqlite3_bind_double(stmt, c + 1, value);
             break;
           }
           case Type::STRING: {
-            std::shared_ptr<Buffer> buffer =
-                reinterpret_cast<StringScalar&>(*holder).value;
-            const std::string string = buffer->ToString();
-            const char* value = string.c_str();
-            sqlite3_bind_text(stmt, c + 1, value, static_cast<int>(strlen(value)),
-                              SQLITE_TRANSIENT);
+            std::shared_ptr<Buffer> buffer = static_cast<StringScalar&>(*holder).value;
+            sqlite3_bind_text(stmt, c + 1, reinterpret_cast<const char*>(buffer->data()),
+                              static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
             break;
           }
           case Type::BINARY: {
-            std::shared_ptr<Buffer> buffer =
-                reinterpret_cast<BinaryScalar&>(*holder).value;
+            std::shared_ptr<Buffer> buffer = static_cast<BinaryScalar&>(*holder).value;
             sqlite3_bind_blob(stmt, c + 1, buffer->data(),
                               static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
             break;
@@ -148,53 +143,75 @@ Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt,
   return Status::OK();
 }
 
-SQLiteFlightSqlServer::SQLiteFlightSqlServer() {
-  db_ = NULLPTR;
-  if (sqlite3_open(":memory:", &db_)) {
-    sqlite3_close(db_);
-    throw std::runtime_error(std::string("Can't open database: ") + sqlite3_errmsg(db_));
+SQLiteFlightSqlServer::SQLiteFlightSqlServer(sqlite3* db) : db_(db), uuid_generator_({}) {
+  assert(db_);
+}
+
+arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Create() {
+  sqlite3* db = nullptr;
+
+  if (sqlite3_open(":memory:", &db)) {
+    std::string err_msg = "Can't open database: ";
+    if (db != nullptr) {
+      err_msg += sqlite3_errmsg(db);
+      sqlite3_close(db);
+    } else {
+      err_msg += "Unable to start SQLite. Insufficient memory";
+    }
+
+    return Status::RError(err_msg);
   }
 
-  ExecuteSql(R"(
-CREATE TABLE foreignTable (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  foreignName varchar(100),
-  value int);
+  std::shared_ptr<SQLiteFlightSqlServer> result(new SQLiteFlightSqlServer(db));
 
-CREATE TABLE intTable (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  keyName varchar(100),
-  value int,
-  foreignId int references foreignTable(id));
+  ARROW_UNUSED(result->ExecuteSql(R"(
+    CREATE TABLE foreignTable (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    foreignName varchar(100),
+    value int);
 
-INSERT INTO foreignTable (foreignName, value) VALUES ('keyOne', 1);
-INSERT INTO foreignTable (foreignName, value) VALUES ('keyTwo', 0);
-INSERT INTO foreignTable (foreignName, value) VALUES ('keyThree', -1);
-INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1);
-INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1);
-INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1);
-  )");
+    CREATE TABLE intTable (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyName varchar(100),
+    value int,
+    foreignId int references foreignTable(id));
+
+    INSERT INTO foreignTable (foreignName, value) VALUES ('keyOne', 1);
+    INSERT INTO foreignTable (foreignName, value) VALUES ('keyTwo', 0);
+    INSERT INTO foreignTable (foreignName, value) VALUES ('keyThree', -1);
+    INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1);
+    INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1);
+    INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1);
+  )"));
+
+  return result;
 }
 
 SQLiteFlightSqlServer::~SQLiteFlightSqlServer() { sqlite3_close(db_); }
 
-void SQLiteFlightSqlServer::ExecuteSql(const std::string& sql) {
-  char* zErrMsg = NULLPTR;
-  int rc = sqlite3_exec(db_, sql.c_str(), NULLPTR, NULLPTR, &zErrMsg);
+Status SQLiteFlightSqlServer::ExecuteSql(const std::string& sql) {
+  char* err_msg = nullptr;
+  int rc = sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &err_msg);
   if (rc != SQLITE_OK) {
-    fprintf(stderr, "SQL error: %s\n", zErrMsg);
-    sqlite3_free(zErrMsg);
+    std::string error_msg;
+    if (err_msg != nullptr) {
+      error_msg = err_msg;
+    }
+    sqlite3_free(err_msg);
+    return Status::RError(error_msg);
   }
+  return Status::OK();
 }
 
 Status DoGetSQLiteQuery(sqlite3* db, const std::string& query,
                         const std::shared_ptr<Schema>& schema,
                         std::unique_ptr<FlightDataStream>* result) {
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db, query, &statement));
+
+  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db, query));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, schema, &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(statement, schema));
 
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
 
@@ -220,7 +237,7 @@ Status SQLiteFlightSqlServer::GetFlightInfoStatement(const StatementQuery& comma
   const std::string& query = command.query;
 
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, query, &statement));
+  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, query));
 
   std::shared_ptr<Schema> schema;
   ARROW_RETURN_NOT_OK(statement->GetSchema(&schema));
@@ -241,10 +258,10 @@ Status SQLiteFlightSqlServer::DoGetStatement(const StatementQueryTicket& command
   const std::string& sql = command.statement_handle;
 
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, sql, &statement));
+  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, sql));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(statement));
 
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
 
@@ -325,11 +342,11 @@ Status SQLiteFlightSqlServer::DoGetTables(const GetTables& command,
   std::string query = PrepareQueryForGetTables(command);
 
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, query, &statement));
+  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, query));
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(
-      statement, SqlSchema::GetTablesSchema(), &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(
+                                    statement, SqlSchema::GetTablesSchema()));
 
   if (command.include_schema) {
     std::shared_ptr<SqliteTablesWithSchemaBatchReader> table_schema_reader =
@@ -349,7 +366,7 @@ arrow::Result<int64_t> SQLiteFlightSqlServer::DoPutCommandStatementUpdate(
   const std::string& sql = command.query;
 
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, sql, &statement));
+  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, sql));
 
   int64_t record_count;
   ARROW_RETURN_NOT_OK(statement->ExecuteUpdate(&record_count));
@@ -362,8 +379,7 @@ SQLiteFlightSqlServer::CreatePreparedStatement(
     const ActionCreatePreparedStatementRequest& request,
     const ServerCallContext& context) {
   std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(SqliteStatement::Create(db_, request.query, &statement));
-
+  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, request.query));
   boost::uuids::uuid uuid = uuid_generator_();
   prepared_statements_[uuid] = statement;
 
@@ -452,7 +468,7 @@ Status SQLiteFlightSqlServer::DoGetPreparedStatement(
   std::shared_ptr<SqliteStatement> statement = search->second;
 
   std::shared_ptr<SqliteStatementBatchReader> reader;
-  ARROW_RETURN_NOT_OK(SqliteStatementBatchReader::Create(statement, &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(statement));
 
   *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
 
@@ -475,8 +491,7 @@ Status SQLiteFlightSqlServer::GetStatementByHandle(
 
 Status SQLiteFlightSqlServer::DoPutPreparedStatementQuery(
     const PreparedStatementQuery& command, const ServerCallContext& context,
-    std::unique_ptr<FlightMessageReader>& reader,
-    std::unique_ptr<FlightMetadataWriter>& writer) {
+    FlightMessageReader* reader, FlightMetadataWriter* writer) {
   const std::string& prepared_statement_handle = command.prepared_statement_handle;
   std::shared_ptr<SqliteStatement> statement;
   ARROW_RETURN_NOT_OK(GetStatementByHandle(prepared_statement_handle, &statement));
@@ -489,7 +504,7 @@ Status SQLiteFlightSqlServer::DoPutPreparedStatementQuery(
 
 arrow::Result<int64_t> SQLiteFlightSqlServer::DoPutPreparedStatementUpdate(
     const PreparedStatementUpdate& command, const ServerCallContext& context,
-    std::unique_ptr<FlightMessageReader>& reader) {
+    FlightMessageReader* reader) {
   const std::string& prepared_statement_handle = command.prepared_statement_handle;
 
   std::shared_ptr<SqliteStatement> statement;

@@ -42,19 +42,26 @@ std::shared_ptr<DataType> GetDataTypeFromSqliteType(const int column_type) {
   }
 }
 
-Status SqliteStatement::Create(sqlite3* db, const std::string& sql,
-                               std::shared_ptr<SqliteStatement>* result) {
-  sqlite3_stmt* stmt;
+arrow::Result<std::shared_ptr<SqliteStatement>> SqliteStatement::Create(
+    sqlite3* db, const std::string& sql) {
+  sqlite3_stmt* stmt = nullptr;
   int rc =
       sqlite3_prepare_v2(db, sql.c_str(), static_cast<int>(sql.size()), &stmt, NULLPTR);
 
   if (rc != SQLITE_OK) {
-    sqlite3_finalize(stmt);
-    return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db));
+    std::string err_msg = "Can't prepare statement: " + std::string(sqlite3_errmsg(db));
+    if (stmt != nullptr) {
+      rc = sqlite3_finalize(stmt);
+      if (rc != SQLITE_OK) {
+        err_msg += "; Failed to finalize SQLite statement: ";
+        err_msg += std::string(sqlite3_errmsg(db));
+      }
+    }
+    return Status::RError(err_msg);
   }
 
-  result->reset(new SqliteStatement(db, stmt));
-  return Status::OK();
+  std::shared_ptr<SqliteStatement> result(new SqliteStatement(db, stmt));
+  return result;
 }
 
 Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
@@ -114,7 +121,7 @@ Status SqliteStatement::Reset(int* rc) {
   return Status::OK();
 }
 
-sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() { return stmt_; }
+sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() const { return stmt_; }
 
 Status SqliteStatement::ExecuteUpdate(int64_t* result) {
   int rc;

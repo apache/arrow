@@ -104,7 +104,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  example/sqlite_statement.cc
                  example/sqlite_statement_batch_reader.cc
                  example/sqlite_server.cc
-                 example/sqlite_tables_schema_batch_reader.cpp
+                 example/sqlite_tables_schema_batch_reader.cc
                  "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
   target_link_libraries(flight_sql_test_server
                         PRIVATE arrow_flight_sql_static ${GFLAGS_LIBRARIES}

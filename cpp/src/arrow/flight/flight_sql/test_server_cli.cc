@@ -30,23 +30,33 @@
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 
-std::unique_ptr<arrow::flight::FlightServerBase> g_server;
+arrow::Status RunMain() {
+  arrow::flight::Location location;
+  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  arrow::flight::FlightServerOptions options(location);
+
+  std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
+  ARROW_ASSIGN_OR_RAISE(server,
+                        arrow::flight::sql::example::SQLiteFlightSqlServer::Create())
+
+  ARROW_CHECK_OK(server->Init(options));
+  // Exit with a clean error code (0) on SIGTERM
+  ARROW_CHECK_OK(server->SetShutdownOnSignals({SIGTERM}));
+
+  std::cout << "Server listening on localhost:" << server->port() << std::endl;
+  ARROW_CHECK_OK(server->Serve());
+
+  return arrow::Status::OK();
+}
 
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing server for Flight SQL.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  arrow::flight::Location location;
-  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
-  arrow::flight::FlightServerOptions options(location);
-
-  g_server.reset(new arrow::flight::sql::example::SQLiteFlightSqlServer());
-
-  ARROW_CHECK_OK(g_server->Init(options));
-  // Exit with a clean error code (0) on SIGTERM
-  ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
-
-  std::cout << "Server listening on localhost:" << g_server->port() << std::endl;
-  ARROW_CHECK_OK(g_server->Serve());
+  arrow::Status st = RunMain();
+  if (!st.ok()) {
+    std::cerr << st << std::endl;
+    return 1;
+  }
   return 0;
 }

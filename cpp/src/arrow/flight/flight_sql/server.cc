@@ -362,12 +362,13 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
   } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
     ARROW_ASSIGN_OR_RAISE(PreparedStatementQuery internal_command,
                           ParseCommandPreparedStatementQuery(any));
-    return DoPutPreparedStatementQuery(internal_command, context, reader, writer);
+    return DoPutPreparedStatementQuery(internal_command, context, reader.get(),
+                                       writer.get());
   } else if (any.Is<pb::sql::CommandPreparedStatementUpdate>()) {
     ARROW_ASSIGN_OR_RAISE(PreparedStatementUpdate internal_command,
                           ParseCommandPreparedStatementUpdate(any));
-    ARROW_ASSIGN_OR_RAISE(auto record_count,
-                          DoPutPreparedStatementUpdate(internal_command, context, reader))
+    ARROW_ASSIGN_OR_RAISE(auto record_count, DoPutPreparedStatementUpdate(
+                                                 internal_command, context, reader.get()))
 
     pb::sql::DoPutUpdateResult result;
     result.set_record_count(record_count);
@@ -589,14 +590,13 @@ Status FlightSqlServerBase::ClosePreparedStatement(
 
 Status FlightSqlServerBase::DoPutPreparedStatementQuery(
     const PreparedStatementQuery& command, const ServerCallContext& context,
-    std::unique_ptr<FlightMessageReader>& reader,
-    std::unique_ptr<FlightMetadataWriter>& writer) {
+    FlightMessageReader* reader, FlightMetadataWriter* writer) {
   return Status::NotImplemented("DoPutPreparedStatementQuery not implemented");
 }
 
 arrow::Result<int64_t> FlightSqlServerBase::DoPutPreparedStatementUpdate(
     const PreparedStatementUpdate& command, const ServerCallContext& context,
-    std::unique_ptr<FlightMessageReader>& reader) {
+    FlightMessageReader* reader) {
   return Status::NotImplemented("DoPutPreparedStatementUpdate not implemented");
 }
 

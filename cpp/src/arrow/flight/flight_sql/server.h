@@ -414,10 +414,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] context  The call context.
   /// \param[in] reader   A sequence of uploaded record batches.
   /// \param[in] writer   Send metadata back to the client.
-  virtual Status DoPutPreparedStatementQuery(
-      const PreparedStatementQuery& command, const ServerCallContext& context,
-      std::unique_ptr<FlightMessageReader>& reader,
-      std::unique_ptr<FlightMetadataWriter>& writer);
+  virtual Status DoPutPreparedStatementQuery(const PreparedStatementQuery& command,
+                                             const ServerCallContext& context,
+                                             FlightMessageReader* reader,
+                                             FlightMetadataWriter* writer);
 
   /// \brief Executes an update SQL prepared statement.
   /// \param[in] command  The PreparedStatementUpdate object containing the
@@ -427,7 +427,7 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \return             The changed record count.
   virtual arrow::Result<int64_t> DoPutPreparedStatementUpdate(
       const PreparedStatementUpdate& command, const ServerCallContext& context,
-      std::unique_ptr<FlightMessageReader>& reader);
+      FlightMessageReader* reader);
 
  protected:
   static std::string CreateStatementQueryTicket(const std::string& statement_handle);

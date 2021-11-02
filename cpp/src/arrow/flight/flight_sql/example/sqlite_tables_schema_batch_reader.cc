@@ -44,8 +44,8 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
       << "JOIN(" << main_query_ << ") order by table_name";
 
   std::shared_ptr<example::SqliteStatement> schema_statement;
-  ARROW_RETURN_NOT_OK(
-      example::SqliteStatement::Create(db_, schema_query.str(), &schema_statement));
+  ARROW_ASSIGN_OR_RAISE(schema_statement,
+                        example::SqliteStatement::Create(db_, schema_query.str()))
 
   std::shared_ptr<RecordBatch> first_batch;
 
@@ -83,17 +83,19 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
     }
     const arrow::Result<std::shared_ptr<Buffer>>& value =
         ipc::SerializeSchema(*arrow::schema(column_fields));
+
+    std::shared_ptr<Buffer> schema_buffer;
+    ARROW_ASSIGN_OR_RAISE(schema_buffer, value);
+
     column_fields.clear();
     ARROW_RETURN_NOT_OK(
-        schema_builder.Append(value.ValueOrDie()->data(), value.ValueOrDie()->size()));
+        schema_builder.Append(schema_buffer->data(), schema_buffer->size()));
   }
 
   std::shared_ptr<Array> schema_array;
   ARROW_RETURN_NOT_OK(schema_builder.Finish(&schema_array));
 
-  auto result = first_batch->AddColumn(4, "table_schema", schema_array);
-
-  ARROW_ASSIGN_OR_RAISE(*batch, result);
+  ARROW_ASSIGN_OR_RAISE(*batch, first_batch->AddColumn(4, "table_schema", schema_array));
 
   return Status::OK();
 }
