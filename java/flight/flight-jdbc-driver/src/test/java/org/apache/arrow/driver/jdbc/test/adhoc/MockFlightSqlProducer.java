@@ -29,19 +29,14 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.ObjIntConsumer;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.CallStatus;
@@ -55,6 +50,7 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
+import org.apache.arrow.flight.sql.SqlInfoBuilder;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
@@ -72,13 +68,11 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -99,9 +93,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   private final Map<Message, Consumer<ServerStreamListener>> catalogQueriesResults = new HashMap<>();
   private final Map<String, BiConsumer<FlightStream, StreamListener<PutResult>>> updateResultProviders =
       new HashMap<>();
-  private final Set<SqlInfo> defaultInfo = EnumSet.noneOf(SqlInfo.class);
-  private final Map<SqlInfo, ObjIntConsumer<VectorSchemaRoot>> sqlInfoResultProviders =
-      new EnumMap<>(SqlInfo.class);
+  private SqlInfoBuilder sqlInfoBuilder = new SqlInfoBuilder();
 
   private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
                                                                 final FlightDescriptor descriptor) {
@@ -126,15 +118,6 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
     } catch (final IOException e) {
       throw new RuntimeException("Failed to serialize schema", e);
     }
-  }
-
-  /**
-   * Registers the provided {@link SqlInfo}s as the default for when no info is required.
-   *
-   * @param infos the infos to set as default when none is specified {@link #getStreamSqlInfo}.
-   */
-  public void addDefaultSqlInfo(final Collection<SqlInfo> infos) {
-    defaultInfo.addAll(infos);
   }
 
   /**
@@ -199,16 +182,6 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
     Preconditions.checkState(
         updateResultProviders.putIfAbsent(sqlCommand, resultsProvider) == null,
         format("Attempted to overwrite pre-existing query: <%s>.", sqlCommand));
-  }
-
-  /**
-   * Registers a new {@link StatementType#SELECT} query for metadata-related queries.
-   *
-   * @param info            the {@link SqlInfo} to use.
-   * @param resultsProvider the results provider.
-   */
-  public void addSqlInfo(final SqlInfo info, final ObjIntConsumer<VectorSchemaRoot> resultsProvider) {
-    sqlInfoResultProviders.put(info, resultsProvider);
   }
 
   @Override
@@ -363,24 +336,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   @Override
   public void getStreamSqlInfo(final CommandGetSqlInfo commandGetSqlInfo, final CallContext callContext,
                                final ServerStreamListener serverStreamListener) {
-    try (final BufferAllocator allocator = new RootAllocator();
-         final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SQL_INFO_SCHEMA, allocator)) {
-      final List<Integer> infos =
-          commandGetSqlInfo.getInfoCount() == 0 ?
-              defaultInfo.stream().map(SqlInfo::getNumber).collect(toList()) :
-              commandGetSqlInfo.getInfoList();
-      final int rows = infos.size();
-      for (int i = 0; i < rows; i++) {
-        sqlInfoResultProviders.get(SqlInfo.forNumber(infos.get(i))).accept(root, i);
-      }
-      root.setRowCount(rows);
-      serverStreamListener.start(root);
-      serverStreamListener.putNext();
-    } catch (final Throwable throwable) {
-      serverStreamListener.error(throwable);
-    } finally {
-      serverStreamListener.completed();
-    }
+    sqlInfoBuilder.send(commandGetSqlInfo.getInfoList(), serverStreamListener);
   }
 
   @Override
@@ -503,6 +459,10 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             catalogQueriesResults.get(ticket),
             format("Query not registered for ticket: <%s>", ticket))
         .accept(serverStreamListener);
+  }
+
+  public SqlInfoBuilder getSqlInfoBuilder() {
+    return sqlInfoBuilder;
   }
 
   private static final class TicketConversionUtils {

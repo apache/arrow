@@ -27,16 +27,10 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer.serializeSchema;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForBigIntField;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForBooleanField;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForIntField;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataForUtf8Field;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setDataVarCharListField;
-import static org.apache.arrow.driver.jdbc.utils.DatabaseMetadataDenseUnionUtils.setIntToIntListMapField;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
-import static org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
-import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedGroupBy;
-import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
+import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE;
+import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_BIT_VALUE;
+import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.sql.Connection;
@@ -46,19 +40,18 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.function.ObjIntConsumer;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.utils.ResultSetTestUtils;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
@@ -66,15 +59,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedPositionedCommands;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedResultSetType;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedUnions;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert;
-import org.apache.arrow.flight.sql.impl.FlightSql.SqlTransactionIsolationLevel;
-import org.apache.arrow.flight.sql.impl.FlightSql.SupportedAnsi92SqlGrammarLevel;
-import org.apache.arrow.flight.sql.impl.FlightSql.SupportedSqlGrammar;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -100,6 +84,7 @@ import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
 /**
@@ -313,12 +298,15 @@ public class ArrowDatabaseMetadataTest {
   @BeforeClass
   public static void setUpBeforeClass() throws SQLException {
     connection = FLIGHT_SERVER_TEST_RULE.getConnection();
+
     final Message commandGetCatalogs = CommandGetCatalogs.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetCatalogsResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_CATALOGS_SCHEMA, allocator)) {
+           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_CATALOGS_SCHEMA,
+               allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
-        range(0, ROW_COUNT).forEach(i -> catalogName.setSafe(i, new Text(format("catalog #%d", i))));
+        range(0, ROW_COUNT).forEach(
+            i -> catalogName.setSafe(i, new Text(format("catalog #%d", i))));
         root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
@@ -333,9 +321,11 @@ public class ArrowDatabaseMetadataTest {
     final Message commandGetTableTypes = CommandGetTableTypes.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetTableTypesResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLE_TYPES_SCHEMA, allocator)) {
+           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLE_TYPES_SCHEMA,
+               allocator)) {
         final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
-        range(0, ROW_COUNT).forEach(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
+        range(0, ROW_COUNT).forEach(
+            i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
         root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
@@ -350,7 +340,8 @@ public class ArrowDatabaseMetadataTest {
     final Message commandGetTables = CommandGetTables.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetTablesResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)) {
+           final VectorSchemaRoot root = VectorSchemaRoot.create(
+               Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
         final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
         final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
@@ -376,7 +367,8 @@ public class ArrowDatabaseMetadataTest {
         .build();
     final Consumer<ServerStreamListener> commandGetTablesWithSchemaResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA, allocator)) {
+           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA,
+               allocator)) {
         final byte[] filledTableSchemaBytes =
             copyFrom(
                 serializeSchema(new Schema(Arrays.asList(
@@ -505,402 +497,91 @@ public class ArrowDatabaseMetadataTest {
     };
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetPrimaryKeys, commandGetPrimaryKeysResultProducer);
 
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlServerNameProvider =
-        (root, index) ->
-            setDataForUtf8Field(root, index, SqlInfo.FLIGHT_SQL_SERVER_NAME, EXPECTED_DATABASE_PRODUCT_NAME);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_NAME, flightSqlServerNameProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlServerVersionProvider =
-        (root, index) ->
-            setDataForUtf8Field(root, index, SqlInfo.FLIGHT_SQL_SERVER_VERSION, EXPECTED_DATABASE_PRODUCT_VERSION);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_VERSION, flightSqlServerVersionProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlIdentifierQuoteCharProvider =
-        (root, index) ->
-            setDataForUtf8Field(root, index, SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, EXPECTED_IDENTIFIER_QUOTE_STRING);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, flightSqlIdentifierQuoteCharProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlServerReadOnlyProvider =
-        (root, index) ->
-            setDataForBooleanField(root, index, SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, EXPECTED_IS_READ_ONLY);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, flightSqlServerReadOnlyProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlKeywordsProvider =
-        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_KEYWORDS,
-            EXPECTED_SQL_KEYWORDS.split("\\s*,\\s*"));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_KEYWORDS, flightSqlKeywordsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlNumericFunctionsProvider =
-        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_NUMERIC_FUNCTIONS,
-            EXPECTED_NUMERIC_FUNCTIONS.split("\\s*,\\s*"));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_NUMERIC_FUNCTIONS, flightSqlNumericFunctionsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlStringFunctionsProvider =
-        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_STRING_FUNCTIONS,
-            EXPECTED_STRING_FUNCTIONS.split("\\s*,\\s*"));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_STRING_FUNCTIONS, flightSqlStringFunctionsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSystemFunctionsProvider =
-        (root, index) -> setDataVarCharListField(root, index, SqlInfo.SQL_SYSTEM_FUNCTIONS,
-            EXPECTED_SYSTEM_FUNCTIONS.split("\\s*,\\s*"));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SYSTEM_FUNCTIONS, flightSqlSystemFunctionsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlTimeDateFunctionsProvider =
-        (root, index) ->
-            setDataVarCharListField(root, index, SqlInfo.SQL_DATETIME_FUNCTIONS,
-                EXPECTED_TIME_DATE_FUNCTIONS.split("\\s*,\\s*"));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_DATETIME_FUNCTIONS, flightSqlTimeDateFunctionsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSearchStringEscapeProvider =
-        (root, index) ->
-            setDataForUtf8Field(root, index, SqlInfo.SQL_SEARCH_STRING_ESCAPE, EXPECTED_SEARCH_STRING_ESCAPE);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SEARCH_STRING_ESCAPE, flightSqlSearchStringEscapeProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlExtraNamesCharacterProvider =
-        (root, index) ->
-            setDataForUtf8Field(root, index, SqlInfo.SQL_EXTRA_NAME_CHARACTERS, EXPECTED_EXTRA_NAME_CHARACTERS);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_EXTRA_NAME_CHARACTERS, flightSqlExtraNamesCharacterProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsColumnAliasingProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_COLUMN_ALIASING,
-            EXPECTED_SUPPORTS_COLUMN_ALIASING);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_COLUMN_ALIASING, flightSqlSupportsColumnAliasingProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlNullPlusNullIsNullProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_NULL_PLUS_NULL_IS_NULL,
-            EXPECTED_NULL_PLUS_NULL_IS_NULL);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_NULL_PLUS_NULL_IS_NULL, flightSqlNullPlusNullIsNullProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsConvertProvider =
-        (root, index) -> setIntToIntListMapField(root, index, SqlInfo.SQL_SUPPORTS_CONVERT,
-            SqlSupportsConvert.SQL_CONVERT_BIT_VALUE,
-            new int[] {SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE, SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE});
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_CONVERT, flightSqlSupportsConvertProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsTableCorrelationNamesProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_TABLE_CORRELATION_NAMES,
-            EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_TABLE_CORRELATION_NAMES,
-        flightSqlSupportsTableCorrelationNamesProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsDifferentTableCorrelationNamesProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES,
-            EXPECTED_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES,
-        flightSqlSupportsDifferentTableCorrelationNamesProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsExpressionsInOrderByProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY,
-            EXPECTED_EXPRESSIONS_IN_ORDER_BY);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY,
-        flightSqlSupportsExpressionsInOrderByProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsExpressionsInOrderByUnrelatedProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_ORDER_BY_UNRELATED,
-            EXPECTED_SUPPORTS_ORDER_BY_UNRELATED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_ORDER_BY_UNRELATED,
-        flightSqlSupportsExpressionsInOrderByUnrelatedProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedGroupByProvider =
-        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_GROUP_BY,
-            (int) (createBitmaskFromEnums(
-                SqlSupportedGroupBy.SQL_GROUP_BY_UNRELATED)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_GROUP_BY, flightSqlSupportedGroupByProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsLikeEscapeClauseProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE,
-            EXPECTED_SUPPORTS_LIKE_ESCAPE_CLAUSE);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE, flightSqlSupportsLikeEscapeClauseProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsNonNullableColumnsProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_NON_NULLABLE_COLUMNS,
-            EXPECTED_NON_NULLABLE_COLUMNS);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_NON_NULLABLE_COLUMNS,
-        flightSqlSupportsNonNullableColumnsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedGrammarProvider =
-        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_GRAMMAR,
-            (int) (createBitmaskFromEnums(SupportedSqlGrammar.SQL_CORE_GRAMMAR,
-                SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_GRAMMAR, flightSqlSupportedGrammarProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlANSI92EntryLevelProvider =
-        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-            (int) (createBitmaskFromEnums(SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL,
-                SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL, flightSqlANSI92EntryLevelProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsIntegrityEnhancementFacilityProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY,
-            EXPECTED_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY,
-        flightSqlSupportsIntegrityEnhancementFacilityProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsOuterJoins =
-        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
-            (int) (createBitmaskFromEnums(SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL, flightSqlSupportsOuterJoins);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSchemaTermProvider =
-        (root, index) -> setDataForUtf8Field(root, index, SqlInfo.SQL_SCHEMA_TERM, EXPECTED_SCHEMA_TERM);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SCHEMA_TERM, flightSqlSchemaTermProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlCatalogTermProvider =
-        (root, index) -> setDataForUtf8Field(root, index, SqlInfo.SQL_CATALOG_TERM, EXPECTED_CATALOG_TERM);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_CATALOG_TERM, flightSqlCatalogTermProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlProcedureTermProvider =
-        (root, index) -> setDataForUtf8Field(root, index, SqlInfo.SQL_PROCEDURE_TERM, EXPECTED_PROCEDURE_TERM);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_PROCEDURE_TERM, flightSqlProcedureTermProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlCatalogAtStartProvider =
-        (root, index) ->
-            setDataForBooleanField(root, index, SqlInfo.SQL_CATALOG_AT_START, EXPECTED_CATALOG_AT_START);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_CATALOG_AT_START, flightSqlCatalogAtStartProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSchemasSupportedActionsProvider =
-        (root, index) ->
-            setDataForIntField(root, index, SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
-                (int) (createBitmaskFromEnums(SqlSupportedElementActions.SQL_ELEMENT_IN_PROCEDURE_CALLS,
-                    SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS, flightSqlSchemasSupportedActionsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlCatalogSupportedActionsProvider =
-        (root, index) ->
-            setDataForIntField(root, index, SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS,
-                (int) (createBitmaskFromEnums(SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS, flightSqlCatalogSupportedActionsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedPositionedCommandsProvider =
-        (root, index) ->
-            setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
-                (int) (createBitmaskFromEnums(SqlSupportedPositionedCommands.SQL_POSITIONED_DELETE)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
-        flightSqlSupportedPositionedCommandsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSelectForUpdateSupportedProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SELECT_FOR_UPDATE_SUPPORTED,
-            EXPECTED_SELECT_FOR_UPDATE_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SELECT_FOR_UPDATE_SUPPORTED, flightSqlSelectForUpdateSupportedProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlStoredProceduresSupportedProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_STORED_PROCEDURES_SUPPORTED,
-            EXPECTED_STORED_PROCEDURES_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_STORED_PROCEDURES_SUPPORTED, flightSqlStoredProceduresSupportedProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedSubqueriesProvider =
-        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_SUBQUERIES,
-            EXPECTED_SUPPORTED_SUBQUERIES);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_SUBQUERIES, flightSqlSupportedSubqueriesProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsCorrelatedSubqueriesProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_CORRELATED_SUBQUERIES_SUPPORTED,
-            EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_CORRELATED_SUBQUERIES_SUPPORTED,
-        flightSqlSupportsCorrelatedSubqueriesProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedUnionsLengthProvider =
-        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_UNIONS,
-            (int) (createBitmaskFromEnums(SqlSupportedUnions.SQL_UNION_ALL)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_UNIONS, flightSqlSupportedUnionsLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxBinaryLiteralLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_BINARY_LITERAL_LENGTH,
-            EXPECTED_MAX_BINARY_LITERAL_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_BINARY_LITERAL_LENGTH, flightSqlMaxBinaryLiteralLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxCharLiteralLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_CHAR_LITERAL_LENGTH,
-            EXPECTED_MAX_CHAR_LITERAL_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_CHAR_LITERAL_LENGTH, flightSqlMaxCharLiteralLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxColumnNameLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_COLUMN_NAME_LENGTH,
-            EXPECTED_MAX_COLUMN_NAME_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_COLUMN_NAME_LENGTH, flightSqlMaxColumnNameLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxColumnsInGroupByProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_COLUMNS_IN_GROUP_BY,
-            EXPECTED_MAX_COLUMNS_IN_GROUP_BY);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_COLUMNS_IN_GROUP_BY, flightSqlMaxColumnsInGroupByProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxColumnsInIndexProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_COLUMNS_IN_INDEX,
-            EXPECTED_MAX_COLUMNS_IN_INDEX);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_COLUMNS_IN_INDEX, flightSqlMaxColumnsInIndexProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxColumnsInOrderByProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_COLUMNS_IN_ORDER_BY,
-            EXPECTED_MAX_COLUMNS_IN_ORDER_BY);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_COLUMNS_IN_ORDER_BY, flightSqlMaxColumnsInOrderByProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxColumnsInSelectProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_COLUMNS_IN_SELECT,
-            EXPECTED_MAX_COLUMNS_IN_SELECT);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_COLUMNS_IN_SELECT, flightSqlMaxColumnsInSelectProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxConnectionsProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_CONNECTIONS,
-            EXPECTED_MAX_CONNECTIONS);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_CONNECTIONS, flightSqlMaxConnectionsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxCursorNameLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_CURSOR_NAME_LENGTH,
-            EXPECTED_MAX_CURSOR_NAME_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_CURSOR_NAME_LENGTH, flightSqlMaxCursorNameLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxIndexLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_INDEX_LENGTH,
-            EXPECTED_MAX_INDEX_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_INDEX_LENGTH, flightSqlMaxIndexLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxSchemaNameLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_SCHEMA_NAME_LENGTH,
-            EXPECTED_SCHEMA_NAME_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SCHEMA_NAME_LENGTH, flightSqlMaxSchemaNameLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxSchemaProcedureLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_PROCEDURE_NAME_LENGTH,
-            EXPECTED_MAX_PROCEDURE_NAME_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_PROCEDURE_NAME_LENGTH, flightSqlMaxSchemaProcedureLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxCatalogNameLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_CATALOG_NAME_LENGTH,
-            EXPECTED_MAX_CATALOG_NAME_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_CATALOG_NAME_LENGTH, flightSqlMaxCatalogNameLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxRowSizeProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_ROW_SIZE,
-            EXPECTED_MAX_ROW_SIZE);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_ROW_SIZE, flightSqlMaxRowSizeProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxRowSizeIncludeBlobsProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_MAX_ROW_SIZE_INCLUDES_BLOBS,
-            EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_ROW_SIZE_INCLUDES_BLOBS, flightSqlMaxRowSizeIncludeBlobsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxStatementLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_STATEMENT_LENGTH,
-            EXPECTED_MAX_STATEMENT_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_STATEMENT_LENGTH, flightSqlMaxStatementLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxStatementsProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_STATEMENTS,
-            EXPECTED_MAX_STATEMENTS);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_STATEMENTS, flightSqlMaxStatementsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlTableNameLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_TABLE_NAME_LENGTH,
-            EXPECTED_MAX_TABLE_NAME_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_TABLE_NAME_LENGTH, flightSqlTableNameLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlTablesInSelectProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_TABLES_IN_SELECT,
-            EXPECTED_MAX_TABLES_IN_SELECT);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_TABLES_IN_SELECT, flightSqlTablesInSelectProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlMaxUsernameLengthProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_MAX_USERNAME_LENGTH,
-            EXPECTED_MAX_USERNAME_LENGTH);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_MAX_USERNAME_LENGTH, flightSqlMaxUsernameLengthProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlDefaultTransactionIsolationProvider =
-        (root, index) -> setDataForBigIntField(root, index, SqlInfo.SQL_DEFAULT_TRANSACTION_ISOLATION,
-            EXPECTED_DEFAULT_TRANSACTION_ISOLATION);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_DEFAULT_TRANSACTION_ISOLATION,
-        flightSqlDefaultTransactionIsolationProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlTransactionsSupportedProvider =
-        (root, index) ->
-            setDataForBooleanField(root, index, SqlInfo.SQL_TRANSACTIONS_SUPPORTED, EXPECTED_TRANSACTIONS_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_TRANSACTIONS_SUPPORTED, flightSqlTransactionsSupportedProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedTransactionsIsolationLevelsProvider =
-        (root, index) ->
-            setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS,
-                (int) (createBitmaskFromEnums(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE,
-                    SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS,
-        flightSqlSupportedTransactionsIsolationLevelsProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlDataDefinitionCausesTransactionCommitProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT,
-            EXPECTED_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT,
-        flightSqlDataDefinitionCausesTransactionCommitProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlDataDefinitionInTransactionsIgnoredProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED,
-            EXPECTED_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED,
-        flightSqlDataDefinitionInTransactionsIgnoredProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportedResultSetTypesProvider =
-        (root, index) -> setDataForIntField(root, index, SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES,
-            (int) (createBitmaskFromEnums(
-                SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY,
-                SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE)));
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES, flightSqlSupportedResultSetTypesProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSupportsBatchUpdatesProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_BATCH_UPDATES_SUPPORTED,
-            EXPECTED_BATCH_UPDATES_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_BATCH_UPDATES_SUPPORTED, flightSqlSupportsBatchUpdatesProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlSavepointsSupportedProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_SAVEPOINTS_SUPPORTED,
-            EXPECTED_SAVEPOINTS_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_SAVEPOINTS_SUPPORTED, flightSqlSavepointsSupportedProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlNamedParametersSupportedProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_NAMED_PARAMETERS_SUPPORTED,
-            EXPECTED_NAMED_PARAMETERS_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_NAMED_PARAMETERS_SUPPORTED, flightSqlNamedParametersSupportedProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlLocatorsUpdateCopyProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_LOCATORS_UPDATE_COPY,
-            EXPECTED_LOCATORS_UPDATE_COPY);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_LOCATORS_UPDATE_COPY, flightSqlLocatorsUpdateCopyProvider);
-
-    final ObjIntConsumer<VectorSchemaRoot> flightSqlExpectedStoredFunctionsUsingCallSyntaxSupportedProvider =
-        (root, index) -> setDataForBooleanField(root, index, SqlInfo.SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED,
+    FLIGHT_SQL_PRODUCER.getSqlInfoBuilder()
+        .withSqlOuterJoinSupportLevel(FlightSql.SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS)
+        .withFlightSqlServerName(EXPECTED_DATABASE_PRODUCT_NAME)
+        .withFlightSqlServerVersion(EXPECTED_DATABASE_PRODUCT_VERSION)
+        .withSqlIdentifierQuoteChar(EXPECTED_IDENTIFIER_QUOTE_STRING)
+        .withFlightSqlServerReadOnly(EXPECTED_IS_READ_ONLY)
+        .withSqlKeywords(EXPECTED_SQL_KEYWORDS.split("\\s*,\\s*"))
+        .withSqlNumericFunctions(EXPECTED_NUMERIC_FUNCTIONS.split("\\s*,\\s*"))
+        .withSqlStringFunctions(EXPECTED_STRING_FUNCTIONS.split("\\s*,\\s*"))
+        .withSqlSystemFunctions(EXPECTED_SYSTEM_FUNCTIONS.split("\\s*,\\s*"))
+        .withSqlDatetimeFunctions(EXPECTED_TIME_DATE_FUNCTIONS.split("\\s*,\\s*"))
+        .withSqlSearchStringEscape(EXPECTED_SEARCH_STRING_ESCAPE)
+        .withSqlExtraNameCharacters(EXPECTED_EXTRA_NAME_CHARACTERS)
+        .withSqlSupportsColumnAliasing(EXPECTED_SUPPORTS_COLUMN_ALIASING)
+        .withSqlNullPlusNullIsNull(EXPECTED_NULL_PLUS_NULL_IS_NULL)
+        .withSqlSupportsConvert(ImmutableMap.of(SQL_CONVERT_BIT_VALUE,
+            Arrays.asList(SQL_CONVERT_INTEGER_VALUE, SQL_CONVERT_BIGINT_VALUE)))
+        .withSqlSupportsTableCorrelationNames(EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES)
+        .withSqlSupportsDifferentTableCorrelationNames(
+            EXPECTED_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES)
+        .withSqlSupportsExpressionsInOrderBy(EXPECTED_EXPRESSIONS_IN_ORDER_BY)
+        .withSqlSupportsOrderByUnrelated(EXPECTED_SUPPORTS_ORDER_BY_UNRELATED)
+        .withSqlSupportedGroupBy(FlightSql.SqlSupportedGroupBy.SQL_GROUP_BY_UNRELATED)
+        .withSqlSupportsLikeEscapeClause(EXPECTED_SUPPORTS_LIKE_ESCAPE_CLAUSE)
+        .withSqlSupportsNonNullableColumns(EXPECTED_NON_NULLABLE_COLUMNS)
+        .withSqlSupportedGrammar(FlightSql.SupportedSqlGrammar.SQL_CORE_GRAMMAR,
+            FlightSql.SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR)
+        .withSqlAnsi92SupportedLevel(FlightSql.SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL,
+            FlightSql.SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL)
+        .withSqlSupportsIntegrityEnhancementFacility(
+            EXPECTED_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY)
+        .withSqlSchemaTerm(EXPECTED_SCHEMA_TERM)
+        .withSqlCatalogTerm(EXPECTED_CATALOG_TERM)
+        .withSqlProcedureTerm(EXPECTED_PROCEDURE_TERM)
+        .withSqlCatalogAtStart(EXPECTED_CATALOG_AT_START)
+        .withSqlSchemasSupportedActions(
+            FlightSql.SqlSupportedElementActions.SQL_ELEMENT_IN_PROCEDURE_CALLS,
+            FlightSql.SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS)
+        .withSqlCatalogsSupportedActions(
+            FlightSql.SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS)
+        .withSqlSupportedPositionedCommands(
+            FlightSql.SqlSupportedPositionedCommands.SQL_POSITIONED_DELETE)
+        .withSqlSelectForUpdateSupported(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED)
+        .withSqlStoredProceduresSupported(EXPECTED_STORED_PROCEDURES_SUPPORTED)
+        .withSqlSubQueriesSupported(EXPECTED_SUPPORTED_SUBQUERIES)
+        .withSqlCorrelatedSubqueriesSupported(EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED)
+        .withSqlSupportedUnions(FlightSql.SqlSupportedUnions.SQL_UNION_ALL)
+        .withSqlMaxBinaryLiteralLength(EXPECTED_MAX_BINARY_LITERAL_LENGTH)
+        .withSqlMaxCharLiteralLength(EXPECTED_MAX_CHAR_LITERAL_LENGTH)
+        .withSqlMaxColumnNameLength(EXPECTED_MAX_COLUMN_NAME_LENGTH)
+        .withSqlMaxColumnsInGroupBy(EXPECTED_MAX_COLUMNS_IN_GROUP_BY)
+        .withSqlMaxColumnsInIndex(EXPECTED_MAX_COLUMNS_IN_INDEX)
+        .withSqlMaxColumnsInOrderBy(EXPECTED_MAX_COLUMNS_IN_ORDER_BY)
+        .withSqlMaxColumnsInSelect(EXPECTED_MAX_COLUMNS_IN_SELECT)
+        .withSqlMaxConnections(EXPECTED_MAX_CONNECTIONS)
+        .withSqlMaxCursorNameLength(EXPECTED_MAX_CURSOR_NAME_LENGTH)
+        .withSqlMaxIndexLength(EXPECTED_MAX_INDEX_LENGTH)
+        .withSqlSchemaNameLength(EXPECTED_SCHEMA_NAME_LENGTH)
+        .withSqlMaxProcedureNameLength(EXPECTED_MAX_PROCEDURE_NAME_LENGTH)
+        .withSqlMaxCatalogNameLength(EXPECTED_MAX_CATALOG_NAME_LENGTH)
+        .withSqlMaxRowSize(EXPECTED_MAX_ROW_SIZE)
+        .withSqlMaxRowSizeIncludesBlobs(EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS)
+        .withSqlMaxStatementLength(EXPECTED_MAX_STATEMENT_LENGTH)
+        .withSqlMaxStatements(EXPECTED_MAX_STATEMENTS)
+        .withSqlMaxTableNameLength(EXPECTED_MAX_TABLE_NAME_LENGTH)
+        .withSqlMaxTablesInSelect(EXPECTED_MAX_TABLES_IN_SELECT)
+        .withSqlMaxUsernameLength(EXPECTED_MAX_USERNAME_LENGTH)
+        .withSqlDefaultTransactionIsolation(EXPECTED_DEFAULT_TRANSACTION_ISOLATION)
+        .withSqlTransactionsSupported(EXPECTED_TRANSACTIONS_SUPPORTED)
+        .withSqlSupportedTransactionsIsolationLevels(
+            FlightSql.SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE,
+            FlightSql.SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED)
+        .withSqlDataDefinitionCausesTransactionCommit(
+            EXPECTED_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT)
+        .withSqlDataDefinitionsInTransactionsIgnored(
+            EXPECTED_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED)
+        .withSqlSupportedResultSetTypes(
+            FlightSql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY,
+            FlightSql.SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE)
+        .withSqlBatchUpdatesSupported(EXPECTED_BATCH_UPDATES_SUPPORTED)
+        .withSqlSavepointsSupported(EXPECTED_SAVEPOINTS_SUPPORTED)
+        .withSqlNamedParametersSupported(EXPECTED_NAMED_PARAMETERS_SUPPORTED)
+        .withSqlLocatorsUpdateCopy(EXPECTED_LOCATORS_UPDATE_COPY)
+        .withSqlStoredFunctionsUsingCallSyntaxSupported(
             EXPECTED_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED);
-    FLIGHT_SQL_PRODUCER.addSqlInfo(SqlInfo.SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED,
-        flightSqlExpectedStoredFunctionsUsingCallSyntaxSupportedProvider);
-
-    FLIGHT_SQL_PRODUCER.addDefaultSqlInfo(
-        EnumSet.of(SqlInfo.FLIGHT_SQL_SERVER_NAME, SqlInfo.FLIGHT_SQL_SERVER_VERSION, SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR,
-            SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, SqlInfo.SQL_KEYWORDS, SqlInfo.SQL_NUMERIC_FUNCTIONS,
-            SqlInfo.SQL_STRING_FUNCTIONS, SqlInfo.SQL_SYSTEM_FUNCTIONS, SqlInfo.SQL_DATETIME_FUNCTIONS,
-            SqlInfo.SQL_SEARCH_STRING_ESCAPE, SqlInfo.SQL_EXTRA_NAME_CHARACTERS, SqlInfo.SQL_SUPPORTS_COLUMN_ALIASING,
-            SqlInfo.SQL_NULL_PLUS_NULL_IS_NULL, SqlInfo.SQL_SUPPORTS_CONVERT,
-            SqlInfo.SQL_SUPPORTS_TABLE_CORRELATION_NAMES, SqlInfo.SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES,
-            SqlInfo.SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY, SqlInfo.SQL_SUPPORTS_ORDER_BY_UNRELATED,
-            SqlInfo.SQL_SUPPORTED_GROUP_BY,
-            SqlInfo.SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE, SqlInfo.SQL_SUPPORTS_NON_NULLABLE_COLUMNS,
-            SqlInfo.SQL_SUPPORTED_GRAMMAR, SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-            SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY, SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
-            SqlInfo.SQL_SCHEMA_TERM, SqlInfo.SQL_CATALOG_TERM,
-            SqlInfo.SQL_PROCEDURE_TERM, SqlInfo.SQL_CATALOG_AT_START, SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
-            SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS, SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
-            SqlInfo.SQL_SELECT_FOR_UPDATE_SUPPORTED,
-            SqlInfo.SQL_STORED_PROCEDURES_SUPPORTED, SqlInfo.SQL_SUPPORTED_SUBQUERIES,
-            SqlInfo.SQL_CORRELATED_SUBQUERIES_SUPPORTED,
-            SqlInfo.SQL_SUPPORTED_UNIONS, SqlInfo.SQL_MAX_BINARY_LITERAL_LENGTH, SqlInfo.SQL_MAX_CHAR_LITERAL_LENGTH,
-            SqlInfo.SQL_MAX_COLUMN_NAME_LENGTH, SqlInfo.SQL_MAX_COLUMNS_IN_GROUP_BY, SqlInfo.SQL_MAX_COLUMNS_IN_INDEX,
-            SqlInfo.SQL_MAX_COLUMNS_IN_ORDER_BY, SqlInfo.SQL_MAX_COLUMNS_IN_SELECT, SqlInfo.SQL_MAX_CONNECTIONS,
-            SqlInfo.SQL_MAX_CURSOR_NAME_LENGTH, SqlInfo.SQL_MAX_INDEX_LENGTH, SqlInfo.SQL_SCHEMA_NAME_LENGTH,
-            SqlInfo.SQL_MAX_PROCEDURE_NAME_LENGTH, SqlInfo.SQL_MAX_CATALOG_NAME_LENGTH,
-            SqlInfo.SQL_MAX_ROW_SIZE, SqlInfo.SQL_MAX_ROW_SIZE_INCLUDES_BLOBS, SqlInfo.SQL_MAX_STATEMENT_LENGTH,
-            SqlInfo.SQL_MAX_STATEMENTS, SqlInfo.SQL_MAX_TABLE_NAME_LENGTH, SqlInfo.SQL_MAX_TABLES_IN_SELECT,
-            SqlInfo.SQL_MAX_USERNAME_LENGTH, SqlInfo.SQL_DEFAULT_TRANSACTION_ISOLATION,
-            SqlInfo.SQL_TRANSACTIONS_SUPPORTED,
-            SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS, SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT,
-            SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED, SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES,
-            SqlInfo.SQL_BATCH_UPDATES_SUPPORTED, SqlInfo.SQL_SAVEPOINTS_SUPPORTED,
-            SqlInfo.SQL_NAMED_PARAMETERS_SUPPORTED, SqlInfo.SQL_LOCATORS_UPDATE_COPY,
-            SqlInfo.SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED));
-    connection = FLIGHT_SERVER_TEST_RULE.getConnection();
   }
 
   @AfterClass
@@ -1087,21 +768,11 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.getSearchStringEscape(), is(EXPECTED_SEARCH_STRING_ESCAPE));
     collector.checkThat(metaData.getExtraNameCharacters(), is(EXPECTED_EXTRA_NAME_CHARACTERS));
     collector.checkThat(metaData.supportsConvert(), is(EXPECTED_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(
-        metaData.supportsConvert(BIT, INTEGER),
-        is(EXPECTED_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(
-        metaData.supportsConvert(BIT, BIGINT),
-        is(EXPECTED_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(
-        metaData.supportsConvert(BIGINT, INTEGER),
-        is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(
-        metaData.supportsConvert(JAVA_OBJECT, INTEGER),
-        is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
+    collector.checkThat(metaData.supportsConvert(BIT, INTEGER), is(EXPECTED_SQL_SUPPORTS_CONVERT));
+    collector.checkThat(metaData.supportsConvert(BIT, BIGINT), is(EXPECTED_SQL_SUPPORTS_CONVERT));
+    collector.checkThat(metaData.supportsConvert(BIGINT, INTEGER), is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
+    collector.checkThat(metaData.supportsConvert(JAVA_OBJECT, INTEGER), is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
     collector.checkThat(metaData.supportsTableCorrelationNames(), is(EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES));
-    collector.checkThat(metaData.supportsDifferentTableCorrelationNames(),
-        is(EXPECTED_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES));
     collector.checkThat(metaData.supportsExpressionsInOrderBy(), is(EXPECTED_EXPRESSIONS_IN_ORDER_BY));
     collector.checkThat(metaData.supportsOrderByUnrelated(), is(EXPECTED_SUPPORTS_ORDER_BY_UNRELATED));
     collector.checkThat(metaData.supportsGroupBy(), is(EXPECTED_SUPPORTS_GROUP_BY));
@@ -1114,8 +785,6 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.supportsANSI92EntryLevelSQL(), is(EXPECTED_ANSI92_ENTRY_LEVEL_SQL));
     collector.checkThat(metaData.supportsANSI92IntermediateSQL(), is(EXPECTED_ANSI92_INTERMEDIATE_SQL));
     collector.checkThat(metaData.supportsANSI92FullSQL(), is(EXPECTED_ANSI92_FULL_SQL));
-    collector.checkThat(metaData.supportsIntegrityEnhancementFacility(),
-        is(EXPECTED_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY));
     collector.checkThat(metaData.supportsOuterJoins(), is(EXPECTED_SUPPORTS_OUTER_JOINS));
     collector.checkThat(metaData.supportsFullOuterJoins(), is(EXPECTED_SUPPORTS_FULL_OUTER_JOINS));
     collector.checkThat(metaData.supportsLimitedOuterJoins(), is(EXPECTED_SUPPORTS_LIMITED_JOINS));
@@ -1125,19 +794,10 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.isCatalogAtStart(), is(EXPECTED_CATALOG_AT_START));
     collector.checkThat(metaData.supportsSchemasInProcedureCalls(), is(EXPECTED_SCHEMAS_IN_PROCEDURE_CALLS));
     collector.checkThat(metaData.supportsSchemasInIndexDefinitions(), is(EXPECTED_SCHEMAS_IN_INDEX_DEFINITIONS));
-    collector.checkThat(metaData.supportsSchemasInPrivilegeDefinitions(),
-        is(EXPECTED_SCHEMAS_IN_PRIVILEGE_DEFINITIONS));
     collector.checkThat(metaData.supportsCatalogsInIndexDefinitions(), is(EXPECTED_CATALOGS_IN_INDEX_DEFINITIONS));
-    collector.checkThat(metaData.supportsCatalogsInPrivilegeDefinitions(),
-        is(EXPECTED_CATALOGS_IN_PRIVILEGE_DEFINITIONS));
     collector.checkThat(metaData.supportsPositionedDelete(), is(EXPECTED_POSITIONED_DELETE));
     collector.checkThat(metaData.supportsPositionedUpdate(), is(EXPECTED_POSITIONED_UPDATE));
     collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_FORWARD_ONLY), is(EXPECTED_TYPE_FORWARD_ONLY));
-    collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE),
-        is(EXPECTED_TYPE_SCROLL_INSENSITIVE));
-    collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_SENSITIVE),
-        is(EXPECTED_TYPE_SCROLL_SENSITIVE));
-    collector.checkThrows(SQLException.class, () -> metaData.supportsResultSetType(ResultSet.HOLD_CURSORS_OVER_COMMIT));
     collector.checkThat(metaData.supportsSelectForUpdate(), is(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED));
     collector.checkThat(metaData.supportsStoredProcedures(), is(EXPECTED_STORED_PROCEDURES_SUPPORTED));
     collector.checkThat(metaData.supportsSubqueriesInComparisons(), is(EXPECTED_SUBQUERIES_IN_COMPARISON));
@@ -1167,6 +827,20 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.getMaxTablesInSelect(), is(EXPECTED_MAX_TABLES_IN_SELECT));
     collector.checkThat(metaData.getMaxUserNameLength(), is(EXPECTED_MAX_USERNAME_LENGTH));
     collector.checkThat(metaData.getDefaultTransactionIsolation(), is(EXPECTED_DEFAULT_TRANSACTION_ISOLATION));
+    collector.checkThat(metaData.supportsTransactions(), is(EXPECTED_TRANSACTIONS_SUPPORTED));
+    collector.checkThat(metaData.supportsBatchUpdates(), is(EXPECTED_BATCH_UPDATES_SUPPORTED));
+    collector.checkThat(metaData.supportsSavepoints(), is(EXPECTED_SAVEPOINTS_SUPPORTED));
+    collector.checkThat(metaData.supportsNamedParameters(), is(EXPECTED_NAMED_PARAMETERS_SUPPORTED));
+    collector.checkThat(metaData.locatorsUpdateCopy(), is(EXPECTED_LOCATORS_UPDATE_COPY));
+
+    collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE),
+        is(EXPECTED_TYPE_SCROLL_INSENSITIVE));
+    collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_SENSITIVE),
+        is(EXPECTED_TYPE_SCROLL_SENSITIVE));
+    collector.checkThat(metaData.supportsSchemasInPrivilegeDefinitions(),
+        is(EXPECTED_SCHEMAS_IN_PRIVILEGE_DEFINITIONS));
+    collector.checkThat(metaData.supportsCatalogsInPrivilegeDefinitions(),
+        is(EXPECTED_CATALOGS_IN_PRIVILEGE_DEFINITIONS));
     collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE),
         is(EXPECTED_TRANSACTION_NONE));
     collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED),
@@ -1177,20 +851,20 @@ public class ArrowDatabaseMetadataTest {
         is(EXPECTED_TRANSACTION_REPEATABLE_READ));
     collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE),
         is(EXPECTED_TRANSACTION_SERIALIZABLE));
-    collector.checkThrows(SQLException.class,
-        () -> metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE + 1));
-    collector.checkThat(metaData.supportsTransactions(), is(EXPECTED_TRANSACTIONS_SUPPORTED));
-    collector.checkThat(metaData.supportsSubqueriesInComparisons(), is(EXPECTED_SUBQUERIES_IN_COMPARISON));
     collector.checkThat(metaData.dataDefinitionCausesTransactionCommit(),
         is(EXPECTED_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT));
     collector.checkThat(metaData.dataDefinitionIgnoredInTransactions(),
         is(EXPECTED_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED));
-    collector.checkThat(metaData.supportsBatchUpdates(), is(EXPECTED_BATCH_UPDATES_SUPPORTED));
-    collector.checkThat(metaData.supportsSavepoints(), is(EXPECTED_SAVEPOINTS_SUPPORTED));
-    collector.checkThat(metaData.supportsNamedParameters(), is(EXPECTED_NAMED_PARAMETERS_SUPPORTED));
-    collector.checkThat(metaData.locatorsUpdateCopy(), is(EXPECTED_LOCATORS_UPDATE_COPY));
     collector.checkThat(metaData.supportsStoredFunctionsUsingCallSyntax(),
         is(EXPECTED_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED));
+    collector.checkThat(metaData.supportsIntegrityEnhancementFacility(),
+        is(EXPECTED_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY));
+    collector.checkThat(metaData.supportsDifferentTableCorrelationNames(),
+        is(EXPECTED_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES));
+
+    collector.checkThrows(SQLException.class,
+        () -> metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE + 1));
+    collector.checkThrows(SQLException.class, () -> metaData.supportsResultSetType(ResultSet.HOLD_CURSORS_OVER_COMMIT));
   }
 
   @Test
