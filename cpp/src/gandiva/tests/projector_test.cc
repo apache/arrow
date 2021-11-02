@@ -2029,7 +2029,7 @@ TEST_F(TestProjector, TestQuarter) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 5;
+  int num_records = 4;
   auto array0 =
       MakeArrowArrayDate64({1604293200000, 1409648400000, 921783012000, 1338369900000},
                            {true, true, true, true});
