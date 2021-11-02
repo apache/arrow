@@ -545,13 +545,14 @@ Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
   for (int i = 0; static_cast<size_t>(i) < data_->child_data.size(); i++) {
-    ARROW_ASSIGN_OR_RAISE(flattened[i], Flatten(i, pool));
+    ARROW_ASSIGN_OR_RAISE(flattened[i], GetFlattenedField(i, pool));
   }
 
   return flattened;
 }
 
-Result<std::shared_ptr<Array>> StructArray::Flatten(int index, MemoryPool* pool) const {
+Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
+                                                              MemoryPool* pool) const {
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
   auto child_data = data_->child_data[index]->Copy();
