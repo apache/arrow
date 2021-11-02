@@ -222,8 +222,7 @@ static void StringRepeat(benchmark::State& state) {
   // NOTE: this produces only-Ascii data
   auto values =
       rng.String(array_length, value_min_size, value_max_size, null_probability);
-  auto repeats =
-      rng.Int64(array_length, repeat_min_size, repeat_max_size, 0);
+  auto repeats = rng.Int64(array_length, repeat_min_size, repeat_max_size, 0);
   // Make sure lookup tables are initialized before measuring
   ABORT_NOT_OK(CallFunction("string_repeat", {values, repeats}));
 
