@@ -2046,6 +2046,43 @@ TEST_F(TestProjector, TestDayOfMonth) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestQuarter) {
+  // input fields
+  // schema for input fields
+  auto field0 = field("f0", arrow::date64());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_result = field("QUARTER", arrow::int64());
+
+  // Build expression
+  auto myexpr = TreeExprBuilder::MakeExpression("quarter", {field0}, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {myexpr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 =
+      MakeArrowArrayDate64({1604293200000, 1409648400000, 921783012000, 1338369900000, 0},
+                           {true, true, true, true, false});
+  // expected output
+  auto exp = MakeArrowArrayInt64({4, 3, 1, 2, 0}, {true, true, true, true, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestBround) {
   // schema for input fields
   auto field0 = field("f0", arrow::float64());
