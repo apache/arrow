@@ -537,7 +537,7 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
 
 TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateNoParameterBinding) {
   AssertTestPreparedStatementExecuteUpdateOk(
-      [](const std::shared_ptr<FlightSqlClient::PreparedStatement>& prepared_statement,
+      [](const std::shared_ptr<PreparedStatement>& prepared_statement,
          internal::FlightClientImpl& client_mock, const std::shared_ptr<Schema>* schema,
          const int64_t& row_count) {},
       NULLPTR);
@@ -547,7 +547,7 @@ TEST(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding
   const auto schema = arrow::schema(
       {arrow::field("field0", arrow::utf8()), arrow::field("field1", arrow::uint8())});
   AssertTestPreparedStatementExecuteUpdateOk(
-      [](const std::shared_ptr<FlightSqlClient::PreparedStatement>& prepared_statement,
+      [](const std::shared_ptr<PreparedStatement>& prepared_statement,
          internal::FlightClientImpl& client_mock, const std::shared_ptr<Schema>* schema,
          const int64_t& row_count) {
         std::shared_ptr<Array> string_array;

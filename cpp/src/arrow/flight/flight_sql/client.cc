@@ -39,10 +39,11 @@ FlightSqlClient::FlightSqlClient(std::shared_ptr<internal::FlightClientImpl> cli
 FlightSqlClient::FlightSqlClient(std::unique_ptr<FlightClient> client)
     : impl_(internal::FlightClientImpl_Create(std::move(client))) {}
 
-FlightSqlClient::PreparedStatement::PreparedStatement(
-    std::shared_ptr<internal::FlightClientImpl> client, std::string handle,
-    std::shared_ptr<Schema> dataset_schema, std::shared_ptr<Schema> parameter_schema,
-    FlightCallOptions options)
+PreparedStatement::PreparedStatement(std::shared_ptr<internal::FlightClientImpl> client,
+                                     std::string handle,
+                                     std::shared_ptr<Schema> dataset_schema,
+                                     std::shared_ptr<Schema> parameter_schema,
+                                     FlightCallOptions options)
     : client_(std::move(client)),
       options_(std::move(options)),
       handle_(std::move(handle)),
@@ -52,7 +53,7 @@ FlightSqlClient::PreparedStatement::PreparedStatement(
 
 FlightSqlClient::~FlightSqlClient() = default;
 
-FlightSqlClient::PreparedStatement::~PreparedStatement() {
+PreparedStatement::~PreparedStatement() {
   if (IsClosed()) return;
 
   const Status status = Close();
@@ -260,8 +261,8 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightSqlClient::DoGet(
   return std::move(stream);
 }
 
-arrow::Result<std::shared_ptr<FlightSqlClient::PreparedStatement>>
-FlightSqlClient::Prepare(const FlightCallOptions& options, const std::string& query) {
+arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
+    const FlightCallOptions& options, const std::string& query) {
   google::protobuf::Any command;
   pb::sql::ActionCreatePreparedStatementRequest request;
   request.set_query(query);
@@ -317,7 +318,7 @@ FlightSqlClient::Prepare(const FlightCallOptions& options, const std::string& qu
                                              parameter_schema, options);
 }
 
-arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::PreparedStatement::Execute() {
+arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
   if (is_closed_) {
     return Status::Invalid("Statement already closed.");
   }
@@ -352,7 +353,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::PreparedStatement::E
   return std::move(info);
 }
 
-arrow::Result<int64_t> FlightSqlClient::PreparedStatement::ExecuteUpdate() {
+arrow::Result<int64_t> PreparedStatement::ExecuteUpdate() {
   if (is_closed_) {
     return Status::Invalid("Statement already closed.");
   }
@@ -389,24 +390,23 @@ arrow::Result<int64_t> FlightSqlClient::PreparedStatement::ExecuteUpdate() {
   return result.record_count();
 }
 
-Status FlightSqlClient::PreparedStatement::SetParameters(
-    std::shared_ptr<RecordBatch> parameter_binding) {
+Status PreparedStatement::SetParameters(std::shared_ptr<RecordBatch> parameter_binding) {
   parameter_binding_ = std::move(parameter_binding);
 
   return Status::OK();
 }
 
-bool FlightSqlClient::PreparedStatement::IsClosed() { return is_closed_; }
+bool PreparedStatement::IsClosed() const { return is_closed_; }
 
-std::shared_ptr<Schema> FlightSqlClient::PreparedStatement::dataset_schema() const {
+std::shared_ptr<Schema> PreparedStatement::dataset_schema() const {
   return dataset_schema_;
 }
 
-std::shared_ptr<Schema> FlightSqlClient::PreparedStatement::parameter_schema() const {
+std::shared_ptr<Schema> PreparedStatement::parameter_schema() const {
   return parameter_schema_;
 }
 
-Status FlightSqlClient::PreparedStatement::Close() {
+Status PreparedStatement::Close() {
   if (is_closed_) {
     return Status::Invalid("Statement already closed.");
   }

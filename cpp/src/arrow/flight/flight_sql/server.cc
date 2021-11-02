@@ -28,6 +28,9 @@
 #include <boost/uuid/uuid.hpp>
 #include <sstream>
 
+#define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
+  COMMAND.has_##PROPERTY() ? util::make_optional(COMMAND.PROPERTY()) : util::nullopt;
+
 namespace arrow {
 namespace flight {
 namespace sql {
@@ -42,15 +45,11 @@ arrow::Result<GetCrossReference> ParseCommandGetCrossReference(
   }
 
   GetCrossReference result;
-  result.has_pk_catalog = command.has_pk_catalog();
-  result.pk_catalog = command.pk_catalog();
-  result.has_pk_schema = command.has_pk_schema();
-  result.pk_schema = command.pk_schema();
+  result.pk_catalog = PROPERTY_TO_OPTIONAL(command, pk_catalog);
+  result.pk_schema = PROPERTY_TO_OPTIONAL(command, pk_schema);
   result.pk_table = command.pk_table();
-  result.has_fk_catalog = command.has_fk_catalog();
-  result.fk_catalog = command.fk_catalog();
-  result.has_fk_schema = command.has_fk_schema();
-  result.fk_schema = command.fk_schema();
+  result.fk_catalog = PROPERTY_TO_OPTIONAL(command, fk_catalog);
+  result.fk_schema = PROPERTY_TO_OPTIONAL(command, fk_schema);
   result.fk_table = command.fk_table();
   return result;
 }
@@ -63,10 +62,8 @@ arrow::Result<GetImportedKeys> ParseCommandGetImportedKeys(
   }
 
   GetImportedKeys result;
-  result.has_catalog = command.has_catalog();
-  result.catalog = command.catalog();
-  result.has_schema = command.has_schema();
-  result.schema = command.schema();
+  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
+  result.schema = PROPERTY_TO_OPTIONAL(command, schema);
   result.table = command.table();
   return result;
 }
@@ -79,10 +76,8 @@ arrow::Result<GetExportedKeys> ParseCommandGetExportedKeys(
   }
 
   GetExportedKeys result;
-  result.has_catalog = command.has_catalog();
-  result.catalog = command.catalog();
-  result.has_schema = command.has_schema();
-  result.schema = command.schema();
+  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
+  result.schema = PROPERTY_TO_OPTIONAL(command, schema);
   result.table = command.table();
   return result;
 }
@@ -95,10 +90,8 @@ arrow::Result<GetPrimaryKeys> ParseCommandGetPrimaryKeys(
   }
 
   GetPrimaryKeys result;
-  result.has_catalog = command.has_catalog();
-  result.catalog = command.catalog();
-  result.has_schema = command.has_schema();
-  result.schema = command.schema();
+  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
+  result.schema = PROPERTY_TO_OPTIONAL(command, schema);
   result.table = command.table();
   return result;
 }
@@ -120,10 +113,8 @@ arrow::Result<GetSchemas> ParseCommandGetSchemas(const google::protobuf::Any& an
   }
 
   GetSchemas result;
-  result.has_catalog = command.has_catalog();
-  result.catalog = command.catalog();
-  result.has_schema_filter_pattern = command.has_schema_filter_pattern();
-  result.schema_filter_pattern = command.schema_filter_pattern();
+  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
+  result.schema_filter_pattern = PROPERTY_TO_OPTIONAL(command, schema_filter_pattern);
   return result;
 }
 
@@ -163,12 +154,10 @@ arrow::Result<GetTables> ParseCommandGetTables(const google::protobuf::Any& any)
     table_types.push_back(item);
   }
   GetTables result;
-  result.has_catalog = command.has_catalog();
-  result.catalog = command.catalog();
-  result.has_schema_filter_pattern = command.has_schema_filter_pattern();
-  result.schema_filter_pattern = command.schema_filter_pattern();
-  result.has_table_name_filter_pattern = command.has_table_name_filter_pattern();
-  result.table_name_filter_pattern = command.table_name_filter_pattern();
+  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
+  result.schema_filter_pattern = PROPERTY_TO_OPTIONAL(command, schema_filter_pattern);
+  result.table_name_filter_pattern =
+      PROPERTY_TO_OPTIONAL(command, table_name_filter_pattern);
   result.table_types = table_types;
   result.include_schema = command.include_schema();
   return result;

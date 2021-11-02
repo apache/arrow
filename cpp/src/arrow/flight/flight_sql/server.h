@@ -24,6 +24,7 @@
 #include <arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h>
 #include <arrow/flight/flight_sql/server.h>
 #include <arrow/flight/server.h>
+#include <arrow/util/optional.h>
 
 #include <memory>
 #include <string>
@@ -57,57 +58,42 @@ struct GetSqlInfo {
 };
 
 struct GetSchemas {
-  bool has_catalog;
-  std::string catalog;
-  bool has_schema_filter_pattern;
-  std::string schema_filter_pattern;
+  util::optional<std::string> catalog;
+  util::optional<std::string> schema_filter_pattern;
 };
 
 struct GetTables {
-  bool has_catalog;
-  std::string catalog;
-  bool has_schema_filter_pattern;
-  std::string schema_filter_pattern;
-  bool has_table_name_filter_pattern;
-  std::string table_name_filter_pattern;
+  util::optional<std::string> catalog;
+  util::optional<std::string> schema_filter_pattern;
+  util::optional<std::string> table_name_filter_pattern;
   std::vector<std::string> table_types;
   bool include_schema;
 };
 
 struct GetPrimaryKeys {
-  bool has_catalog;
-  std::string catalog;
-  bool has_schema;
-  std::string schema;
+  util::optional<std::string> catalog;
+  util::optional<std::string> schema;
   std::string table;
 };
 
 struct GetExportedKeys {
-  bool has_catalog;
-  std::string catalog;
-  bool has_schema;
-  std::string schema;
+  util::optional<std::string> catalog;
+  util::optional<std::string> schema;
   std::string table;
 };
 
 struct GetImportedKeys {
-  bool has_catalog;
-  std::string catalog;
-  bool has_schema;
-  std::string schema;
+  util::optional<std::string> catalog;
+  util::optional<std::string> schema;
   std::string table;
 };
 
 struct GetCrossReference {
-  bool has_pk_catalog;
-  std::string pk_catalog;
-  bool has_pk_schema;
-  std::string pk_schema;
+  util::optional<std::string> pk_catalog;
+  util::optional<std::string> pk_schema;
   std::string pk_table;
-  bool has_fk_catalog;
-  std::string fk_catalog;
-  bool has_fk_schema;
-  std::string fk_schema;
+  util::optional<std::string> fk_catalog;
+  util::optional<std::string> fk_schema;
   std::string fk_table;
 };
 

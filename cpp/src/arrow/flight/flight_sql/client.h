@@ -33,14 +33,14 @@ namespace internal {
 class FlightClientImpl;
 }
 
+class PreparedStatement;
+
 /// \brief Flight client with Flight SQL semantics.
 class ARROW_EXPORT FlightSqlClient {
  private:
   std::shared_ptr<internal::FlightClientImpl> impl_;
 
  public:
-  class PreparedStatement;
-
   explicit FlightSqlClient(std::shared_ptr<internal::FlightClientImpl> client);
 
   ~FlightSqlClient();
@@ -165,65 +165,64 @@ class ARROW_EXPORT FlightSqlClient {
       const FlightCallOptions& options, const std::string& query);
 
   explicit FlightSqlClient(std::unique_ptr<FlightClient> client);
+};
 
-  class PreparedStatement {
-    std::shared_ptr<internal::FlightClientImpl> client_;
-    FlightCallOptions options_;
-    std::string handle_;
-    std::shared_ptr<Schema> dataset_schema_;
-    std::shared_ptr<Schema> parameter_schema_;
-    std::shared_ptr<RecordBatch> parameter_binding_;
-    bool is_closed_;
+class PreparedStatement {
+  std::shared_ptr<internal::FlightClientImpl> client_;
+  FlightCallOptions options_;
+  std::string handle_;
+  std::shared_ptr<Schema> dataset_schema_;
+  std::shared_ptr<Schema> parameter_schema_;
+  std::shared_ptr<RecordBatch> parameter_binding_;
+  bool is_closed_;
 
-   public:
-    /// \brief Constructor for the PreparedStatement class.
-    /// \param[in] client                Client object used to make the RPC requests.
-    /// \param[in] handle                Handle for this prepared statement.
-    /// \param[in] dataset_schema        Schema of the resulting dataset.
-    /// \param[in] parameter_schema      Schema of the parameters (if any).
-    /// \param[in] options               RPC-layer hints for this call.
-    PreparedStatement(std::shared_ptr<internal::FlightClientImpl> client,
-                      std::string handle, std::shared_ptr<Schema> dataset_schema,
-                      std::shared_ptr<Schema> parameter_schema,
-                      FlightCallOptions options);
+ public:
+  /// \brief Constructor for the PreparedStatement class.
+  /// \param[in] client                Client object used to make the RPC requests.
+  /// \param[in] handle                Handle for this prepared statement.
+  /// \param[in] dataset_schema        Schema of the resulting dataset.
+  /// \param[in] parameter_schema      Schema of the parameters (if any).
+  /// \param[in] options               RPC-layer hints for this call.
+  PreparedStatement(std::shared_ptr<internal::FlightClientImpl> client,
+                    std::string handle, std::shared_ptr<Schema> dataset_schema,
+                    std::shared_ptr<Schema> parameter_schema, FlightCallOptions options);
 
-    /// \brief Default destructor for the PreparedStatement class.
-    /// The destructor will call the Close method from the class in order,
-    /// to send a request to close the PreparedStatement.
-    /// NOTE: It is best to explicitly close the PreparedStatement, otherwise
-    /// errors can't be caught.
-    ~PreparedStatement();
+  /// \brief Default destructor for the PreparedStatement class.
+  /// The destructor will call the Close method from the class in order,
+  /// to send a request to close the PreparedStatement.
+  /// NOTE: It is best to explicitly close the PreparedStatement, otherwise
+  /// errors can't be caught.
+  ~PreparedStatement();
 
-    /// \brief Executes the prepared statement query on the server.
-    /// \return A FlightInfo object representing the stream(s) to fetch.
-    arrow::Result<std::unique_ptr<FlightInfo>> Execute();
+  /// \brief Executes the prepared statement query on the server.
+  /// \return A FlightInfo object representing the stream(s) to fetch.
+  arrow::Result<std::unique_ptr<FlightInfo>> Execute();
 
-    /// \brief Executes the prepared statement update query on the server.
-    /// \return The number of rows affected.
-    arrow::Result<int64_t> ExecuteUpdate();
+  /// \brief Executes the prepared statement update query on the server.
+  /// \return The number of rows affected.
+  arrow::Result<int64_t> ExecuteUpdate();
 
-    /// \brief Retrieve the parameter schema from the query.
-    /// \return The parameter schema from the query.
-    std::shared_ptr<Schema> parameter_schema() const;
+  /// \brief Retrieve the parameter schema from the query.
+  /// \return The parameter schema from the query.
+  std::shared_ptr<Schema> parameter_schema() const;
 
-    /// \brief Retrieve the ResultSet schema from the query.
-    /// \return The ResultSet schema from the query.
-    std::shared_ptr<Schema> dataset_schema() const;
+  /// \brief Retrieve the ResultSet schema from the query.
+  /// \return The ResultSet schema from the query.
+  std::shared_ptr<Schema> dataset_schema() const;
 
-    /// \brief Set a RecordBatch that contains the parameters that will be bind.
-    /// \param parameter_binding_   The parameters that will be bind.
-    /// \return                     Status.
-    Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
+  /// \brief Set a RecordBatch that contains the parameters that will be bind.
+  /// \param parameter_binding_   The parameters that will be bind.
+  /// \return                     Status.
+  Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
 
-    /// \brief Closes the prepared statement.
-    /// \param[in] options  RPC-layer hints for this call.
-    /// \return Status.
-    Status Close();
+  /// \brief Closes the prepared statement.
+  /// \param[in] options  RPC-layer hints for this call.
+  /// \return Status.
+  Status Close();
 
-    /// \brief Checks if the prepared statement is closed.
-    /// \return The state of the prepared statement.
-    bool IsClosed();
-  };
+  /// \brief Checks if the prepared statement is closed.
+  /// \return The state of the prepared statement.
+  bool IsClosed() const;
 };
 
 }  // namespace sql

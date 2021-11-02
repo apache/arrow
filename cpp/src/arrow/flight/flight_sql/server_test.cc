@@ -62,8 +62,8 @@ class TestFlightSqlServer : public ::testing::Environment {
   void TearDown() override {
     server->Stop();
 
-    free(server);
-    free(sql_client);
+    delete server;
+    delete sql_client;
   }
 };
 
