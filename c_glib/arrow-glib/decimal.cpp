@@ -70,7 +70,7 @@ garrow_decimal_new_string(const gchar *data,
     DecimalConverter<Decimal> converter;
     return converter.new_raw(&arrow_decimal);
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
