@@ -518,7 +518,7 @@ class TestFilterKernelWithString : public TestFilterKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestFilterKernelWithString, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestFilterKernelWithString, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
@@ -1156,7 +1156,7 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestTakeKernelWithString, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithString, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
@@ -1917,7 +1917,7 @@ class TestDropNullKernelWithString : public TestDropNullKernelTyped<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestDropNullKernelWithString, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestDropNullKernelWithString, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestDropNullKernelWithString, DropNullString) {
   this->AssertDropNull(R"(["a", "b", "c"])", R"(["a", "b", "c"])");

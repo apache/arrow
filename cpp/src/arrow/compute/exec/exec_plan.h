@@ -23,13 +23,17 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_util.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
 namespace compute {
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
@@ -76,6 +80,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \brief A future which will be marked finished when all nodes have stopped producing.
   Future<> finished();
 
+  std::string ToString() const;
+
  protected:
   ExecContext* exec_context_;
   explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
@@ -87,7 +93,7 @@ class ARROW_EXPORT ExecNode {
 
   virtual ~ExecNode() = default;
 
-  virtual const char* kind_name() = 0;
+  virtual const char* kind_name() const = 0;
 
   // The number of inputs/outputs expected by this node
   int num_inputs() const { return static_cast<int>(inputs_.size()); }
@@ -217,6 +223,8 @@ class ARROW_EXPORT ExecNode {
   /// \brief A future which will be marked finished when this node has stopped producing.
   virtual Future<> finished() = 0;
 
+  std::string ToString() const;
+
  protected:
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
            std::shared_ptr<Schema> output_schema, int num_outputs);
@@ -224,6 +232,9 @@ class ARROW_EXPORT ExecNode {
   // A helper method to send an error status to all outputs.
   // Returns true if the status was an error.
   bool ErrorIfNotOk(Status status);
+
+  /// Provide extra info to include in the string representation.
+  virtual std::string ToStringExtra() const;
 
   ExecPlan* plan_;
   std::string label_;
@@ -234,6 +245,56 @@ class ARROW_EXPORT ExecNode {
   std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
+};
+
+/// \brief MapNode is an ExecNode type class which process a task like filter/project
+/// (See SubmitTask method) to each given ExecBatch object, which have one input, one
+/// output, and are pure functions on the input
+///
+/// A simple parallel runner is created with a "map_fn" which is just a function that
+/// takes a batch in and returns a batch.  This simple parallel runner also needs an
+/// executor (use simple synchronous runner if there is no executor)
+
+class MapNode : public ExecNode {
+ public:
+  MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+          std::shared_ptr<Schema> output_schema, bool async_mode);
+
+  void ErrorReceived(ExecNode* input, Status error) override;
+
+  void InputFinished(ExecNode* input, int total_batches) override;
+
+  Status StartProducing() override;
+
+  void PauseProducing(ExecNode* output) override;
+
+  void ResumeProducing(ExecNode* output) override;
+
+  void StopProducing(ExecNode* output) override;
+
+  void StopProducing() override;
+
+  Future<> finished() override;
+
+ protected:
+  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
+
+  void Finish(Status finish_st = Status::OK());
+
+ protected:
+  // Counter for the number of batches received
+  AtomicCounter input_counter_;
+
+  // Future to sync finished
+  Future<> finished_ = Future<>::Make();
+
+  // The task group for the corresponding batches
+  util::AsyncTaskGroup task_group_;
+
+  ::arrow::internal::Executor* executor_;
+
+  // Variable used to cancel remaining tasks in the executor
+  StopSource stop_source_;
 };
 
 /// \brief An extensible registry for factories of ExecNodes
@@ -253,13 +314,6 @@ class ARROW_EXPORT ExecFactoryRegistry {
   ///
   /// will raise if factory_name is already in the registry
   virtual Status AddFactory(std::string factory_name, Factory factory) = 0;
-
-  /// Helper for declaring on-load registration of ExecNode factories,
-  /// including built-in factories.
-  struct ARROW_EXPORT AddOnLoad {
-    AddOnLoad(std::string factory_name, Factory factory, ExecFactoryRegistry* registry);
-    AddOnLoad(std::string factory_name, Factory factory);
-  };
 };
 
 /// The default registry, which includes built-in factories.
@@ -352,6 +406,17 @@ ARROW_EXPORT
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
     MemoryPool*);
+
+constexpr int kDefaultBackgroundMaxQ = 32;
+constexpr int kDefaultBackgroundQRestart = 16;
+
+/// \brief Make a generator of RecordBatchReaders
+///
+/// Useful as a source node for an Exec plan
+ARROW_EXPORT
+Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+    std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
+    int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
 
 }  // namespace compute
 }  // namespace arrow

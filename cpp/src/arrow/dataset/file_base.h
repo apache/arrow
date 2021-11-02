@@ -364,6 +364,20 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;
 
+  /// If greater than 0 then this will limit the maximum number of files that can be left
+  /// open. If an attempt is made to open too many files then the least recently used file
+  /// will be closed.  If this setting is set too low you may end up fragmenting your data
+  /// into many small files.
+  uint32_t max_open_files = 1024;
+
+  /// If greater than 0 then this will limit how many rows are placed in any single file.
+  /// Otherwise there will be no limit and one file will be created in each output
+  /// directory unless files need to be closed to respect max_open_files
+  uint64_t max_rows_per_file = 0;
+
+  /// Controls what happens if an output directory already exists.
+  ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;
+
   /// Callback to be invoked against all FileWriters before
   /// they are finalized with FileWriter::Finish().
   std::function<Status(FileWriter*)> writer_pre_finish = [](FileWriter*) {
@@ -381,7 +395,27 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   }
 };
 
+/// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
+class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+ public:
+  explicit WriteNodeOptions(
+      FileSystemDatasetWriteOptions options, std::shared_ptr<Schema> schema,
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
+      : write_options(std::move(options)),
+        schema(std::move(schema)),
+        backpressure_toggle(std::move(backpressure_toggle)) {}
+
+  FileSystemDatasetWriteOptions write_options;
+  std::shared_ptr<Schema> schema;
+  std::shared_ptr<util::AsyncToggle> backpressure_toggle;
+};
+
 /// @}
+
+namespace internal {
+ARROW_DS_EXPORT void InitializeDatasetWriter(
+    arrow::compute::ExecFactoryRegistry* registry);
+}
 
 }  // namespace dataset
 }  // namespace arrow

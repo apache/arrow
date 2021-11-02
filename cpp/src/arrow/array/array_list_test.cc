@@ -1145,4 +1145,38 @@ TEST_F(TestFixedSizeListArray, NotEnoughValues) {
   ASSERT_OK(result_->ValidateFull());
 }
 
+TEST_F(TestFixedSizeListArray, FlattenZeroLength) {
+  Done();
+  ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+  ASSERT_OK(flattened->ValidateFull());
+  ASSERT_EQ(0, flattened->length());
+  AssertTypeEqual(*flattened->type(), *value_type_);
+}
+
+TEST_F(TestFixedSizeListArray, Flatten) {
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6, 7};
+  std::vector<uint8_t> is_valid = {1, 0, 1, 1};
+  ASSERT_OK(builder_->AppendValues(4, is_valid.data()));
+  auto* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+  ASSERT_OK(vb->AppendValues(values.data(), static_cast<int64_t>(values.size())));
+  Done();
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(6, flattened->length());
+    AssertArraysEqual(*flattened, *ArrayFromJSON(value_type_, "[0, 1, 4, 5, 6, 7]"),
+                      /*verbose=*/true);
+  }
+
+  {
+    auto sliced = std::dynamic_pointer_cast<FixedSizeListArray>(result_->Slice(1, 2));
+    ASSERT_OK_AND_ASSIGN(auto flattened, sliced->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(2, flattened->length());
+    AssertArraysEqual(*flattened, *ArrayFromJSON(value_type_, "[4, 5]"),
+                      /*verbose=*/true);
+  }
+}
+
 }  // namespace arrow

@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <reader_writer.h>
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <memory>
-
-#include <reader_writer.h>
 
 /*
  * This example describes writing and reading Parquet Files in C++ and serves as a
@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
       int i;
       std::shared_ptr<parquet::ColumnReader> column_reader;
 
-      ARROW_UNUSED(rows_read); // prevent warning in release build
+      ARROW_UNUSED(rows_read);  // prevent warning in release build
 
       // Get the Column Reader for the boolean column
       column_reader = row_group_reader->Column(0);
@@ -294,7 +294,7 @@ int main(int argc, char** argv) {
         assert(values_read == 1);
         // Verify the value written
         parquet::Int96 expected_value;
-        ARROW_UNUSED(expected_value); // prevent warning in release build
+        ARROW_UNUSED(expected_value);  // prevent warning in release build
         expected_value.value[0] = i;
         expected_value.value[1] = i + 1;
         expected_value.value[2] = i + 2;
@@ -362,7 +362,7 @@ int main(int argc, char** argv) {
         assert(rows_read == 1);
         // Verify the value written
         char expected_value[FIXED_LENGTH] = "parquet";
-        ARROW_UNUSED(expected_value); // prevent warning in release build
+        ARROW_UNUSED(expected_value);  // prevent warning in release build
         expected_value[7] = static_cast<char>('0' + i / 100);
         expected_value[8] = static_cast<char>('0' + (i / 10) % 10);
         expected_value[9] = static_cast<char>('0' + i % 10);

@@ -52,7 +52,7 @@ jobs:
         shell: Rscript {0}
       - name: Build arrow package
         run: |
-          R CMD build arrow/r
+          R CMD build --no-build-vignettes arrow/r
           mkdir packages
           mv arrow_*.tar.gz packages
       - name: rchk

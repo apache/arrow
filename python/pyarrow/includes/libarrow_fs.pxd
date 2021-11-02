@@ -225,6 +225,19 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
             CFileSystem):
         CMockFileSystem(CTimePoint current_time)
 
+    CStatus CCopyFiles "arrow::fs::CopyFiles"(
+        const vector[CFileLocator]& sources,
+        const vector[CFileLocator]& destinations,
+        const CIOContext& io_context,
+        int64_t chunk_size, c_bool use_threads)
+    CStatus CCopyFilesWithSelector "arrow::fs::CopyFiles"(
+        const shared_ptr[CFileSystem]& source_fs,
+        const CFileSelector& source_sel,
+        const shared_ptr[CFileSystem]& destination_fs,
+        const c_string& destination_base_dir,
+        const CIOContext& io_context,
+        int64_t chunk_size, c_bool use_threads)
+
 
 # Callbacks for implementing Python filesystems
 # Use typedef to emulate syntax for std::function<void(..)>

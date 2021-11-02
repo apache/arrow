@@ -126,7 +126,13 @@ def parallel_map_terminate_early(f, iterable, num_parallel):
                 raise e
 
 
-ARROW_REPOSITORY_PACKAGE_TYPES = ['centos', 'debian', 'ubuntu']
+ARROW_REPOSITORY_PACKAGE_TYPES = [
+    'almalinux',
+    'amazon-linux',
+    'centos',
+    'debian',
+    'ubuntu',
+]
 ARROW_STANDALONE_PACKAGE_TYPES = ['nuget', 'python']
 ARROW_PACKAGE_TYPES = \
     ARROW_REPOSITORY_PACKAGE_TYPES + \

@@ -165,19 +165,21 @@ void Hashing::hash_varlen_avx2(uint32_t num_rows, const uint32_t* offsets,
 
     __m128i acc = acc_init;
 
-    uint32_t i;
-    for (i = 0; i < (length - 1) / 16; ++i) {
+    if (length) {
+      uint32_t i;
+      for (i = 0; i < (length - 1) / 16; ++i) {
+        __m128i key_stripe = _mm_loadu_si128(reinterpret_cast<const __m128i*>(base) + i);
+        acc = _mm_add_epi32(acc, _mm_mullo_epi32(key_stripe, _mm_set1_epi32(PRIME32_2)));
+        acc = _mm_or_si128(_mm_slli_epi32(acc, 13), _mm_srli_epi32(acc, 32 - 13));
+        acc = _mm_mullo_epi32(acc, _mm_set1_epi32(PRIME32_1));
+      }
       __m128i key_stripe = _mm_loadu_si128(reinterpret_cast<const __m128i*>(base) + i);
+      __m128i mask = _mm_cmpgt_epi8(_mm_set1_epi8(((length - 1) % 16) + 1), sequence);
+      key_stripe = _mm_and_si128(key_stripe, mask);
       acc = _mm_add_epi32(acc, _mm_mullo_epi32(key_stripe, _mm_set1_epi32(PRIME32_2)));
       acc = _mm_or_si128(_mm_slli_epi32(acc, 13), _mm_srli_epi32(acc, 32 - 13));
       acc = _mm_mullo_epi32(acc, _mm_set1_epi32(PRIME32_1));
     }
-    __m128i key_stripe = _mm_loadu_si128(reinterpret_cast<const __m128i*>(base) + i);
-    __m128i mask = _mm_cmpgt_epi8(_mm_set1_epi8(((length - 1) % 16) + 1), sequence);
-    key_stripe = _mm_and_si128(key_stripe, mask);
-    acc = _mm_add_epi32(acc, _mm_mullo_epi32(key_stripe, _mm_set1_epi32(PRIME32_2)));
-    acc = _mm_or_si128(_mm_slli_epi32(acc, 13), _mm_srli_epi32(acc, 32 - 13));
-    acc = _mm_mullo_epi32(acc, _mm_set1_epi32(PRIME32_1));
 
     _mm_storeu_si128(reinterpret_cast<__m128i*>(temp_buffer) + ikey, acc);
   }
@@ -240,6 +242,24 @@ void Hashing::hash_varlen_avx2(uint32_t num_rows, const uint32_t* offsets,
 
     hashes[i] = acc;
   }
+}
+
+uint32_t Hashing::HashCombine_avx2(uint32_t num_rows, uint32_t* accumulated_hash,
+                                   const uint32_t* next_column_hash) {
+  constexpr uint32_t unroll = 8;
+  for (uint32_t i = 0; i < num_rows / unroll; ++i) {
+    __m256i acc =
+        _mm256_loadu_si256(reinterpret_cast<const __m256i*>(accumulated_hash) + i);
+    __m256i next =
+        _mm256_loadu_si256(reinterpret_cast<const __m256i*>(next_column_hash) + i);
+    next = _mm256_add_epi32(next, _mm256_set1_epi32(0x9e3779b9));
+    next = _mm256_add_epi32(next, _mm256_slli_epi32(acc, 6));
+    next = _mm256_add_epi32(next, _mm256_srli_epi32(acc, 2));
+    acc = _mm256_xor_si256(acc, next);
+    _mm256_storeu_si256(reinterpret_cast<__m256i*>(accumulated_hash) + i, acc);
+  }
+  uint32_t num_processed = num_rows / unroll * unroll;
+  return num_processed;
 }
 
 #endif

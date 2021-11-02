@@ -25,7 +25,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examplesIf arrow_available()
+#' @examplesIf arrow_with_json()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' writeLines('

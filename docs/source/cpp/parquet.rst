@@ -99,7 +99,7 @@ Encodings
 * \(1) Only supported for encoding definition and repetition levels, not values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
-  2.0 (or potentially greater) is selected in :func:`WriterProperties::version`.
+  2.4 or greater is selected in :func:`WriterProperties::version`.
 
 *Unsupported encodings:* DELTA_BINARY_PACKED, DELTA_LENGTH_BYTE_ARRAY,
 DELTA_BYTE_ARRAY.

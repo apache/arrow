@@ -1569,6 +1569,12 @@ TEST(BitUtilTests, TestSetBitmap) {
       uint8_t false_byte = static_cast<uint8_t>(0);
       ASSERT_BYTES_EQ(bitmap, {false_byte, false_byte, false_byte, fill_byte});
     }
+    {
+      // ASAN test against out of bound access (ARROW-13803)
+      uint8_t bitmap[1] = {fill_byte};
+      BitUtil::ClearBitmap(bitmap, 0, 8);
+      ASSERT_EQ(bitmap[0], 0);
+    }
   }
 }
 

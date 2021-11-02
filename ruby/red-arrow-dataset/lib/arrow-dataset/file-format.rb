@@ -41,5 +41,19 @@ module ArrowDataset
         end
       end
     end
+
+    alias_method :open_writer_raw, :open_writer
+    def open_writer(destination, file_system, path, schema, options)
+      writer = open_writer_raw(destination, file_system, path, schema, options)
+      if block_given?
+        begin
+          yield(writer)
+        ensure
+          writer.finish
+        end
+      else
+        writer
+      end
+    end
   end
 end

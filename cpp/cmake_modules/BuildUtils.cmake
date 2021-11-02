@@ -798,7 +798,12 @@ endfunction()
 function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
+  set(multi_value_args
+      EXTRA_INCLUDES
+      EXTRA_LINK_LIBS
+      EXTRA_SOURCES
+      DEPENDENCIES
+      PREFIX)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -820,7 +825,7 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
     # This example has a corresponding .cc file, set it up as an executable.
     set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
-    add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc")
+    add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc" ${ARG_EXTRA_SOURCES})
     target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
     add_dependencies(runexample ${EXAMPLE_NAME})
     set(NO_COLOR "--color_print=false")
@@ -832,6 +837,10 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
 
   if(ARG_DEPENDENCIES)
     add_dependencies(${EXAMPLE_NAME} ${ARG_DEPENDENCIES})
+  endif()
+
+  if(ARG_EXTRA_INCLUDES)
+    target_include_directories(${EXAMPLE_NAME} SYSTEM PUBLIC ${ARG_EXTRA_INCLUDES})
   endif()
 
   add_test(${EXAMPLE_NAME} ${EXAMPLE_PATH})

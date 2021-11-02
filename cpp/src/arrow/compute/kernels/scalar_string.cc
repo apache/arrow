@@ -64,22 +64,32 @@ Status RegexStatus(const RE2& regex) {
   }
   return Status::OK();
 }
+
+RE2::Options MakeRE2Options(bool is_utf8, bool ignore_case = false,
+                            bool literal = false) {
+  RE2::Options options(RE2::Quiet);
+  options.set_encoding(is_utf8 ? RE2::Options::EncodingUTF8
+                               : RE2::Options::EncodingLatin1);
+  options.set_case_sensitive(!ignore_case);
+  options.set_literal(literal);
+  return options;
+}
+
+// Set RE2 encoding based on input type: Latin-1 for BinaryTypes and UTF-8 for StringTypes
+template <typename T>
+RE2::Options MakeRE2Options(bool ignore_case = false, bool literal = false) {
+  return MakeRE2Options(T::is_utf8, ignore_case, literal);
+}
 #endif
 
-// Code units in the range [a-z] can only be an encoding of an ascii
-// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
-// codepoint. This guaranteed by non-overlap design of the unicode standard. (see
-// section 2.5 of Unicode Standard Core Specification v13.0)
+// Code units in the range [a-z] can only be an encoding of an ASCII
+// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of a different
+// codepoint. This is guaranteed by the non-overlap design of the Unicode
+// standard. (see section 2.5 of Unicode Standard Core Specification v13.0)
 
-static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
-  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
-                                                              : utf8_code_unit;
-}
+// IsAlpha/Digit etc
 
-static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
-  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
-                                                              : utf8_code_unit;
-}
+static inline bool IsAsciiCharacter(uint8_t character) { return character < 128; }
 
 static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
   return (ascii_character >= 'a') && (ascii_character <= 'z');
@@ -90,12 +100,13 @@ static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
 }
 
 static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
+  // Note: Non-ASCII characters are seen as uncased.
   return IsLowerCaseCharacterAscii(ascii_character) ||
          IsUpperCaseCharacterAscii(ascii_character);
 }
 
 static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
-  return IsCasedCharacterAscii(ascii_character);  // same
+  return IsCasedCharacterAscii(ascii_character);
 }
 
 static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
@@ -109,32 +120,30 @@ static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
 }
 
 static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
-         (ascii_character == ' ');
+  return ((ascii_character >= 9) && (ascii_character <= 13)) || (ascii_character == ' ');
 }
 
 static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
   return ((ascii_character >= ' ') && (ascii_character <= '~'));
 }
 
-static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
-  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit -= 32;
-  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit += 32;
-  }
-  return utf8_code_unit;
-}
-
-template <typename T>
-static inline bool IsAsciiCharacter(T character) {
-  return character < 128;
-}
-
 struct BinaryLength {
   template <typename OutValue, typename Arg0Value = util::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     return static_cast<OutValue>(val.size());
+  }
+
+  static Status FixedSizeExec(KernelContext*, const ExecBatch& batch, Datum* out) {
+    // Output is preallocated and validity buffer is precomputed
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(*batch[0].type()).byte_width();
+    if (batch.values[0].is_array()) {
+      int32_t* buffer = out->mutable_array()->GetMutableValues<int32_t>(1);
+      std::fill(buffer, buffer + batch.length, width);
+    } else {
+      checked_cast<Int32Scalar*>(out->scalar().get())->value = width;
+    }
+    return Status::OK();
   }
 };
 
@@ -146,6 +155,25 @@ struct Utf8Length {
     return static_cast<OutValue>(util::UTF8Length(str, str + strlen));
   }
 };
+
+static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
+                                                              : utf8_code_unit;
+}
+
+static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
+                                                              : utf8_code_unit;
+}
+
+static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
+  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit -= 32;
+  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit += 32;
+  }
+  return utf8_code_unit;
+}
 
 #ifdef ARROW_WITH_UTF8PROC
 
@@ -291,6 +319,7 @@ void EnsureLookupTablesFilled() {}
 constexpr int64_t kTransformError = -1;
 
 struct StringTransformBase {
+  virtual ~StringTransformBase() = default;
   virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Status::OK();
   }
@@ -418,19 +447,117 @@ struct StringTransformExecWithState
   }
 };
 
+template <typename StringTransform>
+struct FixedSizeBinaryTransformExecBase {
+  static Status Execute(KernelContext* ctx, StringTransform* transform,
+                        const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      return ExecArray(ctx, transform, batch[0].array(), out);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
+    return ExecScalar(ctx, transform, batch[0].scalar(), out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, StringTransform* transform,
+                          const std::shared_ptr<ArrayData>& data, Datum* out) {
+    FixedSizeBinaryArray input(data);
+    ArrayData* output = out->mutable_array();
+
+    const int32_t input_width =
+        checked_cast<const FixedSizeBinaryType&>(*data->type).byte_width();
+    const int32_t output_width =
+        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
+    const int64_t input_nstrings = input.length();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          ctx->Allocate(output_width * input_nstrings));
+    uint8_t* output_str = values_buffer->mutable_data();
+
+    for (int64_t i = 0; i < input_nstrings; i++) {
+      if (!input.IsNull(i)) {
+        const uint8_t* input_string = input.GetValue(i);
+        auto encoded_nbytes = static_cast<int32_t>(
+            transform->Transform(input_string, input_width, output_str));
+        if (encoded_nbytes != output_width) {
+          return transform->InvalidStatus();
+        }
+      } else {
+        std::memset(output_str, 0x00, output_width);
+      }
+      output_str += output_width;
+    }
+
+    output->buffers[1] = std::move(values_buffer);
+    return Status::OK();
+  }
+
+  static Status ExecScalar(KernelContext* ctx, StringTransform* transform,
+                           const std::shared_ptr<Scalar>& scalar, Datum* out) {
+    const auto& input = checked_cast<const BaseBinaryScalar&>(*scalar);
+    if (!input.is_valid) {
+      return Status::OK();
+    }
+    const int32_t out_width =
+        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
+    auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+
+    const int32_t data_nbytes = static_cast<int32_t>(input.value->size());
+    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(out_width));
+    auto encoded_nbytes = static_cast<int32_t>(transform->Transform(
+        input.value->data(), data_nbytes, value_buffer->mutable_data()));
+    if (encoded_nbytes != out_width) {
+      return transform->InvalidStatus();
+    }
+
+    result->is_valid = true;
+    result->value = std::move(value_buffer);
+    return Status::OK();
+  }
+};
+
+template <typename StringTransform>
+struct FixedSizeBinaryTransformExecWithState
+    : public FixedSizeBinaryTransformExecBase<StringTransform> {
+  using State = typename StringTransform::State;
+  using FixedSizeBinaryTransformExecBase<StringTransform>::Execute;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    StringTransform transform(State::Get(ctx));
+    RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
+    return Execute(ctx, &transform, batch, out);
+  }
+
+  static Result<ValueDescr> OutputType(KernelContext* ctx,
+                                       const std::vector<ValueDescr>& descrs) {
+    DCHECK_EQ(1, descrs.size());
+    const auto& options = State::Get(ctx);
+    const int32_t input_width =
+        checked_cast<const FixedSizeBinaryType&>(*descrs[0].type).byte_width();
+    const int32_t output_width = StringTransform::FixedOutputSize(options, input_width);
+    return ValueDescr(fixed_size_binary(output_width), descrs[0].shape);
+  }
+};
+
 #ifdef ARROW_WITH_UTF8PROC
 
-template <typename CodepointTransform>
-struct StringTransformCodepoint : public StringTransformBase {
+struct FunctionalCaseMappingTransform : public StringTransformBase {
   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
     EnsureLookupTablesFilled();
     return Status::OK();
   }
 
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    return CodepointTransform::MaxCodeunits(ninputs, input_ncodeunits);
+    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
+    // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
+    // However, since we don't support all casings (SpecialCasing.txt) the growth
+    // in bytes is actually only at max 3/2 (as covered by the unittest).
+    // Note that rounding down the 3/2 is ok, since only codepoints encoded by
+    // two code units (even) can grow to 3 code units.
+    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
   }
+};
 
+template <typename CodepointTransform>
+struct StringTransformCodepoint : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
@@ -443,20 +570,7 @@ struct StringTransformCodepoint : public StringTransformBase {
   }
 };
 
-// struct CaseMappingMixin {
-struct CaseMappingTransform {
-  static int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
-    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
-    // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
-    // However, since we don't support all casings (SpecialCasing.txt) the growth
-    // in bytes is actually only at max 3/2 (as covered by the unittest).
-    // Note that rounding down the 3/2 is ok, since only codepoints encoded by
-    // two code units (even) can grow to 3 code units.
-    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
-  }
-};
-
-struct UTF8UpperTransform : public CaseMappingTransform {
+struct UTF8UpperTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
                                             : utf8proc_toupper(codepoint);
@@ -466,7 +580,7 @@ struct UTF8UpperTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8Upper = StringTransformExec<Type, StringTransformCodepoint<UTF8UpperTransform>>;
 
-struct UTF8LowerTransform : public CaseMappingTransform {
+struct UTF8LowerTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
@@ -476,7 +590,7 @@ struct UTF8LowerTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8Lower = StringTransformExec<Type, StringTransformCodepoint<UTF8LowerTransform>>;
 
-struct UTF8SwapCaseTransform : public CaseMappingTransform {
+struct UTF8SwapCaseTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     if (codepoint <= kMaxCodepointLookup) {
       return lut_swapcase_codepoint[codepoint];
@@ -496,27 +610,22 @@ template <typename Type>
 using UTF8SwapCase =
     StringTransformExec<Type, StringTransformCodepoint<UTF8SwapCaseTransform>>;
 
-struct Utf8CapitalizeTransform : public StringTransformBase {
+struct Utf8CapitalizeTransform : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
     if (input_string_ncodeunits > 0) {
-      // Get number of code units in first code point
-      uint32_t codepoint = 0;
-      const uint8_t* i = input;
-      if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&i, &codepoint))) {
-        return kTransformError;
-      }
-      int64_t codepoint_ncodeunits =
-          std::min(static_cast<int64_t>(i - input), input_string_ncodeunits);
-      if (ARROW_PREDICT_FALSE(
-              !util::UTF8Transform(input, input + codepoint_ncodeunits, &output,
-                                   UTF8UpperTransform::TransformCodepoint))) {
+      if (ARROW_PREDICT_FALSE(!util::UTF8AdvanceCodepoints(input, end, &next, 1))) {
         return kTransformError;
       }
       if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
-              input + codepoint_ncodeunits, input + input_string_ncodeunits, &output,
-              UTF8LowerTransform::TransformCodepoint))) {
+              input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
+        return kTransformError;
+      }
+      if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
+              next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
         return kTransformError;
       }
     }
@@ -526,6 +635,42 @@ struct Utf8CapitalizeTransform : public StringTransformBase {
 
 template <typename Type>
 using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
+
+struct Utf8TitleTransform : public FunctionalCaseMappingTransform {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    uint8_t* output_start = output;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
+    bool is_next_upper = true;
+    while ((input = next) < end) {
+      uint32_t codepoint;
+      if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&next, &codepoint))) {
+        return kTransformError;
+      }
+      if (IsCasedCharacterUnicode(codepoint)) {
+        // Lower/uppercase current codepoint and
+        // prepare to lowercase next consecutive cased codepoints
+        output = is_next_upper
+                     ? util::UTF8Encode(output,
+                                        UTF8UpperTransform::TransformCodepoint(codepoint))
+                     : util::UTF8Encode(
+                           output, UTF8LowerTransform::TransformCodepoint(codepoint));
+        is_next_upper = false;
+      } else {
+        // Copy current uncased codepoint and
+        // prepare to uppercase next cased codepoint
+        std::memcpy(output, input, next - input);
+        output += next - input;
+        is_next_upper = true;
+      }
+    }
+    return output - output_start;
+  }
+};
+
+template <typename Type>
+using Utf8Title = StringTransformExec<Type, Utf8TitleTransform>;
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -667,8 +812,8 @@ struct AsciiCapitalizeTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     if (input_string_ncodeunits > 0) {
-      *output = ascii_toupper(*input);
-      TransformAsciiLower(input + 1, input_string_ncodeunits - 1, output + 1);
+      *output++ = ascii_toupper(*input++);
+      TransformAsciiLower(input, input_string_ncodeunits - 1, output);
     }
     return input_string_ncodeunits;
   }
@@ -676,6 +821,32 @@ struct AsciiCapitalizeTransform : public StringTransformBase {
 
 template <typename Type>
 using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
+
+struct AsciiTitleTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
+    bool is_next_upper = true;
+    while ((input = next++) < end) {
+      if (IsCasedCharacterAscii(*input)) {
+        // Lower/uppercase current character and
+        // prepare to lowercase next consecutive cased characters
+        *output++ = is_next_upper ? ascii_toupper(*input) : ascii_tolower(*input);
+        is_next_upper = false;
+      } else {
+        // Copy current uncased character and
+        // prepare to uppercase next cased character
+        *output++ = *input;
+        is_next_upper = true;
+      }
+    }
+    return input_string_ncodeunits;
+  }
+};
+
+template <typename Type>
+using AsciiTitle = StringTransformExec<Type, AsciiTitleTransform>;
 
 // ----------------------------------------------------------------------
 // exact pattern detection
@@ -812,29 +983,22 @@ struct RegexSubstringMatcher {
   const RE2 regex_match_;
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
-      const MatchSubstringOptions& options, bool literal = false) {
+      const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
     auto matcher =
-        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, literal);
+        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
 
   explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
-                                 bool literal = false)
+                                 bool is_utf8 = true, bool literal = false)
       : options_(options),
-        regex_match_(options_.pattern, MakeRE2Options(options, literal)) {}
+        regex_match_(options_.pattern,
+                     MakeRE2Options(is_utf8, options.ignore_case, literal)) {}
 
   bool Match(util::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
-    return re2::RE2::PartialMatch(piece, regex_match_);
-  }
-
-  static RE2::RE2::Options MakeRE2Options(const MatchSubstringOptions& options,
-                                          bool literal) {
-    RE2::RE2::Options re2_options(RE2::Quiet);
-    re2_options.set_case_sensitive(!options.ignore_case);
-    re2_options.set_literal(literal);
-    return re2_options;
+    return RE2::PartialMatch(piece, regex_match_);
   }
 };
 #endif
@@ -875,14 +1039,29 @@ struct MatchSubstring {
   }
 };
 
+#ifdef ARROW_WITH_RE2
+template <typename Type>
+struct MatchSubstring<Type, RegexSubstringMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO Cache matcher across invocations (for regex compilation)
+    ARROW_ASSIGN_OR_RAISE(auto matcher,
+                          RegexSubstringMatcher::Make(MatchSubstringState::Get(ctx),
+                                                      /*is_utf8=*/Type::is_utf8));
+    return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                 matcher.get());
+  }
+};
+#endif
+
 template <typename Type>
 struct MatchSubstring<Type, PlainSubstringMatcher> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-      ARROW_ASSIGN_OR_RAISE(auto matcher,
-                            RegexSubstringMatcher::Make(options, /*literal=*/true));
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher, RegexSubstringMatcher::Make(options, /*is_utf8=*/Type::is_utf8,
+                                                    /*literal=*/true));
       return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
                                                                    matcher.get());
 #else
@@ -903,7 +1082,9 @@ struct MatchSubstring<Type, PlainStartsWithMatcher> {
 #ifdef ARROW_WITH_RE2
       MatchSubstringOptions converted_options = options;
       converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
-      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher,
+          RegexSubstringMatcher::Make(converted_options, /*is_utf8=*/Type::is_utf8));
       return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
                                                                    matcher.get());
 #else
@@ -924,7 +1105,9 @@ struct MatchSubstring<Type, PlainEndsWithMatcher> {
 #ifdef ARROW_WITH_RE2
       MatchSubstringOptions converted_options = options;
       converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
-      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher,
+          RegexSubstringMatcher::Make(converted_options, /*is_utf8=*/Type::is_utf8));
       return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
                                                                    matcher.get());
 #else
@@ -1020,40 +1203,44 @@ template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // NOTE: avoid making those constants global to avoid compiling regexes at startup
+    static const RE2::Options kRE2Options = MakeRE2Options<StringType>();
     // A LIKE pattern matching this regex can be translated into a substring search.
-    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)");
+    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)", kRE2Options);
     // A LIKE pattern matching this regex can be translated into a prefix search.
-    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)");
+    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)", kRE2Options);
     // A LIKE pattern matching this regex can be translated into a suffix search.
-    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))");
+    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))", kRE2Options);
 
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
 
     Status status;
     std::string pattern;
-    if (!original_options.ignore_case &&
-        re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
-                            &pattern)) {
-      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
-    } else if (!original_options.ignore_case &&
-               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsStartsWith,
-                                   &pattern)) {
-      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
-    } else if (!original_options.ignore_case &&
-               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsEndsWith,
-                                   &pattern)) {
-      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
-    } else {
+    bool matched = false;
+    if (!original_options.ignore_case) {
+      if ((matched = RE2::FullMatch(original_options.pattern,
+                                    kLikePatternIsSubstringMatch, &pattern))) {
+        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+        MatchSubstringState converted_state(converted_options);
+        ctx->SetState(&converted_state);
+        status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
+      } else if ((matched = RE2::FullMatch(original_options.pattern,
+                                           kLikePatternIsStartsWith, &pattern))) {
+        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+        MatchSubstringState converted_state(converted_options);
+        ctx->SetState(&converted_state);
+        status =
+            MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
+      } else if ((matched = RE2::FullMatch(original_options.pattern,
+                                           kLikePatternIsEndsWith, &pattern))) {
+        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+        MatchSubstringState converted_state(converted_options);
+        ctx->SetState(&converted_state);
+        status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
+      }
+    }
+
+    if (!matched) {
       MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
                                               original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
@@ -1080,52 +1267,53 @@ void AddMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
                                                  &match_substring_doc);
-    auto exec_32 = MatchSubstring<StringType, PlainSubstringMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, PlainSubstringMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainSubstringMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
-    auto func = std::make_shared<ScalarFunction>("starts_with", Arity::Unary(),
-                                                 &match_substring_doc);
-    auto exec_32 = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, PlainStartsWithMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    auto func =
+        std::make_shared<ScalarFunction>("starts_with", Arity::Unary(), &starts_with_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec =
+          GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
-    auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
-                                                 &match_substring_doc);
-    auto exec_32 = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, PlainEndsWithMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    auto func =
+        std::make_shared<ScalarFunction>("ends_with", Arity::Unary(), &ends_with_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("match_substring_regex", Arity::Unary(),
                                                  &match_substring_regex_doc);
-    auto exec_32 = MatchSubstring<StringType, RegexSubstringMatcher>::Exec;
-    auto exec_64 = MatchSubstring<LargeStringType, RegexSubstringMatcher>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, RegexSubstringMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
     auto func =
         std::make_shared<ScalarFunction>("match_like", Arity::Unary(), &match_like_doc);
-    auto exec_32 = MatchLike<StringType>::Exec;
-    auto exec_64 = MatchLike<LargeStringType>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-    DCHECK_OK(
-        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchLike>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1148,21 +1336,21 @@ struct FindSubstring {
 struct FindSubstringRegex {
   std::unique_ptr<RE2> regex_match_;
 
-  explicit FindSubstringRegex(const MatchSubstringOptions& options,
+  explicit FindSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
                               bool literal = false) {
     std::string regex = "(";
     regex.reserve(options.pattern.length() + 2);
     regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
     regex += ")";
-    regex_match_.reset(new RE2(std::move(regex), RegexSubstringMatcher::MakeRE2Options(
-                                                     options, /*literal=*/false)));
+    regex_match_.reset(
+        new RE2(regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
   }
 
   template <typename OutValue, typename... Ignored>
   OutValue Call(KernelContext*, util::string_view val, Status*) const {
     re2::StringPiece piece(val.data(), val.length());
     re2::StringPiece match;
-    if (re2::RE2::PartialMatch(piece, *regex_match_, &match)) {
+    if (RE2::PartialMatch(piece, *regex_match_, &match)) {
       return static_cast<OutValue>(match.data() - piece.data());
     }
     return -1;
@@ -1178,10 +1366,12 @@ struct FindSubstringExec {
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
       applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
-          kernel{FindSubstringRegex(options, /*literal=*/true)};
+          kernel{FindSubstringRegex(options, /*is_utf8=*/InputType::is_utf8,
+                                    /*literal=*/true)};
       return kernel.Exec(ctx, batch, out);
-#endif
+#else
       return Status::NotImplemented("ignore_case requires RE2");
+#endif
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
         FindSubstring(PlainSubstringMatcher(options))};
@@ -1223,9 +1413,12 @@ void AddFindSubstring(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
-                                GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                                GenerateVarBinaryToVarBinary<FindSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              FindSubstringExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1234,11 +1427,13 @@ void AddFindSubstring(FunctionRegistry* registry) {
                                                  &find_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
-      DCHECK_OK(
-          func->AddKernel({ty}, offset_type,
-                          GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
-                          MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateVarBinaryToVarBinary<FindSubstringRegexExec>(ty),
+                                MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              FindSubstringRegexExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1273,13 +1468,14 @@ struct CountSubstring {
 struct CountSubstringRegex {
   std::unique_ptr<RE2> regex_match_;
 
-  explicit CountSubstringRegex(const MatchSubstringOptions& options, bool literal = false)
+  explicit CountSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
+                               bool literal = false)
       : regex_match_(new RE2(options.pattern,
-                             RegexSubstringMatcher::MakeRE2Options(options, literal))) {}
+                             MakeRE2Options(is_utf8, options.ignore_case, literal))) {}
 
   static Result<CountSubstringRegex> Make(const MatchSubstringOptions& options,
-                                          bool literal = false) {
-    CountSubstringRegex counter(options, literal);
+                                          bool is_utf8 = true, bool literal = false) {
+    CountSubstringRegex counter(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*counter.regex_match_));
     return std::move(counter);
   }
@@ -1289,7 +1485,7 @@ struct CountSubstringRegex {
     OutValue count = 0;
     re2::StringPiece input(val.data(), val.size());
     auto last_size = input.size();
-    while (re2::RE2::FindAndConsume(&input, *regex_match_)) {
+    while (RE2::FindAndConsume(&input, *regex_match_)) {
       count++;
       if (last_size == input.size()) {
         // 0-length match
@@ -1310,7 +1506,8 @@ struct CountSubstringRegexExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
-    ARROW_ASSIGN_OR_RAISE(auto counter, CountSubstringRegex::Make(options));
+    ARROW_ASSIGN_OR_RAISE(
+        auto counter, CountSubstringRegex::Make(options, /*is_utf8=*/InputType::is_utf8));
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
         kernel{std::move(counter)};
     return kernel.Exec(ctx, batch, out);
@@ -1325,8 +1522,9 @@ struct CountSubstringExec {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-      ARROW_ASSIGN_OR_RAISE(auto counter,
-                            CountSubstringRegex::Make(options, /*literal=*/true));
+      ARROW_ASSIGN_OR_RAISE(
+          auto counter, CountSubstringRegex::Make(options, /*is_utf8=*/InputType::is_utf8,
+                                                  /*literal=*/true));
       applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
           kernel{std::move(counter)};
       return kernel.Exec(ctx, batch, out);
@@ -1363,9 +1561,12 @@ void AddCountSubstring(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
-                                GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
+                                GenerateVarBinaryToVarBinary<CountSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              CountSubstringExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1374,11 +1575,13 @@ void AddCountSubstring(FunctionRegistry* registry) {
                                                  &count_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
-      DCHECK_OK(
-          func->AddKernel({ty}, offset_type,
-                          GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
-                          MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateVarBinaryToVarBinary<CountSubstringRegexExec>(ty),
+                                MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                              CountSubstringRegexExec<FixedSizeBinaryType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1576,12 +1779,11 @@ const FunctionDoc utf8_slice_codeunits_doc(
 void AddSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
                                                &utf8_slice_codeunits_doc);
-  using t32 = SliceCodeunits<StringType>;
-  using t64 = SliceCodeunits<LargeStringType>;
-  DCHECK_OK(
-      func->AddKernel({utf8()}, utf8(), t32::Exec, SliceCodeunitsTransform::State::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), t64::Exec,
-                            SliceCodeunitsTransform::State::Init));
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<SliceCodeunits>(ty);
+    DCHECK_OK(
+        func->AddKernel({ty}, ty, std::move(exec), SliceCodeunitsTransform::State::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -1692,8 +1894,7 @@ struct IsNumericUnicode : CharacterPredicateUnicode<IsNumericUnicode> {
 struct IsAscii {
   static bool Call(KernelContext*, const uint8_t* input,
                    size_t input_string_nascii_characters, Status*) {
-    return std::all_of(input, input + input_string_nascii_characters,
-                       IsAsciiCharacter<uint8_t>);
+    return std::all_of(input, input + input_string_nascii_characters, IsAsciiCharacter);
   }
 };
 
@@ -1755,9 +1956,9 @@ struct IsTitleUnicode {
   static bool Call(KernelContext*, const uint8_t* input, size_t input_string_ncodeunits,
                    Status* st) {
     // rules:
-    // * 1: lower case follows cased
-    // * 2: upper case follows uncased
-    // * 3: at least 1 cased character (which logically should be upper/title)
+    //   1. lower case follows cased
+    //   2. upper case follows uncased
+    //   3. at least 1 cased character (which logically should be upper/title)
     bool rules_1_and_2;
     bool previous_cased = false;  // in LL, LU or LT
     bool rule_3 = false;
@@ -1766,6 +1967,7 @@ struct IsTitleUnicode {
                                [&previous_cased, &rule_3](uint32_t codepoint) {
                                  if (IsLowerCaseCharacterUnicode(codepoint)) {
                                    if (!previous_cased) return false;  // rule 1 broken
+                                   // next should be more lower case or uncased
                                    previous_cased = true;
                                  } else if (IsCasedCharacterUnicode(codepoint)) {
                                    if (previous_cased) return false;  // rule 2 broken
@@ -1773,7 +1975,7 @@ struct IsTitleUnicode {
                                    previous_cased = true;
                                    rule_3 = true;  // rule 3 obeyed
                                  } else {
-                                   // a non-cased char, like _ or 1
+                                   // an uncased char, like _ or 1
                                    // next should be upper case or more uncased
                                    previous_cased = false;
                                  }
@@ -1791,14 +1993,13 @@ struct IsTitleUnicode {
 struct IsTitleAscii {
   static bool Call(KernelContext*, const uint8_t* input, size_t input_string_ncodeunits,
                    Status*) {
-    // rules:
-    // * 1: lower case follows cased
-    // * 2: upper case follows uncased
-    // * 3: at least 1 cased character (which logically should be upper/title)
+    // Rules:
+    //   1. lower case follows cased
+    //   2. upper case follows uncased
+    //   3. at least 1 cased character (which logically should be upper/title)
     bool rules_1_and_2 = true;
     bool previous_cased = false;  // in LL, LU or LT
     bool rule_3 = false;
-    // we cannot rely on std::all_of because we need guaranteed order
     for (const uint8_t* c = input; c < input + input_string_ncodeunits; ++c) {
       if (IsLowerCaseCharacterAscii(*c)) {
         if (!previous_cased) {
@@ -1806,6 +2007,7 @@ struct IsTitleAscii {
           rules_1_and_2 = false;
           break;
         }
+        // next should be more lower case or uncased
         previous_cased = true;
       } else if (IsCasedCharacterAscii(*c)) {
         if (previous_cased) {
@@ -1817,7 +2019,7 @@ struct IsTitleAscii {
         previous_cased = true;
         rule_3 = true;  // rule 3 obeyed
       } else {
-        // a non-cased char, like _ or 1
+        // an uncased character, like _ or 1
         // next should be upper case or more uncased
         previous_cased = false;
       }
@@ -1853,6 +2055,7 @@ struct IsUpperAscii : CharacterPredicateAscii<IsUpperAscii> {
 
 template <typename Options>
 struct SplitFinderBase {
+  virtual ~SplitFinderBase() = default;
   virtual Status PreExec(const Options& options) { return Status::OK(); }
 
   // Derived classes should also define these methods:
@@ -2004,6 +2207,8 @@ struct SplitExec {
   }
 };
 
+using SplitPatternState = OptionsWrapper<SplitPatternOptions>;
+
 struct SplitPatternFinder : public SplitFinderBase<SplitPatternOptions> {
   using Options = SplitPatternOptions;
 
@@ -2092,13 +2297,15 @@ const FunctionDoc utf8_split_whitespace_doc(
 void AddSplitPattern(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
                                                &split_pattern_doc);
-  using t32 = SplitPatternExec<StringType, ListType>;
-  using t64 = SplitPatternExec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<SplitPatternExec, ListType>(ty);
+    DCHECK_OK(
+        func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitPatternState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
+using SplitState = OptionsWrapper<SplitOptions>;
 
 struct SplitWhitespaceAsciiFinder : public SplitFinderBase<SplitOptions> {
   using Options = SplitOptions;
@@ -2148,11 +2355,11 @@ void AddSplitWhitespaceAscii(FunctionRegistry* registry) {
   auto func =
       std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
                                        &ascii_split_whitespace_doc, &default_options);
-  using t32 = SplitWhitespaceAsciiExec<StringType, ListType>;
-  using t64 = SplitWhitespaceAsciiExec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2215,24 +2422,24 @@ template <typename Type, typename ListType>
 using SplitWhitespaceUtf8Exec = SplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
 
 void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
-  static const SplitOptions default_options{};
+  static const SplitOptions default_options;
   auto func =
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
                                        &utf8_split_whitespace_doc, &default_options);
-  using t32 = SplitWhitespaceUtf8Exec<StringType, ListType>;
-  using t64 = SplitWhitespaceUtf8Exec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 #endif  // ARROW_WITH_UTF8PROC
 
 #ifdef ARROW_WITH_RE2
+template <typename Type>
 struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
   using Options = SplitPatternOptions;
 
-  util::optional<RE2> regex_split;
+  std::unique_ptr<RE2> regex_split;
 
   Status PreExec(const SplitPatternOptions& options) override {
     if (options.reverse) {
@@ -2244,7 +2451,7 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
     pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
-    regex_split.emplace(std::move(pattern));
+    regex_split = arrow::internal::make_unique<RE2>(pattern, MakeRE2Options<Type>());
     return RegexStatus(*regex_split);
   }
 
@@ -2254,7 +2461,7 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
                            std::distance(begin, end));
     // "StringPiece is mutated to point to matched piece"
     re2::StringPiece result;
-    if (!re2::RE2::PartialMatch(piece, *regex_split, &result)) {
+    if (!RE2::PartialMatch(piece, *regex_split, &result)) {
       return false;
     }
     *separator_begin = reinterpret_cast<const uint8_t*>(result.data());
@@ -2271,7 +2478,7 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitRegexExec = SplitExec<Type, ListType, SplitRegexFinder>;
+using SplitRegexExec = SplitExec<Type, ListType, SplitRegexFinder<Type>>;
 
 const FunctionDoc split_pattern_regex_doc(
     "Split string according to regex pattern",
@@ -2286,11 +2493,11 @@ const FunctionDoc split_pattern_regex_doc(
 void AddSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
                                                &split_pattern_regex_doc);
-  using t32 = SplitRegexExec<StringType, ListType>;
-  using t64 = SplitRegexExec<LargeStringType, ListType>;
-  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<SplitRegexExec, ListType>(ty);
+    DCHECK_OK(
+        func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitPatternState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 #endif  // ARROW_WITH_RE2
@@ -2309,17 +2516,18 @@ void AddSplit(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Replace substring (plain, regex)
 
+using ReplaceState = OptionsWrapper<ReplaceSubstringOptions>;
+
 template <typename Type, typename Replacer>
-struct ReplaceSubString {
+struct ReplaceSubstring {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using offset_type = typename Type::offset_type;
   using ValueDataBuilder = TypedBufferBuilder<uint8_t>;
   using OffsetBuilder = TypedBufferBuilder<offset_type>;
-  using State = OptionsWrapper<ReplaceSubstringOptions>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // TODO Cache replacer across invocations (for regex compilation)
-    ARROW_ASSIGN_OR_RAISE(auto replacer, Replacer::Make(State::Get(ctx)));
+    ARROW_ASSIGN_OR_RAISE(auto replacer, Replacer::Make(ReplaceState::Get(ctx)));
     return Replace(ctx, batch, *replacer, out);
   }
 
@@ -2367,15 +2575,15 @@ struct ReplaceSubString {
   }
 };
 
-struct PlainSubStringReplacer {
+struct PlainSubstringReplacer {
   const ReplaceSubstringOptions& options_;
 
-  static Result<std::unique_ptr<PlainSubStringReplacer>> Make(
+  static Result<std::unique_ptr<PlainSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    return arrow::internal::make_unique<PlainSubStringReplacer>(options);
+    return arrow::internal::make_unique<PlainSubstringReplacer>(options);
   }
 
-  explicit PlainSubStringReplacer(const ReplaceSubstringOptions& options)
+  explicit PlainSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options) {}
 
   Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
@@ -2409,14 +2617,15 @@ struct PlainSubStringReplacer {
 };
 
 #ifdef ARROW_WITH_RE2
-struct RegexSubStringReplacer {
+template <typename Type>
+struct RegexSubstringReplacer {
   const ReplaceSubstringOptions& options_;
   const RE2 regex_find_;
   const RE2 regex_replacement_;
 
-  static Result<std::unique_ptr<RegexSubStringReplacer>> Make(
+  static Result<std::unique_ptr<RegexSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    auto replacer = arrow::internal::make_unique<RegexSubStringReplacer>(options);
+    auto replacer = arrow::internal::make_unique<RegexSubstringReplacer>(options);
 
     RETURN_NOT_OK(RegexStatus(replacer->regex_find_));
     RETURN_NOT_OK(RegexStatus(replacer->regex_replacement_));
@@ -2433,17 +2642,17 @@ struct RegexSubStringReplacer {
 
   // Using RE2::FindAndConsume we can only find the pattern if it is a group, therefore
   // we have 2 regexes, one with () around it, one without.
-  explicit RegexSubStringReplacer(const ReplaceSubstringOptions& options)
+  explicit RegexSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options),
-        regex_find_("(" + options_.pattern + ")", RE2::Quiet),
-        regex_replacement_(options_.pattern, RE2::Quiet) {}
+        regex_find_("(" + options_.pattern + ")", MakeRE2Options<Type>()),
+        regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
   Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
     if (options_.max_replacements == -1) {
       std::string s_copy(s.to_string());
-      re2::RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
+      RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
     }
@@ -2458,7 +2667,7 @@ struct RegexSubStringReplacer {
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       std::string found;
-      if (!re2::RE2::FindAndConsume(&piece, regex_find_, &found)) {
+      if (!RE2::FindAndConsume(&piece, regex_find_, &found)) {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(end - i)));
         i = end;
@@ -2469,7 +2678,7 @@ struct RegexSubStringReplacer {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(pos - i)));
         // replace the pattern in what we found
-        if (!re2::RE2::Replace(&found, regex_replacement_, replacement)) {
+        if (!RE2::Replace(&found, regex_replacement_, replacement)) {
           return Status::Invalid("Regex found, but replacement failed");
         }
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(found.data()),
@@ -2487,7 +2696,7 @@ struct RegexSubStringReplacer {
 #endif
 
 template <typename Type>
-using ReplaceSubStringPlain = ReplaceSubString<Type, PlainSubStringReplacer>;
+using ReplaceSubstringPlain = ReplaceSubstring<Type, PlainSubstringReplacer>;
 
 const FunctionDoc replace_substring_doc(
     "Replace non-overlapping substrings that match pattern by replacement",
@@ -2499,7 +2708,7 @@ const FunctionDoc replace_substring_doc(
 
 #ifdef ARROW_WITH_RE2
 template <typename Type>
-using ReplaceSubStringRegex = ReplaceSubString<Type, RegexSubStringReplacer>;
+using ReplaceSubstringRegex = ReplaceSubstring<Type, RegexSubstringReplacer<Type>>;
 
 const FunctionDoc replace_substring_regex_doc(
     "Replace non-overlapping substrings that match regex `pattern` by `replacement`",
@@ -2557,6 +2766,29 @@ struct BinaryReplaceSliceTransform : ReplaceSliceTransformBase {
     output = std::copy(input + after_slice, input + input_string_ncodeunits, output);
     return output - output_start;
   }
+
+  static int32_t FixedOutputSize(const ReplaceSliceOptions& opts, int32_t input_width) {
+    int32_t before_slice = 0;
+    int32_t after_slice = 0;
+    const int32_t start = static_cast<int32_t>(opts.start);
+    const int32_t stop = static_cast<int32_t>(opts.stop);
+    if (opts.start >= 0) {
+      // Count from left
+      before_slice = std::min<int32_t>(input_width, start);
+    } else {
+      // Count from right
+      before_slice = std::max<int32_t>(0, input_width + start);
+    }
+    if (opts.stop >= 0) {
+      // Count from left
+      after_slice = std::min<int32_t>(input_width, std::max<int32_t>(before_slice, stop));
+    } else {
+      // Count from right
+      after_slice = std::max<int32_t>(before_slice, input_width + stop);
+    }
+    return static_cast<int32_t>(before_slice + opts.replacement.size() +
+                                (input_width - after_slice));
+  }
 };
 
 struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
@@ -2613,7 +2845,7 @@ struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
           return kTransformError;
         }
       } else {
-        // zero-length slice
+        // Zero-length slice
         end_sliced = begin_sliced;
       }
     }
@@ -2655,17 +2887,23 @@ void AddReplaceSlice(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
                                 ReplaceSliceTransformBase::State::Init));
     }
+    using TransformExec =
+        FixedSizeBinaryTransformExecWithState<BinaryReplaceSliceTransform>;
+    DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
+                              OutputType(TransformExec::OutputType), TransformExec::Exec,
+                              ReplaceSliceTransformBase::State::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
                                                  &utf8_replace_slice_doc);
-    DCHECK_OK(func->AddKernel({utf8()}, utf8(), Utf8ReplaceSlice<StringType>::Exec,
-                              ReplaceSliceTransformBase::State::Init));
-    DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(),
-                              Utf8ReplaceSlice<LargeStringType>::Exec,
-                              ReplaceSliceTransformBase::State::Init));
+
+    for (const auto& ty : StringTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<Utf8ReplaceSlice>(ty);
+      DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec),
+                                ReplaceSliceTransformBase::State::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
@@ -2675,14 +2913,17 @@ void AddReplaceSlice(FunctionRegistry* registry) {
 
 #ifdef ARROW_WITH_RE2
 
+using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
+
 // TODO cache this once per ExtractRegexOptions
 struct ExtractRegexData {
-  // Use unique_ptr<> because RE2 is non-movable
+  // Use unique_ptr<> because RE2 is non-movable (for ARROW_ASSIGN_OR_RAISE)
   std::unique_ptr<RE2> regex;
   std::vector<std::string> group_names;
 
-  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options) {
-    ExtractRegexData data(options.pattern);
+  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options,
+                                       bool is_utf8 = true) {
+    ExtractRegexData data(options.pattern, is_utf8);
     RETURN_NOT_OK(RegexStatus(*data.regex));
 
     const int group_count = data.regex->NumberOfCapturingGroups();
@@ -2706,9 +2947,9 @@ struct ExtractRegexData {
       // No input type specified => propagate shape
       return args[0];
     }
-    // Input type is either String or LargeString and is also the type of each
-    // field in the output struct type.
-    DCHECK(input_type->id() == Type::STRING || input_type->id() == Type::LARGE_STRING);
+    // Input type is either [Large]Binary or [Large]String and is also the type
+    // of each field in the output struct type.
+    DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
     fields.reserve(group_names.size());
     std::transform(group_names.begin(), group_names.end(), std::back_inserter(fields),
@@ -2717,14 +2958,13 @@ struct ExtractRegexData {
   }
 
  private:
-  explicit ExtractRegexData(const std::string& pattern)
-      : regex(new RE2(pattern, RE2::Quiet)) {}
+  explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+      : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
 };
 
 Result<ValueDescr> ResolveExtractRegexOutput(KernelContext* ctx,
                                              const std::vector<ValueDescr>& args) {
-  using State = OptionsWrapper<ExtractRegexOptions>;
-  ExtractRegexOptions options = State::Get(ctx);
+  ExtractRegexOptions options = ExtractRegexState::Get(ctx);
   ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
   return data.ResolveOutputType(args);
 }
@@ -2733,10 +2973,10 @@ struct ExtractRegexBase {
   const ExtractRegexData& data;
   const int group_count;
   std::vector<re2::StringPiece> found_values;
-  std::vector<re2::RE2::Arg> args;
-  std::vector<const re2::RE2::Arg*> args_pointers;
-  const re2::RE2::Arg** args_pointers_start;
-  const re2::RE2::Arg* null_arg = nullptr;
+  std::vector<RE2::Arg> args;
+  std::vector<const RE2::Arg*> args_pointers;
+  const RE2::Arg** args_pointers_start;
+  const RE2::Arg* null_arg = nullptr;
 
   explicit ExtractRegexBase(const ExtractRegexData& data)
       : data(data),
@@ -2755,8 +2995,8 @@ struct ExtractRegexBase {
   }
 
   bool Match(util::string_view s) {
-    return re2::RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
-                                   group_count);
+    return RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
+                              group_count);
   }
 };
 
@@ -2765,13 +3005,11 @@ struct ExtractRegex : public ExtractRegexBase {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
-  using State = OptionsWrapper<ExtractRegexOptions>;
-
   using ExtractRegexBase::ExtractRegexBase;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ExtractRegexOptions options = State::Get(ctx);
-    ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
+    ExtractRegexOptions options = ExtractRegexState::Get(ctx);
+    ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options, Type::is_utf8));
     return ExtractRegex{data}.Extract(ctx, batch, out);
   }
 
@@ -2815,8 +3053,8 @@ struct ExtractRegex : public ExtractRegexBase {
       if (input.is_valid && Match(util::string_view(*input.value))) {
         result->value.reserve(group_count);
         for (int i = 0; i < group_count; i++) {
-          result->value.push_back(
-              std::make_shared<ScalarType>(found_values[i].as_string()));
+          result->value.push_back(std::make_shared<ScalarType>(
+              Buffer::FromString(found_values[i].as_string())));
         }
         result->is_valid = true;
       } else {
@@ -2842,23 +3080,17 @@ const FunctionDoc extract_regex_doc(
 void AddExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
                                                &extract_regex_doc);
-  using t32 = ExtractRegex<StringType>;
-  using t64 = ExtractRegex<LargeStringType>;
   OutputType out_ty(ResolveExtractRegexOutput);
-  ScalarKernel kernel;
-
-  // Null values will be computed based on regex match or not
-  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  kernel.signature.reset(new KernelSignature({utf8()}, out_ty));
-  kernel.exec = t32::Exec;
-  kernel.init = t32::State::Init;
-  DCHECK_OK(func->AddKernel(kernel));
-  kernel.signature.reset(new KernelSignature({large_utf8()}, out_ty));
-  kernel.exec = t64::Exec;
-  kernel.init = t64::State::Init;
-  DCHECK_OK(func->AddKernel(kernel));
-
+  for (const auto& ty : BaseBinaryTypes()) {
+    ScalarKernel kernel{{ty},
+                        out_ty,
+                        GenerateVarBinaryToVarBinary<ExtractRegex>(ty),
+                        ExtractRegexState::Init};
+    // Null values will be computed based on regex match or not
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(kernel));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 #endif  // ARROW_WITH_RE2
@@ -2887,13 +3119,16 @@ struct ParseStrptime {
 };
 
 template <typename InputType>
-Status StrptimeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  applicator::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime> kernel{
-      ParseStrptime(StrptimeState::Get(ctx))};
-  return kernel.Exec(ctx, batch, out);
-}
+struct StrptimeExec {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    applicator::ScalarUnaryNotNullStateful<TimestampType, InputType, ParseStrptime>
+        kernel{ParseStrptime(StrptimeState::Get(ctx))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
 
-Result<ValueDescr> StrptimeResolve(KernelContext* ctx, const std::vector<ValueDescr>&) {
+Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
+                                         const std::vector<ValueDescr>&) {
   if (ctx->state()) {
     return ::arrow::timestamp(StrptimeState::Get(ctx).unit);
   }
@@ -3368,41 +3603,47 @@ const FunctionDoc utf8_length_doc("Compute UTF8 string lengths",
 
 void AddStrptime(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
-  DCHECK_OK(func->AddKernel({utf8()}, OutputType(StrptimeResolve),
-                            StrptimeExec<StringType>, StrptimeState::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, OutputType(StrptimeResolve),
-                            StrptimeExec<LargeStringType>, StrptimeState::Init));
+
+  OutputType out_ty(ResolveStrptimeOutput);
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<StrptimeExec>(ty);
+    DCHECK_OK(func->AddKernel({ty}, out_ty, std::move(exec), StrptimeState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 void AddBinaryLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary(),
                                                &binary_length_doc);
-  ArrayKernelExec exec_offset_32 =
-      applicator::ScalarUnaryNotNull<Int32Type, StringType, BinaryLength>::Exec;
-  ArrayKernelExec exec_offset_64 =
-      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, BinaryLength>::Exec;
-  for (const auto& input_type : {binary(), utf8()}) {
-    DCHECK_OK(func->AddKernel({input_type}, int32(), exec_offset_32));
+  for (const auto& ty : {binary(), utf8()}) {
+    auto exec =
+        GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int32Type, BinaryLength>(
+            ty);
+    DCHECK_OK(func->AddKernel({ty}, int32(), std::move(exec)));
   }
-  for (const auto& input_type : {large_binary(), large_utf8()}) {
-    DCHECK_OK(func->AddKernel({input_type}, int64(), exec_offset_64));
+  for (const auto& ty : {large_binary(), large_utf8()}) {
+    auto exec =
+        GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int64Type, BinaryLength>(
+            ty);
+    DCHECK_OK(func->AddKernel({ty}, int64(), std::move(exec)));
   }
+  DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
+                            BinaryLength::FixedSizeExec));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 void AddUtf8Length(FunctionRegistry* registry) {
   auto func =
       std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
-
-  ArrayKernelExec exec_offset_32 =
-      applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec_offset_32)));
-
-  ArrayKernelExec exec_offset_64 =
-      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
-  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec_offset_64)));
-
+  {
+    auto exec = applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec)));
+  }
+  {
+    auto exec =
+        applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
+    DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -3884,10 +4125,10 @@ const auto kDefaultJoinOptions = JoinOptions::Defaults();
 
 template <typename ListType>
 void AddBinaryJoinForListType(ScalarFunction* func) {
-  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+  for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
     auto list_ty = std::make_shared<ListType>(ty);
-    DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, exec));
+    DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, std::move(exec)));
   }
 }
 
@@ -3920,15 +4161,9 @@ void MakeUnaryStringBatchKernel(
     std::string name, FunctionRegistry* registry, const FunctionDoc* doc,
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-  {
-    auto exec_32 = ExecFunctor<StringType>::Exec;
-    ScalarKernel kernel{{utf8()}, utf8(), exec_32};
-    kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
-  }
-  {
-    auto exec_64 = ExecFunctor<LargeStringType>::Exec;
-    ScalarKernel kernel{{large_utf8()}, large_utf8(), exec_64};
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<ExecFunctor>(ty);
+    ScalarKernel kernel{{ty}, ty, std::move(exec)};
     kernel.mem_allocation = mem_allocation;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
@@ -3955,68 +4190,87 @@ void MakeUnaryStringBatchKernelWithState(
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+void AddReplaceSubstring(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("replace_substring", Arity::Unary(),
+                                                 &replace_substring_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringPlain>(ty);
+      ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>(
+        "replace_substring_regex", Arity::Unary(), &replace_substring_regex_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringRegex>(ty);
+      ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
+}
+
 #ifdef ARROW_WITH_UTF8PROC
 
 template <template <typename> class Transformer>
 void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry,
                                         const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-  ArrayKernelExec exec_32 = Transformer<StringType>::Exec;
-  ArrayKernelExec exec_64 = Transformer<LargeStringType>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_32));
-  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_64));
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<Transformer>(ty);
+    DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 #endif
 
-// NOTE: Predicate should only populate 'status' with errors,
-//       leave it unmodified to indicate Status::OK()
-using StringPredicate =
-    std::function<bool(KernelContext*, const uint8_t*, size_t, Status*)>;
-
-template <typename Type>
-Status ApplyPredicate(KernelContext* ctx, const ExecBatch& batch,
-                      StringPredicate predicate, Datum* out) {
-  Status st = Status::OK();
-  EnsureLookupTablesFilled();
-  if (batch[0].kind() == Datum::ARRAY) {
-    const ArrayData& input = *batch[0].array();
-    ArrayIterator<Type> input_it(input);
-    ArrayData* out_arr = out->mutable_array();
-    ::arrow::internal::GenerateBitsUnrolled(
-        out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
-        [&]() -> bool {
-          util::string_view val = input_it();
-          return predicate(ctx, reinterpret_cast<const uint8_t*>(val.data()), val.size(),
-                           &st);
-        });
-  } else {
-    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-    if (input.is_valid) {
-      bool boolean_result = predicate(ctx, input.value->data(),
-                                      static_cast<size_t>(input.value->size()), &st);
-      // UTF decoding can lead to issues
-      if (st.ok()) {
-        out->value = std::make_shared<BooleanScalar>(boolean_result);
+template <typename Type, typename Predicate>
+struct StringPredicateFunctor {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    Status st = Status::OK();
+    EnsureLookupTablesFilled();
+    if (batch[0].kind() == Datum::ARRAY) {
+      const ArrayData& input = *batch[0].array();
+      ArrayIterator<Type> input_it(input);
+      ArrayData* out_arr = out->mutable_array();
+      ::arrow::internal::GenerateBitsUnrolled(
+          out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
+          [&]() -> bool {
+            util::string_view val = input_it();
+            return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
+                                   val.size(), &st);
+          });
+    } else {
+      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+      if (input.is_valid) {
+        bool boolean_result = Predicate::Call(
+            ctx, input.value->data(), static_cast<size_t>(input.value->size()), &st);
+        // UTF decoding can lead to issues
+        if (st.ok()) {
+          out->value = std::make_shared<BooleanScalar>(boolean_result);
+        }
       }
     }
+    return st;
   }
-  return st;
-}
+};
 
 template <typename Predicate>
 void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
                              const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-  auto exec_32 = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ApplyPredicate<StringType>(ctx, batch, Predicate::Call, out);
-  };
-  auto exec_64 = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ApplyPredicate<LargeStringType>(ctx, batch, Predicate::Call, out);
-  };
-  DCHECK_OK(func->AddKernel({utf8()}, boolean(), std::move(exec_32)));
-  DCHECK_OK(func->AddKernel({large_utf8()}, boolean(), std::move(exec_64)));
+  for (const auto& ty : StringTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);
+    DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -4070,7 +4324,7 @@ const auto ascii_is_title_doc = StringPredicateDoc(
     "Classify strings as ASCII titlecase",
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
-     "follows a non-cased character, and each lowercase character follows\n"
+     "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character.\n"));
 
 const auto utf8_is_alnum_doc =
@@ -4095,7 +4349,7 @@ const auto utf8_is_title_doc = StringPredicateDoc(
     "Classify strings as titlecase",
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
-     "follows a non-cased character, and each lowercase character follows\n"
+     "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character.\n"));
 
 const FunctionDoc ascii_upper_doc(
@@ -4127,6 +4381,15 @@ const FunctionDoc ascii_capitalize_doc(
      "non-ASCII characters, use \"utf8_capitalize\" instead."),
     {"strings"});
 
+const FunctionDoc ascii_title_doc(
+    "Titlecase each word of ASCII input",
+    ("For each string in `strings`, return a titlecased version.\n"
+     "Each word in the output will start with an uppercase character and its\n"
+     "remaining characters will be lowercase.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_title\" instead."),
+    {"strings"});
+
 const FunctionDoc ascii_reverse_doc(
     "Reverse ASCII input",
     ("For each ASCII string in `strings`, return a reversed version.\n\n"
@@ -4153,6 +4416,13 @@ const FunctionDoc utf8_capitalize_doc(
      "with the first character uppercased and the others lowercased."),
     {"strings"});
 
+const FunctionDoc utf8_title_doc(
+    "Titlecase each word of input",
+    ("For each string in `strings`, return a titlecased version.\n"
+     "Each word in the output will start with an uppercase character and its\n"
+     "remaining characters will be lowercase."),
+    {"strings"});
+
 const FunctionDoc utf8_reverse_doc(
     "Reverse input",
     ("For each string in `strings`, return a reversed version.\n\n"
@@ -4164,8 +4434,9 @@ const FunctionDoc utf8_reverse_doc(
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
-  // ascii_upper and ascii_lower are able to reuse the original offsets buffer,
-  // so don't preallocate them in the output.
+  // Some kernels are able to reuse the original offsets buffer, so don't
+  // preallocate them in the output. Only kernels that invoke
+  // "StringDataTransform" support no preallocation.
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
@@ -4174,6 +4445,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
       "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiCapitalize>("ascii_capitalize", registry,
                                               &ascii_capitalize_doc);
+  MakeUnaryStringBatchKernel<AsciiTitle>("ascii_title", registry, &ascii_title_doc);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
                                                   &ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
@@ -4221,6 +4493,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &utf8_swapcase_doc);
   MakeUnaryStringBatchKernel<Utf8Capitalize>("utf8_capitalize", registry,
                                              &utf8_capitalize_doc);
+  MakeUnaryStringBatchKernel<Utf8Title>("utf8_title", registry, &utf8_title_doc);
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  &utf8_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,
@@ -4252,13 +4525,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddMatchSubstring(registry);
   AddFindSubstring(registry);
   AddCountSubstring(registry);
-  MakeUnaryStringBatchKernelWithState<ReplaceSubStringPlain>(
-      "replace_substring", registry, &replace_substring_doc,
-      MemAllocation::NO_PREALLOCATE);
+  AddReplaceSubstring(registry);
 #ifdef ARROW_WITH_RE2
-  MakeUnaryStringBatchKernelWithState<ReplaceSubStringRegex>(
-      "replace_substring_regex", registry, &replace_substring_regex_doc,
-      MemAllocation::NO_PREALLOCATE);
   AddExtractRegex(registry);
 #endif
   AddReplaceSlice(registry);

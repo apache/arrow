@@ -46,6 +46,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   private final JdbcConsumer[] consumers;
   final CompositeJdbcConsumer compositeConsumer;
 
+  // this is used only if resuing vector schema root is enabled.
   private VectorSchemaRoot nextBatch;
 
   private final int targetBatchSize;
@@ -73,7 +74,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
           arrowType, i, isColumnNullable(resultSet, i), null, config);
     }
 
-    load(createVectorSchemaRoot());
+    this.nextBatch = config.isReuseVectorSchemaRoot() ? createVectorSchemaRoot() : null;
   }
 
   /**
@@ -83,15 +84,17 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       ResultSet resultSet,
       JdbcToArrowConfig config)
       throws SQLException {
-
-    ArrowVectorIterator iterator = new ArrowVectorIterator(resultSet, config);
+    ArrowVectorIterator iterator = null;
     try {
+      iterator = new ArrowVectorIterator(resultSet, config);
       iterator.initialize();
-      return iterator;
-    } catch (Exception e) {
-      iterator.close();
+    } catch (Throwable e) {
+      if (iterator != null) {
+        iterator.close();
+      }
       throw new RuntimeException("Error occurred while creating iterator.", e);
     }
+    return iterator;
   }
 
   private void consumeData(VectorSchemaRoot root) {
@@ -111,9 +114,8 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
         }
       }
 
-
       root.setRowCount(readRowCount);
-    } catch (Exception e) {
+    } catch (Throwable e) {
       compositeConsumer.close();
       throw new RuntimeException("Error occurred while consuming data.", e);
     }
@@ -126,7 +128,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       if (config.getTargetBatchSize() != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
         ValueVectorUtility.preAllocate(root, config.getTargetBatchSize());
       }
-    } catch (Exception e) {
+    } catch (Throwable e) {
       if (root != null) {
         root.close();
       }
@@ -137,40 +139,38 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   // Loads the next schema root or null if no more rows are available.
   private void load(VectorSchemaRoot root) throws SQLException {
-
-    for (int i = 1; i <= consumers.length; i++) {
-      consumers[i - 1].resetValueVector(root.getVector(rsmd.getColumnLabel(i)));
+    for (int i = 0; i < consumers.length; i++) {
+      consumers[i].resetValueVector(root.getVector(i));
     }
 
     consumeData(root);
-
-    if (root.getRowCount() == 0) {
-      root.close();
-      nextBatch = null;
-    } else {
-      nextBatch = root;
-    }
   }
 
   @Override
   public boolean hasNext() {
-    return nextBatch != null;
+    try {
+      return !resultSet.isAfterLast();
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
-   * Gets the next vector. The user is responsible for freeing its resources.
+   * Gets the next vector.
+   * If {@link JdbcToArrowConfig#isReuseVectorSchemaRoot()} is false,
+   * the client is responsible for freeing its resources.
    */
   @Override
   public VectorSchemaRoot next() {
     Preconditions.checkArgument(hasNext());
-    VectorSchemaRoot returned = nextBatch;
     try {
-      load(createVectorSchemaRoot());
+      VectorSchemaRoot ret = config.isReuseVectorSchemaRoot() ? nextBatch : createVectorSchemaRoot();
+      load(ret);
+      return ret;
     } catch (Exception e) {
       close();
       throw new RuntimeException("Error occurred while getting next schema root.", e);
     }
-    return returned;
   }
 
   /**
@@ -178,7 +178,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
    */
   @Override
   public void close() {
-    if (nextBatch != null) {
+    if (config.isReuseVectorSchemaRoot()) {
       nextBatch.close();
     }
     compositeConsumer.close();

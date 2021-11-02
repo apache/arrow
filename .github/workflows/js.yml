@@ -32,7 +32,7 @@ on:
       - 'js/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -42,7 +42,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 10 NodeJS 14
+    name: AMD64 Debian 11 NodeJS 14
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

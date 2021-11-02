@@ -48,87 +48,31 @@ Primitive
 .. doxygenclass:: arrow::BooleanType
    :members:
 
-.. doxygenclass:: arrow::Int8Type
+.. doxygengroup:: numeric-datatypes
+   :content-only:
    :members:
 
-.. doxygenclass:: arrow::Int16Type
-   :members:
-
-.. doxygenclass:: arrow::Int32Type
-   :members:
-
-.. doxygenclass:: arrow::Int64Type
-   :members:
-
-.. doxygenclass:: arrow::UInt8Type
-   :members:
-
-.. doxygenclass:: arrow::UInt16Type
-   :members:
-
-.. doxygenclass:: arrow::UInt32Type
-   :members:
-
-.. doxygenclass:: arrow::UInt64Type
-   :members:
-
-.. doxygenclass:: arrow::HalfFloatType
-   :members:
-
-.. doxygenclass:: arrow::FloatType
-   :members:
-
-.. doxygenclass:: arrow::DoubleType
-   :members:
-
-Time-related
-------------
+Temporal
+--------
 
 .. doxygenenum:: arrow::TimeUnit::type
 
-.. doxygenclass:: arrow::Date32Type
-   :members:
-
-.. doxygenclass:: arrow::Date64Type
-   :members:
-
-.. doxygenclass:: arrow::Time32Type
-   :members:
-
-.. doxygenclass:: arrow::Time64Type
-   :members:
-
-.. doxygenclass:: arrow::TimestampType
+.. doxygengroup:: temporal-datatypes
+   :content-only:
    :members:
 
 Binary-like
 -----------
 
-.. doxygenclass:: arrow::BinaryType
-   :members:
-
-.. doxygenclass:: arrow::StringType
-   :members:
-
-.. doxygenclass:: arrow::FixedSizeBinaryType
-   :members:
-
-.. doxygenclass:: arrow::Decimal128Type
+.. doxygengroup:: binary-datatypes
+   :content-only:
    :members:
 
 Nested
 ------
 
-.. doxygenclass:: arrow::ListType
-   :members:
-
-.. doxygenclass:: arrow::MapType
-   :members:
-
-.. doxygenclass:: arrow::StructType
-   :members:
-
-.. doxygenclass:: arrow::UnionType
+.. doxygengroup:: nested-datatypes
+   :content-only:
    :members:
 
 Dictionary-encoded
@@ -136,6 +80,13 @@ Dictionary-encoded
 
 .. doxygenclass:: arrow::DictionaryType
    :members:
+
+Extension types
+---------------
+
+.. doxygenclass:: arrow::ExtensionType
+   :members:
+
 
 Fields and Schemas
 ==================

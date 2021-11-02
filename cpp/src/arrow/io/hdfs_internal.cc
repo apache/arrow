@@ -187,35 +187,46 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
 // SFrame uses /usr/libexec/java_home to find JAVA_HOME; for now we are
 // expecting users to set an environment variable
 #else
+#if defined(__aarch64__)
+  const std::string prefix_arch{"arm64"};
+  const std::string suffix_arch{"aarch64"};
+#else
+  const std::string prefix_arch{"amd64"};
+  const std::string suffix_arch{"amd64"};
+#endif
   ARROW_ASSIGN_OR_RAISE(
       search_prefixes,
       MakeFilenameVector({
-          "/usr/lib/jvm/default-java",                // ubuntu / debian distros
-          "/usr/lib/jvm/java",                        // rhel6
-          "/usr/lib/jvm",                             // centos6
-          "/usr/lib64/jvm",                           // opensuse 13
-          "/usr/local/lib/jvm/default-java",          // alt ubuntu / debian distros
-          "/usr/local/lib/jvm/java",                  // alt rhel6
-          "/usr/local/lib/jvm",                       // alt centos6
-          "/usr/local/lib64/jvm",                     // alt opensuse 13
-          "/usr/local/lib/jvm/java-8-openjdk-amd64",  // alt ubuntu / debian distros
-          "/usr/lib/jvm/java-8-openjdk-amd64",        // alt ubuntu / debian distros
-          "/usr/local/lib/jvm/java-7-openjdk-amd64",  // alt ubuntu / debian distros
-          "/usr/lib/jvm/java-7-openjdk-amd64",        // alt ubuntu / debian distros
-          "/usr/local/lib/jvm/java-6-openjdk-amd64",  // alt ubuntu / debian distros
-          "/usr/lib/jvm/java-6-openjdk-amd64",        // alt ubuntu / debian distros
-          "/usr/lib/jvm/java-7-oracle",               // alt ubuntu
-          "/usr/lib/jvm/java-8-oracle",               // alt ubuntu
-          "/usr/lib/jvm/java-6-oracle",               // alt ubuntu
-          "/usr/local/lib/jvm/java-7-oracle",         // alt ubuntu
-          "/usr/local/lib/jvm/java-8-oracle",         // alt ubuntu
-          "/usr/local/lib/jvm/java-6-oracle",         // alt ubuntu
-          "/usr/lib/jvm/default",                     // alt centos
-          "/usr/java/latest",                         // alt centos
+          "/usr/lib/jvm/default-java",        // ubuntu / debian distros
+          "/usr/lib/jvm/java",                // rhel6
+          "/usr/lib/jvm",                     // centos6
+          "/usr/lib64/jvm",                   // opensuse 13
+          "/usr/local/lib/jvm/default-java",  // alt ubuntu / debian distros
+          "/usr/local/lib/jvm/java",          // alt rhel6
+          "/usr/local/lib/jvm",               // alt centos6
+          "/usr/local/lib64/jvm",             // alt opensuse 13
+          "/usr/local/lib/jvm/java-8-openjdk-" +
+              prefix_arch,                               // alt ubuntu / debian distros
+          "/usr/lib/jvm/java-8-openjdk-" + prefix_arch,  // alt ubuntu / debian distros
+          "/usr/local/lib/jvm/java-7-openjdk-" +
+              prefix_arch,                               // alt ubuntu / debian distros
+          "/usr/lib/jvm/java-7-openjdk-" + prefix_arch,  // alt ubuntu / debian distros
+          "/usr/local/lib/jvm/java-6-openjdk-" +
+              prefix_arch,                               // alt ubuntu / debian distros
+          "/usr/lib/jvm/java-6-openjdk-" + prefix_arch,  // alt ubuntu / debian distros
+          "/usr/lib/jvm/java-7-oracle",                  // alt ubuntu
+          "/usr/lib/jvm/java-8-oracle",                  // alt ubuntu
+          "/usr/lib/jvm/java-6-oracle",                  // alt ubuntu
+          "/usr/local/lib/jvm/java-7-oracle",            // alt ubuntu
+          "/usr/local/lib/jvm/java-8-oracle",            // alt ubuntu
+          "/usr/local/lib/jvm/java-6-oracle",            // alt ubuntu
+          "/usr/lib/jvm/default",                        // alt centos
+          "/usr/java/latest"                             // alt centos
       }));
-  ARROW_ASSIGN_OR_RAISE(search_suffixes,
-                        MakeFilenameVector({"", "/jre/lib/amd64/server",
-                                            "/lib/amd64/server", "/lib/server"}));
+  ARROW_ASSIGN_OR_RAISE(
+      search_suffixes,
+      MakeFilenameVector({"", "/lib/server", "/jre/lib/" + suffix_arch + "/server",
+                          "/lib/" + suffix_arch + "/server"}));
   file_name = "libjvm.so";
 #endif
 

@@ -40,19 +40,19 @@ Status ParseError(Args&&... args) {
   return Status::Invalid("CSV parse error: ", std::forward<Args>(args)...);
 }
 
-Status MismatchingColumns(int32_t expected, int32_t actual, int64_t row_num,
-                          util::string_view row) {
+Status MismatchingColumns(const InvalidRow& row) {
   std::string ellipse;
-  if (row.length() > 100) {
-    row = row.substr(0, 96);
+  auto row_string = row.text;
+  if (row_string.length() > 100) {
+    row_string = row_string.substr(0, 96);
     ellipse = " ...";
   }
-  if (row_num < 0) {
-    return ParseError("Expected ", expected, " columns, got ", actual, ": ", row,
-                      ellipse);
+  if (row.number < 0) {
+    return ParseError("Expected ", row.expected_columns, " columns, got ",
+                      row.actual_columns, ": ", row_string, ellipse);
   }
-  return ParseError("Row #", row_num, ": Expected ", expected, " columns, got ", actual,
-                    ": ", row, ellipse);
+  return ParseError("Row #", row.number, ": Expected ", row.expected_columns,
+                    " columns, got ", row.actual_columns, ": ", row_string, ellipse);
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
@@ -194,6 +194,42 @@ class BlockParserImpl {
 
   int64_t first_row_num() const { return first_row_; }
 
+  template <typename ValueDescWriter, typename DataWriter>
+  Status HandleInvalidRow(ValueDescWriter* values_writer, DataWriter* parsed_writer,
+                          const char* start, const char* data, int32_t num_cols,
+                          const char** out_data) {
+    // Find the end of the line without newline or carriage return
+    auto end = data;
+    if (*(end - 1) == '\n') {
+      --end;
+    }
+    if (*(end - 1) == '\r') {
+      --end;
+    }
+    const int32_t batch_row_including_skipped =
+        batch_.num_rows_ + batch_.num_skipped_rows();
+    InvalidRow row{batch_.num_cols_, num_cols,
+                   first_row_ < 0 ? -1 : first_row_ + batch_row_including_skipped,
+                   util::string_view(start, end - start)};
+
+    if (options_.invalid_row_handler &&
+        options_.invalid_row_handler(row) == InvalidRowResult::Skip) {
+      values_writer->RollbackLine();
+      parsed_writer->RollbackLine();
+      if (!batch_.skipped_rows_.empty()) {
+        // Should be increasing (non-strictly)
+        DCHECK_GE(batch_.num_rows_, batch_.skipped_rows_.back());
+      }
+      // Record the logical row number (not including skipped) since that
+      // is what we are going to look for later.
+      batch_.skipped_rows_.push_back(batch_.num_rows_);
+      *out_data = data;
+      return Status::OK();
+    }
+
+    return MismatchingColumns(row);
+  }
+
   template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
@@ -316,17 +352,8 @@ class BlockParserImpl {
       if (batch_.num_cols_ == -1) {
         batch_.num_cols_ = num_cols;
       } else {
-        // Find the end of the line without newline or carriage return
-        auto end = data;
-        if (*(end - 1) == '\n') {
-          --end;
-        }
-        if (*(end - 1) == '\r') {
-          --end;
-        }
-        return MismatchingColumns(batch_.num_cols_, num_cols,
-                                  first_row_ < 0 ? -1 : first_row_ + batch_.num_rows_,
-                                  util::string_view(start, end - start));
+        return HandleInvalidRow(values_writer, parsed_writer, start, data, num_cols,
+                                out_data);
       }
     }
     ++batch_.num_rows_;

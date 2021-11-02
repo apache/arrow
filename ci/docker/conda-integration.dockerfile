@@ -40,6 +40,7 @@ RUN conda install -q \
 # Install Rust with only the needed components
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
+    $HOME/.cargo/bin/rustup toolchain install stable && \
     $HOME/.cargo/bin/rustup component add rustfmt
 
 ENV GOROOT=/opt/go \
@@ -47,6 +48,10 @@ ENV GOROOT=/opt/go \
     GOPATH=/go \
     PATH=/opt/go/bin:$PATH
 RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
+
+ENV DOTNET_ROOT=/opt/dotnet \
+    PATH=/opt/dotnet:$PATH
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 3.1 -InstallDir /opt/dotnet
 
 ENV ARROW_BUILD_INTEGRATION=ON \
     ARROW_BUILD_STATIC=OFF \

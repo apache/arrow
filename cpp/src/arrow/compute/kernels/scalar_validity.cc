@@ -17,6 +17,7 @@
 
 #include <cmath>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 
 #include "arrow/util/bit_util.h"
@@ -74,21 +75,71 @@ struct IsInfOperator {
   }
 };
 
+using NanOptionsState = OptionsWrapper<NullOptions>;
+
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    checked_cast<BooleanScalar*>(out)->value = !in.is_valid;
+    const auto& options = NanOptionsState::Get(ctx);
+    bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
+
+    if (in.is_valid) {
+      if (options.nan_is_null && is_floating(in.type->id())) {
+        switch (in.type->id()) {
+          case Type::FLOAT:
+            *out_value = std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
+            break;
+          case Type::DOUBLE:
+            *out_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
+            break;
+          default:
+            return Status::NotImplemented("NaN detection not implemented for type ",
+                                          in.type->ToString());
+        }
+      } else {
+        *out_value = false;
+      }
+    } else {
+      *out_value = true;
+    }
+
     return Status::OK();
   }
 
+  template <typename T>
+  static void SetNanBits(const ArrayData& arr, uint8_t* out_bitmap, int64_t out_offset) {
+    const T* data = arr.GetValues<T>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      if (std::isnan(data[i])) {
+        BitUtil::SetBit(out_bitmap, i + out_offset);
+      }
+    }
+  }
+
   static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    if (arr.MayHaveNulls()) {
+    const auto& options = NanOptionsState::Get(ctx);
+
+    uint8_t* out_bitmap = out->buffers[1]->mutable_data();
+    if (arr.GetNullCount() > 0) {
       // Input has nulls => output is the inverted null (validity) bitmap.
-      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-                   out->buffers[1]->mutable_data(), out->offset);
+      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length, out_bitmap,
+                   out->offset);
     } else {
       // Input has no nulls => output is entirely false.
-      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
-                         false);
+      BitUtil::SetBitsTo(out_bitmap, out->offset, out->length, false);
+    }
+
+    if (is_floating(arr.type->id()) && options.nan_is_null) {
+      switch (arr.type->id()) {
+        case Type::FLOAT:
+          SetNanBits<float>(arr, out_bitmap, out->offset);
+          break;
+        case Type::DOUBLE:
+          SetNanBits<double>(arr, out_bitmap, out->offset);
+          break;
+        default:
+          return Status::NotImplemented("NaN detection not implemented for type ",
+                                        arr.type->ToString());
+      }
     }
     return Status::OK();
   }
@@ -104,11 +155,13 @@ struct IsNanOperator {
 void MakeFunction(std::string name, const FunctionDoc* doc,
                   std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
-                  MemAllocation::type mem_allocation, bool can_write_into_slices) {
+                  MemAllocation::type mem_allocation, bool can_write_into_slices,
+                  const FunctionOptions* default_options = NULLPTR,
+                  KernelInit init = NULLPTR) {
   Arity arity{static_cast<int>(in_types.size())};
-  auto func = std::make_shared<ScalarFunction>(name, arity, doc);
+  auto func = std::make_shared<ScalarFunction>(name, arity, doc, default_options);
 
-  ScalarKernel kernel(std::move(in_types), out_type, exec);
+  ScalarKernel kernel(std::move(in_types), out_type, exec, init);
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   kernel.can_write_into_slices = can_write_into_slices;
   kernel.mem_allocation = mem_allocation;
@@ -202,9 +255,11 @@ const FunctionDoc is_inf_doc(
     ("For each input value, emit true iff the value is infinite (inf or -inf)."),
     {"values"});
 
-const FunctionDoc is_null_doc("Return true if null",
-                              ("For each input value, emit true iff the value is null."),
-                              {"values"});
+const FunctionDoc is_null_doc(
+    "Return true if null (and optionally NaN)",
+    ("For each input value, emit true iff the value is null.\n"
+     "True may also be emitted for NaN values by setting the `nan_is_null` flag."),
+    {"values"}, "NullOptions");
 
 const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
@@ -213,12 +268,13 @@ const FunctionDoc is_nan_doc("Return true if NaN",
 }  // namespace
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
+  static auto kNullOptions = NullOptions::Defaults();
   MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
                registry, MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
   MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
                registry, MemAllocation::PREALLOCATE,
-               /*can_write_into_slices=*/true);
+               /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));

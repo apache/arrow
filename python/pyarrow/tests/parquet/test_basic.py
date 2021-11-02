@@ -85,7 +85,7 @@ def test_chunked_table_write(use_legacy_dataset):
         for use_dictionary in [True, False]:
             for table in tables:
                 _check_roundtrip(
-                    table, version='2.0',
+                    table, version='2.6',
                     use_legacy_dataset=use_legacy_dataset,
                     data_page_version=data_page_version,
                     use_dictionary=use_dictionary)
@@ -98,11 +98,11 @@ def test_memory_map(tempdir, use_legacy_dataset):
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'memory_map': True},
-                     version='2.0', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6', use_legacy_dataset=use_legacy_dataset)
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
-        _write_table(table, f, version='2.0')
+        _write_table(table, f, version='2.6')
     table_read = pq.read_pandas(filename, memory_map=True,
                                 use_legacy_dataset=use_legacy_dataset)
     assert table_read.equals(table)
@@ -115,11 +115,11 @@ def test_enable_buffered_stream(tempdir, use_legacy_dataset):
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
-                     version='2.0', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6', use_legacy_dataset=use_legacy_dataset)
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
-        _write_table(table, f, version='2.0')
+        _write_table(table, f, version='2.6')
     table_read = pq.read_pandas(filename, buffer_size=4096,
                                 use_legacy_dataset=use_legacy_dataset)
     assert table_read.equals(table)
@@ -176,7 +176,7 @@ def test_empty_table_roundtrip(use_legacy_dataset):
     assert table.schema.field('null').type == pa.null()
     assert table.schema.field('null_list').type == pa.list_(pa.null())
     _check_roundtrip(
-        table, version='2.0', use_legacy_dataset=use_legacy_dataset)
+        table, version='2.6', use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -413,7 +413,7 @@ def test_multithreaded_read(use_legacy_dataset):
     table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
-    _write_table(table, buf, compression='SNAPPY', version='2.0')
+    _write_table(table, buf, compression='SNAPPY', version='2.6')
 
     buf.seek(0)
     table1 = _read_table(
@@ -628,4 +628,23 @@ def test_reads_over_batch(tempdir):
     path = tempdir / 'arrow-11607.parquet'
     pq.write_table(table, path)
     table2 = pq.read_table(path)
+    assert table == table2
+
+
+def test_permutation_of_column_order(tempdir):
+    # ARROW-2366
+    case = tempdir / "dataset_column_order_permutation"
+    case.mkdir(exist_ok=True)
+
+    data1 = pa.table([[1, 2, 3], [.1, .2, .3]], names=['a', 'b'])
+    pq.write_table(data1, case / "data1.parquet")
+
+    data2 = pa.table([[.4, .5, .6], [4, 5, 6]], names=['b', 'a'])
+    pq.write_table(data2, case / "data2.parquet")
+
+    table = pq.read_table(str(case))
+    table2 = pa.table([[1, 2, 3, 4, 5, 6],
+                      [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                      names=['a', 'b'])
+
     assert table == table2

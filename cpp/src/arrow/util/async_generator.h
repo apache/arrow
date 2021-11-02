@@ -24,6 +24,7 @@
 #include <limits>
 #include <queue>
 
+#include "arrow/util/async_util.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
@@ -110,14 +111,14 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator, Visitor visitor) {
   return Loop(LoopBody{std::move(generator), std::move(visitor)});
 }
 
-/// \brief Waits for an async generator to complete, discarding results.
+/// \brief Wait for an async generator to complete, discarding results.
 template <typename T>
 Future<> DiscardAllFromAsyncGenerator(AsyncGenerator<T> generator) {
   std::function<Status(T)> visitor = [](const T&) { return Status::OK(); };
   return VisitAsyncGenerator(generator, visitor);
 }
 
-/// \brief Collects the results of an async generator into a vector
+/// \brief Collect the results of an async generator into a vector
 template <typename T>
 Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   auto vec = std::make_shared<std::vector<T>>();
@@ -221,6 +222,9 @@ class MappingGenerator {
       bool should_trigger;
       {
         auto guard = state->mutex.Lock();
+        // A MappedCallback may have purged or be purging the queue;
+        // we shouldn't do anything here.
+        if (state->finished) return;
         if (end) {
           should_purge = !state->finished;
           state->finished = true;
@@ -254,7 +258,7 @@ class MappingGenerator {
   std::shared_ptr<State> state_;
 };
 
-/// \brief Creates a generator that will apply the map function to each element of
+/// \brief Create a generator that will apply the map function to each element of
 /// source.  The map function is not called on the end token.
 ///
 /// Note: This function makes a copy of `map` for each item
@@ -272,6 +276,24 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn 
   };
 
   return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
+}
+
+/// \brief Create a generator that will apply the map function to
+/// each element of source.  The map function is not called on the end
+/// token.  The result of the map function should be another
+/// generator; all these generators will then be flattened to produce
+/// a single stream of items.
+///
+/// Note: This function makes a copy of `map` for each item
+/// Note: Errors returned from the `map` function will be propagated
+///
+/// If the source generator is async-reentrant then this generator will be also
+template <typename T, typename MapFn,
+          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename V = typename EnsureFuture<Mapped>::type::ValueType>
+AsyncGenerator<T> MakeFlatMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
+  return MakeConcatenatedGenerator(
+      MakeMappedGenerator(std::move(source_generator), std::move(map)));
 }
 
 /// \see MakeSequencingGenerator
@@ -395,7 +417,7 @@ class SequencingGenerator {
   const std::shared_ptr<State> state_;
 };
 
-/// \brief Buffers an AsyncGenerator to return values in sequence order  ComesAfter
+/// \brief Buffer an AsyncGenerator to return values in sequence order  ComesAfter
 /// and IsNext determine the sequence order.
 ///
 /// ComesAfter should be a BinaryPredicate that only returns true if a comes after b
@@ -510,7 +532,7 @@ class TransformingGenerator {
   std::shared_ptr<TransformingGeneratorState> state_;
 };
 
-/// \brief Transforms an async generator using a transformer function returning a new
+/// \brief Transform an async generator using a transformer function returning a new
 /// AsyncGenerator
 ///
 /// The transform function here behaves exactly the same as the transform function in
@@ -664,7 +686,7 @@ class FutureFirstGenerator {
   std::shared_ptr<State> state_;
 };
 
-/// \brief Transforms a Future<AsyncGenerator<T>> into an AsyncGenerator<T>
+/// \brief Transform a Future<AsyncGenerator<T>> into an AsyncGenerator<T>
 /// that waits for the future to complete as part of the first item.
 ///
 /// This generator is not async-reentrant (even if the generator yielded by future is)
@@ -675,7 +697,7 @@ AsyncGenerator<T> MakeFromFuture(Future<AsyncGenerator<T>> future) {
   return FutureFirstGenerator<T>(std::move(future));
 }
 
-/// \brief Creates a generator that will pull from the source into a queue.  Unlike
+/// \brief Create a generator that will pull from the source into a queue.  Unlike
 /// MakeReadaheadGenerator this will not pull reentrantly from the source.
 ///
 /// The source generator does not need to be async-reentrant
@@ -687,6 +709,35 @@ template <typename T>
 AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generator,
                                                int max_readahead) {
   return SerialReadaheadGenerator<T>(std::move(source_generator), max_readahead);
+}
+
+/// \brief Create a generator that immediately pulls from the source
+///
+/// Typical generators do not pull from their source until they themselves
+/// are pulled.  This generator does not follow that convention and will call
+/// generator() once before it returns.  The returned generator will otherwise
+/// mirror the source.
+///
+/// This generator forwards aysnc-reentrant pressure to the source
+/// This generator buffers one item (the first result) until it is delivered.
+template <typename T>
+AsyncGenerator<T> MakeAutoStartingGenerator(AsyncGenerator<T> generator) {
+  struct AutostartGenerator {
+    Future<T> operator()() {
+      if (first_future->is_valid()) {
+        Future<T> result = *first_future;
+        *first_future = Future<T>();
+        return result;
+      }
+      return source();
+    }
+
+    std::shared_ptr<Future<T>> first_future;
+    AsyncGenerator<T> source;
+  };
+
+  std::shared_ptr<Future<T>> first_future = std::make_shared<Future<T>>(generator());
+  return AutostartGenerator{std::move(first_future), std::move(generator)};
 }
 
 /// \see MakeReadaheadGenerator
@@ -764,6 +815,24 @@ class ReadaheadGenerator {
 template <typename T>
 class PushGenerator {
   struct State {
+    explicit State(util::BackpressureOptions backpressure)
+        : backpressure(std::move(backpressure)) {}
+
+    void OpenBackpressureIfFreeUnlocked(util::Mutex::Guard&& guard) {
+      if (backpressure.toggle && result_q.size() < backpressure.resume_if_below) {
+        // Open might trigger callbacks so release the lock first
+        guard.Unlock();
+        backpressure.toggle->Open();
+      }
+    }
+
+    void CloseBackpressureIfFullUnlocked() {
+      if (backpressure.toggle && result_q.size() > backpressure.pause_if_above) {
+        backpressure.toggle->Close();
+      }
+    }
+
+    util::BackpressureOptions backpressure;
     util::Mutex mutex;
     std::deque<Result<T>> result_q;
     util::optional<Future<T>> consumer_fut;
@@ -799,6 +868,7 @@ class PushGenerator {
         fut.MarkFinished(std::move(result));
       } else {
         state->result_q.push_back(std::move(result));
+        state->CloseBackpressureIfFullUnlocked();
       }
       return true;
     }
@@ -847,7 +917,8 @@ class PushGenerator {
     const std::weak_ptr<State> weak_state_;
   };
 
-  PushGenerator() : state_(std::make_shared<State>()) {}
+  explicit PushGenerator(util::BackpressureOptions backpressure = {})
+      : state_(std::make_shared<State>(std::move(backpressure))) {}
 
   /// Read an item from the queue
   Future<T> operator()() const {
@@ -856,6 +927,7 @@ class PushGenerator {
     if (!state_->result_q.empty()) {
       auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
       state_->result_q.pop_front();
+      state_->OpenBackpressureIfFreeUnlocked(std::move(lock));
       return fut;
     }
     if (state_->finished) {
@@ -876,7 +948,7 @@ class PushGenerator {
   const std::shared_ptr<State> state_;
 };
 
-/// \brief Creates a generator that pulls reentrantly from a source
+/// \brief Create a generator that pulls reentrantly from a source
 /// This generator will pull reentrantly from a source, ensuring that max_readahead
 /// requests are active at any given time.
 ///
@@ -1001,32 +1073,45 @@ class MergedGenerator {
   };
 
   struct InnerCallback {
-    void operator()(const Result<T>& maybe_next) {
-      Future<T> sink;
-      bool sub_finished = maybe_next.ok() && IsIterationEnd(*maybe_next);
-      {
-        auto guard = state->mutex.Lock();
-        if (state->finished) {
-          // We've errored out so just ignore this result and don't keep pumping
-          return;
-        }
-        if (!sub_finished) {
-          if (state->waiting_jobs.empty()) {
-            state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
-                state->active_subscriptions[index], maybe_next, index));
-          } else {
-            sink = std::move(*state->waiting_jobs.front());
-            state->waiting_jobs.pop_front();
+    void operator()(const Result<T>& maybe_next_ref) {
+      Future<T> next_fut;
+      const Result<T>* maybe_next = &maybe_next_ref;
+
+      while (true) {
+        Future<T> sink;
+        bool sub_finished = maybe_next->ok() && IsIterationEnd(**maybe_next);
+        {
+          auto guard = state->mutex.Lock();
+          if (state->finished) {
+            // We've errored out so just ignore this result and don't keep pumping
+            return;
+          }
+          if (!sub_finished) {
+            if (state->waiting_jobs.empty()) {
+              state->delivered_jobs.push_back(std::make_shared<DeliveredJob>(
+                  state->active_subscriptions[index], *maybe_next, index));
+            } else {
+              sink = std::move(*state->waiting_jobs.front());
+              state->waiting_jobs.pop_front();
+            }
           }
         }
-      }
-      if (sub_finished) {
-        state->PullSource().AddCallback(OuterCallback{state, index});
-      } else if (sink.is_valid()) {
-        sink.MarkFinished(maybe_next);
-        if (maybe_next.ok()) {
-          state->active_subscriptions[index]().AddCallback(*this);
+        if (sub_finished) {
+          state->PullSource().AddCallback(OuterCallback{state, index});
+        } else if (sink.is_valid()) {
+          sink.MarkFinished(*maybe_next);
+          if (!maybe_next->ok()) return;
+
+          next_fut = state->active_subscriptions[index]();
+          if (next_fut.TryAddCallback([this]() { return *this; })) {
+            return;
+          }
+          // Already completed. Avoid very deep recursion by looping
+          // here instead of relying on the callback.
+          maybe_next = &next_fut.result();
+          continue;
         }
+        return;
       }
     }
     std::shared_ptr<State> state;
@@ -1081,7 +1166,7 @@ class MergedGenerator {
   std::shared_ptr<State> state_;
 };
 
-/// \brief Creates a generator that takes in a stream of generators and pulls from up to
+/// \brief Create a generator that takes in a stream of generators and pulls from up to
 /// max_subscriptions at a time
 ///
 /// Note: This may deliver items out of sequence. For example, items from the third
@@ -1100,7 +1185,24 @@ AsyncGenerator<T> MakeMergedGenerator(AsyncGenerator<AsyncGenerator<T>> source,
   return MergedGenerator<T>(std::move(source), max_subscriptions);
 }
 
-/// \brief Creates a generator that takes in a stream of generators and pulls from each
+template <typename T>
+Result<AsyncGenerator<T>> MakeSequencedMergedGenerator(
+    AsyncGenerator<AsyncGenerator<T>> source, int max_subscriptions) {
+  if (max_subscriptions < 0) {
+    return Status::Invalid("max_subscriptions must be a positive integer");
+  }
+  if (max_subscriptions == 1) {
+    return Status::Invalid("Use MakeConcatenatedGenerator if max_subscriptions is 1");
+  }
+  AsyncGenerator<AsyncGenerator<T>> autostarting_source = MakeMappedGenerator(
+      std::move(source),
+      [](const AsyncGenerator<T>& sub) { return MakeAutoStartingGenerator(sub); });
+  AsyncGenerator<AsyncGenerator<T>> sub_readahead =
+      MakeSerialReadaheadGenerator(std::move(autostarting_source), max_subscriptions - 1);
+  return MakeConcatenatedGenerator(std::move(sub_readahead));
+}
+
+/// \brief Create a generator that takes in a stream of generators and pulls from each
 /// one in sequence.
 ///
 /// This generator is async-reentrant but will never pull from source reentrantly and
@@ -1168,7 +1270,7 @@ class EnumeratingGenerator {
   std::shared_ptr<State> state_;
 };
 
-/// Wraps items from a source generator with positional information
+/// Wrap items from a source generator with positional information
 ///
 /// When used with MakeMergedGenerator and MakeSequencingGenerator this allows items to be
 /// processed in a "first-available" fashion and later resequenced which can reduce the
@@ -1204,7 +1306,7 @@ class TransferringGenerator {
   internal::Executor* executor_;
 };
 
-/// \brief Transfers a future to an underlying executor.
+/// \brief Transfer a future to an underlying executor.
 ///
 /// Continuations run on the returned future will be run on the given executor
 /// if they cannot be run synchronously.
@@ -1450,7 +1552,7 @@ class BackgroundGenerator {
 constexpr int kDefaultBackgroundMaxQ = 32;
 constexpr int kDefaultBackgroundQRestart = 16;
 
-/// \brief Creates an AsyncGenerator<T> by iterating over an Iterator<T> on a background
+/// \brief Create an AsyncGenerator<T> by iterating over an Iterator<T> on a background
 /// thread
 ///
 /// The parameter max_q and q_restart control queue size and background thread task
@@ -1498,14 +1600,14 @@ class GeneratorIterator {
   AsyncGenerator<T> source_;
 };
 
-/// \brief Converts an AsyncGenerator<T> to an Iterator<T> by blocking until each future
+/// \brief Convert an AsyncGenerator<T> to an Iterator<T> which blocks until each future
 /// is finished
 template <typename T>
 Iterator<T> MakeGeneratorIterator(AsyncGenerator<T> source) {
   return Iterator<T>(GeneratorIterator<T>(std::move(source)));
 }
 
-/// \brief Adds readahead to an iterator using a background thread.
+/// \brief Add readahead to an iterator using a background thread.
 ///
 /// Under the hood this is converting the iterator to a generator using
 /// MakeBackgroundGenerator, adding readahead to the converted generator with
@@ -1577,7 +1679,7 @@ AsyncGenerator<T> MakeFailingGenerator(const Result<T>& result) {
   return MakeFailingGenerator<T>(result.status());
 }
 
-/// \brief Prepends initial_values onto a generator
+/// \brief Prepend initial_values onto a generator
 ///
 /// This generator is async-reentrant but will buffer requests and will not
 /// pull from following_values async-reentrantly.
@@ -1603,7 +1705,7 @@ struct CancellableGenerator {
   StopToken stop_token;
 };
 
-/// \brief Allows an async generator to be cancelled
+/// \brief Allow an async generator to be cancelled
 ///
 /// This generator is async-reentrant
 template <typename T>
@@ -1611,4 +1713,92 @@ AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token
   return CancellableGenerator<T>{std::move(source), std::move(stop_token)};
 }
 
+template <typename T>
+struct PauseableGenerator {
+ public:
+  PauseableGenerator(AsyncGenerator<T> source, std::shared_ptr<util::AsyncToggle> toggle)
+      : state_(std::make_shared<PauseableGeneratorState>(std::move(source),
+                                                         std::move(toggle))) {}
+
+  Future<T> operator()() { return (*state_)(); }
+
+ private:
+  struct PauseableGeneratorState
+      : public std::enable_shared_from_this<PauseableGeneratorState> {
+    PauseableGeneratorState(AsyncGenerator<T> source,
+                            std::shared_ptr<util::AsyncToggle> toggle)
+        : source_(std::move(source)), toggle_(std::move(toggle)) {}
+
+    Future<T> operator()() {
+      std::shared_ptr<PauseableGeneratorState> self = this->shared_from_this();
+      return toggle_->WhenOpen().Then([self] {
+        util::Mutex::Guard guard = self->mutex_.Lock();
+        return self->source_();
+      });
+    }
+
+    AsyncGenerator<T> source_;
+    std::shared_ptr<util::AsyncToggle> toggle_;
+    util::Mutex mutex_;
+  };
+  std::shared_ptr<PauseableGeneratorState> state_;
+};
+
+/// \brief Allow an async generator to be paused
+///
+/// This generator is NOT async-reentrant and calling it in an async-reentrant fashion
+/// may lead to items getting reordered (and potentially truncated if the end token is
+/// reordered ahead of valid items)
+///
+/// This generator forwards async-reentrant pressure
+template <typename T>
+AsyncGenerator<T> MakePauseable(AsyncGenerator<T> source,
+                                std::shared_ptr<util::AsyncToggle> toggle) {
+  return PauseableGenerator<T>(std::move(source), std::move(toggle));
+}
+
+template <typename T>
+class DefaultIfEmptyGenerator {
+ public:
+  DefaultIfEmptyGenerator(AsyncGenerator<T> source, T or_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(or_value))) {}
+
+  Future<T> operator()() {
+    if (state_->first) {
+      state_->first = false;
+      struct {
+        T or_value;
+
+        Result<T> operator()(const T& value) {
+          if (IterationTraits<T>::IsEnd(value)) {
+            return std::move(or_value);
+          }
+          return value;
+        }
+      } Continuation;
+      Continuation.or_value = std::move(state_->or_value);
+      return state_->source().Then(std::move(Continuation));
+    }
+    return state_->source();
+  }
+
+ private:
+  struct State {
+    AsyncGenerator<T> source;
+    T or_value;
+    bool first;
+    State(AsyncGenerator<T> source_, T or_value_)
+        : source(std::move(source_)), or_value(std::move(or_value_)), first(true) {}
+  };
+  std::shared_ptr<State> state_;
+};
+
+/// \brief If the generator is empty, return the given value, else
+/// forward the values from the generator.
+///
+/// This generator is async-reentrant.
+template <typename T>
+AsyncGenerator<T> MakeDefaultIfEmptyGenerator(AsyncGenerator<T> source, T or_value) {
+  return DefaultIfEmptyGenerator<T>(std::move(source), std::move(or_value));
+}
 }  // namespace arrow

@@ -349,12 +349,11 @@ class SlicerTest < Test::Unit::TestCase
       slicer.count.in?([1, 4, 16, 64])
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	 count	visible
-0	     1	true   
-1	     4	 (null)
-2	    16	true   
-3	    64	 (null)
-4	(null)	 (null)
+	count	visible
+0	    1	true   
+1	    4	 (null)
+2	   16	true   
+3	   64	 (null)
     TABLE
   end
 

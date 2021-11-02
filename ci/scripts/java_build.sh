@@ -21,6 +21,7 @@ set -ex
 arrow_dir=${1}
 source_dir=${1}/java
 cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
+cdata_dist_dir=${2}/java/c
 with_docs=${3:-false}
 
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
@@ -82,6 +83,10 @@ ${mvn} install
 
 if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
   ${mvn} -Pshade-flatbuffers install
+fi
+
+if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
+  ${mvn} -Darrow.c.jni.dist.dir=${cdata_dist_dir} -Parrow-c-data install
 fi
 
 if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then

@@ -159,23 +159,32 @@ DictionaryMemoTable::DictionaryMemoTable(MemoryPool* pool,
 
 DictionaryMemoTable::~DictionaryMemoTable() = default;
 
-#define GET_OR_INSERT(C_TYPE)                                                       \
-  Status DictionaryMemoTable::GetOrInsert(                                          \
-      const typename CTypeTraits<C_TYPE>::ArrowType*, C_TYPE value, int32_t* out) { \
-    return impl_->GetOrInsert<typename CTypeTraits<C_TYPE>::ArrowType>(value, out); \
+#define GET_OR_INSERT(ARROW_TYPE)                                           \
+  Status DictionaryMemoTable::GetOrInsert(                                  \
+      const ARROW_TYPE*, typename ARROW_TYPE::c_type value, int32_t* out) { \
+    return impl_->GetOrInsert<ARROW_TYPE>(value, out);                      \
   }
 
-GET_OR_INSERT(bool)
-GET_OR_INSERT(int8_t)
-GET_OR_INSERT(int16_t)
-GET_OR_INSERT(int32_t)
-GET_OR_INSERT(int64_t)
-GET_OR_INSERT(uint8_t)
-GET_OR_INSERT(uint16_t)
-GET_OR_INSERT(uint32_t)
-GET_OR_INSERT(uint64_t)
-GET_OR_INSERT(float)
-GET_OR_INSERT(double)
+GET_OR_INSERT(BooleanType)
+GET_OR_INSERT(Int8Type)
+GET_OR_INSERT(Int16Type)
+GET_OR_INSERT(Int32Type)
+GET_OR_INSERT(Int64Type)
+GET_OR_INSERT(UInt8Type)
+GET_OR_INSERT(UInt16Type)
+GET_OR_INSERT(UInt32Type)
+GET_OR_INSERT(UInt64Type)
+GET_OR_INSERT(FloatType)
+GET_OR_INSERT(DoubleType)
+GET_OR_INSERT(DurationType);
+GET_OR_INSERT(TimestampType);
+GET_OR_INSERT(Date32Type);
+GET_OR_INSERT(Date64Type);
+GET_OR_INSERT(Time32Type);
+GET_OR_INSERT(Time64Type);
+GET_OR_INSERT(MonthDayNanoIntervalType);
+GET_OR_INSERT(DayTimeIntervalType);
+GET_OR_INSERT(MonthIntervalType);
 
 #undef GET_OR_INSERT
 

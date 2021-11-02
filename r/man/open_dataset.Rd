@@ -105,7 +105,7 @@ write_dataset(data, tf)
 open_dataset(tf)
 
 # You can also supply a vector of paths
-open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf, "cyl=8/part-2.parquet")))
+open_dataset(c(file.path(tf, "cyl=4/part-0.parquet"), file.path(tf, "cyl=8/part-0.parquet")))
 
 ## You must specify the file format if using a format other than parquet.
 tf2 <- tempfile()

@@ -22,7 +22,8 @@ linters: with_defaults(
   # object_name_linter = object_name_linter(styles = c("snake_case", "camelCase", "CamelCase", "symbols", "dotted.case", "UPPERCASE", "SNAKE_CASE")),
   object_length_linter = object_length_linter(40),
   object_usage_linter = NULL, # R6 methods are flagged,
-  cyclocomp_linter = cyclocomp_linter(26) # TODO: reduce to default of 15
+  cyclocomp_linter = cyclocomp_linter(26), # TODO: reduce to default of 15
+  open_curly_linter = NULL # styler and lintr conflict on this (https://github.com/r-lib/styler/issues/549#issuecomment-537191536)
   )
 exclusions: list(
   "tests/testthat/latin1.R",

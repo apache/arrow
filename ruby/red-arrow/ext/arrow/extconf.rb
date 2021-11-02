@@ -25,6 +25,19 @@ if arrow_pkg_config_path
   ENV["PKG_CONFIG_PATH"] = pkg_config_paths.join(File::PATH_SEPARATOR)
 end
 
+checking_for(checking_message("Homebrew")) do
+  platform = NativePackageInstaller::Platform.detect
+  if platform.is_a?(NativePackageInstaller::Platform::Homebrew)
+    openssl_prefix = `brew --prefix openssl@1.1`.chomp
+    unless openssl_prefix.empty?
+      PKGConfig.add_path("#{openssl_prefix}/lib/pkgconfig")
+    end
+    true
+  else
+    false
+  end
+end
+
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,

@@ -37,7 +37,7 @@ func TestWriterPropBasics(t *testing.T) {
 
 	assert.Equal(t, parquet.DefaultDataPageSize, props.DataPageSize())
 	assert.Equal(t, parquet.DefaultDictionaryPageSizeLimit, props.DictionaryPageSizeLimit())
-	assert.Equal(t, parquet.V1, props.Version())
+	assert.Equal(t, parquet.V2_LATEST, props.Version())
 	assert.Equal(t, parquet.DataPageV1, props.DataPageVersion())
 }
 

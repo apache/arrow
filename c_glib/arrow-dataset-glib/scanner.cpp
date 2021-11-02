@@ -18,6 +18,8 @@
  */
 
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/expression.hpp>
+#include <arrow-glib/reader.hpp>
 #include <arrow-glib/table.hpp>
 
 #include <arrow-dataset-glib/dataset.hpp>
@@ -137,6 +139,7 @@ typedef struct GADatasetScannerBuilderPrivate_ {
 
 enum {
   PROP_SCANNER_BUILDER = 1,
+  PROP_USE_ASYNC,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GADatasetScannerBuilder,
@@ -170,6 +173,11 @@ gadataset_scanner_builder_set_property(GObject *object,
       *static_cast<std::shared_ptr<arrow::dataset::ScannerBuilder> *>(
         g_value_get_pointer(value));
     break;
+  case PROP_USE_ASYNC:
+    garrow::check(nullptr,
+                  priv->scanner_builder->UseAsync(g_value_get_boolean(value)),
+                  "[scanner-builder][use-async][set]");
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -198,6 +206,21 @@ gadataset_scanner_builder_class_init(GADatasetScannerBuilderClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCANNER_BUILDER, spec);
+
+  arrow::dataset::ScanOptions default_options;
+  /**
+   * GADatasetScannerBuilder:use-async:
+   *
+   * Whether or not async mode is used.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_boolean("use-async",
+                              "Use async",
+                              "Whether or not async mode is used",
+                              default_options.use_async,
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE));
+  g_object_class_install_property(gobject_class, PROP_USE_ASYNC, spec);
 }
 
 /**
@@ -223,6 +246,46 @@ gadataset_scanner_builder_new(GADatasetDataset *dataset, GError **error)
   } else {
     return NULL;
   }
+}
+
+/**
+ * gadataset_scanner_builder_new_record_batch_reader:
+ * @reader: A #GArrowRecordBatchReader that produces record batches.
+ *
+ * Returns: (nullable): A newly created #GADatasetScannerBuilder.
+ *
+ * Since: 6.0.0
+ */
+GADatasetScannerBuilder *
+gadataset_scanner_builder_new_record_batch_reader(
+  GArrowRecordBatchReader *reader)
+{
+  auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
+  auto arrow_scanner_builder =
+    arrow::dataset::ScannerBuilder::FromRecordBatchReader(arrow_reader);
+  return gadataset_scanner_builder_new_raw(&arrow_scanner_builder);
+}
+
+/**
+ * gadataset_scanner_builder_set_filter:
+ * @builder: A #GADatasetScannerBuilder.
+ * @expression: A #GArrowExpression to filter rows with.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 6.0.0
+ */
+gboolean
+gadataset_scanner_builder_set_filter(GADatasetScannerBuilder *builder,
+                                     GArrowExpression *expression,
+                                     GError **error)
+{
+  auto arrow_builder = gadataset_scanner_builder_get_raw(builder);
+  auto arrow_expression = garrow_expression_get_raw(expression);
+  return garrow::check(error,
+                       arrow_builder->Filter(*arrow_expression),
+                       "[scanner-builder][filter][set]");
 }
 
 /**

@@ -151,7 +151,7 @@ class FilterAndProjectScanTask : public ScanTask {
     return ProjectSingleBatch(filtered, simplified_projection, options_);
   }
 
-  inline Future<RecordBatchVector> SafeExecute(internal::Executor* executor) override {
+  inline Future<RecordBatchVector> SafeExecute(Executor* executor) override {
     return task_->SafeExecute(executor).Then(
         // This should only be run via SerialExecutor so it should be safe to capture
         // `this`
@@ -162,7 +162,7 @@ class FilterAndProjectScanTask : public ScanTask {
   }
 
   inline Future<> SafeVisit(
-      internal::Executor* executor,
+      Executor* executor,
       std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
     auto filter_and_project_visitor =
         [this, visitor](const std::shared_ptr<RecordBatch>& batch) {
@@ -184,6 +184,11 @@ inline Result<ScanTaskIterator> GetScanTaskIterator(
   // Fragment -> ScanTaskIterator
   auto fn = [options](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options));
+
+    // Skip applying compute on fragments if disabled.
+    if (!fragment->apply_compute) {
+      return std::move(scan_task_it);
+    }
 
     auto partition = fragment->partition_expression();
     // Apply the filter and/or projection to incoming RecordBatches by

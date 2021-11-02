@@ -438,6 +438,11 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
                                               /*null_count=*/0, /*offset=*/0);
 }
 
+Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
+    MemoryPool* memory_pool) const {
+  return FlattenListArray(*this, memory_pool);
+}
+
 // ----------------------------------------------------------------------
 // Struct
 
@@ -566,9 +571,12 @@ Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
       if (child_offset == data_->offset) {
         flattened_null_bitmap = null_bitmap;
       } else {
-        ARROW_ASSIGN_OR_RAISE(
-            flattened_null_bitmap,
-            CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length));
+        // If the child has an offset, need to synthesize a validity
+        // buffer with an offset too
+        ARROW_ASSIGN_OR_RAISE(flattened_null_bitmap,
+                              AllocateEmptyBitmap(child_offset + data_->length, pool));
+        CopyBitmap(null_bitmap_data_, data_->offset, data_->length,
+                   flattened_null_bitmap->mutable_data(), child_offset);
       }
       flattened_null_count = data_->null_count;
     } else {

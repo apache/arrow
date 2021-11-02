@@ -25,7 +25,7 @@
 env:
   ARROW_FLIGHT: OFF
   ARROW_JEMALLOC: OFF
-  ARROW_SIMD_LEVEL: NONE
+  ARROW_SIMD_LEVEL: "{{ arrow_simd_level }}"
   CC: "clang"
   CMAKE_BUILD_TYPE: release
   CMAKE_CXX_COMPILER_LAUNCHER: "ccache"

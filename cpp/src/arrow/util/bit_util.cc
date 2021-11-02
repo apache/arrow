@@ -111,8 +111,10 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
 
   // clean up
   DCHECK_LT(length, 8);
-  data[offset / 8] =
-      BitUtil::SpliceWord(static_cast<int32_t>(length), set_byte, data[offset / 8]);
+  if (length > 0) {
+    data[offset / 8] =
+        BitUtil::SpliceWord(static_cast<int32_t>(length), set_byte, data[offset / 8]);
+  }
 }
 
 void SetBitmap(uint8_t* data, int64_t offset, int64_t length) {

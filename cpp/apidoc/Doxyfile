@@ -925,8 +925,8 @@ EXCLUDE_PATTERNS       = *-test.cc \
 # Note that the wildcards are matched against the file with absolute path, so to
 # exclude all test directories use the pattern */test/*
 
-EXCLUDE_SYMBOLS        = detail \
-                         internal \
+EXCLUDE_SYMBOLS        = *::detail \
+                         *::internal \
                          _* \
                          BitUtil \
                          SSEUtil

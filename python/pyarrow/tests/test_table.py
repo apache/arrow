@@ -1022,6 +1022,23 @@ def test_table_remove_column_empty():
     assert t3.equals(table)
 
 
+def test_empty_table_with_names():
+    # ARROW-13784
+    data = []
+    names = ["a", "b"]
+    message = (
+        'Length of names [(]2[)] does not match length of arrays [(]0[)]')
+    with pytest.raises(ValueError, match=message):
+        pa.Table.from_arrays(data, names=names)
+
+
+def test_empty_table():
+    table = pa.table([])
+
+    assert table.column_names == []
+    assert table.equals(pa.Table.from_arrays([], []))
+
+
 def test_table_rename_columns():
     data = [
         pa.array(range(5)),
@@ -1577,10 +1594,13 @@ def test_table_repr_to_string():
                        metadata={b'foo': b'bar'})
 
     tab = pa.table([pa.array([1, 2, 3, 4], type='int16'),
-                    pa.array([1, 2, 3, 4], type='int32')], schema=schema)
+                    pa.array([10, 20, 30, 40], type='int32')], schema=schema)
     assert str(tab) == """pyarrow.Table
 c0: int16
-c1: int32"""
+c1: int32
+----
+c0: [[1,2,3,4]]
+c1: [[10,20,30,40]]"""
 
     assert tab.to_string(show_metadata=True) == """\
 pyarrow.Table
@@ -1590,6 +1610,40 @@ c0: int16
 c1: int32
 -- schema metadata --
 foo: 'bar'"""
+
+    assert tab.to_string(preview_cols=5) == """\
+pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4]]
+c1: [[10,20,30,40]]"""
+
+    assert tab.to_string(preview_cols=1) == """\
+pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4]]
+..."""
+
+
+def test_table_repr_to_string_ellipsis():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    tab = pa.table([pa.array([1, 2, 3, 4]*10, type='int16'),
+                    pa.array([10, 20, 30, 40]*10, type='int32')],
+                   schema=schema)
+    assert str(tab) == """pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]]
+c1: [[10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]]"""
 
 
 def test_table_function_unicode_schema():

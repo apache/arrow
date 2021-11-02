@@ -29,6 +29,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -453,6 +454,451 @@ TEST(TestCompareTimestamps, Basics) {
   CheckArrayCase(seconds_utc, CompareOperator::EQUAL, "[false, false, true]");
 }
 
+TEST(TestCompareTimestamps, DifferentParameters) {
+  const std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[0, 0, 1]"},   {"not_equal", "[1, 1, 0]"},
+      {"less", "[1, 0, 0]"},    {"less_equal", "[1, 0, 1]"},
+      {"greater", "[0, 1, 0]"}, {"greater_equal", "[0, 1, 1]"},
+  };
+  const std::string lhs_json = R"(["1970-01-01","2000-02-29","1900-02-28"])";
+  const std::string rhs_json = R"(["1970-01-02","2000-02-01","1900-02-28"])";
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    {
+      // Different units should be fine
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json);
+      CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    }
+    {
+      // So are different time zones
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
+      CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    }
+    {
+      // But comparing naive to zoned is not OK
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(function, {lhs, rhs}));
+    }
+    {
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(function, {lhs, rhs}));
+    }
+  }
+}
+
+template <typename ArrowType>
+class TestCompareDecimal : public ::testing::Test {};
+TYPED_TEST_SUITE(TestCompareDecimal, DecimalArrowTypes);
+
+TYPED_TEST(TestCompareDecimal, ArrayScalar) {
+  auto ty = std::make_shared<TypeParam>(3, 2);
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 0, 1, null]"},    {"less_equal", "[1, 0, 1, null]"},
+      {"greater", "[0, 1, 0, null]"}, {"greater_equal", "[1, 1, 0, null]"},
+  };
+
+  auto lhs = ArrayFromJSON(ty, R"(["1.23", "2.34", "-1.23", null])");
+  auto lhs_float = ArrayFromJSON(float64(), "[1.23, 2.34, -1.23, null]");
+  auto lhs_intlike = ArrayFromJSON(ty, R"(["1.00", "2.00", "-1.00", null])");
+  auto rhs = ScalarFromJSON(ty, R"("1.23")");
+  auto rhs_float = ScalarFromJSON(float64(), "1.23");
+  auto rhs_int = ScalarFromJSON(int64(), "1");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_float, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs, rhs_float, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_intlike, rhs_int, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+TYPED_TEST(TestCompareDecimal, ScalarArray) {
+  auto ty = std::make_shared<TypeParam>(3, 2);
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 1, 0, null]"},    {"less_equal", "[1, 1, 0, null]"},
+      {"greater", "[0, 0, 1, null]"}, {"greater_equal", "[1, 0, 1, null]"},
+  };
+
+  auto lhs = ScalarFromJSON(ty, R"("1.23")");
+  auto lhs_float = ScalarFromJSON(float64(), "1.23");
+  auto lhs_int = ScalarFromJSON(int64(), "1");
+  auto rhs = ArrayFromJSON(ty, R"(["1.23", "2.34", "-1.23", null])");
+  auto rhs_float = ArrayFromJSON(float64(), "[1.23, 2.34, -1.23, null]");
+  auto rhs_intlike = ArrayFromJSON(ty, R"(["1.00", "2.00", "-1.00", null])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_float, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs, rhs_float, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_int, rhs_intlike, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+TYPED_TEST(TestCompareDecimal, ArrayArray) {
+  auto ty = std::make_shared<TypeParam>(3, 2);
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, 1, 0, 0, null, null]"},
+      {"not_equal", "[0, 1, 1, 0, 1, 1, null, null]"},
+      {"less", "[0, 1, 0, 0, 1, 0, null, null]"},
+      {"less_equal", "[1, 1, 0, 1, 1, 0, null, null]"},
+      {"greater", "[0, 0, 1, 0, 0, 1, null, null]"},
+      {"greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"},
+  };
+
+  auto lhs = ArrayFromJSON(
+      ty, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23", "1.23", null])");
+  auto lhs_float =
+      ArrayFromJSON(float64(), "[1.23, 1.23, 2.34, -1.23, -1.23, 1.23, 1.23, null]");
+  auto lhs_intlike = ArrayFromJSON(
+      ty, R"(["1.00", "1.00", "2.00", "-1.00", "-1.00", "1.00", "1.00", null])");
+  auto rhs = ArrayFromJSON(
+      ty, R"(["1.23", "2.34", "1.23", "-1.23", "1.23", "-1.23", null, "1.23"])");
+  auto rhs_float =
+      ArrayFromJSON(float64(), "[1.23, 2.34, 1.23, -1.23, 1.23, -1.23, null, 1.23]");
+  auto rhs_int = ArrayFromJSON(int64(), "[1, 2, 1, -1, 1, -1, null, 1]");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
+                      ArrayFromJSON(boolean(), "[]"));
+    CheckScalarBinary(function, ArrayFromJSON(ty, R"([null])"),
+                      ArrayFromJSON(ty, R"([null])"), ArrayFromJSON(boolean(), "[null]"));
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_float, rhs, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs, rhs_float, ArrayFromJSON(boolean(), expected));
+    CheckScalarBinary(function, lhs_intlike, rhs_int, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+TYPED_TEST(TestCompareDecimal, DifferentParameters) {
+  auto ty1 = std::make_shared<TypeParam>(3, 2);
+  auto ty2 = std::make_shared<TypeParam>(4, 3);
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, 1, 0, 0]"},   {"not_equal", "[0, 1, 1, 0, 1, 1]"},
+      {"less", "[0, 1, 0, 0, 1, 0]"},    {"less_equal", "[1, 1, 0, 1, 1, 0]"},
+      {"greater", "[0, 0, 1, 0, 0, 1]"}, {"greater_equal", "[1, 0, 1, 1, 0, 1]"},
+  };
+
+  auto lhs = ArrayFromJSON(ty1, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23"])");
+  auto rhs =
+      ArrayFromJSON(ty2, R"(["1.230", "2.340", "1.230", "-1.230", "1.230", "-1.230"])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+// Helper to organize tests for fixed size binary comparisons
+struct CompareCase {
+  std::shared_ptr<DataType> lhs_type;
+  std::shared_ptr<DataType> rhs_type;
+  std::string lhs;
+  std::string rhs;
+  // An index into cases[...].second
+  int result_index;
+};
+
+TEST(TestCompareFixedSizeBinary, ArrayScalar) {
+  auto ty1 = fixed_size_binary(3);
+  auto ty2 = fixed_size_binary(1);
+
+  std::vector<std::pair<std::string, std::vector<std::string>>> cases = {
+      std::make_pair("equal",
+                     std::vector<std::string>{
+                         "[0, 1, 0, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("not_equal",
+                     std::vector<std::string>{
+                         "[1, 0, 1, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 1, 1, null]",
+                     }),
+      std::make_pair("less",
+                     std::vector<std::string>{
+                         "[1, 0, 0, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 0, 0, null]",
+                     }),
+      std::make_pair("less_equal",
+                     std::vector<std::string>{
+                         "[1, 1, 0, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 0, 0, null]",
+                     }),
+      std::make_pair("greater",
+                     std::vector<std::string>{
+                         "[0, 0, 1, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 1, 1, null]",
+                     }),
+      std::make_pair("greater_equal",
+                     std::vector<std::string>{
+                         "[0, 1, 1, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 1, 1, null]",
+                     }),
+  };
+
+  const std::string lhs1 = R"(["aba", "abc", "abd", null])";
+  const std::string rhs1 = R"("abc")";
+  const std::string lhs2 = R"(["a", "b", "c", null])";
+  const std::string rhs2 = R"("b")";
+
+  std::vector<CompareCase> types = {
+      {ty1, ty1, lhs1, rhs1, 0},
+      {ty2, ty2, lhs2, rhs2, 0},
+      {ty1, ty2, lhs1, rhs2, 1},
+      {ty2, ty1, lhs2, rhs1, 2},
+      {ty1, binary(), lhs1, rhs1, 0},
+      {binary(), ty1, lhs1, rhs1, 0},
+      {ty1, large_binary(), lhs1, rhs1, 0},
+      {large_binary(), ty1, lhs1, rhs1, 0},
+      {ty1, utf8(), lhs1, rhs1, 0},
+      {utf8(), ty1, lhs1, rhs1, 0},
+      {ty1, large_utf8(), lhs1, rhs1, 0},
+      {large_utf8(), ty1, lhs1, rhs1, 0},
+  };
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+
+    SCOPED_TRACE(function);
+    for (const auto& test_case : types) {
+      const auto& lhs_type = test_case.lhs_type;
+      const auto& rhs_type = test_case.rhs_type;
+      auto lhs = ArrayFromJSON(lhs_type, test_case.lhs);
+      auto rhs = ScalarFromJSON(rhs_type, test_case.rhs);
+      auto expected = ArrayFromJSON(boolean(), op.second[test_case.result_index]);
+
+      CheckScalarBinary(function, ArrayFromJSON(lhs_type, R"([null])"),
+                        ScalarFromJSON(rhs_type, "null"),
+                        ArrayFromJSON(boolean(), "[null]"));
+      CheckScalarBinary(function, lhs, rhs, expected);
+    }
+  }
+}
+
+TEST(TestCompareFixedSizeBinary, ScalarArray) {
+  auto ty1 = fixed_size_binary(3);
+  auto ty2 = fixed_size_binary(1);
+
+  std::vector<std::pair<std::string, std::vector<std::string>>> cases = {
+      std::make_pair("equal",
+                     std::vector<std::string>{
+                         "[0, 1, 0, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("not_equal",
+                     std::vector<std::string>{
+                         "[1, 0, 1, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 1, 1, null]",
+                     }),
+      std::make_pair("less",
+                     std::vector<std::string>{
+                         "[0, 0, 1, null]",
+                         "[0, 1, 1, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("less_equal",
+                     std::vector<std::string>{
+                         "[0, 1, 1, null]",
+                         "[0, 1, 1, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("greater",
+                     std::vector<std::string>{
+                         "[1, 0, 0, null]",
+                         "[1, 0, 0, null]",
+                         "[1, 1, 1, null]",
+                     }),
+      std::make_pair("greater_equal",
+                     std::vector<std::string>{
+                         "[1, 1, 0, null]",
+                         "[1, 0, 0, null]",
+                         "[1, 1, 1, null]",
+                     }),
+  };
+
+  const std::string lhs1 = R"("abc")";
+  const std::string rhs1 = R"(["aba", "abc", "abd", null])";
+  const std::string lhs2 = R"("b")";
+  const std::string rhs2 = R"(["a", "b", "c", null])";
+
+  std::vector<CompareCase> types = {
+      {ty1, ty1, lhs1, rhs1, 0},
+      {ty2, ty2, lhs2, rhs2, 0},
+      {ty1, ty2, lhs1, rhs2, 1},
+      {ty2, ty1, lhs2, rhs1, 2},
+      {ty1, binary(), lhs1, rhs1, 0},
+      {binary(), ty1, lhs1, rhs1, 0},
+      {ty1, large_binary(), lhs1, rhs1, 0},
+      {large_binary(), ty1, lhs1, rhs1, 0},
+      {ty1, utf8(), lhs1, rhs1, 0},
+      {utf8(), ty1, lhs1, rhs1, 0},
+      {ty1, large_utf8(), lhs1, rhs1, 0},
+      {large_utf8(), ty1, lhs1, rhs1, 0},
+  };
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+
+    SCOPED_TRACE(function);
+    for (const auto& test_case : types) {
+      const auto& lhs_type = test_case.lhs_type;
+      const auto& rhs_type = test_case.rhs_type;
+      auto lhs = ScalarFromJSON(lhs_type, test_case.lhs);
+      auto rhs = ArrayFromJSON(rhs_type, test_case.rhs);
+      auto expected = ArrayFromJSON(boolean(), op.second[test_case.result_index]);
+
+      CheckScalarBinary(function, ScalarFromJSON(rhs_type, "null"),
+                        ArrayFromJSON(lhs_type, R"([null])"),
+                        ArrayFromJSON(boolean(), "[null]"));
+      CheckScalarBinary(function, lhs, rhs, expected);
+    }
+  }
+}
+
+TEST(TestCompareFixedSizeBinary, ArrayArray) {
+  auto ty1 = fixed_size_binary(3);
+  auto ty2 = fixed_size_binary(1);
+
+  std::vector<std::pair<std::string, std::vector<std::string>>> cases = {
+      std::make_pair("equal",
+                     std::vector<std::string>{
+                         "[1, 0, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[0, 0, 0, null, null]",
+                         "[0, 0, 0, null, null]",
+                     }),
+      std::make_pair("not_equal",
+                     std::vector<std::string>{
+                         "[0, 1, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[1, 1, 1, null, null]",
+                         "[1, 1, 1, null, null]",
+                     }),
+      std::make_pair("less",
+                     std::vector<std::string>{
+                         "[0, 1, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                     }),
+      std::make_pair("less_equal",
+                     std::vector<std::string>{
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                     }),
+      std::make_pair("greater",
+                     std::vector<std::string>{
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                     }),
+      std::make_pair("greater_equal",
+                     std::vector<std::string>{
+                         "[1, 0, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                     }),
+  };
+
+  const std::string lhs1 = R"(["abc", "abc", "abd", null, "abc"])";
+  const std::string rhs1 = R"(["abc", "abd", "abc", "abc", null])";
+  const std::string lhs2 = R"(["a", "a", "d", null, "a"])";
+  const std::string rhs2 = R"(["a", "d", "c", "a", null])";
+
+  std::vector<CompareCase> types = {
+      {ty1, ty1, lhs1, rhs1, 0},
+      {ty1, ty1, rhs1, lhs1, 1},
+      {ty2, ty2, lhs2, rhs2, 2},
+      {ty2, ty2, rhs2, lhs2, 3},
+      {ty1, ty2, lhs1, rhs2, 4},
+      {ty2, ty1, lhs2, rhs1, 5},
+      {ty1, binary(), lhs1, rhs1, 0},
+      {binary(), ty1, lhs1, rhs1, 0},
+      {ty1, large_binary(), lhs1, rhs1, 0},
+      {large_binary(), ty1, lhs1, rhs1, 0},
+      {ty1, utf8(), lhs1, rhs1, 0},
+      {utf8(), ty1, lhs1, rhs1, 0},
+      {ty1, large_utf8(), lhs1, rhs1, 0},
+      {large_utf8(), ty1, lhs1, rhs1, 0},
+  };
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+
+    SCOPED_TRACE(function);
+    for (const auto& test_case : types) {
+      const auto& lhs_type = test_case.lhs_type;
+      const auto& rhs_type = test_case.rhs_type;
+      auto lhs = ArrayFromJSON(lhs_type, test_case.lhs);
+      auto rhs = ArrayFromJSON(rhs_type, test_case.rhs);
+      auto expected = ArrayFromJSON(boolean(), op.second[test_case.result_index]);
+
+      CheckScalarBinary(function, ArrayFromJSON(lhs_type, R"([])"),
+                        ArrayFromJSON(rhs_type, R"([])"), ArrayFromJSON(boolean(), "[]"));
+      CheckScalarBinary(function, ArrayFromJSON(lhs_type, R"([null])"),
+                        ArrayFromJSON(rhs_type, R"([null])"),
+                        ArrayFromJSON(boolean(), "[null]"));
+      CheckScalarBinary(function, lhs, rhs, expected);
+    }
+  }
+}
+
 TEST(TestCompareKernel, DispatchBest) {
   for (std::string name :
        {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
@@ -490,6 +936,22 @@ TEST(TestCompareKernel, DispatchBest) {
 
     CheckDispatchBest(name, {utf8(), binary()}, {binary(), binary()});
     CheckDispatchBest(name, {large_utf8(), binary()}, {large_binary(), large_binary()});
+    CheckDispatchBest(name, {large_utf8(), fixed_size_binary(2)},
+                      {large_binary(), large_binary()});
+    CheckDispatchBest(name, {binary(), fixed_size_binary(2)}, {binary(), binary()});
+    CheckDispatchBest(name, {fixed_size_binary(4), fixed_size_binary(2)},
+                      {fixed_size_binary(4), fixed_size_binary(2)});
+
+    CheckDispatchBest(name, {decimal128(3, 2), decimal128(6, 3)},
+                      {decimal128(4, 3), decimal128(6, 3)});
+    CheckDispatchBest(name, {decimal128(3, 2), decimal256(3, 2)},
+                      {decimal256(3, 2), decimal256(3, 2)});
+    CheckDispatchBest(name, {decimal128(3, 2), float64()}, {float64(), float64()});
+    CheckDispatchBest(name, {float64(), decimal128(3, 2)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal128(3, 2), int64()},
+                      {decimal128(3, 2), decimal128(21, 2)});
+    CheckDispatchBest(name, {int64(), decimal128(3, 2)},
+                      {decimal128(21, 2), decimal128(3, 2)});
   }
 }
 
@@ -968,35 +1430,22 @@ TYPED_TEST(TestVarArgsCompareParametricTemporal, MaxElementWise) {
                {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
 }
 
-TEST(TestMaxElementWiseMinElementWise, CommonTimestamp) {
-  {
-    auto t1 = std::make_shared<TimestampType>(TimeUnit::SECOND);
-    auto t2 = std::make_shared<TimestampType>(TimeUnit::MILLI);
-    auto expected = MakeScalar(t2, 1000).ValueOrDie();
-    ASSERT_OK_AND_ASSIGN(auto actual,
-                         MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
-                                         Datum(MakeScalar(t2, 12000).ValueOrDie())}));
-    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
-  }
-  {
-    auto t1 = std::make_shared<Date32Type>();
-    auto t2 = std::make_shared<TimestampType>(TimeUnit::SECOND);
-    auto expected = MakeScalar(t2, 86401).ValueOrDie();
-    ASSERT_OK_AND_ASSIGN(auto actual,
-                         MaxElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
-                                         Datum(MakeScalar(t2, 86401).ValueOrDie())}));
-    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
-  }
-  {
-    auto t1 = std::make_shared<Date32Type>();
-    auto t2 = std::make_shared<Date64Type>();
-    auto t3 = std::make_shared<TimestampType>(TimeUnit::SECOND);
-    auto expected = MakeScalar(t3, 86400).ValueOrDie();
-    ASSERT_OK_AND_ASSIGN(
-        auto actual, MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
-                                     Datum(MakeScalar(t2, 2 * 86400000).ValueOrDie())}));
-    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
-  }
+TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
+  EXPECT_THAT(MinElementWise({
+                  ScalarFromJSON(timestamp(TimeUnit::SECOND), "1"),
+                  ScalarFromJSON(timestamp(TimeUnit::MILLI), "12000"),
+              }),
+              ResultWith(ScalarFromJSON(timestamp(TimeUnit::MILLI), "1000")));
+  EXPECT_THAT(MaxElementWise({
+                  ScalarFromJSON(date32(), "1"),
+                  ScalarFromJSON(timestamp(TimeUnit::SECOND), "86401"),
+              }),
+              ResultWith(ScalarFromJSON(timestamp(TimeUnit::SECOND), "86401")));
+  EXPECT_THAT(MinElementWise({
+                  ScalarFromJSON(date32(), "1"),
+                  ScalarFromJSON(date64(), "172800000"),
+              }),
+              ResultWith(ScalarFromJSON(date64(), "86400000")));
 }
 
 }  // namespace compute

@@ -341,6 +341,11 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
+  // Wait for the thread pool to become idle
+  //
+  // This is useful for sequencing tests
+  void WaitForIdle();
+
   struct State;
 
  protected:

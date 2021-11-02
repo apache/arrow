@@ -56,6 +56,27 @@ from pyarrow._dataset import (  # noqa
     _filesystemdataset_write,
 )
 
+_orc_available = False
+_orc_msg = (
+    "The pyarrow installation is not built with support for the ORC file "
+    "format."
+)
+
+try:
+    from pyarrow._dataset_orc import OrcFileFormat
+    _orc_available = True
+except ImportError:
+    pass
+
+
+def __getattr__(name):
+    if name == "OrcFileFormat" and not _orc_available:
+        raise ImportError(_orc_msg)
+
+    raise AttributeError(
+        "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
+    )
+
 
 def field(name):
     """Reference a named column of the dataset.
@@ -251,6 +272,10 @@ def _ensure_format(obj):
         return IpcFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
+    elif obj == "orc":
+        if not _orc_available:
+            raise ValueError(_orc_msg)
+        return OrcFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
@@ -678,19 +703,40 @@ or tables, iterable of batches, RecordBatchReader, or URI
         )
 
 
-def _ensure_write_partitioning(scheme):
-    if scheme is None:
-        scheme = partitioning(pa.schema([]))
-    if not isinstance(scheme, Partitioning):
-        # TODO support passing field names, and get types from schema
-        raise ValueError("partitioning needs to be actual Partitioning object")
-    return scheme
+def _ensure_write_partitioning(part, schema, flavor):
+    if isinstance(part, PartitioningFactory):
+        raise ValueError("A PartitioningFactory cannot be used. "
+                         "Did you call the partitioning function "
+                         "without supplying a schema?")
+
+    if isinstance(part, Partitioning) and flavor:
+        raise ValueError(
+            "Providing a partitioning_flavor with "
+            "a Partitioning object is not supported"
+        )
+    elif isinstance(part, (tuple, list)):
+        # Name of fields were provided instead of a partitioning object.
+        # Create a partitioning factory with those field names.
+        part = partitioning(
+            schema=pa.schema([schema.field(f) for f in part]),
+            flavor=flavor
+        )
+    elif part is None:
+        part = partitioning(pa.schema([]), flavor=flavor)
+
+    if not isinstance(part, Partitioning):
+        raise ValueError(
+            "partitioning must be a Partitioning object or "
+            "a list of column names"
+        )
+
+    return part
 
 
 def write_dataset(data, base_dir, basename_template=None, format=None,
-                  partitioning=None, schema=None,
+                  partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  use_async=False, max_partitions=None, file_visitor=None):
+                  max_partitions=None, file_visitor=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -714,9 +760,15 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         and `format` is not specified, it defaults to the same format as the
         specified FileSystemDataset. When writing a Table or RecordBatch, this
         keyword is required.
-    partitioning : Partitioning, optional
+    partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the ``partitioning()``
-        function.
+        function or a list of field names. When providing a list of
+        field names, you can use ``partitioning_flavor`` to drive which
+        partitioning type should be used.
+    partitioning_flavor : str, optional
+        One of the partitioning flavors supported by
+        ``pyarrow.dataset.partitioning``. If omitted will use the
+        default of ``partitioning()`` which is directory partitioning.
     schema : Schema, optional
     filesystem : FileSystem, optional
     file_options : FileWriteOptions, optional
@@ -725,10 +777,6 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
-    use_async : bool, default False
-        If enabled, an async scanner will be used that should offer
-        better performance with high-latency/highly-parallel filesystems
-        (e.g. S3)
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     file_visitor : Function
@@ -760,7 +808,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
     elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
-        data = Scanner.from_batches(data, schema=schema)
+        data = Scanner.from_batches(data, schema=schema, use_async=True)
         schema = None
     elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
@@ -788,12 +836,21 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if max_partitions is None:
         max_partitions = 1024
 
-    partitioning = _ensure_write_partitioning(partitioning)
+    # at this point data is a Scanner or a Dataset, anything else
+    # was converted to one of those two. So we can grab the schema
+    # to build the partitioning object from Dataset.
+    if isinstance(data, Scanner):
+        partitioning_schema = data.dataset_schema
+    else:
+        partitioning_schema = data.schema
+    partitioning = _ensure_write_partitioning(partitioning,
+                                              schema=partitioning_schema,
+                                              flavor=partitioning_flavor)
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     if isinstance(data, Dataset):
-        scanner = data.scanner(use_threads=use_threads, use_async=use_async)
+        scanner = data.scanner(use_threads=use_threads, use_async=True)
     else:
         # scanner was passed directly by the user, in which case a schema
         # cannot be passed

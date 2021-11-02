@@ -28,6 +28,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -355,20 +356,18 @@ const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeFloatBatch,
     &MakeIntervals,
     &MakeUuid,
+    &MakeComplex128,
     &MakeDictExtension};
 
 static int g_file_number = 0;
 
 class ExtensionTypesMixin {
  public:
-  ExtensionTypesMixin() {
-    // Register the extension types required to ensure roundtripping
-    ext_guards_.emplace_back(uuid());
-    ext_guards_.emplace_back(dict_extension_type());
-  }
+  // Register the extension types required to ensure roundtripping
+  ExtensionTypesMixin() : ext_guard_({uuid(), dict_extension_type(), complex128()}) {}
 
  protected:
-  std::vector<ExtensionTypeGuard> ext_guards_;
+  ExtensionTypeGuard ext_guard_;
 };
 
 class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
@@ -1656,12 +1655,13 @@ TEST(TestIpcFileFormat, FooterMetaData) {
 TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
 
-  BooleanBuilder builder(default_memory_pool());
-  ASSERT_OK(builder.Reserve(length));
-  ASSERT_OK(builder.Advance(length));
+  TypedBufferBuilder<bool> data_builder;
+  ASSERT_OK(data_builder.Reserve(length));
+  ASSERT_OK(data_builder.Advance(length));
+  ASSERT_EQ(data_builder.length(), length);
+  ASSERT_OK_AND_ASSIGN(auto data, data_builder.Finish());
 
-  std::shared_ptr<Array> array;
-  ASSERT_OK(builder.Finish(&array));
+  auto array = std::make_shared<BooleanArray>(length, data, nullptr, /*null_count=*/0);
 
   auto f0 = arrow::field("f0", array->type());
   std::vector<std::shared_ptr<Field>> fields = {f0};

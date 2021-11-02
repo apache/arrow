@@ -28,6 +28,11 @@ std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_
                                                                cpp11::list options);
 
 // [[arrow::export]]
+bool compute___expr__equals(const std::shared_ptr<compute::Expression>& lhs,
+                            const std::shared_ptr<compute::Expression>& rhs) {
+  return lhs->Equals(*rhs);
+}
+// [[arrow::export]]
 std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name,
                                                           cpp11::list argument_list,
                                                           cpp11::list options) {

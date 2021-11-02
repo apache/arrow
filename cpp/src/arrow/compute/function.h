@@ -227,7 +227,7 @@ class ARROW_EXPORT Function {
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const;
 
-  /// \brief Returns a the default options for this function.
+  /// \brief Returns the default options for this function.
   ///
   /// Whatever option semantics a Function has, implementations must guarantee
   /// that default_options() is valid to pass to Execute as options.

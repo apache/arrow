@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("MessageReader")
 
 test_that("MessageReader can be created from raw vectors", {
   batch <- record_batch(x = 1:10)

@@ -29,8 +29,33 @@ import com.google.flatbuffers.*;
  * leap seconds, as a 64-bit integer. Note that UNIX time does not include
  * leap seconds.
  *
- * The Timestamp metadata supports both "time zone naive" and "time zone
- * aware" timestamps. Read about the timezone attribute for more detail
+ * Date & time libraries often have multiple different data types for temporal
+ * data.  In order to ease interoperability between different implementations the
+ * Arrow project has some recommendations for encoding these types into a Timestamp
+ * column.
+ *
+ * An "instant" represents a single moment in time that has no meaningful time zone
+ * or the time zone is unknown.  A column of instants can also contain values from
+ * multiple time zones.  To encode an instant set the timezone string to "UTC".
+ *
+ * A "zoned date-time" represents a single moment in time that has a meaningful
+ * reference time zone.  To encode a zoned date-time as a Timestamp set the timezone
+ * string to the name of the timezone.  There is some ambiguity between an instant
+ * and a zoned date-time with the UTC time zone.  Both of these are stored the same.
+ * Typically, this distinction does not matter.  If it does, then an application should
+ * use custom metadata or an extension type to distinguish between the two cases.
+ *
+ * An "offset date-time" represents a single moment in time combined with a meaningful
+ * offset from UTC.  To encode an offset date-time as a Timestamp set the timezone string
+ * to the numeric time zone offset string (e.g. "+03:00").
+ *
+ * A "local date-time" does not represent a single moment in time.  It represents a wall
+ * clock time combined with a date.  Because of daylight savings time there may multiple
+ * instants that correspond to a single local date-time in any given time zone.  A
+ * local date-time is often stored as a struct or a Date32/Time64 pair.  However, it can
+ * also be encoded into a Timestamp column.  To do so the value should be the the time
+ * elapsed from the Unix epoch so that a wall clock in UTC would display the desired time.
+ * The timezone string should be set to null or the empty string.
  */
 public final class Timestamp extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
@@ -50,11 +75,9 @@ public final class Timestamp extends Table {
    * Whether a timezone string is present indicates different semantics about
    * the data:
    *
-   * * If the time zone is null or equal to an empty string, the data is "time
-   *   zone naive" and shall be displayed *as is* to the user, not localized
-   *   to the locale of the user. This data can be though of as UTC but
-   *   without having "UTC" as the time zone, it is not considered to be
-   *   localized to any time zone
+   * * If the time zone is null or an empty string, the data is a local date-time
+   *   and does not represent a single moment in time.  Instead it represents a wall clock
+   *   time and care should be taken to avoid interpreting it semantically as an instant.
    *
    * * If the time zone is set to a valid value, values can be displayed as
    *   "localized" to that time zone, even though the underlying 64-bit

@@ -392,6 +392,50 @@ struct CastFunctor<O, I,
 };
 
 // ----------------------------------------------------------------------
+// Integer to decimal
+
+struct IntegerToDecimal {
+  template <typename OutValue, typename IntegerType>
+  OutValue Call(KernelContext*, IntegerType val, Status* st) const {
+    auto maybe_decimal = OutValue(val).Rescale(0, out_scale_);
+    if (ARROW_PREDICT_TRUE(maybe_decimal.ok())) {
+      return maybe_decimal.MoveValueUnsafe();
+    }
+    *st = maybe_decimal.status();
+    return OutValue{};
+  }
+
+  int32_t out_scale_;
+};
+
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   enable_if_t<is_decimal_type<O>::value && is_integer_type<I>::value>> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& out_type = checked_cast<const O&>(*out->type());
+    const auto out_scale = out_type.scale();
+    const auto out_precision = out_type.precision();
+
+    // verify precision and scale
+    if (out_scale < 0) {
+      return Status::Invalid("Scale must be non-negative");
+    }
+    ARROW_ASSIGN_OR_RAISE(int32_t precision, MaxDecimalDigitsForInteger(I::type_id));
+    precision += out_scale;
+    if (out_precision < precision) {
+      return Status::Invalid(
+          "Precision is not great enough for the result. "
+          "It should be at least ",
+          precision);
+    }
+
+    applicator::ScalarUnaryNotNullStateful<O, I, IntegerToDecimal> kernel(
+        IntegerToDecimal{out_scale});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+// ----------------------------------------------------------------------
 // Decimal to decimal
 
 // Helper that converts the input and output decimals
@@ -641,6 +685,12 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
   DCHECK_OK(func->AddKernel(Type::DOUBLE, {float64()}, sig_out_ty,
                             CastFunctor<Decimal128Type, DoubleType>::Exec));
 
+  // Cast from integer
+  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+    auto exec = GenerateInteger<CastFunctor, Decimal128Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
   // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
@@ -663,6 +713,12 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
                             CastFunctor<Decimal256Type, FloatType>::Exec));
   DCHECK_OK(func->AddKernel(Type::DOUBLE, {float64()}, sig_out_ty,
                             CastFunctor<Decimal256Type, DoubleType>::Exec));
+
+  // Cast from integer
+  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+    auto exec = GenerateInteger<CastFunctor, Decimal256Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
 
   // Cast from other decimal
   auto exec = CastFunctor<Decimal256Type, Decimal128Type>::Exec;

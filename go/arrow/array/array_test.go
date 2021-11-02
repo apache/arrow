@@ -31,9 +31,10 @@ type testDataType struct {
 	id arrow.Type
 }
 
-func (d *testDataType) ID() arrow.Type { return d.id }
-func (d *testDataType) Name() string   { panic("implement me") }
-func (d *testDataType) BitWidth() int  { return 8 }
+func (d *testDataType) ID() arrow.Type      { return d.id }
+func (d *testDataType) Name() string        { panic("implement me") }
+func (d *testDataType) BitWidth() int       { return 8 }
+func (d *testDataType) Fingerprint() string { return "" }
 
 func TestMakeFromData(t *testing.T) {
 	tests := []struct {
@@ -67,7 +68,8 @@ func TestMakeFromData(t *testing.T) {
 		{name: "time64", d: &testDataType{arrow.TIME64}},
 		{name: "month_interval", d: arrow.FixedWidthTypes.MonthInterval},
 		{name: "day_time_interval", d: arrow.FixedWidthTypes.DayTimeInterval},
-		{name: "decimal", d: &testDataType{arrow.DECIMAL}},
+		{name: "decimal128", d: &testDataType{arrow.DECIMAL128}},
+		{name: "month_day_nano_interval", d: arrow.FixedWidthTypes.MonthDayNanoInterval},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
@@ -97,12 +99,17 @@ func TestMakeFromData(t *testing.T) {
 		{name: "extension", d: types.NewUUIDType()},
 
 		// unsupported types
-		{name: "union", d: &testDataType{arrow.UNION}, expPanic: true, expError: "unsupported data type: UNION"},
+		{name: "sparse union", d: &testDataType{arrow.SPARSE_UNION}, expPanic: true, expError: "unsupported data type: SPARSE_UNION"},
+		{name: "dense union", d: &testDataType{arrow.DENSE_UNION}, expPanic: true, expError: "unsupported data type: DENSE_UNION"},
 		{name: "dictionary", d: &testDataType{arrow.DICTIONARY}, expPanic: true, expError: "unsupported data type: DICTIONARY"},
+		{name: "large string", d: &testDataType{arrow.LARGE_STRING}, expPanic: true, expError: "unsupported data type: LARGE_STRING"},
+		{name: "large binary", d: &testDataType{arrow.LARGE_BINARY}, expPanic: true, expError: "unsupported data type: LARGE_BINARY"},
+		{name: "large list", d: &testDataType{arrow.LARGE_LIST}, expPanic: true, expError: "unsupported data type: LARGE_LIST"},
+		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}, expPanic: true, expError: "unsupported data type: DECIMAL256"},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},
-		{name: "invalid(31)", d: &testDataType{arrow.Type(31)}, expPanic: true, expError: "invalid data type: Type(31)"},
+		{name: "invalid(63)", d: &testDataType{arrow.Type(63)}, expPanic: true, expError: "invalid data type: Type(63)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

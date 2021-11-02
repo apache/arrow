@@ -54,6 +54,11 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using compute::call;
@@ -74,14 +79,11 @@ using compute::or_;
 using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
-using internal::checked_cast;
-using internal::checked_pointer_cast;
-using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
-    return internal::make_unique<FileSource>(std::move(buffer));
+    return ::arrow::internal::make_unique<FileSource>(std::move(buffer));
   }
 };
 
@@ -103,7 +105,8 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+  return ::arrow::internal::make_unique<GeneratedRecordBatch<Gen>>(
+      schema, std::forward<Gen>(gen));
 }
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
@@ -225,10 +228,30 @@ class DatasetFixtureMixin : public ::testing::Test {
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
+    // ToVector does not work since EnumeratedRecordBatch is not comparable
+    std::vector<EnumeratedRecordBatch> batches;
+    for (;;) {
+      ASSERT_OK_AND_ASSIGN(auto batch, it.Next());
+      if (IsIterationEnd(batch)) break;
+      batches.push_back(std::move(batch));
+    }
+    std::sort(batches.begin(), batches.end(),
+              [](const EnumeratedRecordBatch& left,
+                 const EnumeratedRecordBatch& right) -> bool {
+                if (left.fragment.index < right.fragment.index) {
+                  return true;
+                }
+                if (left.fragment.index > right.fragment.index) {
+                  return false;
+                }
+                return left.record_batch.index < right.record_batch.index;
+              });
+
     int fragment_counter = 0;
     bool saw_last_fragment = false;
     int batch_counter = 0;
-    auto visitor = [&](EnumeratedRecordBatch batch) -> Status {
+
+    for (const auto& batch : batches) {
       if (batch_counter == 0) {
         EXPECT_FALSE(saw_last_fragment);
       }
@@ -242,9 +265,7 @@ class DatasetFixtureMixin : public ::testing::Test {
       }
       saw_last_fragment = batch.fragment.last;
       AssertBatchEquals(expected, *batch.record_batch.value);
-      return Status::OK();
-    };
-    ARROW_EXPECT_OK(it.Visit(visitor));
+    }
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -568,6 +589,24 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     }
     ASSERT_EQ(row_count, GetParam().expected_rows());
   }
+  // Ensure batch_size is respected
+  void TestScanBatchSize() {
+    constexpr int kBatchSize = 17;
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+
+    this->SetSchema(reader->schema()->fields());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+    opts_->batch_size = kBatchSize;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      ASSERT_LE(batch->num_rows(), kBatchSize);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
   // Ensure file formats only return columns needed to fulfill filter/projection
   void TestScanProjected() {
     auto f32 = field("f32", float32());
@@ -840,7 +879,7 @@ struct MakeFileSystemDatasetMixin {
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
   EXPECT_NE(fragment, nullptr);
   EXPECT_THAT(fragment->type_name(), "dummy");
-  return internal::checked_cast<const FileFragment&>(*fragment).source().path();
+  return checked_cast<const FileFragment&>(*fragment).source().path();
 }
 
 class TestFileSystemDataset : public ::testing::Test,
@@ -854,7 +893,7 @@ static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
 
 void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
                     std::vector<std::string> expected) {
-  auto fs_dataset = internal::checked_cast<FileSystemDataset*>(dataset.get());
+  auto fs_dataset = checked_cast<FileSystemDataset*>(dataset.get());
   EXPECT_THAT(fs_dataset->files(), testing::UnorderedElementsAreArray(expected));
 }
 
@@ -1047,6 +1086,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
     write_options_.partitioning = desired_partitioning;
     auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
+    ASSERT_OK(scanner_builder.UseAsync(true));
     ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
     ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
@@ -1067,24 +1107,24 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         SchemaFromColumnNames(source_schema_, {"year", "month"})));
 
     expected_files_["/new_root/2018/1/dat_0"] = R"([
-        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
-        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
-        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"},
-        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
-        {"region": "QC", "model": "S", "sales": 978, "country": "CA"},
-        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
         {"region": "QC", "model": "X", "sales": 1.0, "country": "CA"},
-        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"}
+        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"},
+        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"},
+        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
+        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
+        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
+        {"region": "QC", "model": "S", "sales": 978, "country": "CA"}
       ])";
-    expected_files_["/new_root/2019/1/dat_1"] = R"([
-        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"},
-        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
-        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
+    expected_files_["/new_root/2019/1/dat_0"] = R"([
         {"region": "QC", "model": "S", "sales": 10, "country": "CA"},
+        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
         {"region": "CA", "model": "Y", "sales": 21, "country": "US"},
-        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"},
         {"region": "QC", "model": "X", "sales": 42, "country": "CA"},
-        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"}
+        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"}
       ])";
     expected_physical_schema_ =
         SchemaFromColumnNames(source_schema_, {"region", "model", "sales", "country"});
@@ -1099,27 +1139,27 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
     expected_files_["/new_root/US/NY/dat_0"] = R"([
-        {"year": 2018, "month": 1, "model": "3", "sales": 742.0},
-        {"year": 2018, "month": 1, "model": "S", "sales": 304.125},
         {"year": 2018, "month": 1, "model": "Y", "sales": 27.5},
-        {"year": 2018, "month": 1, "model": "X", "sales": 136.25}
-  ])";
-    expected_files_["/new_root/CA/QC/dat_1"] = R"([
-        {"year": 2018, "month": 1, "model": "3", "sales": 512},
-        {"year": 2018, "month": 1, "model": "S", "sales": 978},
+        {"year": 2018, "month": 1, "model": "X", "sales": 136.25},
+        {"year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"year": 2018, "month": 1, "model": "3", "sales": 742.0}
+    ])";
+    expected_files_["/new_root/CA/QC/dat_0"] = R"([
         {"year": 2018, "month": 1, "model": "X", "sales": 1.0},
-        {"year": 2018, "month": 1, "model": "Y", "sales": 69},
         {"year": 2019, "month": 1, "model": "S", "sales": 10},
-        {"year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 37},
         {"year": 2019, "month": 1, "model": "X", "sales": 42},
-        {"year": 2019, "month": 1, "model": "Y", "sales": 37}
-  ])";
-    expected_files_["/new_root/US/CA/dat_2"] = R"([
-        {"year": 2019, "month": 1, "model": "3", "sales": 273.5},
+        {"year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"year": 2018, "month": 1, "model": "S", "sales": 978}
+    ])";
+    expected_files_["/new_root/US/CA/dat_0"] = R"([
         {"year": 2019, "month": 1, "model": "S", "sales": 13},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 21},
         {"year": 2019, "month": 1, "model": "X", "sales": 54},
-        {"year": 2019, "month": 1, "model": "Y", "sales": 21}
-  ])";
+        {"year": 2019, "month": 1, "model": "3", "sales": 273.5}
+    ])";
     expected_physical_schema_ =
         SchemaFromColumnNames(source_schema_, {"model", "sales", "year", "month"});
 
@@ -1133,29 +1173,29 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
     expected_files_["/new_root/2018/1/US/NY/dat_0"] = R"([
-        {"model": "3", "sales": 742.0},
-        {"model": "S", "sales": 304.125},
         {"model": "Y", "sales": 27.5},
-        {"model": "X", "sales": 136.25}
-  ])";
-    expected_files_["/new_root/2018/1/CA/QC/dat_1"] = R"([
-        {"model": "3", "sales": 512},
-        {"model": "S", "sales": 978},
+        {"model": "X", "sales": 136.25},
+        {"model": "S", "sales": 304.125},
+        {"model": "3", "sales": 742.0}
+    ])";
+    expected_files_["/new_root/2018/1/CA/QC/dat_0"] = R"([
         {"model": "X", "sales": 1.0},
-        {"model": "Y", "sales": 69}
-  ])";
-    expected_files_["/new_root/2019/1/US/CA/dat_2"] = R"([
-        {"model": "3", "sales": 273.5},
+        {"model": "Y", "sales": 69},
+        {"model": "3", "sales": 512},
+        {"model": "S", "sales": 978}
+    ])";
+    expected_files_["/new_root/2019/1/US/CA/dat_0"] = R"([
         {"model": "S", "sales": 13},
+        {"model": "Y", "sales": 21},
         {"model": "X", "sales": 54},
-        {"model": "Y", "sales": 21}
-  ])";
-    expected_files_["/new_root/2019/1/CA/QC/dat_3"] = R"([
+        {"model": "3", "sales": 273.5}
+    ])";
+    expected_files_["/new_root/2019/1/CA/QC/dat_0"] = R"([
         {"model": "S", "sales": 10},
-        {"model": "3", "sales": 152.25},
+        {"model": "Y", "sales": 37},
         {"model": "X", "sales": 42},
-        {"model": "Y", "sales": 37}
-  ])";
+        {"model": "3", "sales": 152.25}
+    ])";
     expected_physical_schema_ = SchemaFromColumnNames(source_schema_, {"model", "sales"});
 
     AssertWrittenAsExpected();
@@ -1166,23 +1206,23 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         SchemaFromColumnNames(source_schema_, {})));
 
     expected_files_["/new_root/dat_0"] = R"([
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "S", "sales": 304.125},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "Y", "sales": 27.5},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "3", "sales": 512},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "S", "sales": 978},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "X", "sales": 136.25},
         {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "X", "sales": 1.0},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "Y", "sales": 69},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "3", "sales": 273.5},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "S", "sales": 13},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "X", "sales": 54},
         {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "S", "sales": 10},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "S", "sales": 13},
         {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "Y", "sales": 21},
-        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "Y", "sales": 27.5},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "Y", "sales": 37},
         {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "X", "sales": 42},
-        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "Y", "sales": 37}
-  ])";
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "X", "sales": 54},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "X", "sales": 136.25},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "3", "sales": 273.5},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "S", "sales": 978}
+    ])";
     expected_physical_schema_ = source_schema_;
 
     AssertWrittenAsExpected();
@@ -1230,7 +1270,12 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       for (auto maybe_batch :
            MakeIteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
+        ASSERT_OK_AND_ASSIGN(
+            auto sort_indices,
+            compute::SortIndices(batch->GetColumnByName("sales"),
+                                 compute::SortOptions({compute::SortKey{"sales"}})));
+        ASSERT_OK_AND_ASSIGN(Datum sorted_batch, compute::Take(batch, sort_indices));
+        ASSERT_OK_AND_ASSIGN(actual_struct, sorted_batch.record_batch()->ToStructArray());
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),

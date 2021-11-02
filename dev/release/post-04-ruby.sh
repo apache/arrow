@@ -32,6 +32,43 @@ version=$1
 archive_name=apache-arrow-${version}
 tar_gz=${archive_name}.tar.gz
 
+echo "NOTE: We should release RubyGems after Homebrew and MSYS2 packages are updated!!!"
+
+echo "Checking Homebrew package..."
+homebrew_version=$(
+  curl \
+    --fail \
+    --no-progress-meter \
+    https://raw.githubusercontent.com/Homebrew/homebrew-core/master/Formula/apache-arrow-glib.rb | \
+    grep url | \
+    grep -o "[0-9]*\.[0-9]*\.[0-9]*" | \
+    head -n 1)
+echo "Homebrew package version: ${homebrew_version}"
+if [ "${version}" = "${homebrew_version}" ]; then
+  echo "OK!"
+else
+  echo "Different!"
+  exit 1
+fi
+
+
+echo "Checking MSYS2 package..."
+msys2_version=$(
+  curl \
+    --fail \
+    --no-progress-meter \
+    https://packages.msys2.org/base/mingw-w64-arrow | \
+    grep -A 1 ">Version:<" | \
+    grep -o "[0-9]*\.[0-9]*\.[0-9]*")
+echo "MSYS2 package version: ${msys2_version}"
+if [ "${version}" = "${msys2_version}" ]; then
+  echo "OK!"
+else
+  echo "Different!"
+  exit 1
+fi
+
+
 rm -f ${tar_gz}
 curl \
   --remote-name \

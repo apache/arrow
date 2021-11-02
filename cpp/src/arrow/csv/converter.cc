@@ -122,7 +122,7 @@ struct ValueDecoder {
   }
 
   bool IsNull(const uint8_t* data, uint32_t size, bool quoted) {
-    if (quoted) {
+    if (quoted && !options_.quoted_strings_can_be_null) {
       return false;
     }
     return null_trie_.Find(

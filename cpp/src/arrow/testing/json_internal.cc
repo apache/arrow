@@ -68,7 +68,10 @@ constexpr char kDays[] = "days";
 constexpr char kDayTime[] = "DAY_TIME";
 constexpr char kDuration[] = "duration";
 constexpr char kMilliseconds[] = "milliseconds";
+constexpr char kMonths[] = "months";
+constexpr char kNanoseconds[] = "nanoseconds";
 constexpr char kYearMonth[] = "YEAR_MONTH";
+constexpr char kMonthDayNano[] = "MONTH_DAY_NANO";
 
 std::string GetFloatingPrecisionName(FloatingPointType::Precision precision) {
   switch (precision) {
@@ -252,6 +255,9 @@ class SchemaWriter {
       case IntervalType::DAY_TIME:
         writer_->String(kDayTime);
         break;
+      case IntervalType::MONTH_DAY_NANO:
+        writer_->String(kMonthDayNano);
+        break;
     }
   }
 
@@ -389,6 +395,9 @@ class SchemaWriter {
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
   Status Visit(const DurationType& type) { return WritePrimitive(kDuration, type); }
   Status Visit(const MonthIntervalType& type) { return WritePrimitive("interval", type); }
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return WritePrimitive("interval", type);
+  }
 
   Status Visit(const DayTimeIntervalType& type) {
     return WritePrimitive("interval", type);
@@ -532,6 +541,22 @@ class ArrayWriter {
     for (int64_t i = 0; i < arr.length(); ++i) {
       auto view = arr.GetView(i);
       writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+    }
+  }
+
+  void WriteDataValues(const MonthDayNanoIntervalArray& arr) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      writer_->StartObject();
+      if (arr.IsValid(i)) {
+        const MonthDayNanoIntervalType::MonthDayNanos dm = arr.GetValue(i);
+        writer_->Key(kMonths);
+        writer_->Int(dm.months);
+        writer_->Key(kDays);
+        writer_->Int(dm.days);
+        writer_->Key(kNanoseconds);
+        writer_->Int64(dm.nanoseconds);
+      }
+      writer_->EndObject();
     }
   }
 
@@ -936,6 +961,8 @@ Status GetInterval(const RjObject& json_type, std::shared_ptr<DataType>* type) {
     *type = day_time_interval();
   } else if (unit_str == kYearMonth) {
     *type = month_interval();
+  } else if (unit_str == kMonthDayNano) {
+    *type = month_day_nano_interval();
   } else {
     return Status::Invalid("Invalid interval unit: " + unit_str);
   }
@@ -1307,6 +1334,28 @@ class ArrayReader {
       DayTimeIntervalType::DayMilliseconds dm = {0, 0};
       dm.days = val[kDays].GetInt();
       dm.milliseconds = val[kMilliseconds].GetInt();
+      RETURN_NOT_OK(builder.Append(dm));
+    }
+    return FinishBuilder(&builder);
+  }
+
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    MonthDayNanoIntervalBuilder builder(pool_);
+
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
+
+    for (int i = 0; i < length_; ++i) {
+      if (!is_valid_[i]) {
+        RETURN_NOT_OK(builder.AppendNull());
+        continue;
+      }
+
+      const rj::Value& val = json_data_arr[i];
+      DCHECK(val.IsObject());
+      MonthDayNanoIntervalType::MonthDayNanos dm = {0, 0, 0};
+      dm.months = val[kMonths].GetInt();
+      dm.days = val[kDays].GetInt();
+      dm.nanoseconds = val[kNanoseconds].GetInt64();
       RETURN_NOT_OK(builder.Append(dm));
     }
     return FinishBuilder(&builder);

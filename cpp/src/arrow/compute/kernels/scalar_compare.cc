@@ -65,30 +65,15 @@ struct GreaterEqual {
   }
 };
 
-template <typename T>
-using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
-                                                             std::is_unsigned<T>::value>;
-
-template <typename T>
-using is_signed_integer =
-    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
-
-template <typename T>
-using enable_if_integer =
-    enable_if_t<is_signed_integer<T>::value || is_unsigned_integer<T>::value, T>;
-
-template <typename T>
-using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
-
 struct Minimum {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(Arg0 left, Arg1 right) {
+  static enable_if_floating_value<T> Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmin(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer<T> Call(Arg0 left, Arg1 right) {
+  static enable_if_integer_value<T> Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::min(left, right);
   }
@@ -104,20 +89,20 @@ struct Minimum {
   }
 
   template <typename T>
-  static constexpr enable_if_integer<T> antiextreme() {
+  static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::max();
   }
 };
 
 struct Maximum {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(Arg0 left, Arg1 right) {
+  static enable_if_floating_value<T> Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmax(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer<T> Call(Arg0 left, Arg1 right) {
+  static enable_if_integer_value<T> Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::max(left, right);
   }
@@ -133,12 +118,29 @@ struct Maximum {
   }
 
   template <typename T>
-  static constexpr enable_if_integer<T> antiextreme() {
+  static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::min();
   }
 };
 
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
+
+template <typename OutType, typename ArgType, typename Op>
+struct CompareTimestamps
+    : public applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op> {
+  using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
+    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
+    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
+      return Status::Invalid(
+          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
+          lhs, " and ", rhs);
+    }
+    return Base::Exec(ctx, batch, out);
+  }
+};
 
 template <typename Op>
 void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
@@ -159,6 +161,9 @@ struct CompareFunction : ScalarFunction {
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
+    if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, values));
+    }
 
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -168,9 +173,9 @@ struct CompareFunction : ScalarFunction {
 
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonTimestamp(*values)) {
+    } else if (auto type = CommonTemporal(values->data(), values->size())) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonBinary(*values)) {
+    } else if (auto type = CommonBinary(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
 
@@ -192,7 +197,7 @@ struct VarArgsCompareFunction : ScalarFunction {
 
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
-    } else if (auto type = CommonTimestamp(*values)) {
+    } else if (auto type = CommonTemporal(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
 
@@ -220,16 +225,14 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   AddGenericCompare<DoubleType, Op>(float64(), func.get());
 
   // Add timestamp kernels
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(),
+                              CompareTimestamps<BooleanType, TimestampType, Op>::Exec));
   }
 
   // Duration
-  for (auto unit : AllTimeUnits()) {
+  for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     auto exec =
         GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
@@ -256,6 +259,19 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+  }
+
+  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+    DCHECK_OK(
+        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+  }
+
+  {
+    auto exec =
+        applicator::ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
+    auto ty = InputType(Type::FIXED_SIZE_BINARY);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 

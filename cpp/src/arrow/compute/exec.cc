@@ -35,7 +35,6 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
@@ -854,11 +853,6 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
 
  protected:
   Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
-    if (batch.length == 0) {
-      // Skip empty batches. This may only happen when not using
-      // ExecBatchIterator
-      return Status::OK();
-    }
     Datum out;
     if (output_descr_.shape == ValueDescr::ARRAY) {
       // We preallocate (maybe) only for the output of processing the current

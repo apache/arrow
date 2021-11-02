@@ -160,6 +160,9 @@ ARROW_TESTING_EXPORT
 Status MakeUuid(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeComplex128(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeDictExtension(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT

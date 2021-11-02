@@ -16,9 +16,6 @@
 # under the License.
 
 module Arrow
-  # Experimental
-  #
-  # TODO: Almost codes should be implemented in Apache Arrow C++.
   class Slicer
     def initialize(table)
       @table = table
@@ -41,6 +38,21 @@ module Arrow
         return column_condition if column_condition
       end
       super
+    end
+
+    module Helper
+      class << self
+        def ensure_boolean(column)
+          case column.data_type
+          when Arrow::BooleanDataType
+            column.data
+          else
+            options = CastOptions.new
+            options.to_data_type = Arrow::BooleanDataType.new
+            Function.find("cast").execute([column.data], options).value
+          end
+        end
+      end
     end
 
     class Condition
@@ -69,43 +81,28 @@ module Arrow
       end
 
       def evaluate
-        values1 = @condition1.evaluate.each
-        values2 = @condition2.evaluate.each
-        raw_array = []
-        begin
-          loop do
-            value1 = values1.next
-            value2 = values2.next
-            if value1.nil? or value2.nil?
-              raw_array << nil
-            else
-              raw_array << evaluate_value(value1, value2)
-            end
-          end
-        rescue StopIteration
-        end
-        BooleanArray.new(raw_array)
+        function.execute([@condition1.evaluate, @condition2.evaluate]).value
       end
     end
 
     class AndCondition < LogicalCondition
       private
-      def evaluate_value(value1, value2)
-        value1 and value2
+      def function
+        Function.find("and")
       end
     end
 
     class OrCondition < LogicalCondition
       private
-      def evaluate_value(value1, value2)
-        value1 or value2
+      def function
+        Function.find("or")
       end
     end
 
     class XorCondition < LogicalCondition
       private
-      def evaluate_value(value1, value2)
-        value1 ^ value2
+      def function
+        Function.find("xor")
       end
     end
 
@@ -115,21 +112,7 @@ module Arrow
       end
 
       def evaluate
-        data = @column.data
-
-        case @column.data_type
-        when BooleanDataType
-          data
-        else
-          if data.n_chunks == 1
-            data.get_chunk(0).cast(BooleanDataType.new, nil)
-          else
-            arrays = data.each_chunk.collect do |chunk|
-              chunk.cast(BooleanDataType.new, nil)
-            end
-            ChunkedArray.new(arrays)
-          end
-        end
+        Helper.ensure_boolean(@column)
       end
 
       def !@
@@ -187,23 +170,8 @@ module Arrow
       end
 
       def evaluate
-        data = @column.data
-        raw_array = []
-        data.each_chunk do |chunk|
-          if chunk.is_a?(BooleanArray)
-            boolean_array = chunk
-          else
-            boolean_array = chunk.cast(BooleanDataType.new, nil)
-          end
-          boolean_array.each do |value|
-            if value.nil?
-              raw_array << value
-            else
-              raw_array << !value
-            end
-          end
-        end
-        BooleanArray.new(raw_array)
+        data = Helper.ensure_boolean(@column)
+        Function.find("invert").execute([data]).value
       end
 
       def !@
@@ -222,19 +190,10 @@ module Arrow
       end
 
       def evaluate
-        case @value
-        when nil
-          raw_array = @column.collect(&:nil?)
-          BooleanArray.new(raw_array)
+        if @value.nil?
+          Function.find("is_null").execute([@column.data]).value
         else
-          raw_array = @column.collect do |value|
-            if value.nil?
-              nil
-            else
-              @value == value
-            end
-          end
-          BooleanArray.new(raw_array)
+          Function.find("equal").execute([@column.data, @value]).value
         end
       end
     end
@@ -250,25 +209,10 @@ module Arrow
       end
 
       def evaluate
-        case @value
-        when nil
-          if @column.n_nulls.zero?
-            raw_array = [true] * @column.n_rows
-          else
-            raw_array = @column.n_rows.times.collect do |i|
-              @column.valid?(i)
-            end
-          end
-          BooleanArray.new(raw_array)
+        if @value.nil?
+          Function.find("is_valid").execute([@column.data]).value
         else
-          raw_array = @column.collect do |value|
-            if value.nil?
-              nil
-            else
-              @value != value
-            end
-          end
-          BooleanArray.new(raw_array)
+          Function.find("not_equal").execute([@column.data, @value]).value
         end
       end
     end
@@ -284,14 +228,7 @@ module Arrow
       end
 
       def evaluate
-        raw_array = @column.collect do |value|
-          if value.nil?
-            nil
-          else
-            @value > value
-          end
-        end
-        BooleanArray.new(raw_array)
+        Function.find("less").execute([@column.data, @value]).value
       end
     end
 
@@ -306,14 +243,7 @@ module Arrow
       end
 
       def evaluate
-        raw_array = @column.collect do |value|
-          if value.nil?
-            nil
-          else
-            @value >= value
-          end
-        end
-        BooleanArray.new(raw_array)
+        Function.find("less_equal").execute([@column.data, @value]).value
       end
     end
 
@@ -328,14 +258,7 @@ module Arrow
       end
 
       def evaluate
-        raw_array = @column.collect do |value|
-          if value.nil?
-            nil
-          else
-            @value < value
-          end
-        end
-        BooleanArray.new(raw_array)
+        Function.find("greater").execute([@column.data, @value]).value
       end
     end
 
@@ -350,14 +273,7 @@ module Arrow
       end
 
       def evaluate
-        raw_array = @column.collect do |value|
-          if value.nil?
-            nil
-          else
-            @value <= value
-          end
-        end
-        BooleanArray.new(raw_array)
+        Function.find("greater_equal").execute([@column.data, @value]).value
       end
     end
 
@@ -372,18 +288,10 @@ module Arrow
       end
 
       def evaluate
-        values_index = {}
-        @values.each do |value|
-          values_index[value] = true
-        end
-        raw_array = @column.collect do |value|
-          if value.nil?
-            nil
-          else
-            values_index.key?(value)
-          end
-        end
-        BooleanArray.new(raw_array)
+        values = @values
+        values = Array.new(values) unless values.is_a?(Array)
+        options = SetLookupOptions.new(values)
+        Function.find("is_in").execute([@column.data], options).value
       end
     end
 
@@ -398,18 +306,11 @@ module Arrow
       end
 
       def evaluate
-        values_index = {}
-        @values.each do |value|
-          values_index[value] = true
-        end
-        raw_array = @column.collect do |value|
-          if value.nil?
-            nil
-          else
-            not values_index.key?(value)
-          end
-        end
-        BooleanArray.new(raw_array)
+        values = @values
+        values = Array.new(values) unless values.is_a?(Array)
+        options = SetLookupOptions.new(values)
+        booleans = Function.find("is_in").execute([@column.data], options).value
+        Function.find("invert").execute([booleans]).value
       end
     end
 

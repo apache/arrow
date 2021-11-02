@@ -198,6 +198,13 @@ Result<std::shared_ptr<Array>> InferringColumnDecoder::RunInference(
 
 Future<std::shared_ptr<Array>> InferringColumnDecoder::Decode(
     const std::shared_ptr<BlockParser>& parser) {
+  // Empty arrays before the first inference run must be discarded since the type of the
+  // array will be NA and not match arrays decoded later
+  if (parser->num_rows() == 0) {
+    return Future<std::shared_ptr<Array>>::MakeFinished(
+        MakeArrayOfNull(converter_->type(), 0));
+  }
+
   bool already_taken = first_inferrer_.fetch_or(1);
   // First block: run inference
   if (!already_taken) {

@@ -43,7 +43,7 @@ class UserTimestamp {
  public:
   UserTimestamp() = default;
 
-  UserTimestamp(const std::chrono::microseconds v) : ts_{v} {}
+  explicit UserTimestamp(const std::chrono::microseconds v) : ts_{v} {}
 
   bool operator==(const UserTimestamp& x) const { return ts_ == x.ts_; }
 
@@ -136,12 +136,14 @@ struct TestData {
     return "Str #" + std::to_string(i);
   }
   static arrow::util::string_view GetStringView(const int i) {
-    string_ = "StringView #" + std::to_string(i);
-    return arrow::util::string_view(string_);
+    static std::string string;
+    string = "StringView #" + std::to_string(i);
+    return arrow::util::string_view(string);
   }
   static const char* GetCharPtr(const int i) {
-    string_ = "CharPtr #" + std::to_string(i);
-    return string_.c_str();
+    static std::string string;
+    string = "CharPtr #" + std::to_string(i);
+    return string.c_str();
   }
   static char GetChar(const int i) { return i & 1 ? 'M' : 'F'; }
   static int8_t GetInt8(const int i) { return static_cast<int8_t>((i % 256) - 128); }
@@ -163,19 +165,16 @@ struct TestData {
 
  private:
   static std::time_t ts_offset_;
-  static std::string string_;
 };
 
 char TestData::char4_array[] = "XYZ";
 std::time_t TestData::ts_offset_;
-std::string TestData::string_;
 
 void WriteParquetFile() {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
 
   PARQUET_ASSIGN_OR_THROW(
-      outfile,
-      arrow::io::FileOutputStream::Open("parquet-stream-api-example.parquet"));
+      outfile, arrow::io::FileOutputStream::Open("parquet-stream-api-example.parquet"));
 
   parquet::WriterProperties::Builder builder;
 
@@ -233,8 +232,7 @@ void ReadParquetFile() {
   std::shared_ptr<arrow::io::ReadableFile> infile;
 
   PARQUET_ASSIGN_OR_THROW(
-      infile,
-      arrow::io::ReadableFile::Open("parquet-stream-api-example.parquet"));
+      infile, arrow::io::ReadableFile::Open("parquet-stream-api-example.parquet"));
 
   parquet::StreamReader os{parquet::ParquetFileReader::Open(infile)};
 

@@ -328,6 +328,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileFormat):
         pass
 
+    cdef cppclass COrcFileFormat "arrow::dataset::OrcFileFormat"(
+            CFileFormat):
+        pass
+
     cdef cppclass CCsvFileWriteOptions \
             "arrow::dataset::CsvFileWriteOptions"(CFileWriteOptions):
         shared_ptr[CCSVWriteOptions] write_options
@@ -378,7 +382,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CSegmentEncoding segment_encoding
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
-        pass
+        c_string type_name() const
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):

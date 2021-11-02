@@ -44,7 +44,7 @@
 # Ensure that all machines are sorting the same way
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
-features <- c("arrow", "dataset", "parquet", "s3")
+features <- c("arrow", "dataset", "parquet", "s3", "json")
 
 suppressPackageStartupMessages({
   library(decor)
@@ -216,7 +216,7 @@ glue::glue('\n
   R_useDynamicSymbols(dll, FALSE);
 
   #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
-  arrow::r::Init_Altrep_classes(dll);
+  arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 
 }

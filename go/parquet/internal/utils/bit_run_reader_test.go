@@ -44,7 +44,7 @@ func TestBitRunReaderZeroLength(t *testing.T) {
 
 func bitmapFromSlice(vals []int, bitOffset int64) []byte {
 	out := make([]byte, int(bitutil.BytesForBits(int64(len(vals))+bitOffset)))
-	writer := utils.NewBitmapWriter(out, bitOffset, int64(len(vals)))
+	writer := bitutil.NewBitmapWriter(out, int(bitOffset), len(vals))
 	for _, val := range vals {
 		if val == 1 {
 			writer.Set()
