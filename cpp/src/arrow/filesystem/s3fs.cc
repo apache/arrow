@@ -652,7 +652,7 @@ class S3Client : public Aws::S3::S3Client {
     }
 
     DCHECK(aws_error.has_value());
-    auto s3_error = Aws::S3::S3Error(std::move(aws_error).value());
+    auto s3_error = AWSError<S3Errors>(std::move(aws_error).value());
     return S3Model::CompleteMultipartUploadOutcome(std::move(s3_error));
   }
 
