@@ -19,7 +19,8 @@
 
 set -ex
 
-source_dir=${1}/js
+arrow_dir=${1}
+source_dir=${arrow_dir}/js
 build_dir=${2}
 with_docs=${3:-false}
 
