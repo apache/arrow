@@ -23,9 +23,9 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/extension_type.h"
 
 namespace arrow {
 
@@ -426,7 +426,7 @@ TEST(ByteRanges, ChunkedArrayNoOverlap) {
   std::shared_ptr<ChunkedArray> chunked =
       std::make_shared<ChunkedArray>(ArrayVector{first, second});
   ASSERT_OK_AND_EQ(13, ReferencedBufferSize(*chunked));
-//  CheckBufferRanges(chunked, {{0, 0, 1}, {1, 0, 6}, {2, 0, 6}});
+  //  CheckBufferRanges(chunked, {{0, 0, 1}, {1, 0, 6}, {2, 0, 6}});
 }
 
 TEST(ByteRanges, RecordBatchNoOverlap) {

@@ -132,7 +132,9 @@ struct GetByteRangesArray {
     uint64_t offset_bits = offset * type.bit_width();
     uint64_t offset_bytes = BitUtil::RoundDown(static_cast<int64_t>(offset_bits), 8) / 8;
     uint64_t end_byte =
-        BitUtil::RoundUp(static_cast<int64_t>(offset_bits + (length * type.bit_width())), 8) / 8;
+        BitUtil::RoundUp(static_cast<int64_t>(offset_bits + (length * type.bit_width())),
+                         8) /
+        8;
     uint64_t length_bytes = (end_byte - offset_bytes);
     RETURN_NOT_OK(range_starts->Append(data_start));
     RETURN_NOT_OK(range_offsets->Append(offset_bytes));
@@ -334,7 +336,7 @@ int64_t RangesToLengthSum(const Array& ranges) {
   return sum;
 }
 
-}
+}  // namespace
 
 Result<std::shared_ptr<Array>> ReferencedRanges(const ArrayData& array_data) {
   return GetByteRangesArray::Exec(array_data);
