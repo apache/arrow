@@ -472,16 +472,14 @@ test_that("strrep and str_dup", {
   for (times in 0:8) {
     compare_dplyr_binding(
       .input %>%
-        mutate(x = strrep(x, times)) %>%
+        mutate(x1 = strrep(x, times)) %>%
         collect(),
       df
     )
-  }
 
-  for (times in 0:8) {
     compare_dplyr_binding(
       .input %>%
-        mutate(x = str_dup(x, times)) %>%
+        mutate(x2 = str_dup(x, times)) %>%
         collect(),
       df
     )
