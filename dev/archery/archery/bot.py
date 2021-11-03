@@ -146,9 +146,9 @@ class CommentBot:
             allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR'}
             if payload['comment']['author_association'] not in allowed_roles:
                 raise EventError(
-                    '''Only contributors can submit requests to this bot. \
-Please ask someone from the community for help with \
-getting the first commit in.'''
+                    "Only contributors can submit requests to this bot. "
+                    "Please ask someone from the community for help with "
+                    "getting the first commit in."
                 )
             self.handler(command, issue=issue, pull_request=pull,
                          comment=comment)

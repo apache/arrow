@@ -127,10 +127,11 @@ def test_unathorized_user_comment(load_fixture, responses):
     print([c.request.body for c in responses.calls])
     post = responses.calls[-2]
     reaction = responses.calls[-1]
+    comment = ("```\nOnly contributors can submit requests to this bot. "
+               "Please ask someone from the community for help with getting "
+               "the first commit in.\n```")
     assert json.loads(post.request.body) == {
-        "body": "```\nOnly contributors can submit requests to this bot. \
-Please ask someone from the community for help with getting the first\
- commit in.\n```"}
+        "body": f'{comment}'}
     assert json.loads(reaction.request.body) == {'content': '-1'}
 
 
