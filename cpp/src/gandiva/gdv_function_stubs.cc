@@ -797,42 +797,24 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
-                            int32_t data_len, int32_t* out_len) {
-  if (pos < 1) {
+const char* gdv_fn_elt_int32_utf8_utf8(int64_t context, int32_t pos, const char* word1,
+                                       int32_t word1_len, const char* word2,
+                                       int32_t word2_len, int32_t* out_len) {
+  const char* selected;
+  if (pos < 1 || pos > 2) {
     *out_len = 0;
     return "";
   }
 
-  if (data_len <= 0) {
-    *out_len = 0;
-    return "";
+  if (pos == 1) {
+    *out_len = word1_len;
+    selected = word1;
   }
 
-  std::string data_str(data, data_len);
-  std::vector<std::string> words;
-
-  size_t pos_str = 0;
-  std::string token;
-  while ((pos_str = data_str.find(',')) != std::string::npos) {
-    token = data_str.substr(0, pos_str);
-    words.push_back(token);
-    data_str.erase(0, pos_str + 1);
+  if (pos == 2) {
+    *out_len = word2_len;
+    selected = word2;
   }
-  // Add last word to vector
-  words.push_back(data_str);
-
-  if (static_cast<int32_t>(words.size()) < pos) {
-    *out_len = 0;
-    return "";
-  }
-
-  std::string word = words.at(pos - 1);
-
-  // trim whitespace
-  word.erase(std::remove(word.begin(), word.end(), ' '), word.end());
-
-  *out_len = static_cast<int32_t>(word.size());
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
@@ -840,7 +822,133 @@ const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
     *out_len = 0;
     return "";
   }
-  memcpy(out, word.c_str(), *out_len);
+  memcpy(out, selected, *out_len);
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_elt_int32_utf8_utf8_utf8(int64_t context, int32_t pos,
+                                            const char* word1, int32_t word1_len,
+                                            const char* word2, int32_t word2_len,
+                                            const char* word3, int32_t word3_len,
+                                            int32_t* out_len) {
+  const char* selected;
+  if (pos < 1 || pos > 3) {
+    *out_len = 0;
+    return "";
+  }
+
+  if (pos == 1) {
+    *out_len = word1_len;
+    selected = word1;
+  }
+
+  if (pos == 2) {
+    *out_len = word2_len;
+    selected = word2;
+  }
+
+  if (pos == 3) {
+    *out_len = word3_len;
+    selected = word3;
+  }
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(out, selected, *out_len);
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8(int64_t context, int32_t pos,
+                                                 const char* word1, int32_t word1_len,
+                                                 const char* word2, int32_t word2_len,
+                                                 const char* word3, int32_t word3_len,
+                                                 const char* word4, int32_t word4_len,
+                                                 int32_t* out_len) {
+  const char* selected;
+  if (pos < 1 || pos > 4) {
+    *out_len = 0;
+    return "";
+  }
+
+  if (pos == 1) {
+    *out_len = word1_len;
+    selected = word1;
+  }
+
+  if (pos == 2) {
+    *out_len = word2_len;
+    selected = word2;
+  }
+
+  if (pos == 3) {
+    *out_len = word3_len;
+    selected = word3;
+  }
+
+  if (pos == 4) {
+    *out_len = word4_len;
+    selected = word4;
+  }
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(out, selected, *out_len);
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8(
+    int64_t context, int32_t pos, const char* word1, int32_t word1_len, const char* word2,
+    int32_t word2_len, const char* word3, int32_t word3_len, const char* word4,
+    int32_t word4_len, const char* word5, int32_t word5_len, int32_t* out_len) {
+  const char* selected;
+  if (pos < 1 || pos > 5) {
+    *out_len = 0;
+    return "";
+  }
+
+  if (pos == 1) {
+    *out_len = word1_len;
+    selected = word1;
+  }
+
+  if (pos == 2) {
+    *out_len = word2_len;
+    selected = word2;
+  }
+
+  if (pos == 3) {
+    *out_len = word3_len;
+    selected = word3;
+  }
+
+  if (pos == 4) {
+    *out_len = word4_len;
+    selected = word4;
+  }
+
+  if (pos == 5) {
+    *out_len = word5_len;
+    selected = word5;
+  }
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(out, selected, *out_len);
   return out;
 }
 }
@@ -1649,17 +1757,80 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
 
-  // gdv_fn_elt_utf8
+  // gdv_fn_elt_int32_utf8_utf8
   args = {
       types->i64_type(),      // context
       types->i32_type(),      // position
-      types->i8_ptr_type(),   // data
-      types->i32_type(),      // data_len
+      types->i8_ptr_type(),   // word1
+      types->i32_type(),      // word1_len
+      types->i8_ptr_type(),   // word2
+      types->i32_type(),      // word2_len
       types->i32_ptr_type(),  // out_length
 
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_elt_utf8", types->i8_ptr_type() /*return_type*/,
-                                  args, reinterpret_cast<void*>(gdv_fn_elt_utf8));
+  engine->AddGlobalMappingForFunc("gdv_fn_elt_int32_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_elt_int32_utf8_utf8));
+
+  // gdv_fn_elt_int32_utf8_utf8_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i32_type(),      // position
+      types->i8_ptr_type(),   // word1
+      types->i32_type(),      // word1_len
+      types->i8_ptr_type(),   // word2
+      types->i32_type(),      // word2_len
+      types->i8_ptr_type(),   // word3
+      types->i32_type(),      // word3_len
+      types->i32_ptr_type(),  // out_length
+
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_elt_int32_utf8_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_elt_int32_utf8_utf8_utf8));
+
+  // gdv_fn_elt_int32_utf8_utf8_utf8_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i32_type(),      // position
+      types->i8_ptr_type(),   // word1
+      types->i32_type(),      // word1_len
+      types->i8_ptr_type(),   // word2
+      types->i32_type(),      // word2_len
+      types->i8_ptr_type(),   // word3
+      types->i32_type(),      // word3_len
+      types->i8_ptr_type(),   // word4
+      types->i32_type(),      // word4_len
+      types->i32_ptr_type(),  // out_length
+
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_elt_int32_utf8_utf8_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_elt_int32_utf8_utf8_utf8_utf8));
+
+  // gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i32_type(),      // position
+      types->i8_ptr_type(),   // word1
+      types->i32_type(),      // word1_len
+      types->i8_ptr_type(),   // word2
+      types->i32_type(),      // word2_len
+      types->i8_ptr_type(),   // word3
+      types->i32_type(),      // word3_len
+      types->i8_ptr_type(),   // word4
+      types->i32_type(),      // word4_len
+      types->i8_ptr_type(),   // word5
+      types->i32_type(),      // word5_len
+      types->i32_ptr_type(),  // out_length
+
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8", types->i8_ptr_type() /*return_type*/,
+      args, reinterpret_cast<void*>(gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8));
 }
 }  // namespace gandiva

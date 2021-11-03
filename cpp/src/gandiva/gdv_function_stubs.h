@@ -172,6 +172,28 @@ GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in_len);
 
 GANDIVA_EXPORT
-const char* gdv_fn_elt_utf8(int64_t context, int32_t pos, const char* data,
-                            int32_t data_len, int32_t* out_len);
+const char* gdv_fn_elt_int32_utf8_utf8(int64_t context, int32_t pos, const char* word1,
+                                       int32_t word1_len, const char* word2,
+                                       int32_t word2_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_elt_int32_utf8_utf8_utf8(int64_t context, int32_t pos,
+                                            const char* word1, int32_t word1_len,
+                                            const char* word2, int32_t word2_len,
+                                            const char* word3, int32_t word3_len,
+                                            int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8(int64_t context, int32_t pos,
+                                                 const char* word1, int32_t word1_len,
+                                                 const char* word2, int32_t word2_len,
+                                                 const char* word3, int32_t word3_len,
+                                                 const char* word4, int32_t word4_len,
+                                                 int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8(
+    int64_t context, int32_t pos, const char* word1, int32_t word1_len, const char* word2,
+    int32_t word2_len, const char* word3, int32_t word3_len, const char* word4,
+    int32_t word4_len, const char* word5, int32_t word5_len, int32_t* out_len);
 }

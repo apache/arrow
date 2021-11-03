@@ -1686,14 +1686,16 @@ TEST_F(TestProjector, TestConcatWsFunction) {
 TEST_F(TestProjector, TestEltFunction) {
   auto field0 = field("f0", arrow::int32());
   auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::utf8());
 
-  auto schema0 = arrow::schema({field0, field1});
+  auto schema0 = arrow::schema({field0, field1, field2});
 
   // output fields
   auto out_field0 = field("out_field0", arrow::utf8());
 
   // Build expression
-  auto elt_expr0 = TreeExprBuilder::MakeExpression("elt", {field0, field1}, out_field0);
+  auto elt_expr0 =
+      TreeExprBuilder::MakeExpression("elt", {field0, field1, field2}, out_field0);
 
   std::shared_ptr<Projector> projector1;
 
@@ -1701,20 +1703,18 @@ TEST_F(TestProjector, TestEltFunction) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 4;
+  int num_records = 5;
 
-  std::string string0 = "john, doe,";
-  std::string string1 = "hello, world,";
-  std::string string2 = "goodbye, world";
-  std::string string3 = "hi, yeah";
-
-  auto array0 = MakeArrowArrayInt32({1, 2, 4, 0}, {true, true, true, true});
-  auto array1 =
-      MakeArrowArrayUtf8({string0, string1, string2, string3}, {true, true, true, true});
-  auto in_batch0 = arrow::RecordBatch::Make(schema0, num_records, {array0, array1});
+  auto array0 = MakeArrowArrayInt32({1, 2, 4, 0, -2}, {true, true, true, true, true});
+  auto array1 = MakeArrowArrayUtf8({"john", "hello", "goodbye", "hi", "yeah"},
+                                   {true, true, true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"doe", "world", "world", "yeah", "hi"},
+                                   {true, true, true, true, true});
+  auto in_batch0 =
+      arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
 
   auto expected_out0 =
-      MakeArrowArrayUtf8({"john", "world", "", ""}, {true, true, true, true});
+      MakeArrowArrayUtf8({"john", "world", "", "", ""}, {true, true, true, true, true});
 
   arrow::ArrayVector outputs;
 
