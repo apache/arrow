@@ -586,7 +586,7 @@ Status NumPyConverter::Visit(const BinaryType& type) {
 
 
 Status NumPyConverter::Visit(const ExtensionType& type) {
-  if(type.extension_name() == "arrow.extension.complex64") {
+  if(type.extension_name() == "arrow.complex64") {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
@@ -601,7 +601,7 @@ Status NumPyConverter::Visit(const ExtensionType& type) {
     auto float_arr_data = ArrayData::Make(float32(), length_*2, {nullptr, data}, 0, 0);
     auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_}, {float_arr_data}, null_count_, 0);
     return PushArray(arr_data);
-  } else if(type.extension_name() == "arrow.extension.complex128") {
+  } else if(type.extension_name() == "arrow.complex128") {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);

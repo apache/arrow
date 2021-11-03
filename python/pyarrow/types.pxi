@@ -51,8 +51,8 @@ cdef dict _pandas_type_map = {
 }
 
 cdef dict _pandas_ext_type_map = {
-    b'arrow.extension.complex64': np.complex64,
-    b'arrow.extension.complex128': np.complex128,
+    b'arrow.complex64': np.complex64,
+    b'arrow.complex128': np.complex128,
 }
 
 cdef dict _pep3118_type_map = {

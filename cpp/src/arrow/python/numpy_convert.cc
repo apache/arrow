@@ -120,10 +120,10 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     case Type::EXTENSION: {
       auto ext = static_cast<const ExtensionType*>(&type);
 
-      if (ext->extension_name() == "arrow.extension.complex64") {
+      if (ext->extension_name() == "arrow.complex64") {
         *type_num = NPY_COMPLEX64;
         break;
-      } else if (ext->extension_name() == "arrow.extension.complex128") {
+      } else if (ext->extension_name() == "arrow.complex128") {
         *type_num = NPY_COMPLEX128;
         break;
       } else {

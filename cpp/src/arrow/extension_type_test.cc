@@ -191,7 +191,7 @@ class TestExtensionType : public ::testing::Test {
 };
 
 TEST_F(TestExtensionType, ComplexTypeTest) {
-  auto registered_type = GetExtensionType("arrow.extension.complex64");
+  auto registered_type = GetExtensionType("arrow.complex64");
   ASSERT_NE(registered_type, nullptr);
 
   auto type = complex64();
