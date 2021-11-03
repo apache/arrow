@@ -23,6 +23,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -245,19 +246,17 @@ struct GetByteRangesArray {
 
     // We have to loop through the types buffer to figure out the correct
     // offset / length being referenced in the child arrays
-    std::array<std::size_t, UnionType::kMaxTypeCode> type_code_index_lookup{};
-    for (std::size_t i = 0; i < type.type_codes().size(); i++) {
-      type_code_index_lookup[static_cast<std::size_t>(type.type_codes()[i])] = i;
-    }
     std::vector<int64_t> lengths_per_type(type.type_codes().size());
     std::vector<int64_t> offsets_per_type(type.type_codes().size());
     const int8_t* type_codes = input.GetValues<int8_t>(1, 0);
     for (const int8_t* it = type_codes; it != type_codes + offset; it++) {
-      offsets_per_type[type_code_index_lookup[static_cast<std::size_t>(*it)]]++;
+      DCHECK_NE(type.child_ids()[static_cast<std::size_t>(*it)], UnionType::kInvalidChildId);
+      offsets_per_type[type.child_ids()[static_cast<std::size_t>(*it)]]++;
     }
     for (const int8_t* it = type_codes + offset; it != type_codes + offset + length;
          it++) {
-      lengths_per_type[type_code_index_lookup[static_cast<std::size_t>(*it)]]++;
+      DCHECK_NE(type.child_ids()[static_cast<std::size_t>(*it)], UnionType::kInvalidChildId);
+      lengths_per_type[type.child_ids()[static_cast<std::size_t>(*it)]]++;
     }
 
     for (int i = 0; i < type.num_fields(); i++) {
