@@ -98,6 +98,8 @@ class TestFlightSqlClient : public ::testing::Test {
     client_mock = std::make_shared<internal::FlightClientImpl>();
     sql_client.reset(new FlightSqlClient(client_mock));
   }
+
+  void TearDown() override { client_mock.reset(); }
 };
 
 class FlightMetadataReaderMock : public FlightMetadataReader {
