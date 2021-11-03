@@ -2905,8 +2905,8 @@ def test_array_supported_masks():
 def test_array_supported_pandas_masks():
     import pandas
     arr = pa.array(pandas.Series([0, 1], name="a", dtype="int64"),
-                   mask=pandas.Series([0, False], name="a", dtype='bool'))
-    assert arr.to_pylist() == [0, 1]
+                   mask=pandas.Series([True, False], dtype='bool'))
+    assert arr.to_pylist() == [None, 1]
 
 
 def test_binary_array_masked():
