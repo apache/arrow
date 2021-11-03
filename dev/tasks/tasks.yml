@@ -104,6 +104,9 @@ groups:
   example-cpp:
     - example-*cpp*
 
+  fuzz:
+    - test-*fuzz*
+
   verify-rc:
     - verify-rc-*
 
@@ -1184,6 +1187,13 @@ tasks:
     template: docker-tests/azure.linux.yml
     params:
       run: ubuntu-docs
+
+  ############################## Fuzz tests #################################
+
+  test-build-cpp-fuzz:
+    ci: github
+    template: fuzz-tests/github.oss-fuzz.yml
+
 
   ############################## vcpkg tests ##################################
 

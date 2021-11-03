@@ -26,7 +26,7 @@ gflags
 glog
 gmock>=1.10.0
 grpc-cpp>=1.27.3
-gtest=1.10.0
+gtest>=1.10.0
 libprotobuf
 libutf8proc
 lz4-c
