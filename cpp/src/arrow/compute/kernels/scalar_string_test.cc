@@ -1083,10 +1083,10 @@ TYPED_TEST(TestStringKernels, BinaryRepeatWithArrayRepeat) {
                               R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI",
                                   "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   for (const auto& ty : IntTypes()) {
-    auto num_repeats = ArrayFromJSON(ty, R"([100, 1, 2, 5, 2, 0, 1, 3, 2, 3])");
+    auto num_repeats = ArrayFromJSON(ty, R"([100, 1, 2, 5, 2, 0, 1, 3, null, 3])");
     std::string expected =
         R"([null, "aAazZæÆ&", "", "bbbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ",
-            "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3",
+            "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", null,
             "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
     this->CheckVarArgs("binary_repeat", {values, num_repeats}, this->type(), expected);
   }
