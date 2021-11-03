@@ -36,13 +36,13 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-TestServer* server;
+std::unique_ptr<TestServer> server;
 FlightSqlClient* sql_client;
 
 class TestFlightSqlServer : public ::testing::Environment {
  protected:
   void SetUp() override {
-    server = new TestServer("flight_sql_test_server");
+    server.reset(new TestServer("flight_sql_test_server"));
     server->Start();
     for (int i = 0; i < 100; i++) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -66,7 +66,6 @@ class TestFlightSqlServer : public ::testing::Environment {
 
   void TearDown() override {
     server->Stop();
-    delete server;
     delete sql_client;
   }
 };
