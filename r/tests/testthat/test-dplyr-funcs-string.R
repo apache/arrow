@@ -467,19 +467,19 @@ test_that("strsplit and str_split", {
   )
 })
 
-test_that("strrep", {
+test_that("strrep and str_dup", {
   df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
   for (times in 0:8) {
     compare_dplyr_binding(
       .input %>%
-        transmute(x = strrep(x, times)) %>%
+        mutate(x = strrep(x, times)) %>%
         collect(),
       df
     )
 
     compare_dplyr_binding(
       .input %>%
-        transmute(x = str_dup(x, times)) %>%
+        mutate(x = str_dup(x, times)) %>%
         collect(),
       df
     )
