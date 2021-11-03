@@ -160,7 +160,7 @@ class DatasetWriterTestFixture : public testing::Test {
     for (const auto& expected_file : expected_files) {
       util::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
       AssertFileCreated(written_file, expected_file.filename);
-      int num_batches;
+      int num_batches = 0;
       AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
                          *ReadAsBatch(written_file->data, &num_batches));
       ASSERT_EQ(expected_file.num_record_batches, num_batches);

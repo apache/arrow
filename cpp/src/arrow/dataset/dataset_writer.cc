@@ -189,11 +189,9 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
   }
 
   Future<> DoDestroy() override {
-    if (!aborted_) {
-      writer_state_->staged_rows_count -= rows_currently_staged_;
-      while (!staged_batches_.empty()) {
-        RETURN_NOT_OK(PopAndDeliverStagedBatch());
-      }
+    writer_state_->staged_rows_count -= rows_currently_staged_;
+    while (!staged_batches_.empty()) {
+      RETURN_NOT_OK(PopAndDeliverStagedBatch());
     }
     return file_tasks_.End().Then([this] { return DoFinish(); });
   }
@@ -227,11 +225,6 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
     }
   }
 
-  void Abort(Status err) {
-    aborted_ = true;
-    ARROW_UNUSED(file_tasks_.Abort(std::move(err)));
-  }
-
   const FileSystemDatasetWriteOptions& options_;
   DatasetWriterState* writer_state_;
   std::shared_ptr<FileWriter> writer_;
@@ -240,7 +233,6 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
   std::deque<std::shared_ptr<RecordBatch>> staged_batches_;
   uint64_t rows_currently_staged_ = 0;
   util::SerializedAsyncTaskGroup file_tasks_;
-  bool aborted_ = false;
 };
 
 struct WriteTask {

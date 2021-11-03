@@ -232,5 +232,32 @@ TEST(SerializedAsyncTaskGroup, FailAfterAdd) {
   ASSERT_FALSE(added_later_and_passes_created);
 }
 
+TEST(SerializedAsyncTaskGroup, Abort) {
+  SerializedAsyncTaskGroup task_group;
+  struct Task {
+    bool started = false;
+    Future<> finished = Future<>::Make();
+  };
+  auto task_factory = [] (Task& task) -> std::function<Future<>()> {
+    return [&task] {
+      task.started = true;
+      return task.finished;
+    };
+  };
+  Task one, two;
+  ASSERT_OK(task_group.AddTask(task_factory(one)));
+  ASSERT_OK(task_group.AddTask(task_factory(two)));
+  Future<> group_done = task_group.OnFinished();
+  AssertNotFinished(group_done);
+  ASSERT_TRUE(one.started);
+  ASSERT_FALSE(two.started);
+  Future<> abort_done = task_group.Abort(Status::Invalid("XYZ"));
+  AssertNotFinished(abort_done);
+  one.finished.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, group_done);
+  ASSERT_FINISHES_AND_RAISES(Invalid, abort_done);
+  ASSERT_FALSE(two.started);
+}
+
 }  // namespace util
 }  // namespace arrow
