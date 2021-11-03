@@ -55,10 +55,8 @@ add_arrow_lib(arrow_flight_sql
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_flight_shared
-              ${ARROW_FLIGHT_SQL_LINK_LIBS}
               STATIC_LINK_LIBS
-              arrow_flight_static
-              ${ARROW_FLIGHT_SQL_LINK_LIBS})
+              arrow_flight_static)
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS
