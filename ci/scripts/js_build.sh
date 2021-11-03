@@ -41,6 +41,7 @@ if [ "${with_docs}" == "true" ]; then
     echo "Failed to build docs because the remote is not set correctly. Please set the origin or upstream remote to https://github.com/apache/arrow.git or the apache remote to git@github.com:apache/arrow.git."
     exit 0
   fi
+  mkdir -p ${build_dir}/docs/js
   rsync -a ${arrow_dir}/js/doc/ ${build_dir}/docs/js
 fi
 
