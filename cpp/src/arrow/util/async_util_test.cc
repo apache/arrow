@@ -238,7 +238,7 @@ TEST(SerializedAsyncTaskGroup, Abort) {
     bool started = false;
     Future<> finished = Future<>::Make();
   };
-  auto task_factory = [] (Task& task) -> std::function<Future<>()> {
+  auto task_factory = [](Task& task) -> std::function<Future<>()> {
     return [&task] {
       task.started = true;
       return task.finished;
