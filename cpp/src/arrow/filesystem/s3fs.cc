@@ -44,6 +44,7 @@
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/auth/STSCredentialsProvider.h>
+#include <aws/core/client/DefaultRetryStrategy.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
@@ -509,6 +510,7 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
             detail, static_cast<int64_t>(attempted_retries)));
   }
 
+ private:
   template <typename ErrorType>
   static S3RetryStrategy::AWSErrorDetail ErrorToDetail(
       const Aws::Client::AWSError<ErrorType>& error) {
@@ -597,10 +599,13 @@ class S3Client : public Aws::S3::S3Client {
         if (!root.IsNull()) {
           ARROW_LOG(INFO) << "... CompleteMultipartUpload XML response root node: "
                           << root.GetName();
-          if (root.GetName() != "CompleteMultipartUploadResult") {
-            // It's not the expected XML response root node, so it should be an error.
+          // Detect something that looks like an abnormal CompletedMultipartUpload
+          // response.
+          if (root.GetName() != "CompleteMultipartUploadResult" ||
+              !root.FirstChild("Error").IsNull() || !root.FirstChild("Errors").IsNull()) {
             ARROW_LOG(INFO) << "CompletedMultipartUpload got error: "
                             << doc.ConvertToString();
+            // Make sure the error marshaller doesn't see a 200 OK
             http_resp->SetResponseCode(
                 Aws::Http::HttpResponseCode::INTERNAL_SERVER_ERROR);
             aws_error = GetErrorMarshaller()->Marshall(*http_resp);
@@ -614,7 +619,19 @@ class S3Client : public Aws::S3::S3Client {
 
     request.SetDataReceivedEventHandler(std::move(handler));
 
-    for (int64_t retries = 0;; retries++) {
+    // We don't have access to the configured AWS retry strategy
+    // (m_retryStrategy is a private member of AwsClient), so don't use that.
+    std::unique_ptr<Aws::Client::RetryStrategy> retry_strategy;
+    if (s3_retry_strategy_) {
+      retry_strategy.reset(new WrappedRetryStrategy(s3_retry_strategy_));
+    } else {
+      // Note that DefaultRetryStrategy, unlike StandardRetryStrategy,
+      // has empty definitions for RequestBookkeeping() and GetSendToken(),
+      // which simplifies the code below.
+      retry_strategy.reset(new Aws::Client::DefaultRetryStrategy());
+    }
+
+    for (int32_t retries = 0;; retries++) {
       aws_error.reset();
       auto outcome = Aws::S3::S3Client::S3Client::CompleteMultipartUpload(request);
       if (!outcome.IsSuccess()) {
@@ -626,15 +643,7 @@ class S3Client : public Aws::S3::S3Client {
         return outcome;
       }
 
-      // An error was returned in the XML body despite the 200 OK status code.
-      // We don't have access to the AWS retry strategy (m_retryStrategy
-      // is a private member of AwsClient), so don't use that.  Instead,
-      // call our own if available; otherwise fall back on AWSError::ShouldRetry(),
-      // but put a hardcoded cap on the number of retries.
-      const auto detail = WrappedRetryStrategy::ErrorToDetail(*aws_error);
-      const bool should_retry = s3_retry_strategy_
-                                    ? s3_retry_strategy_->ShouldRetry(detail, retries)
-                                    : (detail.should_retry && retries < 20);
+      const bool should_retry = retry_strategy->ShouldRetry(*aws_error, retries);
 
       ARROW_LOG(WARNING)
           << "CompletedMultipartUpload got error embedded in a 200 OK response: "
@@ -644,11 +653,9 @@ class S3Client : public Aws::S3::S3Client {
       if (!should_retry) {
         break;
       }
-      if (s3_retry_strategy_) {
-        auto delay = std::chrono::milliseconds(
-            s3_retry_strategy_->CalculateDelayBeforeNextRetry(detail, retries));
-        std::this_thread::sleep_for(delay);
-      }
+      const auto delay = std::chrono::milliseconds(
+          retry_strategy->CalculateDelayBeforeNextRetry(*aws_error, retries));
+      std::this_thread::sleep_for(delay);
     }
 
     DCHECK(aws_error.has_value());
