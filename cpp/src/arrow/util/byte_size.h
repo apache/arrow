@@ -59,7 +59,7 @@ int64_t ARROW_EXPORT TotalBufferSize(const Table& table);
 /// The return value will be a struct array corresponding to the schema:
 /// schema({field("start", uint64()), field("offset", uint64()), field("length",
 /// uint64()))
-Result<std::shared_ptr<Array>> ReferencedRanges(const ArrayData& array_data);
+Result<std::shared_ptr<Array>> ARROW_EXPORT ReferencedRanges(const ArrayData& array_data);
 
 /// \brief Returns the sum of bytes from all buffer ranges referenced
 ///
