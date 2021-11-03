@@ -156,6 +156,13 @@ The unit tests are not built by default. After building, one can also invoke
 the unit tests using the ``ctest`` tool provided by CMake (note that ``test``
 depends on ``python`` being available).
 
+CMake 
+`UNITY_BUILD <https://cmake.org/cmake/help/latest/prop_tgt/UNITY_BUILD.html/>`_
+can increase memory requirements to complete a build, so in memory constrained
+environments it should be turned off.
+
+* ``-DCMAKE_UNITY_BUILD=OFF``: Combine source files during building
+
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
 environment variable (which requires the `locales` package or equivalent):
