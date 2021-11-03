@@ -68,16 +68,16 @@ public class TestCompressionCodecFile {
 
     int[] lengths = new int[]{10, 100, 1000};
     for (int len : lengths) {
-      CompressionCodec dumbCodec = NoCompressionCodec.INSTANCE;
+      CompressionCodec noCompression = NoCompressionCodec.INSTANCE;
       File fileNoCompression = new File("target/write_no_compression_" + len + ".arrow");
       params.add(new Object[]{dumbCodec.getCodecType(), len, dumbCodec, fileNoCompression});
 
       CompressionCodec lz4Codec = new Lz4CompressionCodec();
-      File fileLZ4Compression = new File("target/write_lz4_compression_" + len + ".arrow");
+      File fileLz4Compression = new File("target/write_lz4_compression_" + len + ".arrow");
       params.add(new Object[]{lz4Codec.getCodecType(), len, lz4Codec, fileLZ4Compression});
 
       CompressionCodec zstdCodec = new ZstdCompressionCodec();
-      File fileZSTDCompression = new File("target/write_zstd_compression_" + len + ".arrow");
+      File fileZstdCompression = new File("target/write_zstd_compression_" + len + ".arrow");
       params.add(new Object[]{zstdCodec.getCodecType(), len, zstdCodec, fileZSTDCompression});
 
     }

@@ -54,7 +54,7 @@ Now, we can begin writing a stream containing some number of these batches. For 
     ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
 
 
-Here we are not used compression option, but this could be implemented on this way thru codec option:
+Buffer level compression is also supported by passing a codec:
 Lz4CompressionCodec / ZstdCompressionCodec:
 
 .. code-block:: Java
