@@ -64,8 +64,9 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::IndexRemapUsingLUT(
   ARROW_DCHECK(data_type->id() == Type::DICTIONARY);
   const auto& dict_type = checked_cast<const DictionaryType&>(*data_type);
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> result,
-                        CvtToInt32(dict_type.index_type(), indices, batch_length, ctx));
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<ArrayData> result,
+      ConvertToInt32(dict_type.index_type(), indices, batch_length, ctx));
 
   uint8_t* nns = result->buffers[0]->mutable_data();
   int32_t* ids = reinterpret_cast<int32_t*>(result->buffers[1]->mutable_data());
@@ -87,34 +88,9 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::IndexRemapUsingLUT(
   return result;
 }
 
-Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::CvtToInt32(
-    const std::shared_ptr<DataType>& from_type, const Datum& input, int64_t batch_length,
-    ExecContext* ctx) {
-  switch (from_type->id()) {
-    case Type::UINT8:
-      return CvtImp<uint8_t, int32_t>(int32(), input, batch_length, ctx);
-    case Type::INT8:
-      return CvtImp<int8_t, int32_t>(int32(), input, batch_length, ctx);
-    case Type::UINT16:
-      return CvtImp<uint16_t, int32_t>(int32(), input, batch_length, ctx);
-    case Type::INT16:
-      return CvtImp<int16_t, int32_t>(int32(), input, batch_length, ctx);
-    case Type::UINT32:
-      return CvtImp<uint32_t, int32_t>(int32(), input, batch_length, ctx);
-    case Type::INT32:
-      return CvtImp<int32_t, int32_t>(int32(), input, batch_length, ctx);
-    case Type::UINT64:
-      return CvtImp<uint64_t, int32_t>(int32(), input, batch_length, ctx);
-    case Type::INT64:
-      return CvtImp<int64_t, int32_t>(int32(), input, batch_length, ctx);
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
-}
-
+namespace {
 template <typename FROM, typename TO>
-Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::CvtImp(
+static Result<std::shared_ptr<ArrayData>> ConvertImp(
     const std::shared_ptr<DataType>& to_type, const Datum& input, int64_t batch_length,
     ExecContext* ctx) {
   ARROW_DCHECK(input.is_array() || input.is_scalar());
@@ -172,27 +148,54 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::CvtImp(
     }
   }
 }
+}  // namespace
 
-Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::CvtFromInt32(
+Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::ConvertToInt32(
+    const std::shared_ptr<DataType>& from_type, const Datum& input, int64_t batch_length,
+    ExecContext* ctx) {
+  switch (from_type->id()) {
+    case Type::UINT8:
+      return ConvertImp<uint8_t, int32_t>(int32(), input, batch_length, ctx);
+    case Type::INT8:
+      return ConvertImp<int8_t, int32_t>(int32(), input, batch_length, ctx);
+    case Type::UINT16:
+      return ConvertImp<uint16_t, int32_t>(int32(), input, batch_length, ctx);
+    case Type::INT16:
+      return ConvertImp<int16_t, int32_t>(int32(), input, batch_length, ctx);
+    case Type::UINT32:
+      return ConvertImp<uint32_t, int32_t>(int32(), input, batch_length, ctx);
+    case Type::INT32:
+      return ConvertImp<int32_t, int32_t>(int32(), input, batch_length, ctx);
+    case Type::UINT64:
+      return ConvertImp<uint64_t, int32_t>(int32(), input, batch_length, ctx);
+    case Type::INT64:
+      return ConvertImp<int64_t, int32_t>(int32(), input, batch_length, ctx);
+    default:
+      ARROW_DCHECK(false);
+      return nullptr;
+  }
+}
+
+Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::ConvertFromInt32(
     const std::shared_ptr<DataType>& to_type, const Datum& input, int64_t batch_length,
     ExecContext* ctx) {
   switch (to_type->id()) {
     case Type::UINT8:
-      return CvtImp<int32_t, uint8_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, uint8_t>(to_type, input, batch_length, ctx);
     case Type::INT8:
-      return CvtImp<int32_t, int8_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, int8_t>(to_type, input, batch_length, ctx);
     case Type::UINT16:
-      return CvtImp<int32_t, uint16_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, uint16_t>(to_type, input, batch_length, ctx);
     case Type::INT16:
-      return CvtImp<int32_t, int16_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, int16_t>(to_type, input, batch_length, ctx);
     case Type::UINT32:
-      return CvtImp<int32_t, uint32_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, uint32_t>(to_type, input, batch_length, ctx);
     case Type::INT32:
-      return CvtImp<int32_t, int32_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, int32_t>(to_type, input, batch_length, ctx);
     case Type::UINT64:
-      return CvtImp<int32_t, uint64_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, uint64_t>(to_type, input, batch_length, ctx);
     case Type::INT64:
-      return CvtImp<int32_t, int64_t>(to_type, input, batch_length, ctx);
+      return ConvertImp<int32_t, int64_t>(to_type, input, batch_length, ctx);
     default:
       ARROW_DCHECK(false);
       return nullptr;
@@ -355,8 +358,8 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInput(
 Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapOutput(
     const ArrayData& indices32Bit, ExecContext* ctx) const {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> indices,
-                        HashJoinDictUtil::CvtFromInt32(index_type_, Datum(indices32Bit),
-                                                       indices32Bit.length, ctx));
+                        HashJoinDictUtil::ConvertFromInt32(
+                            index_type_, Datum(indices32Bit), indices32Bit.length, ctx));
 
   auto type = std::make_shared<DictionaryType>(index_type_, value_type_);
   return ArrayData::Make(type, indices->length, indices->buffers, {},
@@ -436,9 +439,9 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictProbe::RemapInput(
     } else {
       // CASE 2:
       // Decode selected rows from encoder.
-      ARROW_ASSIGN_OR_RAISE(
-          std::shared_ptr<ArrayData> row_ids_arr,
-          HashJoinDictUtil::CvtToInt32(dict_type.index_type(), data, batch_length, ctx));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> row_ids_arr,
+                            HashJoinDictUtil::ConvertToInt32(dict_type.index_type(), data,
+                                                             batch_length, ctx));
       // Change nulls to internal::RowEncoder::kRowIdForNulls() in index.
       int32_t* row_ids =
           reinterpret_cast<int32_t*>(row_ids_arr->buffers[1]->mutable_data());

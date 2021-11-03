@@ -1312,28 +1312,25 @@ void TestHashJoinDictionaryHelper(
 
   // Compare results
   AssertTablesEqual(expected, output);
-
-  // TODO: This was added for debugging. Remove in the final version.
-  // std::cout << output->ToString();
 }
 
 TEST(HashJoin, Dictionary) {
-  auto int8_utf8 = std::make_shared<DictionaryType>(int8(), utf8());
-  auto uint8_utf8 = std::make_shared<DictionaryType>(uint8(), utf8());
-  auto int16_utf8 = std::make_shared<DictionaryType>(int16(), utf8());
-  auto uint16_utf8 = std::make_shared<DictionaryType>(uint16(), utf8());
-  auto int32_utf8 = std::make_shared<DictionaryType>(int32(), utf8());
-  auto uint32_utf8 = std::make_shared<DictionaryType>(uint32(), utf8());
-  auto int64_utf8 = std::make_shared<DictionaryType>(int64(), utf8());
-  auto uint64_utf8 = std::make_shared<DictionaryType>(uint64(), utf8());
-  std::shared_ptr<DictionaryType> dict_types[] = {int8_utf8,   uint8_utf8, int16_utf8,
-                                                  uint16_utf8, int32_utf8, uint32_utf8,
-                                                  int64_utf8,  uint64_utf8};
+  auto int8_utf8 = dictionary(int8(), utf8());
+  auto uint8_utf8 = arrow::dictionary(uint8(), utf8());
+  auto int16_utf8 = arrow::dictionary(int16(), utf8());
+  auto uint16_utf8 = arrow::dictionary(uint16(), utf8());
+  auto int32_utf8 = arrow::dictionary(int32(), utf8());
+  auto uint32_utf8 = arrow::dictionary(uint32(), utf8());
+  auto int64_utf8 = arrow::dictionary(int64(), utf8());
+  auto uint64_utf8 = arrow::dictionary(uint64(), utf8());
+  std::shared_ptr<DataType> dict_types[] = {int8_utf8,   uint8_utf8, int16_utf8,
+                                            uint16_utf8, int32_utf8, uint32_utf8,
+                                            int64_utf8,  uint64_utf8};
 
   Random64Bit rng(43);
 
   // Dictionaries in payload columns
-  for (auto parallel : {false, true})
+  for (auto parallel : {false, true}) {
     for (auto swap_sides : {false, true}) {
       TestHashJoinDictionaryHelper(
           JoinType::FULL_OUTER, JoinKeyCmp::EQ, parallel,
@@ -1352,11 +1349,12 @@ TEST(HashJoin, Dictionary) {
                             R"(["r", null, "r", "q"])"),
           1, swap_sides);
     }
+  }
 
   // Dictionaries in key columns
-  for (auto parallel : {false, true})
-    for (auto swap_sides : {false, true})
-      for (auto l_key_dict : {true, false})
+  for (auto parallel : {false, true}) {
+    for (auto swap_sides : {false, true}) {
+      for (auto l_key_dict : {true, false}) {
         for (auto r_key_dict : {true, false}) {
           auto l_key_dict_type = dict_types[rng.from_range(0, 7)];
           auto r_key_dict_type = dict_types[rng.from_range(0, 7)];
@@ -1412,6 +1410,9 @@ TEST(HashJoin, Dictionary) {
               ArrayFromJSON(utf8(), R"([null, null, "p", "q", null, "r", "p", "s"])"), 3,
               swap_sides);
         }
+      }
+    }
+  }
 
   // Empty build side
   {
@@ -1420,8 +1421,8 @@ TEST(HashJoin, Dictionary) {
     auto r_key_dict_type = dict_types[rng.from_range(0, 7)];
     auto r_payload_dict_type = dict_types[rng.from_range(0, 7)];
 
-    for (auto parallel : {false, true})
-      for (auto swap_sides : {false, true})
+    for (auto parallel : {false, true}) {
+      for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
           TestHashJoinDictionaryHelper(
               JoinType::FULL_OUTER, cmp, parallel,
@@ -1441,6 +1442,8 @@ TEST(HashJoin, Dictionary) {
                                 R"(["p", "r", "s"])"),
               0, swap_sides);
         }
+      }
+    }
   }
 
   // Empty probe side
@@ -1450,8 +1453,8 @@ TEST(HashJoin, Dictionary) {
     auto r_key_dict_type = dict_types[rng.from_range(0, 7)];
     auto r_payload_dict_type = dict_types[rng.from_range(0, 7)];
 
-    for (auto parallel : {false, true})
-      for (auto swap_sides : {false, true})
+    for (auto parallel : {false, true}) {
+      for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
           TestHashJoinDictionaryHelper(
               JoinType::FULL_OUTER, cmp, parallel,
@@ -1473,6 +1476,8 @@ TEST(HashJoin, Dictionary) {
                                 R"(["p", "r", "s"])"),
               4, swap_sides);
         }
+      }
+    }
   }
 }
 
@@ -1501,7 +1506,7 @@ TEST(HashJoin, Scalars) {
   }
 
   // Scalars in key columns
-  for (auto use_scalar_dict : {false, true})
+  for (auto use_scalar_dict : {false, true}) {
     for (auto swap_sides : {false, true}) {
       TestHashJoinDictionaryHelper(
           JoinType::FULL_OUTER, JoinKeyCmp::EQ, false /*parallel*/,
@@ -1517,9 +1522,10 @@ TEST(HashJoin, Scalars) {
           ArrayFromJSON(utf8(), R"(["a", "a", null, "b"])"),
           ArrayFromJSON(utf8(), R"(["p", "p", "q", "r"])"), 2, swap_sides);
     }
+  }
 
   // Null scalars in key columns
-  for (auto use_scalar_dict : {false, true})
+  for (auto use_scalar_dict : {false, true}) {
     for (auto swap_sides : {false, true}) {
       TestHashJoinDictionaryHelper(
           JoinType::FULL_OUTER, JoinKeyCmp::EQ, false /*parallel*/,
@@ -1548,9 +1554,10 @@ TEST(HashJoin, Scalars) {
           ArrayFromJSON(utf8(), R"([null, null, "a", "b"])"),
           ArrayFromJSON(utf8(), R"(["q", "q", "p", "r"])"), 2, swap_sides);
     }
+  }
 
   // Scalars with the empty build/probe side
-  for (auto use_scalar_dict : {false, true})
+  for (auto use_scalar_dict : {false, true}) {
     for (auto swap_sides : {false, true}) {
       TestHashJoinDictionaryHelper(
           JoinType::FULL_OUTER, JoinKeyCmp::EQ, false /*parallel*/,
@@ -1564,9 +1571,10 @@ TEST(HashJoin, Scalars) {
           ArrayFromJSON(utf8(), R"([null, null])"),
           ArrayFromJSON(utf8(), R"([null, null])"), 0, swap_sides);
     }
+  }
 
   // Scalars vs dictionaries in key columns
-  for (auto use_scalar_dict : {false, true})
+  for (auto use_scalar_dict : {false, true}) {
     for (auto swap_sides : {false, true}) {
       TestHashJoinDictionaryHelper(
           JoinType::FULL_OUTER, JoinKeyCmp::EQ, false /*parallel*/,
@@ -1582,6 +1590,7 @@ TEST(HashJoin, Scalars) {
           ArrayFromJSON(utf8(), R"(["a", "a", "a", "a", null])"),
           ArrayFromJSON(utf8(), R"(["p", "q", "p", "q", "r"])"), 1, swap_sides);
     }
+  }
 }
 
 TEST(HashJoin, DictNegative) {

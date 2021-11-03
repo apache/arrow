@@ -38,7 +38,7 @@
 // - dictionary column can be matched against dictionary column with a different index
 // type, and potentially using a different dictionary, if underlying value types are equal
 //
-// We currently require in hash that for all dictionary encoded columns, the same
+// We currently require in hash join that for all dictionary encoded columns, the same
 // dictionary is used in all input exec batches.
 //
 // In order to allow matching columns with different dictionaries, different dictionary
@@ -89,7 +89,7 @@ class HashJoinDictUtil {
 
   // Return int32() array that contains indices of input dictionary array or scalar after
   // type casting.
-  static Result<std::shared_ptr<ArrayData>> CvtToInt32(
+  static Result<std::shared_ptr<ArrayData>> ConvertToInt32(
       const std::shared_ptr<DataType>& from_type, const Datum& input,
       int64_t batch_length, ExecContext* ctx);
 
@@ -98,18 +98,12 @@ class HashJoinDictUtil {
   // hash table on build side back to original input data type of hash join, when
   // outputting hash join results to parent exec node.
   //
-  static Result<std::shared_ptr<ArrayData>> CvtFromInt32(
+  static Result<std::shared_ptr<ArrayData>> ConvertFromInt32(
       const std::shared_ptr<DataType>& to_type, const Datum& input, int64_t batch_length,
       ExecContext* ctx);
 
   // Return dictionary referenced in either dictionary array or dictionary scalar
   static std::shared_ptr<Array> ExtractDictionary(const Datum& data);
-
- private:
-  template <typename FROM, typename TO>
-  static Result<std::shared_ptr<ArrayData>> CvtImp(
-      const std::shared_ptr<DataType>& to_type, const Datum& input, int64_t batch_length,
-      ExecContext* ctx);
 };
 
 /// Implements processing of dictionary arrays/scalars in key columns on the build side of
