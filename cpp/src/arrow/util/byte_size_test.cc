@@ -188,9 +188,9 @@ TEST(ByteRanges, StartValue) {
 
   std::shared_ptr<Array> ts_arr =
       ArrayFromJSON(timestamp(TimeUnit::SECOND),
-                    R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28"])");
-  CheckFixedWidthStarts(bool_arr);
-  CheckFixedWidthStarts(bool_arr->Slice(2, 1));
+                    R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28", null])");
+  CheckFixedWidthStarts(ts_arr);
+  CheckFixedWidthStarts(ts_arr->Slice(2, 1));
 }
 
 TEST(ByteRanges, FixedWidthTypes) {
@@ -220,9 +220,7 @@ TEST(ByteRanges, DictionaryArray) {
 
 template <typename Type>
 class ByteRangesVariableBinary : public ::testing::Test {};
-typedef ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>
-    VariableLengthBinaryTypes;
-TYPED_TEST_SUITE(ByteRangesVariableBinary, VariableLengthBinaryTypes);
+TYPED_TEST_SUITE(ByteRangesVariableBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(ByteRangesVariableBinary, Basic) {
   using offset_type = typename TypeParam::offset_type;
@@ -251,8 +249,7 @@ TYPED_TEST(ByteRangesVariableBinary, Basic) {
 
 template <typename Type>
 class ByteRangesList : public ::testing::Test {};
-typedef ::testing::Types<ListType, LargeListType> ListTypes;
-TYPED_TEST_SUITE(ByteRangesList, ListTypes);
+TYPED_TEST_SUITE(ByteRangesList, ListArrowTypes);
 
 TYPED_TEST(ByteRangesList, Basic) {
   using offset_type = typename TypeParam::offset_type;
@@ -426,7 +423,6 @@ TEST(ByteRanges, ChunkedArrayNoOverlap) {
   std::shared_ptr<ChunkedArray> chunked =
       std::make_shared<ChunkedArray>(ArrayVector{first, second});
   ASSERT_OK_AND_EQ(13, ReferencedBufferSize(*chunked));
-  //  CheckBufferRanges(chunked, {{0, 0, 1}, {1, 0, 6}, {2, 0, 6}});
 }
 
 TEST(ByteRanges, RecordBatchNoOverlap) {
@@ -436,7 +432,6 @@ TEST(ByteRanges, RecordBatchNoOverlap) {
       RecordBatch::Make(schema({field("a", int16()), field("b", int16())}),
                         first->length(), {first, second});
   ASSERT_OK_AND_EQ(13, ReferencedBufferSize(*record_batch));
-  // CheckBufferRanges(record_batch, {{0, 0, 1}, {1, 0, 6}, {2, 0, 6}});
 }
 
 TEST(ByteRanges, TableNoOverlap) {
@@ -444,7 +439,6 @@ TEST(ByteRanges, TableNoOverlap) {
       TableFromJSON(schema({field("a", int16()), field("b", int16())}),
                     {"[[1, null], [2, 2]]", "[[3, 4]]"});
   ASSERT_OK_AND_EQ(13, ReferencedBufferSize(*table));
-  // CheckBufferRanges(table, {{0, 0, 4}, {1, 0, 2}, {2, 0, 1}, {3, 0, 4}, {4, 0, 2}});
 }
 
 }  // namespace util

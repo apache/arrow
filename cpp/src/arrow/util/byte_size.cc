@@ -250,12 +250,14 @@ struct GetByteRangesArray {
     std::vector<int64_t> offsets_per_type(type.type_codes().size());
     const int8_t* type_codes = input.GetValues<int8_t>(1, 0);
     for (const int8_t* it = type_codes; it != type_codes + offset; it++) {
-      DCHECK_NE(type.child_ids()[static_cast<std::size_t>(*it)], UnionType::kInvalidChildId);
+      DCHECK_NE(type.child_ids()[static_cast<std::size_t>(*it)],
+                UnionType::kInvalidChildId);
       offsets_per_type[type.child_ids()[static_cast<std::size_t>(*it)]]++;
     }
     for (const int8_t* it = type_codes + offset; it != type_codes + offset + length;
          it++) {
-      DCHECK_NE(type.child_ids()[static_cast<std::size_t>(*it)], UnionType::kInvalidChildId);
+      DCHECK_NE(type.child_ids()[static_cast<std::size_t>(*it)],
+                UnionType::kInvalidChildId);
       lengths_per_type[type.child_ids()[static_cast<std::size_t>(*it)]]++;
     }
 
