@@ -212,6 +212,15 @@ struct ARROW_EXPORT ExecBatch {
   /// by ExecBatchIterator which by design does not yield length-0 batches.
   int64_t length;
 
+  /// \brief The sum of bytes in each buffer referenced by the batch
+  ///
+  /// Note: Scalars are not counted
+  /// Note: Some values may referenced only part of a buffer, for
+  ///       example, an array with an offset.  The actual data
+  ///       visible to this batch will be smaller than the total
+  ///       buffer size in this case.
+  int64_t TotalBufferSize() const;
+
   /// \brief Return the value at the i-th index
   template <typename index_type>
   inline const Datum& operator[](index_type i) const {
