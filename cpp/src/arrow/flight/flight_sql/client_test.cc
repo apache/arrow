@@ -54,31 +54,36 @@ class FlightClientImpl {
                std::unique_ptr<ResultStream>* results));
 };
 
-Status FlightClientImpl_GetFlightInfo(FlightClientImpl* client,
+Status FlightClientImpl_GetFlightInfo(FlightClientImpl& client,
                                       const FlightCallOptions& options,
                                       const FlightDescriptor& descriptor,
                                       std::unique_ptr<FlightInfo>* info) {
-  return client->GetFlightInfo(options, descriptor, info);
+  return client.GetFlightInfo(options, descriptor, info);
 }
 
-Status FlightClientImpl_DoPut(FlightClientImpl* client, const FlightCallOptions& options,
+Status FlightClientImpl_DoPut(FlightClientImpl& client, const FlightCallOptions& options,
                               const FlightDescriptor& descriptor,
                               const std::shared_ptr<Schema>& schema,
                               std::unique_ptr<FlightStreamWriter>* stream,
                               std::unique_ptr<FlightMetadataReader>* reader) {
-  return client->DoPut(options, descriptor, schema, stream, reader);
+  return client.DoPut(options, descriptor, schema, stream, reader);
 }
 
-Status FlightClientImpl_DoGet(FlightClientImpl* client, const FlightCallOptions& options,
+Status FlightClientImpl_DoGet(FlightClientImpl& client, const FlightCallOptions& options,
                               const Ticket& ticket,
                               std::unique_ptr<FlightStreamReader>* stream) {
-  return client->DoGet(options, ticket, stream);
+  return client.DoGet(options, ticket, stream);
 }
 
-Status FlightClientImpl_DoAction(FlightClientImpl* client,
+Status FlightClientImpl_DoAction(FlightClientImpl& client,
                                  const FlightCallOptions& options, const Action& action,
                                  std::unique_ptr<ResultStream>* results) {
-  return client->DoAction(options, action, results);
+  return client.DoAction(options, action, results);
+}
+
+std::shared_ptr<FlightClientImpl> FlightClientImpl_Create(
+    std::unique_ptr<FlightClient> client) {
+  return std::make_shared<FlightClientImpl>();
 }
 
 }  // namespace internal
