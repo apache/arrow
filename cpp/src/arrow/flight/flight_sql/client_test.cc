@@ -93,13 +93,11 @@ FlightCallOptions call_options;
 
 class TestFlightSqlClient : public ::testing::Test {
  protected:
-  FlightSqlClient* sql_client;
+  std::unique_ptr<FlightSqlClient> sql_client;
   void SetUp() override {
     client_mock = std::make_shared<internal::FlightClientImpl>();
-    sql_client = new FlightSqlClient(client_mock);
+    sql_client.reset(new FlightSqlClient(client_mock));
   }
-
-  void TearDown() override { free(sql_client); }
 };
 
 class FlightMetadataReaderMock : public FlightMetadataReader {
@@ -443,7 +441,8 @@ TEST_F(TestFlightSqlClient, TestGetSqlInfo) {
 
 template <class Func>
 inline void AssertTestPreparedStatementExecuteUpdateOk(
-    Func func, const std::shared_ptr<Schema>* schema, FlightSqlClient* sql_client) {
+    Func func, const std::shared_ptr<Schema>* schema,
+    std::unique_ptr<FlightSqlClient>& sql_client) {
   const std::string query = "SELECT * FROM IRRELEVANT";
   int64_t expected_rows = 100L;
   pb::sql::DoPutUpdateResult result;
