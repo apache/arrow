@@ -291,11 +291,6 @@ Result<Datum> DropNull(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Get byte ranges of buffers referenced by the array.
-/// See byte_ranges_doc for caveats and more description
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> GetByteRanges(Datum datum, ExecContext* ctx = NULLPTR);
-
 /// \brief Return indices that partition an array around n-th sorted element.
 ///
 /// Find index of n-th(0 based) smallest value and perform indirect

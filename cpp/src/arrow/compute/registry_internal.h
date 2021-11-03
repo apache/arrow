@@ -41,7 +41,6 @@ void RegisterScalarOptions(FunctionRegistry* registry);
 
 // Vector functions
 void RegisterVectorArraySort(FunctionRegistry* registry);
-void RegisterVectorBuffer(FunctionRegistry* registry);
 void RegisterVectorHash(FunctionRegistry* registry);
 void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);

@@ -317,11 +317,6 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
   return out.make_array();
 }
 
-Result<std::shared_ptr<Array>> GetByteRanges(Datum datum, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum out, CallFunction("byte_ranges", {std::move(datum)}, ctx));
-  return out.make_array();
-}
-
 // ----------------------------------------------------------------------
 // Deprecated functions
 
