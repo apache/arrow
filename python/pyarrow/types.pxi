@@ -50,6 +50,11 @@ cdef dict _pandas_type_map = {
     _Type_DECIMAL128: np.object_,
 }
 
+cdef dict _pandas_ext_type_map = {
+    b'arrow.extension.complex64': np.complex64,
+    b'arrow.extension.complex128': np.complex128,
+}
+
 cdef dict _pep3118_type_map = {
     _Type_INT8: b'b',
     _Type_INT16: b'h',
@@ -90,7 +95,7 @@ def _is_primitive(Type type):
 # Workaround for Cython parsing bug
 # https://github.com/cython/cython/issues/2143
 ctypedef CFixedWidthType* _CFixedWidthTypePtr
-
+ctypedef const CExtensionType* _CExtensionTypePtr
 
 cdef class DataType(_Weakrefable):
     """
@@ -194,10 +199,22 @@ cdef class DataType(_Weakrefable):
         Return the equivalent NumPy / Pandas dtype.
         """
         cdef Type type_id = self.type.id()
-        if type_id in _pandas_type_map:
+        cdef const CExtensionType * ext_type
+        cdef bytes ext_name
+
+        if type_id == _Type_EXTENSION:
+            ext_type = dynamic_cast[_CExtensionTypePtr](self.type)
+
+            if ext_type:
+                ext_name = ext_type.extension_name()
+
+                if ext_name in _pandas_ext_type_map:
+                    return _pandas_ext_type_map[ext_name]
+
+        elif type_id in _pandas_type_map:
             return _pandas_type_map[type_id]
-        else:
-            raise NotImplementedError(str(self))
+
+        raise NotImplementedError(str(self))
 
     def _export_to_c(self, uintptr_t out_ptr):
         """
