@@ -51,7 +51,7 @@ if(ARROW_FOUND)
   arrow_find_package(ARROW_FLIGHT_SQL
                      "${ARROW_HOME}"
                      arrow_flight_sql
-                     arrow/flight/flight-sql/api.h
+                     arrow/flight/flight_sql/api.h
                      ArrowFlightSql
                      arrow-flight-sql)
   if(NOT ARROW_FLIGHT_SQL_VERSION)

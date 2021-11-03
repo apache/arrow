@@ -505,7 +505,6 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
-  std::vector<std::string> table_types;
   ASSERT_OK_AND_ASSIGN(auto flight_info,
                        sql_client->GetPrimaryKeys({}, nullptr, nullptr, "int%"));
 

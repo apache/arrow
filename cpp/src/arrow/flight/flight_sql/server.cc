@@ -148,11 +148,10 @@ arrow::Result<GetTables> ParseCommandGetTables(const google::protobuf::Any& any)
     return Status::Invalid("Unable to unpack CommandGetTables.");
   }
 
-  std::vector<std::string> table_types;
-  table_types.reserve(command.table_types_size());
-  for (const auto& item : command.table_types()) {
-    table_types.push_back(item);
-  }
+  std::vector<std::string> table_types(command.table_types_size());
+  std::copy(command.table_types().begin(), command.table_types().end(),
+            table_types.begin());
+
   GetTables result;
   result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
   result.schema_filter_pattern = PROPERTY_TO_OPTIONAL(command, schema_filter_pattern);
