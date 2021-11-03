@@ -66,12 +66,11 @@ class TestFlightSqlServer : public ::testing::Environment {
 
   void TearDown() override {
     for (int i = 0; i < 100; i++) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      if (server->Stop()) {
+     std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      if (!(server->IsRunning())) {
         break;
       }
     }
-
     delete server;
     delete sql_client;
   }
