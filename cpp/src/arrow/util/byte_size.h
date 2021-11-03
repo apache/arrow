@@ -36,17 +36,54 @@ namespace util {
 ///       only be counted once.
 int64_t ARROW_EXPORT TotalBufferSize(const ArrayData& array_data);
 /// \brief The sum of bytes in each buffer referenced by the array
-/// Note: The caveats on the ArrayData overload apply here as well
+/// \see TotalBufferSize(const ArrayData& array_data) for details
 int64_t ARROW_EXPORT TotalBufferSize(const Array& array);
 /// \brief The sum of bytes in each buffer referenced by the array
-/// Note: The caveats on the ArrayData overload apply here as well
+/// \see TotalBufferSize(const ArrayData& array_data) for details
 int64_t ARROW_EXPORT TotalBufferSize(const ChunkedArray& chunked_array);
 /// \brief The sum of bytes in each buffer referenced by the batch
-/// Note: The caveats on the ArrayData overload apply here as well
+/// \see TotalBufferSize(const ArrayData& array_data) for details
 int64_t ARROW_EXPORT TotalBufferSize(const RecordBatch& record_batch);
 /// \brief The sum of bytes in each buffer referenced by the table
-/// Note: The caveats on the ArrayData overload apply here as well
+/// \see TotalBufferSize(const ArrayData& array_data) for details
 int64_t ARROW_EXPORT TotalBufferSize(const Table& table);
+
+/// \brief Calculate the buffer ranges referenced by the array
+///
+/// These ranges will take into account array offsets
+///
+/// The ranges may contain duplicates
+///
+/// Dictionary arrays will ignore the offset of their containing array
+///
+/// The return value will be a struct array corresponding to the schema:
+/// schema({field("start", uint64()), field("offset", uint64()), field("length",
+/// uint64()))
+Result<std::shared_ptr<Array>> ARROW_EXPORT ReferencedRanges(const ArrayData& array_data);
+
+/// \brief Returns the sum of bytes from all buffer ranges referenced
+///
+/// Unlike TotalBufferSize this method will account for array
+/// offsets.
+///
+/// If buffers are shared between arrays then the shared
+/// portion will only be counted multiple times.
+///
+/// Dictionary arrays will always be counted in their entirety
+/// even if the array only references a portion of the dictionary.
+Result<int64_t> ARROW_EXPORT ReferencedBufferSize(const ArrayData& array_data);
+/// \brief Returns the sum of bytes from all buffer ranges referenced
+/// \see ReferencedBufferSize(const ArrayData& array_data) for details
+Result<int64_t> ARROW_EXPORT ReferencedBufferSize(const Array& array_data);
+/// \brief Returns the sum of bytes from all buffer ranges referenced
+/// \see ReferencedBufferSize(const ArrayData& array_data) for details
+Result<int64_t> ARROW_EXPORT ReferencedBufferSize(const ChunkedArray& array_data);
+/// \brief Returns the sum of bytes from all buffer ranges referenced
+/// \see ReferencedBufferSize(const ArrayData& array_data) for details
+Result<int64_t> ARROW_EXPORT ReferencedBufferSize(const RecordBatch& array_data);
+/// \brief Returns the sum of bytes from all buffer ranges referenced
+/// \see ReferencedBufferSize(const ArrayData& array_data) for details
+Result<int64_t> ARROW_EXPORT ReferencedBufferSize(const Table& array_data);
 
 }  // namespace util
 
