@@ -106,8 +106,8 @@ SerializedAsyncTaskGroup::SerializedAsyncTaskGroup() : on_finished_(Future<>::Ma
 Status SerializedAsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task) {
   util::Mutex::Guard guard = mutex_.Lock();
   ARROW_RETURN_NOT_OK(err_);
-  if (on_finished_.is_finished()) {
-    return Status::Invalid("Attempt to add a task after a task group has finished");
+  if (ended_) {
+    return Status::Cancelled("Ignoring task added after the task group has been ended");
   }
   tasks_.push(std::move(task));
   if (!processing_.is_valid()) {

@@ -133,21 +133,18 @@ TYPED_TEST(TypedTestAsyncTaskGroup, OnFinishedDoesNotEnd) {
 TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterDone) {
   TypeParam task_group;
   ASSERT_FINISHES_OK(task_group.End());
-  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
+  ASSERT_RAISES(Cancelled, task_group.AddTask([] { return Future<>::Make(); }));
 }
 
-TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterWaitButBeforeFinish) {
+TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterEndButBeforeFinish) {
   TypeParam task_group;
   Future<> task_one = Future<>::Make();
   ASSERT_OK(task_group.AddTask([task_one] { return task_one; }));
   Future<> finish_fut = task_group.End();
   AssertNotFinished(finish_fut);
-  Future<> task_two = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([task_two] { return task_two; }));
+  ASSERT_RAISES(Cancelled, task_group.AddTask([] { return Future<>::Make(); }));
   AssertNotFinished(finish_fut);
   task_one.MarkFinished();
-  AssertNotFinished(finish_fut);
-  task_two.MarkFinished();
   AssertFinished(finish_fut);
   ASSERT_FINISHES_OK(finish_fut);
 }
