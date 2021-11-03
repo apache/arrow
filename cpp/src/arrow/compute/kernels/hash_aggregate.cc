@@ -46,6 +46,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/int128_internal.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tdigest.h"
@@ -1796,16 +1797,21 @@ struct GroupedMinMaxImpl<Type,
     offsets[0] = 0;
     offsets++;
     const uint8_t* null_bitmap = array->buffers[0]->data();
-    int64_t total_length = 0;
+    offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (BitUtil::GetBit(null_bitmap, i)) {
-        total_length += values[i]->size();
+        if (values[i]->size() > std::numeric_limits<offset_type>::max()) {
+          return Status::Invalid("Result is too large to fit in ", *array->type,
+                                 " cast to large_ variant of type");
+        }
+        if (arrow::internal::AddWithOverflow(total_length,
+                                             static_cast<offset_type>(values[i]->size()),
+                                             &total_length)) {
+          return Status::Invalid("Result is too large to fit in ", *array->type,
+                                 " cast to large_ variant of type");
+        }
       }
-      if (total_length > std::numeric_limits<offset_type>::max()) {
-        return Status::Invalid("Result is too large to fit in ", *array->type,
-                               " cast to large_ variant of type");
-      }
-      offsets[i] = static_cast<offset_type>(total_length);
+      offsets[i] = total_length;
     }
     ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
     int64_t offset = 0;
