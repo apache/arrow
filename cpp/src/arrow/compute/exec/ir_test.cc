@@ -79,7 +79,7 @@ std::shared_ptr<Buffer> FlatbufferFromJSON(std::string root_type,
 
   std::string cmd = "flatc --binary " + FLAGS_computeir_dir + "/Plan.fbs" +
                     " --root-type org.apache.arrow.computeir.flatbuf." + root_type + " " +
-                    " -o " + dir->path().ToString() + " " + json_path;
+                    json_path;
 
   if (int err = std::system(cmd.c_str())) {
     std::cerr << cmd << " failed with error code: " << err;
