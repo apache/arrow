@@ -83,6 +83,16 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   return Status::OK();
 }
 
+Status MakeRandomInt64Array(int64_t length, bool include_nulls, MemoryPool* pool,
+                            std::shared_ptr<Array>* out, uint32_t seed) {
+  random::RandomArrayGenerator rand(seed);
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+
+  *out = rand.Int64(length, 0, 1000, null_probability);
+
+  return Status::OK();
+}
+
 namespace {
 
 template <typename ArrayType>

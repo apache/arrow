@@ -343,18 +343,6 @@ class ARROW_DS_EXPORT FileWriter {
   fs::FileLocator destination_locator_;
 };
 
-/// \brief Controls what happens if files exist in an output directory during a dataset
-/// write
-enum ExistingDataBehavior : int8_t {
-  /// Deletes all files in a directory the first time that directory is encountered
-  kDeleteMatchingPartitions,
-  /// Ignores existing files, overwriting any that happen to have the same name as an
-  /// output file
-  kOverwriteOrIgnore,
-  /// Returns an error if there are any files or subdirectories in the output directory
-  kError,
-};
-
 /// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Options for individual fragment writing.
@@ -388,7 +376,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   uint64_t max_rows_per_file = 0;
 
   /// Controls what happens if an output directory already exists.
-  ExistingDataBehavior existing_data_behavior = kError;
+  ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;
 
   /// Callback to be invoked against all FileWriters before
   /// they are finalized with FileWriter::Finish().

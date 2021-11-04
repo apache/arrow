@@ -45,6 +45,7 @@ add_arrow_test(utility-test
                async_util_test.cc
                bit_block_counter_test.cc
                bit_util_test.cc
+               byte_size_test.cc
                cache_test.cc
                checked_cast_test.cc
                compression_test.cc

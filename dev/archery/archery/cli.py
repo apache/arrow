@@ -861,7 +861,7 @@ def release_changelog_regenerate(obj):
     jira, repo = obj['jira'], obj['repo']
     changelogs = []
 
-    for version in jira.arrow_versions():
+    for version in jira.project_versions('ARROW'):
         if not version.released:
             continue
         release = Release.from_jira(version, jira=jira, repo=repo)

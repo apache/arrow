@@ -149,6 +149,7 @@ def cmake_linter(src, fix=False):
             'ci/**/*.cmake',
             'cpp/CMakeLists.txt',
             'cpp/src/**/CMakeLists.txt',
+            'cpp/examples/**/CMakeLists.txt',
             'cpp/cmake_modules/*.cmake',
             'go/**/CMakeLists.txt',
             'java/**/CMakeLists.txt',

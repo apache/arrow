@@ -338,7 +338,9 @@ Future<> MapNode::finished() { return finished_; }
 void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
                          ExecBatch batch) {
   Status status;
-  if (finished_.is_finished()) {
+  // This will be true if the node is stopped early due to an error or manual
+  // cancellation
+  if (input_counter_.Completed()) {
     return;
   }
   auto task = [this, map_fn, batch]() {
@@ -368,7 +370,9 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
       this->Finish(status);
     }
   }
-  if (!status.ok()) {
+  // If we get a cancelled status from AddTask it means this node was stopped
+  // or errored out already so we can just drop the task.
+  if (!status.ok() && !status.IsCancelled()) {
     if (input_counter_.Cancel()) {
       this->Finish(status);
     }

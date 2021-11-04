@@ -11,6 +11,7 @@ write_dataset(
   partitioning = dplyr::group_vars(dataset),
   basename_template = paste0("part-{i}.", as.character(format)),
   hive_style = TRUE,
+  existing_data_behavior = c("overwrite", "error", "delete_matching"),
   ...
 )
 }
@@ -37,6 +38,15 @@ will yield \verb{"part-0.feather", ...}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
+
+\item{existing_data_behavior}{The behavior to use when there is already data
+in the destination directory.  Must be one of overwrite, error, or
+delete_matching.  When this is set to "overwrite" (the default) then any
+new files created will overwrite existing files.  When this is set to
+"error" then the operation will fail if the destination directory is not
+empty.  When this is set to "delete_matching" then the writer will delete
+any existing partitions if data is going to be written to those partitions
+and will leave alone partitions which data is not written to.}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are

@@ -2901,6 +2901,14 @@ def test_array_supported_masks():
                        mask=pa.array([True, False, True, False]))
 
 
+@pytest.mark.pandas
+def test_array_supported_pandas_masks():
+    import pandas
+    arr = pa.array(pandas.Series([0, 1], name="a", dtype="int64"),
+                   mask=pandas.Series([True, False], dtype='bool'))
+    assert arr.to_pylist() == [None, 1]
+
+
 def test_binary_array_masked():
     # ARROW-12431
     masked_basic = pa.array([b'\x05'], type=pa.binary(1),

@@ -548,8 +548,9 @@ def test_expression_serialization():
     e = ds.scalar(None)
     f = ds.scalar({'a': 1})
     g = ds.scalar(pa.scalar(1))
+    h = ds.scalar(np.int64(2))
 
-    all_exprs = [a, b, c, d, e, f, g, a == b, a > b, a & b, a | b, ~c,
+    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  ds.field('i64') > 5, ds.field('i64') == 5,

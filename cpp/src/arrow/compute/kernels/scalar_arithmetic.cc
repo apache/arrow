@@ -1031,7 +1031,7 @@ struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
 };
 
 // Specializations of kernel state for round kernels
-template <typename>
+template <typename OptionsType>
 struct RoundOptionsWrapper;
 
 template <>
@@ -1062,10 +1062,19 @@ template <>
 struct RoundOptionsWrapper<RoundToMultipleOptions>
     : public OptionsWrapper<RoundToMultipleOptions> {
   using OptionsType = RoundToMultipleOptions;
+  using State = RoundOptionsWrapper<OptionsType>;
+  using OptionsWrapper::OptionsWrapper;
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
-    ARROW_ASSIGN_OR_RAISE(auto state, OptionsWrapper<OptionsType>::Init(ctx, args));
+    std::unique_ptr<State> state;
+    if (auto options = static_cast<const OptionsType*>(args.options)) {
+      state = ::arrow::internal::make_unique<State>(*options);
+    } else {
+      return Status::Invalid(
+          "Attempted to initialize KernelState from null FunctionOptions");
+    }
+
     auto options = Get(*state);
     const auto& type = *args.inputs[0].type;
     if (!options.multiple || !options.multiple->is_valid) {

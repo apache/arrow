@@ -261,8 +261,30 @@ result %>% collect()
 
 The `arrow` package works with most single-table `dplyr` verbs, including those
 that compute aggregates.
+
+```r
+sw %>%
+  group_by(species) %>%
+  summarise(mean_height = mean(height, na.rm = TRUE)) %>%
+  collect()
+```
+
 Additionally, equality joins (e.g. `left_join()`, `inner_join()`) are supported
-for joining multiple tables. Window functions (e.g. `ntile()`) are not yet
+for joining multiple tables. 
+
+```r
+jedi <- data.frame(
+  name = c("C-3PO", "Luke Skywalker", "Obi-Wan Kenobi"),
+  jedi = c(FALSE, TRUE, TRUE)
+)
+
+sw %>%
+  select(1:11) %>%
+  right_join(jedi) %>%
+  collect()
+```
+
+Window functions (e.g. `ntile()`) are not yet
 supported. Inside `dplyr` verbs, Arrow offers support for many functions and
 operators, with common functions mapped to their base R and tidyverse
 equivalents. The [changelog](https://arrow.apache.org/docs/r/news/index.html)
