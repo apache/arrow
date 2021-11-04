@@ -844,11 +844,6 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
-  unsigned char encrypted[256];
-  int32_t decrypted_len = gandiva::aes_encrypt(context, (unsigned char*)data, data_len,
-                                               (unsigned char*)key_data, encrypted);
-  *out_len = decrypted_len;
-
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg =
@@ -857,7 +852,15 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return nullptr;
   }
 
-  memcpy(ret, reinterpret_cast<const char*>(encrypted), *out_len);
+  try {
+    *out_len =
+        gandiva::aes_encrypt((unsigned char*)data, data_len, (unsigned char*)key_data,
+                             reinterpret_cast<unsigned char*>(ret));
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    return nullptr;
+  }
+
   return ret;
 }
 
@@ -871,11 +874,6 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
-  unsigned char decrypted[256];
-  int32_t decrypted_len = gandiva::aes_decrypt(context, (unsigned char*)data, data_len,
-                                               (unsigned char*)key_data, decrypted);
-  *out_len = decrypted_len;
-
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg =
@@ -884,7 +882,15 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return nullptr;
   }
 
-  memcpy(ret, reinterpret_cast<const char*>(decrypted), *out_len);
+  try {
+    *out_len =
+        gandiva::aes_decrypt((unsigned char*)data, data_len, (unsigned char*)key_data,
+                             reinterpret_cast<unsigned char*>(ret));
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    return nullptr;
+  }
+
   return ret;
 }
 }

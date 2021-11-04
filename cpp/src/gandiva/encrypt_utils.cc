@@ -17,32 +17,32 @@
 
 #include "encrypt_utils.h"
 
-#include "gandiva/gdv_function_stubs.h"
+#include <stdexcept>
 
 namespace gandiva {
 
-int32_t aes_encrypt(int64_t context, unsigned char* plaintext, int32_t plaintext_len,
-                    unsigned char* key, unsigned char* cipher) {
+int32_t aes_encrypt(unsigned char* plaintext, int32_t plaintext_len, unsigned char* key,
+                    unsigned char* cipher) {
   int32_t cipher_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* en_ctx = EVP_CIPHER_CTX_new();
 
   if (!en_ctx) {
-    return 0;
+    throw std::runtime_error("could not create a new evp cipher ctx for encryption");
   }
 
   if (!EVP_EncryptInit_ex(en_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
-    return 0;
+    throw std::runtime_error("could not initialize evp cipher ctx for encryption");
   }
 
   if (!EVP_EncryptUpdate(en_ctx, cipher, &len, plaintext, plaintext_len)) {
-    return 0;
+    throw std::runtime_error("could not update evp cipher ctx for encryption");
   }
 
   cipher_len += len;
 
   if (!EVP_EncryptFinal_ex(en_ctx, cipher + len, &len)) {
-    return 0;
+    throw std::runtime_error("could not finish evp cipher ctx for encryption");
   }
 
   cipher_len += len;
@@ -51,28 +51,28 @@ int32_t aes_encrypt(int64_t context, unsigned char* plaintext, int32_t plaintext
   return cipher_len;
 }
 
-int32_t aes_decrypt(int64_t context, unsigned char* ciphertext, int32_t ciphertext_len,
-                    unsigned char* key, unsigned char* plaintext) {
+int32_t aes_decrypt(unsigned char* ciphertext, int32_t ciphertext_len, unsigned char* key,
+                    unsigned char* plaintext) {
   int32_t plaintext_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* de_ctx = EVP_CIPHER_CTX_new();
 
   if (!de_ctx) {
-    return 0;
+    throw std::runtime_error("could not create a new evp cipher ctx for decryption");
   }
 
   if (!EVP_DecryptInit_ex(de_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
-    return 0;
+    throw std::runtime_error("could not initialize evp cipher ctx for decryption");
   }
 
   if (!EVP_DecryptUpdate(de_ctx, plaintext, &len, ciphertext, ciphertext_len)) {
-    return 0;
+    throw std::runtime_error("could not update evp cipher ctx for decryption");
   }
 
   plaintext_len += len;
 
   if (!EVP_DecryptFinal_ex(de_ctx, plaintext + len, &len)) {
-    return 0;
+    throw std::runtime_error("could not finish evp cipher ctx for decryption");
   }
 
   plaintext_len += len;

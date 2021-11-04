@@ -54,15 +54,28 @@ TEST_F(TestEncrypt, TestAesEncryptDecrypt) {
   auto status = Projector::Make(schema, {encrypt_expr}, configuration, &projector_en);
   ASSERT_OK(status);
 
-  // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_data =
-      MakeArrowArrayUtf8({"abc", "some words", "", "hyah\n"}, {true, true, true, true});
-  auto array_key = MakeArrowArrayUtf8({"11", "13", "15", "17"}, {true, true, true, true});
+
+  const char* key_32_bytes = "12345678abcdefgh12345678abcdefgh";
+  const char* key_64_bytes =
+      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  const char* key_128_bytes =
+      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
+      "345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  const char* key_256_bytes =
+      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
+      "345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh1234"
+      "5678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh123456"
+      "78abcdefgh";
+
+  auto array_data = MakeArrowArrayUtf8({"abc", "some words", "to be encrypted", "hyah\n"},
+                                       {true, true, true, true});
+  auto array_key =
+      MakeArrowArrayUtf8({key_32_bytes, key_64_bytes, key_128_bytes, key_256_bytes},
+                         {true, true, true, true});
 
   auto array_holder_en = MakeArrowArrayUtf8({"", "", "", ""}, {true, true, true, true});
 
-  // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_data, array_key});
 
   // Evaluate expression
@@ -73,8 +86,6 @@ TEST_F(TestEncrypt, TestAesEncryptDecrypt) {
   std::shared_ptr<Projector> projector_de;
   status = Projector::Make(schema, {decrypt_expr}, configuration, &projector_de);
   ASSERT_OK(status);
-  // Validate results
-  //  EXPECT_ARROW_ARRAY_EQUALS(exp_en, outputs_en.at(0));
 
   array_holder_en = outputs_en.at(0);
 
@@ -84,7 +95,6 @@ TEST_F(TestEncrypt, TestAesEncryptDecrypt) {
   arrow::ArrayVector outputs_de;
   status = projector_de->Evaluate(*in_batch_de, pool_, &outputs_de);
   EXPECT_TRUE(status.ok());
-  // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(array_data, outputs_de.at(0));
 }
 }  // namespace gandiva

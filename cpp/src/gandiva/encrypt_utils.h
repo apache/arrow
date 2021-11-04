@@ -20,24 +20,18 @@
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-
-#include "gandiva/visibility.h"
-
 namespace gandiva {
 
 /**
  * Encrypt data using aes algorithm
  **/
-int32_t aes_encrypt(int64_t context, unsigned char* plaintext, int32_t plaintext_len,
-                    unsigned char* key, unsigned char* cipher);
+int32_t aes_encrypt(unsigned char* plaintext, int32_t plaintext_len, unsigned char* key,
+                    unsigned char* cipher);
 
 /**
  * Decrypt data using aes algorithm
  **/
-int32_t aes_decrypt(int64_t context, unsigned char* ciphertext, int32_t ciphertext_len,
-                    unsigned char* key, unsigned char* plaintext);
+int32_t aes_decrypt(unsigned char* ciphertext, int32_t ciphertext_len, unsigned char* key,
+                    unsigned char* plaintext);
 
 }  // namespace gandiva

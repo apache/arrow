@@ -24,10 +24,10 @@ std::vector<NativeFunction> GetEncryptFunctionRegistry() {
   static std::vector<NativeFunction> encrypt_fn_registry_ = {
       NativeFunction("aes_encrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_aes_encrypt",
-                     NativeFunction::kNeedsContext),
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
       NativeFunction("aes_decrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_aes_decrypt",
-                     NativeFunction::kNeedsContext)};
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
 
   return encrypt_fn_registry_;
 }
