@@ -1608,35 +1608,31 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
 
 TEST_F(TestProjector, TestBround) {
   // schema for input fields
-  auto field0 = field("f0", arrow::float32());
+  auto field0 = field("f0", arrow::float64());
 
   auto schema_bround = arrow::schema({field0});
 
   // output fields
-  auto field_bround = field("bround", arrow::float32());
+  auto field_bround = field("bround", arrow::float64());
 
   // Build expression
-  auto bround_expr =
-      TreeExprBuilder::MakeExpression("bround", {field0},
-                                      field_bround);
+  auto bround_expr = TreeExprBuilder::MakeExpression("bround", {field0}, field_bround);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema_bround, {bround_expr},
-                                TestConfiguration(), &projector);
+  auto status =
+      Projector::Make(schema_bround, {bround_expr}, TestConfiguration(), &projector);
 
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayFloat32({0.0f, 2.5f, -3.5f, 1.499999f},
-                                   {true, true, true, true});
+  auto array0 =
+      MakeArrowArrayFloat64({0.0, 2.5, -3.5, 1.499999}, {true, true, true, true});
   // expected output
-  auto exp_bround = MakeArrowArrayFloat32({0, 2, -4, 1},
-                                           {true, true, true, true});
+  auto exp_bround = MakeArrowArrayFloat64({0, 2, -4, 1}, {true, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema_bround, num_records,
-                                           {array0});
+  auto in_batch = arrow::RecordBatch::Make(schema_bround, num_records, {array0});
 
   // Evaluate expression
   arrow::ArrayVector outputs;

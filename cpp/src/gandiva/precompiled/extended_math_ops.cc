@@ -238,23 +238,19 @@ ROUND_DECIMAL(float32)
 ROUND_DECIMAL(float64)
 
 // rounds the number to the nearest integer
-#define BROUND_DECIMAL(TYPE)                       \
-  FORCE_INLINE                                     \
-  gdv_##TYPE bround_##TYPE(gdv_##TYPE num) {       \
-    const gdv_float64 round_num = round(num);      \
-    const gdv_float64 dif_num = round_num - num;   \
-    if ((dif_num != 0.5f) && (dif_num != -0.5f)) { \
-      return static_cast<gdv_##TYPE>(round_num);   \
-    }                                              \
-    if (fmod(round_num, 2.0f) == 0.0f) {           \
-      return static_cast<gdv_##TYPE>(round_num);   \
-    }                                              \
-                                                   \
-    return static_cast<gdv_##TYPE>(num - dif_num); \
+FORCE_INLINE
+gdv_float64 bround_float64(gdv_float64 num) {
+  gdv_float64 round_num = round(num);
+  gdv_float64 diff_num = round_num - num;
+  if ((diff_num != 0.5) && (diff_num != -0.5)) {
+    return round_num;
+  }
+  if (fmod(round_num, 2.0) == 0.0) {
+    return round_num;
   }
 
-BROUND_DECIMAL(float32)
-BROUND_DECIMAL(float64)
+  return num - diff_num;
+}
 
 // rounds the number to the given scale
 #define ROUND_DECIMAL_TO_SCALE(TYPE)                                        \
@@ -270,28 +266,24 @@ ROUND_DECIMAL_TO_SCALE(float32)
 ROUND_DECIMAL_TO_SCALE(float64)
 
 // rounds the number to the given scale
-#define BROUND_DECIMAL_TO_SCALE(TYPE)                                     \
-  FORCE_INLINE                                                            \
-  gdv_##TYPE bround_##TYPE##_int32(gdv_##TYPE num, gdv_int32 out_scale) { \
-    if (out_scale < 0) {                                                  \
-      out_scale = out_scale * (-1);                                       \
-    }                                                                     \
-    gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);       \
-    const gdv_float64 to_round = num * scale_multiplier;                  \
-    const gdv_float64 round_num = round(to_round);                        \
-    const gdv_float64 dif_num = round_num - to_round;                     \
-    if ((dif_num != 0.5f) && (dif_num != -0.5f)) {                        \
-      return static_cast<gdv_##TYPE>(round_num / scale_multiplier);       \
-    }                                                                     \
-    if (fmod(round_num, 2.0f) == 0.0f) {                                  \
-      return static_cast<gdv_##TYPE>(round_num / scale_multiplier);       \
-    }                                                                     \
-                                                                          \
-    return static_cast<gdv_##TYPE>(num - (dif_num / scale_multiplier));   \
+FORCE_INLINE
+gdv_float64 bround_float64_int32(gdv_float64 num, gdv_int32 out_scale) {
+  if (out_scale < 0) {
+    out_scale = out_scale * (-1);
+  }
+  gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);
+  gdv_float64 to_round = num * scale_multiplier;
+  gdv_float64 round_num = round(to_round);
+  gdv_float64 diff_num = round_num - to_round;
+  if ((diff_num != 0.5) && (diff_num != -0.5)) {
+    return round_num / scale_multiplier;
+  }
+  if (fmod(round_num, 2.0) == 0.0) {
+    return round_num / scale_multiplier;
   }
 
-BROUND_DECIMAL_TO_SCALE(float32)
-BROUND_DECIMAL_TO_SCALE(float64)
+  return num - (diff_num / scale_multiplier);
+}
 
 FORCE_INLINE
 gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision) {
