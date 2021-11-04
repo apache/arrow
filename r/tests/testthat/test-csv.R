@@ -266,6 +266,27 @@ test_that("Mix of guessing and declaring types", {
   expect_identical(df, tbl[, c("dbl", "false", "chr")])
 })
 
+test_that("more informative error when reading a CSV with headers and schema", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  write.csv(example_data, tf, row.names = FALSE)
+
+  share_schema <- schema(
+    int = int32(),
+    dbl = float64(),
+    dbl2 = float64(),
+    lgl = boolean(),
+    false = boolean(),
+    chr = utf8(),
+    fct = utf8()
+  )
+
+  expect_error(
+    read_csv_arrow(tf, schema = share_schema),
+    "header row"
+  )
+})
 
 test_that("Write a CSV file with header", {
   tbl_out <- write_csv_arrow(tbl_no_dates, csv_file)

@@ -24,15 +24,15 @@ tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)
 
 test_that("count/tally", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       count() %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       tally() %>%
       collect(),
     tbl
@@ -40,16 +40,16 @@ test_that("count/tally", {
 })
 
 test_that("count/tally with wt and grouped data", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       count(wt = int) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       tally(wt = int) %>%
       collect(),
@@ -58,16 +58,16 @@ test_that("count/tally with wt and grouped data", {
 })
 
 test_that("count/tally with sort", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       count(wt = int, sort = TRUE) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       tally(wt = int, sort = TRUE) %>%
       collect(),
@@ -76,15 +76,15 @@ test_that("count/tally with sort", {
 })
 
 test_that("count/tally with name arg", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       count(name = "new_col") %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       tally(name = "new_col") %>%
       collect(),
     tbl

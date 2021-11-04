@@ -93,6 +93,25 @@ Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
   }
 }
 
+/* Styling to get the version dropdown and search box side-by-side on wide screens */
+
+#version-search-wrapper {
+  overflow: hidden;
+  width: inherit;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: left;
+  align-items: center;
+}
+
+#version-button {
+  padding-left: 0.5rem;
+  padding-right: 1rem;
+}
+
+#search-box {
+  flex: 1 0 12em;
+}
 
 /* Fix table text wrapping in RTD theme,
  * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html

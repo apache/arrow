@@ -33,7 +33,7 @@ on:
       - 'go/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -244,7 +244,7 @@ jobs:
           #- 32 runtime handling for CGO needs 64-bit currently
           - 64
     env:
-      ARROW_GO_TESTCGO: "1"            
+      ARROW_GO_TESTCGO: "1"
     steps:
       - name: Disable Crash Dialogs
         run: |

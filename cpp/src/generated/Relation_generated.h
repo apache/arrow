@@ -1095,7 +1095,8 @@ struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_ID = 4,
     VT_NAME = 6,
     VT_FILTER = 8,
-    VT_SCHEMA = 10
+    VT_SCHEMA = 10,
+    VT_PROJECTION = 12
   };
   /// An identifiier for the relation. The identifier should be unique over the
   /// entire plan. Optional.
@@ -1114,8 +1115,20 @@ struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Expression *filter() const {
     return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_FILTER);
   }
+  /// Schemas are explicitly optional
   const org::apache::arrow::flatbuf::Schema *schema() const {
     return GetPointer<const org::apache::arrow::flatbuf::Schema *>(VT_SCHEMA);
+  }
+  /// An optional list of field indices indicating which columns should be read
+  /// from the source. Columns excluded from this listing will instead be replaced
+  /// with all-null placeholders to guarantee that the schema of the source is
+  /// unaffected by this projection.
+  ///
+  /// A missing value indicates all columns should be read.
+  ///
+  /// The behavior of an empty list is undefined.
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *projection() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *>(VT_PROJECTION);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1125,8 +1138,11 @@ struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyString(name()) &&
            VerifyOffset(verifier, VT_FILTER) &&
            verifier.VerifyTable(filter()) &&
-           VerifyOffsetRequired(verifier, VT_SCHEMA) &&
+           VerifyOffset(verifier, VT_SCHEMA) &&
            verifier.VerifyTable(schema()) &&
+           VerifyOffset(verifier, VT_PROJECTION) &&
+           verifier.VerifyVector(projection()) &&
+           verifier.VerifyVectorOfTables(projection()) &&
            verifier.EndTable();
   }
 };
@@ -1147,6 +1163,9 @@ struct SourceBuilder {
   void add_schema(flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema) {
     fbb_.AddOffset(Source::VT_SCHEMA, schema);
   }
+  void add_projection(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> projection) {
+    fbb_.AddOffset(Source::VT_PROJECTION, projection);
+  }
   explicit SourceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1156,7 +1175,6 @@ struct SourceBuilder {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Source>(end);
     fbb_.Required(o, Source::VT_NAME);
-    fbb_.Required(o, Source::VT_SCHEMA);
     return o;
   }
 };
@@ -1166,8 +1184,10 @@ inline flatbuffers::Offset<Source> CreateSource(
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<flatbuffers::String> name = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> projection = 0) {
   SourceBuilder builder_(_fbb);
+  builder_.add_projection(projection);
   builder_.add_schema(schema);
   builder_.add_filter(filter);
   builder_.add_name(name);
@@ -1180,14 +1200,17 @@ inline flatbuffers::Offset<Source> CreateSourceDirect(
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     const char *name = nullptr,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *projection = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto projection__ = projection ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>(*projection) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateSource(
       _fbb,
       id,
       name__,
       filter,
-      schema);
+      schema,
+      projection__);
 }
 
 /// A table holding an instance of the possible relation types.

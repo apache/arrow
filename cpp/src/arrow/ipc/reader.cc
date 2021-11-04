@@ -36,6 +36,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
+#include "arrow/ipc/reader_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
@@ -967,8 +968,9 @@ static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock{block->offset(), block->metaDataLength(), block->bodyLength()};
 }
 
-static Result<std::unique_ptr<Message>> ReadMessageFromBlock(const FileBlock& block,
-                                                             io::RandomAccessFile* file) {
+static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
+    const FileBlock& block, io::RandomAccessFile* file,
+    const FieldsLoaderFunction& fields_loader) {
   if (!BitUtil::IsMultipleOf8(block.offset) ||
       !BitUtil::IsMultipleOf8(block.metadata_length) ||
       !BitUtil::IsMultipleOf8(block.body_length)) {
@@ -978,8 +980,8 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(const FileBlock& bl
   // TODO(wesm): this breaks integration tests, see ARROW-3256
   // DCHECK_EQ((*out)->body_length(), block.body_length);
 
-  ARROW_ASSIGN_OR_RAISE(auto message,
-                        ReadMessage(block.offset, block.metadata_length, file));
+  ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
+                                                  file, fields_loader));
   return std::move(message);
 }
 
@@ -1061,6 +1063,31 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     return internal::GetMetadataVersion(footer_->version());
   }
 
+  static Status LoadFieldsSubset(const flatbuf::RecordBatch* metadata,
+                                 const IpcReadOptions& options,
+                                 io::RandomAccessFile* file,
+                                 const std::shared_ptr<Schema>& schema,
+                                 const std::vector<bool>* inclusion_mask,
+                                 MetadataVersion metadata_version = MetadataVersion::V5) {
+    ArrayLoader loader(metadata, metadata_version, options, file);
+    for (int i = 0; i < schema->num_fields(); ++i) {
+      const Field& field = *schema->field(i);
+      if (!inclusion_mask || (*inclusion_mask)[i]) {
+        // Read field
+        ArrayData column;
+        RETURN_NOT_OK(loader.Load(&field, &column));
+        if (metadata->length() != column.length) {
+          return Status::IOError("Array length did not match record batch length");
+        }
+      } else {
+        // Skip field. This logic must be executed to advance the state of the
+        // loader to the next field
+        RETURN_NOT_OK(loader.SkipField(&field));
+      }
+    }
+    return Status::OK();
+  }
+
   Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) override {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, num_record_batches());
@@ -1070,7 +1097,19 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       read_dictionaries_ = true;
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto message, ReadMessageFromBlock(GetRecordBatchBlock(i)));
+    FieldsLoaderFunction fields_loader = {};
+    if (!field_inclusion_mask_.empty()) {
+      auto& schema = schema_;
+      auto& inclusion_mask = field_inclusion_mask_;
+      auto& read_options = options_;
+      fields_loader = [schema, inclusion_mask, read_options](const void* metadata,
+                                                             io::RandomAccessFile* file) {
+        return LoadFieldsSubset(static_cast<const flatbuf::RecordBatch*>(metadata),
+                                read_options, file, schema, &inclusion_mask);
+      };
+    }
+    ARROW_ASSIGN_OR_RAISE(auto message,
+                          ReadMessageFromBlock(GetRecordBatchBlock(i), fields_loader));
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
@@ -1193,8 +1232,10 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
   }
 
-  Result<std::unique_ptr<Message>> ReadMessageFromBlock(const FileBlock& block) {
-    ARROW_ASSIGN_OR_RAISE(auto message, arrow::ipc::ReadMessageFromBlock(block, file_));
+  Result<std::unique_ptr<Message>> ReadMessageFromBlock(
+      const FileBlock& block, const FieldsLoaderFunction& fields_loader = {}) {
+    ARROW_ASSIGN_OR_RAISE(auto message,
+                          arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
     ++stats_.num_messages;
     return std::move(message);
   }
@@ -1529,7 +1570,6 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   }
 
   Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
-    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     if (message->type() == MessageType::DICTIONARY_BATCH) {
       return ReadDictionary(*message);
     } else {
@@ -2088,6 +2128,67 @@ Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {
   }
 
   return Status::OK();
+}
+
+Result<int64_t> IoRecordedRandomAccessFile::GetSize() { return file_size_; }
+
+Result<int64_t> IoRecordedRandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
+                                                   void* out) {
+  auto num_bytes_read = std::min(file_size_, position + nbytes) - position;
+
+  if (!read_ranges_.empty() &&
+      position == read_ranges_.back().offset + read_ranges_.back().length) {
+    // merge continuous IOs into one if possible
+    read_ranges_.back().length += num_bytes_read;
+  } else {
+    // no real IO is performed, it is only saved into a vector for replaying later
+    read_ranges_.emplace_back(io::ReadRange{position, num_bytes_read});
+  }
+  return num_bytes_read;
+}
+
+Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::ReadAt(int64_t position,
+                                                                   int64_t nbytes) {
+  std::shared_ptr<Buffer> out;
+  auto result = ReadAt(position, nbytes, &out);
+  return out;
+}
+
+Status IoRecordedRandomAccessFile::Close() {
+  closed_ = true;
+  return Status::OK();
+}
+
+Status IoRecordedRandomAccessFile::Abort() { return Status::OK(); }
+
+Result<int64_t> IoRecordedRandomAccessFile::Tell() const { return position_; }
+
+bool IoRecordedRandomAccessFile::closed() const { return closed_; }
+
+Status IoRecordedRandomAccessFile::Seek(int64_t position) {
+  position_ = position;
+  return Status::OK();
+}
+
+Result<int64_t> IoRecordedRandomAccessFile::Read(int64_t nbytes, void* out) {
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadAt(position_, nbytes, out));
+  position_ += bytes_read;
+  return bytes_read;
+}
+
+Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::Read(int64_t nbytes) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, ReadAt(position_, nbytes));
+  auto num_bytes_read = std::min(file_size_, position_ + nbytes) - position_;
+  position_ += num_bytes_read;
+  return std::move(buffer);
+}
+
+const io::IOContext& IoRecordedRandomAccessFile::io_context() const {
+  return io_context_;
+}
+
+const std::vector<io::ReadRange>& IoRecordedRandomAccessFile::GetReadRanges() const {
+  return read_ranges_;
 }
 
 }  // namespace internal
