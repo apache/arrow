@@ -1128,11 +1128,11 @@ Categorizations
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
 | Function name     | Arity      | Input types             | Output type         | Options class          | Notes   |
 +===================+============+=========================+=====================+========================+=========+
-| is_finite         | Unary      | Float32/Float64/Decimal | Boolean             |                        | \(1)    |
+| is_finite         | Unary      | Null, Numeric           | Boolean             |                        | \(1)    |
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
-| is_inf            | Unary      | Float32/Float64/Decimal | Boolean             |                        | \(2)    |
+| is_inf            | Unary      | Null, Numeric           | Boolean             |                        | \(2)    |
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
-| is_nan            | Unary      | Float32/Float64/Decimal | Boolean             |                        | \(3)    |
+| is_nan            | Unary      | Null, Numeric           | Boolean             |                        | \(3)    |
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
 | is_null           | Unary      | Any                     | Boolean             | :struct:`NullOptions`  | \(4)    |
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
@@ -1140,13 +1140,13 @@ Categorizations
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
 
 * \(1) Output is true iff the corresponding input element is finite (neither Infinity,
-  -Infinity, nor NaN). Hence, for Decimal inputs this always returns true.
+  -Infinity, nor NaN). Hence, for Decimal and integer inputs this always returns true.
 
 * \(2) Output is true iff the corresponding input element is Infinity/-Infinity.
-  Hence, for Decimal inputs this always returns false.
+  Hence, for Decimal and integer inputs this always returns false.
 
 * \(3) Output is true iff the corresponding input element is NaN.
-  Hence, for Decimal inputs this always returns false.
+  Hence, for Decimal and integer inputs this always returns false.
 
 * \(4) Output is true iff the corresponding input element is null. NaN values
   can also be considered null by setting :member:`NullOptions::nan_is_null`.

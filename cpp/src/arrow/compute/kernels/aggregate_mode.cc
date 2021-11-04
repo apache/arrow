@@ -383,45 +383,33 @@ struct ModeExecutor {
   }
 };
 
-VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type) {
-  VectorKernel kernel;
-  kernel.init = ModeState::Init;
-  kernel.can_execute_chunkwise = false;
-  kernel.output_chunked = false;
-  auto out_type =
-      struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
-  kernel.signature =
-      KernelSignature::Make({InputType(in_type)}, ValueDescr::Array(out_type));
-  return kernel;
-}
-
 Result<ValueDescr> ModeType(KernelContext*, const std::vector<ValueDescr>& descrs) {
   return ValueDescr::Array(
       struct_({field(kModeFieldName, descrs[0].type), field(kCountFieldName, int64())}));
 }
 
-VectorKernel NewModeKernel(Type::type type_id, ArrayKernelExec exec) {
+VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type,
+                           ArrayKernelExec exec) {
   VectorKernel kernel;
   kernel.init = ModeState::Init;
   kernel.can_execute_chunkwise = false;
   kernel.output_chunked = false;
-  kernel.signature = KernelSignature::Make({InputType(type_id)}, OutputType(ModeType));
+  switch (in_type->id()) {
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
+      kernel.signature =
+          KernelSignature::Make({InputType(in_type->id())}, OutputType(ModeType));
+      break;
+    default: {
+      auto out_type =
+          struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
+      kernel.signature = KernelSignature::Make({InputType(in_type->id())},
+                                               ValueDescr::Array(std::move(out_type)));
+      break;
+    }
+  }
   kernel.exec = std::move(exec);
   return kernel;
-}
-
-void AddBooleanModeKernel(VectorFunction* func) {
-  VectorKernel kernel = NewModeKernel(boolean());
-  kernel.exec = ModeExecutor<StructType, BooleanType>::Exec;
-  DCHECK_OK(func->AddKernel(kernel));
-}
-
-void AddNumericModeKernels(VectorFunction* func) {
-  for (const auto& type : NumericTypes()) {
-    VectorKernel kernel = NewModeKernel(type);
-    kernel.exec = GenerateNumeric<ModeExecutor, StructType>(*type);
-    DCHECK_OK(func->AddKernel(kernel));
-  }
 }
 
 const FunctionDoc mode_doc{
@@ -441,12 +429,17 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
   static auto default_options = ModeOptions::Defaults();
   auto func = std::make_shared<VectorFunction>("mode", Arity::Unary(), &mode_doc,
                                                &default_options);
-  AddBooleanModeKernel(func.get());
-  AddNumericModeKernels(func.get());
   DCHECK_OK(func->AddKernel(
-      NewModeKernel(Type::DECIMAL128, ModeExecutor<StructType, Decimal128Type>::Exec)));
+      NewModeKernel(boolean(), ModeExecutor<StructType, BooleanType>::Exec)));
+  for (const auto& type : NumericTypes()) {
+    DCHECK_OK(func->AddKernel(
+        NewModeKernel(type, GenerateNumeric<ModeExecutor, StructType>(*type))));
+  }
+  // Type parameters are ignored
   DCHECK_OK(func->AddKernel(
-      NewModeKernel(Type::DECIMAL256, ModeExecutor<StructType, Decimal256Type>::Exec)));
+      NewModeKernel(decimal128(1, 0), ModeExecutor<StructType, Decimal128Type>::Exec)));
+  DCHECK_OK(func->AddKernel(
+      NewModeKernel(decimal256(1, 0), ModeExecutor<StructType, Decimal256Type>::Exec)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
