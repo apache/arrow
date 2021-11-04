@@ -75,7 +75,10 @@ struct ValidateArrayImpl {
 
   Status Visit(const LargeListType& type) { return ValidateListLike(type); }
 
-  Status Visit(const MapType& type) { return ValidateListLike(type); }
+  Status Visit(const MapType& type) {
+    RETURN_NOT_OK(ValidateListLike(type));
+    return MapArray::ValidateChildData(data.child_data);
+  }
 
   Status Visit(const FixedSizeListType& type) {
     const ArrayData& values = *data.child_data[0];
