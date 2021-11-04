@@ -434,7 +434,7 @@ class FloatingPointField(PrimitiveField):
 def decimal_range_from_precision(precision):
     assert 1 <= precision <= 76
     max_value = (10 ** precision) - 1
-    return ~max_value, max_value
+    return -max_value, max_value
 
 
 class DecimalField(PrimitiveField):

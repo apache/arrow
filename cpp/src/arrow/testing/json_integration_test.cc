@@ -54,9 +54,10 @@ DEFINE_string(
     "Mode of integration testing tool (ARROW_TO_JSON, JSON_TO_ARROW, VALIDATE)");
 DEFINE_bool(integration, false, "Run in integration test mode");
 DEFINE_bool(verbose, true, "Verbose output");
-DEFINE_bool(no_decimal_validate, false,
-            "Do not validate decimal values (ARROW-13558: 'golden' test data from "
-            "previous versions may have out-of-range decimal values)");
+DEFINE_bool(
+    validate_decimals, true,
+    "Validate that decimal values are in range for the given precision (ARROW-13558: "
+    "'golden' test data from previous versions may have out-of-range decimal values)");
 
 namespace arrow {
 
@@ -123,19 +124,20 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   return out_file->Write(result.c_str(), static_cast<int64_t>(result.size()));
 }
 
-// Validate the batch, accounting for the -no_decimal_validate flag
+// Validate the batch, accounting for the -validate_decimals flag
 static Status ValidateFull(const RecordBatch& batch) {
-  if (FLAGS_no_decimal_validate) {
-    RETURN_NOT_OK(batch.Validate());
-    for (const auto& column : batch.columns()) {
-      if (is_decimal(column->type()->id())) {
-        continue;
-      }
-      RETURN_NOT_OK(column->ValidateFull());
-    }
-    return Status::OK();
+  if (FLAGS_validate_decimals) {
+    return batch.ValidateFull();
   }
-  return batch.ValidateFull();
+  // Decimal validation disabled, so individually validate columns
+  RETURN_NOT_OK(batch.Validate());
+  for (const auto& column : batch.columns()) {
+    if (is_decimal(column->type()->id())) {
+      continue;
+    }
+    RETURN_NOT_OK(column->ValidateFull());
+  }
+  return Status::OK();
 }
 
 static Status ValidateArrowVsJson(const std::string& arrow_path,

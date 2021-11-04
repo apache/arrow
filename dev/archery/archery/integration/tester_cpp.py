@@ -59,7 +59,7 @@ class CPPTester(Tester):
 
         if quirks:
             if "no_decimal_validate" in quirks:
-                cmd.append("--no_decimal_validate")
+                cmd.append("--validate_decimals=false")
 
         if self.debug:
             log(' '.join(cmd))

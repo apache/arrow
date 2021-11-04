@@ -82,20 +82,6 @@ std::string random_string(int64_t n, uint32_t seed) {
   return s;
 }
 
-void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
-  auto gen = random::RandomArrayGenerator(seed);
-  std::shared_ptr<Array> decimals;
-  int32_t byte_width = 0;
-  if (precision <= Decimal128Type::kMaxPrecision) {
-    decimals = gen.Decimal128(decimal128(precision, 0), n);
-    byte_width = Decimal128Type::kByteWidth;
-  } else {
-    decimals = gen.Decimal256(decimal256(precision, 0), n);
-    byte_width = Decimal256Type::kByteWidth;
-  }
-  std::memcpy(out, decimals->data()->GetValues<uint8_t>(1, 0), byte_width * n);
-}
-
 void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
 }

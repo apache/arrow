@@ -150,6 +150,8 @@ class IntegrationRunner(object):
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',
                           '1.0.0-bigendian', '1.0.0-littleendian'}:
+                # ARROW-13558: older versions generated decimal values that
+                # were out of range for the given precision.
                 quirks.add("no_decimal_validate")
 
             yield datagen.File(name, None, None, skip=skip, path=out_path,
