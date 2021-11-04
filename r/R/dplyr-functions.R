@@ -846,12 +846,12 @@ nse_funcs$wday <- function(x,
 
 nse_funcs$is.Date <- function(x) {
   inherits(x, "Date") ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32")])
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
 }
 
 nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
   inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32")])
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
 }
 
 nse_funcs$is.POSIXct <- function(x) {
