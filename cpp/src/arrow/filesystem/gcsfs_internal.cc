@@ -21,6 +21,7 @@
 #include <google/cloud/storage/client.h>
 
 #include <sstream>
+#include <unordered_map>
 
 #include "arrow/util/key_value_metadata.h"
 
@@ -67,7 +68,7 @@ Status ToArrowStatus(const google::cloud::Status& s) {
 
 namespace gcs = ::google::cloud::storage;
 
-Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
+Result<gcs::EncryptionKey> ToEncryptionKey(
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
   if (!metadata) {
     return gcs::EncryptionKey{};
@@ -126,28 +127,28 @@ Result<gcs::WithObjectMetadata> ToObjectMetadata(
 
   static auto const setters = [] {
     using setter = std::function<Status(gcs::ObjectMetadata&, const std::string&)>;
-    return std::map<std::string, setter>{
-        {"cacheControl",
+    return std::unordered_map<std::string, setter>{
+        {"Cache-Control",
          [](gcs::ObjectMetadata& m, const std::string& v) {
            m.set_cache_control(v);
            return Status::OK();
          }},
-        {"contentDisposition",
+        {"Content-Disposition",
          [](gcs::ObjectMetadata& m, const std::string& v) {
            m.set_content_disposition(v);
            return Status::OK();
          }},
-        {"contentEncoding",
+        {"Content-Encoding",
          [](gcs::ObjectMetadata& m, const std::string& v) {
            m.set_content_encoding(v);
            return Status::OK();
          }},
-        {"contentLanguage",
+        {"Content-Language",
          [](gcs::ObjectMetadata& m, const std::string& v) {
            m.set_content_language(v);
            return Status::OK();
          }},
-        {"contentType",
+        {"Content-Type",
          [](gcs::ObjectMetadata& m, const std::string& v) {
            m.set_content_type(v);
            return Status::OK();

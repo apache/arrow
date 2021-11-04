@@ -25,6 +25,8 @@
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 
+#define ARROW_GCS_RETURN_NOT_OK(expr) if (!expr.ok()) return internal::ToArrowStatus(expr)
+
 namespace arrow {
 namespace fs {
 namespace {
@@ -90,18 +92,14 @@ class GcsInputStream : public arrow::io::InputStream {
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
     stream_.read(static_cast<char*>(out), nbytes);
-    if (!stream_.status().ok()) {
-      return internal::ToArrowStatus(stream_.status());
-    }
+    ARROW_GCS_RETURN_NOT_OK(stream_.status());
     return stream_.gcount();
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateResizableBuffer(nbytes));
     stream_.read(reinterpret_cast<char*>(buffer->mutable_data()), nbytes);
-    if (!stream_.status().ok()) {
-      return internal::ToArrowStatus(stream_.status());
-    }
+    ARROW_GCS_RETURN_NOT_OK(stream_.status());
     RETURN_NOT_OK(buffer->Resize(stream_.gcount(), true));
     return buffer;
   }
@@ -131,6 +129,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
 
   Status Write(const void* data, int64_t nbytes) override {
     if (stream_.write(reinterpret_cast<const char*>(data), nbytes)) {
+      tell_ += nbytes;
       return Status::OK();
     }
     return internal::ToArrowStatus(stream_.last_status());
@@ -184,9 +183,7 @@ class GcsFileSystem::Impl {
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const GcsPath& path) {
     auto stream = client_.ReadObject(path.bucket, path.object);
-    if (!stream.status().ok()) {
-      return internal::ToArrowStatus(stream.status());
-    }
+    ARROW_GCS_RETURN_NOT_OK(stream.status());
     return std::make_shared<GcsInputStream>(std::move(stream));
   }
 
@@ -203,9 +200,7 @@ class GcsFileSystem::Impl {
 
     auto stream = client_.WriteObject(path.bucket, path.object, encryption_key,
                                       predefined_acl, kms_key_name, with_object_metadata);
-    if (!stream.last_status().ok()) {
-      return internal::ToArrowStatus(stream.last_status());
-    }
+    ARROW_GCS_RETURN_NOT_OK(stream.last_status());
     return std::make_shared<GcsOutputStream>(std::move(stream));
   }
 

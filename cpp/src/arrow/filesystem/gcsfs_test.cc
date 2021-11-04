@@ -188,11 +188,11 @@ TEST(GcsFileSystem, FileSystemCompare) {
 
 std::shared_ptr<const KeyValueMetadata> KeyValueMetadataForTest() {
   return arrow::key_value_metadata({
-      {"cacheControl", "test-only-cache-control"},
-      {"contentDisposition", "test-only-content-disposition"},
-      {"contentEncoding", "test-only-content-encoding"},
-      {"contentLanguage", "test-only-content-language"},
-      {"contentType", "test-only-content-type"},
+      {"Cache-Control", "test-only-cache-control"},
+      {"Content-Disposition", "test-only-content-disposition"},
+      {"Content-Encoding", "test-only-content-encoding"},
+      {"Content-Language", "test-only-content-language"},
+      {"Content-Type", "test-only-content-type"},
       {"customTime", "2021-10-26T01:02:03.456Z"},
       {"storageClass", "test-only-storage-class"},
       {"key", "test-only-value"},
@@ -379,12 +379,19 @@ TEST_F(GcsIntegrationTest, WriteObjectLarge) {
   const auto path = kPreexistingBucket + std::string("/test-write-object");
   std::shared_ptr<io::OutputStream> output;
   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
-  const auto b0 = std::string(512 * 1024, 'A');
-  const auto b1 = std::string(768 * 1024, 'B');
-  const auto b2 = std::string(1024 * 1024, 'C');
-  ASSERT_OK(output->Write(b0.data(), b0.size()));
-  ASSERT_OK(output->Write(b1.data(), b1.size()));
-  ASSERT_OK(output->Write(b2.data(), b2.size()));
+  // These buffer sizes are intentionally not multiples of the upload quantum (256 KiB).
+  std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
+  std::array<std::string, 3> buffers{
+      std::string(sizes[0], 'A'),
+      std::string(sizes[1], 'B'),
+      std::string(sizes[2], 'C'),
+  };
+  auto expected = std::int64_t{0};
+  for (auto i = 0; i != 3; ++i) {
+    ASSERT_OK(output->Write(buffers[i].data(), buffers[i].size()));
+    expected += sizes[i];
+    ASSERT_EQ(output->Tell(), expected);
+  }
   ASSERT_OK(output->Close());
 
   // Verify we can read the object back.
@@ -395,10 +402,11 @@ TEST_F(GcsIntegrationTest, WriteObjectLarge) {
   std::shared_ptr<Buffer> buffer;
   do {
     ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
+    ASSERT_TRUE(buffer);
     contents.append(buffer->ToString());
-  } while (buffer && buffer->size() != 0);
+  } while (buffer->size() != 0);
 
-  EXPECT_EQ(contents, b0 + b1 + b2);
+  EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
 }
 
 }  // namespace
