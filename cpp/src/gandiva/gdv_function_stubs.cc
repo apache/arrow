@@ -796,44 +796,17 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
-                                  int32_t separator_len, const char* data,
-                                  int32_t data_len, int32_t* out_len) {
-  if (data_len <= 0) {
-    gdv_fn_context_set_error_msg(context, "Data can not be null.");
+const char* gdv_fn_concat_ws_utf8_utf8(int64_t context, const char* separator,
+                                       int32_t separator_len, const char* word1,
+                                       int32_t word1_len, const char* word2,
+                                       int32_t word2_len, int32_t* out_len) {
+  if (word1_len <= 0 && word2_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
     *out_len = 0;
     return "";
   }
 
-  std::string concat = "";
-  std::string data_str(data, data_len);
-  std::string sep(separator, separator_len);
-
-  size_t pos_str = 0;
-  std::string token;
-  while ((pos_str = data_str.find(',')) != std::string::npos) {
-    token = data_str.substr(0, pos_str);
-    token.erase(std::remove(token.begin(),token.end(),' '),token.end());
-    concat.append(token);
-    concat.append(sep);
-    data_str.erase(0, pos_str + 1);
-  }
-
-  //Get last word to be concatenated
-  data_str.erase(std::remove(data_str.begin(),data_str.end(),' '),data_str.end());
-  concat.append(data_str);
-  concat.append(sep);
-
-  std::string result = "";
-  if (separator_len > 0) {
-    result = concat.substr(0, concat.size()-separator_len);
-  }
-
-  if (separator_len == 0) {
-    result = concat;
-  }
-
-  *out_len = static_cast<int32_t>(result.length());
+  *out_len = word1_len + separator_len + word2_len;
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -841,7 +814,110 @@ const char* gdv_fn_concat_ws_utf8(int64_t context, const char* separator,
     return "";
   }
 
-  memcpy(out, result.c_str(), *out_len);
+  strncpy(out, word1, word1_len);
+  out[word1_len] = '\0';
+  strncat(out, separator, separator_len);
+  strncat(out, word2, word2_len);
+
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_concat_ws_utf8_utf8_utf8(int64_t context, const char* separator,
+                                            int32_t separator_len, const char* word1,
+                                            int32_t word1_len, const char* word2,
+                                            int32_t word2_len, const char* word3,
+                                            int32_t word3_len, int32_t* out_len) {
+  if (word1_len <= 0 && word2_len <= 0 && word3_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = word1_len + word2_len + word3_len + (2 * separator_len);
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  strncpy(out, word1, word1_len);
+  out[word1_len] = '\0';
+  strncat(out, separator, separator_len);
+  strncat(out, word2, word2_len);
+  strncat(out, separator, separator_len);
+  strncat(out, word3, word3_len);
+
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                                 int32_t separator_len, const char* word1,
+                                                 int32_t word1_len, const char* word2,
+                                                 int32_t word2_len, const char* word3,
+                                                 int32_t word3_len, const char* word4,
+                                                 int32_t word4_len, int32_t* out_len) {
+  if (word1_len <= 0 && word2_len <= 0 && word3_len <= 0 && word4_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = word1_len + word2_len + word3_len + word4_len + (3 * separator_len);
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  strncpy(out, word1, word1_len);
+  out[word1_len] = '\0';
+  strncat(out, separator, separator_len);
+  strncat(out, word2, word2_len);
+  strncat(out, separator, separator_len);
+  strncat(out, word3, word3_len);
+  strncat(out, separator, separator_len);
+  strncat(out, word4, word4_len);
+
+  return out;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len, const char* word1,
+    int32_t word1_len, const char* word2, int32_t word2_len, const char* word3,
+    int32_t word3_len, const char* word4, int32_t word4_len, const char* word5,
+    int32_t word5_len, int32_t* out_len) {
+  if (word1_len <= 0 && word2_len <= 0 && word3_len <= 0 && word4_len <= 0 &&
+      word5_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len =
+      word1_len + word2_len + word3_len + word4_len + word5_len + (4 * separator_len);
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  strncpy(out, word1, word1_len);
+  out[word1_len] = '\0';
+  strncat(out, separator, separator_len);
+  strncat(out, word2, word2_len);
+  strncat(out, separator, separator_len);
+  strncat(out, word3, word3_len);
+  strncat(out, separator, separator_len);
+  strncat(out, word4, word4_len);
+  strncat(out, separator, separator_len);
+  strncat(out, word5, word5_len);
+
   return out;
 }
 }
@@ -1650,18 +1726,80 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
 
-  // gdv_fn_concat_ws_utf8
+  // gdv_fn_concat_ws_utf8_utf8
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // separator
       types->i32_type(),     // separator_len
-      types->i8_ptr_type(),  // data
-      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // word1
+      types->i32_type(),     // word1_len
+      types->i8_ptr_type(),  // word2
+      types->i32_type(),     // word2_len
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_concat_ws_utf8",
+  engine->AddGlobalMappingForFunc("gdv_fn_concat_ws_utf8_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_concat_ws_utf8));
+                                  reinterpret_cast<void*>(gdv_fn_concat_ws_utf8_utf8));
+
+  // gdv_fn_concat_ws_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // separator
+      types->i32_type(),     // separator_len
+      types->i8_ptr_type(),  // word1
+      types->i32_type(),     // word1_len
+      types->i8_ptr_type(),  // word2
+      types->i32_type(),     // word2_len
+      types->i8_ptr_type(),  // word3
+      types->i32_type(),     // word3_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_concat_ws_utf8_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_concat_ws_utf8_utf8_utf8));
+
+  // gdv_fn_concat_ws_utf8_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // separator
+      types->i32_type(),     // separator_len
+      types->i8_ptr_type(),  // word1
+      types->i32_type(),     // word1_len
+      types->i8_ptr_type(),  // word2
+      types->i32_type(),     // word2_len
+      types->i8_ptr_type(),  // word3
+      types->i32_type(),     // word3_len
+      types->i8_ptr_type(),  // word4
+      types->i32_type(),     // word4_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_concat_ws_utf8_utf8_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_concat_ws_utf8_utf8_utf8_utf8));
+
+  // gdv_fn_concat_ws_utf8_utf8_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // separator
+      types->i32_type(),     // separator_len
+      types->i8_ptr_type(),  // word1
+      types->i32_type(),     // word1_len
+      types->i8_ptr_type(),  // word2
+      types->i32_type(),     // word2_len
+      types->i8_ptr_type(),  // word3
+      types->i32_type(),     // word3_len
+      types->i8_ptr_type(),  // word4
+      types->i32_type(),     // word4_len
+      types->i8_ptr_type(),  // word5
+      types->i32_type(),     // word5_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_concat_ws_utf8_utf8_utf8_utf8_utf8", types->i8_ptr_type() /*return_type*/,
+      args, reinterpret_cast<void*>(gdv_fn_concat_ws_utf8_utf8_utf8_utf8_utf8));
 }
 }  // namespace gandiva
