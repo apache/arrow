@@ -200,10 +200,20 @@ write_parquet <- function(x,
   # determine an approximate chunk size
   if (is.null(chunk_size)) {
     num_cells <- x$num_rows * x$num_columns
-    # no more than 1 million cells (rows * cols) per group
-    proposed_chunks <- x$num_rows / (num_cells / 2.5e8)
-    # but chunks are no larger than rows (e.g. if we have less than a million cells)
-    chunk_size <- min(proposed_chunks, x$num_rows)
+    target_cells_per_group <- getOption("arrow.parquet_cells_per_group", 2.5e8)
+
+    if (num_cells < target_cells_per_group) {
+      # If the total number of cells is less than the 2.5 million, we want one group
+      num_chunks <- 1
+    } else {
+      # no more than 2.5 million cells (rows * cols) per group
+      num_chunks <- num_cells / target_cells_per_group
+    }
+
+    # but there are no more than 200 chunks
+    num_chunks <- min(num_chunks, getOption("arrow.parquet_max_chunks", 200))
+
+    chunk_size <- x$num_rows / num_chunks
   }
 
   writer$WriteTable(x, chunk_size = chunk_size)
