@@ -324,6 +324,12 @@ def test_timestamp_no_overflow():
         assert s.as_py() == ts
 
 
+def test_timestamp_fixed_offset_print():
+    # ARROW-13896
+    arr = pa.array([0], pa.timestamp('s', tz='+02:00'))
+    assert str(arr[0]) == "1970-01-01 02:00:00+02:00"
+
+
 def test_duration():
     arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
 
