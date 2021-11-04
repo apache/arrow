@@ -80,7 +80,8 @@ struct ListParentIndicesArray {
     using offset_type = typename FixedSizeListType::offset_type;
     const offset_type slot_length = type.list_size();
     const int64_t values_length = slot_length * (input->length - input->GetNullCount());
-    ARROW_ASSIGN_OR_RAISE(auto indices, ctx->Allocate(values_length * sizeof(int32_t)));
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          ctx->Allocate(values_length * sizeof(offset_type)));
     auto* out_indices = reinterpret_cast<offset_type*>(indices->mutable_data());
     const auto* bitmap = input->GetValues<uint8_t>(0, 0);
     for (int32_t i = 0; i < input->length; i++) {
@@ -90,7 +91,7 @@ struct ListParentIndicesArray {
         out_indices += slot_length;
       }
     }
-    out = ArrayData::Make(int32(), values_length, {nullptr, std::move(indices)},
+    out = ArrayData::Make(int64(), values_length, {nullptr, std::move(indices)},
                           /*null_count=*/0);
     return Status::OK();
   }
@@ -113,8 +114,8 @@ struct ListParentIndicesArray {
 Result<std::shared_ptr<DataType>> ListParentIndicesType(const DataType& input_type) {
   switch (input_type.id()) {
     case Type::LIST:
-    case Type::FIXED_SIZE_LIST:
       return int32();
+    case Type::FIXED_SIZE_LIST:
     case Type::LARGE_LIST:
       return int64();
     default:
