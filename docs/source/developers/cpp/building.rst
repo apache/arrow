@@ -278,6 +278,11 @@ environment variable (which requires the `locales` package or equivalent):
 
    $ export LC_ALL="en_US.UTF-8"
 
+.. note::
+
+   On MacOS it is suggested to use ``-DARROW_INSTALL_NAME_RPATH=OFF`` to
+   avoid issues at link time.
+
 Faster builds with Ninja
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

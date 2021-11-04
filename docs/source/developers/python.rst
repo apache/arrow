@@ -329,6 +329,11 @@ virtualenv) enables cmake to choose the python executable which you are using.
    instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`_
    for more details.
 
+.. note::
+
+   On MacOS it is suggested to use ``-DARROW_INSTALL_NAME_RPATH=OFF`` to
+   avoid issues at link time.
+
 For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
