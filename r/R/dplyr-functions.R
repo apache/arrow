@@ -850,7 +850,7 @@ nse_funcs$is.Date <- function(x) {
 }
 
 nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
-  inherits(x, c("POSIXt", "Date")) ||
+  inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
     (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32")])
 }
 
