@@ -65,6 +65,7 @@ case "${target}" in
   cgo)
     packages+=(${MINGW_PACKAGE_PREFIX}-arrow)
     packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
+    packages+=(${MINGW_PACKAGE_PREFIX}-go)
     ;;
 esac
 

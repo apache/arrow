@@ -238,8 +238,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix:
-        go: [1.15]
+      matrix:        
         mingw-n-bits:
           #- 32 runtime handling for CGO needs 64-bit currently
           - 64
@@ -254,10 +253,6 @@ jobs:
             /t REG_DWORD `
             /d 1 `
             /f
-      - name: Install go
-        uses: actions/setup-go@v1
-        with:
-          go-version: ${{ matrix.go }}
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:

@@ -36,9 +36,7 @@ fi
 pushd ${source_dir}/arrow
 
 TAGS="assert,test"
-if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
-    echo "Current Path: $PATH"
-    ls /d/a/_temp/msys64/mingw64/bin/*arrow*
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then    
     TAGS="${TAGS},ccalloc"
 fi
 
