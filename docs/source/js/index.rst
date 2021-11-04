@@ -15,17 +15,7 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Java Implementation
-===================
+JavaScript docs
+===============
 
-This is the documentation of the Java API of Apache Arrow. For more details
-on the Arrow format and other language bindings see the :doc:`parent documentation <../index>`.
-
-.. toctree::
-   :maxdepth: 2
-
-   vector
-   vector_schema_root
-   ipc
-   algorithm
-   Reference (javadoc) <reference/index>
+Stub page for the JavaScript docs; actual source is located in js/ sub-directory.
