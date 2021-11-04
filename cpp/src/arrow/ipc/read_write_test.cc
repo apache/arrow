@@ -2567,12 +2567,13 @@ void GetReadRecordBatchReadRanges(
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
   auto footer_length = BitUtil::FromLittleEndian(
-      *reinterpret_cast<const int32_t*>(buffer->data() + footer_length_offset));
+      util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
   ASSERT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
   ASSERT_EQ(read_ranges[1].length, footer_length);
-  // read record batch metadata
-  ASSERT_EQ(read_ranges[2].length, footer_length - 16);
+  // read record batch metadata.  The exact size is tricky to determine but it doesn't
+  // matter for this test and it should be smaller than the footer.
+  ASSERT_LT(read_ranges[2].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
     ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
   }
