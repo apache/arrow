@@ -37,6 +37,8 @@ pushd ${source_dir}/arrow
 
 TAGS="assert,test"
 if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
+    echo "Current Path: $PATH"
+    echo "$(cygpath --windows ${MINGW_PREFIX}/bin)"
     TAGS="${TAGS},ccalloc"
 fi
 
