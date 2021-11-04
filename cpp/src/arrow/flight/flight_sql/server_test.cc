@@ -37,7 +37,7 @@ namespace flight {
 namespace sql {
 
 std::unique_ptr<TestServer> server;
-FlightSqlClient* sql_client;
+std::unique_ptr<FlightSqlClient> sql_client;
 
 class TestFlightSqlServer : public ::testing::Environment {
  protected:
@@ -61,12 +61,11 @@ class TestFlightSqlServer : public ::testing::Environment {
     ASSERT_OK(Location::Parse(uri, &location));
     ASSERT_OK(FlightClient::Connect(location, &client));
 
-    sql_client = new FlightSqlClient(std::move(client));
+    sql_client.reset(new FlightSqlClient(std::move(client)));
   }
 
   void TearDown() override {
     server->Stop();
-    delete sql_client;
   }
 };
 
