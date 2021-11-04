@@ -25,7 +25,8 @@
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 
-#define ARROW_GCS_RETURN_NOT_OK(expr) if (!expr.ok()) return internal::ToArrowStatus(expr)
+#define ARROW_GCS_RETURN_NOT_OK(expr) \
+  if (!expr.ok()) return internal::ToArrowStatus(expr)
 
 namespace arrow {
 namespace fs {
