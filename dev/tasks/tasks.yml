@@ -347,11 +347,11 @@ tasks:
                                                 ("github", "amd64", "x86_64", "2_17", "2014"),
                                                 ("travis", "arm64", "aarch64", "2_17", "2014")] %}
   wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
-    ci: {{ ci }}
+    ci: "{{ ci }}"
     template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
       python_version: "{{ python_version }}"
-      manylinux_version: {{ manylinux }}
+      manylinux_version: "{{ manylinux }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-manylinux_{{ x_y }}_{{ arch_alias }}.manylinux{{ manylinux }}_{{ arch_alias }}.whl
 {% endfor %}
@@ -369,8 +369,8 @@ tasks:
     params:
       vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
-      macos_deployment_target: {{ macos_version }}
-      arrow_s3: {{ arrow_s3 }}
+      macos_deployment_target: "{{ macos_version }}"
+      arrow_s3: "{{ arrow_s3 }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
@@ -781,7 +781,7 @@ tasks:
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
       artifact: "source"
-      github_runner: {{ runner }}
+      github_runner: "{{ runner }}"
   {% endfor %}
 {% endfor %}
 
@@ -806,7 +806,7 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         TEST_{{ target|upper }}: 1
       artifact: "source"
-      github_runner: {{ runner }}
+      github_runner: "{{ runner }}"
   {% endfor %}
 {% endfor %}
 
@@ -888,7 +888,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: {{ ubuntu_version }}
+        UBUNTU: "{{ ubuntu_version }}"
       image: ubuntu-cpp
 {% endfor %}
 
@@ -915,7 +915,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        DEBIAN: {{ debian_version }}
+        DEBIAN: "{{ debian_version }}"
       image: debian-cpp
 {% endfor %}
 
@@ -1214,9 +1214,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: {{ python_version }}
-        PANDAS: {{ pandas_version }}
-        NUMPY: {{ numpy_version }}
+        PYTHON: "{{ python_version }}"
+        PANDAS: "{{ pandas_version }}"
+        NUMPY: "{{ numpy_version }}"
     {% if cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
       flags: --no-leaf-cache
@@ -1231,7 +1231,7 @@ tasks:
     params:
       env:
         PYTHON: 3.9
-        DASK: {{ dask_version }}
+        DASK: "{{ dask_version }}"
       # use the latest dask release, so prevent reusing any cached layers
       flags: --no-leaf-cache
       image: conda-python-dask
@@ -1258,7 +1258,7 @@ tasks:
     params:
       env:
         PYTHON: 3.7
-        KARTOTHEK: {{ kartothek_version }}
+        KARTOTHEK: "{{ kartothek_version }}"
       flags: --no-leaf-cache
       image: conda-python-kartothek
 {% endfor %}
@@ -1270,7 +1270,7 @@ tasks:
     params:
       env:
         PYTHON: 3.7
-        HDFS: {{ hdfs_version }}
+        HDFS: "{{ hdfs_version }}"
       image: conda-python-hdfs
 {% endfor %}
 
@@ -1282,9 +1282,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: {{ python_version }}
-        SPARK: {{ spark_version }}
-        TEST_PYARROW_ONLY: {{ test_pyarrow_only }}
+        PYTHON: "{{ python_version }}"
+        SPARK: "{{ spark_version }}"
+        TEST_PYARROW_ONLY: "{{ test_pyarrow_only }}"
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark
