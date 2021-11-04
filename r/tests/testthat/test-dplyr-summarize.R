@@ -437,7 +437,7 @@ test_that("quantile()", {
   expect_warning(
     Table$create(tbl) %>%
       summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
-    "quantile() with length(probs) != 1 not supported by Arrow",
+    "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
 })
@@ -496,7 +496,7 @@ test_that("summarize() with min() and max()", {
       summarize(min_mult = min(dbl, int)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to min\\(\\) not supported by Arrow"
+    warning = "Multiple arguments to min\\(\\) not supported in Arrow"
   )
   compare_dplyr_binding(
     .input %>%
@@ -504,7 +504,7 @@ test_that("summarize() with min() and max()", {
       summarize(max_mult = max(int, dbl, dbl2)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to max\\(\\) not supported by Arrow"
+    warning = "Multiple arguments to max\\(\\) not supported in Arrow"
   )
 
   # min(logical) or max(logical) yields integer in R

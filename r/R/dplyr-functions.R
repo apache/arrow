@@ -345,7 +345,7 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 # Arrow locale will be supported with ARROW-14126
 stop_if_locale_provided <- function(locale) {
   if (!identical(locale, "en")) {
-    stop("Providing a value for 'locale' other than the default ('en') is not supported by Arrow. ",
+    stop("Providing a value for 'locale' other than the default ('en') is not supported in Arrow. ",
       "To change locale, use 'Sys.setlocale()'",
       call. = FALSE
     )
