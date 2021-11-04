@@ -1108,24 +1108,36 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
 }
 
 GANDIVA_EXPORT
-int32_t gd_fn_instr_utf8(int64_t context, const char* string, int32_t string_len,
+int32_t gdv_fn_instr_utf8(int64_t context, const char* string, int32_t string_len,
                          const char* substring, int32_t substring_len) {
-  if (string_len <= 0 || substring_len <= 0) {
+  if (string_len == 0 && substring_len == 0) {
+    return 1;
+  }
+
+  if (substring_len == 0) {
+    return 1;
+  }
+
+  if (string_len == 0) {
     return 0;
   }
 
-  std::string str(string, string_len);
-  std::string substr(substring, substring_len);
+  int32_t match = 0;
+  int32_t pos = 0;
+  for (int i = 0; i < string_len; ++i) {
+    if (string[i] == substring[match]) {
+      if (match == 0) {
+        pos = i;
+      }
+      match++;
+    }
+  }
 
-  auto found = str.find(substr);
-
-  if (found == std::string::npos) {
+  if (match != (substring_len)) {
     return 0;
   }
 
-  auto position = static_cast<int32_t>(found);
-
-  return position;
+  return pos;
 }
 }
 
@@ -2200,8 +2212,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // substring_length
   };
 
-  engine->AddGlobalMappingForFunc("gd_fn_instr_utf8",
-                                  types->i32_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gd_fn_instr_utf8));
+  engine->AddGlobalMappingForFunc("gdv_fn_instr_utf8", types->i32_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_fn_instr_utf8));
 }
 }  // namespace gandiva

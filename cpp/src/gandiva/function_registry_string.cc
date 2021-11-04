@@ -491,9 +491,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext)};
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("instr", {}, DataTypeVector{utf8(), utf8()},  int32(),
-                     kResultNullIfNull, "gd_fn_instr_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
+      NativeFunction("instr", {}, DataTypeVector{utf8(), utf8()}, int32(),
+               kResultNullIfNull, "gdv_fn_instr_utf8",
+               NativeFunction::kNeedsContext)};
 
   return string_fn_registry_;
 }

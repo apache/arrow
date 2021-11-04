@@ -2254,27 +2254,23 @@ TEST_F(TestProjector, TestInstr) {
   // output fields
   auto output_instr = field("out_instr", int32());
 
-
   // Build expression
-  auto instr_expr = TreeExprBuilder::MakeExpression("instr",
-                                                    {field0, field1}, output_instr);
-
+  auto instr_expr =
+      TreeExprBuilder::MakeExpression("instr", {field0, field1}, output_instr);
 
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {instr_expr}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {instr_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayUtf8(
-      {"hello world!", "apple, banana, mango", "", "open the door"},
-      {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8(
-      {"world", "mango", "mango", ""},
-      {true, true, true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"hello world!", "apple, banana, mango", "", "open the door"},
+                         {true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"world", "mango", "mango", ""}, {true, true, true, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({6, 15, 0, 0}, {true, true, true, true});
+  auto exp_sum = MakeArrowArrayInt32({6, 15, 0, 1}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});

@@ -946,7 +946,7 @@ TEST(TestGdvFnStubs, TestInstr) {
   std::string s2 = "world";
   auto s2_len = static_cast<int32_t>(s2.size());
 
-  auto result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  auto result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 6);
 
   s1 = "apple, banana, mango";
@@ -954,7 +954,7 @@ TEST(TestGdvFnStubs, TestInstr) {
   s2 = "mango";
   s2_len = static_cast<int32_t>(s2.size());
 
-  result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 15);
 
   s1 = "";
@@ -962,7 +962,7 @@ TEST(TestGdvFnStubs, TestInstr) {
   s2 = "mango";
   s2_len = static_cast<int32_t>(s2.size());
 
-  result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 0);
 
   s1 = "open the door";
@@ -970,7 +970,23 @@ TEST(TestGdvFnStubs, TestInstr) {
   s2 = "";
   s2_len = static_cast<int32_t>(s2.size());
 
-  result = gd_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "hi john";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "johny";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 0);
 }
 
