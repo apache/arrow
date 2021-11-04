@@ -399,7 +399,7 @@ tasks:
     params:
       arch: arm64
       arrow_simd_level: "DEFAULT"
-      vcpkg_version: "2021.04.30"
+      vcpkg_version: "9675ab15def74a0b96d954bddc7ddabb42c92452"
       python_version: "3.8"
       macos_deployment_target: "11.0"
 
@@ -413,7 +413,7 @@ tasks:
     params:
       arch: arm64
       arrow_simd_level: "DEFAULT"
-      vcpkg_version: "2021.04.30"
+      vcpkg_version: "9675ab15def74a0b96d954bddc7ddabb42c92452"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
     artifacts:
@@ -427,7 +427,7 @@ tasks:
       # Universal2 builds for both rosetta and native, but we currently can't
       # configure SIMD for both architectures at the same time
       arrow_simd_level: "NONE"
-      vcpkg_version: "2021.04.30"
+      vcpkg_version: "9675ab15def74a0b96d954bddc7ddabb42c92452"
       python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
     artifacts:
