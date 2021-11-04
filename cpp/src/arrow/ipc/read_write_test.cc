@@ -57,6 +57,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::GetByteWidth;
 using internal::TemporaryDir;
 
@@ -612,9 +613,8 @@ TEST_F(TestIpcRoundTrip, SparseUnionOfStructs) {
       field("f", float32()),
       field("s", utf8()),
   });
-  auto storage =
-      arrow::internal::checked_pointer_cast<StructArray>(ArrayFromJSON(storage_type,
-                                                                       R"([
+  auto storage = checked_pointer_cast<StructArray>(ArrayFromJSON(storage_type,
+                                                                 R"([
     {"i": 0, "f": 0.0, "s": "a"},
     {"i": 1, "f": 0.5, "s": "b"},
     {"i": 2, "f": 1.5, "s": "c"},
@@ -653,9 +653,33 @@ TEST_F(TestIpcRoundTrip, SparseUnionOfStructs) {
     [1,  {"i": 3,   "f": 3.0}]
   ])");
 
-  AssertArraysEqual(*expected, *sparse);
+  AssertArraysEqual(*expected, *sparse, /*verbose=*/true);
 
-  CheckRoundtrip(sparse);
+  DictionaryMemo ignored;
+  ASSERT_OK_AND_ASSIGN(
+      auto roundtripped_batch,
+      DoStandardRoundTrip(*RecordBatch::Make(schema({field("", sparse->type())}),
+                                             sparse->length(), {sparse}),
+                          IpcWriteOptions::Defaults(), &ignored));
+
+  auto roundtripped =
+      checked_pointer_cast<SparseUnionArray>(roundtripped_batch->column(0));
+  AssertArraysEqual(*expected, *roundtripped, /*verbose=*/true);
+
+  auto roundtripped_m01 = checked_pointer_cast<StructArray>(roundtripped->field(0));
+  auto roundtripped_m12 = checked_pointer_cast<StructArray>(roundtripped->field(1));
+  auto roundtripped_m20 = checked_pointer_cast<StructArray>(roundtripped->field(2));
+
+  // The IPC writer does not take advantage of reusable buffers
+
+  ASSERT_NE(roundtripped_m01->field(0)->data()->buffers,
+            roundtripped_m20->field(1)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m01->field(1)->data()->buffers,
+            roundtripped_m12->field(0)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m12->field(1)->data()->buffers,
+            roundtripped_m20->field(0)->data()->buffers);
 }
 
 TEST_F(TestWriteRecordBatch, WriteWithCompression) {
