@@ -2565,11 +2565,15 @@ void GetReadRecordBatchReadRanges(
   const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
+  auto footer_length_offset = buffer->size() - file_end_size;
+  auto footer_length = BitUtil::FromLittleEndian(
+      util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
   ASSERT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
-  ASSERT_EQ(read_ranges[1].length, 256);
-  // read record batch metadata
-  ASSERT_EQ(read_ranges[2].length, 240);
+  ASSERT_EQ(read_ranges[1].length, footer_length);
+  // read record batch metadata.  The exact size is tricky to determine but it doesn't
+  // matter for this test and it should be smaller than the footer.
+  ASSERT_LT(read_ranges[2].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
     ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
   }
@@ -2583,7 +2587,7 @@ void GetReadRecordBatchReadRanges(
 
 TEST(TestRecordBatchFileReaderIo, LoadAllFieldsShouldReadTheEntireBody) {
   // read the entire record batch body in single read
-  // the batch has 5 * bool + 5 * int32 + 5 * int32
+  // the batch has 5 * bool + 5 * int32 + 5 * int64
   // ==>
   // + 5 bool:  5 bits      (aligned to  8 bytes)
   // + 5 int32: 5 * 4 bytes (aligned to 24 bytes)
