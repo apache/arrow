@@ -273,6 +273,7 @@ jobs:
         run: |
           echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
           echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
+          echo "GOROOT=$(cygpath --windows ${MINGW_PREFIX}/lib/go)" >> $GITHUB_ENV
           echo "$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_PATH
       - name: Build
         shell: bash
