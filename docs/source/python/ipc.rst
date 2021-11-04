@@ -15,6 +15,16 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. ipython:: python
+    :suppress:
+
+    # set custom tmp working directory for files that create data
+    import os
+    import tempfile
+
+    temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
+    os.chdir(temp_working_dir)
+
 .. currentmodule:: pyarrow
 
 .. _ipc:
@@ -222,14 +232,6 @@ allowing to more easily read arrays bigger than the total memory.
    Other high level APIs like :meth:`~pyarrow.parquet.read_table` also provide a
    ``memory_map`` option. But in those cases, the memory mapping can't help with
    reducing resident memory consumption. See :ref:`parquet_mmap` for details.
-
-.. ipython:: python
-   :suppress:
-
-   import os
-
-   os.remove("bigfile.arrow")
-
 
 Arbitrary Object Serialization
 ------------------------------
