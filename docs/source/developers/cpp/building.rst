@@ -133,8 +133,8 @@ Other options for build type are also possible:
 * ``Release``: applies compiler optimizations and removes debug information
   from the binary.
 
-You can also run default build with flag `-DARROW_EXTRA_ERROR_CONTEXT=ON`, see
-:ref:`label-extra-debugging:` 
+You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
+:ref:`label-extra-debugging`.
 
 Minimal release build:
 

@@ -61,6 +61,9 @@ Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
 requirements-test.txt``.
 
+If the test fails to connect to libarrow run ``python -m pytest pyarrow`` and
+check if the editable version of pyarrow was installed correctly.
+
 The project has a number of custom command line options for its test
 suite. Some tests are disabled by default, for example. To see all the options,
 run
@@ -299,7 +302,7 @@ adding flags with ``ON``:
 Anything set to ``ON`` above can also be turned off. Note that some compression
 libraries are needed for Parquet support.
 
-For better understanding of the error in case the build fails add flag
+For more debugging information add flag
 ``-DCMAKE_BUILD_TYPE=debug``. Read more about build type in C++ building section
 :ref:`cpp-building-building`.
 
@@ -365,7 +368,7 @@ libraries), one can set ``--bundle-arrow-cpp``:
           --bundle-arrow-cpp bdist_wheel
 
 .. note::
-   To run an editable pyarrow version run ``pip install -e. --no-build-isolation``
+   To run an editable pyarrow version run ``pip install -e . --no-build-isolation``
    in the ``arrow/python`` directory.
 
 Docker examples
