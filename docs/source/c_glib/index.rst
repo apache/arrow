@@ -15,7 +15,7 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-C/Glib stub page
-================
+C/Glib docs
+===========
 
 Stub page for the C/Glib docs; actual source is located in c_glib/doc/ sub-directory.

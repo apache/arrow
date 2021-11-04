@@ -15,7 +15,7 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-R stub page
-===========
+R docs
+======
 
 Stub page for the R docs; actual source is located in r/ sub-directory.

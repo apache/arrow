@@ -15,7 +15,7 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-JS stub page
-===========
+JavaScript docs
+===============
 
 Stub page for the JavaScript docs; actual source is located in js/ sub-directory.
