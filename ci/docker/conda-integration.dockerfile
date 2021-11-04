@@ -29,6 +29,7 @@ ARG go=1.15
 COPY ci/conda_env_archery.txt /arrow/ci/
 RUN conda install -q \
         --file arrow/ci/conda_env_archery.txt \
+        "python>=3.7" \
         numpy \
         compilers \
         maven=${maven} \
