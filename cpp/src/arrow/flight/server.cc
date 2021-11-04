@@ -62,11 +62,7 @@
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/types.h"
 
-using FlightService = arrow::flight::protocol::FlightService;
-using ServerContext = grpc::ServerContext;
-
-template <typename T>
-using ServerWriter = grpc::ServerWriter<T>;
+#include "arrow/flight/data_plane/types.h"
 
 namespace arrow {
 namespace flight {
@@ -96,6 +92,67 @@ namespace pb = arrow::flight::protocol;
     }                                        \
   } while (false)
 
+namespace internal {
+
+template <typename GrpcServerStream>
+Status ReadServer(GrpcServerStream* grpc_stream, DataServerStream* data_stream,
+                  FlightData* payload) {
+  if (data_stream) {
+    return data_stream->Read(payload);
+  } else {
+    const bool ok = internal::ReadPayload(grpc_stream, payload);
+    return ok ? Status::OK() : Status::IOError("gRPC server read failed");
+  }
+}
+
+template <typename GrpcServerStream>
+Status WriteServer(GrpcServerStream* grpc_stream, DataServerStream* data_stream,
+                   const FlightPayload& payload) {
+  if (data_stream) {
+    return data_stream->Write(payload);
+  } else {
+    return internal::WritePayload(payload, grpc_stream);
+  }
+}
+
+template <typename GrpcServerStream>
+Status WritesDoneServer(GrpcServerStream*, DataServerStream* data_stream) {
+  if (data_stream) {
+    RETURN_NOT_OK(data_stream->WritesDone());
+  }
+  // grpc server doesn't implement WritesDone
+  return Status::OK();
+}
+
+struct ServerWriter {
+  using GrpcServerStream = grpc::ServerWriter<pb::FlightData>;
+  GrpcServerStream* grpc_stream;
+  DataServerStream* data_stream;
+
+  Status Write(const FlightPayload& payload) {
+    return WriteServer(grpc_stream, data_stream, payload);
+  }
+  Status WritesDone() { return WritesDoneServer(grpc_stream, data_stream); }
+};
+
+// WriteT can be pb::FlightData or pb::PutResult
+template <typename WriteT>
+struct ServerReaderWriter {
+  using GrpcServerStream = grpc::ServerReaderWriter<WriteT, pb::FlightData>;
+  GrpcServerStream* grpc_stream;
+  DataServerStream* data_stream;
+
+  Status Read(FlightData* payload) {
+    return ReadServer(grpc_stream, data_stream, payload);
+  }
+  Status Write(const FlightPayload& payload) {
+    return WriteServer(grpc_stream, data_stream, payload);
+  }
+  Status WritesDone() { return WritesDoneServer(grpc_stream, data_stream); }
+};
+
+}  // namespace internal
+
 namespace {
 
 // A MessageReader implementation that reads from a gRPC ServerReader.
@@ -104,7 +161,7 @@ template <typename Reader>
 class FlightIpcMessageReader : public ipc::MessageReader {
  public:
   explicit FlightIpcMessageReader(
-      std::shared_ptr<internal::PeekableFlightDataReader<Reader*>> peekable_reader,
+      std::shared_ptr<internal::PeekableFlightDataReader<Reader>> peekable_reader,
       std::shared_ptr<Buffer>* app_metadata)
       : peekable_reader_(peekable_reader), app_metadata_(app_metadata) {}
 
@@ -127,7 +184,7 @@ class FlightIpcMessageReader : public ipc::MessageReader {
   }
 
  protected:
-  std::shared_ptr<internal::PeekableFlightDataReader<Reader*>> peekable_reader_;
+  std::shared_ptr<internal::PeekableFlightDataReader<Reader>> peekable_reader_;
   // A reference to FlightMessageReaderImpl.app_metadata_. That class
   // can't access the app metadata because when it Peek()s the stream,
   // it may be looking at a dictionary batch, not the record
@@ -138,14 +195,13 @@ class FlightIpcMessageReader : public ipc::MessageReader {
   bool stream_finished_ = false;
 };
 
-template <typename WritePayload>
+template <typename WriteT>
 class FlightMessageReaderImpl : public FlightMessageReader {
  public:
-  using GrpcStream = grpc::ServerReaderWriter<WritePayload, pb::FlightData>;
+  using ServerStream = internal::ServerReaderWriter<WriteT>;
 
-  explicit FlightMessageReaderImpl(GrpcStream* reader)
-      : reader_(reader),
-        peekable_reader_(new internal::PeekableFlightDataReader<GrpcStream*>(reader)) {}
+  explicit FlightMessageReaderImpl(ServerStream reader)
+      : peekable_reader_(new internal::PeekableFlightDataReader<ServerStream>(reader)) {}
 
   Status Init() {
     // Peek the first message to get the descriptor.
@@ -209,7 +265,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
         return Status::IOError("Client never sent a data message");
       }
       auto message_reader = std::unique_ptr<ipc::MessageReader>(
-          new FlightIpcMessageReader<GrpcStream>(peekable_reader_, &app_metadata_));
+          new FlightIpcMessageReader<ServerStream>(peekable_reader_, &app_metadata_));
       ARROW_ASSIGN_OR_RAISE(
           batch_reader_, ipc::RecordBatchStreamReader::Open(std::move(message_reader)));
     }
@@ -217,8 +273,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
   }
 
   FlightDescriptor descriptor_;
-  GrpcStream* reader_;
-  std::shared_ptr<internal::PeekableFlightDataReader<GrpcStream*>> peekable_reader_;
+  std::shared_ptr<internal::PeekableFlightDataReader<ServerStream>> peekable_reader_;
   std::shared_ptr<RecordBatchReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
 };
@@ -284,8 +339,9 @@ class GrpcServerAuthSender : public ServerAuthSender {
 /// stream for DoExchange.
 class DoExchangeMessageWriter : public FlightMessageWriter {
  public:
-  explicit DoExchangeMessageWriter(
-      grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream)
+  using ServerStream = internal::ServerReaderWriter<pb::FlightData>;
+
+  explicit DoExchangeMessageWriter(ServerStream stream)
       : stream_(stream), ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
 
   Status Begin(const std::shared_ptr<Schema>& schema,
@@ -328,15 +384,16 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
   }
 
   Status Close() override {
-    // It's fine to Close() without writing data
-    return Status::OK();
+    // It's fine to Close() without writing data for grpc
+    // Data plane needs to tell the reader that we've done writing
+    return stream_.WritesDone();
   }
 
   ipc::WriteStats stats() const override { return stats_; }
 
  private:
   Status WritePayload(const FlightPayload& payload) {
-    RETURN_NOT_OK(internal::WritePayload(payload, stream_));
+    RETURN_NOT_OK(stream_.Write(payload));
     ++stats_.num_messages;
     return Status::OK();
   }
@@ -365,7 +422,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
     return Status::OK();
   }
 
-  grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream_;
+  ServerStream stream_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
   ipc::DictionaryFieldMapper mapper_;
   ipc::WriteStats stats_;
@@ -410,7 +467,7 @@ class GrpcServerCallContext : public ServerCallContext {
 
  private:
   friend class FlightServiceImpl;
-  ServerContext* context_;
+  grpc::ServerContext* context_;
   std::string peer_;
   std::string peer_identity_;
   std::vector<std::shared_ptr<ServerMiddleware>> middleware_;
@@ -432,7 +489,7 @@ class GrpcAddCallHeaders : public AddCallHeaders {
 
 // This class glues an implementation of FlightServerBase together with the
 // gRPC service definition, so the latter is not exposed in the public API
-class FlightServiceImpl : public FlightService::Service {
+class FlightServiceImpl : public protocol::FlightService::Service {
  public:
   explicit FlightServiceImpl(
       std::shared_ptr<ServerAuthHandler> auth_handler,
@@ -442,7 +499,7 @@ class FlightServiceImpl : public FlightService::Service {
       : auth_handler_(auth_handler), middleware_(middleware), server_(server) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
-  grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
+  grpc::Status WriteStream(Iterator* iterator, grpc::ServerWriter<ProtoType>* writer) {
     if (!iterator) {
       return grpc::Status(grpc::StatusCode::INTERNAL, "No items to iterate");
     }
@@ -467,7 +524,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   template <typename UserType, typename ProtoType>
   grpc::Status WriteStream(const std::vector<UserType>& values,
-                           ServerWriter<ProtoType>* writer) {
+                           grpc::ServerWriter<ProtoType>* writer) {
     // Write flight info to stream until listing is exhausted
     for (const UserType& value : values) {
       ProtoType pb_value;
@@ -482,7 +539,7 @@ class FlightServiceImpl : public FlightService::Service {
   }
 
   // Authenticate the client (if applicable) and construct the call context
-  grpc::Status CheckAuth(const FlightMethod& method, ServerContext* context,
+  grpc::Status CheckAuth(const FlightMethod& method, grpc::ServerContext* context,
                          GrpcServerCallContext& flight_context) {
     if (!auth_handler_) {
       const auto auth_context = context->auth_context();
@@ -496,14 +553,7 @@ class FlightServiceImpl : public FlightService::Service {
         flight_context.peer_identity_ = "";
       }
     } else {
-      const auto client_metadata = context->client_metadata();
-      const auto auth_header = client_metadata.find(internal::kGrpcAuthHeader);
-      std::string token;
-      if (auth_header == client_metadata.end()) {
-        token = "";
-      } else {
-        token = std::string(auth_header->second.data(), auth_header->second.length());
-      }
+      const std::string token = GetMetadata(context, internal::kGrpcAuthHeader);
       GRPC_RETURN_NOT_OK(auth_handler_->IsValid(token, &flight_context.peer_identity_));
     }
 
@@ -511,7 +561,7 @@ class FlightServiceImpl : public FlightService::Service {
   }
 
   // Authenticate the client (if applicable) and construct the call context
-  grpc::Status MakeCallContext(const FlightMethod& method, ServerContext* context,
+  grpc::Status MakeCallContext(const FlightMethod& method, grpc::ServerContext* context,
                                GrpcServerCallContext& flight_context) {
     // Run server middleware
     const CallInfo info{method};
@@ -542,7 +592,7 @@ class FlightServiceImpl : public FlightService::Service {
   }
 
   grpc::Status Handshake(
-      ServerContext* context,
+      grpc::ServerContext* context,
       grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
@@ -561,8 +611,8 @@ class FlightServiceImpl : public FlightService::Service {
                            auth_handler_->Authenticate(&outgoing, &incoming));
   }
 
-  grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,
-                           ServerWriter<pb::FlightInfo>* writer) {
+  grpc::Status ListFlights(grpc::ServerContext* context, const pb::Criteria* request,
+                           grpc::ServerWriter<pb::FlightInfo>* writer) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::ListFlights, context, flight_context));
@@ -584,7 +634,8 @@ class FlightServiceImpl : public FlightService::Service {
                            WriteStream<FlightInfo>(listing.get(), writer));
   }
 
-  grpc::Status GetFlightInfo(ServerContext* context, const pb::FlightDescriptor* request,
+  grpc::Status GetFlightInfo(grpc::ServerContext* context,
+                             const pb::FlightDescriptor* request,
                              pb::FlightInfo* response) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
@@ -609,7 +660,8 @@ class FlightServiceImpl : public FlightService::Service {
     RETURN_WITH_MIDDLEWARE(flight_context, grpc::Status::OK);
   }
 
-  grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
+  grpc::Status GetSchema(grpc::ServerContext* context,
+                         const pb::FlightDescriptor* request,
                          pb::SchemaResult* response) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::GetSchema, context, flight_context));
@@ -633,9 +685,12 @@ class FlightServiceImpl : public FlightService::Service {
     RETURN_WITH_MIDDLEWARE(flight_context, grpc::Status::OK);
   }
 
-  grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
-                     ServerWriter<pb::FlightData>* writer) {
+  grpc::Status DoGet(grpc::ServerContext* context, const pb::Ticket* request,
+                     grpc::ServerWriter<pb::FlightData>* grpc_writer) {
     GrpcServerCallContext flight_context(context);
+    std::unique_ptr<internal::DataServerStream> data_writer;
+    SERVICE_RETURN_NOT_OK(flight_context,
+                          server_->data_plane()->DoGet(*context).Value(&data_writer));
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoGet, context, flight_context));
 
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
@@ -655,7 +710,8 @@ class FlightServiceImpl : public FlightService::Service {
     // Write the schema as the first message in the stream
     FlightPayload schema_payload;
     SERVICE_RETURN_NOT_OK(flight_context, data_stream->GetSchemaPayload(&schema_payload));
-    auto status = internal::WritePayload(schema_payload, writer);
+    auto writer = internal::ServerWriter{grpc_writer, data_writer.get()};
+    auto status = writer.Write(schema_payload);
     if (status.IsIOError()) {
       // gRPC doesn't give any way for us to know why the message
       // could not be written.
@@ -668,8 +724,11 @@ class FlightServiceImpl : public FlightService::Service {
       FlightPayload payload;
       SERVICE_RETURN_NOT_OK(flight_context, data_stream->Next(&payload));
       // End of stream
-      if (payload.ipc_message.metadata == nullptr) break;
-      auto status = internal::WritePayload(payload, writer);
+      if (payload.ipc_message.metadata == nullptr) {
+        SERVICE_RETURN_NOT_OK(flight_context, writer.WritesDone());
+        break;
+      }
+      auto status = writer.Write(payload);
       // Connection terminated
       if (status.IsIOError()) break;
       SERVICE_RETURN_NOT_OK(flight_context, status);
@@ -677,26 +736,38 @@ class FlightServiceImpl : public FlightService::Service {
     RETURN_WITH_MIDDLEWARE(flight_context, grpc::Status::OK);
   }
 
-  grpc::Status DoPut(ServerContext* context,
-                     grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader) {
+  grpc::Status DoPut(
+      grpc::ServerContext* context,
+      grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* grpc_reader) {
     GrpcServerCallContext flight_context(context);
+    std::unique_ptr<internal::DataServerStream> data_reader;
+    SERVICE_RETURN_NOT_OK(flight_context,
+                          server_->data_plane()->DoPut(*context).Value(&data_reader));
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoPut, context, flight_context));
 
+    auto reader =
+        internal::ServerReaderWriter<pb::PutResult>{grpc_reader, data_reader.get()};
     auto message_reader = std::unique_ptr<FlightMessageReaderImpl<pb::PutResult>>(
         new FlightMessageReaderImpl<pb::PutResult>(reader));
     SERVICE_RETURN_NOT_OK(flight_context, message_reader->Init());
     auto metadata_writer =
-        std::unique_ptr<FlightMetadataWriter>(new GrpcMetadataWriter(reader));
+        std::unique_ptr<FlightMetadataWriter>(new GrpcMetadataWriter(grpc_reader));
     RETURN_WITH_MIDDLEWARE(flight_context,
                            server_->DoPut(flight_context, std::move(message_reader),
                                           std::move(metadata_writer)));
   }
 
   grpc::Status DoExchange(
-      ServerContext* context,
-      grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream) {
+      grpc::ServerContext* context,
+      grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* grpc_stream) {
     GrpcServerCallContext flight_context(context);
+    std::unique_ptr<internal::DataServerStream> data_stream;
+    SERVICE_RETURN_NOT_OK(
+        flight_context, server_->data_plane()->DoExchange(*context).Value(&data_stream));
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoExchange, context, flight_context));
+
+    auto stream =
+        internal::ServerReaderWriter<pb::FlightData>{grpc_stream, data_stream.get()};
     auto message_reader = std::unique_ptr<FlightMessageReaderImpl<pb::FlightData>>(
         new FlightMessageReaderImpl<pb::FlightData>(stream));
     SERVICE_RETURN_NOT_OK(flight_context, message_reader->Init());
@@ -707,8 +778,8 @@ class FlightServiceImpl : public FlightService::Service {
                                                std::move(writer)));
   }
 
-  grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
-                           ServerWriter<pb::ActionType>* writer) {
+  grpc::Status ListActions(grpc::ServerContext* context, const pb::Empty* request,
+                           grpc::ServerWriter<pb::ActionType>* writer) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::ListActions, context, flight_context));
@@ -718,8 +789,8 @@ class FlightServiceImpl : public FlightService::Service {
     RETURN_WITH_MIDDLEWARE(flight_context, WriteStream<ActionType>(types, writer));
   }
 
-  grpc::Status DoAction(ServerContext* context, const pb::Action* request,
-                        ServerWriter<pb::Result>* writer) {
+  grpc::Status DoAction(grpc::ServerContext* context, const pb::Action* request,
+                        grpc::ServerWriter<pb::Result>* writer) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoAction, context, flight_context));
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
@@ -752,6 +823,18 @@ class FlightServiceImpl : public FlightService::Service {
   }
 
  private:
+  std::string GetMetadata(const grpc::ServerContext* context, const char* key) {
+    const auto client_metadata = context->client_metadata();
+    const auto auth_header = client_metadata.find(key);
+    std::string token;
+    if (auth_header == client_metadata.end()) {
+      token = "";
+    } else {
+      token = std::string(auth_header->second.data(), auth_header->second.length());
+    }
+    return token;
+  }
+
   std::shared_ptr<ServerAuthHandler> auth_handler_;
   std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
       middleware_;
@@ -844,6 +927,7 @@ class ServerSignalHandler {
 struct FlightServerBase::Impl {
   std::unique_ptr<FlightServiceImpl> service_;
   std::unique_ptr<grpc::Server> server_;
+  std::unique_ptr<internal::ServerDataPlane> data_plane_;
   int port_;
 
   // Signal handlers (on Windows) and the shutdown handler (other platforms)
@@ -909,6 +993,9 @@ FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 FlightServerBase::~FlightServerBase() {}
 
 Status FlightServerBase::Init(const FlightServerOptions& options) {
+  ARROW_ASSIGN_OR_RAISE(impl_->data_plane_,
+                        internal::ServerDataPlane::Make(options.location));
+
   impl_->service_.reset(
       new FlightServiceImpl(options.auth_handler, options.middleware, this));
 
@@ -964,10 +1051,15 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
   if (!impl_->server_) {
     return Status::UnknownError("Server did not start properly");
   }
+
   return Status::OK();
 }
 
 int FlightServerBase::port() const { return impl_->port_; }
+
+internal::ServerDataPlane* FlightServerBase::data_plane() const {
+  return impl_->data_plane_.get();
+}
 
 Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
   impl_->signals_ = sigs;

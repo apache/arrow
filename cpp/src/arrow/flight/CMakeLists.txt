@@ -151,6 +151,13 @@ endif()
 # </KLUDGE> Restore the CXXFLAGS that were modified above
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
+# Data plane source files
+# TODO(yibo): separate common (serialize.cc) and driver (shm.cc)
+if(ARROW_FLIGHT_DP_SHM)
+  add_definitions(-DFLIGHT_DP_SHM)
+  set(DATAPLANE_SRCS data_plane/serialize.cc data_plane/shm.cc)
+endif()
+
 # Note, we do not compile the generated Protobuf sources directly, instead
 # compiling then via protocol_internal.cc which contains some gRPC template
 # overrides to enable Flight-specific optimizations. See comments in
@@ -164,7 +171,8 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
-    types.cc)
+    types.cc
+    data_plane/types.cc)
 
 add_arrow_lib(arrow_flight
               CMAKE_PACKAGE_NAME
@@ -175,6 +183,7 @@ add_arrow_lib(arrow_flight
               ARROW_FLIGHT_LIBRARIES
               SOURCES
               ${ARROW_FLIGHT_SRCS}
+              ${DATAPLANE_SRCS}
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
               DEPENDENCIES

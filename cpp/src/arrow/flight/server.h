@@ -43,6 +43,10 @@ namespace flight {
 class ServerMiddleware;
 class ServerMiddlewareFactory;
 
+namespace internal {
+class ServerDataPlane;
+}  // namespace internal
+
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
 class ARROW_FLIGHT_EXPORT FlightDataStream {
@@ -179,6 +183,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// non-positive value if no port exists (e.g. when listening on a
   /// domain socket).
   int port() const;
+
+  /// \brief Get the data plane of the Flight server.
+  /// This method must only be called after Init().
+  internal::ServerDataPlane* data_plane() const;
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.

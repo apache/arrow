@@ -87,11 +87,11 @@ bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader
 // The Flight reader can then peek at the message to determine whether
 // it has application metadata or not, and pass the message to
 // RecordBatchStreamReader as appropriate.
-template <typename ReaderPtr>
+template <typename Reader>
 class PeekableFlightDataReader {
  public:
-  explicit PeekableFlightDataReader(ReaderPtr stream)
-      : stream_(stream), peek_(), finished_(false), valid_(false) {}
+  explicit PeekableFlightDataReader(Reader stream)
+      : stream_(std::move(stream)), peek_(), finished_(false), valid_(false) {}
 
   void Peek(internal::FlightData** out) {
     *out = nullptr;
@@ -132,7 +132,7 @@ class PeekableFlightDataReader {
       return valid_;
     }
 
-    if (!internal::ReadPayload(&*stream_, &peek_)) {
+    if (!stream_.Read(&peek_).ok()) {
       finished_ = true;
       valid_ = false;
     } else {
@@ -141,7 +141,7 @@ class PeekableFlightDataReader {
     return valid_;
   }
 
-  ReaderPtr stream_;
+  Reader stream_;
   internal::FlightData peek_;
   bool finished_;
   bool valid_;

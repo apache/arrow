@@ -185,7 +185,7 @@ class FlightPerfServer : public FlightServerBase {
                std::unique_ptr<FlightDataStream>* data_stream) override {
     perf::Token token;
     CHECK_PARSE(token.ParseFromString(request.ticket));
-    return GetPerfBatches(token, perf_schema_, false, data_stream);
+    return GetPerfBatches(token, perf_schema_, /*use_verifier=*/false, data_stream);
   }
 
   Status DoPut(const ServerCallContext& context,

@@ -234,6 +234,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_FLIGHT_SQL "Build the Arrow Flight SQL extension" OFF)
 
+  define_option(ARROW_FLIGHT_DP_SHM "Build the Arrow Flight shared memory data plane" OFF)
+
   define_option(ARROW_GANDIVA "Build the Gandiva libraries" OFF)
 
   define_option(ARROW_GCS
