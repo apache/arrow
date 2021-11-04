@@ -68,8 +68,8 @@ if(GRPCPP_PC_FOUND)
   endif()
   find_library(GRPCPP_REFLECTION_IMPORTED_LOCATION
                NAMES grpc++_reflection ${GRPCPP_REFLECTION_LIB_NAME}
-               HINTS ${GRPCPP_IMPORTED_DIRECTORY}
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+               PATHS ${GRPCPP_IMPORTED_DIRECTORY}
+               NO_DEFAULT_PATH)
 else()
   set(gRPCAlt_FOUND FALSE)
 endif()
