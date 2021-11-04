@@ -100,7 +100,9 @@
   # use `%/%` above.
   "%%" = "divide_checked",
   "^" = "power_checked",
-  "%in%" = "is_in_meta_binary"
+  "%in%" = "is_in_meta_binary",
+  "strrep" = "binary_repeat",
+  "str_dup" = "binary_repeat"
 )
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)

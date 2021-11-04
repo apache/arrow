@@ -31,11 +31,11 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/buffer_builder.h"
-
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visitor_inline.h"
@@ -330,15 +330,25 @@ struct StringTransformBase {
     return input_ncodeunits;
   }
 
-  virtual Status InvalidStatus() {
+  virtual Status InvalidInputSequence() {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
-
-  // Derived classes should also define this method:
-  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-  //                     uint8_t* output);
 };
 
+/// Kernel exec generator for unary string transforms. Types of template
+/// parameter StringTransform need to define a transform method with the
+/// following signature:
+///
+/// int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+///                   uint8_t* output);
+///
+/// where
+///   * `input` is the input sequence (binary or string)
+///   * `input_string_ncodeunits` is the length of input sequence in codeunits
+///   * `output` is the output sequence (binary or string)
+///
+/// and returns the number of codeunits of the `output` sequence or a negative
+/// value if an invalid input sequence is detected.
 template <typename Type, typename StringTransform>
 struct StringTransformExecBase {
   using offset_type = typename Type::offset_type;
@@ -356,27 +366,21 @@ struct StringTransformExecBase {
   static Status ExecArray(KernelContext* ctx, StringTransform* transform,
                           const std::shared_ptr<ArrayData>& data, Datum* out) {
     ArrayType input(data);
-    ArrayData* output = out->mutable_array();
-
     const int64_t input_ncodeunits = input.total_values_length();
     const int64_t input_nstrings = input.length();
-
-    const int64_t output_ncodeunits_max =
+    const int64_t max_output_ncodeunits =
         transform->MaxCodeunits(input_nstrings, input_ncodeunits);
-    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-      return Status::CapacityError(
-          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-    }
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
+    ArrayData* output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
 
     // String offsets are preallocated
     offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
     uint8_t* output_str = output->buffers[2]->mutable_data();
     offset_type output_ncodeunits = 0;
-
-    output_string_offsets[0] = 0;
+    output_string_offsets[0] = output_ncodeunits;
     for (int64_t i = 0; i < input_nstrings; i++) {
       if (!input.IsNull(i)) {
         offset_type input_string_ncodeunits;
@@ -384,15 +388,15 @@ struct StringTransformExecBase {
         auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
             input_string, input_string_ncodeunits, output_str + output_ncodeunits));
         if (encoded_nbytes < 0) {
-          return transform->InvalidStatus();
+          return transform->InvalidInputSequence();
         }
         output_ncodeunits += encoded_nbytes;
       }
       output_string_offsets[i + 1] = output_ncodeunits;
     }
-    DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
+    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
 
-    // Trim the codepoint buffer, since we allocated too much
+    // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
   }
 
@@ -402,24 +406,29 @@ struct StringTransformExecBase {
     if (!input.is_valid) {
       return Status::OK();
     }
+    const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
+    const int64_t max_output_ncodeunits = transform->MaxCodeunits(1, data_nbytes);
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
+
+    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(max_output_ncodeunits));
     auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
     result->is_valid = true;
-    const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
-
-    const int64_t output_ncodeunits_max = transform->MaxCodeunits(1, data_nbytes);
-    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-      return Status::CapacityError(
-          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
     result->value = value_buffer;
     auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
         input.value->data(), data_nbytes, value_buffer->mutable_data()));
     if (encoded_nbytes < 0) {
-      return transform->InvalidStatus();
+      return transform->InvalidInputSequence();
     }
-    DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
+    DCHECK_LE(encoded_nbytes, max_output_ncodeunits);
     return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
+  }
+
+  static Status CheckOutputCapacity(int64_t ncodeunits) {
+    if (ncodeunits > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+    }
+    return Status::OK();
   }
 };
 
@@ -478,7 +487,7 @@ struct FixedSizeBinaryTransformExecBase {
         auto encoded_nbytes = static_cast<int32_t>(
             transform->Transform(input_string, input_width, output_str));
         if (encoded_nbytes != output_width) {
-          return transform->InvalidStatus();
+          return transform->InvalidInputSequence();
         }
       } else {
         std::memset(output_str, 0x00, output_width);
@@ -505,7 +514,7 @@ struct FixedSizeBinaryTransformExecBase {
     auto encoded_nbytes = static_cast<int32_t>(transform->Transform(
         input.value->data(), data_nbytes, value_buffer->mutable_data()));
     if (encoded_nbytes != out_width) {
-      return transform->InvalidStatus();
+      return transform->InvalidInputSequence();
     }
 
     result->is_valid = true;
@@ -537,6 +546,362 @@ struct FixedSizeBinaryTransformExecWithState
   }
 };
 
+template <typename Type1, typename Type2>
+struct StringBinaryTransformBase {
+  using ViewType2 = typename GetViewType<Type2>::T;
+  using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
+  using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+
+  virtual ~StringBinaryTransformBase() = default;
+
+  virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::OK();
+  }
+
+  virtual Status InvalidInputSequence() {
+    return Status::Invalid("Invalid UTF8 sequence in input");
+  }
+
+  // Return the maximum total size of the output in codeunits (i.e. bytes)
+  // given input characteristics for different input shapes.
+  // The Status parameter should only be set if an error needs to be signaled.
+
+  // Scalar-Scalar
+  virtual Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits, const ViewType2) {
+    return input1_ncodeunits;
+  }
+
+  // Scalar-Array
+  virtual Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits,
+                                       const ArrayType2&) {
+    return input1_ncodeunits;
+  }
+
+  // Array-Scalar
+  virtual Result<int64_t> MaxCodeunits(const ArrayType1& input1, const ViewType2) {
+    return input1.total_values_length();
+  }
+
+  // Array-Array
+  virtual Result<int64_t> MaxCodeunits(const ArrayType1& input1, const ArrayType2&) {
+    return input1.total_values_length();
+  }
+
+  // Not all combinations of input shapes are meaningful to string binary
+  // transforms, so these flags serve as control toggles for enabling/disabling
+  // the corresponding ones. These flags should be set in the PreExec() method.
+  //
+  // This is an example of a StringTransform that disables support for arguments
+  // with mixed Scalar/Array shapes.
+  //
+  // template <typename Type1, typename Type2>
+  // struct MyStringTransform : public StringBinaryTransformBase<Type1, Type2> {
+  //   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  //     enable_scalar_array_ = false;
+  //     enable_array_scalar_ = false;
+  //     return StringBinaryTransformBase::PreExec(ctx, batch, out);
+  //   }
+  //   ...
+  // };
+  bool enable_scalar_scalar_ = true;
+  bool enable_scalar_array_ = true;
+  bool enable_array_scalar_ = true;
+  bool enable_array_array_ = true;
+};
+
+/// Kernel exec generator for binary (two parameters) string transforms.
+/// The first parameter is expected to always be a Binary/StringType while the
+/// second parameter is generic. Types of template parameter StringTransform
+/// need to define a transform method with the following signature:
+///
+/// Result<int64_t> Transform(
+///    const uint8_t* input, const int64_t input_string_ncodeunits,
+///    const ViewType2 value2, uint8_t* output);
+///
+/// where
+///   * `input` - input sequence (binary or string)
+///   * `input_string_ncodeunits` - length of input sequence in codeunits
+///   * `value2` - second argument to the string transform
+///   * `output` - output sequence (binary or string)
+///   * `st` - Status code, only set if transform needs to signal an error
+///
+/// and returns the number of codeunits of the `output` sequence or a negative
+/// value if an invalid input sequence is detected.
+template <typename Type1, typename Type2, typename StringTransform>
+struct StringBinaryTransformExecBase {
+  using offset_type = typename Type1::offset_type;
+  using ViewType2 = typename GetViewType<Type2>::T;
+  using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
+  using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+
+  static Status Execute(KernelContext* ctx, StringTransform* transform,
+                        const ExecBatch& batch, Datum* out) {
+    if (batch[0].is_scalar()) {
+      if (batch[1].is_scalar()) {
+        if (transform->enable_scalar_scalar_) {
+          return ExecScalarScalar(ctx, transform, batch[0].scalar(), batch[1].scalar(),
+                                  out);
+        }
+      } else if (batch[1].is_array()) {
+        if (transform->enable_scalar_array_) {
+          return ExecScalarArray(ctx, transform, batch[0].scalar(), batch[1].array(),
+                                 out);
+        }
+      }
+    } else if (batch[0].is_array()) {
+      if (batch[1].is_scalar()) {
+        if (transform->enable_array_scalar_) {
+          return ExecArrayScalar(ctx, transform, batch[0].array(), batch[1].scalar(),
+                                 out);
+        }
+      } else if (batch[1].is_array()) {
+        if (transform->enable_array_array_) {
+          return ExecArrayArray(ctx, transform, batch[0].array(), batch[1].array(), out);
+        }
+      }
+    }
+
+    if (!(transform->enable_scalar_scalar_ && transform->enable_scalar_array_ &&
+          transform->enable_array_scalar_ && transform->enable_array_array_)) {
+      return Status::Invalid(
+          "Binary string transform has no combination of operand kinds enabled.");
+    }
+
+    return Status::TypeError("Invalid combination of operands (", batch[0].ToString(),
+                             ", ", batch[1].ToString(), ") for binary string transform.");
+  }
+
+  static Status ExecScalarScalar(KernelContext* ctx, StringTransform* transform,
+                                 const std::shared_ptr<Scalar>& scalar1,
+                                 const std::shared_ptr<Scalar>& scalar2, Datum* out) {
+    if (!scalar1->is_valid || !scalar2->is_valid) {
+      return Status::OK();
+    }
+    const auto& binary_scalar1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
+    const auto input_string = binary_scalar1.value->data();
+    const auto input_ncodeunits = binary_scalar1.value->size();
+    const auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
+
+    // Calculate max number of output codeunits
+    ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
+                          transform->MaxCodeunits(input_ncodeunits, value2));
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
+
+    // Allocate output string
+    const auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    output->is_valid = true;
+    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(max_output_ncodeunits));
+    output->value = value_buffer;
+    auto output_string = output->value->mutable_data();
+
+    // Apply transform
+    ARROW_ASSIGN_OR_RAISE(
+        auto encoded_nbytes_,
+        transform->Transform(input_string, input_ncodeunits, value2, output_string));
+    auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
+    if (encoded_nbytes < 0) {
+      return transform->InvalidInputSequence();
+    }
+    DCHECK_LE(encoded_nbytes, max_output_ncodeunits);
+
+    // Trim the codepoint buffer, since we may have allocated too much
+    return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
+  }
+
+  static Status ExecArrayScalar(KernelContext* ctx, StringTransform* transform,
+                                const std::shared_ptr<ArrayData>& data1,
+                                const std::shared_ptr<Scalar>& scalar2, Datum* out) {
+    if (!scalar2->is_valid) {
+      return Status::OK();
+    }
+    const ArrayType1 array1(data1);
+    const auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
+
+    // Calculate max number of output codeunits
+    ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
+                          transform->MaxCodeunits(array1, value2));
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
+
+    // Allocate output strings
+    const auto output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
+    output->buffers[2] = values_buffer;
+    const auto output_string = output->buffers[2]->mutable_data();
+
+    // String offsets are preallocated
+    auto output_offsets = output->GetMutableValues<offset_type>(1);
+    output_offsets[0] = 0;
+    offset_type output_ncodeunits = 0;
+
+    // Apply transform
+    RETURN_NOT_OK(VisitArrayDataInline<Type1>(
+        *data1,
+        [&](util::string_view input_string_view) {
+          auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
+          auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
+          ARROW_ASSIGN_OR_RAISE(
+              auto encoded_nbytes_,
+              transform->Transform(input_string, input_ncodeunits, value2,
+                                   output_string + output_ncodeunits));
+          auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
+          if (encoded_nbytes < 0) {
+            return transform->InvalidInputSequence();
+          }
+          output_ncodeunits += encoded_nbytes;
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        },
+        [&]() {
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        }));
+    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+
+    // Trim the codepoint buffer, since we may have allocated too much
+    return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
+  }
+
+  static Status ExecScalarArray(KernelContext* ctx, StringTransform* transform,
+                                const std::shared_ptr<Scalar>& scalar1,
+                                const std::shared_ptr<ArrayData>& data2, Datum* out) {
+    if (!scalar1->is_valid) {
+      return Status::OK();
+    }
+    const auto& binary_scalar1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
+    const auto input_string = binary_scalar1.value->data();
+    const auto input_ncodeunits = binary_scalar1.value->size();
+    const ArrayType2 array2(data2);
+
+    // Calculate max number of output codeunits
+    ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
+                          transform->MaxCodeunits(input_ncodeunits, array2));
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
+
+    // Allocate output strings
+    const auto output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
+    output->buffers[2] = values_buffer;
+    const auto output_string = output->buffers[2]->mutable_data();
+
+    // String offsets are preallocated
+    auto output_offsets = output->GetMutableValues<offset_type>(1);
+    output_offsets[0] = 0;
+    offset_type output_ncodeunits = 0;
+
+    // Apply transform
+    RETURN_NOT_OK(arrow::internal::VisitBitBlocks(
+        data2->buffers[0], data2->offset, data2->length,
+        [&](int64_t i) {
+          auto value2 = array2.GetView(i);
+          ARROW_ASSIGN_OR_RAISE(
+              auto encoded_nbytes_,
+              transform->Transform(input_string, input_ncodeunits, value2,
+                                   output_string + output_ncodeunits));
+          auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
+          if (encoded_nbytes < 0) {
+            return transform->InvalidInputSequence();
+          }
+          output_ncodeunits += encoded_nbytes;
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        },
+        [&]() {
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        }));
+    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+
+    // Trim the codepoint buffer, since we may have allocated too much
+    return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
+  }
+
+  static Status ExecArrayArray(KernelContext* ctx, StringTransform* transform,
+                               const std::shared_ptr<ArrayData>& data1,
+                               const std::shared_ptr<ArrayData>& data2, Datum* out) {
+    const ArrayType1 array1(data1);
+    const ArrayType2 array2(data2);
+
+    // Calculate max number of output codeunits
+    ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
+                          transform->MaxCodeunits(array1, array2));
+    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
+
+    // Allocate output strings
+    const auto output = out->mutable_array();
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
+    output->buffers[2] = values_buffer;
+    const auto output_string = output->buffers[2]->mutable_data();
+
+    // String offsets are preallocated
+    auto output_offsets = output->GetMutableValues<offset_type>(1);
+    output_offsets[0] = 0;
+    offset_type output_ncodeunits = 0;
+
+    // Apply transform
+    RETURN_NOT_OK(arrow::internal::VisitTwoBitBlocks(
+        data1->buffers[0], data1->offset, data2->buffers[0], data2->offset, data1->length,
+        [&](int64_t i) {
+          auto input_string_view = array1.GetView(i);
+          auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
+          auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
+          auto value2 = array2.GetView(i);
+          ARROW_ASSIGN_OR_RAISE(
+              auto encoded_nbytes_,
+              transform->Transform(input_string, input_ncodeunits, value2,
+                                   output_string + output_ncodeunits));
+          auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
+          if (encoded_nbytes < 0) {
+            return transform->InvalidInputSequence();
+          }
+          output_ncodeunits += encoded_nbytes;
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        },
+        [&]() {
+          *(++output_offsets) = output_ncodeunits;
+          return Status::OK();
+        }));
+    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+
+    // Trim the codepoint buffer, since we may have allocated too much
+    return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
+  }
+
+  static Status CheckOutputCapacity(int64_t ncodeunits) {
+    if (ncodeunits > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result might not fit in requested binary/string array. "
+          "If possible, convert to a large binary/string.");
+    }
+    return Status::OK();
+  }
+};
+
+template <typename Type1, typename Type2, typename StringTransform>
+struct StringBinaryTransformExec
+    : public StringBinaryTransformExecBase<Type1, Type2, StringTransform> {
+  using StringBinaryTransformExecBase<Type1, Type2, StringTransform>::Execute;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    StringTransform transform;
+    RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
+    return Execute(ctx, &transform, batch, out);
+  }
+};
+
+template <typename Type1, typename Type2, typename StringTransform>
+struct StringBinaryTransformExecWithState
+    : public StringBinaryTransformExecBase<Type1, Type2, StringTransform> {
+  using State = typename StringTransform::State;
+  using StringBinaryTransformExecBase<Type1, Type2, StringTransform>::Execute;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    StringTransform transform(State::Get(ctx));
+    RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
+    return Execute(ctx, &transform, batch, out);
+  }
+};
+
 #ifdef ARROW_WITH_UTF8PROC
 
 struct FunctionalCaseMappingTransform : public StringTransformBase {
@@ -552,7 +917,7 @@ struct FunctionalCaseMappingTransform : public StringTransformBase {
     // in bytes is actually only at max 3/2 (as covered by the unittest).
     // Note that rounding down the 3/2 is ok, since only codepoints encoded by
     // two code units (even) can grow to 3 code units.
-    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
+    return input_ncodeunits * 3 / 2;
   }
 };
 
@@ -686,7 +1051,7 @@ struct AsciiReverseTransform : public StringTransformBase {
     return utf8_char_found ? kTransformError : input_string_ncodeunits;
   }
 
-  Status InvalidStatus() override {
+  Status InvalidInputSequence() override {
     return Status::Invalid("Non-ASCII sequence in input");
   }
 };
@@ -2511,6 +2876,137 @@ void AddSplit(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   AddSplitRegex(registry);
 #endif
+}
+
+/// An ScalarFunction that promotes integer arguments to Int64.
+struct ScalarCTypeToInt64Function : public ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
+
+    for (auto& descr : *values) {
+      if (is_integer(descr.type->id())) {
+        descr.type = int64();
+      }
+    }
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
+template <typename Type1, typename Type2>
+struct BinaryRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
+  using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
+  using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+
+  Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits,
+                               const int64_t num_repeats) override {
+    ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
+    return input1_ncodeunits * num_repeats;
+  }
+
+  Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits,
+                               const ArrayType2& input2) override {
+    int64_t total_num_repeats = 0;
+    for (int64_t i = 0; i < input2.length(); ++i) {
+      auto num_repeats = input2.GetView(i);
+      ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
+      total_num_repeats += num_repeats;
+    }
+    return input1_ncodeunits * total_num_repeats;
+  }
+
+  Result<int64_t> MaxCodeunits(const ArrayType1& input1,
+                               const int64_t num_repeats) override {
+    ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
+    return input1.total_values_length() * num_repeats;
+  }
+
+  Result<int64_t> MaxCodeunits(const ArrayType1& input1,
+                               const ArrayType2& input2) override {
+    int64_t total_codeunits = 0;
+    for (int64_t i = 0; i < input2.length(); ++i) {
+      auto num_repeats = input2.GetView(i);
+      ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
+      total_codeunits += input1.GetView(i).length() * num_repeats;
+    }
+    return total_codeunits;
+  }
+
+  static Result<int64_t> TransformSimpleLoop(const uint8_t* input,
+                                             const int64_t input_string_ncodeunits,
+                                             const int64_t num_repeats, uint8_t* output) {
+    uint8_t* output_start = output;
+    for (int64_t i = 0; i < num_repeats; ++i) {
+      std::memcpy(output, input, input_string_ncodeunits);
+      output += input_string_ncodeunits;
+    }
+    return output - output_start;
+  }
+
+  static Result<int64_t> TransformDoublingString(const uint8_t* input,
+                                                 const int64_t input_string_ncodeunits,
+                                                 const int64_t num_repeats,
+                                                 uint8_t* output) {
+    uint8_t* output_start = output;
+    // Repeated doubling of string
+    // NB: This implementation expects `num_repeats > 0`.
+    std::memcpy(output, input, input_string_ncodeunits);
+    output += input_string_ncodeunits;
+    int64_t irep = 1;
+    for (int64_t ilen = input_string_ncodeunits; irep <= (num_repeats / 2);
+         irep *= 2, ilen *= 2) {
+      std::memcpy(output, output_start, ilen);
+      output += ilen;
+    }
+
+    // Epilogue remainder
+    int64_t rem = (num_repeats - irep) * input_string_ncodeunits;
+    std::memcpy(output, output_start, rem);
+    output += rem;
+    return output - output_start;
+  }
+
+  static Result<int64_t> Transform(const uint8_t* input,
+                                   const int64_t input_string_ncodeunits,
+                                   const int64_t num_repeats, uint8_t* output) {
+    auto transform = (num_repeats < 4) ? TransformSimpleLoop : TransformDoublingString;
+    return transform(input, input_string_ncodeunits, num_repeats, output);
+  }
+
+  static Status ValidateRepeatCount(const int64_t num_repeats) {
+    if (num_repeats < 0) {
+      return Status::Invalid("Repeat count must be a non-negative integer");
+    }
+    return Status::OK();
+  }
+};
+
+template <typename Type1, typename Type2>
+using BinaryRepeat =
+    StringBinaryTransformExec<Type1, Type2, BinaryRepeatTransform<Type1, Type2>>;
+
+const FunctionDoc binary_repeat_doc(
+    "Repeat a binary string",
+    ("For each binary string in `strings`, return a replicated version."),
+    {"strings", "num_repeats"});
+
+void AddBinaryRepeat(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarCTypeToInt64Function>(
+      "binary_repeat", Arity::Binary(), &binary_repeat_doc);
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<BinaryRepeat, Int64Type>(ty);
+    ScalarKernel kernel{{ty, int64()}, ty, exec};
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 // ----------------------------------------------------------------------
@@ -4430,7 +4926,6 @@ const FunctionDoc utf8_reverse_doc(
      "clusters. Hence, it will not correctly reverse grapheme clusters\n"
      "composed of multiple codepoints."),
     {"strings"});
-
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
@@ -4454,7 +4949,6 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &ascii_rtrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
   MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
-
   MakeUnaryStringBatchKernelWithState<AsciiCenter>("ascii_center", registry,
                                                    &ascii_center_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, &ascii_lpad_doc);
@@ -4534,6 +5028,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSplit(registry);
   AddStrptime(registry);
   AddBinaryJoin(registry);
+  AddBinaryRepeat(registry);
 }
 
 }  // namespace internal
