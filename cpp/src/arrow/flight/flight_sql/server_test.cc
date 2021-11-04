@@ -66,8 +66,8 @@ class TestFlightSqlServer : public ::testing::Environment {
 
   void TearDown() override {
     server->Stop();
-    server.reset();
     sql_client.reset();
+    server.reset();
   }
 };
 
