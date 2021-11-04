@@ -321,7 +321,7 @@ func (b *FixedSizeListBuilder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+		return fmt.Errorf("fixed size list builder must unpack from json array, found %s", delim)
 	}
 
 	return b.unmarshal(dec)

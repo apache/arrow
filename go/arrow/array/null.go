@@ -182,7 +182,7 @@ func (b *NullBuilder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+		return fmt.Errorf("null builder must unpack from json array, found %s", delim)
 	}
 
 	return b.unmarshal(dec)

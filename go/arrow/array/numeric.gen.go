@@ -21,7 +21,6 @@ package array
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/goccy/go-json"
@@ -87,7 +86,7 @@ func (a *Int64) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Int64) MarshalJSON() ([]byte, error) {
@@ -175,7 +174,7 @@ func (a *Uint64) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Uint64) MarshalJSON() ([]byte, error) {
@@ -263,7 +262,7 @@ func (a *Float64) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Float64) MarshalJSON() ([]byte, error) {
@@ -351,7 +350,7 @@ func (a *Int32) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Int32) MarshalJSON() ([]byte, error) {
@@ -439,7 +438,7 @@ func (a *Uint32) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Uint32) MarshalJSON() ([]byte, error) {
@@ -527,7 +526,7 @@ func (a *Float32) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Float32) MarshalJSON() ([]byte, error) {
@@ -615,7 +614,7 @@ func (a *Int16) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Int16) MarshalJSON() ([]byte, error) {
@@ -703,7 +702,7 @@ func (a *Uint16) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+	return a.values[i]
 }
 
 func (a *Uint16) MarshalJSON() ([]byte, error) {
@@ -1381,7 +1380,8 @@ func (a *Duration) getOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
-	return fmt.Sprint(time.Duration(a.values[i]) * a.DataType().(*arrow.DurationType).Unit.Multiplier())
+	// return value and suffix as a string such as "12345ms"
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit.String())
 }
 
 func (a *Duration) MarshalJSON() ([]byte, error) {

@@ -209,7 +209,7 @@ func (b *BooleanBuilder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+		return fmt.Errorf("boolean builder must unpack from json array, found %s", delim)
 	}
 
 	return b.unmarshal(dec)

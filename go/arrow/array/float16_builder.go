@@ -183,6 +183,7 @@ func (b *Float16Builder) unmarshalOne(dec *json.Decoder) error {
 		if err != nil {
 			return err
 		}
+		// this will currently silently truncate if it is too large
 		b.Append(float16.New(float32(f)))
 	case json.Number:
 		f, err := v.Float64()
@@ -211,6 +212,9 @@ func (b *Float16Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON will add values to this builder from unmarshalling the
+// array of values. Currently values that are larger than a float16 will
+// be silently truncated.
 func (b *Float16Builder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
@@ -219,7 +223,7 @@ func (b *Float16Builder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+		return fmt.Errorf("float16 builder must unpack from json array, found %s", delim)
 	}
 
 	return b.unmarshal(dec)

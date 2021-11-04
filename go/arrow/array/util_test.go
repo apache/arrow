@@ -194,8 +194,8 @@ func TestNestedJSONArrs(t *testing.T) {
 			arrow.Field{Name: "bar", Type: arrow.FixedWidthTypes.Time32ms},
 		))},
 	), strings.NewReader(jsonStr))
-	defer arr.Release()
 	assert.NoError(t, err)
+	defer arr.Release()
 
 	v, err := json.Marshal(arr)
 	assert.NoError(t, err)
@@ -226,6 +226,34 @@ func TestGetNullsFromJSON(t *testing.T) {
 	data, err := json.Marshal(rec)
 	assert.NoError(t, err)
 	assert.JSONEq(t, jsonStr, string(data))
+}
+
+func TestDurationsJSON(t *testing.T) {
+	tests := []struct {
+		unit    arrow.TimeUnit
+		jsonstr string
+		values  []arrow.Duration
+	}{
+		{arrow.Second, `["1s", "2s", "3s", "4s", "5s"]`, []arrow.Duration{1, 2, 3, 4, 5}},
+		{arrow.Millisecond, `["1ms", "2ms", "3ms", "4ms", "5ms"]`, []arrow.Duration{1, 2, 3, 4, 5}},
+		{arrow.Microsecond, `["1us", "2us", "3us", "4us", "5us"]`, []arrow.Duration{1, 2, 3, 4, 5}},
+		{arrow.Nanosecond, `["1ns", "2ns", "3ns", "4ns", "5ns"]`, []arrow.Duration{1, 2, 3, 4, 5}},
+	}
+	for _, tt := range tests {
+		dtype := &arrow.DurationType{Unit: tt.unit}
+		bldr := array.NewDurationBuilder(memory.DefaultAllocator, dtype)
+		defer bldr.Release()
+
+		bldr.AppendValues(tt.values, nil)
+		expected := bldr.NewArray()
+		defer expected.Release()
+
+		arr, _, err := array.FromJSON(memory.DefaultAllocator, dtype, strings.NewReader(tt.jsonstr))
+		assert.NoError(t, err)
+		defer arr.Release()
+
+		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+	}
 }
 
 func TestTimestampsJSON(t *testing.T) {

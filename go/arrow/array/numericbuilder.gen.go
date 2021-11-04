@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -3168,8 +3169,22 @@ func (b *DurationBuilder) unmarshalOne(dec *json.Decoder) error {
 	case nil:
 		b.AppendNull()
 	case string:
+		// be flexible for specifying durations by accepting forms like
+		// 3h2m0.5s regardless of the unit and converting it to the proper
+		// precision.
 		val, err := time.ParseDuration(v)
 		if err != nil {
+			// if we got an error, maybe it was because the attempt to create
+			// a time.Duration (int64) in nanoseconds would overflow. check if
+			// the string is just a large number followed by the unit suffix
+			if strings.HasSuffix(v, b.dtype.Unit.String()) {
+				value, err := strconv.ParseInt(v[:len(v)-len(b.dtype.Unit.String())], 10, 64)
+				if err == nil {
+					b.Append(arrow.Duration(value))
+					break
+				}
+			}
+
 			return &json.UnmarshalTypeError{
 				Value:  v,
 				Type:   reflect.TypeOf(arrow.Duration(0)),

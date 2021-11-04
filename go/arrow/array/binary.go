@@ -130,6 +130,8 @@ func (a *Binary) MarshalJSON() ([]byte, error) {
 	for i := 0; i < a.Len(); i++ {
 		vals[i] = a.getOneForMarshal(i)
 	}
+	// golang marshal standard says that []byte will be marshalled
+	// as a base64-encoded string
 	return json.Marshal(vals)
 }
 

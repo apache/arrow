@@ -92,10 +92,13 @@ func (a *{{.Name}}) getOneForMarshal(i int) interface{} {
 	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("15:04:05.999999999")
 {{else if or (eq .Name "Timestamp") -}}
 	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("2006-01-02 15:04:05.999999999")
-{{else if (eq .Name "Duration") -}}
-	return fmt.Sprint(time.Duration(a.values[i]) * a.DataType().(*{{.QualifiedType}}Type).Unit.Multiplier())
-{{else}}
+{{else if (eq .Name "Duration") -}}	
+	// return value and suffix as a string such as "12345ms"
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*{{.QualifiedType}}Type).Unit.String())	
+{{else if (eq .Size "1")}}
 	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+{{else}}
+	return a.values[i]
 {{end -}}
 }
 

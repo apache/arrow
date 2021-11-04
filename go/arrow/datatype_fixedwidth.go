@@ -17,8 +17,11 @@
 package arrow
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/xerrors"
@@ -101,6 +104,18 @@ func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
 		format += string(val[10]) + "15:04:05.999999999"
 	}
 
+	// error if we're truncating precision
+	// don't need a case for nano as time.Parse will already error if
+	// more than nanosecond precision is provided
+	switch {
+	case unit == Second && len(val) > 19:
+		return 0, xerrors.New("provided more than second precision for timestamp[s]")
+	case unit == Millisecond && len(val) > 23:
+		return 0, xerrors.New("provided more than millisecond precision for timestamp[ms]")
+	case unit == Microsecond && len(val) > 26:
+		return 0, xerrors.New("provided more than microsecond precision for timestamp[us]")
+	}
+
 	out, err := time.ParseInLocation(format, val, time.UTC)
 	if err != nil {
 		return 0, err
@@ -130,7 +145,16 @@ func (t Timestamp) ToTime(unit TimeUnit) time.Time {
 // unit needs to be only seconds or milliseconds and the string should be in the
 // form of HH:MM or HH:MM:SS[.zzz] where the fractions of a second are optional.
 func Time32FromString(val string, unit TimeUnit) (Time32, error) {
-	if unit == Microsecond || unit == Nanosecond {
+	switch unit {
+	case Second:
+		if len(val) > 8 {
+			return 0, xerrors.New("cannot convert larger than second precision to time32s")
+		}
+	case Millisecond:
+		if len(val) > 12 {
+			return 0, xerrors.New("cannot convert larger than millisecond precision to time32ms")
+		}
+	case Microsecond, Nanosecond:
 		return 0, xerrors.New("time32 can only be seconds or milliseconds")
 	}
 
@@ -162,7 +186,14 @@ func (t Time32) ToTime(unit TimeUnit) time.Time {
 // unit needs to be only microseconds or nanoseconds and the string should be in the
 // form of HH:MM or HH:MM:SS[.zzzzzzzzz] where the fractions of a second are optional.
 func Time64FromString(val string, unit TimeUnit) (Time64, error) {
-	if unit == Second || unit == Millisecond {
+	// don't need to check length for nanoseconds as Parse will already error
+	// if more than 9 digits are provided for the fractional second
+	switch unit {
+	case Microsecond:
+		if len(val) > 15 {
+			return 0, xerrors.New("cannot convert larger than microsecond precision to time64us")
+		}
+	case Second, Millisecond:
 		return 0, xerrors.New("time64 should only be microseconds or nanoseconds")
 	}
 
@@ -298,6 +329,31 @@ func (t *Decimal128Type) Fingerprint() string {
 
 // MonthInterval represents a number of months.
 type MonthInterval int32
+
+func (m *MonthInterval) UnmarshalJSON(data []byte) error {
+	var val string
+	if err := json.Unmarshal(data, &val); err != nil {
+		return err
+	}
+
+	if strings.HasSuffix(val, "months") {
+		val = val[:len(val)-6]
+	}
+
+	v, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return err
+	}
+
+	*m = MonthInterval(v)
+	return nil
+}
+
+func (m MonthInterval) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, `"%dmonths"`, m)
+	return b.Bytes(), nil
+}
 
 // MonthIntervalType is encoded as a 32-bit signed integer,
 // representing a number of months.

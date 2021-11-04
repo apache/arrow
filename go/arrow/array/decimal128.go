@@ -265,6 +265,10 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 	case float64:
 		out = big.NewFloat(v)
 	case string:
+		// there's no strong rationale for using ToNearestAway, it's just
+		// what got me the closest equivalent values with the values
+		// that I tested with, and there isn't a good way to push
+		// an option all the way down here to control it.
 		out, _, err = big.ParseFloat(v, 10, 0, big.ToNearestAway)
 		if err != nil {
 			return err
@@ -300,6 +304,10 @@ func (b *Decimal128Builder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON will add the unmarshalled values to this builder.
+//
+// If the values are strings, they will get parsed with big.ParseFloat using
+// a rounding mode of big.ToNearestAway currently.
 func (b *Decimal128Builder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
@@ -308,7 +316,7 @@ func (b *Decimal128Builder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+		return fmt.Errorf("decimal128 builder must unpack from json array, found %s", delim)
 	}
 
 	return b.unmarshal(dec)

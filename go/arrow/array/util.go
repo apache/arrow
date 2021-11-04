@@ -78,6 +78,32 @@ func WithStartOffset(off int64) FromJSONOption {
 // 			and interacting with other processes that use json. For example:
 //				`{"col1": 1, "col2": "row1", "col3": ...}\n{"col1": 2, "col2": "row2", "col3": ...}\n.....`
 //
+// Duration values get formated upon marshalling as a string consisting of their numeric
+// value followed by the unit suffix such as "10s" for a value of 10 and unit of Seconds.
+// with "ms" for millisecond, "us" for microsecond, and "ns" for nanosecond as the suffixes.
+// Unmarshalling duration values is more permissive since it first tries to use Go's
+// time.ParseDuration function which means it allows values in the form 3h25m0.3s in addition
+// to the same values which are output.
+//
+// Interval types are marshalled / unmarshalled as follows:
+//  MonthInterval is marshalled as a string of the format "#months" with # as the numeric value.
+//  DayTimeInterval is marshalled using Go's regular marshalling of structs:
+//	 { "days": #, "milliseconds": # }
+//  MonthDayNanoInterval values are marshalled the same as DayTime using Go's struct marshalling:
+//   { "months": #, "days": #, "nanoseconds": # }
+//
+// Times use a format of HH:MM or HH:MM:SS[.zzz] where the fractions of a second cannot
+// exceed the precision allowed by the time unit, otherwise unmarshalling will error.
+//
+// Dates use YYYY-MM-DD format
+//
+// Timestamps use RFC3339Nano format except without a timezone, all of the following are valid:
+//	YYYY-MM-DD
+//	YYYY-MM-DD[T]HH
+//	YYYY-MM-DD[T]HH:MM
+//  YYYY-MM-DD[T]HH:MM:SS[.zzzzzzzzzz]
+//
+// The fractions of a second cannot exceed the precision allowed by the timeunit of the datatype.
 //
 // When processing structs as objects order of keys does not matter, but keys cannot be repeated.
 func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...FromJSONOption) (arr Interface, offset int64, err error) {
