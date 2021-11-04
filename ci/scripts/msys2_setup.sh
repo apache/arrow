@@ -67,6 +67,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
     packages+=(${MINGW_PACKAGE_PREFIX}-go)
     packages+=(${MINGW_PACKAGE_PREFIX}-toolchain)
+    packages+=(base-devel)
     ;;
 esac
 
