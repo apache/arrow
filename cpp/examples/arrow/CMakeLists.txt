@@ -52,18 +52,17 @@ if(ARROW_FLIGHT)
 
   set(FLIGHT_EXAMPLE_PROTO "helloworld.proto")
   set(FLIGHT_EXAMPLE_PROTO_PATH "${CMAKE_CURRENT_LIST_DIR}")
-  set(FLIGHT_EXAMPLE_PROTO_DEPENDS ${FLIGHT_EXAMPLE_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF}
-                                   gRPC::grpc_cpp_plugin)
+  set(FLIGHT_EXAMPLE_PROTO_DEPENDS ${FLIGHT_EXAMPLE_PROTO} gRPC::grpc_cpp_plugin)
 
   add_custom_command(OUTPUT ${FLIGHT_EXAMPLE_GENERATED_PROTO_FILES}
                      COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_EXAMPLE_PROTO_PATH}"
                              "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}"
                              "${FLIGHT_EXAMPLE_PROTO}"
-                     DEPENDS ${PROTO_EXAMPLE_PROTO_DEPENDS} ARGS
                      COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_EXAMPLE_PROTO_PATH}"
                              "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
                              "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
-                             "${FLIGHT_EXAMPLE_PROTO}")
+                             "${FLIGHT_EXAMPLE_PROTO}"
+                     DEPENDS ${FLIGHT_EXAMPLE_PROTO_DEPENDS})
 
   add_custom_target(flight_grpc_example_gen ALL
                     DEPENDS ${FLIGHT_EXAMPLE_GENERATED_PROTO_FILES})
