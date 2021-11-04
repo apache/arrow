@@ -597,14 +597,10 @@ class S3Client : public Aws::S3::S3Client {
       if (doc.WasParseSuccessful()) {
         auto root = doc.GetRootElement();
         if (!root.IsNull()) {
-          ARROW_LOG(INFO) << "... CompleteMultipartUpload XML response root node: "
-                          << root.GetName();
           // Detect something that looks like an abnormal CompletedMultipartUpload
           // response.
           if (root.GetName() != "CompleteMultipartUploadResult" ||
               !root.FirstChild("Error").IsNull() || !root.FirstChild("Errors").IsNull()) {
-            ARROW_LOG(INFO) << "CompletedMultipartUpload got error: "
-                            << doc.ConvertToString();
             // Make sure the error marshaller doesn't see a 200 OK
             http_resp->SetResponseCode(
                 Aws::Http::HttpResponseCode::INTERNAL_SERVER_ERROR);
