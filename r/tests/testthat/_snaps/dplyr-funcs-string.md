@@ -33,26 +33,26 @@
     Code
       (expect_error(nse_funcs$str_to_lower("Apache Arrow", locale = "sp")))
     Output
-      <simpleError: Providing a value for 'locale' other than the default ('en') is not supported by Arrow. To change locale, use 'Sys.setlocale()'>
+      <simpleError: Providing a value for 'locale' other than the default ('en') is not supported in Arrow. To change locale, use 'Sys.setlocale()'>
 
 # errors and warnings in string splitting
 
     Code
       (expect_error(nse_funcs$str_split(x, fixed("and", ignore_case = TRUE))))
     Output
-      <simpleError: Case-insensitive string splitting not supported by Arrow>
+      <simpleError: Case-insensitive string splitting not supported in Arrow>
     Code
       (expect_error(nse_funcs$str_split(x, coll("and.?"))))
     Output
-      <simpleError: Pattern modifier `coll()` not supported by Arrow>
+      <simpleError: Pattern modifier `coll()` not supported in Arrow>
     Code
       (expect_error(nse_funcs$str_split(x, boundary(type = "word"))))
     Output
-      <simpleError: Pattern modifier `boundary()` not supported by Arrow>
+      <simpleError: Pattern modifier `boundary()` not supported in Arrow>
     Code
       (expect_error(nse_funcs$str_split(x, "and", n = 0)))
     Output
-      <simpleError: Splitting strings into zero parts not supported by Arrow>
+      <simpleError: Splitting strings into zero parts not supported in Arrow>
     Code
       (expect_warning(nse_funcs$str_split(x, fixed("and"), simplify = TRUE)))
     Output
@@ -63,11 +63,11 @@
     Code
       (expect_error(nse_funcs$str_detect(x, boundary(type = "character"))))
     Output
-      <simpleError: Pattern modifier `boundary()` not supported by Arrow>
+      <simpleError: Pattern modifier `boundary()` not supported in Arrow>
     Code
       (expect_error(nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó")))
     Output
-      <simpleError: Pattern modifier `coll()` not supported by Arrow>
+      <simpleError: Pattern modifier `coll()` not supported in Arrow>
     Code
       (expect_warning(nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u"))
       )
@@ -79,7 +79,7 @@
     Code
       (expect_error(nse_funcs$strptime(x, tz = "PDT")))
     Output
-      <simpleError: Time zone argument not supported by Arrow>
+      <simpleError: Time zone argument not supported in Arrow>
 
 # substr
 
