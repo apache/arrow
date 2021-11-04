@@ -293,6 +293,10 @@ test_that("ParquetFileWrite chunk_size defaults", {
     })
 
   # but we always have no more than max_chunks (even if cells_per_group is low!)
+  # use a new tempfile so that windows doesn't complain about the file being over-written
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
   withr::with_options(
     list(
       arrow.parquet_cells_per_group = 25,
