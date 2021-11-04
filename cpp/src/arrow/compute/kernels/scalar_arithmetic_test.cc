@@ -294,7 +294,7 @@ class TestArithmeticDecimal : public ::testing::Test {
   }
 
   void CheckRaises(const std::string& func, const DatumVector& args,
-                   const std::string& substr, FunctionOptions* options = nullptr) {
+                   const std::string& substr, const FunctionOptions* options = nullptr) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(substr),
                                     CallFunction(func, args, options));
   }
@@ -1487,6 +1487,83 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
 
 class TestUnaryArithmeticDecimal : public TestArithmeticDecimal {};
 
+TEST_F(TestUnaryArithmeticDecimal, AbsoluteValue) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  for (const auto& func : {"abs", "abs_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {ArrayFromJSON(ty, R"(["1.00", "-42.15", null])")},
+                  ArrayFromJSON(ty, R"(["1.00", "42.15", null])"));
+    }
+    CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+                std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
+    CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+                std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
+                  DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"));
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, Log) {
+  std::vector<std::string> unchecked = {"ln", "log2", "log10", "log1p"};
+  std::vector<std::string> checked = {"ln_checked", "log2_checked", "log10_checked",
+                                      "log1p_checked"};
+  std::vector<std::string> all = unchecked;
+  all.insert(all.end(), checked.begin(), checked.end());
+
+  for (const auto& func : all) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["0.01", "1.00", "4.42", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])")});
+    }
+  }
+
+  for (const auto& func : unchecked) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["-2.00"])")});
+    }
+  }
+  for (const auto& func : checked) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckRaises(func, {DecimalArrayFromJSON(ty, R"(["-2.00"])")},
+                  "logarithm of negative number");
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, Negate) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  for (const auto& func : {"negate", "negate_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {ArrayFromJSON(ty, R"(["0.00", "1.00", "-42.15", null])")},
+                  ArrayFromJSON(ty, R"(["0.00", "-1.00", "42.15", null])"));
+    }
+    CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+                std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
+    CheckScalar(func, {std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
+                std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0)));
+    CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+                std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
+    CheckScalar(func, {std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
+                std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0)));
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["0", "12E2", "-42E2", null])")},
+                  DecimalArrayFromJSON(ty, R"(["0", "-12E2", "42E2", null])"));
+    }
+  }
+}
+
 // Check two modes exhaustively, give all modes a simple test
 TEST_F(TestUnaryArithmeticDecimal, Round) {
   const auto func = "round";
@@ -1973,6 +2050,116 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleHalfToOdd) {
   }
 }
 
+TEST_F(TestUnaryArithmeticDecimal, Sign) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  const auto func = "sign";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(int64(), "[]"));
+    CheckScalar(func, {ArrayFromJSON(ty, R"(["1.00", "0.00", "-42.15", null])")},
+                ArrayFromJSON(int64(), "[1, 0, -1, null]"));
+  }
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
+              ScalarFromJSON(int64(), "1"));
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+              ScalarFromJSON(int64(), "-1"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
+              ScalarFromJSON(int64(), "1"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+              ScalarFromJSON(int64(), "-1"));
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(int64(), "[]"));
+    CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "0", "-42E2", null])")},
+                ArrayFromJSON(int64(), "[1, 0, -1, null]"));
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigAcos) {
+  for (const auto& func : {"acos", "acos_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat("acos", {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    CheckRaises("acos_checked", {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
+                "domain error");
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigAsin) {
+  for (const auto& func : {"asin", "asin_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat("asin", {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("domain error"),
+        CallFunction("asin_checked",
+                     {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")}));
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigAtan) {
+  const auto func = "atan";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigCos) {
+  for (const auto& func : {"cos", "cos_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigSin) {
+  for (const auto& func : {"sin", "sin_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigTan) {
+  for (const auto& func : {"tan", "tan_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    }
+  }
+}
+
 TYPED_TEST_SUITE(TestUnaryRoundIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryRoundSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundUnsigned, UnsignedIntegerTypes);
@@ -2179,7 +2366,9 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   this->AssertUnaryOpRaises(RoundToMultiple, values, "multiple must be positive");
 }
 
-TEST(TestBinaryDecimalArithmetic, DispatchBest) {
+class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};
+
+TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
   // decimal, floating point
   for (std::string name : {"add", "subtract", "multiply", "divide"}) {
     for (std::string suffix : {"", "_checked"}) {
@@ -2269,10 +2458,18 @@ TEST(TestBinaryDecimalArithmetic, DispatchBest) {
                         {decimal128(5, 4), decimal128(2, 0)});
     }
   }
+  for (std::string name : {"atan2", "logb", "logb_checked", "power", "power_checked"}) {
+    CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal128(2, 1), int64()}, {float64(), float64()});
+    CheckDispatchBest(name, {int32(), decimal128(2, 1)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal128(2, 1), float64()}, {float64(), float64()});
+    CheckDispatchBest(name, {float32(), decimal128(2, 1)}, {float64(), float64()});
+  }
 }
 
 // reference result from bc (precsion=100, scale=40)
-TEST(TestBinaryArithmeticDecimal, AddSubtract) {
+TEST_F(TestBinaryArithmeticDecimal, AddSubtract) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(30, 3),
@@ -2386,7 +2583,14 @@ TEST(TestBinaryArithmeticDecimal, AddSubtract) {
     CheckScalarBinary("add", right, left, added);
   }
 
-  // TODO: decimal integer
+  // decimal integer
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    auto right = ScalarFromJSON(int64(), "888");
+    CheckScalarBinary("add", left, right, ScalarFromJSON(decimal128(20, 0), R"("1554")"));
+    CheckScalarBinary("subtract", left, right,
+                      ScalarFromJSON(decimal128(20, 0), R"("-222")"));
+  }
 
   // failed case: result maybe overflow
   {
@@ -2404,7 +2608,7 @@ TEST(TestBinaryArithmeticDecimal, AddSubtract) {
   }
 }
 
-TEST(TestBinaryArithmeticDecimal, Multiply) {
+TEST_F(TestBinaryArithmeticDecimal, Multiply) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(20, 10),
@@ -2428,7 +2632,7 @@ TEST(TestBinaryArithmeticDecimal, Multiply) {
     CheckScalarBinary("multiply", left, right, expected);
   }
 
-  // array array, decimal26
+  // array array, decimal256
   {
     auto left = ArrayFromJSON(decimal256(30, 3),
                               R"([
@@ -2484,7 +2688,13 @@ TEST(TestBinaryArithmeticDecimal, Multiply) {
     CheckScalarBinary("multiply", right, left, expected);
   }
 
-  // TODO: decimal integer
+  // decimal integer
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    auto right = ScalarFromJSON(int64(), "888");
+    auto expected = ScalarFromJSON(decimal128(23, 0), R"("591408")");
+    CheckScalarBinary("multiply", left, right, expected);
+  }
 
   // failed case: result maybe overflow
   {
@@ -2494,7 +2704,7 @@ TEST(TestBinaryArithmeticDecimal, Multiply) {
   }
 }
 
-TEST(TestBinaryArithmeticDecimal, Divide) {
+TEST_F(TestBinaryArithmeticDecimal, Divide) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(13, 3), R"(["1234567890.123", "0.001"])");
@@ -2555,7 +2765,16 @@ TEST(TestBinaryArithmeticDecimal, Divide) {
     CheckScalarBinary("divide", right, left, right_div_left);
   }
 
-  // TODO: decimal integer
+  // decimal integer
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("100")");
+    auto right = ScalarFromJSON(int64(), "50");
+    auto left_div_right =
+        ScalarFromJSON(decimal128(23, 20), R"("2.00000000000000000000")");
+    auto right_div_left = ScalarFromJSON(decimal128(23, 4), R"("0.5000")");
+    CheckScalarBinary("divide", left, right, left_div_right);
+    CheckScalarBinary("divide", right, left, right_div_left);
+  }
 
   // failed case: result maybe overflow
   {
@@ -2569,6 +2788,96 @@ TEST(TestBinaryArithmeticDecimal, Divide) {
     auto left = ScalarFromJSON(decimal256(1, 0), R"("1")");
     auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
     ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Atan2) {
+  // Decimal arguments promoted to double, sanity check here
+  const auto func = "atan2";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(
+        func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+               ArrayFromJSON(ty, R"(["10.00", "10.00", "2.00", "2.00", null])")});
+    CheckDecimalToFloat(
+        func,
+        {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+         ArrayFromJSON(decimal128(4, 2), R"(["10.00", "10.00", "2.00", "2.00", null])")});
+    CheckDecimalToFloat(func,
+                        {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                         ScalarFromJSON(int64(), "10")});
+    CheckDecimalToFloat(func,
+                        {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                         ScalarFromJSON(float64(), "10")});
+    CheckDecimalToFloat(func, {ArrayFromJSON(float64(), "[1, 10, 1, 2, null]"),
+                               ScalarFromJSON(ty, R"("10.00")")});
+    CheckDecimalToFloat(func, {ArrayFromJSON(int64(), "[1, 10, 1, 2, null]"),
+                               ScalarFromJSON(ty, R"("10.00")")});
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                               DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])")});
+    CheckDecimalToFloat(
+        func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+               DecimalArrayFromJSON(decimal128(2, -2), R"(["12E2", "42E2", null])")});
+    CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                               ScalarFromJSON(int64(), "10")});
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Logb) {
+  // Decimal arguments promoted to double, sanity check here
+  for (const auto& func : {"logb", "logb_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ArrayFromJSON(ty, R"(["10.00", "10.00", "2.00", "2.00", null])")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ArrayFromJSON(decimal128(4, 2),
+                               R"(["10.00", "10.00", "2.00", "2.00", null])")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ScalarFromJSON(int64(), "10")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ScalarFromJSON(float64(), "10")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(float64(), "[1, 10, 1, 2, null]"),
+                                 ScalarFromJSON(ty, R"("10.00")")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(int64(), "[1, 10, 1, 2, null]"),
+                                 ScalarFromJSON(ty, R"("10.00")")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                                 DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])")});
+      CheckDecimalToFloat(
+          func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                 DecimalArrayFromJSON(decimal128(2, -2), R"(["12E2", "42E2", null])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                                 ScalarFromJSON(int64(), "10")});
+    }
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Power) {
+  // Decimal arguments promoted to double, sanity check here
+  for (const auto& func : {"logb", "logb_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["1.00", "2.00", null])"),
+                                 ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["1.00", "2.00", null])"),
+                                 ArrayFromJSON(float64(), R"([1.23, null, 3.45])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(float64(), R"([1.00, 2.00, null])"),
+                                 ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["1.00", "2.00", null])"),
+                                 ArrayFromJSON(int64(), R"([1, null, 3])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(int64(), R"([1, 2, null])"),
+                                 ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+    }
   }
 }
 

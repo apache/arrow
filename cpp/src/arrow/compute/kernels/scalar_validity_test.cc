@@ -80,6 +80,45 @@ TEST_F(TestBooleanValidityKernels, IsNull) {
                    "[true, false, false, true]", &nan_is_null_options);
 }
 
+TEST(TestValidityKernels, IsFinite) {
+  for (const auto& ty : IntTypes()) {
+    CheckScalar("is_finite", {ArrayFromJSON(ty, "[0, 1, 42, null]")},
+                ArrayFromJSON(boolean(), "[true, true, true, null]"));
+  }
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    CheckScalar("is_finite", {ArrayFromJSON(ty, R"(["0.00", "1.01", "-42.00", null])")},
+                ArrayFromJSON(boolean(), "[true, true, true, null]"));
+  }
+  CheckScalar("is_finite", {std::make_shared<NullArray>(4)},
+              ArrayFromJSON(boolean(), "[null, null, null, null]"));
+}
+
+TEST(TestValidityKernels, IsInf) {
+  for (const auto& ty : IntTypes()) {
+    CheckScalar("is_inf", {ArrayFromJSON(ty, "[0, 1, 42, null]")},
+                ArrayFromJSON(boolean(), "[false, false, false, null]"));
+  }
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    CheckScalar("is_inf", {ArrayFromJSON(ty, R"(["0.00", "1.01", "-42.00", null])")},
+                ArrayFromJSON(boolean(), "[false, false, false, null]"));
+  }
+  CheckScalar("is_inf", {std::make_shared<NullArray>(4)},
+              ArrayFromJSON(boolean(), "[null, null, null, null]"));
+}
+
+TEST(TestValidityKernels, IsNan) {
+  for (const auto& ty : IntTypes()) {
+    CheckScalar("is_nan", {ArrayFromJSON(ty, "[0, 1, 42, null]")},
+                ArrayFromJSON(boolean(), "[false, false, false, null]"));
+  }
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    CheckScalar("is_nan", {ArrayFromJSON(ty, R"(["0.00", "1.01", "-42.00", null])")},
+                ArrayFromJSON(boolean(), "[false, false, false, null]"));
+  }
+  CheckScalar("is_nan", {std::make_shared<NullArray>(4)},
+              ArrayFromJSON(boolean(), "[null, null, null, null]"));
+}
+
 TEST(TestValidityKernels, IsValidIsNullNullType) {
   CheckScalarUnary("is_null", std::make_shared<NullArray>(5),
                    ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
