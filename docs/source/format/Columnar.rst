@@ -562,16 +562,13 @@ each value. Its physical layout is as follows:
   given slot. The respective offsets for each child value array must
   be in order / increasing.
 
-Critically, the dense union allows for minimal overhead in the ubiquitous
-union-of-structs with non-overlapping-fields use case (``Union<s1: Struct1, s2:
-Struct2, s3: Struct3, ...>``)
+**Example Layout: ``DenseUnion<f: float, i: int32>``**
 
-**Example Layout: Dense union**
+For the union array: ::
 
-An example layout for logical union of: ``Union<f: float, i: int32>``
-having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
+    [{f=1.2}, null, {f=3.4}, {i=5}]
 
-::
+will have the following layout: ::
 
     * Length: 4, Null count: 0
     * Types buffer:
@@ -622,11 +619,11 @@ use cases:
 * A sparse union is more amenable to vectorized expression evaluation in some use cases.
 * Equal-length arrays can be interpreted as a union by only defining the types array.
 
-**Example layout: ``SparseUnion<u0: Int32, u1: Float, u2: VarBinary>``**
+**Example layout: ``SparseUnion<i: Int32, f: Float, s: VarBinary>``**
 
 For the union array: ::
 
-    [{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, {u2='mark'}]
+    [{i=5}, {f=1.2}, {s='joe'}, {f=3.4}, {i=4}, {s='mark'}]
 
 will have the following layout: ::
 
@@ -639,7 +636,7 @@ will have the following layout: ::
 
     * Children arrays:
 
-      * u0 (Int32):
+      * i (Int32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -653,7 +650,7 @@ will have the following layout: ::
           |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | 5          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
-      * u1 (float):
+      * f (float):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -667,7 +664,7 @@ will have the following layout: ::
           |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
 
-      * u2 (`VarBinary`)
+      * s (`VarBinary`)
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -692,6 +689,16 @@ will have the following layout: ::
 Only the slot in the array corresponding to the type index is considered. All
 "unselected" values are ignored and could be any semantically correct array
 value.
+
+.. note:: Critically, the sparse union allows shared columns to be reused between union members
+   in the ubiquitous union-of-structs with non-overlapping-fields use case.  For example the union::
+
+       SparseUnion<m1: Struct<i: Int32>,
+                   m2: Struct<i: Int32, f: Float32, s: VarBinary>,
+                   m3: Struct<f: Float32, s: VarBinary>>
+
+   could be backed by just three columns (one for each type) since no union member requires more
+   than one of each.
 
 Null Layout
 -----------
