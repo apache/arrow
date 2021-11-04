@@ -276,7 +276,7 @@ jobs:
           echo "GOROOT=$(cygpath --windows ${MINGW_PREFIX}/lib/go)" >> $GITHUB_ENV          
           echo "GOPATH=$(cygpath --windows ${HOME}/gopath)" >> $GITHUB_ENV
           mkdir -p $(cygpath --windows ${HOME}/gopath)
-          echo "$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_PATH
+          echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .
