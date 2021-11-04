@@ -1,4 +1,34 @@
 
+# Apache Arrow 6.0.1 (2021-11-04)
+
+## Bug Fixes
+
+* [ARROW-14437](https://issues.apache.org/jira/browse/ARROW-14437) - [Python] CSV test\_cancellation unittests fail on Apple M1
+* [ARROW-14492](https://issues.apache.org/jira/browse/ARROW-14492) - [JS] Browser bundles broken
+* [ARROW-14513](https://issues.apache.org/jira/browse/ARROW-14513) - [Release][Go] Update release-6.0.0 with /v6 suffix
+* [ARROW-14523](https://issues.apache.org/jira/browse/ARROW-14523) - [C++][Python] S3FileSystem write\_table can lose data
+* [ARROW-14538](https://issues.apache.org/jira/browse/ARROW-14538) - [R] Work around empty tr call on Solaris
+* [ARROW-14550](https://issues.apache.org/jira/browse/ARROW-14550) - [C++][Go] the json license is not compatible with FSF standards
+* [ARROW-14584](https://issues.apache.org/jira/browse/ARROW-14584) - [Python][CI] Python sdist installation fails with latest setuptools 58.5
+* [ARROW-14594](https://issues.apache.org/jira/browse/ARROW-14594) - [R] Enable snappy+lz4 by default
+
+
+## New Features and Improvements
+
+* [ARROW-14189](https://issues.apache.org/jira/browse/ARROW-14189) - [Docs] Add version dropdown to the sphinx docs
+* [ARROW-14365](https://issues.apache.org/jira/browse/ARROW-14365) - [R] Update README example to reflect new capabilities
+* [ARROW-14450](https://issues.apache.org/jira/browse/ARROW-14450) - [R] Old macos build error
+* [ARROW-14459](https://issues.apache.org/jira/browse/ARROW-14459) - [Doc] Update the pinned sphinx version
+* [ARROW-14480](https://issues.apache.org/jira/browse/ARROW-14480) - [R] Expose arrow::dataset::ExistingDataBehavior to R
+* [ARROW-14486](https://issues.apache.org/jira/browse/ARROW-14486) - [Packaging][deb] libthrift-dev dependency is missing
+* [ARROW-14490](https://issues.apache.org/jira/browse/ARROW-14490) - [Doc] Regenerate CHANGELOG.md to include all versions
+* [ARROW-14496](https://issues.apache.org/jira/browse/ARROW-14496) - [Docs] Ensure links to non-sphinx parts of the docs are relative instead of absolute
+* [ARROW-14499](https://issues.apache.org/jira/browse/ARROW-14499) - [Docs] Version dropdown side-by-side with search box
+* [ARROW-14514](https://issues.apache.org/jira/browse/ARROW-14514) - [C++][R] UBSAN error on round kernel
+* [ARROW-14580](https://issues.apache.org/jira/browse/ARROW-14580) - [Python] PyPI listing does not include trove classifiers for Python 3.10
+
+
+
 # Apache Arrow 6.0.0 (2021-10-26)
 
 ## Bug Fixes
