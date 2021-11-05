@@ -2016,8 +2016,13 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // TODO Case 3: If indices are sorted, can slice them and call Array Take
 
     // Case 4: Else, concatenate chunks and call Array Take
-    ARROW_ASSIGN_OR_RAISE(current_chunk,
-                          Concatenate(values.chunks(), ctx->memory_pool()));
+    if (values.chunks().empty()) {
+      ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
+                                                           ctx->memory_pool()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(current_chunk,
+                            Concatenate(values.chunks(), ctx->memory_pool()));
+    }
   }
   // Call Array Take on our single chunk
   ARROW_ASSIGN_OR_RAISE(new_chunks[0], TakeAA(*current_chunk, indices, options, ctx));
