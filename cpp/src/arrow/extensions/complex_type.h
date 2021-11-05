@@ -18,6 +18,8 @@
 // Complex Number Extension Type
 #pragma once
 
+#include <complex>
+
 #include "arrow/extension_type.h"
 
 namespace arrow {
@@ -34,6 +36,8 @@ class ComplexFloatArray : public ExtensionArray {
 
 class ComplexFloatType : public ExtensionType {
  public:
+  using c_type = std::complex<float>;
+
   explicit ComplexFloatType()
       : ExtensionType(fixed_size_list(float32(), 2)) {}
 
@@ -70,6 +74,8 @@ class ComplexDoubleArray : public ExtensionArray {
 
 class ComplexDoubleType : public ExtensionType {
  public:
+  using c_type = std::complex<double>;
+
   explicit ComplexDoubleType()
       : ExtensionType(fixed_size_list(float64(), 2)) {}
 

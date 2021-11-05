@@ -127,6 +127,11 @@ struct npy_traits<NPY_FLOAT64> {
   static inline bool isnull(double v) { return v != v; }
 };
 
+template <typename T>
+constexpr std::complex<T> make_complex_nan()
+{
+}
+
 template <>
 struct npy_traits<NPY_COMPLEX64> {
   using TypeClass = ComplexFloatType;
@@ -136,8 +141,11 @@ struct npy_traits<NPY_COMPLEX64> {
   // have a default constructor either
   using value_type = std::complex<float>;
 
-  static constexpr std::complex<float> na_sentinel = std::complex<float>(std::numeric_limits<float>::quiet_NaN(),
-                                                                         std::numeric_limits<float>::quiet_NaN());
+  static constexpr std::complex<float> na_sentinel = 
+    std::complex<float>(
+      std::numeric_limits<float>::quiet_NaN(),
+      std::numeric_limits<float>::quiet_NaN());
+
   static constexpr bool supports_nulls = true;
   static inline bool isnull(const std::complex<float> & v) { return v != v; }
 };
@@ -151,8 +159,11 @@ struct npy_traits<NPY_COMPLEX128> {
   // have a default constructor either
   using value_type = std::complex<double>;
   
-  static constexpr std::complex<double> na_sentinel = std::complex<double>(std::numeric_limits<double>::quiet_NaN(),
-                                                                           std::numeric_limits<double>::quiet_NaN());
+  static constexpr std::complex<double> na_sentinel = 
+    std::complex<double>(
+      std::numeric_limits<double>::quiet_NaN(),
+      std::numeric_limits<double>::quiet_NaN());
+
   static constexpr bool supports_nulls = true;
   static inline bool isnull(const std::complex<double> & v) { return v != v; }
 };
@@ -330,12 +341,12 @@ struct arrow_traits<Type::BINARY> {
 
 static inline NPY_DATETIMEUNIT NumPyFrequency(TimeUnit::type unit) {
   switch (unit) {
-    case TimestampType::Unit::SECOND:
+    case TimeUnit::SECOND:
       return NPY_FR_s;
-    case TimestampType::Unit::MILLI:
+    case TimeUnit::MILLI:
       return NPY_FR_ms;
       break;
-    case TimestampType::Unit::MICRO:
+    case TimeUnit::MICRO:
       return NPY_FR_us;
     default:
       // NANO
@@ -366,6 +377,10 @@ static inline int NumPyTypeSize(int npy_type) {
       return 4;
     case NPY_FLOAT64:
       return 8;
+    case NPY_COMPLEX64:
+      return 16;
+    case NPY_COMPLEX128:
+      return 32;
     case NPY_DATETIME:
       return 8;
     case NPY_OBJECT:

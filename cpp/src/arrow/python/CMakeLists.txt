@@ -43,7 +43,8 @@ set(ARROW_PYTHON_SRCS
     numpy_to_arrow.cc
     python_to_arrow.cc
     pyarrow.cc
-    serialize.cc)
+    serialize.cc
+    type_traits.cc)
 
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)

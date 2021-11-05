@@ -63,6 +63,8 @@ def get_logical_type_map():
             pa.lib.Type_BINARY: 'bytes',
             pa.lib.Type_FIXED_SIZE_BINARY: 'bytes',
             pa.lib.Type_STRING: 'unicode',
+            'arrow.complex64': 'complex64',
+            'arrow.complex128': 'complex128',
         })
     return _logical_type_map
 
@@ -81,6 +83,12 @@ def get_logical_type(arrow_type):
             return 'datetimetz' if arrow_type.tz is not None else 'datetime'
         elif isinstance(arrow_type, pa.lib.Decimal128Type):
             return 'decimal'
+        elif isinstance(arrow_type, pa.lib.BaseExtensionType):
+            try:
+                return logical_type_map[arrow_type.extension_name]
+            except KeyError:
+                pass
+        
         return 'object'
 
 
@@ -96,6 +104,8 @@ _numpy_logical_type_map = {
     np.uint64: 'uint64',
     np.float32: 'float32',
     np.float64: 'float64',
+    np.complex64: 'complex64',
+    np.complex128: 'complex128',
     'datetime64[D]': 'date',
     np.unicode_: 'string',
     np.bytes_: 'bytes',
@@ -743,11 +753,15 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         assert len(placement) == 1
         name = columns[placement[0]]
         pandas_dtype = extension_columns[name]
-        if not hasattr(pandas_dtype, '__from_arrow__'):
+
+        if pandas_dtype in {np.complex64, np.complex128}:
+            block = _int.make_block(arr, placement=placement)
+        elif not hasattr(pandas_dtype, '__from_arrow__'):
             raise ValueError("This column does not support to be converted "
                              "to a pandas ExtensionArray")
-        pd_ext_arr = pandas_dtype.__from_arrow__(arr)
-        block = _int.make_block(pd_ext_arr, placement=placement)
+        else:
+            pd_ext_arr = pandas_dtype.__from_arrow__(arr)
+            block = _int.make_block(pd_ext_arr, placement=placement)
     else:
         block = _int.make_block(block_arr, placement=placement)
 
@@ -793,11 +807,11 @@ def table_to_blockmanager(options, table, categories=None,
 
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
-# dataframe (complex not included since not supported by Arrow)
+# dataframe
 _pandas_supported_numpy_types = {
     str(np.dtype(typ))
     for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float'] +
-                ['object', 'bool'])
+                ['object', 'bool'] + ['complex64', 'complex128'])
 }
 
 
