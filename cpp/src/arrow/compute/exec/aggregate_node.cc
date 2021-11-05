@@ -421,6 +421,8 @@ class GroupByNode : public ExecNode {
 
   Result<ExecBatch> Finalize() {
     ThreadLocalState* state = &local_states_[0];
+    // If we never got any batches, then state won't have been initialized
+    RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     ExecBatch out_data{{}, state->grouper->num_groups()};
     out_data.values.resize(agg_kernels_.size() + key_field_ids_.size());
