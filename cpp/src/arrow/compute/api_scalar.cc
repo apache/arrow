@@ -181,7 +181,7 @@ struct EnumTraits<compute::Utf8NormalizeOptions::Method>
                       compute::Utf8NormalizeOptions::Method::NFKC,
                       compute::Utf8NormalizeOptions::Method::NFD,
                       compute::Utf8NormalizeOptions::Method::NFKD> {
-  static std::string name() { return "compute::Utf8NormalizeOptions::Method"; }
+  static std::string name() { return "Utf8NormalizeOptions::Method"; }
   static std::string value_name(compute::Utf8NormalizeOptions::Method value) {
     switch (value) {
       case compute::Utf8NormalizeOptions::Method::NFC:
