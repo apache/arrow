@@ -424,6 +424,7 @@ if(ARROW_COMPUTE)
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
        compute/exec/util.cc
+       compute/exec/hash_join_dict.cc
        compute/exec/hash_join.cc
        compute/exec/hash_join_node.cc
        compute/exec/task_util.cc)

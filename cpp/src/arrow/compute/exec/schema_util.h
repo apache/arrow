@@ -32,6 +32,10 @@ using internal::checked_cast;
 
 namespace compute {
 
+// Identifiers for all different row schemas that are used in a join
+//
+enum class HashJoinProjection : int { INPUT = 0, KEY = 1, PAYLOAD = 2, OUTPUT = 3 };
+
 struct SchemaProjectionMap {
   static constexpr int kMissingField = -1;
   int num_cols;
@@ -86,7 +90,7 @@ class SchemaProjectionMaps {
     return field(schema_handle, field_id).data_type;
   }
 
-  SchemaProjectionMap map(ProjectionIdEnum from, ProjectionIdEnum to) {
+  SchemaProjectionMap map(ProjectionIdEnum from, ProjectionIdEnum to) const {
     int id_from = schema_id(from);
     int id_to = schema_id(to);
     SchemaProjectionMap result;
