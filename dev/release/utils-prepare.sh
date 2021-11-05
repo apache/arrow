@@ -145,9 +145,11 @@ update_versions() {
 
   pushd "${ARROW_DIR}/go"
   find . -name "*.go*" -exec sed -i.bak -E -e \
-    "s|(github.com/apache/arrow/go)(/v[0-9])?|\1/v${version/.*/}|" {} \;
-  sed -i.bak -E -e \
-    "s|(github.com/apache/arrow/go)(/v[0-9])?|\1/v${version/.*/}|" ./go.mod
+    "s|(github.com/apache/arrow/go)(/v[0-9]+)?|\1/v${version/.*/}|" {} \;
+  find . -name "go.mod" -exec sed -i.bak -E -e \
+    "s|(github.com/apache/arrow/go)(/v[0-9]+)?|\1/v${version/.*/}|" {} \;
+  find . -name "go.mod" -exec sed -i.bak -E -e \
+    "s|(github.com/apache/arrow/go)(/v[2-9]+) v[2-9]+\.[0-9]\.[0-9]|\1/v${version/*/} v${version}" {} \;
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd

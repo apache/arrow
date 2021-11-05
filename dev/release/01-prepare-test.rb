@@ -352,7 +352,7 @@ class PrepareTest < Test::Unit::TestCase
       lines = File.readlines(f, :encoding => 'UTF-8').grep(/github.com\/apache\/arrow\/go\/v#{snapshot_major}/).map(&:chomp)
       hunks = []
       lines.each{ |l| hunks.push('-' + l) }
-      lines.each{ |l| hunks.push('+' + l.gsub(/v#{snapshot_major}/, "v#{next_major}")) }
+      lines.each{ |l| hunks.push('+' + l.gsub(/v#{snapshot_major}|#{@snapshot_version}/, "v#{snapshot_major}" => "v#{next_major}", @snapshot_version => @next_snapshot_version)) }
       unless hunks.empty?        
         godiffs.push({path: f, hunks: [hunks]})
       end

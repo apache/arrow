@@ -18,6 +18,6 @@ module cdatatest
 
 go 1.15
 
-replace github.com/apache/arrow/go/v6 => ../../../
+replace github.com/apache/arrow/go/v7 => ../../../
 
-require github.com/apache/arrow/go/v6 v6.0.0
+require github.com/apache/arrow/go/v7 v7.0.0-SNAPSHOT
