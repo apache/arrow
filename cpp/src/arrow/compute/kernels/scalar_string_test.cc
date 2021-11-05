@@ -943,14 +943,6 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkc_options);
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfd_options);
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkd_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
-                   &nfc_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
-                   &nfkc_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
-                   &nfd_options);
-  this->CheckUnary("utf8_normalize", R"([null, ""])", this->type(), R"([null, ""])",
-                   &nfkd_options);
 
   // Composition
   // before: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
