@@ -456,7 +456,7 @@ test_that("Dataset writing: unsupported features/input validation", {
 # see https://issues.apache.org/jira/browse/ARROW-12315
 test_that("Max partitions fails with non-integer values and less than required partitions values", {
   skip_if_not_available("parquet")
-  df <- tibble(
+  df <- tibble::tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
     lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
@@ -466,36 +466,42 @@ test_that("Max partitions fails with non-integer values and less than required p
 
   # max_partitions = 10 => pass
   expect_silent(
-    write_dataset(df, dst_dir, partitioning = int, max_partitions = 10)
+    write_dataset(df, dst_dir, partitioning = "int", max_partitions = 10)
   )
 
   # max_partitions < 10 => error
   expect_error(
-    write_dataset(df, dst_dir, partitioning = int, max_partitions = 5)
+    write_dataset(df, dst_dir, partitioning = "int", max_partitions = 5),
+    "There are 10 partitions. This exceeds the maximum of 5"
   )
 
   # negative max_partitions => error
   expect_error(
-    write_dataset(df, dst_dir, partitioning = int, max_partitions = -3)
+    write_dataset(df, dst_dir, partitioning = "int", max_partitions = -3),
+    "max_partitions must be a positive, non-missing integer"
   )
 
   # round(max_partitions, 0) != max_partitions  => error
   expect_error(
-    write_dataset(df, dst_dir, partitioning = int, max_partitions = 3.5)
+    write_dataset(df, dst_dir, partitioning = "int", max_partitions = 3.5),
+    "max_partitions must be a positive, non-missing integer"
   )
 
   # max_partitions = NULL => fail
   expect_error(
-    write_dataset(df, dst_dir, partitioning = int, max_partitions = NULL)
+    write_dataset(df, dst_dir, partitioning = "int", max_partitions = NULL),
+    "max_partitions must be a positive, non-missing integer"
   )
 
   # max_partitions = NA => fail
   expect_error(
-    write_dataset(df, dst_dir, partitioning = int, max_partitions = NULL)
+    write_dataset(df, dst_dir, partitioning = "int", max_partitions = NA_integer_),
+    "max_partitions must be a positive, non-missing integer"
   )
 
   # max_partitions = chr => error
   expect_error(
-    write_dataset(df, dst_dir, partitioning = int, max_partitions = "foobar")
+    write_dataset(df, dst_dir, partitioning = "int", max_partitions = "foobar"),
+    "max_partitions must be a positive, non-missing integer"
   )
 })
