@@ -16,12 +16,12 @@
 
 // Package arrio exposes functions to manipulate records, exposing and using
 // interfaces not unlike the ones defined in the stdlib io package.
-package arrio // import "github.com/apache/arrow/go/v6/arrow/arrio"
+package arrio // import "github.com/apache/arrow/go/v7/arrow/arrio"
 
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v6/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/array"
 )
 
 // Reader is the interface that wraps the Read method.

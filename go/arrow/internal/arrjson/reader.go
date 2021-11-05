@@ -14,17 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrjson // import "github.com/apache/arrow/go/v6/arrow/internal/arrjson"
+package arrjson // import "github.com/apache/arrow/go/v7/arrow/internal/arrjson"
 
 import (
 	"encoding/json"
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v6/arrow"
-	"github.com/apache/arrow/go/v6/arrow/array"
-	"github.com/apache/arrow/go/v6/arrow/arrio"
-	"github.com/apache/arrow/go/v6/arrow/internal/debug"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/arrio"
+	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 )
 
 type Reader struct {

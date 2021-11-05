@@ -25,8 +25,8 @@ import (
 	"io"
 	"math"
 
-	"github.com/apache/arrow/go/v6/arrow/bitutil"
-	"github.com/apache/arrow/go/v6/parquet"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/parquet"
 	"golang.org/x/xerrors"
 )
 

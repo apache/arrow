@@ -20,8 +20,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/apache/arrow/go/v6/arrow/ipc"
-	"github.com/apache/arrow/go/v6/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
 )
 

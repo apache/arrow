@@ -21,8 +21,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/v6/arrow/flight"
-	"github.com/apache/arrow/go/v6/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v7/arrow/flight"
+	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

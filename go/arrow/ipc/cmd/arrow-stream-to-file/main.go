@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main // import "github.com/apache/arrow/go/v6/arrow/ipc/cmd/arrow-stream-to-file"
+package main // import "github.com/apache/arrow/go/v7/arrow/ipc/cmd/arrow-stream-to-file"
 
 import (
 	"flag"
@@ -22,9 +22,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v6/arrow/arrio"
-	"github.com/apache/arrow/go/v6/arrow/ipc"
-	"github.com/apache/arrow/go/v6/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/arrio"
+	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
 )
 

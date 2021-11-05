@@ -143,20 +143,11 @@ update_versions() {
   git add */*/*/version.rb
   popd
 
-  pushd "${ARROW_DIR}/go/arrow"
+  pushd "${ARROW_DIR}/go"
   find . -name "*.go*" -exec sed -i.bak -E -e \
-    "s|(github.com/apache/arrow/go/arrow)(/v[0-9])?|\1/v${version/.*/}|" {} \;
+    "s|(github.com/apache/arrow/go)(/v[0-9])?|\1/v${version/.*/}|" {} \;
   sed -i.bak -E -e \
-    "s|(github.com/apache/arrow/go/arrow)(/v[0-9])?|\1/v${version/.*/}|" ./go.mod
-  find . -name "*.bak" -exec rm {} \;
-  git add .
-  popd
-
-  pushd "${ARROW_DIR}/go/parquet"
-  find . -name "*.go*" -exec sed -i.bak -E -e \
-    "s|(github.com/apache/arrow/go/parquet)(/v[0-9])?|\1/v${version/.*/}|" {} \;
-  sed -i.bak -E -e \
-    "s|(github.com/apache/arrow/go/parquet)(/v[0-9])?|\1/v${version/.*/}|" ./go.mod
+    "s|(github.com/apache/arrow/go)(/v[0-9])?|\1/v${version/.*/}|" ./go.mod
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
