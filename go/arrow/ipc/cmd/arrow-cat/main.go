@@ -52,7 +52,7 @@
 //  record 2...
 //    col[0] "bools": [true (null) (null) false true]
 //  [...]
-package main // import "github.com/apache/arrow/go/v7/arrow/ipc/cmd/arrow-cat"
+package main
 
 import (
 	"bytes"

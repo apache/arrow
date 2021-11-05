@@ -16,7 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrow // import "github.com/apache/arrow/go/v7/arrow"
+package arrow
 
 import (
 	"math"

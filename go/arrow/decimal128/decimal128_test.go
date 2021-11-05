@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package decimal128_test // import "github.com/apache/arrow/go/v7/arrow/decimal128"
+package decimal128_test
 
 import (
 	"fmt"

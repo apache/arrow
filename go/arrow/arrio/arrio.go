@@ -16,7 +16,7 @@
 
 // Package arrio exposes functions to manipulate records, exposing and using
 // interfaces not unlike the ones defined in the stdlib io package.
-package arrio // import "github.com/apache/arrow/go/v7/arrow/arrio"
+package arrio
 
 import (
 	"io"

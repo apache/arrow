@@ -15,7 +15,7 @@
 // limitations under the License.
 
 // Package arrdata exports arrays and records data ready to be used for tests.
-package arrdata // import "github.com/apache/arrow/go/v7/arrow/internal/arrdata"
+package arrdata
 
 import (
 	"fmt"
