@@ -70,7 +70,6 @@ from pyarrow._compute import (  # noqa
     function_registry,
     get_function,
     list_functions,
-    group_by
 )
 
 import inspect

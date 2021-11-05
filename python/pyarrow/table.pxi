@@ -2196,7 +2196,7 @@ cdef class Table(_PandasConvertible):
         """
         Perform a group by aggregation over the columns of the table.
         """
-        from pyarrow._compute import group_by
+        from pyarrow._compute import _group_by
 
         if isinstance(aggregations, str):
             aggregations = [aggregations]
@@ -2207,7 +2207,7 @@ cdef class Table(_PandasConvertible):
                 aggr = (aggr, None)
             aggrs.append(aggr)
 
-        return group_by(
+        return _group_by(
             [self[c] for c in columns],
             [self[key]],
             aggrs

@@ -1296,7 +1296,7 @@ class TDigestOptions(_TDigestOptions):
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
 
-def group_by(args, keys, aggregations):
+def _group_by(args, keys, aggregations):
     cdef:
         vector[CDatum] c_args
         vector[CDatum] c_keys
