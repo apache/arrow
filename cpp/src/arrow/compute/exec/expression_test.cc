@@ -477,15 +477,15 @@ TEST(Expression, BindLiteral) {
 
 void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
                    Expression* bound_out = nullptr,
-                   Schema* schema = kBoringSchema.get()) {
+                   const Schema& schema = *kBoringSchema) {
   if (!expected) {
     expected = expr;
   }
 
-  ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*schema));
+  ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(schema));
   EXPECT_TRUE(bound.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(expected, expected->Bind(*schema));
+  ASSERT_OK_AND_ASSIGN(expected, expected->Bind(schema));
   EXPECT_EQ(bound, *expected) << " unbound: " << expr.ToString();
 
   if (bound_out) {
@@ -515,11 +515,11 @@ TEST(Expression, BindNestedFieldRef) {
   Expression expr;
   auto schema = Schema({field("a", struct_({field("b", int32())}))});
 
-  ExpectBindsTo(field_ref(FieldRef("a", "b")), no_change, &expr, &schema);
+  ExpectBindsTo(field_ref(FieldRef("a", "b")), no_change, &expr, schema);
   EXPECT_TRUE(expr.IsBound());
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
-  ExpectBindsTo(field_ref(FieldRef(FieldPath({0, 0}))), no_change, &expr, &schema);
+  ExpectBindsTo(field_ref(FieldRef(FieldPath({0, 0}))), no_change, &expr, schema);
   EXPECT_TRUE(expr.IsBound());
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
