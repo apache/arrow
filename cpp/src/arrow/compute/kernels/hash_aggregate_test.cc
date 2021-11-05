@@ -176,7 +176,9 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
     }
     if (arrays.empty()) {
       ARROW_ASSIGN_OR_RAISE(
-          out_arrays[i], MakeArrayOfNull(output_schema->field(i)->type(), /*length=*/0));
+          out_arrays[i],
+          MakeArrayOfNull(output_schema->field(static_cast<int>(i))->type(),
+                          /*length=*/0));
     } else {
       ARROW_ASSIGN_OR_RAISE(out_arrays[i], Concatenate(arrays));
     }
