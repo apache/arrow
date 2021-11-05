@@ -1685,7 +1685,7 @@ TEST(HashJoin, UnsupportedTypes) {
     join.inputs.emplace_back(Declaration{
         "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel, slow)}});
 
-    ASSERT_RAISES(NotImplemented, join.AddToPlan(plan.get()));
+    ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
   }
 }
 

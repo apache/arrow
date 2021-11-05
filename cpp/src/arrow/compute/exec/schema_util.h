@@ -76,11 +76,6 @@ class SchemaProjectionMaps {
     return static_cast<int>(schemas_[id].second.size());
   }
 
-  const KeyEncoder::KeyColumnMetadata& column_metadata(ProjectionIdEnum schema_handle,
-                                                       int field_id) const {
-    return field(schema_handle, field_id).column_metadata;
-  }
-
   const std::string& field_name(ProjectionIdEnum schema_handle, int field_id) const {
     return field(schema_handle, field_id).field_name;
   }
@@ -105,7 +100,6 @@ class SchemaProjectionMaps {
     int field_path;
     std::string field_name;
     std::shared_ptr<DataType> data_type;
-    KeyEncoder::KeyColumnMetadata column_metadata;
   };
 
   Status RegisterSchema(ProjectionIdEnum handle, const Schema& schema) {
@@ -118,8 +112,6 @@ class SchemaProjectionMaps {
       out_fields[i].field_path = static_cast<int>(i);
       out_fields[i].field_name = name;
       out_fields[i].data_type = type;
-      ARROW_ASSIGN_OR_RAISE(out_fields[i].column_metadata,
-                            ColumnMetadataFromDataType(type));
     }
     schemas_.push_back(std::make_pair(handle, out_fields));
     return Status::OK();
@@ -139,8 +131,6 @@ class SchemaProjectionMaps {
       out_fields[i].field_path = match[0];
       out_fields[i].field_name = name;
       out_fields[i].data_type = type;
-      ARROW_ASSIGN_OR_RAISE(out_fields[i].column_metadata,
-                            ColumnMetadataFromDataType(type));
     }
     schemas_.push_back(std::make_pair(handle, out_fields));
     return Status::OK();
@@ -154,24 +144,6 @@ class SchemaProjectionMaps {
     for (size_t i = 0; i < size; ++i) {
       GenerateMapForProjection(static_cast<int>(i), id_base);
     }
-  }
-
-  Result<KeyEncoder::KeyColumnMetadata> ColumnMetadataFromDataType(
-      const std::shared_ptr<DataType>& type) {
-    if (type->id() == Type::DICTIONARY) {
-      auto bit_width = checked_cast<const FixedWidthType&>(*type).bit_width();
-      ARROW_DCHECK(bit_width % 8 == 0);
-      return KeyEncoder::KeyColumnMetadata(true, bit_width / 8);
-    } else if (type->id() == Type::BOOL) {
-      return KeyEncoder::KeyColumnMetadata(true, 0);
-    } else if (is_fixed_width(type->id())) {
-      return KeyEncoder::KeyColumnMetadata(
-          true, checked_cast<const FixedWidthType&>(*type).bit_width() / 8);
-    } else if (is_binary_like(type->id())) {
-      return KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
-    }
-    return Status::NotImplemented("Join on schema containing field of type ", *type,
-                                  " (even if field is not a join key)");
   }
 
   int schema_id(ProjectionIdEnum schema_handle) const {
