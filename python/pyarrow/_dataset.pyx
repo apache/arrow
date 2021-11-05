@@ -3381,6 +3381,7 @@ def _filesystemdataset_write(
     c_options.partitioning = partitioning.unwrap()
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
+    c_options.existing_data_behavior = ExistingDataBehavior_OVERWRITE
     if file_visitor is not None:
         visit_args = {'base_dir': c_options.base_dir,
                       'file_visitor': file_visitor}
