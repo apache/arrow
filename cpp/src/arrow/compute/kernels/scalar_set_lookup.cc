@@ -194,6 +194,13 @@ struct InitStateVisitor {
             "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
             ty1, " and ", ty2);
       }
+    } else if (arg_type->id() == Type::STRING &&
+               !is_base_binary_like(options.value_set.type()->id())) {
+      // This is a bit of a hack, but don't implicitly cast from a non-binary
+      // type to string, since most types support casting to string and that
+      // may lead to surprises. However, we do want most other implicit casts.
+      return Status::Invalid("Array type didn't match type of values set: ", *arg_type,
+                             " vs ", *options.value_set.type());
     }
     if (!options.value_set.is_arraylike()) {
       return Status::Invalid("Set lookup value set must be Array or ChunkedArray");

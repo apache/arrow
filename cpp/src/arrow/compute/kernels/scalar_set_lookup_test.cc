@@ -125,6 +125,19 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
   // fails; value_set cannot be cast to int8
   opts = SetLookupOptions{ArrayFromJSON(float32(), "[2.5, 3.1, 5.0]")};
   ASSERT_RAISES(Invalid, CallFunction("is_in", {input}, &opts));
+
+  // Allow implicit casts between binary types...
+  CheckIsIn(ArrayFromJSON(binary(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
+            "[true, true, false, false, true]");
+  CheckIsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"),
+            "[true, true, false, false, true]");
+  // But explicitly deny implicit casts from non-binary to utf8 to
+  // avoid surprises
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+                     SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
 }
 
 template <typename Type>
