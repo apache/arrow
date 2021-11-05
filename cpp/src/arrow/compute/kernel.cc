@@ -21,6 +21,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <iostream>
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
@@ -449,6 +450,8 @@ bool KernelSignature::Equals(const KernelSignature& other) const {
 }
 
 bool KernelSignature::MatchesInputs(const std::vector<ValueDescr>& args) const {
+  std::cout << "MatchesInputs: " << in_types_.size() << std::endl;
+
   if (is_varargs_) {
     for (size_t i = 0; i < args.size(); ++i) {
       if (!in_types_[std::min(i, in_types_.size() - 1)].Matches(args[i])) {
@@ -460,6 +463,7 @@ bool KernelSignature::MatchesInputs(const std::vector<ValueDescr>& args) const {
       return false;
     }
     for (size_t i = 0; i < in_types_.size(); ++i) {
+      std::cout << "  MatchesInputs#" << i << ": " << in_types_[i].ToString() << " " << in_types_[i].Matches(args[i]) << std::endl;
       if (!in_types_[i].Matches(args[i])) {
         return false;
       }

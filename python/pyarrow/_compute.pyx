@@ -1294,3 +1294,28 @@ class TDigestOptions(_TDigestOptions):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
+
+
+def group_by(args, keys, aggregation):
+    cdef:
+        vector[CDatum] c_args
+        vector[CDatum] c_keys
+        vector[CAggregate] c_aggregations
+        CDatum result
+        CAggregate c_aggr
+
+
+    _pack_compute_args(args, &c_args)
+    _pack_compute_args(keys, &c_keys)
+
+    c_aggr.function = aggregation
+    c_aggregations.push_back(c_aggr)
+
+    with nogil:
+        result = GetResultValue(
+            GroupBy(c_args, c_keys, c_aggregations)
+        )
+
+    return wrap_datum(result)    
+
+

@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <memory>
 #include <sstream>
+#include <iostream>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
@@ -119,6 +120,7 @@ const KernelType* DispatchExactImpl(const std::vector<KernelType*>& kernels,
 
   // Validate arity
   for (const auto& kernel : kernels) {
+    std::cout << "KERNEL " << kernel->signature->MatchesInputs(values) << " " << values.size() << std::endl;
     if (kernel->signature->MatchesInputs(values)) {
       kernel_matches[kernel->simd_level] = kernel;
     }
