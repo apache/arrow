@@ -120,11 +120,11 @@ This release candidate is based on commit:
 #{@current_commit} [2]
 
 The source release rc0 is hosted at [3].
-The binary artifacts are hosted at [4][5][6][7][8][9].
-The changelog is located at [10].
+The binary artifacts are hosted at [4][5][6][7][8][9][10].
+The changelog is located at [11].
 
 Please download, verify checksums and signatures, run the unit tests,
-and vote on the release. See [11] for how to validate a release candidate.
+and vote on the release. See [12] for how to validate a release candidate.
 
 The vote will be open for at least 72 hours.
 
@@ -135,14 +135,15 @@ The vote will be open for at least 72 hours.
 [1]: https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20#{@release_version}
 [2]: https://github.com/apache/arrow/tree/#{@current_commit}
 [3]: https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-#{@release_version}-rc0
-[4]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
-[5]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
-[6]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
-[7]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/#{@release_version}-rc0
-[8]: https://apache.jfrog.io/artifactory/arrow/python-rc/#{@release_version}-rc0
-[9]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
-[10]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
-[11]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
+[4]: https://apache.jfrog.io/artifactory/arrow/almalinux-rc/
+[5]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
+[6]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
+[7]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
+[8]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/#{@release_version}-rc0
+[9]: https://apache.jfrog.io/artifactory/arrow/python-rc/#{@release_version}-rc0
+[10]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
+[11]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
+[12]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
     VOTE
   end
 end
