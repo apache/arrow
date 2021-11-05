@@ -2195,6 +2195,22 @@ cdef class Table(_PandasConvertible):
     def group_by(self, key, columns, aggregations):
         """
         Perform a group by aggregation over the columns of the table.
+
+        Parameters
+        ----------
+        key : str
+            Name of the column that should be used as the grouping key.
+        columns : list of str
+            Names of the columns that contain values for the aggregations.
+        aggregations : str or list of str or list of tuple(str, FunctionOptions)
+            Name of the hash aggregation function, or list of aggregation
+            function names or list of aggregation function names together
+            with their options.
+
+        Returns
+        -------
+        StructArray
+            Results of the aggregation functions.
         """
         from pyarrow._compute import _group_by
 
