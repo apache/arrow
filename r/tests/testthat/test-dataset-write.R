@@ -472,7 +472,7 @@ test_that("Max partitions fails with non-integer values and less than required p
   # max_partitions < 10 => error
   expect_error(
     write_dataset(df, dst_dir, partitioning = "int", max_partitions = 5),
-    "There are 10 partitions. This exceeds the maximum of 5"
+    "Fragment would be written into 10 partitions. This exceeds the maximum of 5"
   )
 
   # negative max_partitions => error

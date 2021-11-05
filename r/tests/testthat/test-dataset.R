@@ -693,4 +693,4 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
 
   # must clean up the pointer or we leak
   delete_arrow_array_stream(stream_ptr)
- })
+})

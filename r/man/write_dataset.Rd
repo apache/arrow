@@ -54,7 +54,7 @@ partitions which data is not written to.
 }}
 
 \item{max_partitions}{maximum number of partitions any batch may be
-written into. Default is 1024L (integer).}
+written into. Default is 1024L.}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are

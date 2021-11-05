@@ -358,7 +358,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     }
 
     if (groups.batches.size() > static_cast<size_t>(write_options_.max_partitions)) {
-      return Status::Invalid("There are ", groups.batches.size(),
+      return Status::Invalid("Fragment would be written into ", groups.batches.size(),
                              " partitions. This exceeds the maximum of ",
                              write_options_.max_partitions);
     }

@@ -49,7 +49,7 @@
 #'   if data is going to be written to those partitions and will leave alone
 #'   partitions which data is not written to.
 #' @param max_partitions maximum number of partitions any batch may be
-#' written into. Default is 1024L (integer).
+#' written into. Default is 1024L.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
