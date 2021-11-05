@@ -1571,7 +1571,7 @@ def test_s3_real_aws():
     from pyarrow.fs import S3FileSystem
     default_region = (os.environ.get('PYARROW_TEST_S3_REGION') or
                       'us-east-1')
-    fs = S3FileSystem(anonymous=True)
+    fs = S3FileSystem(anonymous=True, region=default_region)
     assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-2')
