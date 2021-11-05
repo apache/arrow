@@ -51,6 +51,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/make_unique.h"
 
 #include "generated/Message_generated.h"  // IWYU pragma: keep
 
@@ -59,6 +60,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::GetByteWidth;
+using internal::make_unique;
 using internal::TemporaryDir;
 
 namespace ipc {
@@ -2645,33 +2647,43 @@ TEST(IoRecordedRandomAccessFile, ReadWithCurrentPosition) {
   ASSERT_EQ(file.GetReadRanges()[0], (io::ReadRange{0, 20}));
 }
 
-Status MakeBooleanInt32Int64Batch(const int length, std::shared_ptr<RecordBatch>* out) {
-  // Make the schema
+std::shared_ptr<Schema> MakeBooleanInt32Int64Schema() {
   auto f0 = field("f0", boolean());
   auto f1 = field("f1", int32());
   auto f2 = field("f2", int64());
-  auto schema = ::arrow::schema({f0, f1, f2});
+  return ::arrow::schema({f0, f1, f2});
+}
 
+Status MakeBooleanInt32Int64Batch(const int length, std::shared_ptr<RecordBatch>* out) {
+  auto schema_ = MakeBooleanInt32Int64Schema();
   std::shared_ptr<Array> a0, a1, a2;
   RETURN_NOT_OK(MakeRandomBooleanArray(length, false, &a0));
   RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &a1));
   RETURN_NOT_OK(MakeRandomInt64Array(length, false, arrow::default_memory_pool(), &a2));
-  *out = RecordBatch::Make(schema, length, {a0, a1, a2});
+  *out = RecordBatch::Make(std::move(schema_), length, {a0, a1, a2});
   return Status::OK();
+}
+
+std::shared_ptr<Buffer> MakeBooleanInt32Int64File(int num_rows, int num_batches) {
+  auto schema_ = MakeBooleanInt32Int64Schema();
+  EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create(0));
+  EXPECT_OK_AND_ASSIGN(auto writer, MakeFileWriter(sink.get(), schema_));
+
+  std::shared_ptr<RecordBatch> batch;
+  for (int i = 0; i < num_batches; i++) {
+    ARROW_EXPECT_OK(MakeBooleanInt32Int64Batch(num_rows, &batch));
+    ARROW_EXPECT_OK(writer->WriteRecordBatch(*batch));
+  }
+
+  ARROW_EXPECT_OK(writer->Close());
+  EXPECT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  return buffer;
 }
 
 void GetReadRecordBatchReadRanges(
     uint32_t num_rows, const std::vector<int>& included_fields,
     const std::vector<int64_t>& expected_body_read_lengths) {
-  std::shared_ptr<RecordBatch> batch;
-  // [bool, int32, int64] batch
-  ASSERT_OK(MakeBooleanInt32Int64Batch(num_rows, &batch));
-
-  ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create(0));
-  ASSERT_OK_AND_ASSIGN(auto writer, MakeFileWriter(sink.get(), batch->schema()));
-  ASSERT_OK(writer->WriteRecordBatch(*batch));
-  ASSERT_OK(writer->Close());
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto buffer = MakeBooleanInt32Int64File(num_rows, /*num_batches=*/1);
 
   io::BufferReader buffer_reader(buffer);
   TrackedRandomAccessFile tracked(&buffer_reader);
@@ -2769,6 +2781,133 @@ TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFieldsWithIoMerged) {
   // + 64 int32: 64 * 4 bytes (256 bytes)
   GetReadRecordBatchReadRanges(64, {0, 1}, {8 + 64 * 4});
 }
+
+constexpr static int kNumBatches = 10;
+// It can be difficult to know the exact size of the schema.  Instead we just make the
+// row data big enough that we can easily identify if a read is for a schema or for
+// row data.
+//
+// This needs to be large enough to space record batches kDefaultHoleSizeLimit bytes apart
+// and also large enough that record batch data is more than kMaxMetadataSizeBytes bytes
+constexpr static int kRowsPerBatch = 1000;
+constexpr static int64_t kMaxMetadataSizeBytes = 1 << 13;
+// There are always 2 reads when the file is opened
+constexpr static int kNumReadsOnOpen = 2;
+
+class PreBufferingTest : public ::testing::TestWithParam<bool> {
+ protected:
+  void SetUp() override {
+    file_buffer_ = MakeBooleanInt32Int64File(kRowsPerBatch, kNumBatches);
+  }
+
+  void OpenReader() {
+    buffer_reader_ = make_unique<io::BufferReader>(file_buffer_);
+    tracked_ = std::make_shared<TrackedRandomAccessFile>(buffer_reader_.get());
+    auto read_options = IpcReadOptions::Defaults();
+    if (ReadsArePlugged()) {
+      // This will ensure that all reads get globbed together into one large read
+      read_options.pre_buffer_cache_options.hole_size_limit =
+          std::numeric_limits<int64_t>::max() - 1;
+      read_options.pre_buffer_cache_options.range_size_limit =
+          std::numeric_limits<int64_t>::max();
+    }
+    ASSERT_OK_AND_ASSIGN(reader_, RecordBatchFileReader::Open(tracked_, read_options));
+  }
+
+  bool ReadsArePlugged() { return GetParam(); }
+
+  std::vector<int> AllBatchIndices() {
+    std::vector<int> all_batch_indices(kNumBatches);
+    std::iota(all_batch_indices.begin(), all_batch_indices.end(), 0);
+    return all_batch_indices;
+  }
+
+  void AssertMetadataLoaded(std::vector<int> batch_indices) {
+    if (batch_indices.size() == 0) {
+      batch_indices = AllBatchIndices();
+    }
+    const auto& read_ranges = tracked_->get_read_ranges();
+    if (ReadsArePlugged()) {
+      // The read should have arrived as one large read
+      ASSERT_EQ(kNumReadsOnOpen + 1, read_ranges.size());
+      if (batch_indices.size() > 1) {
+        ASSERT_GT(read_ranges[kNumReadsOnOpen].length, kMaxMetadataSizeBytes);
+      }
+    } else {
+      // We should get many small reads of metadata only
+      ASSERT_EQ(batch_indices.size() + kNumReadsOnOpen, read_ranges.size());
+      for (const auto& read_range : read_ranges) {
+        ASSERT_LT(read_range.length, kMaxMetadataSizeBytes);
+      }
+    }
+  }
+
+  std::vector<std::shared_ptr<RecordBatch>> LoadExpected() {
+    auto buffer_reader = make_unique<io::BufferReader>(file_buffer_);
+    auto read_options = IpcReadOptions::Defaults();
+    EXPECT_OK_AND_ASSIGN(auto reader,
+                         RecordBatchFileReader::Open(buffer_reader.get(), read_options));
+    std::vector<std::shared_ptr<RecordBatch>> expected_batches;
+    for (int i = 0; i < reader->num_record_batches(); i++) {
+      EXPECT_OK_AND_ASSIGN(auto expected_batch, reader->ReadRecordBatch(i));
+      expected_batches.push_back(expected_batch);
+    }
+    return expected_batches;
+  }
+
+  void CheckFileRead(int num_indices_pre_buffered) {
+    auto expected_batches = LoadExpected();
+    const std::vector<io::ReadRange>& read_ranges = tracked_->get_read_ranges();
+    std::size_t starting_reads = read_ranges.size();
+    for (int i = 0; i < reader_->num_record_batches(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto next_batch, reader_->ReadRecordBatch(i));
+      AssertBatchesEqual(*expected_batches[i], *next_batch);
+    }
+    int metadata_reads = 0;
+    int data_reads = 0;
+    for (std::size_t i = starting_reads; i < read_ranges.size(); i++) {
+      if (read_ranges[i].length > kMaxMetadataSizeBytes) {
+        data_reads++;
+      } else {
+        metadata_reads++;
+      }
+    }
+    ASSERT_EQ(metadata_reads, reader_->num_record_batches() - num_indices_pre_buffered);
+    ASSERT_EQ(data_reads, reader_->num_record_batches());
+  }
+
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  std::shared_ptr<Buffer> file_buffer_;
+  std::unique_ptr<io::BufferReader> buffer_reader_;
+  std::shared_ptr<TrackedRandomAccessFile> tracked_;
+  std::shared_ptr<RecordBatchFileReader> reader_;
+};
+
+TEST_P(PreBufferingTest, MetadataOnlyAllBatches) {
+  OpenReader();
+  // Should pre_buffer all metadata
+  ASSERT_OK(reader_->PreBufferMetadata({}));
+  AssertMetadataLoaded({});
+  CheckFileRead(kNumBatches);
+}
+
+TEST_P(PreBufferingTest, MetadataOnlySomeBatches) {
+  OpenReader();
+  // Should pre_buffer all metadata
+  ASSERT_OK(reader_->PreBufferMetadata({1, 2, 3}));
+  AssertMetadataLoaded({1, 2, 3});
+  CheckFileRead(3);
+}
+
+INSTANTIATE_TEST_SUITE_P(PreBufferingTests, PreBufferingTest,
+                         ::testing::Values(false, true),
+                         [](const ::testing::TestParamInfo<bool>& info) {
+                           if (info.param) {
+                             return "plugged";
+                           } else {
+                             return "not_plugged";
+                           }
+                         });
 
 }  // namespace test
 }  // namespace ipc

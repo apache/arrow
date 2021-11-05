@@ -104,11 +104,17 @@ class ARROW_EXPORT ReadRangeCache {
 
   /// Construct a read cache with default
   explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx)
-      : ReadRangeCache(file, std::move(ctx), CacheOptions::Defaults()) {}
+      : ReadRangeCache(file, file.get(), std::move(ctx), CacheOptions::Defaults()) {}
 
   /// Construct a read cache with given options
   explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
-                          CacheOptions options);
+                          CacheOptions options)
+      : ReadRangeCache(file, file.get(), ctx, options) {}
+
+  /// Construct a read cache with an unowned file
+  ReadRangeCache(RandomAccessFile* file, IOContext ctx, CacheOptions options)
+      : ReadRangeCache(NULLPTR, file, ctx, options) {}
+
   ~ReadRangeCache();
 
   /// \brief Cache the given ranges in the background.
@@ -129,6 +135,9 @@ class ARROW_EXPORT ReadRangeCache {
  protected:
   struct Impl;
   struct LazyImpl;
+
+  ReadRangeCache(std::shared_ptr<RandomAccessFile> owned_file, RandomAccessFile* file,
+                 IOContext ctx, CacheOptions options);
 
   std::unique_ptr<Impl> impl_;
 };
