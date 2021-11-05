@@ -12,6 +12,7 @@ write_dataset(
   basename_template = paste0("part-{i}.", as.character(format)),
   hive_style = TRUE,
   existing_data_behavior = c("overwrite", "error", "delete_matching"),
+  max_partitions = 1024L,
   ...
 )
 }
@@ -47,6 +48,9 @@ new files created will overwrite existing files.  When this is set to
 empty.  When this is set to "delete_matching" then the writer will delete
 any existing partitions if data is going to be written to those partitions
 and will leave alone partitions which data is not written to.}
+
+\item{max_partitions}{int: Maximum number of partitions any batch may be
+written into. Default is default 1024.}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are

@@ -693,4 +693,184 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
 
   # must clean up the pointer or we leak
   delete_arrow_array_stream(stream_ptr)
+ })
+
+test_that("Dataset writing: from RecordBatch", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- record_batch(rbind(df1, df2))
+  stacked %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Ipc format options & compression", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+
+  codec <- NULL
+  if (codec_is_available("zstd")) {
+    codec <- Codec$create("zstd")
+  }
+
+  write_dataset(ds, dst_dir, format = "feather", codec = codec)
+  expect_true(dir.exists(dst_dir))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Parquet format options", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  skip_if_not_available("parquet")
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+  dst_dir_no_truncated_timestamps <- make_temp_dir()
+
+  # Use trace() to confirm that options are passed in
+  trace(
+    "parquet___ArrowWriterProperties___create",
+    tracer = quote(warning("allow_truncated_timestamps == ", allow_truncated_timestamps)),
+    print = FALSE,
+    where = write_dataset
+  )
+  expect_warning(
+    write_dataset(ds, dst_dir_no_truncated_timestamps, format = "parquet", partitioning = "int"),
+    "allow_truncated_timestamps == FALSE"
+  )
+  expect_warning(
+    write_dataset(ds, dst_dir, format = "parquet", partitioning = "int", allow_truncated_timestamps = TRUE),
+    "allow_truncated_timestamps == TRUE"
+  )
+  untrace("parquet___ArrowWriterProperties___create", where = write_dataset)
+
+  # Now confirm we can read back what we sent
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset writing: unsupported features/input validation", {
+  skip_if_not_available("parquet")
+  expect_error(write_dataset(4), 'dataset must be a "Dataset"')
+
+  ds <- open_dataset(hive_dir)
+  expect_error(
+    write_dataset(ds, partitioning = c("int", "NOTACOLUMN"), format = "ipc"),
+    'Invalid field name: "NOTACOLUMN"'
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = "something_without_i")
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = NULL)
+  )
+})
+
+# see https://issues.apache.org/jira/browse/ARROW-11328
+test_that("Collecting zero columns from a dataset doesn't return entire dataset", {
+  skip_if_not_available("parquet")
+  tmp <- tempfile()
+  write_dataset(mtcars, tmp, format = "parquet")
+  expect_equal(
+    open_dataset(tmp) %>% select() %>% collect() %>% dim(),
+    c(32, 0)
+  )
+})
+
+# see https://issues.apache.org/jira/browse/ARROW-12315
+test_that("Max partitions fails with non-integer values and less than required partitions values", {
+  skip_if_not_available("parquet")
+  tmp <- tempdir()
+
+  # this example needs 3 partitions
+
+  # max_partitions = chr => error
+  expect_error(
+    mtcars %>%
+      group_by(cyl) %>%
+      write_dataset(tmp, format = "parquet", max_partitions = "foobar")
+  )
+
+  # max_partitions < 3 => error
+  expect_error(
+    mtcars %>%
+      group_by(cyl) %>%
+      write_dataset(tmp, format = "parquet", max_partitions = -3)
+  )
+
+  # max_partitions < 3 => error
+  expect_error(
+    mtcars %>%
+      group_by(cyl) %>%
+      write_dataset(tmp, format = "parquet", max_partitions = 1)
+  )
+
+  # round(max_partitions, 0) != max_partitions  => error
+  expect_error(
+    mtcars %>%
+      group_by(cyl) %>%
+      write_dataset(tmp, format = "parquet", max_partitions = 3.5)
+  )
+
+  # max_partitions = NULL => fail
+  expect_error(
+    mtcars %>%
+      group_by(cyl) %>%
+      write_dataset(tmp, format = "parquet", max_partitions = NULL)
+  )
+
+  # max_partitions = NA => fail
+  expect_error(
+    mtcars %>%
+      group_by(cyl) %>%
+      write_dataset(tmp, format = "parquet", max_partitions = NA)
+  )
+
+  # max_partitions = 3 => pass
+  expect_silent(
+    mtcars %>%
+      group_by(cyl) %>%
+      write_dataset(tmp, format = "parquet", max_partitions = 3)
+  )
 })
