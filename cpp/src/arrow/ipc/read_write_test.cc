@@ -607,7 +607,7 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
   CheckRoundtrip(bin_array2);
 }
 
-TEST_F(TestIpcRoundTrip, SparseUnionOfStructs) {
+TEST_F(TestIpcRoundTrip, SparseUnionOfStructsWithReusedBuffers) {
   auto storage_type = struct_({
       field("i", int32()),
       field("f", float32()),

@@ -690,16 +690,6 @@ Only the slot in the array corresponding to the type index is considered. All
 "unselected" values are ignored and could be any semantically correct array
 value.
 
-.. note:: Critically, the sparse union allows shared columns to be reused between union members
-   in the ubiquitous union-of-structs with non-overlapping-fields use case.  For example the union::
-
-       SparseUnion<m1: Struct<i: Int32>,
-                   m2: Struct<i: Int32, f: Float32, s: VarBinary>,
-                   m3: Struct<f: Float32, s: VarBinary>>
-
-   could be backed by just three columns (one for each type) since no union member requires more
-   than one of each.
-
 Null Layout
 -----------
 
