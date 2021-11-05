@@ -255,10 +255,6 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   assert_that(is.null(n))
   nse_funcs$is.logical(x)
 }
-nse_funcs$is_timestamp <- function(x, n = NULL) {
-  assert_that(is.null(n))
-  inherits(x, "POSIXt") || (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
-}
 
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
@@ -749,6 +745,19 @@ contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
 }
 
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
+}
+
 nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
   # Arrow uses unit for time parsing, strptime() does not.
   # Arrow has no default option for strptime (format, unit),
@@ -775,7 +784,7 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
   # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
   # cast the timestamp to desired timezone. This is a metadata only change.
-  if (nse_funcs$is_timestamp(x)) {
+  if (nse_funcs$is.POSIXct(x)) {
     ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
   } else {
     ts <- x
@@ -818,19 +827,6 @@ nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
 
-nse_funcs$trunc <- function(x, ...) {
-  # accepts and ignores ... for consistency with base::trunc()
-  build_expr("trunc", x)
-}
-
-nse_funcs$round <- function(x, digits = 0) {
-  build_expr(
-    "round",
-    x,
-    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
-  )
-}
-
 nse_funcs$wday <- function(x,
                            label = FALSE,
                            abbr = TRUE,
@@ -846,6 +842,21 @@ nse_funcs$wday <- function(x,
   }
 
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
+}
+
+nse_funcs$is.Date <- function(x) {
+  inherits(x, "Date") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
+}
+
+nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
+  inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
+}
+
+nse_funcs$is.POSIXct <- function(x) {
+  inherits(x, "POSIXct") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
