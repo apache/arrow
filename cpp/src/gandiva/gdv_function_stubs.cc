@@ -800,7 +800,7 @@ const char* gdv_fn_concat_ws_utf8_utf8(int64_t context, const char* separator,
                                        int32_t separator_len, const char* word1,
                                        int32_t word1_len, const char* word2,
                                        int32_t word2_len, int32_t* out_len) {
-  if (word1_len <= 0 && word2_len <= 0) {
+  if (word1_len < 0 && word2_len < 0) {
     gdv_fn_context_set_error_msg(context, "All words can not be null.");
     *out_len = 0;
     return "";
@@ -814,10 +814,9 @@ const char* gdv_fn_concat_ws_utf8_utf8(int64_t context, const char* separator,
     return "";
   }
 
-  strncpy(out, word1, word1_len);
-  out[word1_len] = '\0';
-  strncat(out, separator, separator_len);
-  strncat(out, word2, word2_len);
+  memcpy(out, word1, word1_len);
+  memcpy(out + word1_len, separator, separator_len);
+  memcpy(out + word1_len + separator_len, word2, word2_len);
 
   return out;
 }
@@ -828,7 +827,7 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8(int64_t context, const char* separat
                                             int32_t word1_len, const char* word2,
                                             int32_t word2_len, const char* word3,
                                             int32_t word3_len, int32_t* out_len) {
-  if (word1_len <= 0 && word2_len <= 0 && word3_len <= 0) {
+  if (word1_len < 0 && word2_len < 0 && word3_len < 0) {
     gdv_fn_context_set_error_msg(context, "All words can not be null.");
     *out_len = 0;
     return "";
@@ -842,12 +841,11 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8(int64_t context, const char* separat
     return "";
   }
 
-  strncpy(out, word1, word1_len);
-  out[word1_len] = '\0';
-  strncat(out, separator, separator_len);
-  strncat(out, word2, word2_len);
-  strncat(out, separator, separator_len);
-  strncat(out, word3, word3_len);
+  memcpy(out, word1, word1_len);
+  memcpy(out + word1_len, separator, separator_len);
+  memcpy(out + word1_len + separator_len, word2, word2_len);
+  memcpy(out + word1_len + separator_len + word2_len, separator, separator_len);
+  memcpy(out + word1_len + (2 * separator_len) + word2_len, word3, word3_len);
 
   return out;
 }
@@ -859,7 +857,7 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* se
                                                  int32_t word2_len, const char* word3,
                                                  int32_t word3_len, const char* word4,
                                                  int32_t word4_len, int32_t* out_len) {
-  if (word1_len <= 0 && word2_len <= 0 && word3_len <= 0 && word4_len <= 0) {
+  if (word1_len < 0 && word2_len < 0 && word3_len < 0 && word4_len < 0) {
     gdv_fn_context_set_error_msg(context, "All words can not be null.");
     *out_len = 0;
     return "";
@@ -873,14 +871,13 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* se
     return "";
   }
 
-  strncpy(out, word1, word1_len);
-  out[word1_len] = '\0';
-  strncat(out, separator, separator_len);
-  strncat(out, word2, word2_len);
-  strncat(out, separator, separator_len);
-  strncat(out, word3, word3_len);
-  strncat(out, separator, separator_len);
-  strncat(out, word4, word4_len);
+  memcpy(out, word1, word1_len);
+  memcpy(out + word1_len, separator, separator_len);
+  memcpy(out + word1_len + separator_len, word2, word2_len);
+  memcpy(out + word1_len + separator_len + word2_len, separator, separator_len);
+  memcpy(out + word1_len + (2 * separator_len) + word2_len, word3, word3_len);
+  memcpy(out + word1_len + (2 * separator_len) + word2_len + word3_len, separator, separator_len);
+  memcpy(out + word1_len + (3 * separator_len) + word2_len + word3_len, word4, word4_len);
 
   return out;
 }
@@ -891,8 +888,8 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8_utf8(
     int32_t word1_len, const char* word2, int32_t word2_len, const char* word3,
     int32_t word3_len, const char* word4, int32_t word4_len, const char* word5,
     int32_t word5_len, int32_t* out_len) {
-  if (word1_len <= 0 && word2_len <= 0 && word3_len <= 0 && word4_len <= 0 &&
-      word5_len <= 0) {
+  if (word1_len < 0 && word2_len < 0 && word3_len < 0 && word4_len < 0 &&
+      word5_len < 0) {
     gdv_fn_context_set_error_msg(context, "All words can not be null.");
     *out_len = 0;
     return "";
@@ -907,16 +904,15 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8_utf8(
     return "";
   }
 
-  strncpy(out, word1, word1_len);
-  out[word1_len] = '\0';
-  strncat(out, separator, separator_len);
-  strncat(out, word2, word2_len);
-  strncat(out, separator, separator_len);
-  strncat(out, word3, word3_len);
-  strncat(out, separator, separator_len);
-  strncat(out, word4, word4_len);
-  strncat(out, separator, separator_len);
-  strncat(out, word5, word5_len);
+  memcpy(out, word1, word1_len);
+  memcpy(out + word1_len, separator, separator_len);
+  memcpy(out + word1_len + separator_len, word2, word2_len);
+  memcpy(out + word1_len + separator_len + word2_len, separator, separator_len);
+  memcpy(out + word1_len + (2 * separator_len) + word2_len, word3, word3_len);
+  memcpy(out + word1_len + (2 * separator_len) + word2_len + word3_len, separator, separator_len);
+  memcpy(out + word1_len + (3 * separator_len) + word2_len + word3_len, word4, word4_len);
+  memcpy(out + word1_len + (3 * separator_len) + word2_len + word3_len + word4_len, separator, separator_len);
+  memcpy(out + word1_len + (4 * separator_len) + word2_len + word3_len + word4_len, word5, word5_len);
 
   return out;
 }

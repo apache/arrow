@@ -812,10 +812,8 @@ TEST(TestGdvFnStubs, TestConcatWs) {
       word4, word4_len, word5, word5_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "hey&&hello&&wow&&awesome&&super");
 
-  out = gdv_fn_concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, "", 0, "", 0, &out_len);
+  out = gdv_fn_concat_ws_utf8_utf8(ctx_ptr, "", 0, "", 0, "", 0, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("All words can not be null."));
-  ctx.Reset();
 }
 
 }  // namespace gandiva
