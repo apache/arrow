@@ -348,7 +348,7 @@ class PrepareTest < Test::Unit::TestCase
     godiffs = []
     snapshot_major = @snapshot_version.gsub(/(\d+)\..*/, '\1')
     next_major = @next_snapshot_version.gsub(/(\d+)\..*/, '\1')
-    `find ./go -name '*.go*'`.split("\n") do |f|
+    `find go \\( -name '*.go*' -o -name 'go.mod' \\)`.split("\n") do |f|
       lines = File.readlines(f, :encoding => 'UTF-8').grep(/github.com\/apache\/arrow\/go\/v#{snapshot_major}/).map(&:chomp)
       hunks = []
       lines.each{ |l| hunks.push('-' + l) }
@@ -358,7 +358,7 @@ class PrepareTest < Test::Unit::TestCase
       end
     end    
     bump_versions("VERSION_POST_TAG")
-    assert_equal([
+    expected = godiffs + [
                   {
                     path: "c_glib/meson.build",
                     hunks: [
@@ -554,8 +554,9 @@ class PrepareTest < Test::Unit::TestCase
                       "+  VERSION = \"#{@next_snapshot_version}\""],
                     ],
                   },
-                ] + godiffs,
-                  parse_patch(git("log", "-n", "1", "-p")))
+                ]
+    expected = expected.sort_by { |diff| diff[:path] }
+    assert_equal(expected, parse_patch(git("log", "-n", "1", "-p")))
   end
 
   def test_deb_package_names
