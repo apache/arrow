@@ -436,28 +436,28 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
   if (inputs.size() != 1) {
     return Status::Invalid("Write SinkNode requires exactly 1 input, got ",
                            inputs.size());
-
-    const WriteNodeOptions write_node_options =
-        checked_cast<const WriteNodeOptions&>(options);
-    const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
-    const std::shared_ptr<Schema>& schema = write_node_options.schema;
-    const std::shared_ptr<util::AsyncToggle>& backpressure_toggle =
-        write_node_options.backpressure_toggle;
-
-    ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                          internal::DatasetWriter::Make(write_options));
-
-    std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
-        std::make_shared<DatasetWritingSinkNodeConsumer>(
-            schema, std::move(dataset_writer), write_options, backpressure_toggle);
-
-    ARROW_ASSIGN_OR_RAISE(
-        auto node,
-        compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
-                              compute::ConsumingSinkNodeOptions{std::move(consumer)}));
-
-    return node;
   }
+
+  const WriteNodeOptions write_node_options =
+      checked_cast<const WriteNodeOptions&>(options);
+  const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
+  const std::shared_ptr<Schema>& schema = write_node_options.schema;
+  const std::shared_ptr<util::AsyncToggle>& backpressure_toggle =
+      write_node_options.backpressure_toggle;
+
+  ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
+                        internal::DatasetWriter::Make(write_options));
+
+  std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
+      std::make_shared<DatasetWritingSinkNodeConsumer>(
+          schema, std::move(dataset_writer), write_options, backpressure_toggle);
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto node,
+      compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
+                            compute::ConsumingSinkNodeOptions{std::move(consumer)}));
+
+  return node;
 }
 
 namespace internal {
