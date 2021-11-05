@@ -243,7 +243,8 @@ class TestConvertMetadata:
 
         df = pd.DataFrame(
             np.random.randn(5, 3),
-            columns=pd.date_range("2021-01-01", "2021-01-3", freq="D", tz="CET")
+            columns=pd.date_range(
+                "2021-01-01", "2021-01-3", freq="D", tz="CET")
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 

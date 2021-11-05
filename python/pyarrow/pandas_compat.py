@@ -1112,7 +1112,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             level = level.map(encoder)
         # ARROW-13756: if index is timezone aware DataTimeIndex
         if dtype == 'datetime64[ns, tz]':
-            tz = pa.lib.string_to_tzinfo(column_indexes[0]['metadata']['timezone'])
+            tz = pa.lib.string_to_tzinfo(
+                column_indexes[0]['metadata']['timezone'])
             dt = level.astype(numpy_dtype)
             level = dt.tz_localize('utc').tz_convert(tz)
         elif level.dtype != dtype:
