@@ -401,13 +401,13 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
 
 struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
  public:
-  enum Method { NFC, NFKC, NFD, NFKD };
+  enum Form { NFC, NFKC, NFD, NFKD };
 
-  explicit Utf8NormalizeOptions(Method method = NFC);
+  explicit Utf8NormalizeOptions(Form form = NFC);
   static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
   constexpr static char const kTypeName[] = "Utf8NormalizeOptions";
 
-  Method method;
+  Form form;
 };
 
 /// @}

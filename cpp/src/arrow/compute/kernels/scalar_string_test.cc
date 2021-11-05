@@ -934,10 +934,10 @@ TYPED_TEST(TestStringKernels, Utf8Reverse) {
 }
 
 TYPED_TEST(TestStringKernels, Utf8Normalize) {
-  Utf8NormalizeOptions nfc_options{Utf8NormalizeOptions::Method::NFC};
-  Utf8NormalizeOptions nfkc_options{Utf8NormalizeOptions::Method::NFKC};
-  Utf8NormalizeOptions nfd_options{Utf8NormalizeOptions::Method::NFD};
-  Utf8NormalizeOptions nfkd_options{Utf8NormalizeOptions::Method::NFKD};
+  Utf8NormalizeOptions nfc_options{Utf8NormalizeOptions::Form::NFC};
+  Utf8NormalizeOptions nfkc_options{Utf8NormalizeOptions::Form::NFKC};
+  Utf8NormalizeOptions nfd_options{Utf8NormalizeOptions::Form::NFD};
+  Utf8NormalizeOptions nfkd_options{Utf8NormalizeOptions::Form::NFKD};
 
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfc_options);
   this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &nfkc_options);

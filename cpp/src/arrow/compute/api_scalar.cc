@@ -175,22 +175,22 @@ struct EnumTraits<compute::RoundMode>
 };
 
 template <>
-struct EnumTraits<compute::Utf8NormalizeOptions::Method>
-    : BasicEnumTraits<compute::Utf8NormalizeOptions::Method,
-                      compute::Utf8NormalizeOptions::Method::NFC,
-                      compute::Utf8NormalizeOptions::Method::NFKC,
-                      compute::Utf8NormalizeOptions::Method::NFD,
-                      compute::Utf8NormalizeOptions::Method::NFKD> {
-  static std::string name() { return "Utf8NormalizeOptions::Method"; }
-  static std::string value_name(compute::Utf8NormalizeOptions::Method value) {
+struct EnumTraits<compute::Utf8NormalizeOptions::Form>
+    : BasicEnumTraits<compute::Utf8NormalizeOptions::Form,
+                      compute::Utf8NormalizeOptions::Form::NFC,
+                      compute::Utf8NormalizeOptions::Form::NFKC,
+                      compute::Utf8NormalizeOptions::Form::NFD,
+                      compute::Utf8NormalizeOptions::Form::NFKD> {
+  static std::string name() { return "Utf8NormalizeOptions::Form"; }
+  static std::string value_name(compute::Utf8NormalizeOptions::Form value) {
     switch (value) {
-      case compute::Utf8NormalizeOptions::Method::NFC:
+      case compute::Utf8NormalizeOptions::Form::NFC:
         return "NFC";
-      case compute::Utf8NormalizeOptions::Method::NFKC:
+      case compute::Utf8NormalizeOptions::Form::NFKC:
         return "NFKC";
-      case compute::Utf8NormalizeOptions::Method::NFD:
+      case compute::Utf8NormalizeOptions::Form::NFD:
         return "NFD";
-      case compute::Utf8NormalizeOptions::Method::NFKD:
+      case compute::Utf8NormalizeOptions::Form::NFKD:
         return "NFKD";
     }
     return "<INVALID>";
@@ -275,7 +275,7 @@ static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
     DataMember("count_from_zero", &WeekOptions::count_from_zero),
     DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
 static auto kUtf8NormalizeOptionsType = GetFunctionOptionsType<Utf8NormalizeOptions>(
-    DataMember("method", &Utf8NormalizeOptions::method));
+    DataMember("form", &Utf8NormalizeOptions::form));
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
@@ -452,8 +452,8 @@ WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
       first_week_is_fully_in_year(first_week_is_fully_in_year) {}
 constexpr char WeekOptions::kTypeName[];
 
-Utf8NormalizeOptions::Utf8NormalizeOptions(Method method)
-    : FunctionOptions(internal::kUtf8NormalizeOptionsType), method(method) {}
+Utf8NormalizeOptions::Utf8NormalizeOptions(Form form)
+    : FunctionOptions(internal::kUtf8NormalizeOptionsType), form(form) {}
 constexpr char Utf8NormalizeOptions::kTypeName[];
 
 NullOptions::NullOptions(bool nan_is_null)

@@ -688,7 +688,7 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
 
   int64_t MaxCodeunits(const uint8_t* input, int64_t ninputs,
                        int64_t input_ncodeunits) override {
-    const auto option = GenerateUtf8NormalizeOption(options->method);
+    const auto option = GenerateUtf8NormalizeOption(options->form);
     const auto n_chars =
         utf8proc_decompose_custom(input, input_ncodeunits, NULL, 0, option, NULL, NULL);
 
@@ -698,7 +698,7 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output, int64_t output_string_ncodeunits) {
-    const auto option = GenerateUtf8NormalizeOption(options->method);
+    const auto option = GenerateUtf8NormalizeOption(options->form);
     const auto n_chars = utf8proc_decompose_custom(
         input, input_string_ncodeunits, reinterpret_cast<utf8proc_int32_t*>(output),
         output_string_ncodeunits, option, NULL, NULL);
@@ -710,16 +710,16 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
   }
 
  private:
-  utf8proc_option_t GenerateUtf8NormalizeOption(Utf8NormalizeOptions::Method method) {
-    switch (method) {
-      case Utf8NormalizeOptions::Method::NFC:
+  utf8proc_option_t GenerateUtf8NormalizeOption(Utf8NormalizeOptions::Form form) {
+    switch (form) {
+      case Utf8NormalizeOptions::Form::NFC:
         return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
-      case Utf8NormalizeOptions::Method::NFKC:
+      case Utf8NormalizeOptions::Form::NFKC:
         return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE |
                                               UTF8PROC_COMPAT);
-      case Utf8NormalizeOptions::Method::NFD:
+      case Utf8NormalizeOptions::Form::NFD:
         return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE);
-      case Utf8NormalizeOptions::Method::NFKD:
+      case Utf8NormalizeOptions::Form::NFKD:
         return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE |
                                               UTF8PROC_COMPAT);
       default:
