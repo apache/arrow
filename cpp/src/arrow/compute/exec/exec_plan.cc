@@ -23,6 +23,7 @@
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
@@ -250,27 +251,41 @@ Status ExecNode::Validate() const {
 
 std::string ExecNode::ToString() const {
   std::stringstream ss;
-  ss << kind_name() << "{\"" << label_ << '"';
+
+  auto PrintLabelAndKind = [&](const ExecNode* node) {
+    ss << node->label() << ":" << node->kind_name();
+  };
+
+  PrintLabelAndKind(this);
+  ss << "{";
+
   if (!inputs_.empty()) {
-    ss << ", inputs=[";
+    ss << "inputs=[";
     for (size_t i = 0; i < inputs_.size(); i++) {
       if (i > 0) ss << ", ";
-      ss << input_labels_[i] << ": \"" << inputs_[i]->label() << '"';
+      ss << input_labels_[i] << "=";
+      PrintLabelAndKind(inputs_[i]);
     }
     ss << ']';
   }
 
   if (!outputs_.empty()) {
-    ss << ", outputs=[";
+    if (!inputs_.empty()) {
+      ss << ", ";
+    }
+
+    ss << "outputs=[";
     for (size_t i = 0; i < outputs_.size(); i++) {
       if (i > 0) ss << ", ";
-      ss << "\"" << outputs_[i]->label() << "\"";
+      PrintLabelAndKind(outputs_[i]);
     }
     ss << ']';
   }
 
   const std::string extra = ToStringExtra();
-  if (!extra.empty()) ss << ", " << extra;
+  if (!extra.empty()) {
+    ss << ", " << extra;
+  }
 
   ss << '}';
   return ss.str();
@@ -522,6 +537,6 @@ Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
 
   return MakeBackgroundGenerator(std::move(batch_it), io_executor, max_q, q_restart);
 }
-}  // namespace compute
 
+}  // namespace compute
 }  // namespace arrow

@@ -146,10 +146,13 @@ struct ARROW_EXPORT Datum {
   explicit Datum(const RecordBatch& value);
   explicit Datum(const Table& value);
 
-  // Cast from subtypes of Array to Datum
-  template <typename T, typename = enable_if_t<std::is_base_of<Array, T>::value>>
+  // Cast from subtypes of Array or Scalar to Datum
+  template <typename T, bool IsArray = std::is_base_of<Array, T>::value,
+            bool IsScalar = std::is_base_of<Scalar, T>::value,
+            typename = enable_if_t<IsArray || IsScalar>>
   Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion
-      : Datum(std::shared_ptr<Array>(value)) {}
+      : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
+            value)) {}
 
   // Convenience constructors
   explicit Datum(bool value);

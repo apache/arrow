@@ -377,6 +377,7 @@ if(ARROW_COMPUTE)
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
        compute/exec/filter_node.cc
+       compute/exec/ir_consumer.cc
        compute/exec/project_node.cc
        compute/exec/source_node.cc
        compute/exec/sink_node.cc

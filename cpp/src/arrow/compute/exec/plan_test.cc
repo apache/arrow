@@ -301,12 +301,11 @@ TEST(ExecPlan, ToString) {
                     {"sink", SinkNodeOptions{&sink_gen}},
                 })
                 .AddToPlan(plan.get()));
-  EXPECT_EQ(plan->sources()[0]->ToString(), R"(SourceNode{"source", outputs=["sink"]})");
-  EXPECT_EQ(plan->sinks()[0]->ToString(),
-            R"(SinkNode{"sink", inputs=[collected: "source"]})");
+  EXPECT_EQ(plan->sources()[0]->ToString(), R"(:SourceNode{outputs=[:SinkNode]})");
+  EXPECT_EQ(plan->sinks()[0]->ToString(), R"(:SinkNode{inputs=[collected=:SourceNode]})");
   EXPECT_EQ(plan->ToString(), R"(ExecPlan with 2 nodes:
-SourceNode{"source", outputs=["sink"]}
-SinkNode{"sink", inputs=[collected: "source"]}
+:SourceNode{outputs=[:SinkNode]}
+:SinkNode{inputs=[collected=:SourceNode]}
 )");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
@@ -316,7 +315,8 @@ SinkNode{"sink", inputs=[collected: "source"]}
           {
               {"source",
                SourceNodeOptions{basic_data.schema,
-                                 basic_data.gen(/*parallel=*/false, /*slow=*/false)}},
+                                 basic_data.gen(/*parallel=*/false, /*slow=*/false)},
+               "custom_source_label"},
               {"filter", FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
               {"project", ProjectNodeOptions{{
                               field_ref("bool"),
@@ -333,22 +333,24 @@ SinkNode{"sink", inputs=[collected: "source"]}
               {"order_by_sink",
                OrderBySinkNodeOptions{
                    SortOptions({SortKey{"sum(multiply(i32, 2))", SortOrder::Ascending}}),
-                   &sink_gen}},
+                   &sink_gen},
+               "custom_sink_label"},
           })
           .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 6 nodes:
-SourceNode{"source", outputs=["filter"]}
-FilterNode{"filter", inputs=[target: "source"], outputs=["project"], filter=(i32 >= 0)}
-ProjectNode{"project", inputs=[target: "filter"], outputs=["aggregate"], projection=[bool, multiply(i32, 2)]}
-GroupByNode{"aggregate", inputs=[groupby: "project"], outputs=["filter"], keys=["bool"], aggregates=[
+custom_source_label:SourceNode{outputs=[:FilterNode]}
+:FilterNode{inputs=[target=custom_source_label:SourceNode], outputs=[:ProjectNode], filter=(i32 >= 0)}
+:ProjectNode{inputs=[target=:FilterNode], outputs=[:GroupByNode], projection=[bool, multiply(i32, 2)]}
+:GroupByNode{inputs=[groupby=:ProjectNode], outputs=[:FilterNode], keys=["bool"], aggregates=[
 	hash_sum(multiply(i32, 2)),
 	hash_count(multiply(i32, 2), {mode=NON_NULL}),
 ]}
-FilterNode{"filter", inputs=[target: "aggregate"], outputs=["order_by_sink"], filter=(sum(multiply(i32, 2)) > 10)}
-OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[sum(multiply(i32, 2)) ASC], null_placement=AtEnd}}
+:FilterNode{inputs=[target=:GroupByNode], outputs=[custom_sink_label:OrderBySinkNode], filter=(sum(multiply(i32, 2)) > 10)}
+custom_sink_label:OrderBySinkNode{inputs=[collected=:FilterNode], by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
 )a");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
+
   Declaration union_node{"union", ExecNodeOptions{}};
   Declaration lhs{"source",
                   SourceNodeOptions{basic_data.schema,
@@ -372,13 +374,13 @@ OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[su
           })
           .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
-SourceNode{"lhs", outputs=["union"]}
-SourceNode{"rhs", outputs=["union"]}
-UnionNode{"union", inputs=[input_0_label: "lhs", input_1_label: "rhs"], outputs=["aggregate"]}
-ScalarAggregateNode{"aggregate", inputs=[target: "union"], outputs=["sink"], aggregates=[
+lhs:SourceNode{outputs=[:UnionNode]}
+rhs:SourceNode{outputs=[:UnionNode]}
+:UnionNode{inputs=[input_0_label=lhs:SourceNode, input_1_label=rhs:SourceNode], outputs=[:ScalarAggregateNode]}
+:ScalarAggregateNode{inputs=[target=:UnionNode], outputs=[:SinkNode], aggregates=[
 	count(i32, {mode=NON_NULL}),
 ]}
-SinkNode{"sink", inputs=[collected: "aggregate"]}
+:SinkNode{inputs=[collected=:ScalarAggregateNode]}
 )a");
 }
 
