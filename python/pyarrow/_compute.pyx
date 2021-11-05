@@ -1309,6 +1309,7 @@ def group_by(args, keys, aggregation):
     _pack_compute_args(keys, &c_keys)
 
     c_aggr.function = aggregation
+    c_aggr.options = NULL
     c_aggregations.push_back(c_aggr)
 
     with nogil:
