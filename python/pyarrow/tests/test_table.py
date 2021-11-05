@@ -1746,3 +1746,29 @@ def test_table_select():
     result = table.select(['f2'])
     expected = pa.table([a2], ['f2'])
     assert result.equals(expected)
+
+
+def test_table_group_by():
+    table = pa.table([
+        pa.array([1, 2, 3, 4, 5]),
+        pa.array(["a", "a", "b", "b", "c"]),
+    ], names=["values", "keys"])
+
+    r = table.group_by("keys", ["values"], "hash_sum")
+
+    r_asdict = {v["key_0"].as_py(): v["hash_sum"].as_py() for v in r}
+    assert r_asdict == {'a': 3, 'b': 7, 'c': 5}
+
+    r = table.group_by("keys", ["values", "values"], [
+                       "hash_sum", "hash_count"])
+    assert sorted(r.to_pylist(), key=lambda x: x["key_0"]) == [
+        {'hash_count': 2,
+         'hash_sum': 3,
+         'key_0': 'a'},
+        {'hash_count': 2,
+         'hash_sum': 7,
+         'key_0': 'b'},
+        {'hash_count': 1,
+         'hash_sum': 5,
+         'key_0': 'c'},
+    ]

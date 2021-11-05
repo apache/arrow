@@ -2192,6 +2192,27 @@ cdef class Table(_PandasConvertible):
 
         return table
 
+    def group_by(self, key, columns, aggregations):
+        """
+        Perform a group by aggregation over the columns of the table.
+        """
+        from pyarrow._compute import group_by
+
+        if isinstance(aggregations, str):
+            aggregations = [aggregations]
+
+        aggrs = []
+        for aggr in aggregations:
+            if isinstance(aggr, str):
+                aggr = (aggr, None)
+            aggrs.append(aggr)
+
+        return group_by(
+            [self[c] for c in columns],
+            [self[key]],
+            aggrs
+        )
+
 
 def _reconstruct_table(arrays, schema):
     """
