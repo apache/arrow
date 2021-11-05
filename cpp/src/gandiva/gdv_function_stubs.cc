@@ -898,36 +898,39 @@ const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_
                                 int32_t n_to_mask, int32_t* out_len) {
   if (data_len <= 0) {
     *out_len = 0;
-    return "";
+    return nullptr;
   }
 
-  std::string str(data, data_len);
-  int32_t counter = 0;
-  for (char& c : str) {
-    if (n_to_mask > 0 && counter < n_to_mask && isalnum(c)) {
-      if (isdigit(c)) {
-        c = 'n';
-      } else {
-        if (isupper(c)) {
-          c = 'X';
-        } else {
-          c = 'x';
-        }
-      }
-      counter++;
-    }
+  if (n_to_mask < 0) {
+    n_to_mask = n_to_mask * (-1);
   }
 
-  *out_len = static_cast<int32_t>(str.size());
+  *out_len = data_len;
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return "";
+    return nullptr;
   }
 
-  memcpy(out, str.c_str(), *out_len);
+  // do the masking
+  for (int i = 0; i < data_len; ++i) {
+    if(isdigit(data[i]) && i < n_to_mask) {
+      out[i] = 'n';
+      continue;
+    }
+    if(isupper(data[i]) && i < n_to_mask) {
+      out[i] = 'X';
+      continue;
+    }
+    if(islower(data[i]) && i < n_to_mask) {
+      out[i] = 'x';
+      continue;
+    }
+    out[i] = data[i];
+  }
+
   return out;
 }
 
@@ -936,37 +939,39 @@ const char* gdv_fn_mask_last_n(int64_t context, const char* data, int32_t data_l
                                int32_t n_to_mask, int32_t* out_len) {
   if (data_len <= 0) {
     *out_len = 0;
-    return "";
+    return nullptr;
   }
 
-  std::string str(data, data_len);
-  std::reverse(str.begin(), str.end());
-  int32_t counter = 0;
-  for (char& c : str) {
-    if (n_to_mask > 0 && counter < n_to_mask && isalnum(c)) {
-      if (isdigit(c)) {
-        c = 'n';
-      } else {
-        if (isupper(c)) {
-          c = 'X';
-        } else {
-          c = 'x';
-        }
-      }
-      counter++;
-    }
+  if (n_to_mask < 0) {
+    n_to_mask = n_to_mask * (-1);
   }
-  std::reverse(str.begin(), str.end());
-  *out_len = static_cast<int32_t>(str.size());
+
+  *out_len = data_len;
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return "";
+    return nullptr;
   }
 
-  memcpy(out, str.c_str(), *out_len);
+  // do the masking
+  for (int i = 0; i < data_len; ++i) {
+    if(isdigit(data[i]) && i >= data_len - n_to_mask) {
+      out[i] = 'n';
+      continue;
+    }
+    if(isupper(data[i]) && i >= data_len - n_to_mask) {
+      out[i] = 'X';
+      continue;
+    }
+    if(islower(data[i]) && i >= data_len - n_to_mask) {
+      out[i] = 'x';
+      continue;
+    }
+    out[i] = data[i];
+  }
+
   return out;
 }
 }
@@ -2016,8 +2021,8 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_aes_decrypt));
 
-  // gdv_fn_mask_first_n
-  args = {
+  // gdv_fn_mask_first_n and gdv_fn_mask_last_n
+  std::vector<llvm::Type*> args_to_mask_fns = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
       types->i32_type(),     // data_len
@@ -2026,20 +2031,12 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc("gdv_fn_mask_first_n",
-                                  types->i8_ptr_type() /*return_type*/, args,
+                                  types->i8_ptr_type() /*return_type*/, args_to_mask_fns,
                                   reinterpret_cast<void*>(gdv_fn_mask_first_n));
 
-  // gdv_fn_mask_last_n
-  args = {
-      types->i64_type(),     // context
-      types->i8_ptr_type(),  // data
-      types->i32_type(),     // data_len
-      types->i32_type(),     // n_to_mask
-      types->i32_ptr_type()  // out_length
-  };
 
   engine->AddGlobalMappingForFunc("gdv_fn_mask_last_n",
-                                  types->i8_ptr_type() /*return_type*/, args,
+                                  types->i8_ptr_type() /*return_type*/, args_to_mask_fns,
                                   reinterpret_cast<void*>(gdv_fn_mask_last_n));
 }
 }  // namespace gandiva
