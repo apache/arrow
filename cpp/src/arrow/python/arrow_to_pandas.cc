@@ -41,6 +41,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
@@ -2288,8 +2289,9 @@ Status ConvertComplexArrays(const PandasOptions& options,
         //           << std::endl;
 
 
+        auto meta = key_value_metadata({"__complex_field_marker__"}, {"true"});
         (*arrays)[i] = std::make_shared<ChunkedArray>(chunks, dtype);
-        (*fields)[i] = (*fields)[i]->WithType(dtype);
+        (*fields)[i] = (*fields)[i]->WithType(dtype)->WithMergedMetadata(meta);
       }
     }         
   }           
