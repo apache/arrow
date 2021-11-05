@@ -136,6 +136,8 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
+  - r-fedora-clang-devel-san:
+    - fedora-r-clang-sanitizer
   - ubuntu-r-valgrind
   - python-sdist
   - r
@@ -271,7 +273,7 @@ services:
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
     volumes: *conda-volumes
-    command: 
+    command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
@@ -1153,6 +1155,40 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  fedora-r-clang-sanitizer:
+    image: ${REPO}:r-rhub-fedora-clang-devel-latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-rhub-fedora-clang-devel-latest
+      args:
+        base: ${REPO}:r-fedora-clang-devel-san
+        r_dev: ${ARROW_R_DEV}
+        devtoolset_version: ${DEVTOOLSET_VERSION}
+        r_bin: RDsan
+        tz: ${TZ}
+    shm_size: *shm-size
+    environment:
+      LIBARROW_DOWNLOAD: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: ${ARROW_R_DEV}
+      # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
+      ARROW_USE_PKG_CONFIG: "false"
+    volumes:
+      - .:/arrow:delegated
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  r-fedora-clang-devel-san:
+    image: ${REPO}:r-fedora-clang-devel-san
+    build:
+      context: .
+      dockerfile: ci/docker/r-fedora-clang-devel-san.dockerfile
+      cache_from:
+        - ${REPO}:r-fedora-clang-devel-san
 
   ubuntu-r-valgrind:
     # Only 18.04 and amd64 supported
