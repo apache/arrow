@@ -1692,7 +1692,8 @@ struct GroupedMinMaxImpl<Type,
                          enable_if_t<is_base_binary_type<Type>::value ||
                                      std::is_same<Type, FixedSizeBinaryType>::value>>
     final : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
     ctx_ = ctx;
     options_ = *checked_cast<const ScalarAggregateOptions*>(options);
     // type_ initialized by MinMaxInit
@@ -1703,6 +1704,7 @@ struct GroupedMinMaxImpl<Type,
 
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
+    DCHECK_GE(added_groups, 0);
     num_groups_ = new_num_groups;
     mins_.resize(new_num_groups);
     maxes_.resize(new_num_groups);
@@ -1800,11 +1802,8 @@ struct GroupedMinMaxImpl<Type,
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (BitUtil::GetBit(null_bitmap, i)) {
-        if (values[i]->size() > std::numeric_limits<offset_type>::max()) {
-          return Status::Invalid("Result is too large to fit in ", *array->type,
-                                 " cast to large_ variant of type");
-        }
-        if (arrow::internal::AddWithOverflow(total_length,
+        if (values[i]->size() > std::numeric_limits<offset_type>::max() ||
+            arrow::internal::AddWithOverflow(total_length,
                                              static_cast<offset_type>(values[i]->size()),
                                              &total_length)) {
           return Status::Invalid("Result is too large to fit in ", *array->type,
