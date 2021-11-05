@@ -1713,8 +1713,8 @@ TEST_F(TestProjector, TestEltFunction) {
   auto in_batch0 =
       arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
 
-  auto expected_out0 =
-      MakeArrowArrayUtf8({"john", "world", "", "", ""}, {true, true, true, true, true});
+  auto expected_out0 = MakeArrowArrayUtf8({"john", "world", "", "", ""},
+                                          {true, true, false, false, false});
 
   arrow::ArrayVector outputs;
 

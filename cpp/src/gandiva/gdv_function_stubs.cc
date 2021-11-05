@@ -19,7 +19,6 @@
 
 #include <utf8proc.h>
 
-#include <list>
 #include <string>
 #include <vector>
 
@@ -797,30 +796,34 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_elt_int32_utf8_utf8(int64_t context, int32_t pos, const char* word1,
-                                       int32_t word1_len, const char* word2,
-                                       int32_t word2_len, int32_t* out_len) {
+const char* gdv_fn_elt_int32_utf8_utf8(int64_t context, int32_t pos, bool pos_validity,
+                                       const char* word1, int32_t word1_len,
+                                       bool word1_validity, const char* word2,
+                                       int32_t word2_len, bool word2_validity,
+                                       bool* out_valid, int32_t* out_len) {
   const char* selected;
-  if (pos < 1 || pos > 2) {
-    *out_len = 0;
-    return "";
-  }
+  *out_valid = true;
 
-  if (pos == 1) {
-    *out_len = word1_len;
-    selected = word1;
-  }
-
-  if (pos == 2) {
-    *out_len = word2_len;
-    selected = word2;
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      selected = word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      selected = word2;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return "";
+    return nullptr;
   }
   memcpy(out, selected, *out_len);
   return out;
@@ -828,79 +831,81 @@ const char* gdv_fn_elt_int32_utf8_utf8(int64_t context, int32_t pos, const char*
 
 GANDIVA_EXPORT
 const char* gdv_fn_elt_int32_utf8_utf8_utf8(int64_t context, int32_t pos,
-                                            const char* word1, int32_t word1_len,
+                                            bool pos_validity, const char* word1,
+                                            int32_t word1_len, bool word1_validity,
                                             const char* word2, int32_t word2_len,
-                                            const char* word3, int32_t word3_len,
-                                            int32_t* out_len) {
+                                            bool word2_validity, const char* word3,
+                                            int32_t word3_len, bool word3_validity,
+                                            bool* out_valid, int32_t* out_len) {
   const char* selected;
-  if (pos < 1 || pos > 3) {
-    *out_len = 0;
-    return "";
-  }
+  *out_valid = true;
 
-  if (pos == 1) {
-    *out_len = word1_len;
-    selected = word1;
-  }
-
-  if (pos == 2) {
-    *out_len = word2_len;
-    selected = word2;
-  }
-
-  if (pos == 3) {
-    *out_len = word3_len;
-    selected = word3;
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      selected = word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      selected = word2;
+      break;
+    case 3:
+      *out_len = word3_len;
+      selected = word3;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return "";
+    return nullptr;
   }
   memcpy(out, selected, *out_len);
   return out;
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8(int64_t context, int32_t pos,
-                                                 const char* word1, int32_t word1_len,
-                                                 const char* word2, int32_t word2_len,
-                                                 const char* word3, int32_t word3_len,
-                                                 const char* word4, int32_t word4_len,
-                                                 int32_t* out_len) {
+const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8(
+    int64_t context, int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, bool* out_valid, int32_t* out_len) {
   const char* selected;
-  if (pos < 1 || pos > 4) {
-    *out_len = 0;
-    return "";
-  }
+  *out_valid = true;
 
-  if (pos == 1) {
-    *out_len = word1_len;
-    selected = word1;
-  }
-
-  if (pos == 2) {
-    *out_len = word2_len;
-    selected = word2;
-  }
-
-  if (pos == 3) {
-    *out_len = word3_len;
-    selected = word3;
-  }
-
-  if (pos == 4) {
-    *out_len = word4_len;
-    selected = word4;
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      selected = word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      selected = word2;
+      break;
+    case 3:
+      *out_len = word3_len;
+      selected = word3;
+      break;
+    case 4:
+      *out_len = word4_len;
+      selected = word4;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return "";
+    return nullptr;
   }
   memcpy(out, selected, *out_len);
   return out;
@@ -908,45 +913,46 @@ const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8(int64_t context, int32_t pos,
 
 GANDIVA_EXPORT
 const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8(
-    int64_t context, int32_t pos, const char* word1, int32_t word1_len, const char* word2,
-    int32_t word2_len, const char* word3, int32_t word3_len, const char* word4,
-    int32_t word4_len, const char* word5, int32_t word5_len, int32_t* out_len) {
+    int64_t context, int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
+    bool word5_validity, bool* out_valid, int32_t* out_len) {
   const char* selected;
-  if (pos < 1 || pos > 5) {
-    *out_len = 0;
-    return "";
-  }
+  *out_valid = true;
 
-  if (pos == 1) {
-    *out_len = word1_len;
-    selected = word1;
-  }
-
-  if (pos == 2) {
-    *out_len = word2_len;
-    selected = word2;
-  }
-
-  if (pos == 3) {
-    *out_len = word3_len;
-    selected = word3;
-  }
-
-  if (pos == 4) {
-    *out_len = word4_len;
-    selected = word4;
-  }
-
-  if (pos == 5) {
-    *out_len = word5_len;
-    selected = word5;
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      selected = word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      selected = word2;
+      break;
+    case 3:
+      *out_len = word3_len;
+      selected = word3;
+      break;
+    case 4:
+      *out_len = word4_len;
+      selected = word4;
+      break;
+    case 5:
+      *out_len = word5_len;
+      selected = word5;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return "";
+    return nullptr;
   }
   memcpy(out, selected, *out_len);
   return out;
@@ -1761,10 +1767,14 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {
       types->i64_type(),      // context
       types->i32_type(),      // position
+      types->i1_type(),       // position_validty
       types->i8_ptr_type(),   // word1
       types->i32_type(),      // word1_len
+      types->i1_type(),       // word1_validty
       types->i8_ptr_type(),   // word2
       types->i32_type(),      // word2_len
+      types->i1_type(),       // word2_validty
+      types->i8_ptr_type(),   // out_valid
       types->i32_ptr_type(),  // out_length
 
   };
@@ -1777,12 +1787,17 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {
       types->i64_type(),      // context
       types->i32_type(),      // position
+      types->i1_type(),       // position_validty
       types->i8_ptr_type(),   // word1
       types->i32_type(),      // word1_len
+      types->i1_type(),       // word1_validty
       types->i8_ptr_type(),   // word2
       types->i32_type(),      // word2_len
+      types->i1_type(),       // word2_validty
       types->i8_ptr_type(),   // word3
       types->i32_type(),      // word3_len
+      types->i1_type(),       // word3_validty
+      types->i8_ptr_type(),   // out_valid
       types->i32_ptr_type(),  // out_length
 
   };
@@ -1795,14 +1810,20 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {
       types->i64_type(),      // context
       types->i32_type(),      // position
+      types->i1_type(),       // position_validty
       types->i8_ptr_type(),   // word1
       types->i32_type(),      // word1_len
+      types->i1_type(),       // word1_validty
       types->i8_ptr_type(),   // word2
       types->i32_type(),      // word2_len
+      types->i1_type(),       // word2_validty
       types->i8_ptr_type(),   // word3
       types->i32_type(),      // word3_len
+      types->i1_type(),       // word3_validty
       types->i8_ptr_type(),   // word4
       types->i32_type(),      // word4_len
+      types->i1_type(),       // word4_validty
+      types->i8_ptr_type(),   // out_valid
       types->i32_ptr_type(),  // out_length
 
   };
@@ -1815,16 +1836,23 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {
       types->i64_type(),      // context
       types->i32_type(),      // position
+      types->i1_type(),       // position_validty
       types->i8_ptr_type(),   // word1
       types->i32_type(),      // word1_len
+      types->i1_type(),       // word1_validty
       types->i8_ptr_type(),   // word2
       types->i32_type(),      // word2_len
+      types->i1_type(),       // word2_validty
       types->i8_ptr_type(),   // word3
       types->i32_type(),      // word3_len
+      types->i1_type(),       // word3_validty
       types->i8_ptr_type(),   // word4
       types->i32_type(),      // word4_len
+      types->i1_type(),       // word4_validty
       types->i8_ptr_type(),   // word5
       types->i32_type(),      // word5_len
+      types->i1_type(),       // word5_validty
+      types->i8_ptr_type(),   // out_valid
       types->i32_ptr_type(),  // out_length
 
   };
