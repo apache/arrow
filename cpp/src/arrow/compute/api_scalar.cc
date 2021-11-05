@@ -223,6 +223,8 @@ static auto kExtractRegexOptionsType = GetFunctionOptionsType<ExtractRegexOption
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
     DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
+static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
+    DataMember("indices", &StructFieldOptions::indices));
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
     DataMember("unit", &StrptimeOptions::unit));
@@ -351,6 +353,11 @@ SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
 SetLookupOptions::SetLookupOptions() : SetLookupOptions({}, false) {}
 constexpr char SetLookupOptions::kTypeName[];
 
+StructFieldOptions::StructFieldOptions(std::vector<int> indices)
+    : FunctionOptions(internal::kStructFieldOptionsType), indices(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
+constexpr char StructFieldOptions::kTypeName[];
+
 StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
     : FunctionOptions(internal::kStrptimeOptionsType),
       format(std::move(format)),
@@ -444,6 +451,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStructFieldOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kAssumeTimezoneOptionsType));

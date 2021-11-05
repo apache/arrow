@@ -68,6 +68,55 @@ TEST(TestUnionArray, TestSliceEquals) {
   CheckUnion(batch->column(1));
 }
 
+TEST(TestSparseUnionArray, GetFlattenedField) {
+  auto ty = sparse_union({field("ints", int64()), field("strs", utf8())}, {2, 7});
+  auto ints = ArrayFromJSON(int64(), "[0, 1, 2, 3]");
+  auto strs = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])");
+  auto ids = ArrayFromJSON(int8(), "[2, 7, 2, 7]")->data()->buffers[1];
+  const int length = 4;
+
+  {
+    SparseUnionArray arr(ty, length, {ints, strs}, ids);
+    ASSERT_OK(arr.ValidateFull());
+
+    ASSERT_OK_AND_ASSIGN(auto flattened, arr.GetFlattenedField(0));
+    AssertArraysEqual(*ArrayFromJSON(int64(), "[0, null, 0, null]"), *flattened,
+                      /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(flattened, arr.GetFlattenedField(1));
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"([null, "b", null, "d"])"), *flattened,
+                      /*verbose=*/true);
+
+    const auto& sliced = checked_cast<const SparseUnionArray&>(*arr.Slice(1, 2));
+
+    ASSERT_OK_AND_ASSIGN(flattened, sliced.GetFlattenedField(0));
+    AssertArraysEqual(*ArrayFromJSON(int64(), "[null, 0]"), *flattened, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(flattened, sliced.GetFlattenedField(1));
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["b", null])"), *flattened,
+                      /*verbose=*/true);
+  }
+  {
+    SparseUnionArray arr(ty, length - 2, {ints->Slice(1, 2), strs->Slice(1, 2)}, ids);
+    ASSERT_OK(arr.ValidateFull());
+
+    ASSERT_OK_AND_ASSIGN(auto flattened, arr.GetFlattenedField(0));
+    AssertArraysEqual(*ArrayFromJSON(int64(), "[null, 0]"), *flattened, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(flattened, arr.GetFlattenedField(1));
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["b", null])"), *flattened,
+                      /*verbose=*/true);
+
+    const auto& sliced = checked_cast<const SparseUnionArray&>(*arr.Slice(1, 1));
+
+    ASSERT_OK_AND_ASSIGN(flattened, sliced.GetFlattenedField(0));
+    AssertArraysEqual(*ArrayFromJSON(int64(), "[0]"), *flattened, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(flattened, sliced.GetFlattenedField(1));
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"([null])"), *flattened, /*verbose=*/true);
+  }
+}
+
 TEST(TestSparseUnionArray, Validate) {
   auto a = ArrayFromJSON(int32(), "[4, 5]");
   auto type = sparse_union({field("a", int32())});
