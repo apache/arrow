@@ -111,9 +111,6 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       NativeFunction("bround", {}, DataTypeVector{float64()}, float64(),
                      kResultNullIfNull, "bround_float64"),
 
-      NativeFunction("bround", {}, DataTypeVector{float64(), int32()}, float64(),
-                     kResultNullIfNull, "bround_float64_int32"),
-
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),
       BINARY_RELATIONAL_BOOL_FN(not_equal, {}),

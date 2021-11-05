@@ -265,26 +265,6 @@ gdv_float64 bround_float64(gdv_float64 num) {
 ROUND_DECIMAL_TO_SCALE(float32)
 ROUND_DECIMAL_TO_SCALE(float64)
 
-// rounds the number to the given scale
-FORCE_INLINE
-gdv_float64 bround_float64_int32(gdv_float64 num, gdv_int32 out_scale) {
-  if (out_scale < 0) {
-    out_scale = out_scale * (-1);
-  }
-  gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);
-  gdv_float64 to_round = num * scale_multiplier;
-  gdv_float64 round_num = round(to_round);
-  gdv_float64 diff_num = round_num - to_round;
-  if ((diff_num != 0.5) && (diff_num != -0.5)) {
-    return round_num / scale_multiplier;
-  }
-  if (fmod(round_num, 2.0) == 0.0) {
-    return round_num / scale_multiplier;
-  }
-
-  return num - (diff_num / scale_multiplier);
-}
-
 FORCE_INLINE
 gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision) {
   // for integers, there is nothing following the decimal point,
