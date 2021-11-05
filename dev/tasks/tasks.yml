@@ -906,7 +906,7 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
-      flags: -e ARROW_SKYHOOK=ON --cap-add SYS_ADMIN --device /dev/fuse
+      flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
 {% for debian_version in ["10", "11"] %}
