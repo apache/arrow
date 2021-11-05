@@ -560,10 +560,6 @@ dataset___ScannerBuilder__UseAsync <- function(sb, use_async) {
   invisible(.Call(`_arrow_dataset___ScannerBuilder__UseAsync`, sb, use_async))
 }
 
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, max_partitions){
-    invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, max_partitions))
-}
-
 dataset___ScannerBuilder__BatchSize <- function(sb, batch_size) {
   invisible(.Call(`_arrow_dataset___ScannerBuilder__BatchSize`, sb, batch_size))
 }
@@ -608,8 +604,8 @@ dataset___ScanTask__get_batches <- function(scan_task) {
   .Call(`_arrow_dataset___ScanTask__get_batches`, scan_task)
 }
 
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior) {
-  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior))
+dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, scanner, max_partitions) {
+  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, scanner, max_partitions))
 }
 
 dataset___Scanner__TakeRows <- function(scanner, indices) {
@@ -1803,3 +1799,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

@@ -352,9 +352,9 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     ARROW_ASSIGN_OR_RAISE(auto groups, write_options_.partitioning->Partition(batch));
     batch.reset();  // drop to hopefully conserve memory
 
-    if (state->write_options.max_partitions <= 0) {
+    if (write_options_.max_partitions <= 0) {
       return Status::Invalid("max_partitions must be positive (was ",
-                             state->write_options.max_partitions, ")");
+                             write_options_.max_partitions, ")");
     }
 
     if (groups.batches.size() > static_cast<size_t>(write_options_.max_partitions)) {
@@ -458,13 +458,14 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
 
     return node;
   }
+}
 
-  namespace internal {
-  void InitializeDatasetWriter(arrow::compute::ExecFactoryRegistry* registry) {
-    DCHECK_OK(registry->AddFactory("write", MakeWriteNode));
-  }
-  }  // namespace internal
+namespace internal {
+void InitializeDatasetWriter(arrow::compute::ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("write", MakeWriteNode));
+}
+}  // namespace internal
 
 }  // namespace dataset
 
-}  // namespace dataset
+}  // namespace arrow
