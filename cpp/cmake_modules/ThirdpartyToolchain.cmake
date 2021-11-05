@@ -1470,6 +1470,7 @@ macro(build_protobuf)
 
   add_dependencies(toolchain protobuf_ep)
   add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
+  add_dependencies(arrow::protobuf::protoc protobuf_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
 endmacro()

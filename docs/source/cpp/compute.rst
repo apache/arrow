@@ -219,13 +219,13 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(7)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
+| stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(8)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(8)  |
+| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(9)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
+| variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(8)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -255,9 +255,13 @@ the input to a single output value.
 
 * \(7) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(8) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(8) Decimal arguments are cast to Float64 first.
+
+* \(9) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+  Decimal arguments are cast to Float64 first.
 
 Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -330,13 +334,13 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(4)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        |       |
+| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(4)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(5)  |
+| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(6)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        |       |
+| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -357,9 +361,13 @@ equivalents above and reflects how they are implemented internally.
 * \(4) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(5) T-digest computes approximate quantiles, and so only needs a
+* \(5) Decimal arguments are cast to Float64 first.
+
+* \(6) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+  Decimal arguments are cast to Float64 first.
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -456,8 +464,8 @@ decimal and integer arguments will cast all arguments to decimals.
   enough scale kept. Error is returned if the result precision is beyond the
   decimal value range.
 
-* \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.
-  NaN values return NaN.  Integral values return signedness as Int8 and
+* \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.  NaN
+  values return NaN.  Integral and decimal values return signedness as Int8 and
   floating-point values return it with the same type as the input values.
 
 Bit-wise functions
@@ -585,29 +593,31 @@ Logarithmic functions
 Logarithmic functions are also supported, and also offer ``_checked``
 variants that check for domain errors if needed.
 
-+--------------------------+------------+--------------------+---------------------+
-| Function name            | Arity      | Input types        | Output type         |
-+==========================+============+====================+=====================+
-| ln                       | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| ln_checked               | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log10                    | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log10_checked            | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log1p                    | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log1p_checked            | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log2                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log2_checked             | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| logb                     | Binary     | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| logb_checked             | Binary     | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| ln                       | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| ln_checked               | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log10                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log10_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log1p                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log1p_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log2                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log2_checked             | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| logb                     | Binary     | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| logb_checked             | Binary     | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
 
 Trigonometric functions
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -615,33 +625,35 @@ Trigonometric functions
 Trigonometric functions are also supported, and also offer ``_checked``
 variants that check for domain errors if needed.
 
-+--------------------------+------------+--------------------+---------------------+
-| Function name            | Arity      | Input types        | Output type         |
-+==========================+============+====================+=====================+
-| acos                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| acos_checked             | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| asin                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| asin_checked             | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| atan                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| atan2                    | Binary     | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| cos                      | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| cos_checked              | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| sin                      | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| sin_checked              | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| tan                      | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| tan_checked              | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| acos                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| acos_checked             | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asin                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asin_checked             | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atan                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atan2                    | Binary     | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cos                      | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cos_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sin                      | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sin_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tan                      | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tan_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
 
 Comparisons
 ~~~~~~~~~~~
@@ -1117,26 +1129,28 @@ Containment tests
 Categorizations
 ~~~~~~~~~~~~~~~
 
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| Function name     | Arity      | Input types         | Output type         | Options class          | Notes   |
-+===================+============+=====================+=====================+========================+=========+
-| is_finite         | Unary      | Float, Double       | Boolean             |                        | \(1)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_inf            | Unary      | Float, Double       | Boolean             |                        | \(2)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_nan            | Unary      | Float, Double       | Boolean             |                        | \(3)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_null           | Unary      | Any                 | Boolean             | :struct:`NullOptions`  | \(4)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_valid          | Unary      | Any                 | Boolean             |                        | \(5)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| Function name     | Arity      | Input types             | Output type         | Options class          | Notes   |
++===================+============+=========================+=====================+========================+=========+
+| is_finite         | Unary      | Null, Numeric           | Boolean             |                        | \(1)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_inf            | Unary      | Null, Numeric           | Boolean             |                        | \(2)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_nan            | Unary      | Null, Numeric           | Boolean             |                        | \(3)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_null           | Unary      | Any                     | Boolean             | :struct:`NullOptions`  | \(4)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_valid          | Unary      | Any                     | Boolean             |                        | \(5)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
 
 * \(1) Output is true iff the corresponding input element is finite (neither Infinity,
-  -Infinity, nor NaN).
+  -Infinity, nor NaN). Hence, for Decimal and integer inputs this always returns true.
 
 * \(2) Output is true iff the corresponding input element is Infinity/-Infinity.
+  Hence, for Decimal and integer inputs this always returns false.
 
 * \(3) Output is true iff the corresponding input element is NaN.
+  Hence, for Decimal and integer inputs this always returns false.
 
 * \(4) Output is true iff the corresponding input element is null. NaN values
   can also be considered null by setting :member:`NullOptions::nan_is_null`.

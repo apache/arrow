@@ -927,7 +927,9 @@ class ARROW_EXPORT MapType : public ListType {
 class ARROW_EXPORT FixedSizeListType : public BaseListType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
-  using offset_type = int32_t;
+  // While the individual item size is 32-bit, the overall data size
+  // (item size * list length) may not fit in a 32-bit int.
+  using offset_type = int64_t;
 
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
