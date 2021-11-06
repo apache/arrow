@@ -34,6 +34,15 @@ using internal::checked_cast;
 
 namespace compute {
 
+// Check if a type is supported in a join (as either a key or non-key column)
+bool HashJoinSchema::IsTypeSupported(const DataType& type) {
+  const Type::type id = type.id();
+  if (id == Type::DICTIONARY) {
+    return IsTypeSupported(*checked_cast<const DictionaryType&>(type).value_type());
+  }
+  return is_fixed_width(id) || is_binary_like(id) || is_large_binary_like(id);
+}
+
 Result<std::vector<FieldRef>> HashJoinSchema::VectorDiff(const Schema& schema,
                                                          const std::vector<FieldRef>& a,
                                                          const std::vector<FieldRef>& b) {
@@ -141,8 +150,7 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
   // 2. Same number of key fields on left and right
   // 3. At least one key field
   // 4. Equal data types for corresponding key fields
-  // 5. Dictionary type is not supported in a key field
-  // 6. Some other data types may not be allowed in a key field
+  // 5. Some data types may not be allowed in a key field or non-key field
   //
   if (left_keys.size() != right_keys.size()) {
     return Status::Invalid("Different number of key fields on left (", left_keys.size(),
@@ -164,11 +172,8 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     const FieldPath& match = result.ValueUnsafe();
     const std::shared_ptr<DataType>& type =
         (left_side ? left_schema.fields() : right_schema.fields())[match[0]]->type();
-    if ((type->id() != Type::BOOL && !is_fixed_width(type->id()) &&
-         !is_binary_like(type->id())) ||
-        is_large_binary_like(type->id())) {
-      return Status::Invalid("Data type ", type->ToString(),
-                             " is not supported in join key field");
+    if (!IsTypeSupported(*type)) {
+      return Status::Invalid("Data type ", *type, " is not supported in join key field");
     }
   }
   for (size_t i = 0; i < left_keys.size(); ++i) {
@@ -183,6 +188,20 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
           "Incompatible data types for corresponding join field keys: ",
           left_ref.ToString(), " of type ", left_type->ToString(), " and ",
           right_ref.ToString(), " of type ", right_type->ToString());
+    }
+  }
+  for (const auto& field : left_schema.fields()) {
+    const auto& type = *field->type();
+    if (!IsTypeSupported(type)) {
+      return Status::Invalid("Data type ", type,
+                             " is not supported in join non-key field");
+    }
+  }
+  for (const auto& field : right_schema.fields()) {
+    const auto& type = *field->type();
+    if (!IsTypeSupported(type)) {
+      return Status::Invalid("Data type ", type,
+                             " is not supported in join non-key field");
     }
   }
 

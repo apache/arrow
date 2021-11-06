@@ -1656,5 +1656,38 @@ TEST(HashJoin, DictNegative) {
   }
 }
 
+TEST(HashJoin, UnsupportedTypes) {
+  // ARROW-14519
+  const bool parallel = false;
+  const bool slow = false;
+
+  auto l_schema = schema({field("l_i32", int32()), field("l_list", list(int32()))});
+  auto l_schema_nolist = schema({field("l_i32", int32())});
+  auto r_schema = schema({field("r_i32", int32()), field("r_list", list(int32()))});
+  auto r_schema_nolist = schema({field("r_i32", int32())});
+
+  std::vector<std::pair<std::shared_ptr<Schema>, std::shared_ptr<Schema>>> cases{
+      {l_schema, r_schema}, {l_schema_nolist, r_schema}, {l_schema, r_schema_nolist}};
+  std::vector<FieldRef> l_keys{{"l_i32"}};
+  std::vector<FieldRef> r_keys{{"r_i32"}};
+
+  for (const auto& schemas : cases) {
+    BatchesWithSchema l_batches = GenerateBatchesFromString(schemas.first, {R"([])"});
+    BatchesWithSchema r_batches = GenerateBatchesFromString(schemas.second, {R"([])"});
+
+    ExecContext exec_ctx;
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+
+    HashJoinNodeOptions join_options{JoinType::LEFT_SEMI, l_keys, r_keys};
+    Declaration join{"hashjoin", join_options};
+    join.inputs.emplace_back(Declaration{
+        "source", SourceNodeOptions{l_batches.schema, l_batches.gen(parallel, slow)}});
+    join.inputs.emplace_back(Declaration{
+        "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel, slow)}});
+
+    ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
