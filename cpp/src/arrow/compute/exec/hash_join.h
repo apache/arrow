@@ -66,6 +66,7 @@ class ARROW_EXPORT HashJoinSchema {
   SchemaProjectionMaps<HashJoinProjection> proj_maps[2];
 
  private:
+  static bool IsTypeSupported(const DataType& type);
   static Result<std::vector<FieldRef>> VectorDiff(const Schema& schema,
                                                   const std::vector<FieldRef>& a,
                                                   const std::vector<FieldRef>& b);
