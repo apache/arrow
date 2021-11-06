@@ -25,13 +25,13 @@ namespace gandiva {
 /**
  * Encrypt data using aes algorithm
  **/
-int32_t aes_encrypt(unsigned char* plaintext, int32_t plaintext_len, unsigned char* key,
+int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
                     unsigned char* cipher);
 
 /**
  * Decrypt data using aes algorithm
  **/
-int32_t aes_decrypt(unsigned char* ciphertext, int32_t ciphertext_len, unsigned char* key,
+int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
                     unsigned char* plaintext);
 
 }  // namespace gandiva

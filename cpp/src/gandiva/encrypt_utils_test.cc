@@ -25,8 +25,8 @@
 
 TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
   // 8 bytes key
-  auto* key = (unsigned char*)"1234abcd";
-  auto* to_encrypt = (unsigned char*)"some test string";
+  auto* key = "1234abcd";
+  auto* to_encrypt = "some test string";
 
   auto to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
@@ -36,14 +36,14 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   unsigned char decrypted_1[64];
   int32_t decrypted_1_len =
-      gandiva::aes_decrypt(cipher_1, cipher_1_len, key, decrypted_1);
+      gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_1), cipher_1_len, key, decrypted_1);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_1), decrypted_1_len));
 
   // 16 bytes key
-  key = (unsigned char*)"12345678abcdefgh";
-  to_encrypt = (unsigned char*)"some\ntest\nstring";
+  key = "12345678abcdefgh";
+  to_encrypt = "some\ntest\nstring";
 
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
@@ -53,14 +53,14 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   unsigned char decrypted_2[64];
   int32_t decrypted_2_len =
-      gandiva::aes_decrypt(cipher_2, cipher_2_len, key, decrypted_2);
+      gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_2), cipher_2_len, key, decrypted_2);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_2), decrypted_2_len));
 
   // 32 bytes key
-  key = (unsigned char*)"12345678abcdefgh12345678abcdefgh";
-  to_encrypt = (unsigned char*)"New\ntest\nstring";
+  key = "12345678abcdefgh12345678abcdefgh";
+  to_encrypt = "New\ntest\nstring";
 
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
@@ -70,15 +70,15 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   unsigned char decrypted_3[64];
   int32_t decrypted_3_len =
-      gandiva::aes_decrypt(cipher_3, cipher_3_len, key, decrypted_3);
+      gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_3), cipher_3_len, key, decrypted_3);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_3), decrypted_3_len));
 
   // 64 bytes key
   key =
-      (unsigned char*)"12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  to_encrypt = (unsigned char*)"New\ntest\nstring";
+      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  to_encrypt = "New\ntest\nstring";
 
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
@@ -88,14 +88,14 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   unsigned char decrypted_4[64];
   int32_t decrypted_4_len =
-      gandiva::aes_decrypt(cipher_4, cipher_4_len, key, decrypted_4);
+      gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_4), cipher_4_len, key, decrypted_4);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_4), decrypted_4_len));
 
   // 128 bytes key
-  key = (unsigned char*)"12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  to_encrypt = (unsigned char*)"A much more longer string then the previous one, but without newline";
+  key = "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  to_encrypt = "A much more longer string then the previous one, but without newline";
 
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
@@ -105,14 +105,14 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   unsigned char decrypted_5[128];
   int32_t decrypted_5_len =
-      gandiva::aes_decrypt(cipher_5, cipher_5_len, key, decrypted_5);
+      gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_5), cipher_5_len, key, decrypted_5);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_5), decrypted_5_len));
 
   // 192 bytes key
-  key = (unsigned char*)"12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  to_encrypt = (unsigned char*)"A much more longer string then the previous one, but with \nnewline, pretty cool, right?";
+  key = "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  to_encrypt = "A much more longer string then the previous one, but with \nnewline, pretty cool, right?";
 
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
@@ -122,14 +122,14 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   unsigned char decrypted_6[256];
   int32_t decrypted_6_len =
-      gandiva::aes_decrypt(cipher_6, cipher_6_len, key, decrypted_6);
+      gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_6), cipher_6_len, key, decrypted_6);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_6), decrypted_6_len));
 
   // 256 bytes key
-  key = (unsigned char*)"12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  to_encrypt = (unsigned char*)"A much more longer string then the previous one, but with \nnewline, pretty cool, right?";
+  key = "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  to_encrypt = "A much more longer string then the previous one, but with \nnewline, pretty cool, right?";
 
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
@@ -139,7 +139,7 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   unsigned char decrypted_7[256];
   int32_t decrypted_7_len =
-      gandiva::aes_decrypt(cipher_7, cipher_7_len, key, decrypted_7);
+      gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_7), cipher_7_len, key, decrypted_7);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_7), decrypted_7_len));

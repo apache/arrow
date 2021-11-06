@@ -21,7 +21,7 @@
 
 namespace gandiva {
 
-int32_t aes_encrypt(unsigned char* plaintext, int32_t plaintext_len, unsigned char* key,
+int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
                     unsigned char* cipher) {
   int32_t cipher_len = 0;
   int32_t len = 0;
@@ -31,11 +31,13 @@ int32_t aes_encrypt(unsigned char* plaintext, int32_t plaintext_len, unsigned ch
     throw std::runtime_error("could not create a new evp cipher ctx for encryption");
   }
 
-  if (!EVP_EncryptInit_ex(en_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
+  if (!EVP_EncryptInit_ex(en_ctx, EVP_aes_128_ecb(), nullptr,
+                          reinterpret_cast<const unsigned char*>(key), nullptr)) {
     throw std::runtime_error("could not initialize evp cipher ctx for encryption");
   }
 
-  if (!EVP_EncryptUpdate(en_ctx, cipher, &len, plaintext, plaintext_len)) {
+  if (!EVP_EncryptUpdate(en_ctx, cipher, &len,
+                         reinterpret_cast<const unsigned char*>(plaintext), plaintext_len)) {
     throw std::runtime_error("could not update evp cipher ctx for encryption");
   }
 
@@ -51,7 +53,7 @@ int32_t aes_encrypt(unsigned char* plaintext, int32_t plaintext_len, unsigned ch
   return cipher_len;
 }
 
-int32_t aes_decrypt(unsigned char* ciphertext, int32_t ciphertext_len, unsigned char* key,
+int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
                     unsigned char* plaintext) {
   int32_t plaintext_len = 0;
   int32_t len = 0;
@@ -61,11 +63,13 @@ int32_t aes_decrypt(unsigned char* ciphertext, int32_t ciphertext_len, unsigned 
     throw std::runtime_error("could not create a new evp cipher ctx for decryption");
   }
 
-  if (!EVP_DecryptInit_ex(de_ctx, EVP_aes_128_ecb(), nullptr, key, nullptr)) {
+  if (!EVP_DecryptInit_ex(de_ctx, EVP_aes_128_ecb(), nullptr,
+                          reinterpret_cast<const unsigned char*>(key), nullptr)) {
     throw std::runtime_error("could not initialize evp cipher ctx for decryption");
   }
 
-  if (!EVP_DecryptUpdate(de_ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+  if (!EVP_DecryptUpdate(de_ctx, plaintext, &len,
+                         reinterpret_cast<const unsigned char*>(ciphertext), ciphertext_len)) {
     throw std::runtime_error("could not update evp cipher ctx for decryption");
   }
 

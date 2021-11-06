@@ -854,7 +854,7 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
 
   try {
     *out_len =
-        gandiva::aes_encrypt((unsigned char*)data, data_len, (unsigned char*)key_data,
+        gandiva::aes_encrypt(data, data_len, key_data,
                              reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
@@ -884,7 +884,7 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
 
   try {
     *out_len =
-        gandiva::aes_decrypt((unsigned char*)data, data_len, (unsigned char*)key_data,
+        gandiva::aes_decrypt(data, data_len, key_data,
                              reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
