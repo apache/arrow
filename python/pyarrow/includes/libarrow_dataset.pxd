@@ -286,6 +286,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string basename_template
         function[cb_writer_finish_internal] writer_pre_finish
         function[cb_writer_finish_internal] writer_post_finish
+        ExistingDataBehavior existing_data_behavior
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):
