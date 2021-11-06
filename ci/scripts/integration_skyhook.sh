@@ -118,7 +118,6 @@ pushd ${ARROW_BUILD_DIR}
     cp debug/libcls_skyhook* /usr/lib/x86_64-linux-gnu/rados-classes/
 
     # mount a ceph filesystem to /mnt/cephfs in the user-space using ceph-fuse
-    echo "user_allow_other" >> /etc/fuse.conf
     mkdir -p /mnt/cephfs
     ceph-fuse /mnt/cephfs
     sleep 5
