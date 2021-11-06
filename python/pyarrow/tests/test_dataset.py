@@ -3489,8 +3489,8 @@ def test_write_dataset_existing_data(tempdir):
         [pa.field('c', pa.int64())]), flavor='hive')
 
     def compare_tables_ignoring_order(t1, t2):
-        df1 = t1.to_pandas().sort_values('b', ignore_index=True)
-        df2 = t2.to_pandas().sort_values('b', ignore_index=True)
+        df1 = t1.to_pandas().sort_values('b').reset_index(drop=True)
+        df2 = t2.to_pandas().sort_values('b').reset_index(drop=True)
         assert df1.equals(df2)
 
     # First write is ok
