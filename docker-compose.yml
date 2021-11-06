@@ -329,6 +329,10 @@ services:
         llvm: ${LLVM}
         gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - "/dev/fuse:/dev/fuse"
     ulimits: *ulimits
     environment:
       <<: *ccache
