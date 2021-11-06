@@ -699,6 +699,9 @@ tasks:
       - arrow-avro-{no_rc_version}-tests.jar
       - arrow-avro-{no_rc_version}.jar
       - arrow-avro-{no_rc_version}.pom
+      - arrow-c-data-{no_rc_version}-tests.jar
+      - arrow-c-data-{no_rc_version}.jar
+      - arrow-c-data-{no_rc_version}.pom
       - arrow-compression-{no_rc_version}-tests.jar
       - arrow-compression-{no_rc_version}.jar
       - arrow-compression-{no_rc_version}.pom
@@ -711,9 +714,11 @@ tasks:
       - arrow-gandiva-{no_rc_version}-tests.jar
       - arrow-gandiva-{no_rc_version}.jar
       - arrow-gandiva-{no_rc_version}.pom
+      - arrow-java-root-{no_rc_version}.pom
       - arrow-jdbc-{no_rc_version}-tests.jar
       - arrow-jdbc-{no_rc_version}.jar
       - arrow-jdbc-{no_rc_version}.pom
+      - arrow-memory-{no_rc_version}.pom
       - arrow-memory-core-{no_rc_version}-tests.jar
       - arrow-memory-core-{no_rc_version}.jar
       - arrow-memory-core-{no_rc_version}.pom
