@@ -333,6 +333,8 @@ services:
       - SYS_ADMIN
     devices:
       - "/dev/fuse:/dev/fuse"
+    security_opt:
+      - apparmor:unconfined
     ulimits: *ulimits
     environment:
       <<: *ccache
