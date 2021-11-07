@@ -33,7 +33,7 @@ type Writer struct {
 	open           bool
 	props          *parquet.WriterProperties
 	rowGroups      int
-	nrows          int64
+	nrows          int
 	metadata       metadata.FileMetaDataBuilder
 	fileEncryptor  encryption.FileEncryptor
 	rowGroupWriter *rowGroupWriter
@@ -89,7 +89,7 @@ func (fw *Writer) NumColumns() int { return fw.Schema.NumColumns() }
 func (fw *Writer) NumRowGroups() int { return fw.rowGroups }
 
 // NumRows returns the current number of rows that have be written
-func (fw *Writer) NumRows() int64 { return fw.nrows }
+func (fw *Writer) NumRows() int { return fw.nrows }
 
 // Properties returns the writer properties that are in use for this file.
 func (fw *Writer) Properties() *parquet.WriterProperties { return fw.props }

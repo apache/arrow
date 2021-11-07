@@ -31,7 +31,7 @@ type RowGroupWriter interface {
 	NumColumns() int
 	// returns the current number of rows that have been written.
 	// Returns an error if they are unequal between columns that have been written so far
-	NumRows() (int64, error)
+	NumRows() (int, error)
 	// The total compressed bytes so
 	TotalCompressedBytes() int64
 	// the total bytes written and flushed out
@@ -73,7 +73,7 @@ type rowGroupWriter struct {
 	closed        bool
 	ordinal       int16
 	nextColumnIdx int
-	nrows         int64
+	nrows         int
 	buffered      bool
 	fileEncryptor encryption.FileEncryptor
 
@@ -121,7 +121,7 @@ func (rg *rowGroupWriter) checkRowsWritten() error {
 }
 
 func (rg *rowGroupWriter) NumColumns() int { return rg.metadata.NumColumns() }
-func (rg *rowGroupWriter) NumRows() (int64, error) {
+func (rg *rowGroupWriter) NumRows() (int, error) {
 	err := rg.checkRowsWritten()
 	return rg.nrows, err
 }
