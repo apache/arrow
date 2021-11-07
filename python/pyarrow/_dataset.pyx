@@ -3384,14 +3384,15 @@ def _filesystemdataset_write(
     c_options.basename_template = tobytes(basename_template)
     if existing_data_behavior == 'error':
         c_options.existing_data_behavior = ExistingDataBehavior_ERROR
-    elif existing_data_behavior == 'overwrite':
-        c_options.existing_data_behavior = ExistingDataBehavior_OVERWRITE
+    elif existing_data_behavior == 'overwrite_or_ignore':
+        c_options.existing_data_behavior =\
+            ExistingDataBehavior_OVERWRITE_OR_IGNORE
     elif existing_data_behavior == 'delete_matching':
         c_options.existing_data_behavior = ExistingDataBehavior_DELETE_MATCHING
     else:
         raise ValueError(
-            ('existing_data_behavior must be one of error, overwrite or',
-             'delete_matching')
+            ('existing_data_behavior must be one of error, ',
+             'overwrite_or_ignore or delete_matching')
         )
 
     if file_visitor is not None:

@@ -89,7 +89,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef enum ExistingDataBehavior" arrow::dataset::ExistingDataBehavior":
         ExistingDataBehavior_DELETE_MATCHING" \
             arrow::dataset::ExistingDataBehavior::kDeleteMatchingPartitions"
-        ExistingDataBehavior_OVERWRITE" \
+        ExistingDataBehavior_OVERWRITE_OR_IGNORE" \
             arrow::dataset::ExistingDataBehavior::kOverwriteOrIgnore"
         ExistingDataBehavior_ERROR" \
             arrow::dataset::ExistingDataBehavior::kError"

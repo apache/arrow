@@ -3509,7 +3509,8 @@ def test_write_dataset_existing_data(tempdir):
 
     # Should be ok and overwrite with overwrite behaivor
     ds.write_dataset(table, directory, partitioning=partitioning,
-                     format='ipc', existing_data_behavior='overwrite')
+                     format='ipc',
+                     existing_data_behavior='overwrite_or_ignore')
 
     overwritten = pa.table(
         {'b': ['e', 'x', 'a', 'b', 'c'], 'c': [2, 1, 2, 3, 4]})
