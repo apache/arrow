@@ -681,16 +681,16 @@ using Utf8Title = StringTransformExec<Type, Utf8TitleTransform>;
 struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
   using State = OptionsWrapper<Utf8NormalizeOptions>;
 
-  const Utf8NormalizeOptions* options;
+  const Utf8NormalizeOptions& options_;
 
   explicit Utf8NormalizeTransform(const Utf8NormalizeOptions& options)
-      : options{&options} {}
+      : options_(options) {}
 
   int64_t MaxCodeunits(const uint8_t* input, int64_t ninputs,
                        int64_t input_ncodeunits) override {
-    const auto option = GenerateUtf8NormalizeOption(options->form);
+    const auto option = GenerateUtf8NormalizeOption(options_.form);
     const auto n_chars =
-        utf8proc_decompose_custom(input, input_ncodeunits, NULL, 0, option, NULL, NULL);
+        utf8proc_decompose(input, input_ncodeunits, NULL, 0, option);
 
     // convert to byte length
     return n_chars * 4;
@@ -698,15 +698,26 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output, int64_t output_string_ncodeunits) {
-    const auto option = GenerateUtf8NormalizeOption(options->form);
-    const auto n_chars = utf8proc_decompose_custom(
+    uint8_t* output_start = output;
+
+    const auto option = GenerateUtf8NormalizeOption(options_.form);
+    const auto n_chars = utf8proc_decompose(
         input, input_string_ncodeunits, reinterpret_cast<utf8proc_int32_t*>(output),
-        output_string_ncodeunits, option, NULL, NULL);
+        output_string_ncodeunits, option);
     if (n_chars < 0) return output_string_ncodeunits;
 
-    const auto n_bytes =
-        utf8proc_reencode(reinterpret_cast<utf8proc_int32_t*>(output), n_chars, option);
-    return n_bytes;
+    const auto n_chars_utf32 =
+        utf8proc_normalize_utf32(reinterpret_cast<utf8proc_int32_t*>(output), n_chars, option);
+    if (n_chars_utf32 < 0) return output_string_ncodeunits;
+
+    uint32_t uc;
+    utf8proc_int32_t* dest = reinterpret_cast<utf8proc_int32_t*>(output);
+    for (long rpos = 0; rpos < n_chars_utf32; rpos++) {
+      uc = dest[rpos];
+      output = arrow::util::UTF8Encode(output, uc);
+    }
+
+    return output - output_start;
   }
 
  private:
