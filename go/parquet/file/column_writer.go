@@ -44,7 +44,7 @@ type ColumnChunkWriter interface {
 	// Descr returns the column information for this writer
 	Descr() *schema.Column
 	// RowsWritten returns the number of rows that have so far been written with this writer
-	RowsWritten() int64
+	RowsWritten() int
 	// TotalCompressedBytes returns the number of bytes, after compression, that have been written so far
 	TotalCompressedBytes() int64
 	// TotalBytesWritten includes the bytes for writing dictionary pages, while TotalCompressedBytes is
@@ -91,23 +91,23 @@ type columnWriter struct {
 	pageStatistics  metadata.TypedStatistics
 	chunkStatistics metadata.TypedStatistics
 
-	// total number of values stored in the data page. this is the maximum
+	// total number of values stored in the current data page. this is the maximum
 	// of the number of encoded def levels or encoded values. for
 	// non-repeated, required columns, this is equal to the number of encoded
 	// values. For repeated or optional values, there may be fewer data values
 	// than levels, and this tells you how many encoded levels there are in that case
-	numBuffered int64
+	numBufferedValues int64
 
-	// the total number of stored values. for repeated or optional values. this
-	// number may be lower than numBuffered
-	numBufferedEncoded int64
+	// the total number of stored values in the current page. for repeated or optional
+	// values. this number may be lower than numBuffered
+	numDataValues int64
 
 	rowsWritten       int
 	totalBytesWritten int64
 	// records the current number of compressed bytes in a column
 	totalCompressedBytes int64
 	closed               bool
-	fallback             bool
+	fallbackToNonDict    bool
 
 	pages []DataPage
 
@@ -141,17 +141,11 @@ func newColumnWriterBase(metaData *metadata.ColumnChunkMetaDataBuilder, pager Pa
 		ret.chunkStatistics = metadata.NewStatistics(ret.descr, props.Allocator())
 	}
 
-	if ret.props.DataPageVersion() == parquet.DataPageV1 {
-		if ret.descr.MaxDefinitionLevel() > 0 {
-			ret.defLevelSink.SetOffset(arrow.Uint32SizeBytes)
-		}
-		if ret.descr.MaxRepetitionLevel() > 0 {
-			ret.repLevelSink.SetOffset(arrow.Uint32SizeBytes)
-		}
-	}
-
 	ret.defEncoder.Init(parquet.Encodings.RLE, ret.descr.MaxDefinitionLevel(), ret.defLevelSink)
 	ret.repEncoder.Init(parquet.Encodings.RLE, ret.descr.MaxRepetitionLevel(), ret.repLevelSink)
+
+	ret.reset()
+
 	return ret
 }
 
@@ -179,8 +173,8 @@ func (w *columnWriter) TotalBytesWritten() int64 {
 	return w.totalBytesWritten
 }
 
-func (w *columnWriter) RowsWritten() int64 {
-	return int64(w.rowsWritten)
+func (w *columnWriter) RowsWritten() int {
+	return w.rowsWritten
 }
 
 func (w *columnWriter) WriteDataPage(page DataPage) error {
@@ -197,11 +191,13 @@ func (w *columnWriter) WriteRepetitionLevels(levels []int16) {
 	w.repEncoder.EncodeNoFlush(levels)
 }
 
-func (w *columnWriter) init() {
+func (w *columnWriter) reset() {
 	w.defLevelSink.Reset(0)
 	w.repLevelSink.Reset(0)
 
 	if w.props.DataPageVersion() == parquet.DataPageV1 {
+		// offset the buffers to make room to record the number of levels at the
+		// beginning of each after we've encoded them with RLE
 		if w.descr.MaxDefinitionLevel() > 0 {
 			w.defLevelSink.SetOffset(arrow.Uint32SizeBytes)
 		}
@@ -225,16 +221,16 @@ func (w *columnWriter) EstimatedBufferedValueBytes() int64 {
 }
 
 func (w *columnWriter) commitWriteAndCheckPageLimit(numLevels, numValues int64) error {
-	w.numBuffered += numLevels
-	w.numBufferedEncoded += numValues
+	w.numBufferedValues += numLevels
+	w.numDataValues += numValues
 
 	if w.currentEncoder.EstimatedDataEncodedSize() >= w.props.DataPageSize() {
-		return w.AddDataPage()
+		return w.FlushCurrentPage()
 	}
 	return nil
 }
 
-func (w *columnWriter) AddDataPage() error {
+func (w *columnWriter) FlushCurrentPage() error {
 	var (
 		defLevelsRLESize int64 = 0
 		repLevelsRLESize int64 = 0
@@ -274,8 +270,8 @@ func (w *columnWriter) AddDataPage() error {
 		w.buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
 	}
 
-	w.init()
-	w.numBuffered, w.numBufferedEncoded = 0, 0
+	w.reset()
+	w.numBufferedValues, w.numDataValues = 0, 0
 	return nil
 }
 
@@ -301,15 +297,15 @@ func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncom
 	}
 
 	// write the page to sink eagerly if there's no dictionary or if dictionary encoding has fallen back
-	if w.hasDict && !w.fallback {
+	if w.hasDict && !w.fallbackToNonDict {
 		pageSlice := make([]byte, len(data))
 		copy(pageSlice, data)
-		page := NewDataPageV1WithStats(memory.NewBufferBytes(pageSlice), int32(w.numBuffered), w.encoding, parquet.Encodings.RLE, parquet.Encodings.RLE, uncompressed, pageStats)
+		page := NewDataPageV1WithStats(memory.NewBufferBytes(pageSlice), int32(w.numBufferedValues), w.encoding, parquet.Encodings.RLE, parquet.Encodings.RLE, uncompressed, pageStats)
 		w.totalCompressedBytes += int64(page.buf.Len()) // + size of Pageheader
 		w.pages = append(w.pages, page)
 	} else {
 		w.totalCompressedBytes += int64(len(data))
-		dp := NewDataPageV1WithStats(memory.NewBufferBytes(data), int32(w.numBuffered), w.encoding, parquet.Encodings.RLE, parquet.Encodings.RLE, uncompressed, pageStats)
+		dp := NewDataPageV1WithStats(memory.NewBufferBytes(data), int32(w.numBufferedValues), w.encoding, parquet.Encodings.RLE, parquet.Encodings.RLE, uncompressed, pageStats)
 		defer dp.Release()
 		w.WriteDataPage(dp)
 	}
@@ -327,10 +323,9 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 	}
 
 	// concatenate uncompressed levels and the possibly compressed values
-	combined := make([]byte, int(defLevelsRLESize+repLevelsRLESize+int64(len(data))))
-	copy(combined, w.repLevelSink.Bytes()[:repLevelsRLESize])
-	copy(combined[repLevelsRLESize:], w.defLevelSink.Bytes()[:defLevelsRLESize])
-	copy(combined[repLevelsRLESize+defLevelsRLESize:], data)
+	var combined bytes.Buffer
+	combined.Grow(int(defLevelsRLESize + repLevelsRLESize + int64(len(data))))
+	w.concatBuffers(defLevelsRLESize, repLevelsRLESize, data, &combined)
 
 	pageStats, err := w.getPageStatistics()
 	if err != nil {
@@ -340,18 +335,18 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 	pageStats.Signed = schema.SortSIGNED == w.descr.SortOrder()
 	w.resetPageStatistics()
 
-	numValues := int32(w.numBuffered)
+	numValues := int32(w.numBufferedValues)
 	nullCount := int32(pageStats.NullCount)
 	defLevelsByteLen := int32(defLevelsRLESize)
 	repLevelsByteLen := int32(repLevelsRLESize)
 
-	page := NewDataPageV2WithStats(memory.NewBufferBytes(combined), numValues, nullCount, numValues, w.encoding,
+	page := NewDataPageV2WithStats(memory.NewBufferBytes(combined.Bytes()), numValues, nullCount, numValues, w.encoding,
 		defLevelsByteLen, repLevelsByteLen, uncompressed, w.pager.HasCompressor(), pageStats)
-	if w.hasDict && !w.fallback {
+	if w.hasDict && !w.fallbackToNonDict {
 		w.totalCompressedBytes += int64(page.buf.Len()) // + sizeof pageheader
 		w.pages = append(w.pages, page)
 	} else {
-		w.totalCompressedBytes += int64(len(combined))
+		w.totalCompressedBytes += int64(combined.Len())
 		defer page.Release()
 		w.WriteDataPage(page)
 	}
@@ -359,8 +354,8 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 }
 
 func (w *columnWriter) FlushBufferedDataPages() {
-	if w.numBuffered > 0 {
-		w.AddDataPage()
+	if w.numBufferedValues > 0 {
+		w.FlushCurrentPage()
 	}
 
 	for _, p := range w.pages {
@@ -432,20 +427,26 @@ func (w *columnWriter) WriteDictionaryPage() error {
 	return err
 }
 
+type batchWriteInfo struct {
+	batchNum  int64
+	nullCount int64
+}
+
+func (b batchWriteInfo) numSpaced() int64 { return b.batchNum + b.nullCount }
+
 // this will always update the three otuput params
 // outValsToWrite, outSpacedValsToWrite, and NullCount. Additionally
 // it will update the validity bitmap if required (i.e. if at least one
-// level of nullable structs directly preced the leaf node)
-func (w *columnWriter) maybeCalculateValidityBits(defLevels []int16, batchSize int64, valuesToWrite, spacedValuesToWrite, nullCount *int64) {
+// level of nullable structs directly preceed the leaf node)
+func (w *columnWriter) maybeCalculateValidityBits(defLevels []int16, batchSize int64) (out batchWriteInfo) {
 	if w.bitsBuffer == nil {
 		if w.levelInfo.DefLevel == 0 {
 			// in this case def levels should be null and we only
 			// need to output counts which will always be equal to
 			// the batch size passed in (max def level == 0 indicates
 			// there cannot be repeated or null fields)
-			*valuesToWrite = batchSize
-			*spacedValuesToWrite = batchSize
-			*nullCount = 0
+			out.batchNum = batchSize
+			out.nullCount = 0
 		} else {
 			var (
 				toWrite       int64
@@ -459,9 +460,8 @@ func (w *columnWriter) maybeCalculateValidityBits(defLevels []int16, batchSize i
 					spacedToWrite++
 				}
 			}
-			*valuesToWrite += toWrite
-			*spacedValuesToWrite += spacedToWrite
-			*nullCount = spacedToWrite - toWrite
+			out.batchNum += toWrite
+			out.nullCount = spacedToWrite - toWrite
 		}
 		return
 	}
@@ -477,9 +477,9 @@ func (w *columnWriter) maybeCalculateValidityBits(defLevels []int16, batchSize i
 		ReadUpperBound: batchSize,
 	}
 	DefLevelsToBitmap(defLevels[:batchSize], w.levelInfo, &io)
-	*valuesToWrite = io.Read - io.NullCount
-	*spacedValuesToWrite = io.Read
-	*nullCount = io.NullCount
+	out.batchNum = io.Read - io.NullCount
+	out.nullCount = io.NullCount
+	return
 }
 
 func (w *columnWriter) getPageStatistics() (enc metadata.EncodedStatistics, err error) {
@@ -506,7 +506,7 @@ func (w *columnWriter) resetPageStatistics() {
 func (w *columnWriter) Close() (err error) {
 	if !w.closed {
 		w.closed = true
-		if w.hasDict && !w.fallback {
+		if w.hasDict && !w.fallbackToNonDict {
 			w.WriteDictionaryPage()
 		}
 
@@ -524,7 +524,7 @@ func (w *columnWriter) Close() (err error) {
 		if w.rowsWritten > 0 && chunkStats.IsSet() {
 			w.metaData.SetStats(chunkStats)
 		}
-		err = w.pager.Close(w.hasDict, w.fallback)
+		err = w.pager.Close(w.hasDict, w.fallbackToNonDict)
 
 		w.defLevelSink.Reset(0)
 		w.repLevelSink.Reset(0)
@@ -558,6 +558,9 @@ func (w *ByteArrayColumnChunkWriter) maybeReplaceValidity(values array.Interface
 	if len(buffers) == 0 {
 		return values
 	}
+	// bitsBuffer should already be the offset slice of the validity bits
+	// we want so we don't need to manually slice the validity buffer
+	buffers[0] = w.bitsBuffer
 
 	if values.Data().Offset() > 0 {
 		data := values.Data()

@@ -293,7 +293,9 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 		}
 		d.EqualValues(i, int96md.NumValues())
 
-		if decryptConfigNum != 3 {
+		// these two columns are always encrypted when we write them, so don't
+		// try to read them during the plaintext test.
+		if props.FileDecryptProps != nil {
 			// Get column reader for the float column
 			colReader = rowGroupReader.Column(4)
 			floatReader := colReader.(*file.Float32ColumnChunkReader)

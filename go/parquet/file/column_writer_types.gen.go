@@ -120,14 +120,8 @@ func (w *Int32ColumnChunkWriter) WriteBatchSpaced(values []int32, defLevels, rep
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []int32
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []int32
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -135,12 +129,12 @@ func (w *Int32ColumnChunkWriter) WriteBatchSpaced(values []int32, defLevels, rep
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -166,7 +160,7 @@ func (w *Int32ColumnChunkWriter) writeValuesSpaced(spacedValues []int32, numValu
 }
 
 func (w *Int32ColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -179,7 +173,7 @@ func (w *Int32ColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.Int32EncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
@@ -279,14 +273,8 @@ func (w *Int64ColumnChunkWriter) WriteBatchSpaced(values []int64, defLevels, rep
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []int64
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []int64
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -294,12 +282,12 @@ func (w *Int64ColumnChunkWriter) WriteBatchSpaced(values []int64, defLevels, rep
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -325,7 +313,7 @@ func (w *Int64ColumnChunkWriter) writeValuesSpaced(spacedValues []int64, numValu
 }
 
 func (w *Int64ColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -338,7 +326,7 @@ func (w *Int64ColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.Int64EncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
@@ -438,14 +426,8 @@ func (w *Int96ColumnChunkWriter) WriteBatchSpaced(values []parquet.Int96, defLev
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []parquet.Int96
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []parquet.Int96
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -453,12 +435,12 @@ func (w *Int96ColumnChunkWriter) WriteBatchSpaced(values []parquet.Int96, defLev
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -484,7 +466,7 @@ func (w *Int96ColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.Int96,
 }
 
 func (w *Int96ColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -497,7 +479,7 @@ func (w *Int96ColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.Int96EncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
@@ -597,14 +579,8 @@ func (w *Float32ColumnChunkWriter) WriteBatchSpaced(values []float32, defLevels,
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []float32
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []float32
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -612,12 +588,12 @@ func (w *Float32ColumnChunkWriter) WriteBatchSpaced(values []float32, defLevels,
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -643,7 +619,7 @@ func (w *Float32ColumnChunkWriter) writeValuesSpaced(spacedValues []float32, num
 }
 
 func (w *Float32ColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -656,7 +632,7 @@ func (w *Float32ColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.Float32EncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
@@ -756,14 +732,8 @@ func (w *Float64ColumnChunkWriter) WriteBatchSpaced(values []float64, defLevels,
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []float64
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []float64
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -771,12 +741,12 @@ func (w *Float64ColumnChunkWriter) WriteBatchSpaced(values []float64, defLevels,
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -802,7 +772,7 @@ func (w *Float64ColumnChunkWriter) writeValuesSpaced(spacedValues []float64, num
 }
 
 func (w *Float64ColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -815,7 +785,7 @@ func (w *Float64ColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.Float64EncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
@@ -918,14 +888,8 @@ func (w *BooleanColumnChunkWriter) WriteBatchSpaced(values []bool, defLevels, re
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []bool
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []bool
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -933,12 +897,12 @@ func (w *BooleanColumnChunkWriter) WriteBatchSpaced(values []bool, defLevels, re
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -964,7 +928,7 @@ func (w *BooleanColumnChunkWriter) writeValuesSpaced(spacedValues []bool, numVal
 }
 
 func (w *BooleanColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -977,7 +941,7 @@ func (w *BooleanColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.BooleanEncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
@@ -1077,14 +1041,8 @@ func (w *ByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.ByteArray
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []parquet.ByteArray
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []parquet.ByteArray
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -1092,12 +1050,12 @@ func (w *ByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.ByteArray
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -1123,7 +1081,7 @@ func (w *ByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []parquet.By
 }
 
 func (w *ByteArrayColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -1136,7 +1094,7 @@ func (w *ByteArrayColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.ByteArrayEncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
@@ -1236,14 +1194,8 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.F
 		length = len(values)
 	}
 	doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-		var (
-			batchNum       int64
-			batchNumSpaced int64
-			nullCount      int64
-			vals           []parquet.FixedLenByteArray
-		)
-		w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch,
-			&batchNum, &batchNumSpaced, &nullCount)
+		var vals []parquet.FixedLenByteArray
+		info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
@@ -1251,12 +1203,12 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.F
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:batchNumSpaced], batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
-		w.commitWriteAndCheckPageLimit(batch, batchNumSpaced)
-		valueOffset += batchNumSpaced
+		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
+		valueOffset += info.numSpaced()
 
 		w.checkDictionarySizeLimit()
 	})
@@ -1282,7 +1234,7 @@ func (w *FixedLenByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []pa
 }
 
 func (w *FixedLenByteArrayColumnChunkWriter) checkDictionarySizeLimit() {
-	if !w.hasDict || w.fallback {
+	if !w.hasDict || w.fallbackToNonDict {
 		return
 	}
 
@@ -1295,7 +1247,7 @@ func (w *FixedLenByteArrayColumnChunkWriter) fallbackToPlain() {
 	if w.currentEncoder.Encoding() == parquet.Encodings.PlainDict {
 		w.WriteDictionaryPage()
 		w.FlushBufferedDataPages()
-		w.fallback = true
+		w.fallbackToNonDict = true
 		w.currentEncoder = encoding.FixedLenByteArrayEncoderTraits.Encoder(format.Encoding(parquet.Encodings.Plain), false, w.descr, w.mem)
 		w.encoding = parquet.Encodings.Plain
 	}
