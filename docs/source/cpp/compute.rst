@@ -219,13 +219,13 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(7)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
+| stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(8)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(8)  |
+| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(9)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        |       |
+| variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(8)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -255,9 +255,13 @@ the input to a single output value.
 
 * \(7) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(8) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(8) Decimal arguments are cast to Float64 first.
+
+* \(9) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+  Decimal arguments are cast to Float64 first.
 
 Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -330,13 +334,13 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(4)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        |       |
+| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(4)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(5)  |
+| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(6)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        |       |
+| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -357,9 +361,13 @@ equivalents above and reflects how they are implemented internally.
 * \(4) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(5) T-digest computes approximate quantiles, and so only needs a
+* \(5) Decimal arguments are cast to Float64 first.
+
+* \(6) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+  Decimal arguments are cast to Float64 first.
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -456,8 +464,8 @@ decimal and integer arguments will cast all arguments to decimals.
   enough scale kept. Error is returned if the result precision is beyond the
   decimal value range.
 
-* \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.
-  NaN values return NaN.  Integral values return signedness as Int8 and
+* \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.  NaN
+  values return NaN.  Integral and decimal values return signedness as Int8 and
   floating-point values return it with the same type as the input values.
 
 Bit-wise functions
@@ -585,29 +593,31 @@ Logarithmic functions
 Logarithmic functions are also supported, and also offer ``_checked``
 variants that check for domain errors if needed.
 
-+--------------------------+------------+--------------------+---------------------+
-| Function name            | Arity      | Input types        | Output type         |
-+==========================+============+====================+=====================+
-| ln                       | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| ln_checked               | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log10                    | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log10_checked            | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log1p                    | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log1p_checked            | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log2                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| log2_checked             | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| logb                     | Binary     | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| logb_checked             | Binary     | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| ln                       | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| ln_checked               | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log10                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log10_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log1p                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log1p_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log2                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| log2_checked             | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| logb                     | Binary     | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| logb_checked             | Binary     | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
 
 Trigonometric functions
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -615,33 +625,35 @@ Trigonometric functions
 Trigonometric functions are also supported, and also offer ``_checked``
 variants that check for domain errors if needed.
 
-+--------------------------+------------+--------------------+---------------------+
-| Function name            | Arity      | Input types        | Output type         |
-+==========================+============+====================+=====================+
-| acos                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| acos_checked             | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| asin                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| asin_checked             | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| atan                     | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| atan2                    | Binary     | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| cos                      | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| cos_checked              | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| sin                      | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| sin_checked              | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| tan                      | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
-| tan_checked              | Unary      | Float32/Float64    | Float32/Float64     |
-+--------------------------+------------+--------------------+---------------------+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| acos                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| acos_checked             | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asin                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asin_checked             | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atan                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atan2                    | Binary     | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cos                      | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cos_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sin                      | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sin_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tan                      | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tan_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
 
 Comparisons
 ~~~~~~~~~~~
@@ -812,45 +824,47 @@ The third set of functions examines string elements on a byte-per-byte basis:
 String transforms
 ~~~~~~~~~~~~~~~~~
 
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| Function name           | Arity | Input types            | Output type            | Options class                     | Notes |
-+=========================+=======+========================+========================+===================================+=======+
-| ascii_capitalize        | Unary | String-like            | String-like            |                                   | \(1)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| ascii_lower             | Unary | String-like            | String-like            |                                   | \(1)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| ascii_reverse           | Unary | String-like            | String-like            |                                   | \(2)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| ascii_swapcase          | Unary | String-like            | String-like            |                                   | \(1)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| ascii_title             | Unary | String-like            | String-like            |                                   | \(1)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| ascii_upper             | Unary | String-like            | String-like            |                                   | \(1)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| binary_length           | Unary | Binary- or String-like | Int32 or Int64         |                                   | \(3)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| binary_replace_slice    | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(4)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring       | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(5)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| replace_substring_regex | Unary | Binary- or String-like | Binary- or String-like | :struct:`ReplaceSubstringOptions` | \(6)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_capitalize         | Unary | String-like            | String-like            |                                   | \(8)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_length             | Unary | String-like            | Int32 or Int64         |                                   | \(7)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_lower              | Unary | String-like            | String-like            |                                   | \(8)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_replace_slice      | Unary | String-like            | String-like            | :struct:`ReplaceSliceOptions`     | \(4)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_reverse            | Unary | String-like            | String-like            |                                   | \(9)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_swapcase           | Unary | String-like            | String-like            |                                   | \(8)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_title              | Unary | String-like            | String-like            |                                   | \(8)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
-| utf8_upper              | Unary | String-like            | String-like            |                                   | \(8)  |
-+-------------------------+-------+------------------------+------------------------+-----------------------------------+-------+
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| Function name           | Arity  | Input types                             | Output type            | Options class                     | Notes |
++=========================+========+=========================================+========================+===================================+=======+
+| ascii_capitalize        | Unary  | String-like                             | String-like            |                                   | \(1)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| ascii_lower             | Unary  | String-like                             | String-like            |                                   | \(1)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| ascii_reverse           | Unary  | String-like                             | String-like            |                                   | \(2)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| ascii_swapcase          | Unary  | String-like                             | String-like            |                                   | \(1)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| ascii_title             | Unary  | String-like                             | String-like            |                                   | \(1)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| ascii_upper             | Unary  | String-like                             | String-like            |                                   | \(1)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| binary_length           | Unary  | Binary- or String-like                  | Int32 or Int64         |                                   | \(3)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| binary_repeat           | Binary | Binary/String (Arg 0); Integral (Arg 1) | Binary- or String-like |                                   | \(4)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| binary_replace_slice    | Unary  | String-like                             | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(5)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| replace_substring       | Unary  | String-like                             | String-like            | :struct:`ReplaceSubstringOptions` | \(6)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| replace_substring_regex | Unary  | String-like                             | String-like            | :struct:`ReplaceSubstringOptions` | \(7)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_capitalize         | Unary  | String-like                             | String-like            |                                   | \(8)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_length             | Unary  | String-like                             | Int32 or Int64         |                                   | \(9)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_lower              | Unary  | String-like                             | String-like            |                                   | \(8)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_replace_slice      | Unary  | String-like                             | String-like            | :struct:`ReplaceSliceOptions`     | \(6)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_reverse            | Unary  | String-like                             | String-like            |                                   | \(10) |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_swapcase           | Unary  | String-like                             | String-like            |                                   | \(8)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_title              | Unary  | String-like                             | String-like            |                                   | \(8)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_upper              | Unary  | String-like                             | String-like            |                                   | \(8)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 
 * \(1) Each ASCII character in the input is converted to lowercase or
   uppercase.  Non-ASCII characters are left untouched.
@@ -861,31 +875,33 @@ String transforms
 * \(3) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary/String, Int64 for LargeBinary/LargeString.
 
-* \(4) Replace the slice of the substring from :member:`ReplaceSliceOptions::start`
+* \(4) Repeat the input binary string a given number of times.
+
+* \(5) Replace the slice of the substring from :member:`ReplaceSliceOptions::start`
   (inclusive) to :member:`ReplaceSliceOptions::stop` (exclusive) by
   :member:`ReplaceSubstringOptions::replacement`. The binary kernel measures the
   slice in bytes, while the UTF8 kernel measures the slice in codeunits.
 
-* \(5) Replace non-overlapping substrings that match to
+* \(6) Replace non-overlapping substrings that match to
   :member:`ReplaceSubstringOptions::pattern` by
   :member:`ReplaceSubstringOptions::replacement`. If
   :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
   maximum number of replacements made, counting from the left.
 
-* \(6) Replace non-overlapping substrings that match to the regular expression
+* \(7) Replace non-overlapping substrings that match to the regular expression
   :member:`ReplaceSubstringOptions::pattern` by
   :member:`ReplaceSubstringOptions::replacement`, using the Google RE2 library. If
   :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
   maximum number of replacements made, counting from the left. Note that if the
   pattern contains groups, backreferencing can be used.
 
-* \(7) Output is the number of characters (not bytes) of each input element.
-  Output type is Int32 for String, Int64 for LargeString.
-
 * \(8) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
-* \(9) Each UTF8-encoded code unit is written in reverse order to the output.
+* \(9) Output is the number of characters (not bytes) of each input element.
+  Output type is Int32 for String, Int64 for LargeString.
+
+* \(10) Each UTF8-encoded code unit is written in reverse order to the output.
   If the input is not valid UTF8, then the output is undefined (but the size of output
   buffers will be preserved).
 
@@ -1113,26 +1129,28 @@ Containment tests
 Categorizations
 ~~~~~~~~~~~~~~~
 
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| Function name     | Arity      | Input types         | Output type         | Options class          | Notes   |
-+===================+============+=====================+=====================+========================+=========+
-| is_finite         | Unary      | Float, Double       | Boolean             |                        | \(1)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_inf            | Unary      | Float, Double       | Boolean             |                        | \(2)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_nan            | Unary      | Float, Double       | Boolean             |                        | \(3)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_null           | Unary      | Any                 | Boolean             | :struct:`NullOptions`  | \(4)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
-| is_valid          | Unary      | Any                 | Boolean             |                        | \(5)    |
-+-------------------+------------+---------------------+---------------------+------------------------+---------+
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| Function name     | Arity      | Input types             | Output type         | Options class          | Notes   |
++===================+============+=========================+=====================+========================+=========+
+| is_finite         | Unary      | Null, Numeric           | Boolean             |                        | \(1)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_inf            | Unary      | Null, Numeric           | Boolean             |                        | \(2)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_nan            | Unary      | Null, Numeric           | Boolean             |                        | \(3)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_null           | Unary      | Any                     | Boolean             | :struct:`NullOptions`  | \(4)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| is_valid          | Unary      | Any                     | Boolean             |                        | \(5)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
 
 * \(1) Output is true iff the corresponding input element is finite (neither Infinity,
-  -Infinity, nor NaN).
+  -Infinity, nor NaN). Hence, for Decimal and integer inputs this always returns true.
 
 * \(2) Output is true iff the corresponding input element is Infinity/-Infinity.
+  Hence, for Decimal and integer inputs this always returns false.
 
 * \(3) Output is true iff the corresponding input element is NaN.
+  Hence, for Decimal and integer inputs this always returns false.
 
 * \(4) Output is true iff the corresponding input element is null. NaN values
   can also be considered null by setting :member:`NullOptions::nan_is_null`.

@@ -1115,6 +1115,12 @@ const BasicDecimal128& BasicDecimal128::GetHalfScaleMultiplier(int32_t scale) {
 
 const BasicDecimal128& BasicDecimal128::GetMaxValue() { return kMaxValue; }
 
+BasicDecimal128 BasicDecimal128::GetMaxValue(int32_t precision) {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, 38);
+  return ScaleMultipliers[precision] - 1;
+}
+
 BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
   DCHECK_LE(increase_by, 38);
@@ -1328,6 +1334,12 @@ const BasicDecimal256& BasicDecimal256::GetHalfScaleMultiplier(int32_t scale) {
   DCHECK_LE(scale, 76);
 
   return ScaleMultipliersHalfDecimal256[scale];
+}
+
+BasicDecimal256 BasicDecimal256::GetMaxValue(int32_t precision) {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, 76);
+  return ScaleMultipliersDecimal256[precision] + (-1);
 }
 
 BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& right) {

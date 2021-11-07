@@ -284,9 +284,9 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   std::shared_ptr<DataType> value_type() const;
 
   // The following functions will not perform boundschecking
-  int32_t value_offset(int64_t i) const {
+  int64_t value_offset(int64_t i) const {
     i += data_->offset;
-    return static_cast<int32_t>(list_size_ * i);
+    return list_size_ * i;
   }
   int32_t value_length(int64_t i = 0) const {
     ARROW_UNUSED(i);

@@ -238,8 +238,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix:
-        go: [1.15]
+      matrix:        
         mingw-n-bits:
           #- 32 runtime handling for CGO needs 64-bit currently
           - 64
@@ -254,10 +253,6 @@ jobs:
             /t REG_DWORD `
             /d 1 `
             /f
-      - name: Install go
-        uses: actions/setup-go@v1
-        with:
-          go-version: ${{ matrix.go }}
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
@@ -278,7 +273,10 @@ jobs:
         run: |
           echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
           echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
-          echo "$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_PATH
+          echo "GOROOT=$(cygpath --windows ${MINGW_PREFIX}/lib/go)" >> $GITHUB_ENV          
+          echo "GOPATH=$(cygpath --windows ${HOME}/gopath)" >> $GITHUB_ENV
+          mkdir -p $(cygpath --windows ${HOME}/gopath)
+          echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .

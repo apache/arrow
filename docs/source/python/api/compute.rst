@@ -267,6 +267,7 @@ String Transforms
    ascii_title
    ascii_upper
    binary_length
+   binary_repeat
    binary_replace_slice
    replace_substring
    replace_substring_regex

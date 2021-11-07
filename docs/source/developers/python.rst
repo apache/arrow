@@ -330,7 +330,7 @@ virtualenv) enables cmake to choose the python executable which you are using.
 .. note::
 
    With older versions of ``cmake`` (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
-   instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`
+   instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`_
    for more details.
 
 For any other C++ build challenges, see :ref:`cpp-development`.

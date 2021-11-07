@@ -23,6 +23,4 @@ pandas<1.1.0;  platform_system == "Darwin"  and platform_machine != "arm64"   an
 pandas;        platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >= "3.8"
 pandas;        platform_system == "Darwin"  and platform_machine == "arm64"
 pandas<1.1.0;  platform_system == "Windows"                                   and python_version <  "3.8"
-pandas;        platform_system == "Windows"                                   and python_version >= "3.8" and python_version <= "3.9"
-
-# TODO(kszucs): remove the python_version <= "3.9" constraint once https://github.com/scipy/oldest-supported-numpy/pull/27 gets merged
+pandas;        platform_system == "Windows"                                   and python_version >= "3.8"
