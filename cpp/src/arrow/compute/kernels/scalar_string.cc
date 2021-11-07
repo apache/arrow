@@ -373,7 +373,7 @@ struct StringTransformExecBase {
     const uint8_t* input_string = input.raw_data() + input.value_offset(0);
 
     const int64_t max_output_ncodeunits =
-        transform->MaxCodeunits(input_nstrings, input_ncodeunits);
+        transform->MaxCodeunits(input_string, input_nstrings, input_ncodeunits);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     ArrayData* output = out->mutable_array();
@@ -391,7 +391,7 @@ struct StringTransformExecBase {
         const uint8_t* input_string = input.GetValue(i, &input_string_ncodeunits);
         auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
             input_string, input_string_ncodeunits, output_str + output_ncodeunits,
-            output_ncodeunits_max - output_ncodeunits));
+            max_output_ncodeunits - output_ncodeunits));
         if (encoded_nbytes < 0) {
           return transform->InvalidInputSequence();
         }
@@ -412,7 +412,7 @@ struct StringTransformExecBase {
       return Status::OK();
     }
     const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
-    const int64_t max_output_ncodeunits = transform->MaxCodeunits(1, data_nbytes);
+    const int64_t max_output_ncodeunits = transform->MaxCodeunits(input.value->data(), 1, data_nbytes);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(max_output_ncodeunits));
