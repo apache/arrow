@@ -95,6 +95,9 @@ func (a *MonthInterval) getOneForMarshal(i int) interface{} {
 	return nil
 }
 
+// MarshalJSON will create a json array out of a MonthInterval array,
+// each value will be a string of the form "#months" where # is the actual
+// numeric value of the int32 for that element.
 func (a *MonthInterval) MarshalJSON() ([]byte, error) {
 	if a.NullN() == 0 {
 		return json.Marshal(a.values)
@@ -282,6 +285,9 @@ func (b *MonthIntervalBuilder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON will add the unmarshalled values of an array to the builder,
+// values are expected to be strings of the form "#months" where # is the int32
+// value that will be added to the builder.
 func (b *MonthIntervalBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
@@ -348,6 +354,8 @@ func (a *DayTimeInterval) getOneForMarshal(i int) interface{} {
 	return nil
 }
 
+// MarshalJSON will marshal this array to JSON as an array of objects,
+// consisting of the form {"days": #, "milliseconds": #} for each element.
 func (a *DayTimeInterval) MarshalJSON() ([]byte, error) {
 	if a.NullN() == 0 {
 		return json.Marshal(a.values)
@@ -534,6 +542,8 @@ func (b *DayTimeIntervalBuilder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON will add the values unmarshalled from an array to the builder,
+// with the values expected to be objects of the form {"days": #, "milliseconds": #}
 func (b *DayTimeIntervalBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
@@ -602,6 +612,8 @@ func (a *MonthDayNanoInterval) getOneForMarshal(i int) interface{} {
 	return nil
 }
 
+// MarshalJSON will marshal this array to a JSON array with elements
+// marshalled to the form {"months": #, "days": #, "nanoseconds": #}
 func (a *MonthDayNanoInterval) MarshalJSON() ([]byte, error) {
 	if a.NullN() == 0 {
 		return json.Marshal(a.values)
@@ -788,6 +800,9 @@ func (b *MonthDayNanoIntervalBuilder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON unmarshals a JSON array of objects and adds them to this builder,
+// each element of the array is expected to be an object of the form
+// {"months": #, "days": #, "nanoseconds": #}
 func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
