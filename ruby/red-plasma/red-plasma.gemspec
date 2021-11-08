@@ -35,7 +35,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Red Plasma is the Ruby bindings of Plasma"
   spec.description = "Plasma is an in-memory object store and cache for big data."
   spec.license = "Apache-2.0"
-  spec.required_ruby_version = "=> 2.6.0"
+  spec.required_ruby_version = "=> 2.6"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
   spec.files += Dir.glob("lib/**/*.rb")
