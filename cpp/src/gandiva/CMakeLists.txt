@@ -75,7 +75,6 @@ set(SRC_FILES
     function_registry_arithmetic.cc
     function_registry_datetime.cc
     function_registry_hash.cc
-    function_registry_encrypt.cc
     function_registry_math_ops.cc
     function_registry_string.cc
     function_registry_timestamp_arithmetic.cc

@@ -19,18 +19,21 @@
 
 #include <openssl/aes.h>
 #include <openssl/evp.h>
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /**
  * Encrypt data using aes algorithm
  **/
+GANDIVA_EXPORT
 int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
                     unsigned char* cipher);
 
 /**
  * Decrypt data using aes algorithm
  **/
+GANDIVA_EXPORT
 int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
                     unsigned char* plaintext);
 

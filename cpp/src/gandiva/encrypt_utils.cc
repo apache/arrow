@@ -20,7 +20,7 @@
 #include <stdexcept>
 
 namespace gandiva {
-
+GANDIVA_EXPORT
 int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
                     unsigned char* cipher) {
   int32_t cipher_len = 0;
@@ -37,7 +37,8 @@ int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* ke
   }
 
   if (!EVP_EncryptUpdate(en_ctx, cipher, &len,
-                         reinterpret_cast<const unsigned char*>(plaintext), plaintext_len)) {
+                         reinterpret_cast<const unsigned char*>(plaintext),
+                         plaintext_len)) {
     throw std::runtime_error("could not update evp cipher ctx for encryption");
   }
 
@@ -53,6 +54,7 @@ int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* ke
   return cipher_len;
 }
 
+GANDIVA_EXPORT
 int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
                     unsigned char* plaintext) {
   int32_t plaintext_len = 0;
@@ -69,7 +71,8 @@ int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* 
   }
 
   if (!EVP_DecryptUpdate(de_ctx, plaintext, &len,
-                         reinterpret_cast<const unsigned char*>(ciphertext), ciphertext_len)) {
+                         reinterpret_cast<const unsigned char*>(ciphertext),
+                         ciphertext_len)) {
     throw std::runtime_error("could not update evp cipher ctx for decryption");
   }
 
