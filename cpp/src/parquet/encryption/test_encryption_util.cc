@@ -206,7 +206,7 @@ void FileEncryptor::EncryptFile(
     std::string file,
     std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations) {
   WriterProperties::Builder prop_builder;
-  prop_builder.compression(parquet::Compression::SNAPPY);
+  prop_builder.compression(parquet::Compression::UNCOMPRESSED);
   prop_builder.encryption(encryption_configurations);
   std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
