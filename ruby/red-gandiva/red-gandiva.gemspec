@@ -35,7 +35,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Red Gandiva is the Ruby bindings of Gandiva"
   spec.description = "Gandiva is a toolset for compiling and evaluating expressions on Arrow data."
   spec.license = "Apache-2.0"
-  spec.required_ruby_version = "~> 2.6"
+  spec.required_ruby_version = "=> 2.6.0"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
   spec.files += Dir.glob("lib/**/*.rb")
