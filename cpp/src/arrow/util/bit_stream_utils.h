@@ -259,8 +259,8 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
 
 namespace detail {
 
-inline void ResetBufferedValues_(const uint8_t* buffer, const int& byte_offset,
-                                 const int& bytes_remaining, uint64_t* buffered_values) {
+inline void ResetBufferedValues_(const uint8_t* buffer, int byte_offset,
+                                 int bytes_remaining, uint64_t* buffered_values) {
   if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
     memcpy(buffered_values, buffer + byte_offset, 8);
   } else {
