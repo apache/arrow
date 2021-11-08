@@ -813,6 +813,24 @@ TEST(TestTime, TestCastTimestampToDate) {
   EXPECT_EQ(StringToTimestamp("2000-05-01 00:00:00"), out);
 }
 
+TEST(TestTime, TestNextDay) {
+  gdv_timestamp ts = StringToTimestamp("2021-11-08 10:20:34");
+  auto out = next_day(ts, "FR", 2);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+
+  ts = StringToTimestamp("2021-11-08 10:20:34");
+  out = next_day(ts, "FRI", 3);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+
+  ts = StringToTimestamp("2021-11-08 10:20:34");
+  out = next_day(ts, "FRIDAY", 6);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+
+  ts = StringToTimestamp("2015-08-06 11:12:30");
+  out = next_day(ts, "THU", 3);
+  EXPECT_EQ(StringToTimestamp("2015-08-13 00:00:00"), out);
+}
+
 TEST(TestTime, TestCastTimestampToTime) {
   gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
   auto expected_response =

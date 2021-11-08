@@ -241,6 +241,31 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
   return 52;
 }
 
+FORCE_INLINE
+gdv_date64 next_day(gdv_date64 millis, const char* in, int32_t in_len) {
+  const char* week[7] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
+                         "THURSDAY", "FRIDAY", "SATURDAY"};
+
+  int DateSearch;
+  for (int n = 0; n < 7; n++) {
+    if (memcmp(week[n], in, in_len) == 0) {
+      DateSearch = n + 1;
+    }
+  }
+  int PresentDate = extractDow_timestamp(millis);
+
+  int32_t Next = DateSearch - PresentDate;
+
+  if (Next <= 0) {
+    Next = 7 - Next;
+  }
+
+  gdv_date64 next_date =
+      timestampaddDay_int32_timestamp(Next, date_trunc_Day_date64(millis));
+
+  return next_date;
+}
+
 // Dec 29-31
 int getDecWeekOfYear(const EpochTimePoint& tp) {
   int next_jan1_wday = (tp.TmWday() + (31 - tp.TmMday()) + 1) % 7;
