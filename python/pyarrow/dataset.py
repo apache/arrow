@@ -799,19 +799,19 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
             def file_visitor(written_file):
                 visited_paths.append(written_file.path)
-    existing_data_behavior : 'error' | 'overwrite_or_ignore' |
-                             'delete_matching'
+    existing_data_behavior : 'error' | 'overwrite_or_ignore' | \
+'delete_matching'
         Controls how the dataset will handle data that already exists in
-        the destination.  The default behavior (error) is to raise an error
+        the destination.  The default behavior ('error') is to raise an error
         if any data exists in the destination.
 
-        overwrite_or_ignore will ignore any existing data and will
+        'overwrite_or_ignore' will ignore any existing data and will
         overwrite files with the same name as an output file.  Other
         existing files will be ignored.  This behavior, in combination
         with a unique basename_template for each write, will allow for
         an append workflow.
 
-        delete_matching is useful when you are writing a partitioned
+        'delete_matching' is useful when you are writing a partitioned
         dataset.  The first time each partition directory is encountered
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.

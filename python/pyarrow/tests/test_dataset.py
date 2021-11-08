@@ -3507,7 +3507,7 @@ def test_write_dataset_existing_data(tempdir):
     extra_file = directory / 'c=2' / 'foo.arrow'
     pyarrow.feather.write_feather(extra_table, extra_file)
 
-    # Should be ok and overwrite with overwrite behaivor
+    # Should be ok and overwrite with overwrite behavior
     ds.write_dataset(table, directory, partitioning=partitioning,
                      format='ipc',
                      existing_data_behavior='overwrite_or_ignore')
