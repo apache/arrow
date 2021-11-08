@@ -35,6 +35,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Red Parquet is the Ruby bindings of Apache Parquet"
   spec.description = "Apache Parquet is a columnar storage format."
   spec.license = "Apache-2.0"
+  spec.required_ruby_version = "~> 2.6"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
   spec.files += Dir.glob("lib/**/*.rb")
