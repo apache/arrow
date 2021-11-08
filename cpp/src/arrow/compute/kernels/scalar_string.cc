@@ -334,7 +334,6 @@ struct StringTransformBase {
   virtual Status InvalidInputSequence() {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
-
 };
 
 /// Kernel exec generator for unary string transforms. Types of template
@@ -412,7 +411,8 @@ struct StringTransformExecBase {
       return Status::OK();
     }
     const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
-    const int64_t max_output_ncodeunits = transform->MaxCodeunits(input.value->data(), 1, data_nbytes);
+    const int64_t max_output_ncodeunits =
+        transform->MaxCodeunits(input.value->data(), 1, data_nbytes);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(max_output_ncodeunits));
@@ -1055,8 +1055,7 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
   int64_t MaxCodeunits(const uint8_t* input, int64_t ninputs,
                        int64_t input_ncodeunits) override {
     const auto option = GenerateUtf8NormalizeOption(options_.form);
-    const auto n_chars =
-        utf8proc_decompose(input, input_ncodeunits, NULL, 0, option);
+    const auto n_chars = utf8proc_decompose(input, input_ncodeunits, NULL, 0, option);
 
     // convert to byte length
     return n_chars * 4;
@@ -1067,13 +1066,13 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
     uint8_t* output_start = output;
 
     const auto option = GenerateUtf8NormalizeOption(options_.form);
-    const auto n_chars = utf8proc_decompose(
-        input, input_string_ncodeunits, reinterpret_cast<utf8proc_int32_t*>(output),
-        output_string_ncodeunits, option);
+    const auto n_chars = utf8proc_decompose(input, input_string_ncodeunits,
+                                            reinterpret_cast<utf8proc_int32_t*>(output),
+                                            output_string_ncodeunits, option);
     if (n_chars < 0) return output_string_ncodeunits;
 
-    const auto n_chars_utf32 =
-        utf8proc_normalize_utf32(reinterpret_cast<utf8proc_int32_t*>(output), n_chars, option);
+    const auto n_chars_utf32 = utf8proc_normalize_utf32(
+        reinterpret_cast<utf8proc_int32_t*>(output), n_chars, option);
     if (n_chars_utf32 < 0) return output_string_ncodeunits;
 
     uint32_t uc;
