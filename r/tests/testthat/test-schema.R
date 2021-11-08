@@ -40,9 +40,13 @@ test_that("Schema print method", {
 
 test_that("Schema with non-nullable fields", {
   expect_output(
-    print(schema(field("b", double()),
-                 field("c", bool(), nullable = FALSE),
-                 field("d", string()))),
+    print(
+      schema(
+        field("b", double()),
+        field("c", bool(), nullable = FALSE),
+        field("d", string())
+      )
+    ),
     paste(
       "Schema",
       "b: double",
@@ -201,6 +205,13 @@ test_that("unify_schemas", {
   expect_error(
     unify_schemas(),
     "Must provide at least one schema to unify"
+  )
+})
+
+test_that("Schema creation errors on list", {
+  expect_error(
+    schema(list(a = int16(), b = string())),
+    regexp = "Schema definitions must be supplied as field/data type or field name/data type pairs"
   )
 })
 

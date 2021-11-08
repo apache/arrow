@@ -18,7 +18,7 @@
 #' @include arrow-package.R
 #' @title Schema class
 #'
-#' @description A `Schema` is a list of [Field]s, which map names to
+#' @description A `Schema` is an Arrow object containing [Field]s, which map names to
 #' Arrow [data types][data-type]. Create a `Schema` when you
 #' want to convert an R `data.frame` to Arrow but don't want to rely on the
 #' default mapping of R types to Arrow types, such as when you want to choose a
@@ -78,6 +78,14 @@
 #' @rdname Schema
 #' @name Schema
 #' @examplesIf arrow_available()
+#' schema(a = int32(), b = float64())
+#'
+#' schema(
+#'   field("b", double()),
+#'   field("c", bool(), nullable = FALSE),
+#'   field("d", string())
+#' )
+#'
 #' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
 #' tab1 <- arrow_table(df)
 #' tab1$schema
@@ -157,6 +165,9 @@ Schema$create <- function(...) {
   .list <- list2(...)
   if (all(map_lgl(.list, ~ inherits(., "Field")))) {
     schema_(.list)
+  } else if (is.null(names(.list))) {
+    # If not supplied as fields, only other alternative is e.g.`a = int16()`
+    abort("Schema definitions must be supplied as field/data type or field name/data type pairs")
   } else {
     schema_(.fields(.list))
   }
@@ -185,8 +196,8 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... named list containing [data types][data-type] or
-#'   a list of [fields][field] containing the fields for the schema
+#' @param ... field/data type or field name/data type pairs containing either
+#'  names or [fields][field], and [data types][data-type] for the schema
 #' @export
 #' @rdname Schema
 schema <- Schema$create
@@ -327,4 +338,8 @@ print.arrow_r_metadata <- function(x, ...) {
   utils::str(x)
   utils::str(.unserialize_arrow_r_metadata(x))
   invisible(x)
+}
+
+schema_check <- function(items) {
+  all(map_lgl(.list, ~ inherits(.x, "Field"))) || FALSE
 }

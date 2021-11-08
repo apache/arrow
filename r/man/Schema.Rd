@@ -9,11 +9,11 @@
 schema(...)
 }
 \arguments{
-\item{...}{named list containing \link[=data-type]{data types} or
-a list of \link[=field]{fields} containing the fields for the schema}
+\item{...}{field/data type or field name/data type pairs containing either
+names or \link[=field]{fields}, and \link[=data-type]{data types} for the schema}
 }
 \description{
-A \code{Schema} is a list of \link{Field}s, which map names to
+A \code{Schema} is an Arrow object containing \link{Field}s, which map names to
 Arrow \link[=data-type]{data types}. Create a \code{Schema} when you
 want to convert an R \code{data.frame} to Arrow but don't want to rely on the
 default mapping of R types to Arrow types, such as when you want to choose a
@@ -77,6 +77,14 @@ the metadata is dropped.
 
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+schema(a = int32(), b = float64())
+
+schema(
+  field("b", double()),
+  field("c", bool(), nullable = FALSE),
+  field("d", string())
+)
+
 df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
 tab1 <- arrow_table(df)
 tab1$schema
