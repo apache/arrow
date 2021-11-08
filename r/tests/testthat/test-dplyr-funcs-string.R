@@ -121,9 +121,9 @@ test_that("paste, paste0, and str_c", {
   # sep is literal NA
   # errors in paste() (consistent with base::paste())
   expect_snapshot({
-    (expect_error(
+    err(
       nse_funcs$paste(x, y, sep = NA_character_)
-    ))
+    )
   })
 
   # emits null in str_c() (consistent with stringr::str_c())

@@ -1,7 +1,7 @@
 # paste, paste0, and str_c
 
     Code
-      (expect_error(nse_funcs$paste(x, y, sep = NA_character_)))
+      err(nse_funcs$paste(x, y, sep = NA_character_))
     Output
       <assertError: Invalid separator>
 
