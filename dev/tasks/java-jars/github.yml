@@ -30,7 +30,7 @@ jobs:
       - name: Build C++ Libs
         run: archery docker run java-jni-manylinux-2014
       - name: Compress into single artifact
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java/dist/
+        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -59,16 +59,16 @@ jobs:
           arrow/ci/scripts/java_cdata_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/java-native-build \
-            $GITHUB_WORKSPACE/arrow/java/dist
+            $GITHUB_WORKSPACE/arrow/java-dist
       - name: Build C++ Libs
         run: |
           set -e
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
-            $GITHUB_WORKSPACE/arrow/java/dist
+            $GITHUB_WORKSPACE/arrow/java-dist
       - name: Compress into single artifact
-        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java/dist/
+        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -95,18 +95,21 @@ jobs:
           tar -xvzf arrow-shared-libs-linux.tar.gz
       - name: Test that Shared Libraries Exist
         run: |
-          test -f arrow/java/dist/libarrow_cdata_jni.dylib
-          test -f arrow/java/dist/libarrow_dataset_jni.dylib
-          test -f arrow/java/dist/libgandiva_jni.dylib
-          test -f arrow/java/dist/libarrow_orc_jni.dylib
-          test -f arrow/java/dist/libarrow_cdata_jni.so
-          test -f arrow/java/dist/libarrow_dataset_jni.so
-          test -f arrow/java/dist/libarrow_orc_jni.so
-          test -f arrow/java/dist/libgandiva_jni.so
+          test -f arrow/java-dist/libarrow_cdata_jni.dylib
+          test -f arrow/java-dist/libarrow_dataset_jni.dylib
+          test -f arrow/java-dist/libgandiva_jni.dylib
+          test -f arrow/java-dist/libarrow_orc_jni.dylib
+          test -f arrow/java-dist/libarrow_cdata_jni.so
+          test -f arrow/java-dist/libarrow_dataset_jni.so
+          test -f arrow/java-dist/libarrow_orc_jni.so
+          test -f arrow/java-dist/libgandiva_jni.so
       - name: Build Bundled Jar
         run: |
           set -e
+          pushd arrow/java
+          mvn versions:set -DnewVersion={{ arrow.no_rc_version }}
+          popd
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/java/dist
-      {{ macros.github_upload_releases(["arrow/java/dist/*.jar", "arrow/java/dist/*.pom"])|indent }}
+            $GITHUB_WORKSPACE/arrow/java-dist
+      {{ macros.github_upload_releases(["arrow/java-dist/*.jar", "arrow/java-dist/*.pom"])|indent }}
