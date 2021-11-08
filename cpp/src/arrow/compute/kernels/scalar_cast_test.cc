@@ -1964,6 +1964,11 @@ TEST(Cast, StringToTimestamp) {
         Invalid, ::testing::HasSubstr("expected a zone offset"),
         Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
 
+    // Unzoned should not parse as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(strings, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
     // Timestamp with zone offset can parse as any time zone (since they're unambiguous)
     CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
                                    "[1582934400, 1583140152]"));

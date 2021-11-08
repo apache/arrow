@@ -3634,7 +3634,7 @@ Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
   std::string zone = "";
   while (cur < options.format.size() - 1) {
     if (options.format[cur] == '%') {
-      if (cur + 1 < options.format.size() && options.format[cur + 1] == 'z') {
+      if (options.format[cur + 1] == 'z') {
         zone = "UTC";
         break;
       }
