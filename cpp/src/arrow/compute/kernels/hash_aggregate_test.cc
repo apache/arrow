@@ -699,7 +699,9 @@ TEST(GroupBy, Errors) {
                                         batch->GetColumnByName("group_id")}),
               Raises(StatusCode::NotImplemented,
                      HasSubstr("Direct execution of HASH_AGGREGATE functions")));
+}
 
+TEST(GroupBy, NoBatches) {
   // Regression test for ARROW-14583: handle when no batches are
   // passed to the group by node before finalizing
   auto table =
