@@ -333,6 +333,8 @@ class PandasWriter {
     HALF_FLOAT,
     FLOAT,
     DOUBLE,
+    COMPLEX_FLOAT,
+    COMPLEX_DOUBLE,
     BOOL,
     DATETIME_DAY,
     DATETIME_SECOND,
@@ -917,6 +919,15 @@ inline void ConvertNumericNullableCast(const ChunkedArray& data, InType na_value
   }
 }
 
+template <typename OutType>
+inline void ConvertNumericNullableComplex(const ChunkedArray& data,
+                                          OutType* out_values) {
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = *data.chunk(c);
+    arr.num_fields();
+  }
+}
+
 template <int NPY_TYPE>
 class TypedPandasWriter : public PandasWriter {
  public:
@@ -1293,26 +1304,26 @@ class FloatWriter : public TypedPandasWriter<NPY_TYPE> {
       case Type::DOUBLE:
         ConvertNumericNullableCast(*data, npy_traits<NPY_TYPE>::na_sentinel, out_values);
         break;
-      // case Type::EXTENSION:
-      //   {
-      //     auto ext_type = std::static_pointer_cast<const ExtensionType>(data->type());
+      case Type::EXTENSION:
+        {
+          auto ext_type = std::static_pointer_cast<const ExtensionType>(data->type());
 
-      //     if(ext_type == nullptr) {
-      //       return Status::TypeError(
-      //         "Unable to cast ", data->type()->ToString(), "to ExtensionType");
-      //     }
+          if(ext_type == nullptr) {
+            return Status::TypeError(
+              "Unable to cast ", data->type()->ToString(), "to ExtensionType");
+          }
 
-      //     if(ext_type->extension_name() == "arrow.complex64") {
-      //       ConvertNumericNullableCast(*data, npy_traits<NPY_TYPE>::na_sentinel, out_values);
-      //     } else if (ext_type->extension_name() == "arrow.complex128") {
-      //       ConvertNumericNullableCast(*data, npy_traits<NPY_TYPE>::na_sentinel, out_values);
-      //     } else {
-      //       return Status::NotImplemented("Cannot write Arrow data of type ",
-      //                                     data->type()->ToString(),
-      //                                     " to a Pandas floating point block");
-      //     }
-      //   }
-      //   break;
+          if(ext_type->extension_name() == "arrow.complex64") {
+            ConvertNumericNullableComplex(*data, out_values);
+          } else if (ext_type->extension_name() == "arrow.complex128") {
+            ConvertNumericNullableComplex(*data, out_values);
+          } else {
+            return Status::NotImplemented("Cannot write Arrow data of type ",
+                                          data->type()->ToString(),
+                                          " to a Pandas floating point block");
+          }
+        }
+        break;
       default:
         return Status::NotImplemented("Cannot write Arrow data of type ",
                                       data->type()->ToString(),
@@ -1336,8 +1347,8 @@ using Int64Writer = IntWriter<NPY_INT64>;
 using Float16Writer = FloatWriter<NPY_FLOAT16>;
 using Float32Writer = FloatWriter<NPY_FLOAT32>;
 using Float64Writer = FloatWriter<NPY_FLOAT64>;
-// using Complex64Writer = FloatWriter<NPY_COMPLEX64>;
-// using Complex128Writer = FloatWriter<NPY_COMPLEX128>;
+using Complex64Writer = FloatWriter<NPY_COMPLEX64>;
+using Complex128Writer = FloatWriter<NPY_COMPLEX128>;
 
 class BoolWriter : public TypedPandasWriter<NPY_BOOL> {
  public:
@@ -1847,22 +1858,6 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
       }
     } break;
     case PandasWriter::EXTENSION:
-      // {
-      //   auto ext_type = dynamic_cast<const ExtensionType *>(&type);
-
-      //   if(ext_type == nullptr) {
-      //     return Status::TypeError(
-      //       "Unable to cast ", type.ToString(), "to ExtensionType");
-      //   }
-
-      //   if(ext_type->extension_name() == "arrow.complex64") {
-      //     *writer = std::make_shared<Float32Writer>(options, num_rows, num_columns);
-      //   } else if (ext_type->extension_name() == "arrow.complex128") {
-      //     *writer = std::make_shared<Float64Writer>(options, num_rows, num_columns);
-      //   } else {
-      //     *writer = std::make_shared<ExtensionWriter>(options, num_rows, num_columns);
-      //   }
-      // }
       *writer = std::make_shared<ExtensionWriter>(options, num_rows, num_columns);
       break;
       BLOCK_CASE(OBJECT, ObjectWriter);
@@ -1877,6 +1872,8 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
       BLOCK_CASE(HALF_FLOAT, Float16Writer);
       BLOCK_CASE(FLOAT, Float32Writer);
       BLOCK_CASE(DOUBLE, Float64Writer);
+      BLOCK_CASE(COMPLEX_FLOAT, Complex64Writer);
+      BLOCK_CASE(COMPLEX_DOUBLE, Complex128Writer);
       BLOCK_CASE(BOOL, BoolWriter);
       BLOCK_CASE(DATETIME_DAY, DatetimeDayWriter);
       BLOCK_CASE(DATETIME_SECOND, DatetimeSecondWriter);
@@ -1901,7 +1898,8 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
   return Status::OK();
 }
 
-static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions& options,
+static Status GetPandasWriterType(const ChunkedArray& data,
+                                  const PandasOptions& options,
                                   PandasWriter::type* output_type) {
 #define INTEGER_CASE(NAME)                                                             \
   *output_type =                                                                       \
@@ -2025,15 +2023,15 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       *output_type = PandasWriter::CATEGORICAL;
       break;
     case Type::EXTENSION:
-      // {
-      //   auto ext_type = std::static_pointer_cast<ExtensionType>(data.type());
+      {
+        auto ext_type = std::static_pointer_cast<ExtensionType>(data.type());
 
-      //   if(ext_type->extension_name() == "arrow.complex64") {
-      //     return Status::NotImplemented("complex64");
-      //   } else if (ext_type->extension_name() == "arrow.complex128") {
-      //     return Status::NotImplemented("complex128");
-      //   }
-      // }
+        if(ext_type->extension_name() == "arrow.complex64") {
+          *output_type = PandasWriter::COMPLEX_FLOAT;
+        } else if (ext_type->extension_name() == "arrow.complex128") {
+          *output_type = PandasWriter::COMPLEX_DOUBLE;
+        }
+      }
 
       *output_type = PandasWriter::EXTENSION;
       break;
@@ -2120,7 +2118,8 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       *out = PandasWriter::EXTENSION;
       return Status::OK();
     } else {
-      return GetPandasWriterType(*arrays_[column_index], options_, out);
+      return GetPandasWriterType(*arrays_[column_index],
+                                 options_, out);
     }
   }
 
@@ -2226,7 +2225,8 @@ class SplitBlockCreator : public PandasBlockCreator {
       output_type = PandasWriter::EXTENSION;
     } else {
       // Null count needed to determine output type
-      RETURN_NOT_OK(GetPandasWriterType(*arrays_[i], options_, &output_type));
+      RETURN_NOT_OK(GetPandasWriterType(*arrays_[i],
+                                        options_, &output_type));
     }
     return MakeWriter(this->options_, output_type, type, num_rows_, 1, writer);
   }
