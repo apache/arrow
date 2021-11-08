@@ -187,11 +187,13 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
   template <typename Duration>
   static Status ConvertZoned(const ArrayData& input, const std::string& timezone,
                              BuilderType* builder) {
-    static std::string kFormatString = "%Y-%m-%d %H:%M:%S%z";
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz,
-                          LocateZone(timezone.empty() ? "UTC" : timezone));
+    static const std::string kFormatString = "%Y-%m-%d %H:%M:%S%z";
+    static const std::string kUtcFormatString = "%Y-%m-%d %H:%M:%SZ";
+    DCHECK(!timezone.empty());
+    ARROW_ASSIGN_OR_RAISE(const time_zone* tz, LocateZone(timezone));
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale("C"));
-    TimestampFormatter<Duration> formatter{kFormatString, tz, locale};
+    TimestampFormatter<Duration> formatter{
+        timezone == "UTC" ? kUtcFormatString : kFormatString, tz, locale};
     return VisitArrayDataInline<TimestampType>(
         input,
         [&](value_type v) {

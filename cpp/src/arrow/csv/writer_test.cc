@@ -163,10 +163,13 @@ INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
 INSTANTIATE_TEST_SUITE_P(
     TimestampWithTimezoneWriteCSVTest, TestWriteCSV,
     ::testing::Values(WriterTestParams{
-        schema({field("tz", timestamp(TimeUnit::SECOND, "America/Phoenix"))}),
-        R"([{ "tz": 1456767743 }])", WriteOptions(),
-        R"("tz")"
-        "\n2016-02-29 10:42:23-0700\n"}));
+        schema({
+            field("tz", timestamp(TimeUnit::SECOND, "America/Phoenix")),
+            field("utc", timestamp(TimeUnit::SECOND, "UTC")),
+        }),
+        R"([{ "tz": 1456767743, "utc": 1456767743 }])", WriteOptions(),
+        R"("tz","utc")"
+        "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n"}));
 #endif
 
 }  // namespace csv

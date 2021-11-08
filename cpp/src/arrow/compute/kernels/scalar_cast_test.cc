@@ -1580,7 +1580,7 @@ TEST(Cast, TimestampWithZoneToString) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type,
-                      R"(["1000-01-01 00:00:00+0000", "1800-01-01 00:00:00+0000"])"));
+                      R"(["1000-01-01 00:00:00Z", "1800-01-01 00:00:00Z"])"));
 
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
