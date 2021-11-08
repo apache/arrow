@@ -329,8 +329,13 @@ services:
         llvm: ${LLVM}
         gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - "/dev/fuse:/dev/fuse"
+    security_opt:
+      - apparmor:unconfined
     ulimits: *ulimits
-    privileged: true
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
