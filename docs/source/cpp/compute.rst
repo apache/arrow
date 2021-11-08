@@ -64,7 +64,7 @@ Compute functions can be invoked by name using
 
    ARROW_ASSIGN_OR_RAISE(incremented_datum,
                          arrow::compute::CallFunction("add", {numbers_array, increment}));
-   std::shared_ptr<Array> incremented_array = std::move(incremented_datum).array();
+   std::shared_ptr<Array> incremented_array = std::move(incremented_datum).make_array();
 
 (note this example uses implicit conversion from ``std::shared_ptr<Array>``
 to ``Datum``)
@@ -78,7 +78,7 @@ Many compute functions are also available directly as concrete APIs, here
 
    ARROW_ASSIGN_OR_RAISE(incremented_datum,
                          arrow::compute::Add(numbers_array, increment));
-   std::shared_ptr<Array> incremented_array = std::move(incremented_datum).array();
+   std::shared_ptr<Array> incremented_array = std::move(incremented_datum).make_array();
 
 Some functions accept or require an options structure that determines the
 exact semantics of the function::
