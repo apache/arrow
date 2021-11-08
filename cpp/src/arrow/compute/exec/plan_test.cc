@@ -548,7 +548,7 @@ TEST(ExecPlanExecution, StressSourceSink) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -578,7 +578,7 @@ TEST(ExecPlanExecution, StressSourceOrderBy) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -615,7 +615,7 @@ TEST(ExecPlanExecution, StressSourceGroupedSumStop) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -650,7 +650,7 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
