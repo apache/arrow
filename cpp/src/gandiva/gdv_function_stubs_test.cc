@@ -777,8 +777,9 @@ TEST(TestGdvFnStubs, TestEltFunction) {
   auto word1_len = static_cast<int32_t>(strlen(word1));
   const char* word2 = "";
   auto word2_len = static_cast<int32_t>(strlen(word2));
-  auto out_string = gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 1, true, word1, word1_len, true, word2,
-                                               word2_len, true, &out_vality, &out_len);
+  auto out_string =
+      gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 1, true, word1, word1_len, true, word2,
+                                 word2_len, true, &out_vality, &out_len);
   EXPECT_EQ("john", std::string(out_string, out_len));
   EXPECT_EQ(out_vality, true);
 
@@ -786,8 +787,8 @@ TEST(TestGdvFnStubs, TestEltFunction) {
   word1_len = static_cast<int32_t>(strlen(word1));
   word2 = "world";
   word2_len = static_cast<int32_t>(strlen(word2));
-  out_string = gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 2, true, word1, word1_len, true, word2, word2_len,  true, &out_vality,
-                                          &out_len);
+  out_string = gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 2, true, word1, word1_len, true, word2,
+                                          word2_len, true, &out_vality, &out_len);
   EXPECT_EQ("world", std::string(out_string, out_len));
   EXPECT_EQ(out_vality, true);
 
@@ -795,8 +796,8 @@ TEST(TestGdvFnStubs, TestEltFunction) {
   word1_len = static_cast<int32_t>(strlen(word1));
   word2 = "world";
   word2_len = static_cast<int32_t>(strlen(word2));
-  out_string = gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 4, true, word1, word1_len, true, word2, word2_len,  true, &out_vality,
-                                          &out_len);
+  out_string = gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 4, true, word1, word1_len, true, word2,
+                                          word2_len, true, &out_vality, &out_len);
   EXPECT_EQ("", std::string(out_string, out_len));
   EXPECT_EQ(out_vality, false);
 
@@ -804,31 +805,32 @@ TEST(TestGdvFnStubs, TestEltFunction) {
   word1_len = static_cast<int32_t>(strlen(word1));
   word2 = "yeah";
   word2_len = static_cast<int32_t>(strlen(word2));
-  out_string = gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 0, true, word1, word1_len, true, word2, word2_len,  true, &out_vality,
-                                          &out_len);
+  out_string = gdv_fn_elt_int32_utf8_utf8(ctx_ptr, 0, true, word1, word1_len, true, word2,
+                                          word2_len, true, &out_vality, &out_len);
   EXPECT_EQ("", std::string(out_string, out_len));
   EXPECT_EQ(out_vality, false);
 
   const char* word3 = "wow";
   auto word3_len = static_cast<int32_t>(strlen(word3));
-  out_string = gdv_fn_elt_int32_utf8_utf8_utf8(ctx_ptr, 3, true, word1, word1_len, true, word2,
-                                               word2_len, true, word3, word3_len, true, &out_vality, &out_len);
+  out_string = gdv_fn_elt_int32_utf8_utf8_utf8(ctx_ptr, 3, true, word1, word1_len, true,
+                                               word2, word2_len, true, word3, word3_len,
+                                               true, &out_vality, &out_len);
   EXPECT_EQ("wow", std::string(out_string, out_len));
   EXPECT_EQ(out_vality, true);
 
   const char* word4 = "awesome";
   auto word4_len = static_cast<int32_t>(strlen(word4));
-  out_string =
-      gdv_fn_elt_int32_utf8_utf8_utf8_utf8(ctx_ptr, 4, true, word1, word1_len, true, word2, word2_len, true,
-                                           word3, word3_len, true, word4, word4_len, true, &out_vality, &out_len);
+  out_string = gdv_fn_elt_int32_utf8_utf8_utf8_utf8(
+      ctx_ptr, 4, true, word1, word1_len, true, word2, word2_len, true, word3, word3_len,
+      true, word4, word4_len, true, &out_vality, &out_len);
   EXPECT_EQ("awesome", std::string(out_string, out_len));
   EXPECT_EQ(out_vality, true);
 
   const char* word5 = "not-empty";
   auto word5_len = static_cast<int32_t>(strlen(word5));
   out_string = gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8(
-      ctx_ptr, 5, true, word1, word1_len, true, word2, word2_len, true, word3, word3_len, true, word4, word4_len, true,
-      word5, word5_len, true, &out_vality, &out_len);
+      ctx_ptr, 5, true, word1, word1_len, true, word2, word2_len, true, word3, word3_len,
+      true, word4, word4_len, true, word5, word5_len, true, &out_vality, &out_len);
   EXPECT_EQ("not-empty", std::string(out_string, out_len));
   EXPECT_EQ(out_vality, true);
 }

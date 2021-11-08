@@ -801,32 +801,22 @@ const char* gdv_fn_elt_int32_utf8_utf8(int64_t context, int32_t pos, bool pos_va
                                        bool word1_validity, const char* word2,
                                        int32_t word2_len, bool word2_validity,
                                        bool* out_valid, int32_t* out_len) {
-  const char* selected;
   *out_valid = true;
 
   switch (pos) {
     case 1:
       *out_len = word1_len;
-      selected = word1;
+      return word1;
       break;
     case 2:
       *out_len = word2_len;
-      selected = word2;
+      return word2;
       break;
     default:
       *out_len = 0;
       *out_valid = false;
       return nullptr;
   }
-
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return nullptr;
-  }
-  memcpy(out, selected, *out_len);
-  return out;
 }
 
 GANDIVA_EXPORT
@@ -837,36 +827,26 @@ const char* gdv_fn_elt_int32_utf8_utf8_utf8(int64_t context, int32_t pos,
                                             bool word2_validity, const char* word3,
                                             int32_t word3_len, bool word3_validity,
                                             bool* out_valid, int32_t* out_len) {
-  const char* selected;
   *out_valid = true;
 
   switch (pos) {
     case 1:
       *out_len = word1_len;
-      selected = word1;
+      return word1;
       break;
     case 2:
       *out_len = word2_len;
-      selected = word2;
+      return word2;
       break;
     case 3:
       *out_len = word3_len;
-      selected = word3;
+      return word3;
       break;
     default:
       *out_len = 0;
       *out_valid = false;
       return nullptr;
   }
-
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return nullptr;
-  }
-  memcpy(out, selected, *out_len);
-  return out;
 }
 
 GANDIVA_EXPORT
@@ -875,40 +855,30 @@ const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8(
     bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
     const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
     int32_t word4_len, bool word4_validity, bool* out_valid, int32_t* out_len) {
-  const char* selected;
   *out_valid = true;
 
   switch (pos) {
     case 1:
       *out_len = word1_len;
-      selected = word1;
+      return word1;
       break;
     case 2:
       *out_len = word2_len;
-      selected = word2;
+      return word2;
       break;
     case 3:
       *out_len = word3_len;
-      selected = word3;
+      return word3;
       break;
     case 4:
       *out_len = word4_len;
-      selected = word4;
+      return word4;
       break;
     default:
       *out_len = 0;
       *out_valid = false;
       return nullptr;
   }
-
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return nullptr;
-  }
-  memcpy(out, selected, *out_len);
-  return out;
 }
 
 GANDIVA_EXPORT
@@ -918,44 +888,34 @@ const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8(
     const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
     int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
     bool word5_validity, bool* out_valid, int32_t* out_len) {
-  const char* selected;
   *out_valid = true;
 
   switch (pos) {
     case 1:
       *out_len = word1_len;
-      selected = word1;
+      return word1;
       break;
     case 2:
       *out_len = word2_len;
-      selected = word2;
+      return word2;
       break;
     case 3:
       *out_len = word3_len;
-      selected = word3;
+      return word3;
       break;
     case 4:
       *out_len = word4_len;
-      selected = word4;
+      return word4;
       break;
     case 5:
       *out_len = word5_len;
-      selected = word5;
+      return word5;
       break;
     default:
       *out_len = 0;
       *out_valid = false;
       return nullptr;
   }
-
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return nullptr;
-  }
-  memcpy(out, selected, *out_len);
-  return out;
 }
 }
 
