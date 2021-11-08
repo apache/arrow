@@ -739,8 +739,9 @@ class BinaryTask
   def define
     define_apt_tasks
     define_yum_tasks
-    define_python_tasks
+    define_java_tasks
     define_nuget_tasks
+    define_python_tasks
     define_summary_tasks
   end
 
@@ -1856,12 +1857,12 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     define_generic_data_release_tasks(label, id, release_dir)
   end
 
-  def define_python_tasks
-    define_generic_data_tasks("Python",
-                              :python,
-                              "#{rc_dir}/python/#{full_version}",
-                              "#{release_dir}/python/#{full_version}",
-                              "{python-sdist,wheel-*}/**/*")
+  def define_java_tasks
+    define_generic_data_tasks("Java",
+                              :java,
+                              "#{rc_dir}/java/#{full_version}",
+                              "#{release_dir}/java/#{full_version}",
+                              "java-jars/**/*")
   end
 
   def define_nuget_tasks
@@ -1870,6 +1871,14 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               "#{rc_dir}/nuget/#{full_version}",
                               "#{release_dir}/nuget/#{full_version}",
                               "nuget/**/*")
+  end
+
+  def define_python_tasks
+    define_generic_data_tasks("Python",
+                              :python,
+                              "#{rc_dir}/python/#{full_version}",
+                              "#{release_dir}/python/#{full_version}",
+                              "{python-sdist,wheel-*}/**/*")
   end
 
   def define_summary_tasks
@@ -1884,6 +1893,7 @@ Success! The release candidate binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/amazon-linux#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}-rc/
+  https://apache.jfrog.io/artifactory/arrow/java#{suffix}-rc/#{version}
   https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}-rc/
@@ -1900,6 +1910,7 @@ Success! The release binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/amazon-linux#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}/
+  https://apache.jfrog.io/artifactory/arrow/java#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/
