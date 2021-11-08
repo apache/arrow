@@ -2263,10 +2263,12 @@ class SplitBlockCreator : public PandasBlockCreator {
 
 Status ConvertComplexArrays(const PandasOptions& options,
                             ChunkedArrayVector* arrays,
-                            FieldVector* fields) {
+                            FieldVector* fields,
+                            PandasOptions* modified_options) {
 
   for (int i = 0; i < static_cast<int>(arrays->size()); i++) {
     auto array = (*arrays)[i];
+    auto field = (*fields)[i];
 
     if (array->type()->id() == Type::EXTENSION) {
       auto ext = std::static_pointer_cast<const ExtensionType>(array->type());
@@ -2277,21 +2279,17 @@ Status ConvertComplexArrays(const PandasOptions& options,
         ArrayVector chunks;
 
         for(int c=0; c < array->num_chunks(); ++c) {
-          chunks.push_back(
-            std::static_pointer_cast<ExtensionArray>(
-              array->chunk(c))->storage());
+          auto ext = std::static_pointer_cast<ExtensionArray>(array->chunk(c));
+          auto storage = std::static_pointer_cast<FixedSizeListArray>(ext->storage());
+          chunks.push_back(storage->Flatten().ValueOrDie());
         }
 
         auto dtype = is_f32 ? float32() : float64();
-
-        // std::cout << "Converting " << (*fields)[i]->ToString()
-        //           << " to " << (*fields)[i]->WithType(dtype)->ToString()
-        //           << std::endl;
-
-
         auto meta = key_value_metadata({"__complex_field_marker__"}, {"true"});
+
         (*arrays)[i] = std::make_shared<ChunkedArray>(chunks, dtype);
-        (*fields)[i] = (*fields)[i]->WithType(dtype)->WithMergedMetadata(meta);
+        (*fields)[i] = field->WithType(dtype)->WithMergedMetadata(meta);
+        modified_options->extension_columns.erase(field->name());
       }
     }         
   }           
@@ -2403,11 +2401,11 @@ Status ConvertTableToPandas(const PandasOptions& options, std::shared_ptr<Table>
   // ARROW-3789: allow "self-destructing" by releasing references to columns as
   // we convert them to pandas
   table = nullptr;
+  PandasOptions modified_options = options;
 
   RETURN_NOT_OK(ConvertCategoricals(options, &arrays, &fields));
-  RETURN_NOT_OK(ConvertComplexArrays(options, &arrays, &fields));
+  RETURN_NOT_OK(ConvertComplexArrays(options, &arrays, &fields, &modified_options));
 
-  PandasOptions modified_options = options;
   modified_options.strings_to_categorical = false;
   modified_options.categorical_columns.clear();
 
