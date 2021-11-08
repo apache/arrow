@@ -1161,6 +1161,12 @@ tasks:
         UBUNTU: 18.04
       run: ubuntu-r-sanitizer
 
+  test-fedora-r-clang-sanitizer:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
+      run: fedora-r-clang-sanitizer
+
   revdep-r-check:
     ci: github
     template: r/github.linux.revdepcheck.yml

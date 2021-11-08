@@ -20,11 +20,6 @@ skip_if_not_available("dataset")
 library(dplyr, warn.conflicts = FALSE)
 
 left <- example_data
-# Error: Invalid: Dictionary type support for join output field
-# is not yet implemented, output field reference: FieldRef.Name(fct)
-# on left side of the join
-# (select(-fct) also solves this but remove once)
-left$fct <- NULL
 left$some_grouping <- rep(c(1, 2), 5)
 
 left_tab <- Table$create(left)
@@ -35,7 +30,6 @@ to_join <- tibble::tibble(
   another_column = TRUE
 )
 to_join_tab <- Table$create(to_join)
-
 
 
 test_that("left_join", {
@@ -68,8 +62,6 @@ test_that("left_join `by` args", {
     left
   )
 
-  # TODO: allow renaming columns on the right side as well
-  skip("ARROW-14184")
   compare_dplyr_binding(
     .input %>%
       rename(the_grouping = some_grouping) %>%
@@ -81,7 +73,6 @@ test_that("left_join `by` args", {
     left
   )
 })
-
 
 test_that("join two tables", {
   expect_identical(
@@ -146,6 +137,9 @@ test_that("semi_join", {
 test_that("anti_join", {
   compare_dplyr_binding(
     .input %>%
+      # Factor levels when there are no rows in the data don't match
+      # TODO: use better anti_join test data
+      select(-fct) %>%
       anti_join(to_join, by = "some_grouping") %>%
       collect(),
     left

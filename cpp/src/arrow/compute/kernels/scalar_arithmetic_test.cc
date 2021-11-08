@@ -1496,10 +1496,14 @@ TEST_F(TestUnaryArithmeticDecimal, AbsoluteValue) {
       CheckScalar(func, {ArrayFromJSON(ty, R"(["1.00", "-42.15", null])")},
                   ArrayFromJSON(ty, R"(["1.00", "42.15", null])"));
     }
-    CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
-                std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
-    CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
-                std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+        std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+        std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
     for (const auto& ty : NegativeScaleTypes()) {
       CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
       CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
@@ -1548,14 +1552,20 @@ TEST_F(TestUnaryArithmeticDecimal, Negate) {
       CheckScalar(func, {ArrayFromJSON(ty, R"(["0.00", "1.00", "-42.15", null])")},
                   ArrayFromJSON(ty, R"(["0.00", "-1.00", "42.15", null])"));
     }
-    CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
-                std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
-    CheckScalar(func, {std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
-                std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0)));
-    CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
-                std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
-    CheckScalar(func, {std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
-                std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0)));
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+        std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
+    CheckScalar(
+        func, ScalarVector{std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
+        std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0)));
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+        std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
+    CheckScalar(
+        func, ScalarVector{std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
+        std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0)));
     for (const auto& ty : NegativeScaleTypes()) {
       CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
       CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["0", "12E2", "-42E2", null])")},

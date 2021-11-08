@@ -188,6 +188,13 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
 
+inline bool operator==(const DataType& lhs, const DataType& rhs) {
+  return lhs.Equals(rhs);
+}
+inline bool operator!=(const DataType& lhs, const DataType& rhs) {
+  return !lhs.Equals(rhs);
+}
+
 /// \brief Return the compatible physical data type
 ///
 /// Some types may have distinct logical meanings but the exact same physical
@@ -1621,6 +1628,7 @@ class ARROW_EXPORT FieldRef {
   /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
   /// those must be escaped with a preceding '\'.
   static Result<FieldRef> FromDotPath(const std::string& dot_path);
+  std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
   bool operator==(const FieldRef& other) const { return Equals(other); }
