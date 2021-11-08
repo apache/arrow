@@ -960,13 +960,19 @@ TEST_F(TestProjector, TestLevenshtein) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 5;
+  int num_records = 10;
   auto array0 =
-      MakeArrowArrayUtf8({"cat", "task", "", "a", "a"}, {true, true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"coat", "test", "a", "", "abbbbbbbbbb"},
-                                   {true, true, true, true, true});
+      MakeArrowArrayUtf8({"cat", "task", "", "a", "a", "Test String1", "TEST STRING1",
+                          "Test String1", "", ""},
+                         {true, true, true, true, true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"coat", "test", "a", "", "abbbbbbbbbb", "Test String2",
+                          "test string2", "", "Test String2", ""},
+                         {true, true, true, true, true, true, true, true, true, true});
   // expected output
-  auto exp_lev = MakeArrowArrayInt32({1, 2, 1, 1, 10}, {true, true, true, true, true});
+  auto exp_lev =
+      MakeArrowArrayInt32({1, 2, 1, 1, 10, 1, 11, 12, 12, 0},
+                          {true, true, true, true, true, true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});

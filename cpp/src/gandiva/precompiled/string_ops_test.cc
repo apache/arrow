@@ -1017,6 +1017,30 @@ TEST(TestStringOps, TestLevenshtein) {
   EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "coat", 4, "coat", 4), 0);
   EXPECT_FALSE(ctx.has_error());
 
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "AAAA", 4, "aAAa", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "color", 5, "colour", 6), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "Test String1", 12, "Test String2", 12), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "TEST STRING1", 12, "test string2", 12), 11);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "", 0, "Test String2", 12), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, nullptr, 0, "Test String2", 12), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "Test String2", 12, nullptr, 0), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, nullptr, 0, nullptr, 0), 0);
+  EXPECT_FALSE(ctx.has_error());
+
   EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "book", -5, "back", 4), 0);
   EXPECT_TRUE(ctx.has_error());
   EXPECT_THAT(ctx.get_error(),
