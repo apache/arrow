@@ -908,8 +908,8 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery &&
-        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java/dist &&
-        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java-dist &&
+        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
 
   ##############################  Integration #################################
 

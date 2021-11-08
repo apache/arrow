@@ -695,43 +695,65 @@ tasks:
     artifacts:
       - arrow-algorithm-{no_rc_version}-tests.jar
       - arrow-algorithm-{no_rc_version}.jar
+      - arrow-algorithm-{no_rc_version}.pom
       - arrow-avro-{no_rc_version}-tests.jar
       - arrow-avro-{no_rc_version}.jar
+      - arrow-avro-{no_rc_version}.pom
+      - arrow-c-data-{no_rc_version}-tests.jar
+      - arrow-c-data-{no_rc_version}.jar
+      - arrow-c-data-{no_rc_version}.pom
       - arrow-compression-{no_rc_version}-tests.jar
       - arrow-compression-{no_rc_version}.jar
+      - arrow-compression-{no_rc_version}.pom
       - arrow-dataset-{no_rc_version}-tests.jar
       - arrow-dataset-{no_rc_version}.jar
+      - arrow-dataset-{no_rc_version}.pom
       - arrow-format-{no_rc_version}-tests.jar
       - arrow-format-{no_rc_version}.jar
+      - arrow-format-{no_rc_version}.pom
       - arrow-gandiva-{no_rc_version}-tests.jar
       - arrow-gandiva-{no_rc_version}.jar
+      - arrow-gandiva-{no_rc_version}.pom
+      - arrow-java-root-{no_rc_version}.pom
       - arrow-jdbc-{no_rc_version}-tests.jar
       - arrow-jdbc-{no_rc_version}.jar
+      - arrow-jdbc-{no_rc_version}.pom
+      - arrow-memory-{no_rc_version}.pom
       - arrow-memory-core-{no_rc_version}-tests.jar
       - arrow-memory-core-{no_rc_version}.jar
+      - arrow-memory-core-{no_rc_version}.pom
       - arrow-memory-netty-{no_rc_version}-tests.jar
       - arrow-memory-netty-{no_rc_version}.jar
+      - arrow-memory-netty-{no_rc_version}.pom
       - arrow-memory-unsafe-{no_rc_version}-tests.jar
       - arrow-memory-unsafe-{no_rc_version}.jar
+      - arrow-memory-unsafe-{no_rc_version}.pom
       - arrow-orc-{no_rc_version}-tests.jar
       - arrow-orc-{no_rc_version}.jar
+      - arrow-orc-{no_rc_version}.pom
       - arrow-performance-{no_rc_version}-tests.jar
       - arrow-performance-{no_rc_version}.jar
+      - arrow-performance-{no_rc_version}.pom
       - arrow-plasma-{no_rc_version}-tests.jar
       - arrow-plasma-{no_rc_version}.jar
+      - arrow-plasma-{no_rc_version}.pom
       - arrow-tools-{no_rc_version}-jar-with-dependencies.jar
       - arrow-tools-{no_rc_version}-tests.jar
       - arrow-tools-{no_rc_version}.jar
+      - arrow-tools-{no_rc_version}.pom
       - arrow-vector-{no_rc_version}-shade-format-flatbuffers.jar
       - arrow-vector-{no_rc_version}-tests.jar
       - arrow-vector-{no_rc_version}.jar
-      - benchmarks.jar
+      - arrow-vector-{no_rc_version}.pom
       - flight-core-{no_rc_version}-jar-with-dependencies.jar
       - flight-core-{no_rc_version}-shaded-ext.jar
       - flight-core-{no_rc_version}-shaded.jar
       - flight-core-{no_rc_version}-tests.jar
       - flight-core-{no_rc_version}.jar
+      - flight-core-{no_rc_version}.pom
       - flight-grpc-{no_rc_version}-tests.jar
+      - flight-grpc-{no_rc_version}.jar
+      - flight-grpc-{no_rc_version}.pom
 
   ############################## NuGet packages ###############################
 
