@@ -40,6 +40,9 @@ func RecordToStructArray(rec Record) *Struct {
 // of the struct will be used to define the record batch. Otherwise the passed in
 // schema will be used to create the record batch. If passed in, the schema must match
 // the fields of the struct column.
+//
+// When constructing a Record from a Struct array, the top level null bitmap is just
+// dropped, so the child arrays will all use their own individual null bitmaps.
 func RecordFromStructArray(in *Struct, schema *arrow.Schema) Record {
 	if schema == nil {
 		schema = arrow.NewSchema(in.DataType().(*arrow.StructType).Fields(), nil)
