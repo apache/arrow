@@ -37,7 +37,6 @@ Gem::Specification.new do |spec|
     "Apache Arrow Dataset is one of Apache Arrow components to read and write " +
     "semantic datasets stored in different locations and formats."
   spec.license = "Apache-2.0"
-  spec.required_ruby_version = "=> 2.6"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
   spec.files += Dir.glob("lib/**/*.rb")
@@ -49,4 +48,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("rake")
   spec.add_development_dependency("test-unit")
+  spec.required_ruby_version = Gem::Requirement.new("=> 2.6")
 end

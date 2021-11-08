@@ -37,7 +37,6 @@ Gem::Specification.new do |spec|
     "Apache Arrow is a common in-memory columnar data store. " +
     "It's useful to share and process large data."
   spec.license = "Apache-2.0"
-  spec.required_ruby_version = "=> 2.6"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
   spec.files += Dir.glob("ext/**/*.{cpp,hpp,rb}")
@@ -65,4 +64,6 @@ Gem::Specification.new do |spec|
   required_msys2_package_version = version_components[0, 3].join(".")
   spec.metadata["msys2_mingw_dependencies"] =
     "arrow>=#{required_msys2_package_version}"
+
+  spec.required_ruby_version = Gem::Requirement.new("=> 2.6")
 end
