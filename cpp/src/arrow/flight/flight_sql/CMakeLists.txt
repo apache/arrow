@@ -100,7 +100,6 @@ add_arrow_test(flight_sql_server_test
 # Build test server for unit tests
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   find_package(SQLite3Alt REQUIRED)
-  include_directories(${SQLite3_INCLUDE_DIRS})
 
   add_executable(flight_sql_test_server
                  server.cc
