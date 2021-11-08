@@ -653,6 +653,9 @@ SparseUnionArray::SparseUnionArray(std::shared_ptr<DataType> type, int64_t lengt
 
 Result<std::shared_ptr<Array>> SparseUnionArray::GetFlattenedField(
     int index, MemoryPool* pool) const {
+  if (index < 0 || index >= num_fields()) {
+    return Status::Invalid("Index out of range: ", index);
+  }
   auto child_data = data_->child_data[index]->Copy();
   // Adjust the result offset/length to be absolute.
   if (data_->offset != 0 || data_->length != child_data->length) {
