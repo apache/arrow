@@ -594,6 +594,28 @@ class DecimalFromIntegerTest : public ::testing::Test {
       AssertArrayBits(value.little_endian_array(), 0, 0);
     }
   }
+
+  void TestNumericLimits() {
+    TestNumericLimit<Int8Type>();
+    TestNumericLimit<UInt8Type>();
+    TestNumericLimit<Int16Type>();
+    TestNumericLimit<UInt16Type>();
+    TestNumericLimit<Int32Type>();
+    TestNumericLimit<UInt32Type>();
+    TestNumericLimit<Int64Type>();
+    TestNumericLimit<UInt64Type>();
+  }
+
+  template <typename ArrowType>
+  void TestNumericLimit() {
+    using c_type = typename ArrowType::c_type;
+    ASSERT_OK_AND_ASSIGN(const int32_t precision,
+                         MaxDecimalDigitsForInteger(ArrowType::type_id));
+    DecimalType min_value(std::numeric_limits<c_type>::min());
+    ASSERT_TRUE(min_value.FitsInPrecision(precision));
+    DecimalType max_value(std::numeric_limits<c_type>::max());
+    ASSERT_TRUE(max_value.FitsInPrecision(precision));
+  }
 };
 
 TYPED_TEST_SUITE(DecimalFromIntegerTest, DecimalTypes);
@@ -605,6 +627,8 @@ TYPED_TEST(DecimalFromIntegerTest, ConstructibleFromAnyIntegerType) {
 TYPED_TEST(DecimalFromIntegerTest, ConstructibleFromBool) {
   this->TestConstructibleFromBool();
 }
+
+TYPED_TEST(DecimalFromIntegerTest, TestNumericLimits) { this->TestNumericLimits(); }
 
 TEST(Decimal128Test, Division) {
   const std::string expected_string_value("-23923094039234029");

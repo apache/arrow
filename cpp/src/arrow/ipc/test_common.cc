@@ -928,32 +928,17 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
 }
 
 Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
-  constexpr int kDecimalPrecision = 38;
-  auto type = decimal(kDecimalPrecision, 4);
+  constexpr int kLength = 10;
+  auto type = decimal128(38, 4);
   auto f0 = field("f0", type);
   auto f1 = field("f1", type);
   auto schema = ::arrow::schema({f0, f1});
 
-  constexpr int kDecimalSize = 16;
-  constexpr int length = 10;
+  auto gen = random::RandomArrayGenerator(/*seed=*/1);
+  auto a1 = gen.Decimal128(type, kLength, /*null_probability=*/0.1);
+  auto a2 = std::make_shared<Decimal128Array>(type, kLength, a1->data()->buffers[1]);
 
-  std::vector<uint8_t> is_valid_bytes(length);
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data,
-                        AllocateBuffer(kDecimalSize * length));
-
-  random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
-  random_null_bytes(length, 0.1, is_valid_bytes.data());
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> is_valid,
-                        internal::BytesToBits(is_valid_bytes));
-
-  auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
-                                              kUnknownNullCount);
-
-  auto a2 = std::make_shared<Decimal128Array>(f1->type(), length, data);
-
-  *out = RecordBatch::Make(schema, length, {a1, a2});
+  *out = RecordBatch::Make(schema, kLength, {a1, a2});
   return Status::OK();
 }
 
