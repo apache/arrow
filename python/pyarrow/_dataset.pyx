@@ -3391,8 +3391,8 @@ def _filesystemdataset_write(
         c_options.existing_data_behavior = ExistingDataBehavior_DELETE_MATCHING
     else:
         raise ValueError(
-            ('existing_data_behavior must be one of error, ',
-             'overwrite_or_ignore or delete_matching')
+            ("existing_data_behavior must be one of 'error', ",
+             "'overwrite_or_ignore' or 'delete_matching'")
         )
 
     if file_visitor is not None:
