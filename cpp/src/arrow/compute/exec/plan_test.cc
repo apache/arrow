@@ -548,7 +548,7 @@ TEST(ExecPlanExecution, StressSourceSink) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -578,7 +578,7 @@ TEST(ExecPlanExecution, StressSourceOrderBy) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -607,6 +607,42 @@ TEST(ExecPlanExecution, StressSourceOrderBy) {
   }
 }
 
+TEST(ExecPlanExecution, StressSourceGroupedSumStop) {
+  auto input_schema = schema({field("a", int32()), field("b", boolean())});
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      int num_batches = (slow && !parallel) ? 30 : 300;
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto random_data = MakeRandomBatches(input_schema, num_batches);
+
+      SortOptions options({SortKey("a", SortOrder::Ascending)});
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{random_data.schema,
+                                                     random_data.gen(parallel, slow)}},
+                        {"aggregate",
+                         AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                              /*targets=*/{"a"}, /*names=*/{"sum(a)"},
+                                              /*keys=*/{"b"}}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_OK(plan->Validate());
+      ASSERT_OK(plan->StartProducing());
+      plan->StopProducing();
+      ASSERT_FINISHES_OK(plan->finished());
+    }
+  }
+}
+
 TEST(ExecPlanExecution, StressSourceSinkStopped) {
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");
@@ -614,7 +650,7 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -1005,6 +1041,40 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
                ValueDescr::Scalar(float64())},
               R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
       }))));
+}
+
+TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
+  // ARROW-14630: ensure grouped aggregation with a scalar key/array input doesn't error
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  BatchesWithSchema scalar_data;
+  scalar_data.batches = {
+      ExecBatchFromJSON({int32(), ValueDescr::Scalar(boolean())},
+                        "[[5, false], [6, false], [7, false]]"),
+      ExecBatchFromJSON({int32(), ValueDescr::Scalar(boolean())},
+                        "[[1, true], [2, true], [3, true]]"),
+  };
+  scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
+
+  SortOptions options({SortKey("b", SortOrder::Descending)});
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{scalar_data.schema,
+                                                 scalar_data.gen(/*parallel=*/false,
+                                                                 /*slow=*/false)}},
+                    {"aggregate",
+                     AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                          /*targets=*/{"a"}, /*names=*/{"hash_sum(a)"},
+                                          /*keys=*/{"b"}}},
+                    {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray({
+                  ExecBatchFromJSON({int64(), boolean()}, R"([[6, true], [18, false]])"),
+              }))));
 }
 
 TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
