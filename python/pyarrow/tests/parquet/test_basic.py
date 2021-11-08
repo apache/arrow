@@ -631,6 +631,7 @@ def test_reads_over_batch(tempdir):
     assert table == table2
 
 
+@pytest.mark.dataset
 def test_permutation_of_column_order(tempdir):
     # ARROW-2366
     case = tempdir / "dataset_column_order_permutation"
