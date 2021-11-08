@@ -24,25 +24,35 @@ if [ "$ARROW_R_DEV" == "TRUE" ]; then
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
 fi
 
-VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
-# Try to find/download a C++ Arrow binary,
-# including possibly a local .zip file if RWINLIB_LOCAL is set
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION $RWINLIB_LOCAL
-# If binary not found, script exits nonzero
-if [ $? -ne 0 ]; then
-  echo "Arrow C++ library was not found"
+if [ ! -z ${ARROW_HOME} ]; then
+  # Using locally built arrow
+  echo "*** Using locally built Arrow at $ARROW_HOME"
+  RWINLIB=$(cygpath $ARROW_HOME)
+else
+  VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+  # Try to find/download a C++ Arrow binary,
+  # including possibly a local .zip file if RWINLIB_LOCAL is set
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION $RWINLIB_LOCAL
+  # If binary not found, script exits nonzero
+  if [ $? -ne 0 ]; then
+    echo "Arrow C++ library was not found"
+  fi
+
+  # Set the right flags to point to and enable arrow/parquet
+  if [ -d "windows/arrow-$VERSION" ]; then
+    RWINLIB="../windows/arrow-$VERSION"
+  else
+    # It's possible that the version of the libarrow binary is not identical to the
+    # R version, e.g. if the R build is a patch release, so find what the dir is
+    # actually called. If there is more than one version present, use the one
+    # with the highest version:
+    RWINLIB="../windows/$(ls windows/ | grep ^arrow- | tail -n 1)"
+  fi
 fi
 
-# Set the right flags to point to and enable arrow/parquet
-if [ -d "windows/arrow-$VERSION" ]; then
-  RWINLIB="../windows/arrow-$VERSION"
-else
-  # It's possible that the version of the libarrow binary is not identical to the
-  # R version, e.g. if the R build is a patch release, so find what the dir is
-  # actually called. If there is more than one version present, use the one
-  # with the highest version:
-  RWINLIB="../windows/$(ls windows/ | grep ^arrow- | tail -n 1)"
-fi
+# TODO(wjones127): delete before PR
+echo "RWINLIB=${RWINLIB}"
+
 OPENSSL_LIBS="-lcrypto -lcrypt32"
 MIMALLOC_LIBS="-lbcrypt -lpsapi"
 AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
